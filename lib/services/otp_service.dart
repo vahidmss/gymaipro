@@ -20,21 +20,6 @@ class OTPService {
     return normalized;
   }
 
-  static Future<void> testInsert() async {
-    try {
-      final client = Supabase.instance.client;
-      final response = await client.from('otp_codes').insert({
-        'phone_number': 'test',
-        'code': '123456',
-        'expires_at':
-            DateTime.now().add(const Duration(minutes: 5)).toIso8601String(),
-      });
-      print('Test insert response: $response');
-    } catch (e) {
-      print('Error during test insert: $e');
-    }
-  }
-
   static Future<bool> sendOTP(String phoneNumber, String code) async {
     try {
       // Normalize phone number
@@ -50,7 +35,8 @@ class OTPService {
       // ذخیره OTP در دیتابیس (همانند قبل)
       try {
         final client = Supabase.instance.client;
-        final expiresAt = DateTime.now().add(const Duration(minutes: 1));
+        final expiresAt = DateTime.now()
+            .add(const Duration(minutes: 2)); // افزایش زمان انقضا به ۲ دقیقه
 
         final insertResponse = await client.from('otp_codes').insert({
           'phone_number': normalizedPhone,

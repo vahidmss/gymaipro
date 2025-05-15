@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import '../services/otp_service.dart';
 import '../services/supabase_service.dart';
+import 'dart:async';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/auth_state_service.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
   final String phoneNumber;
@@ -18,160 +21,278 @@ class OTPVerificationScreen extends StatefulWidget {
 
 class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   final TextEditingController _otpController = TextEditingController();
-  String? error;
-  bool success = false;
+  String? _errorMessage;
   bool _isLoading = false;
-  int _timerSeconds = 60;
-  late final ValueNotifier<int> _timerNotifier;
+  bool _isActive = true;
+  Timer? _resendTimer;
+  int _remainingTime = 60;
   bool _canResend = false;
-  bool _isDisposed = false;
 
   @override
   void initState() {
     super.initState();
-    _timerNotifier = ValueNotifier(_timerSeconds);
-    _startTimer();
+    _startResendTimer();
   }
 
   @override
   void dispose() {
-    _isDisposed = true;
+    _isActive = false;
+    _cancelTimer();
     _otpController.dispose();
-    _timerNotifier.dispose();
     super.dispose();
   }
 
-  void _startTimer() {
+  void _cancelTimer() {
+    _resendTimer?.cancel();
+    _resendTimer = null;
+  }
+
+  void _startResendTimer() {
+    if (!_isActive) return;
+
+    _remainingTime = 60;
     _canResend = false;
-    _timerNotifier.value = _timerSeconds;
-    Future.doWhile(() async {
-      await Future.delayed(const Duration(seconds: 1));
-      if (_isDisposed || !mounted) return false;
-      if (_timerNotifier.value > 0) {
-        _timerNotifier.value--;
-        return true;
-      } else {
-        _canResend = true;
-        return false;
+
+    if (!mounted) return;
+    setState(() {});
+
+    _cancelTimer();
+
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!_isActive || !mounted) {
+        timer.cancel();
+        return;
       }
+
+      setState(() {
+        if (_remainingTime > 0) {
+          _remainingTime--;
+        } else {
+          _canResend = true;
+          timer.cancel();
+        }
+      });
     });
   }
 
   Future<void> _resendOTP() async {
-    if (_isDisposed || !mounted) return;
-    setState(() {
-      _canResend = false;
-      _timerNotifier.value = _timerSeconds;
-    });
-    final otpCode = OTPService.generateOTP();
-    await OTPService.sendOTP(widget.phoneNumber, otpCode);
-    if (_isDisposed || !mounted) return;
-    _startTimer();
-    if (_isDisposed || !mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('کد جدید ارسال شد (در لاگ)')),
-    );
-  }
+    if (!_isActive || !mounted || _isLoading || !_canResend) return;
 
-  Future<void> _verifyOTP() async {
-    if (_isDisposed || !mounted) return;
-    setState(() => _isLoading = true);
-    final code = _otpController.text.trim();
-    final normalizedPhone =
-        SupabaseService().normalizePhoneNumber(widget.phoneNumber);
-    final isValid = await OTPService.verifyOTP(normalizedPhone, code);
-    if (_isDisposed || !mounted) return;
-    if (isValid) {
-      try {
-        await SupabaseService().createProfile(
-          widget.username,
-          normalizedPhone,
-        );
-        if (_isDisposed || !mounted) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // پاک کردن کد قبلی
+      if (_otpController.hasListeners) {
+        _otpController.clear();
+      }
+
+      final otpCode = OTPService.generateOTP();
+      await OTPService.sendOTP(widget.phoneNumber, otpCode);
+
+      if (!_isActive || !mounted) return;
+
+      _startResendTimer();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('کد جدید ارسال شد')),
+      );
+    } catch (e) {
+      if (!_isActive || !mounted) return;
+      _showError('خطا در ارسال مجدد کد');
+    } finally {
+      if (_isActive && mounted) {
         setState(() {
-          error = null;
-          success = true;
-          _isLoading = false;
-        });
-        // تأخیر کوچک برای اطمینان از اتمام رندر قبل از تغییر مسیر
-        await Future.delayed(const Duration(milliseconds: 100));
-        if (_isDisposed || !mounted) return;
-        Navigator.pushReplacementNamed(context, '/dashboard');
-      } catch (e) {
-        if (_isDisposed || !mounted) return;
-        setState(() {
-          error = 'خطا در ثبت‌نام: ${e.toString()}';
-          success = false;
           _isLoading = false;
         });
       }
-    } else {
-      if (_isDisposed || !mounted) return;
-      setState(() {
-        error = 'کد وارد شده صحیح نیست یا منقضی شده است.';
-        success = false;
-        _isLoading = false;
-      });
     }
+  }
+
+  Future<void> _verifyAndNavigate() async {
+    if (!_isActive || !mounted || _isLoading) return;
+
+    FocusScope.of(context).unfocus();
+    final otpCode = _otpController.text.trim();
+    if (otpCode.isEmpty) {
+      _showError('لطفاً کد تایید را وارد کنید');
+      return;
+    }
+    if (otpCode.length != 6) {
+      _showError('کد تایید باید ۶ رقم باشد');
+      return;
+    }
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final supabaseService = SupabaseService();
+      final normalizedPhone =
+          supabaseService.normalizePhoneNumber(widget.phoneNumber);
+      final isValid = await OTPService.verifyOTP(normalizedPhone, otpCode);
+      if (!_isActive || !mounted) return;
+      if (!isValid) {
+        _showError('کد وارد شده صحیح نیست');
+        return;
+      }
+      // تلاش برای دریافت کاربر فعلی
+      var user = Supabase.instance.client.auth.currentUser;
+      // اگر کاربر لاگین نیست، ثبت‌نام و لاگین کن
+      if (user == null) {
+        // ثبت‌نام در Supabase Auth
+        final session = await supabaseService.signUpWithPhone(
+            normalizedPhone, widget.username);
+        if (session == null) {
+          _showError('خطا در ثبت‌نام کاربر. لطفاً دوباره تلاش کنید.');
+          return;
+        }
+
+        print('User signed up successfully, saving session...');
+        try {
+          await AuthStateService().saveAuthState(session);
+          print('Session saved after registration');
+
+          // بررسی مجدد وضعیت لاگین برای اطمینان
+          final isLoggedIn = await AuthStateService().isLoggedIn();
+          print(
+              'Login status after registration and session save: $isLoggedIn');
+        } catch (e) {
+          print('Error saving session after registration: $e');
+        }
+
+        user = Supabase.instance.client.auth.currentUser;
+        if (user == null) {
+          _showError('خطا در ورود کاربر. لطفاً دوباره تلاش کنید.');
+          return;
+        }
+      }
+      // ایجاد پروفایل کاربر
+      final userProfile = await supabaseService.createInitialProfile(
+        user,
+        normalizedPhone,
+        username: widget.username,
+      );
+      if (!_isActive || !mounted) return;
+      if (userProfile == null) {
+        _showError('خطا در ایجاد پروفایل کاربری. لطفاً دوباره تلاش کنید.');
+        return;
+      }
+      _isActive = false;
+      _cancelTimer();
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/dashboard',
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (!_isActive || !mounted) return;
+      _showError('خطا در فرآیند تایید یا ایجاد پروفایل: ${e.toString()}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('خطا در فرآیند تایید: ${e.toString()}')),
+      );
+    } finally {
+      if (_isActive && mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _showError(String message) {
+    if (!_isActive || !mounted) return;
+    setState(() {
+      _errorMessage = message;
+      _isLoading = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_isActive) return const SizedBox.shrink();
+
     return Scaffold(
-      appBar: AppBar(title: const Text('تایید کد پیامک')),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Center(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'کد ارسال شده را وارد کنید',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      appBar: AppBar(
+        title: const Text('تایید کد پیامک'),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'کد تایید ارسال شده را وارد کنید',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(height: 16),
-                PinCodeTextField(
-                  appContext: context,
-                  length: 6,
-                  controller: _otpController,
-                  keyboardType: TextInputType.number,
-                  animationType: AnimationType.fade,
-                  pinTheme: PinTheme(
-                    shape: PinCodeFieldShape.box,
-                    borderRadius: BorderRadius.circular(8),
-                    fieldHeight: 50,
-                    fieldWidth: 40,
-                    activeFillColor: Colors.white,
-                    selectedFillColor: Colors.blue.shade50,
-                    inactiveFillColor: Colors.grey.shade200,
-                    activeColor: Colors.blue,
-                    selectedColor: Colors.blue,
-                    inactiveColor: Colors.grey,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                widget.phoneNumber,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              PinCodeTextField(
+                appContext: context,
+                length: 6,
+                controller: _otpController,
+                keyboardType: TextInputType.number,
+                animationType: AnimationType.fade,
+                enabled: !_isLoading,
+                pinTheme: PinTheme(
+                  shape: PinCodeFieldShape.box,
+                  borderRadius: BorderRadius.circular(8),
+                  fieldHeight: 50,
+                  fieldWidth: 40,
+                  activeFillColor: Colors.white,
+                  selectedFillColor: Colors.blue.shade50,
+                  inactiveFillColor: Colors.grey.shade100,
+                  activeColor: Colors.blue,
+                  selectedColor: Colors.blue,
+                  inactiveColor: Colors.grey,
+                ),
+                enableActiveFill: true,
+                onChanged: (value) {
+                  if (_errorMessage != null) {
+                    setState(() {
+                      _errorMessage = null;
+                    });
+                  }
+                },
+                beforeTextPaste: (text) =>
+                    text?.length == 6 && text!.contains(RegExp(r'^\d+$')),
+                autoDisposeControllers: false,
+              ),
+              const SizedBox(height: 16),
+              if (_errorMessage != null) ...[
+                Text(
+                  _errorMessage!,
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontSize: 14,
                   ),
-                  animationDuration: const Duration(milliseconds: 300),
-                  enableActiveFill: true,
-                  onChanged: (value) {},
-                  onCompleted: (value) {
-                    if (!_isDisposed && mounted) {
-                      _verifyOTP();
-                    }
-                  },
+                  textAlign: TextAlign.center,
                 ),
-                if (error != null) ...[
-                  const SizedBox(height: 8),
-                  Text(error!, style: const TextStyle(color: Colors.red)),
-                ],
-                if (success) ...[
-                  const SizedBox(height: 8),
-                  const Text('کد تایید شد!',
-                      style: TextStyle(color: Colors.green)),
-                ],
                 const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _verifyOTP,
+              ],
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _verifyAndNavigate,
                   style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 48),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -182,47 +303,41 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                           height: 24,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text('تایید'),
-                ),
-                const SizedBox(height: 24),
-                ValueListenableBuilder<int>(
-                  valueListenable: _timerNotifier,
-                  builder: (context, value, child) {
-                    return Column(
-                      children: [
-                        Text(
-                          value > 0
-                              ? 'ارسال مجدد کد تا ${value} ثانیه دیگر'
-                              : 'کد دریافت نکردید؟',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.black54,
-                          ),
+                      : const Text(
+                          'تایید',
+                          style: TextStyle(fontSize: 16),
                         ),
-                        const SizedBox(height: 8),
-                        ElevatedButton.icon(
-                          onPressed:
-                              value == 0 && !_isLoading ? _resendOTP : null,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('ارسال مجدد کد'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor:
-                                value == 0 ? Colors.blue : Colors.grey,
-                            minimumSize: const Size(160, 40),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 24),
+              Column(
+                children: [
+                  Text(
+                    _remainingTime > 0
+                        ? 'ارسال مجدد کد تا $_remainingTime ثانیه دیگر'
+                        : 'کد را دریافت نکردید؟',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: (_canResend && !_isLoading) ? _resendOTP : null,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('ارسال مجدد کد'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: _canResend ? Colors.blue : Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
