@@ -6,6 +6,7 @@ import 'dashboard_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_state_service.dart';
+import 'package:pin_code_fields/pin_code_fields.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -14,23 +15,38 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
-  final _usernameController =
-      TextEditingController(); // For direct registration
   bool _isLoading = false;
   bool _isOtpSent = false;
   bool _isVerifying = false;
-  bool _showDirectRegistration = false;
   String? _error;
+
+  // برای انیمیشن ورود
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
+    );
+    _animationController.forward();
+  }
 
   @override
   void dispose() {
     _phoneController.dispose();
     _otpController.dispose();
-    _usernameController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -47,10 +63,19 @@ class _LoginScreenState extends State<LoginScreen> {
     return normalized;
   }
 
+  bool _isValidIranianPhoneNumber(String phone) {
+    final RegExp phoneRegex = RegExp(r'^09[0-9]{9}$');
+    return phoneRegex.hasMatch(phone);
+  }
+
   Future<void> _sendOTP() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
     try {
       // Normalize phone number
       final normalizedPhone = _normalizePhoneNumber(_phoneController.text);
@@ -58,54 +83,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // بررسی وجود کاربر با شماره موبایل
       final supabaseService = SupabaseService();
-      print('Checking if user exists with phone: $normalizedPhone');
-
-      // نمایش همه پروفایل‌ها برای دیباگ
-      final allProfiles = await supabaseService.getAllProfiles();
-      print('All profiles for debugging:');
-      for (var profile in allProfiles) {
-        final userProfile = UserProfile.fromJson(profile);
-        print(
-            '- ${userProfile.firstName ?? 'No name'}: ${userProfile.phoneNumber}');
-      }
-
-      // بررسی با روش‌های مختلف
-      bool userExists = false;
-
-      // روش 1: بررسی مستقیم
-      final directCheck = await supabaseService.doesUserExist(normalizedPhone);
-      print('Direct check result: $directCheck');
-
-      // روش 2: بررسی با RPC (اگر تابع RPC ایجاد شده باشد)
-      try {
-        final rpcCheck =
-            await supabaseService.checkUserExistsRPC(normalizedPhone);
-        print('RPC check result: $rpcCheck');
-        userExists = directCheck || rpcCheck;
-      } catch (e) {
-        print('RPC check failed: $e');
-        userExists = directCheck;
-      }
-
-      // روش 3: بررسی دستی در لیست پروفایل‌ها
-      if (!userExists) {
-        for (var profile in allProfiles) {
-          final userProfile = UserProfile.fromJson(profile);
-          if (userProfile.phoneNumber == normalizedPhone) {
-            userExists = true;
-            print('Found user in manual check: ${userProfile.firstName}');
-            break;
-          }
-        }
-      }
-
-      print('Final user exists check result: $userExists');
+      final userExists = await supabaseService.doesUserExist(normalizedPhone);
 
       if (!userExists) {
         setState(() {
-          _error = 'کاربری با این شماره موبایل یافت نشد';
+          _error =
+              'کاربری با این شماره موبایل یافت نشد. لطفاً ابتدا ثبت‌نام کنید';
           _isLoading = false;
-          _showDirectRegistration = true; // Show direct registration option
         });
         return;
       }
@@ -119,6 +103,9 @@ class _LoginScreenState extends State<LoginScreen> {
           const SnackBar(content: Text('کد تایید ارسال شد')),
         );
       } else if (mounted) {
+        setState(() {
+          _error = 'خطا در ارسال کد تایید. لطفاً دوباره تلاش کنید';
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('خطا در ارسال کد تایید')),
         );
@@ -215,7 +202,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _error = 'خطا در بررسی کد تایید: ${e.toString()}';
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطا در بررسی کد تایید')),
+          const SnackBar(content: Text('خطا در بررسی کد تایید')),
         );
       }
     } finally {
@@ -233,176 +220,70 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // Direct registration function for debugging
-  Future<void> _directRegister() async {
-    if (_usernameController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لطفاً نام کاربری را وارد کنید')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      final normalizedPhone = _normalizePhoneNumber(_phoneController.text);
-
-      final success = await SupabaseService().registerUserDirectly(
-        _usernameController.text,
-        normalizedPhone,
-      );
-
-      if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ثبت‌نام مستقیم با موفقیت انجام شد')),
-        );
-        // Try to login immediately
-        await _login();
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('خطا در ثبت‌نام مستقیم')),
-        );
-      }
-    } catch (e) {
-      print('Error in direct registration: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطا در ثبت‌نام مستقیم: ${e.toString()}')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  // Show detailed debugging information
-  void _showDebugInfo() async {
-    final normalizedPhone = _normalizePhoneNumber(_phoneController.text);
-
-    // Get profile information
-    final profile =
-        await SupabaseService().getProfileByPhoneNumber(normalizedPhone);
-
-    // Get all profiles
-    final allProfiles = await SupabaseService().getAllProfiles();
-
-    String debugInfo = '';
-    debugInfo += 'Phone number: $normalizedPhone\n';
-    debugInfo += 'Normalized phone number: $normalizedPhone\n';
-    debugInfo += 'Profile found: ${profile != null ? 'Yes' : 'No'}\n\n';
-
-    if (profile != null) {
-      debugInfo += 'Profile details:\n';
-      debugInfo += 'First Name: ${profile.firstName ?? 'Not set'}\n';
-      debugInfo += 'Last Name: ${profile.lastName ?? 'Not set'}\n';
-      debugInfo += 'Phone: ${profile.phoneNumber}\n';
-      debugInfo += 'ID: ${profile.id}\n\n';
-    }
-
-    debugInfo += 'All profiles (${allProfiles.length}):\n';
-    for (var p in allProfiles) {
-      final userProfile = UserProfile.fromJson(p);
-      debugInfo +=
-          '- ${userProfile.firstName ?? 'No name'} ${userProfile.lastName ?? ''} (${userProfile.phoneNumber})\n';
-    }
-
-    // Show dialog with debug information
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Debug Information'),
-          content: SingleChildScrollView(
-            child: Text(debugInfo),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      body: Stack(
-        children: [
-          // Background gradient
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-                colors: [
-                  AppTheme.darkGold.withOpacity(0.1),
-                  AppTheme.backgroundColor,
-                  AppTheme.backgroundColor,
-                ],
-              ),
-            ),
-          ),
-
-          // Main content
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 48),
-                  _buildHeader(),
-                  const SizedBox(height: 48),
-                  _isOtpSent ? _buildOTPVerificationForm() : _buildLoginForm(),
-                  const SizedBox(height: 24),
-                  _buildRegisterLink(),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppTheme.cardColor,
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.goldColor.withOpacity(0.2),
-                blurRadius: 20,
-                spreadRadius: 5,
-              ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+            colors: [
+              Theme.of(context).primaryColor.withOpacity(0.8),
+              Theme.of(context).primaryColor,
             ],
           ),
-          child: const Icon(
-            Icons.fitness_center,
-            size: 64,
-            color: AppTheme.goldColor,
+        ),
+        child: SafeArea(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 40),
+                    const Text(
+                      'به جیم‌ای خوش آمدید',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _isOtpSent
+                          ? 'کد تایید را وارد کنید'
+                          : 'لطفاً برای ورود شماره موبایل خود را وارد کنید',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.white70,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 40),
+                    Card(
+                      elevation: 8,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: _isOtpSent
+                            ? _buildOTPVerificationForm()
+                            : _buildLoginForm(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
-        const SizedBox(height: 24),
-        const Text(
-          'خوش آمدید',
-          style: AppTheme.headingStyle,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          _isOtpSent ? 'کد تایید را وارد کنید' : 'برای ادامه وارد شوید',
-          style: AppTheme.bodyStyle,
-        ),
-      ],
+      ),
     );
   }
 
@@ -414,16 +295,20 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           TextFormField(
             controller: _phoneController,
-            decoration: AppTheme.textFieldDecoration(
-              'شماره موبایل',
-              hint: '09123456789',
+            decoration: InputDecoration(
+              labelText: 'شماره موبایل',
+              hintText: 'شماره موبایل خود را وارد کنید',
+              prefixIcon: const Icon(Icons.phone_android),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             keyboardType: TextInputType.phone,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'لطفاً شماره موبایل خود را وارد کنید';
               }
-              if (!value.startsWith('09') || value.length != 11) {
+              if (!_isValidIranianPhoneNumber(_normalizePhoneNumber(value))) {
                 return 'لطفاً یک شماره موبایل معتبر وارد کنید';
               }
               return null;
@@ -437,10 +322,15 @@ class _LoginScreenState extends State<LoginScreen> {
               textAlign: TextAlign.center,
             ),
           ],
-          const SizedBox(height: 24),
+          const SizedBox(height: 30),
           ElevatedButton(
-            style: AppTheme.primaryButtonStyle,
             onPressed: _isLoading ? null : _login,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             child: _isLoading
                 ? const SizedBox(
                     height: 20,
@@ -450,47 +340,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
-                : const Text('دریافت کد تایید'),
+                : const Text(
+                    'دریافت کد تایید',
+                    style: TextStyle(fontSize: 16),
+                  ),
           ),
-
-          // Debug button (can be removed in production)
-          if (!_isOtpSent) ...[
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: _showDebugInfo,
-              child: const Text('نمایش اطلاعات دیباگ',
-                  style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 16),
+          TextButton(
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/register');
+            },
+            child: const Text(
+              'حساب کاربری ندارید؟ ثبت‌نام کنید',
+              style: TextStyle(fontSize: 14),
             ),
-          ],
-
-          // Direct registration UI (only shown if user not found)
-          if (_showDirectRegistration) ...[
-            const SizedBox(height: 32),
-            const Divider(),
-            const SizedBox(height: 16),
-            const Text(
-              'ثبت‌نام سریع',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _usernameController,
-              decoration: AppTheme.textFieldDecoration(
-                'نام کاربری',
-                hint: 'نام کاربری خود را وارد کنید',
-              ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              style: AppTheme.secondaryButtonStyle,
-              onPressed: _isLoading ? null : _directRegister,
-              child: const Text('ثبت‌نام مستقیم'),
-            ),
-          ],
+          ),
         ],
       ),
     );
@@ -504,93 +368,108 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           Text(
             'کد تایید به شماره ${_phoneController.text} ارسال شد',
-            style: AppTheme.bodyStyle,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          TextFormField(
+          PinCodeTextField(
+            appContext: context,
+            length: 6,
             controller: _otpController,
-            decoration: AppTheme.textFieldDecoration(
-              'کد تایید',
-              hint: '۶ رقم',
-            ),
             keyboardType: TextInputType.number,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'لطفاً کد تایید را وارد کنید';
+            animationType: AnimationType.fade,
+            enabled: !_isVerifying,
+            pinTheme: PinTheme(
+              shape: PinCodeFieldShape.box,
+              borderRadius: BorderRadius.circular(8),
+              fieldHeight: 50,
+              fieldWidth: 40,
+              activeFillColor: Colors.white,
+              selectedFillColor: Colors.blue.shade50,
+              inactiveFillColor: Colors.grey.shade100,
+              activeColor: Colors.blue,
+              selectedColor: Colors.blue,
+              inactiveColor: Colors.grey,
+            ),
+            enableActiveFill: true,
+            onChanged: (value) {
+              if (_error != null) {
+                setState(() {
+                  _error = null;
+                });
               }
-              if (value.length != 6) {
-                return 'کد تایید باید ۶ رقم باشد';
-              }
-              return null;
             },
+            beforeTextPaste: (text) =>
+                text?.length == 6 && text!.contains(RegExp(r'^\d+$')),
+            autoDisposeControllers: false,
           ),
           if (_error != null) ...[
             const SizedBox(height: 16),
             Text(
               _error!,
-              style: const TextStyle(color: Colors.red),
+              style: const TextStyle(
+                color: Colors.red,
+                fontSize: 14,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
           const SizedBox(height: 24),
-          ElevatedButton(
-            style: AppTheme.primaryButtonStyle,
-            onPressed: _isVerifying ? null : _verifyOTP,
-            child: _isVerifying
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text('ورود'),
-          ),
-          const SizedBox(height: 16),
-          TextButton(
-            onPressed: _isLoading ? null : _sendOTP,
-            child: Text(
-              'ارسال مجدد کد',
-              style: TextStyle(
-                color: _isLoading ? Colors.grey : AppTheme.goldColor,
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isVerifying ? null : _verifyOTP,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
+              child: _isVerifying
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text(
+                      'ورود',
+                      style: TextStyle(fontSize: 16),
+                    ),
             ),
           ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _isOtpSent = false;
-                _otpController.clear();
-                _error = null;
-              });
-            },
-            child: const Text('بازگشت'),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              TextButton(
+                onPressed: _isLoading ? null : _sendOTP,
+                child: Text(
+                  'ارسال مجدد کد',
+                  style: TextStyle(
+                    color: _isLoading ? Colors.grey : AppTheme.goldColor,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _isOtpSent = false;
+                    _otpController.clear();
+                    _error = null;
+                  });
+                },
+                child: const Text('بازگشت'),
+              ),
+            ],
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildRegisterLink() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          'حساب کاربری ندارید؟',
-          style: AppTheme.bodyStyle,
-        ),
-        TextButton(
-          style: TextButton.styleFrom(
-            foregroundColor: AppTheme.goldColor,
-          ),
-          onPressed: () {
-            Navigator.pushReplacementNamed(context, '/register');
-          },
-          child: const Text('ثبت‌نام کنید'),
-        ),
-      ],
     );
   }
 }

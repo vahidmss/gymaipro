@@ -190,50 +190,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('پروفایل من'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (!_isProfileComplete) _buildProfileCompletionCard(),
-                  const SizedBox(height: 16),
-                  Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildAvatarSection(),
-                        const SizedBox(height: 24),
-                        _buildPersonalInfoSection(),
-                        const SizedBox(height: 24),
-                        _buildBodyMeasurementsSection(),
-                        const SizedBox(height: 24),
-                        _buildTrainingPreferencesSection(),
-                        const SizedBox(height: 24),
-                        _buildHealthSection(),
-                        const SizedBox(height: 32),
-                        Center(
-                          child: ElevatedButton(
-                            style: AppTheme.primaryButtonStyle,
-                            onPressed: _saveProfile,
-                            child: const Text('ذخیره تغییرات'),
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        appBar: AppBar(
+          title: const Text('پروفایل من'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          bottom: TabBar(
+            isScrollable: true,
+            indicatorColor: AppTheme.goldColor,
+            indicatorWeight: 3,
+            labelColor: AppTheme.goldColor,
+            unselectedLabelColor: Colors.white70,
+            tabs: const [
+              Tab(text: 'اطلاعات اصلی'),
+              Tab(text: 'اندازه‌گیری‌ها'),
+              Tab(text: 'اهداف و ترجیحات'),
+              Tab(text: 'سلامت و تغذیه'),
+            ],
+          ),
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!_isProfileComplete) _buildProfileCompletionCard(),
+                    const SizedBox(height: 16),
+                    Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildAvatarSection(),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            height: MediaQuery.of(context).size.height -
+                                300, // ارتفاع مناسب برای TabBarView
+                            child: TabBarView(
+                              children: [
+                                SingleChildScrollView(
+                                    child: _buildPersonalInfoSection()),
+                                SingleChildScrollView(
+                                    child: _buildBodyMeasurementsSection()),
+                                SingleChildScrollView(
+                                    child: _buildTrainingPreferencesSection()),
+                                SingleChildScrollView(
+                                    child: _buildHealthSection()),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 32),
+                          Center(
+                            child: ElevatedButton(
+                              style: AppTheme.primaryButtonStyle,
+                              onPressed: _saveProfile,
+                              child: const Text('ذخیره تغییرات'),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 
@@ -467,12 +492,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('ترجیحات تمرینی'),
+        _buildSectionTitle('اهداف و ترجیحات تمرینی'),
         const SizedBox(height: 16),
         _buildDropdownField(
           'سطح تجربه',
           'experience_level',
           AppConfig.experienceLevels,
+        ),
+        const SizedBox(height: 16),
+        _buildMultiSelect(
+          'اهداف تناسب اندام',
+          'fitness_goals',
+          AppConfig.fitnessGoals,
         ),
         const SizedBox(height: 16),
         _buildMultiSelect(
@@ -485,12 +516,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'زمان ترجیحی تمرین',
           'preferred_training_time',
           AppConfig.trainingTimes,
-        ),
-        const SizedBox(height: 16),
-        _buildMultiSelect(
-          'اهداف تناسب اندام',
-          'fitness_goals',
-          AppConfig.fitnessGoals,
         ),
       ],
     );

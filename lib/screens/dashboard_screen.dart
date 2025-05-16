@@ -311,10 +311,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ],
             ),
-            child: const CircleAvatar(
+            child: CircleAvatar(
               radius: 18,
               backgroundColor: cardColor,
-              child: Icon(LucideIcons.user, size: 18, color: goldColor),
+              backgroundImage: _profileData['avatar_url'] != null
+                  ? NetworkImage(_profileData['avatar_url']!)
+                  : null,
+              child: _profileData['avatar_url'] == null
+                  ? const Icon(LucideIcons.user, size: 18, color: goldColor)
+                  : null,
             ),
           ),
         ),
@@ -322,9 +327,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'کاربر عزیز',
-              style: TextStyle(
+            Text(
+              _username ?? 'کاربر عزیز',
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -341,9 +346,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Text(
-                  'سطح: مبتدی',
-                  style: TextStyle(
+                Text(
+                  _profileData['experience_level'] ?? 'سطح: مبتدی',
+                  style: const TextStyle(
                     color: goldColor,
                     fontSize: 12,
                   ),
@@ -389,8 +394,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildBody(BuildContext context) {
     return RefreshIndicator(
       onRefresh: () async {
-        // Simulate refresh
-        await Future.delayed(const Duration(seconds: 1));
+        await _loadUserData();
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -405,6 +409,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             _buildWeightSection(),
             const SizedBox(height: 24),
             _buildWorkoutSection(),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -428,9 +433,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                 : 0);
       } catch (_) {}
     }
-    // جنسیت را male فرض کن (در آینده از پروفایل بخوان)
-    final isMale = true;
-    // دور گردن اگر نبود مقدار پیش‌فرض قرار بده
+
+    const isMale = true;
     final neck = double.tryParse(_profileData['neck_circumference'] ?? '') ??
         (isMale ? 35 : 32);
     final waist =
@@ -483,7 +487,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
 
     return SizedBox(
-      height: 160,
+      height: 180,
       child: ListView(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -534,7 +538,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     List<Color> gradientColors,
   ) {
     return Container(
-      width: 160,
+      width: 180,
       margin: const EdgeInsets.only(right: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -558,12 +562,12 @@ class _DashboardScreenState extends State<DashboardScreen>
             bottom: -20,
             child: Icon(
               icon,
-              size: 100,
+              size: 120,
               color: Colors.white.withOpacity(0.2),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -571,23 +575,23 @@ class _DashboardScreenState extends State<DashboardScreen>
                   title,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Text(
                   value,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 24,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
@@ -596,7 +600,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     subtitle,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: 14,
                     ),
                   ),
                 ),
@@ -613,9 +617,9 @@ class _DashboardScreenState extends State<DashboardScreen>
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      childAspectRatio: 1.5,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.3,
       children: [
         _buildStatCard('تمرینات انجام شده', '48', LucideIcons.checkCircle),
         _buildStatCard('ساعات تمرین هفتگی', '12', LucideIcons.clock),
@@ -645,7 +649,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           onTap: () {},
           borderRadius: BorderRadius.circular(20),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -663,7 +667,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   value,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -672,7 +676,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   title,
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.7),
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -686,6 +690,22 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildWeightSection() {
+    final weightHistory = _profileData['weight_history'] != null
+        ? List<Map<String, dynamic>>.from(
+            _profileData['weight_history'] as List)
+        : [];
+
+    final spots = weightHistory.asMap().entries.map((entry) {
+      return FlSpot(entry.key.toDouble(), entry.value['weight'] as double);
+    }).toList();
+
+    if (spots.isEmpty) {
+      final currentWeight = double.tryParse(_profileData['weight'] ?? '') ?? 0;
+      if (currentWeight > 0) {
+        spots.add(FlSpot(0, currentWeight));
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -695,116 +715,201 @@ class _DashboardScreenState extends State<DashboardScreen>
             _buildSectionTitle('نمودار تغییرات وزن'),
             IconButton(
               icon: const Icon(Icons.add_circle_outline, color: goldColor),
-              onPressed: () {},
+              onPressed: () {
+                _showAddWeightDialog();
+              },
             ),
           ],
         ),
         const SizedBox(height: 16),
         Container(
-          height: 200,
+          height: 250,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: cardColor,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: goldColor.withOpacity(0.1)),
           ),
-          child: LineChart(
-            LineChartData(
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: false,
-                horizontalInterval: 1,
-                getDrawingHorizontalLine: (value) {
-                  return FlLine(
-                    color: Colors.white.withOpacity(0.1),
-                    strokeWidth: 1,
-                  );
-                },
-              ),
-              titlesData: FlTitlesData(
-                show: true,
-                rightTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles:
-                    const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 22,
-                    interval: 1,
-                    getTitlesWidget: (value, meta) {
-                      const style = TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      );
-                      return SideTitleWidget(
-                        axisSide: meta.axisSide,
-                        child: Text('${value.toInt()}', style: style),
-                      );
-                    },
-                  ),
-                ),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    interval: 1,
-                    getTitlesWidget: (value, meta) {
-                      return SideTitleWidget(
-                        axisSide: meta.axisSide,
-                        child: Text(
-                          '${value.toInt()}',
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                          ),
+          child: spots.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.add_chart,
+                        size: 48,
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'هنوز وزنی ثبت نشده است',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 16,
                         ),
-                      );
-                    },
-                    reservedSize: 28,
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        onPressed: _showAddWeightDialog,
+                        icon: const Icon(Icons.add, color: goldColor),
+                        label: const Text(
+                          'ثبت وزن جدید',
+                          style: TextStyle(color: goldColor),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              borderData: FlBorderData(show: false),
-              minX: 0,
-              maxX: 6,
-              minY: 65,
-              maxY: 75,
-              lineBarsData: [
-                LineChartBarData(
-                  spots: const [
-                    FlSpot(0, 70),
-                    FlSpot(1, 69.5),
-                    FlSpot(2, 69.8),
-                    FlSpot(3, 69.3),
-                    FlSpot(4, 69.0),
-                    FlSpot(5, 68.8),
-                    FlSpot(6, 68.5),
-                  ],
-                  isCurved: true,
-                  color: goldColor,
-                  barWidth: 3,
-                  isStrokeCapRound: true,
-                  dotData: FlDotData(
-                    show: true,
-                    getDotPainter: (spot, percent, barData, index) {
-                      return FlDotCirclePainter(
-                        radius: 4,
+                )
+              : LineChart(
+                  LineChartData(
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: false,
+                      horizontalInterval: 1,
+                      getDrawingHorizontalLine: (value) {
+                        return FlLine(
+                          color: Colors.white.withOpacity(0.1),
+                          strokeWidth: 1,
+                        );
+                      },
+                    ),
+                    titlesData: FlTitlesData(
+                      show: true,
+                      rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 22,
+                          interval: 1,
+                          getTitlesWidget: (value, meta) {
+                            const style = TextStyle(
+                              color: Colors.white54,
+                              fontSize: 12,
+                            );
+                            return SideTitleWidget(
+                              axisSide: meta.axisSide,
+                              child: Text('${value.toInt()}', style: style),
+                            );
+                          },
+                        ),
+                      ),
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          interval: 1,
+                          getTitlesWidget: (value, meta) {
+                            return SideTitleWidget(
+                              axisSide: meta.axisSide,
+                              child: Text(
+                                '${value.toInt()}',
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            );
+                          },
+                          reservedSize: 28,
+                        ),
+                      ),
+                    ),
+                    borderData: FlBorderData(show: false),
+                    minX: 0,
+                    maxX: spots.length > 1 ? spots.length - 1.0 : 6,
+                    minY: spots.isNotEmpty
+                        ? spots
+                                .map((e) => e.y)
+                                .reduce((a, b) => a < b ? a : b) -
+                            2
+                        : 65,
+                    maxY: spots.isNotEmpty
+                        ? spots
+                                .map((e) => e.y)
+                                .reduce((a, b) => a > b ? a : b) +
+                            2
+                        : 75,
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: spots,
+                        isCurved: true,
                         color: goldColor,
-                        strokeWidth: 2,
-                        strokeColor: Colors.white,
-                      );
-                    },
-                  ),
-                  belowBarData: BarAreaData(
-                    show: true,
-                    color: goldColor.withOpacity(0.1),
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: FlDotData(
+                          show: true,
+                          getDotPainter: (spot, percent, barData, index) {
+                            return FlDotCirclePainter(
+                              radius: 4,
+                              color: goldColor,
+                              strokeWidth: 2,
+                              strokeColor: Colors.white,
+                            );
+                          },
+                        ),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: goldColor.withOpacity(0.1),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+        ),
+      ],
+    );
+  }
+
+  void _showAddWeightDialog() {
+    final weightController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: const Text(
+          'ثبت وزن جدید',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: TextField(
+          controller: weightController,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            labelText: 'وزن (کیلوگرم)',
+            labelStyle: const TextStyle(color: Colors.white70),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: goldColor.withOpacity(0.3)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: const BorderSide(color: goldColor),
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
         ),
-      ],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('انصراف'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final weight = double.tryParse(weightController.text);
+              if (weight != null && weight > 0) {
+                // TODO: Save weight to profile
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: goldColor,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('ثبت'),
+          ),
+        ],
+      ),
     );
   }
 
