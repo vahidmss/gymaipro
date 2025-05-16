@@ -38,6 +38,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     'fitness_goals': <String>[],
     'medical_conditions': <String>[],
     'dietary_preferences': <String>[],
+    'gender': 'male',
+    'weight_history': [],
   };
 
   @override
@@ -76,6 +78,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'fitness_goals': profile.fitnessGoals ?? <String>[],
               'medical_conditions': profile.medicalConditions ?? <String>[],
               'dietary_preferences': profile.dietaryPreferences ?? <String>[],
+              'gender': profile.gender ?? 'male',
+              'weight_history': profile.weightHistory ?? [],
             });
 
             // اطمینان از اینکه مقادیر dropdown ها معتبر هستند
@@ -113,7 +117,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'height',
       'weight',
       'birth_date',
-      'experience_level'
+      'experience_level',
+      'gender',
     ];
 
     return requiredFields.every((field) =>
@@ -140,11 +145,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final user = Supabase.instance.client.auth.currentUser;
         if (user != null) {
           final supabaseService = SupabaseService();
+
+          // بررسی اینکه آیا وزن جدیدی وارد شده است یا خیر
+          final String? newWeightStr = _profileData['weight']?.toString();
+          final double? newWeight =
+              newWeightStr != null && newWeightStr.isNotEmpty
+                  ? double.tryParse(newWeightStr)
+                  : null;
+
+          // بررسی اینکه آیا قبلا رکورد وزنی ثبت شده است
+          final hasWeightRecord = _profileData['weight_history'] != null &&
+              (_profileData['weight_history'] as List<dynamic>).isNotEmpty;
+
+          print('ثبت وزن: نمایش وضعیت قبل از ذخیره:');
+          print('وزن جدید: $newWeight');
+          print('وضعیت قبلی وزن: $hasWeightRecord');
+          print(
+              'تعداد رکوردهای موجود: ${(_profileData['weight_history'] as List?)?.length ?? 0}');
+
           // تبدیل فیلدهای عددی و تاریخ به مقدار مناسب
           final Map<String, dynamic> cleanProfileData = Map.from(_profileData);
           for (final key in [
             'height',
-            'weight',
             'arm_circumference',
             'chest_circumference',
             'waist_circumference',
@@ -163,6 +185,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ? birthDate.toString().split('T')[0] // فقط بخش تاریخ
                   : null;
 
+          // اگر وزن جدید داریم و قبلا رکورد وزنی ثبت نشده، آن را به weight_records اضافه کنیم
+          if (newWeight != null && !hasWeightRecord) {
+            print('ثبت وزن اولیه: $newWeight');
+            await supabaseService.addWeightRecord(user.id, newWeight);
+
+            // وزن را از cleanProfileData حذف می‌کنیم چون دیگر نباید در پروفایل ذخیره شود
+            cleanProfileData.remove('weight');
+            cleanProfileData.remove(
+                'weight_history'); // این را هم حذف می‌کنیم چون نباید در پروفایل ذخیره شود
+
+            print('وزن اولیه به weight_records اضافه شد: $newWeight');
+          } else if (hasWeightRecord) {
+            // اگر قبلا رکورد وزنی داریم، وزن را از پروفایل حذف کنیم
+            cleanProfileData.remove('weight');
+            cleanProfileData.remove(
+                'weight_history'); // این را هم حذف می‌کنیم چون نباید در پروفایل ذخیره شود
+            print('وزن قبلاً ثبت شده - از پروفایل حذف شد');
+          }
+
           await supabaseService.updateProfile(user.id, cleanProfileData);
 
           if (mounted) {
@@ -172,6 +213,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             setState(() {
               _isProfileComplete = _checkProfileCompletion();
             });
+
+            // بارگذاری مجدد داده‌های پروفایل
+            _loadProfileData();
           }
         }
       } catch (e) {
@@ -198,13 +242,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           title: const Text('پروفایل من'),
           backgroundColor: Colors.transparent,
           elevation: 0,
-          bottom: TabBar(
+          bottom: const TabBar(
             isScrollable: true,
             indicatorColor: AppTheme.goldColor,
             indicatorWeight: 3,
             labelColor: AppTheme.goldColor,
             unselectedLabelColor: Colors.white70,
-            tabs: const [
+            tabs: [
               Tab(text: 'اطلاعات اصلی'),
               Tab(text: 'اندازه‌گیری‌ها'),
               Tab(text: 'اهداف و ترجیحات'),
@@ -404,6 +448,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
         const SizedBox(height: 16),
+        _buildDropdownField(
+          'جنسیت',
+          'gender',
+          AppConfig.genderOptions,
+        ),
+        const SizedBox(height: 16),
         _buildTextField(
           'درباره من',
           'bio',
@@ -416,6 +466,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildBodyMeasurementsSection() {
+    // بررسی اینکه آیا از قبل وزنی ثبت شده است یا خیر
+    final hasWeightRecord = _profileData['weight_history'] != null &&
+        (_profileData['weight_history'] as List<dynamic>).isNotEmpty;
+
+    print('وضعیت وزن های ثبت شده: $hasWeightRecord');
+    print(
+        'تعداد رکوردهای وزن: ${(_profileData['weight_history'] as List<dynamic>?)?.length ?? 0}');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -434,13 +492,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: _buildTextField(
-                'وزن (کیلوگرم)',
-                'weight',
-                keyboardType: TextInputType.number,
-                validator: (value) =>
-                    value?.isEmpty ?? true ? 'وزن را وارد کنید' : null,
-              ),
+              child: hasWeightRecord
+                  ? _buildReadOnlyWeightField() // فیلد وزن غیرقابل ویرایش
+                  : _buildTextField(
+                      'وزن (کیلوگرم)',
+                      'weight',
+                      keyboardType: TextInputType.number,
+                      validator: (value) =>
+                          value?.isEmpty ?? true ? 'وزن را وارد کنید' : null,
+                    ),
             ),
           ],
         ),
@@ -484,7 +544,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
+        if (hasWeightRecord) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.goldColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.goldColor.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  color: AppTheme.goldColor,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'برای ثبت وزن جدید لطفاً به بخش نمودار وزن در داشبورد مراجعه کنید.',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
+    );
+  }
+
+  // فیلد نمایش وزن غیرقابل ویرایش
+  Widget _buildReadOnlyWeightField() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: AppTheme.goldColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'وزن (کیلوگرم)',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _profileData['weight'] ?? '-',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const Icon(
+            Icons.lock_outline,
+            color: AppTheme.goldColor,
+            size: 18,
+          ),
+        ],
+      ),
     );
   }
 

@@ -3,8 +3,13 @@ import '../services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../services/fitness_calculator.dart';
 import '../screens/profile_screen.dart';
+import '../widgets/weight_chart.dart';
+import '../widgets/fitness_metrics.dart';
+import '../widgets/stats_grid.dart';
+import '../widgets/achievements_section.dart';
+import '../services/achievement_service.dart';
+import '../theme/app_theme.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -18,8 +23,10 @@ class _DashboardScreenState extends State<DashboardScreen>
   String? _username;
   bool _isLoading = true;
   late AnimationController _controller;
+  late Animation<double> _animation;
   int _selectedIndex = 0;
-  Map<String, String> _profileData = {};
+  Map<String, dynamic> _profileData = {};
+  final SupabaseService _supabaseService = SupabaseService();
 
   // رنگ‌های اصلی برنامه با گرادیان‌های جدید
   static const Color goldColor = Color(0xFFD4AF37);
@@ -35,11 +42,44 @@ class _DashboardScreenState extends State<DashboardScreen>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _loadUserData();
+
+    _controller.value = 0.0;
+
+    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    ));
+
+    _loadUserData().then((_) {
+      if (mounted) {
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) {
+            _controller.forward();
+          }
+        });
+      }
+    });
+    _setupRealtimeSubscription();
+  }
+
+  void _setupRealtimeSubscription() {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      Supabase.instance.client
+          .from('profiles')
+          .stream(primaryKey: ['id'])
+          .eq('id', user.id)
+          .listen((data) {
+            if (data.isNotEmpty) {
+              _loadUserData();
+            }
+          });
+    }
   }
 
   @override
   void dispose() {
+    _controller.stop();
     _controller.dispose();
     super.dispose();
   }
@@ -48,8 +88,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
-        final supabaseService = SupabaseService();
-        final profile = await supabaseService.getProfileByAuthId();
+        final profile = await _supabaseService.getProfileByAuthId();
 
         if (profile != null && mounted) {
           setState(() {
@@ -72,6 +111,10 @@ class _DashboardScreenState extends State<DashboardScreen>
               'dietary_preferences':
                   profile.dietaryPreferences?.join(',') ?? '',
               'birth_date': profile.birthDate?.toString() ?? '',
+              'gender': profile.gender ?? 'male', // اضافه کردن جنسیت
+              'weight_history': profile.weightHistory ?? [],
+              'username': profile
+                  .phoneNumber, // استفاده از شماره تلفن به عنوان نام کاربری پیش‌فرض
             };
             _isLoading = false;
           });
@@ -118,10 +161,31 @@ class _DashboardScreenState extends State<DashboardScreen>
         drawer: _buildDrawer(context),
         appBar: _buildAppBar(context),
         body: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(),
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      color: goldColor,
+                      strokeWidth: 3,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'در حال بارگیری اطلاعات...',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               )
-            : _buildBody(context),
+            : SafeArea(
+                child: FadeTransition(
+                  opacity: _animation,
+                  child: _buildBody(context),
+                ),
+              ),
       ),
     );
   }
@@ -144,8 +208,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                 _buildDrawerItem(LucideIcons.lineChart, 'نمودار پیشرفت', 4),
                 _buildDrawerItem(
                     LucideIcons.messageCircle, 'مشاوره با مربی', 5),
-                const Divider(color: Colors.white24),
+
+                // Divider before settings
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Divider(color: Colors.white24, height: 1),
+                ),
+
                 _buildDrawerItem(LucideIcons.settings, 'تنظیمات', 6),
+                _buildDrawerItem(
+                    LucideIcons.helpCircle, 'راهنما و پشتیبانی', 7),
               ],
             ),
           ),
@@ -156,7 +228,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildDrawerHeader() {
-    return DrawerHeader(
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -169,7 +242,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Hero(
             tag: 'profile_image',
@@ -186,26 +258,41 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ],
               ),
               child: const CircleAvatar(
-                radius: 35,
+                radius: 40,
                 backgroundColor: Colors.white,
-                child: Icon(LucideIcons.user, size: 35, color: darkGold),
+                child: Icon(LucideIcons.user, size: 40, color: darkGold),
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          const Text(
-            'GymCursor',
-            style: TextStyle(
+          const SizedBox(height: 16),
+          Text(
+            _username ?? 'کاربر عزیز',
+            style: const TextStyle(
               color: Colors.white,
-              fontSize: 22,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               shadows: [
                 Shadow(
-                  color: Colors.black45,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
+                  color: Colors.black38,
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              _profileData['experience_level'] ?? 'مبتدی',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+              ),
             ),
           ),
         ],
@@ -217,7 +304,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     final isSelected = _selectedIndex == index;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       decoration: BoxDecoration(
         color: isSelected ? goldColor.withOpacity(0.15) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
@@ -261,6 +348,11 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildDrawerFooter() {
     return Container(
       padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Colors.white10, width: 1),
+        ),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -271,12 +363,17 @@ class _DashboardScreenState extends State<DashboardScreen>
               fontSize: 12,
             ),
           ),
-          TextButton.icon(
+          ElevatedButton.icon(
             onPressed: _signOut,
             icon: const Icon(LucideIcons.logOut, size: 16),
             label: const Text('خروج'),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white70,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.withOpacity(0.2),
+              foregroundColor: Colors.red.shade300,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ],
@@ -286,77 +383,45 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      title: _buildAppBarTitle(),
-      actions: [
-        _buildNotificationButton(),
-        const SizedBox(width: 8),
-      ],
-    );
-  }
-
-  Widget _buildAppBarTitle() {
-    return Row(
-      children: [
-        Hero(
-          tag: 'profile_image_small',
-          child: Container(
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      backgroundColor: backgroundColor,
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
+              color: cardColor,
               shape: BoxShape.circle,
-              border: Border.all(color: goldColor, width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: goldColor.withOpacity(0.3),
-                  blurRadius: 8,
-                  spreadRadius: 1,
-                ),
-              ],
+              border: Border.all(color: goldColor.withOpacity(0.3)),
             ),
-            child: CircleAvatar(
-              radius: 18,
-              backgroundColor: cardColor,
-              backgroundImage: _profileData['avatar_url'] != null
-                  ? NetworkImage(_profileData['avatar_url']!)
-                  : null,
-              child: _profileData['avatar_url'] == null
-                  ? const Icon(LucideIcons.user, size: 18, color: goldColor)
-                  : null,
+            child: const Icon(
+              LucideIcons.dumbbell,
+              color: goldColor,
+              size: 20,
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _username ?? 'کاربر عزیز',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+          const SizedBox(width: 8),
+          const Text(
+            'GYMAI',
+            style: TextStyle(
+              color: goldColor,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1,
             ),
-            Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _profileData['experience_level'] ?? 'سطح: مبتدی',
-                  style: const TextStyle(
-                    color: goldColor,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
+        ],
+      ),
+      actions: [
+        // Search button
+        IconButton(
+          icon: const Icon(LucideIcons.search, color: goldColor, size: 20),
+          onPressed: () {},
         ),
+        // Notification button
+        _buildNotificationButton(),
+        const SizedBox(width: 4),
       ],
     );
   }
@@ -364,26 +429,20 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildNotificationButton() {
     return Stack(
       children: [
-        Container(
-          margin: const EdgeInsets.only(right: 8, top: 8),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: goldColor.withOpacity(0.3)),
-          ),
-          child: IconButton(
-            icon: const Icon(LucideIcons.bell, color: goldColor, size: 20),
-            onPressed: () {},
-          ),
+        IconButton(
+          icon: const Icon(LucideIcons.bell, color: goldColor, size: 20),
+          onPressed: () {},
         ),
         Positioned(
-          right: 12,
-          top: 12,
+          right: 8,
+          top: 10,
           child: Container(
             width: 8,
             height: 8,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: Colors.red,
               shape: BoxShape.circle,
+              border: Border.all(color: backgroundColor, width: 1.5),
             ),
           ),
         ),
@@ -398,614 +457,582 @@ class _DashboardScreenState extends State<DashboardScreen>
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildMetricsCards(),
-            const SizedBox(height: 24),
-            _buildStatisticsGrid(),
-            const SizedBox(height: 24),
-            _buildWeightSection(),
-            const SizedBox(height: 24),
-            _buildWorkoutSection(),
-            const SizedBox(height: 24),
+            // Welcome card - بخش خوشامدگویی
+            _buildWelcomeCard(),
+            const SizedBox(height: 16),
+
+            // Fitness metrics - نشانگرهای تناسب اندام
+            FitnessMetrics(profileData: _profileData),
+            const SizedBox(height: 16),
+
+            // Achievements + Stats in a row - دستاوردها و آمارها در یک ردیف
+            _buildAchievementsAndStats(),
+            const SizedBox(height: 16),
+
+            // Weight chart - نمودار وزن
+            WeightChart(
+              profileData: _profileData,
+              onWeightAdded: _loadUserData,
+            ),
+            const SizedBox(height: 16),
+
+            // Today's workout + workout distribution - تمرین امروز و نمودار توزیع تمرینات
+            _buildTodayWorkoutSection(),
+            const SizedBox(height: 16),
+
+            // Workout split - تقسیم‌بندی تمرینات
+            _buildWorkoutSplit(),
+            const SizedBox(height: 16),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMetricsCards() {
-    final height = double.tryParse(_profileData['height'] ?? '') ?? 0;
-    final weight = double.tryParse(_profileData['weight'] ?? '') ?? 0;
-    final birthDateStr = _profileData['birth_date'];
-    int age = 25;
-    if (birthDateStr != null && birthDateStr.isNotEmpty) {
-      try {
-        final birthDate = DateTime.parse(birthDateStr);
-        final now = DateTime.now();
-        age = now.year -
-            birthDate.year -
-            ((now.month < birthDate.month ||
-                    (now.month == birthDate.month && now.day < birthDate.day))
-                ? 1
-                : 0);
-      } catch (_) {}
-    }
-
-    const isMale = true;
-    final neck = double.tryParse(_profileData['neck_circumference'] ?? '') ??
-        (isMale ? 35 : 32);
-    final waist =
-        double.tryParse(_profileData['waist_circumference'] ?? '') ?? 0;
-    final hip = double.tryParse(_profileData['hip_circumference'] ?? '') ?? 0;
-
-    double bmi = 0;
-    String bmiCategory = 'داده‌ای وارد نشده';
-    if (height > 0 && weight > 0) {
-      bmi = FitnessCalculator.calculateBMI(weight, height);
-      bmiCategory = FitnessCalculator.getBMICategory(bmi);
-    }
-
-    String bodyFat = '-';
-    if (waist > 0 && neck > 0 && height > 0) {
-      final bodyFatVal = FitnessCalculator.calculateBodyFatPercentage(
-        waist,
-        neck,
-        height,
-        isMale,
-        hip,
-      );
-      bodyFat = '${bodyFatVal.toStringAsFixed(1)}%';
-    }
-
-    String bmr = '-';
-    if (weight > 0 && height > 0) {
-      final bmrVal = FitnessCalculator.calculateBMR(
-        weight,
-        height,
-        age,
-        isMale,
-      );
-      bmr = bmrVal.toStringAsFixed(0);
-    }
-
-    String tdee = '-';
-    if (weight > 0 && height > 0) {
-      final bmrVal = FitnessCalculator.calculateBMR(
-        weight,
-        height,
-        age,
-        isMale,
-      );
-      final tdeeVal = FitnessCalculator.calculateTDEE(
-        bmrVal,
-        ActivityLevel.moderatelyActive,
-      );
-      tdee = tdeeVal.toStringAsFixed(0);
-    }
-
-    return SizedBox(
-      height: 180,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        children: [
-          _buildMetricCard(
-            'BMI',
-            bmi > 0 ? bmi.toStringAsFixed(1) : '-',
-            bmiCategory,
-            Icons.monitor_weight,
-            bmi > 0
-                ? [
-                    FitnessCalculator.getBMIColor(bmi),
-                    FitnessCalculator.getBMIColor(bmi).withOpacity(0.7)
-                  ]
-                : [Colors.grey.shade300, Colors.grey],
-          ),
-          _buildMetricCard(
-            'درصد چربی',
-            bodyFat,
-            'عالی',
-            Icons.accessibility_new,
-            [Colors.blue.shade300, Colors.blue],
-          ),
-          _buildMetricCard(
-            'BMR',
-            bmr,
-            'کالری در روز',
-            Icons.local_fire_department,
-            [Colors.orange.shade300, Colors.orange],
-          ),
-          _buildMetricCard(
-            'TDEE',
-            tdee,
-            'کالری در روز',
-            Icons.trending_up,
-            [Colors.purple.shade300, Colors.purple],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetricCard(
-    String title,
-    String value,
-    String subtitle,
-    IconData icon,
-    List<Color> gradientColors,
-  ) {
+  // کارت خوشامدگویی با پیشرفت روزانه
+  Widget _buildWelcomeCard() {
     return Container(
-      width: 180,
-      margin: const EdgeInsets.only(right: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: gradientColors,
+          colors: [
+            darkGold.withOpacity(0.8),
+            goldColor.withOpacity(0.6),
+          ],
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: gradientColors[1].withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned(
-            right: -20,
-            bottom: -20,
-            child: Icon(
-              icon,
-              size: 120,
-              color: Colors.white.withOpacity(0.2),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'سلام ${_username ?? 'کاربر'}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'امروز برای تمرین آماده‌ای؟',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      LucideIcons.calendar,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _getTodayPersianDate(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          LucideIcons.activity,
+                          color: Colors.white,
+                          size: 14,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'پیشرفت امروز',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(
+                      value: 0.65,
+                      minHeight: 8,
+                      backgroundColor: Colors.white.withOpacity(0.2),
+                      valueColor:
+                          const AlwaysStoppedAnimation<Color>(Colors.white),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
+              ),
+              const SizedBox(width: 16),
+              ElevatedButton.icon(
+                onPressed: () {},
+                icon: const Icon(LucideIcons.plus, size: 16),
+                label: const Text('ثبت تمرین'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: goldColor,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                    ),
-                  ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatisticsGrid() {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.3,
+  // ترکیب دستاوردها و آمارها در یک بخش
+  Widget _buildAchievementsAndStats() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildStatCard('تمرینات انجام شده', '48', LucideIcons.checkCircle),
-        _buildStatCard('ساعات تمرین هفتگی', '12', LucideIcons.clock),
-        _buildStatCard('وزن فعلی', '70.0', LucideIcons.scale),
-        _buildStatCard('روزهای متوالی', '7', LucideIcons.flame),
+        // Stats in a smaller column
+        Expanded(
+          flex: 3,
+          child: Container(
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: goldColor.withOpacity(0.1)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title for stats
+                  _buildSectionTitleSmall('آمار من'),
+                  const SizedBox(height: 12),
+                  // Stats content
+                  _buildStatsContent(),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 12),
+
+        // Achievements in a larger column
+        Expanded(
+          flex: 5,
+          child: Container(
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: goldColor.withOpacity(0.1)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title for achievements
+                  _buildSectionTitleSmall('دستاوردهای من'),
+                  const SizedBox(height: 12),
+                  // Achievements content
+                  SizedBox(
+                    height: 130,
+                    child: AchievementsSection(profileData: _profileData),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon) {
+  // Compact stats content
+  Widget _buildStatsContent() {
+    final height = double.tryParse(_profileData['height'] ?? '') ?? 0;
+    final weight = double.tryParse(_profileData['weight'] ?? '') ?? 0;
+
+    return Column(
+      children: [
+        _buildSingleStat('قد', '$height cm', LucideIcons.arrowUpDown),
+        const Divider(height: 16, color: Colors.white10),
+        _buildSingleStat('وزن', '$weight kg', LucideIcons.scale),
+        const Divider(height: 16, color: Colors.white10),
+        _buildSingleStat('تمرین‌های انجام شده', '28', LucideIcons.check),
+        const Divider(height: 16, color: Colors.white10),
+        _buildSingleStat('روزهای متوالی', '5', LucideIcons.flame),
+      ],
+    );
+  }
+
+  // Single stat item
+  Widget _buildSingleStat(String title, String value, IconData icon) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: goldColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: goldColor, size: 16),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 12,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ایجاد بخش تمرین امروز
+  Widget _buildTodayWorkoutSection() {
     return Container(
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: goldColor.withOpacity(0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {},
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with title and action button
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: goldColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                _buildSectionTitleSmall('تمرین امروز'),
+                TextButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(LucideIcons.arrowRight, size: 16),
+                  label: const Text('مشاهده همه'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: goldColor,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   ),
-                  child: Icon(icon, color: goldColor, size: 20),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 11,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildWeightSection() {
-    final weightHistory = _profileData['weight_history'] != null
-        ? List<Map<String, dynamic>>.from(
-            _profileData['weight_history'] as List)
-        : [];
-
-    final spots = weightHistory.asMap().entries.map((entry) {
-      return FlSpot(entry.key.toDouble(), entry.value['weight'] as double);
-    }).toList();
-
-    if (spots.isEmpty) {
-      final currentWeight = double.tryParse(_profileData['weight'] ?? '') ?? 0;
-      if (currentWeight > 0) {
-        spots.add(FlSpot(0, currentWeight));
-      }
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildSectionTitle('نمودار تغییرات وزن'),
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline, color: goldColor),
-              onPressed: () {
-                _showAddWeightDialog();
-              },
+          // List of exercises
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: 3,
+            separatorBuilder: (context, index) => const Divider(
+              height: 1,
+              color: Colors.white10,
+              indent: 16,
+              endIndent: 16,
             ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          height: 250,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: goldColor.withOpacity(0.1)),
+            itemBuilder: (context, index) {
+              return _buildExerciseItem(
+                ['پرس سینه', 'اسکات', 'زیربغل سیم کش'][index],
+                [
+                  '4 ست × 12 تکرار',
+                  '4 ست × 10 تکرار',
+                  '3 ست × 15 تکرار'
+                ][index],
+                [
+                  LucideIcons.dumbbell,
+                  LucideIcons.dumbbell,
+                  LucideIcons.dumbbell
+                ][index],
+              );
+            },
           ),
-          child: spots.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.add_chart,
-                        size: 48,
-                        color: Colors.white.withOpacity(0.5),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'هنوز وزنی ثبت نشده است',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: _showAddWeightDialog,
-                        icon: const Icon(Icons.add, color: goldColor),
-                        label: const Text(
-                          'ثبت وزن جدید',
-                          style: TextStyle(color: goldColor),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              : LineChart(
-                  LineChartData(
-                    gridData: FlGridData(
-                      show: true,
-                      drawVerticalLine: false,
-                      horizontalInterval: 1,
-                      getDrawingHorizontalLine: (value) {
-                        return FlLine(
-                          color: Colors.white.withOpacity(0.1),
-                          strokeWidth: 1,
-                        );
-                      },
-                    ),
-                    titlesData: FlTitlesData(
-                      show: true,
-                      rightTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
-                      topTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 22,
-                          interval: 1,
-                          getTitlesWidget: (value, meta) {
-                            const style = TextStyle(
-                              color: Colors.white54,
-                              fontSize: 12,
-                            );
-                            return SideTitleWidget(
-                              axisSide: meta.axisSide,
-                              child: Text('${value.toInt()}', style: style),
-                            );
-                          },
-                        ),
-                      ),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          interval: 1,
-                          getTitlesWidget: (value, meta) {
-                            return SideTitleWidget(
-                              axisSide: meta.axisSide,
-                              child: Text(
-                                '${value.toInt()}',
-                                style: const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            );
-                          },
-                          reservedSize: 28,
-                        ),
-                      ),
-                    ),
-                    borderData: FlBorderData(show: false),
-                    minX: 0,
-                    maxX: spots.length > 1 ? spots.length - 1.0 : 6,
-                    minY: spots.isNotEmpty
-                        ? spots
-                                .map((e) => e.y)
-                                .reduce((a, b) => a < b ? a : b) -
-                            2
-                        : 65,
-                    maxY: spots.isNotEmpty
-                        ? spots
-                                .map((e) => e.y)
-                                .reduce((a, b) => a > b ? a : b) +
-                            2
-                        : 75,
-                    lineBarsData: [
-                      LineChartBarData(
-                        spots: spots,
-                        isCurved: true,
-                        color: goldColor,
-                        barWidth: 3,
-                        isStrokeCapRound: true,
-                        dotData: FlDotData(
-                          show: true,
-                          getDotPainter: (spot, percent, barData, index) {
-                            return FlDotCirclePainter(
-                              radius: 4,
-                              color: goldColor,
-                              strokeWidth: 2,
-                              strokeColor: Colors.white,
-                            );
-                          },
-                        ),
-                        belowBarData: BarAreaData(
-                          show: true,
-                          color: goldColor.withOpacity(0.1),
-                        ),
-                      ),
-                    ],
+
+          // View all button
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {},
+                icon: const Icon(LucideIcons.clipboardList, size: 16),
+                label: const Text('مشاهده کامل برنامه'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: goldColor.withOpacity(0.2),
+                  foregroundColor: goldColor,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: goldColor.withOpacity(0.3)),
                   ),
                 ),
-        ),
-      ],
-    );
-  }
-
-  void _showAddWeightDialog() {
-    final weightController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: cardColor,
-        title: const Text(
-          'ثبت وزن جدید',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: TextField(
-          controller: weightController,
-          keyboardType: TextInputType.number,
-          style: const TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            labelText: 'وزن (کیلوگرم)',
-            labelStyle: const TextStyle(color: Colors.white70),
-            enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: goldColor.withOpacity(0.3)),
-              borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            focusedBorder: OutlineInputBorder(
-              borderSide: const BorderSide(color: goldColor),
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('انصراف'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final weight = double.tryParse(weightController.text);
-              if (weight != null && weight > 0) {
-                // TODO: Save weight to profile
-                Navigator.pop(context);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: goldColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('ثبت'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildWorkoutSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  // تمرین تکی
+  Widget _buildExerciseItem(String title, String subtitle, IconData icon) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: goldColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: goldColor, size: 18),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          color: Colors.white.withOpacity(0.7),
+          fontSize: 12,
+        ),
+      ),
+      trailing:
+          const Icon(LucideIcons.checkCircle, color: Colors.green, size: 18),
+      dense: true,
+    );
+  }
+
+  // Section title - smaller version
+  Widget _buildSectionTitleSmall(String title) {
+    return Row(
       children: [
-        _buildSectionTitle('تقسیم‌بندی تمرینات'),
-        const SizedBox(height: 16),
         Container(
-          height: 200,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: goldColor.withOpacity(0.1)),
+          width: 3,
+          height: 16,
+          decoration: const BoxDecoration(
+            color: goldColor,
+            borderRadius: BorderRadius.all(Radius.circular(10)),
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: PieChart(
-                  PieChartData(
-                    sectionsSpace: 0,
-                    centerSpaceRadius: 35,
-                    sections: [
-                      PieChartSectionData(
-                        color: goldColor,
-                        value: 30,
-                        title: '30%',
-                        radius: 45,
-                        titleStyle: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      PieChartSectionData(
-                        color: darkGold,
-                        value: 25,
-                        title: '25%',
-                        radius: 45,
-                        titleStyle: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      PieChartSectionData(
-                        color: goldColor.withOpacity(0.5),
-                        value: 25,
-                        title: '25%',
-                        radius: 45,
-                        titleStyle: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      PieChartSectionData(
-                        color: darkGold.withOpacity(0.5),
-                        value: 20,
-                        title: '20%',
-                        radius: 45,
-                        titleStyle: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildWorkoutLegend('سینه و سرشانه', goldColor, '30%'),
-                  const SizedBox(height: 8),
-                  _buildWorkoutLegend('پا', darkGold, '25%'),
-                  const SizedBox(height: 8),
-                  _buildWorkoutLegend(
-                      'پشت و بازو', goldColor.withOpacity(0.5), '25%'),
-                  const SizedBox(height: 8),
-                  _buildWorkoutLegend(
-                      'شکم و کاردیو', darkGold.withOpacity(0.5), '20%'),
-                ],
-              ),
-            ],
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ],
     );
   }
 
+  // تقسیم‌بندی تمرینات
+  Widget _buildWorkoutSplit() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: goldColor.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionTitleSmall('تقسیم‌بندی تمرینات'),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 180,
+            child: Row(
+              children: [
+                Expanded(
+                  child: PieChart(
+                    PieChartData(
+                      sectionsSpace: 0,
+                      centerSpaceRadius: 35,
+                      sections: [
+                        PieChartSectionData(
+                          color: goldColor,
+                          value: 30,
+                          title: '30%',
+                          radius: 45,
+                          titleStyle: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        PieChartSectionData(
+                          color: darkGold,
+                          value: 25,
+                          title: '25%',
+                          radius: 45,
+                          titleStyle: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        PieChartSectionData(
+                          color: goldColor.withOpacity(0.5),
+                          value: 25,
+                          title: '25%',
+                          radius: 45,
+                          titleStyle: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        PieChartSectionData(
+                          color: darkGold.withOpacity(0.5),
+                          value: 20,
+                          title: '20%',
+                          radius: 45,
+                          titleStyle: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildWorkoutLegend('سینه و سرشانه', goldColor, '30%'),
+                    const SizedBox(height: 12),
+                    _buildWorkoutLegend('پا', darkGold, '25%'),
+                    const SizedBox(height: 12),
+                    _buildWorkoutLegend(
+                        'پشت و بازو', goldColor.withOpacity(0.5), '25%'),
+                    const SizedBox(height: 12),
+                    _buildWorkoutLegend(
+                        'شکم و کاردیو', darkGold.withOpacity(0.5), '20%'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // دریافت تاریخ فارسی
+  String _getTodayPersianDate() {
+    // در یک برنامه واقعی، باید از کتابخانه‌های تبدیل تاریخ شمسی استفاده شود
+    // اینجا برای نمونه یک تاریخ ثابت برمی‌گردانیم
+
+    // ماه‌های شمسی
+    final persianMonths = [
+      'فروردین',
+      'اردیبهشت',
+      'خرداد',
+      'تیر',
+      'مرداد',
+      'شهریور',
+      'مهر',
+      'آبان',
+      'آذر',
+      'دی',
+      'بهمن',
+      'اسفند'
+    ];
+
+    // اعداد فارسی
+    final persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+
+    // تبدیل عدد به فارسی
+    String toPersianNumber(int n) {
+      if (n == 0) return persianDigits[0];
+      String result = '';
+      while (n > 0) {
+        result = persianDigits[n % 10] + result;
+        n ~/= 10;
+      }
+      return result;
+    }
+
+    // تاریخ امروز
+    final now = DateTime.now();
+
+    // در دنیای واقعی اینجا باید تبدیل به تاریخ شمسی انجام شود
+    // اما به عنوان مثال، ما فقط یک مقدار ثابت برمی‌گردانیم
+    final day = toPersianNumber(now.day);
+    final month = persianMonths[now.month - 1];
+    final year = toPersianNumber(1403); // سال شمسی فرضی معادل
+
+    return '$day $month $year';
+  }
+
+  // Workout legend with better style
   Widget _buildWorkoutLegend(String title, Color color, String percentage) {
     return Row(
       children: [
@@ -1035,25 +1062,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: const BoxDecoration(
-        border: Border(
-          right: BorderSide(color: goldColor, width: 2),
-        ),
-      ),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
     );
   }
 }

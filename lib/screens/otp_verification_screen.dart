@@ -175,14 +175,20 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         normalizedPhone,
         username: widget.username,
       );
-      if (!_isActive || !mounted) return;
       if (userProfile == null) {
         _showError('خطا در ایجاد پروفایل کاربری. لطفاً دوباره تلاش کنید.');
         return;
       }
+
+      // ابتدا انیمیشن‌ها و تایمرها را متوقف می‌کنیم
       _isActive = false;
       _cancelTimer();
+
       if (mounted) {
+        // اضافه کردن تأخیر طولانی‌تر برای اطمینان از اینکه همه چیز آماده است
+        await Future.delayed(const Duration(milliseconds: 800));
+
+        // مطمئن می‌شویم که ابتدا صفحه Dashboard بارگذاری شود و سپس انیمیشن‌ها شروع شوند
         Navigator.of(context).pushNamedAndRemoveUntil(
           '/dashboard',
           (route) => false,

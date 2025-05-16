@@ -18,6 +18,8 @@ class UserProfile {
   final List<String>? fitnessGoals;
   final List<String>? medicalConditions;
   final List<String>? dietaryPreferences;
+  final String? gender;
+  final List<Map<String, dynamic>>? weightHistory;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -41,6 +43,8 @@ class UserProfile {
     this.fitnessGoals,
     this.medicalConditions,
     this.dietaryPreferences,
+    this.gender,
+    this.weightHistory,
     this.createdAt,
     this.updatedAt,
   });
@@ -93,6 +97,10 @@ class UserProfile {
       dietaryPreferences: json['dietary_preferences'] != null
           ? List<String>.from(json['dietary_preferences'])
           : null,
+      gender: json['gender'],
+      weightHistory: json['weight_history'] != null
+          ? List<Map<String, dynamic>>.from(json['weight_history'])
+          : null,
       createdAt:
           json['created_at'] != null && json['created_at'].toString().isNotEmpty
               ? DateTime.tryParse(json['created_at'])
@@ -125,6 +133,7 @@ class UserProfile {
       'fitness_goals': fitnessGoals,
       'medical_conditions': medicalConditions,
       'dietary_preferences': dietaryPreferences,
+      'gender': gender,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -150,6 +159,8 @@ class UserProfile {
     List<String>? fitnessGoals,
     List<String>? medicalConditions,
     List<String>? dietaryPreferences,
+    String? gender,
+    List<Map<String, dynamic>>? weightHistory,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -175,6 +186,8 @@ class UserProfile {
       fitnessGoals: fitnessGoals ?? this.fitnessGoals,
       medicalConditions: medicalConditions ?? this.medicalConditions,
       dietaryPreferences: dietaryPreferences ?? this.dietaryPreferences,
+      gender: gender ?? this.gender,
+      weightHistory: weightHistory ?? this.weightHistory,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -60,34 +60,66 @@ class SupabaseService {
   }
 
   // ثبت وزن
-  Future<WeightRecord> addWeightRecord(String profileId, double weight) async {
+  Future<void> addWeightRecord(String profileId, double weight) async {
     try {
-      final response = await _client
-          .from('weight_records')
-          .insert({
-            'profile_id': profileId,
-            'weight': weight,
-            'recorded_at': DateTime.now().toIso8601String(),
-          })
-          .select()
-          .single();
-      return WeightRecord.fromJson(response);
+      // افزودن به جدول weight_records
+      await _client.from('weight_records').insert({
+        'profile_id': profileId,
+        'weight': weight,
+        'recorded_at': DateTime.now().toIso8601String(),
+      });
+
+      print('وزن جدید با موفقیت ثبت شد: $weight کیلوگرم');
+
+      // بلافاصله پروفایل را به‌روز کنیم تا weight_history به‌روز شود
+      final profile = await getProfileByAuthId();
+
+      if (profile != null) {
+        print('تعداد رکوردهای وزن: ${profile.weightHistory?.length ?? 0}');
+      } else {
+        print('خطا: نمی‌توان پروفایل را به‌روز کرد پس از ثبت وزن');
+      }
     } catch (e) {
-      print('Error adding weight record: \\$e');
+      print('خطا در ثبت وزن جدید: $e');
       rethrow;
     }
   }
 
-  Future<List<WeightRecord>> getWeightRecords(String profileId) async {
-    final response = await _client
-        .from('weight_records')
-        .select()
-        .eq('profile_id', profileId)
-        .order('recorded_at', ascending: false);
+  // دریافت آخرین وزن ثبت شده کاربر
+  Future<double?> getLatestWeight(String profileId) async {
+    try {
+      final response = await _client
+          .from('weight_records')
+          .select()
+          .eq('profile_id', profileId)
+          .order('recorded_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
 
-    return (response as List)
-        .map((json) => WeightRecord.fromJson(json))
-        .toList();
+      if (response != null) {
+        return response['weight'].toDouble();
+      }
+      return null;
+    } catch (e) {
+      print('خطا در دریافت آخرین وزن: $e');
+      return null;
+    }
+  }
+
+  // بازیابی تاریخچه وزن کاربر
+  Future<List<Map<String, dynamic>>> getWeightRecords(String profileId) async {
+    try {
+      final response = await _client
+          .from('weight_records')
+          .select()
+          .eq('profile_id', profileId)
+          .order('recorded_at', ascending: true);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      print('خطا در بازیابی تاریخچه وزن: $e');
+      return [];
+    }
   }
 
   // بررسی یکتا بودن نام کاربری
@@ -569,7 +601,9 @@ class SupabaseService {
   Future<Session?> signUpWithPhone(String phoneNumber, String username) async {
     try {
       final normalizedPhone = normalizePhoneNumber(phoneNumber);
-      final email = await getFakeEmailFromPhoneNumber(normalizedPhone);
+      String email =
+          '${normalizedPhone.replaceAll(RegExp(r'\D'), '')}@example.com';
+      print('Generated fallback email: $email');
 
       // ثبت‌نام کاربر
       final response = await Supabase.instance.client.auth.signUp(
@@ -578,13 +612,37 @@ class SupabaseService {
       );
 
       if (response.user != null) {
-        // ایجاد پروفایل کاربر
-        await Supabase.instance.client.from('profiles').insert({
-          'id': response.user!.id,
-          'username': username,
-          'phone_number': normalizedPhone,
-          'created_at': DateTime.now().toIso8601String(),
-        });
+        try {
+          // ایجاد پروفایل کاربر
+          final profileData = {
+            'id': response.user!.id,
+            'username': username,
+            'phone_number': normalizedPhone,
+            'email': email,
+            'created_at': DateTime.now().toIso8601String(),
+            'gender': 'male', // مقدار پیش‌فرض برای جنسیت
+          };
+
+          // اطمینان از اینکه پروفایل به درستی ایجاد شده
+          final insertResponse = await _client
+              .from('profiles')
+              .insert(profileData)
+              .select()
+              .single();
+
+          print('Profile created successfully: $insertResponse');
+
+          // ایجاد پروفایل اولیه با روش دیگر نیز تلاش کنیم
+          await createInitialProfile(response.user!, normalizedPhone,
+              username: username);
+        } catch (profileError) {
+          print(
+              'Error creating profile, trying alternative method: $profileError');
+
+          // تلاش برای ایجاد پروفایل با روش دوم
+          await createInitialProfile(response.user!, normalizedPhone,
+              username: username);
+        }
       }
 
       return response.session;
@@ -623,17 +681,65 @@ class SupabaseService {
   Future<UserProfile?> getProfileByAuthId() async {
     try {
       final user = _client.auth.currentUser;
-      if (user == null) return null;
-      final response = await _client
-          .from('profiles')
-          .select()
-          .eq('id',
-              user.id) // Assuming 'id' in profiles table is the auth user_id
-          .maybeSingle();
-      if (response == null) return null;
-      return UserProfile.fromJson(response);
+      if (user == null) {
+        print('هیچ کاربر فعالی وجود ندارد');
+        return null;
+      }
+
+      try {
+        final data =
+            await _client.from('profiles').select().eq('id', user.id).single();
+
+        // بازیابی تاریخچه وزن
+        final weightHistory = await getWeightRecords(user.id);
+
+        // بازیابی آخرین وزن
+        final latestWeight = await getLatestWeight(user.id);
+        if (latestWeight != null) {
+          // اگر وزنی در رکوردها وجود دارد، آن را جایگزین وزن پروفایل کنیم
+          data['weight'] = latestWeight.toString();
+        }
+
+        // اضافه کردن تاریخچه وزن به داده‌های پروفایل
+        data['weight_history'] = weightHistory;
+
+        return UserProfile.fromJson(data);
+      } catch (e) {
+        print('خطا در بازیابی پروفایل: $e');
+
+        // اگر پروفایل وجود نداشت، تلاش کنیم یک پروفایل خالی ایجاد کنیم
+        if (e is PostgrestException && e.code == 'PGRST116') {
+          print(
+              'پروفایل برای کاربر ${user.id} یافت نشد. در حال ایجاد پروفایل...');
+
+          try {
+            final initialProfileData = {
+              'id': user.id,
+              'username': 'user_${DateTime.now().millisecondsSinceEpoch}',
+              'gender': 'male',
+              'created_at': DateTime.now().toIso8601String(),
+            };
+
+            await _client.from('profiles').insert(initialProfileData);
+            print('پروفایل اولیه ایجاد شد. در حال تلاش مجدد...');
+
+            // دوباره تلاش کنیم
+            final newData = await _client
+                .from('profiles')
+                .select()
+                .eq('id', user.id)
+                .single();
+            return UserProfile.fromJson(newData);
+          } catch (createError) {
+            print('خطا در ایجاد پروفایل اولیه: $createError');
+            return null;
+          }
+        }
+
+        return null;
+      }
     } catch (e) {
-      print('Error getting profile by auth id: $e');
+      print('خطا در بازیابی پروفایل: $e');
       return null;
     }
   }
@@ -657,25 +763,54 @@ class SupabaseService {
       }
 
       // Create a new profile
-      // The 'id' for the profiles table should be the user.id from auth.users
-      // 'phone_number' is collected during registration
-      // 'email' might be user.email
-      // 'username' could be derived or set initially
+      final String email = user.email ??
+          '${phoneNumber.replaceAll(RegExp(r'\D'), '')}@example.com';
       final Map<String, dynamic> profileData = {
         'id': user.id,
         'phone_number': phoneNumber,
-        'email': user.email, // Store email from auth if available
-        // 'username': username ?? user.email?.split('@').first, // Example username
+        'email': email,
+        // 'gender': 'male', // فعلا این رو حذف می‌کنیم تا مطمئن شویم خطا نمی‌دهد
+        'username': username ??
+            phoneNumber, // استفاده از شماره موبایل به عنوان نام کاربری پیش‌فرض
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
       };
-      if (username != null && username.isNotEmpty) {
-        profileData['username'] = username;
+
+      print('Attempting to create profile with data: $profileData');
+
+      // تلاش اول: استفاده از روش insert با select
+      try {
+        final response =
+            await _client.from('profiles').insert(profileData).select();
+        print('Profile created successfully with insert+select: $response');
+        if (response.isNotEmpty) {
+          return UserProfile.fromJson(response[0]);
+        }
+      } catch (e) {
+        print('First profile creation attempt failed: $e');
       }
 
-      final response =
-          await _client.from('profiles').insert(profileData).select().single();
+      // تلاش دوم: فقط insert بدون select
+      try {
+        await _client.from('profiles').insert(profileData);
+        print('Profile created with insert only');
 
-      print('Initial profile created successfully: $response');
-      return UserProfile.fromJson(response);
+        // حالا پروفایل را دریافت کنیم
+        final profileResponse = await _client
+            .from('profiles')
+            .select()
+            .eq('id', user.id)
+            .maybeSingle();
+        if (profileResponse != null) {
+          return UserProfile.fromJson(profileResponse);
+        }
+      } catch (e) {
+        print('Second profile creation attempt failed: $e');
+      }
+
+      // اگر تمام تلاش‌ها ناموفق بود، صبر کنیم و پروفایل را دریافت کنیم
+      await Future.delayed(const Duration(seconds: 1));
+      return getProfileByAuthId();
     } catch (e) {
       print('Error creating initial profile: $e');
       if (e is PostgrestException) {
@@ -683,6 +818,90 @@ class SupabaseService {
             'PostgrestException details: ${e.message}, code: ${e.code}, details: ${e.details}');
       }
       return null;
+    }
+  }
+
+  // اضافه کردن داده‌های فرضی وزن برای تست
+  Future<void> addSampleWeightData(String profileId) async {
+    try {
+      final now = DateTime.now();
+
+      // ابتدا چک کنیم آیا جدول weight_records وجود دارد
+      try {
+        // اول همه رکوردهای قبلی را حذف می‌کنیم
+        await _client
+            .from('weight_records')
+            .delete()
+            .eq('profile_id', profileId);
+        print('رکوردهای قبلی وزن با موفقیت حذف شدند');
+      } catch (e) {
+        print('خطا در حذف رکوردهای قبلی: $e');
+        // ادامه می‌دهیم حتی اگر حذف ناموفق بود
+      }
+
+      // ایجاد چندین رکورد وزن با تاریخ‌های مختلف (از گذشته تا امروز)
+      final sampleData = [
+        {
+          'profile_id': profileId,
+          'weight': 85.5,
+          'recorded_at':
+              now.subtract(const Duration(days: 60)).toIso8601String(),
+        },
+        {
+          'profile_id': profileId,
+          'weight': 84.2,
+          'recorded_at':
+              now.subtract(const Duration(days: 50)).toIso8601String(),
+        },
+        {
+          'profile_id': profileId,
+          'weight': 83.0,
+          'recorded_at':
+              now.subtract(const Duration(days: 40)).toIso8601String(),
+        },
+        {
+          'profile_id': profileId,
+          'weight': 82.1,
+          'recorded_at':
+              now.subtract(const Duration(days: 30)).toIso8601String(),
+        },
+        {
+          'profile_id': profileId,
+          'weight': 81.3,
+          'recorded_at':
+              now.subtract(const Duration(days: 20)).toIso8601String(),
+        },
+        {
+          'profile_id': profileId,
+          'weight': 80.5,
+          'recorded_at':
+              now.subtract(const Duration(days: 10)).toIso8601String(),
+        },
+        {
+          'profile_id': profileId,
+          'weight': 79.8,
+          'recorded_at': now.toIso8601String(),
+        },
+      ];
+
+      print('تلاش برای اضافه کردن ${sampleData.length} رکورد وزن...');
+
+      // اضافه کردن هر رکورد به صورت تکی برای مدیریت بهتر خطاها
+      for (int i = 0; i < sampleData.length; i++) {
+        try {
+          await _client.from('weight_records').insert(sampleData[i]);
+          print(
+              'رکورد ${i + 1} با موفقیت اضافه شد: ${sampleData[i]['weight']} کیلوگرم');
+        } catch (e) {
+          print('خطا در اضافه کردن رکورد ${i + 1}: $e');
+          // ادامه می‌دهیم با رکورد بعدی
+        }
+      }
+
+      print('داده‌های فرضی وزن با موفقیت اضافه شدند');
+    } catch (e) {
+      print('خطا در افزودن داده‌های فرضی وزن: $e');
+      rethrow;
     }
   }
 }

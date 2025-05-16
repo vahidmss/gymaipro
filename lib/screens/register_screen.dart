@@ -31,10 +31,20 @@ class _RegisterScreenState extends State<RegisterScreen>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
+
+    // تنظیم مقدار اولیه به 0.0 برای اطمینان از شروع صحیح
+    _animationController.value = 0.0;
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
     );
-    _animationController.forward();
+
+    // شروع انیمیشن با تأخیر تا از تکمیل سایر کارها مطمئن شویم
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        _animationController.forward();
+      }
+    });
   }
 
   @override

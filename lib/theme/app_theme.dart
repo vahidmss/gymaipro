@@ -150,5 +150,21 @@ class AppTheme {
         fontSize: 22,
       ),
     ),
+    dialogTheme: DialogTheme(
+      backgroundColor: cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: goldColor, width: 1),
+      ),
+      titleTextStyle: const TextStyle(
+        color: goldColor,
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+      contentTextStyle: TextStyle(
+        color: Colors.white.withOpacity(0.9),
+        fontSize: 14,
+      ),
+    ),
   );
 }
