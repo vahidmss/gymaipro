@@ -32,31 +32,86 @@ class OTPService {
       print('      OTP:   $code');
       print('==============================');
 
-      // ذخیره OTP در دیتابیس (همانند قبل)
-      try {
-        final client = Supabase.instance.client;
-        final expiresAt = DateTime.now()
-            .add(const Duration(minutes: 2)); // افزایش زمان انقضا به ۲ دقیقه
+      // ذخیره OTP در دیتابیس Supabase
+      return await _saveOtpToSupabase(normalizedPhone, code);
+    } catch (e) {
+      print('Error sending OTP: $e');
+      return false;
+    }
+  }
 
+  // ذخیره OTP در دیتابیس Supabase
+  static Future<bool> _saveOtpToSupabase(
+      String phoneNumber, String code) async {
+    try {
+      final client = Supabase.instance.client;
+      final expiresAt = DateTime.now()
+          .add(const Duration(minutes: 2)); // افزایش زمان انقضا به ۲ دقیقه
+
+      // ابتدا RLS را بررسی کنیم
+      try {
+        print('Testing RLS with an SQL query');
+        await client.rpc('check_user_exists', params: {
+          'phone': phoneNumber,
+        });
+        print('RPC call successful, database connection works');
+      } catch (e) {
+        print('RPC test failed: $e');
+      }
+
+      // روش اول: استفاده از insert با select
+      try {
+        print('Trying insertion with select');
         final insertResponse = await client.from('otp_codes').insert({
-          'phone_number': normalizedPhone,
+          'phone_number': phoneNumber,
           'code': code,
           'expires_at': expiresAt.toIso8601String(),
           'is_used': false,
         }).select();
 
-        if ((insertResponse.isEmpty)) {
-          print('Error: OTP not inserted!');
-          return false;
-        }
-
-        return true;
+        print('Insert response: $insertResponse');
+        return insertResponse.isNotEmpty;
       } catch (e) {
-        print('Error saving OTP to Supabase: $e');
-        return false;
+        print('Error with insert+select: $e');
+
+        // روش دوم: فقط insert بدون select
+        try {
+          print('Trying insertion without select');
+          await client.from('otp_codes').insert({
+            'phone_number': phoneNumber,
+            'code': code,
+            'expires_at': expiresAt.toIso8601String(),
+            'is_used': false,
+          });
+
+          print('Insert without select successful');
+          return true;
+        } catch (e2) {
+          print('Error with insert-only: $e2');
+
+          // روش سوم: استفاده از SQL مستقیم
+          try {
+            print('Trying direct SQL execution');
+            await client.rpc('insert_otp_code', params: {
+              'p_phone_number': phoneNumber,
+              'p_code': code,
+              'p_expires_at': expiresAt.toIso8601String(),
+            });
+
+            print('Direct SQL execution successful');
+            return true;
+          } catch (e3) {
+            print('Error with direct SQL: $e3');
+            return false;
+          }
+        }
       }
     } catch (e) {
-      print('Error sending OTP: $e');
+      print('Error saving OTP to Supabase: $e');
+      if (e is PostgrestException) {
+        print(
+            'PostgrestException details: ${e.message}, code: ${e.code}, details: ${e.details}');
+      }
       return false;
     }
   }
@@ -66,13 +121,25 @@ class OTPService {
       // Normalize phone number
       final normalizedPhone = normalizePhoneNumber(phoneNumber);
 
+      // بررسی OTP در Supabase
+      return await _verifyOtpInSupabase(normalizedPhone, code);
+    } catch (e) {
+      print('Error verifying OTP: $e');
+      return false;
+    }
+  }
+
+  // بررسی OTP در دیتابیس Supabase
+  static Future<bool> _verifyOtpInSupabase(
+      String phoneNumber, String code) async {
+    try {
       final client = Supabase.instance.client;
 
       // بررسی OTP در Supabase
       final response = await client
           .from('otp_codes')
           .select()
-          .eq('phone_number', normalizedPhone)
+          .eq('phone_number', phoneNumber)
           .eq('code', code)
           .eq('is_used', false)
           .gt('expires_at', DateTime.now().toIso8601String())
@@ -88,7 +155,7 @@ class OTPService {
 
           return true;
         } catch (e) {
-          print('Error marking OTP as used: $e');
+          print('Error marking OTP as used in Supabase: $e');
           // اگر OTP معتبر است اما نتوانستیم آن را علامت‌گذاری کنیم
           return true;
         }
@@ -96,7 +163,7 @@ class OTPService {
 
       return false;
     } catch (e) {
-      print('Error verifying OTP: $e');
+      print('Error verifying OTP in Supabase: $e');
       return false;
     }
   }

@@ -4,6 +4,10 @@ import '../screens/login_screen.dart';
 import '../screens/register_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/profile_screen.dart';
+import '../screens/workout_program_builder_screen.dart';
+import '../screens/workout_log_screen.dart';
+import '../screens/trainers_list_screen.dart';
+import '../screens/trainer_profile_screen.dart';
 import '../services/auth_state_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -34,6 +38,25 @@ class RouteService {
         return MaterialPageRoute(
           builder: (_) => const WelcomeScreen(),
         );
+      case '/workout-program-builder':
+        final String? programId = settings.arguments as String?;
+        return MaterialPageRoute(
+          builder: (_) => WorkoutProgramBuilderScreen(programId: programId),
+        );
+      case '/workout-log':
+        return MaterialPageRoute(
+          builder: (_) => const WorkoutLogScreen(),
+        );
+      case '/trainers':
+        return MaterialPageRoute(
+          builder: (_) => const TrainersListScreen(),
+        );
+      case '/trainer-profile':
+        final String trainerId = settings.arguments as String;
+        return MaterialPageRoute(
+          builder: (_) => TrainerProfileScreen(trainerId: trainerId),
+        );
+
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(

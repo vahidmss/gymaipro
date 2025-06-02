@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:percent_indicator/percent_indicator.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../services/fitness_calculator.dart';
 
 class FitnessMetrics extends StatelessWidget {
@@ -50,9 +51,9 @@ class FitnessMetrics extends StatelessWidget {
     }
 
     double bodyFatVal = 0;
-    String bodyFatCategory = '';
+    String bodyFatCategory = 'داده‌ای وارد نشده';
     String bodyFatTip = '';
-    if (waist > 0 && neck > 0 && height > 0) {
+    if (height > 0 && weight > 0 && waist > 0) {
       bodyFatVal = FitnessCalculator.calculateBodyFatPercentage(
         waist,
         neck,
@@ -61,64 +62,64 @@ class FitnessMetrics extends StatelessWidget {
         hip,
       );
 
-      if (isMale) {
-        if (bodyFatVal < 6) {
-          bodyFatCategory = 'خیلی کم';
-          bodyFatTip = 'چربی بدن شما بسیار پایین است، برای سلامتی مناسب نیست';
-        } else if (bodyFatVal < 14) {
-          bodyFatCategory = 'عالی';
-          bodyFatTip = 'درصد چربی ایده‌آل برای ورزشکاران';
-        } else if (bodyFatVal < 18) {
-          bodyFatCategory = 'خوب';
-          bodyFatTip = 'درصد چربی مناسب برای افراد فعال';
-        } else if (bodyFatVal < 25) {
-          bodyFatCategory = 'متوسط';
-          bodyFatTip = 'چربی بدن متوسط، با تمرین می‌توانید آن را بهبود بخشید';
+      if (bodyFatVal > 0) {
+        if (isMale) {
+          if (bodyFatVal < 6) {
+            bodyFatCategory = 'خیلی کم';
+            bodyFatTip = 'چربی بدن شما بسیار پایین است، برای سلامتی مناسب نیست';
+          } else if (bodyFatVal < 14) {
+            bodyFatCategory = 'عالی';
+            bodyFatTip = 'درصد چربی ایده‌آل برای ورزشکاران';
+          } else if (bodyFatVal < 18) {
+            bodyFatCategory = 'خوب';
+            bodyFatTip = 'درصد چربی مناسب برای افراد فعال';
+          } else if (bodyFatVal < 25) {
+            bodyFatCategory = 'متوسط';
+            bodyFatTip = 'چربی بدن متوسط، با تمرین می‌توانید آن را بهبود بخشید';
+          } else {
+            bodyFatCategory = 'زیاد';
+            bodyFatTip = 'چربی بدن بالا، نیاز به کاهش با ورزش و رژیم غذایی';
+          }
         } else {
-          bodyFatCategory = 'زیاد';
-          bodyFatTip = 'چربی بدن بالا، نیاز به کاهش با ورزش و رژیم غذایی';
-        }
-      } else {
-        // معیارهای زنان
-        if (bodyFatVal < 16) {
-          bodyFatCategory = 'خیلی کم';
-          bodyFatTip = 'چربی بدن شما بسیار پایین است، برای سلامتی مناسب نیست';
-        } else if (bodyFatVal < 24) {
-          bodyFatCategory = 'عالی';
-          bodyFatTip = 'درصد چربی ایده‌آل برای ورزشکاران';
-        } else if (bodyFatVal < 30) {
-          bodyFatCategory = 'خوب';
-          bodyFatTip = 'درصد چربی مناسب برای افراد فعال';
-        } else if (bodyFatVal < 35) {
-          bodyFatCategory = 'متوسط';
-          bodyFatTip = 'چربی بدن متوسط، با تمرین می‌توانید آن را بهبود بخشید';
-        } else {
-          bodyFatCategory = 'زیاد';
-          bodyFatTip = 'چربی بدن بالا، نیاز به کاهش با ورزش و رژیم غذایی';
+          // معیارهای زنان
+          if (bodyFatVal < 16) {
+            bodyFatCategory = 'خیلی کم';
+            bodyFatTip = 'چربی بدن شما بسیار پایین است، برای سلامتی مناسب نیست';
+          } else if (bodyFatVal < 24) {
+            bodyFatCategory = 'عالی';
+            bodyFatTip = 'درصد چربی ایده‌آل برای ورزشکاران';
+          } else if (bodyFatVal < 30) {
+            bodyFatCategory = 'خوب';
+            bodyFatTip = 'درصد چربی مناسب برای افراد فعال';
+          } else if (bodyFatVal < 35) {
+            bodyFatCategory = 'متوسط';
+            bodyFatTip = 'چربی بدن متوسط، با تمرین می‌توانید آن را بهبود بخشید';
+          } else {
+            bodyFatCategory = 'زیاد';
+            bodyFatTip = 'چربی بدن بالا، نیاز به کاهش با ورزش و رژیم غذایی';
+          }
         }
       }
     }
 
     double bmrVal = 0;
     String bmrTip = '';
-    if (weight > 0 && height > 0) {
+    if (height > 0 && weight > 0 && age > 0) {
       bmrVal = FitnessCalculator.calculateBMR(
         weight,
         height,
         age,
         isMale,
       );
-      bmrTip = 'میزان کالری مورد نیاز بدن در حالت استراحت';
+      bmrTip = 'کالری پایه متابولیسم در حالت استراحت کامل';
     }
 
     double tdeeVal = 0;
     String tdeeTip = '';
-    if (weight > 0 && height > 0) {
-      tdeeVal = FitnessCalculator.calculateTDEE(
-        bmrVal,
-        ActivityLevel.moderatelyActive,
-      );
-      tdeeTip = 'میزان کالری مورد نیاز روزانه با توجه به فعالیت بدنی';
+    if (bmrVal > 0) {
+      // ضریب فعالیت متوسط برای محاسبه
+      tdeeVal = bmrVal * 1.55;
+      tdeeTip = 'کالری مورد نیاز روزانه بر اساس سطح فعالیت شما';
     }
 
     return SizedBox(
@@ -167,6 +168,7 @@ class FitnessMetrics extends StatelessWidget {
             tdeeVal > 0 ? (tdeeVal / 4000).clamp(0.0, 1.0) : 0,
             Colors.purple,
           ),
+          _buildWorkoutProgramCard(context),
         ],
       ),
     );
@@ -177,76 +179,24 @@ class FitnessMetrics extends StatelessWidget {
     String title,
     String value,
     String subtitle,
-    String tip,
+    String description,
     IconData icon,
     double percent,
     Color color,
   ) {
-    return Container(
-      width: 180,
-      margin: const EdgeInsets.only(right: 16),
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 30, 30, 30),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: GestureDetector(
+        onTap: () {
+          _showMetricDetails(context, title, value, subtitle, description);
+        },
+        child: Container(
+          width: 160,
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: goldColor.withOpacity(0.1)),
           ),
-        ],
-        border: Border.all(color: goldColor.withOpacity(0.1)),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            if (tip.isNotEmpty) {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  backgroundColor: cardColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: goldColor, width: 1),
-                  ),
-                  title: Row(
-                    children: [
-                      Icon(icon, color: goldColor),
-                      const SizedBox(width: 8),
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: goldColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  content: Text(
-                    tip,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.justify,
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        foregroundColor: goldColor,
-                      ),
-                      child: const Text('باشه'),
-                    ),
-                  ],
-                ),
-              );
-            }
-          },
           child: Padding(
             padding: const EdgeInsets.all(15),
             child: Column(
@@ -263,12 +213,16 @@ class FitnessMetrics extends StatelessWidget {
                       ),
                       child: Icon(icon, color: color, size: 18),
                     ),
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
                       ),
                     ),
                   ],
@@ -326,6 +280,165 @@ class FitnessMetrics extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildWorkoutProgramCard(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.pushNamed(context, '/workout-program-builder');
+        },
+        child: Container(
+          width: 160,
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: goldColor.withOpacity(0.1)),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.green.withOpacity(0.4),
+                Colors.green.withOpacity(0.1),
+              ],
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(15),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    LucideIcons.dumbbell,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'برنامه تمرینی',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'ساخت و ویرایش',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.plus,
+                        color: Colors.white,
+                        size: 12,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'برنامه جدید',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMetricDetails(
+    BuildContext context,
+    String title,
+    String value,
+    String subtitle,
+    String description,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: cardColor,
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: goldColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              description,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'بستن',
+              style: TextStyle(color: goldColor),
+            ),
+          ),
+        ],
       ),
     );
   }

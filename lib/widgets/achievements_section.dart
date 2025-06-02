@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/app_theme.dart';
-import '../utils/animation_utils.dart';
 import 'achievement_badge.dart';
 import 'gold_dialog.dart';
 
@@ -83,13 +82,13 @@ class _AchievementsSectionState extends State<AchievementsSection>
             children: [
               Icon(
                 isUnlocked ? LucideIcons.trophy : LucideIcons.info,
-                color: color,
+                color: isUnlocked ? Colors.green : color,
                 size: 20,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  tip,
+                  isUnlocked ? 'شما این دستاورد را باز کرده‌اید!' : tip,
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
                     fontSize: 13,
@@ -112,52 +111,42 @@ class _AchievementsSectionState extends State<AchievementsSection>
 
   @override
   Widget build(BuildContext context) {
-    // شبیه‌سازی داده‌های پیشرفت و دستاوردها
-    final List<Map<String, dynamic>> achievements = [
+    final achievements = [
       {
-        'title': 'مبتدی',
+        'title': 'تازه‌کار',
         'description': 'ثبت اولین تمرین',
-        'icon': LucideIcons.dumbbell,
+        'icon': LucideIcons.trophy,
         'isUnlocked': true,
         'progress': 1.0,
         'color': Colors.green,
-        'tip': 'شما اولین تمرین خود را ثبت کرده‌اید. ادامه دهید!',
+        'tip': 'شما اولین تمرین خود را با موفقیت ثبت کرده‌اید!',
       },
       {
-        'title': 'متوالی',
-        'description': 'ثبت تمرین برای ۷ روز متوالی',
-        'icon': LucideIcons.flame,
+        'title': 'پرتلاش',
+        'description': 'تکمیل ۱۰ جلسه تمرین',
+        'icon': LucideIcons.medal,
+        'isUnlocked': true,
+        'progress': 1.0,
+        'color': Colors.blue,
+        'tip': 'شما ۱۰ جلسه تمرین را با موفقیت تکمیل کرده‌اید!',
+      },
+      {
+        'title': 'ورزشکار',
+        'description': 'تکمیل ۳۰ جلسه تمرین',
+        'icon': LucideIcons.star,
         'isUnlocked': false,
-        'progress': 0.7,
+        'progress': 0.63,
         'color': Colors.orange,
-        'tip': 'برای باز کردن این دستاورد، باید ۷ روز متوالی تمرین کنید.',
+        'tip': 'شما ۱۹ جلسه از ۳۰ جلسه تمرین را تکمیل کرده‌اید.',
       },
       {
         'title': 'قهرمان',
-        'description': 'تکمیل ۳۰ جلسه تمرین',
-        'icon': LucideIcons.medal,
+        'description': 'تکمیل ۵۰ جلسه تمرین',
+        'icon': LucideIcons.award,
         'isUnlocked': false,
-        'progress': 0.5,
-        'color': AppTheme.goldColor,
-        'tip': 'شما ۱۵ جلسه از ۳۰ جلسه تمرین را تکمیل کرده‌اید.',
-      },
-      {
-        'title': 'کوهنورد',
-        'description': 'افزایش ۱۰ درصدی وزنه‌ها',
-        'icon': LucideIcons.mountain,
-        'isUnlocked': false,
-        'progress': 0.3,
-        'color': Colors.blue,
-        'tip': 'شما ۳ درصد از هدف افزایش ۱۰ درصدی وزنه‌ها را پیشرفت کرده‌اید.',
-      },
-      {
-        'title': 'متعادل',
-        'description': 'رسیدن به BMI سالم',
-        'icon': LucideIcons.heartPulse,
-        'isUnlocked': false,
-        'progress': 0.8,
-        'color': Colors.red,
-        'tip': 'شما خیلی نزدیک به محدوده BMI سالم هستید. ادامه دهید!',
+        'progress': 0.38,
+        'color': Colors.amber,
+        'tip': 'شما ۱۹ جلسه از ۵۰ جلسه تمرین را تکمیل کرده‌اید.',
       },
       {
         'title': 'حرفه‌ای',
@@ -170,12 +159,15 @@ class _AchievementsSectionState extends State<AchievementsSection>
       },
     ];
 
+    // رفع مشکل overflow با استفاده از ابعاد مناسب و Flexible
     return Opacity(
       opacity: _animation.value,
       child: Transform.translate(
         offset: Offset(0, 20 * (1 - _animation.value)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize:
+              MainAxisSize.min, // اضافه کردن این خط برای جلوگیری از overflow
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -197,9 +189,9 @@ class _AchievementsSectionState extends State<AchievementsSection>
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 130,
+            const SizedBox(height: 12), // کاهش ارتفاع از 16 به 12
+            Flexible(
+              // استفاده از Flexible به جای SizedBox با ارتفاع ثابت
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),

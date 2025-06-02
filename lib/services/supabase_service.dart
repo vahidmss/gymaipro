@@ -1,6 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 // import '../models/profile_model.dart'; // Removed this line
-import '../models/weight_record_model.dart';
 import '../models/user_profile.dart';
 import 'dart:io';
 
@@ -52,9 +51,27 @@ class SupabaseService {
 
   Future<void> updateProfile(String userId, Map<String, dynamic> data) async {
     try {
-      await _client.from('profiles').update(data).eq('id', userId);
+      print('در حال بروزرسانی پروفایل کاربر $userId با داده‌های زیر:');
+      print(data);
+
+      // حذف فیلدهایی که در جدول profiles وجود ندارند
+      final Map<String, dynamic> cleanData = Map.from(data);
+      cleanData.remove('weight_history');
+
+      print('داده‌های تمیز شده برای ارسال به دیتابیس:');
+      print(cleanData);
+
+      final response =
+          await _client.from('profiles').update(cleanData).eq('id', userId);
+
+      print('پاسخ بروزرسانی پروفایل: $response');
+      print('پروفایل با موفقیت به‌روزرسانی شد');
     } catch (e) {
-      print('Error updating profile: $e');
+      print('خطای جدی در بروزرسانی پروفایل: $e');
+      if (e is PostgrestException) {
+        print(
+            'جزئیات خطای Postgrest: ${e.code}, ${e.details}, ${e.hint}, ${e.message}');
+      }
       rethrow;
     }
   }
@@ -430,29 +447,63 @@ class SupabaseService {
           'Auth registration successful for user ID: ${authResponse.user!.id}, email: $email');
 
       // ایجاد پروفایل در جدول profiles
-      // Ensure this matches the structure expected by createInitialProfile and RLS policies
       final profileData = {
-        'id': authResponse.user!.id, // Crucial: Link to auth user
+        'id': authResponse.user!.id, // Use auth user ID as profile ID
         'username': username,
         'phone_number': normalizedPhone,
-        'email': email, // Store the email used for auth
-        // 'created_at' and 'updated_at' should be handled by db defaults/triggers
+        'email': email,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
       };
 
-      final profileInsertResponse = await _client
-          .from('profiles')
-          .insert(profileData)
-          .select(); // select() fetches the inserted row(s)
+      print('Creating profile with data: $profileData');
 
-      if (profileInsertResponse.isEmpty) {
-        print(
-            'Profile creation failed after auth. Response: $profileInsertResponse');
-        // Consider if user should be deleted from auth if profile creation fails, or other cleanup.
-        return false;
+      // Clear any existing profile entry (in case it exists but is incomplete)
+      try {
+        await _client.from('profiles').delete().eq('id', authResponse.user!.id);
+        print('Deleted any existing incomplete profile');
+      } catch (e) {
+        print('No existing profile to delete or error: $e');
       }
 
-      print('Profile created directly: $profileInsertResponse');
-      return true;
+      // Create the profile
+      try {
+        final profileResponse =
+            await _client.from('profiles').insert(profileData).select();
+        print('Profile creation response: $profileResponse');
+      } catch (e) {
+        print('Profile creation with select failed: $e');
+
+        // Try without select
+        try {
+          await _client.from('profiles').insert(profileData);
+          print('Profile created without select');
+        } catch (e2) {
+          print('Profile creation without select also failed: $e2');
+          return false;
+        }
+      }
+
+      // Verify profile was created by checking if we can retrieve it
+      try {
+        final checkProfile = await _client
+            .from('profiles')
+            .select()
+            .eq('id', authResponse.user!.id)
+            .maybeSingle();
+
+        if (checkProfile == null) {
+          print(
+              'Profile verification failed - could not retrieve created profile');
+          return false;
+        }
+
+        print('Profile verified: $checkProfile');
+        return true;
+      } catch (e) {
+        print('Profile verification error: $e');
+        return false;
+      }
     } catch (e) {
       print('Error in direct registration: $e');
       if (e is PostgrestException) {
@@ -612,36 +663,74 @@ class SupabaseService {
       );
 
       if (response.user != null) {
-        try {
-          // ایجاد پروفایل کاربر
-          final profileData = {
-            'id': response.user!.id,
-            'username': username,
-            'phone_number': normalizedPhone,
-            'email': email,
-            'created_at': DateTime.now().toIso8601String(),
-            'gender': 'male', // مقدار پیش‌فرض برای جنسیت
-          };
+        print('User created successfully with ID: ${response.user!.id}');
 
-          // اطمینان از اینکه پروفایل به درستی ایجاد شده
+        // Clear any existing profile for this user ID (if it exists)
+        try {
+          await _client.from('profiles').delete().eq('id', response.user!.id);
+          print('Cleared any existing profile for this user');
+        } catch (e) {
+          print('No existing profile to clear or error: $e');
+        }
+
+        // ایجاد پروفایل کاربر
+        final profileData = {
+          'id': response.user!.id, // Critical: This must match the auth user ID
+          'username': username,
+          'phone_number': normalizedPhone,
+          'email': email,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        };
+
+        print('Creating profile with data: $profileData');
+
+        // Try multiple approaches to ensure profile creation
+        bool profileCreated = false;
+
+        // First attempt: insert with select
+        try {
           final insertResponse = await _client
               .from('profiles')
               .insert(profileData)
               .select()
               .single();
 
-          print('Profile created successfully: $insertResponse');
+          print('Profile created successfully (method 1): $insertResponse');
+          profileCreated = true;
+        } catch (e) {
+          print('First profile creation method failed: $e');
 
-          // ایجاد پروفایل اولیه با روش دیگر نیز تلاش کنیم
-          await createInitialProfile(response.user!, normalizedPhone,
-              username: username);
-        } catch (profileError) {
-          print(
-              'Error creating profile, trying alternative method: $profileError');
+          // Second attempt: insert without select
+          try {
+            await _client.from('profiles').insert(profileData);
+            print('Profile created successfully (method 2)');
+            profileCreated = true;
+          } catch (e2) {
+            print('Second profile creation method failed: $e2');
+          }
+        }
 
-          // تلاش برای ایجاد پروفایل با روش دوم
-          await createInitialProfile(response.user!, normalizedPhone,
-              username: username);
+        // Verify profile creation
+        if (profileCreated) {
+          try {
+            final checkProfile = await _client
+                .from('profiles')
+                .select()
+                .eq('id', response.user!.id)
+                .maybeSingle();
+
+            if (checkProfile != null) {
+              print('Profile verified successfully: $checkProfile');
+            } else {
+              print(
+                  'WARNING: Profile verification failed - profile may not exist');
+            }
+          } catch (e) {
+            print('Profile verification error: $e');
+          }
+        } else {
+          print('WARNING: All profile creation attempts failed');
         }
       }
 

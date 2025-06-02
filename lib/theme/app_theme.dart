@@ -95,6 +95,8 @@ class AppTheme {
     );
   }
 
+  static ThemeData get darkTheme => darkGoldTheme;
+
   static ThemeData darkGoldTheme = ThemeData(
     brightness: Brightness.dark,
     primaryColor: const Color(0xFFFFD700),

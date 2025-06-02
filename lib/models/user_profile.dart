@@ -19,6 +19,7 @@ class UserProfile {
   final List<String>? medicalConditions;
   final List<String>? dietaryPreferences;
   final String? gender;
+  final String role;
   final List<Map<String, dynamic>>? weightHistory;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -44,6 +45,7 @@ class UserProfile {
     this.medicalConditions,
     this.dietaryPreferences,
     this.gender,
+    this.role = 'athlete',
     this.weightHistory,
     this.createdAt,
     this.updatedAt,
@@ -98,6 +100,7 @@ class UserProfile {
           ? List<String>.from(json['dietary_preferences'])
           : null,
       gender: json['gender'],
+      role: json['role'] ?? 'athlete',
       weightHistory: json['weight_history'] != null
           ? List<Map<String, dynamic>>.from(json['weight_history'])
           : null,
@@ -134,6 +137,7 @@ class UserProfile {
       'medical_conditions': medicalConditions,
       'dietary_preferences': dietaryPreferences,
       'gender': gender,
+      'role': role,
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
     };
@@ -160,6 +164,7 @@ class UserProfile {
     List<String>? medicalConditions,
     List<String>? dietaryPreferences,
     String? gender,
+    String? role,
     List<Map<String, dynamic>>? weightHistory,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -187,6 +192,7 @@ class UserProfile {
       medicalConditions: medicalConditions ?? this.medicalConditions,
       dietaryPreferences: dietaryPreferences ?? this.dietaryPreferences,
       gender: gender ?? this.gender,
+      role: role ?? this.role,
       weightHistory: weightHistory ?? this.weightHistory,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -209,4 +215,10 @@ class UserProfile {
 
     return requiredFields.every((field) => field != null);
   }
+
+  bool get isTrainer => role == 'trainer';
+
+  bool get isAdmin => role == 'admin';
+
+  bool get isAthlete => role == 'athlete';
 }

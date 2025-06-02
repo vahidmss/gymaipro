@@ -1,7 +1,7 @@
 -- جدول تمرینات
-CREATE TABLE public.workouts (
+CREATE TABLE IF NOT EXISTS public.workouts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT,
     duration INTEGER NOT NULL, -- به دقیقه
@@ -14,7 +14,7 @@ CREATE TABLE public.workouts (
 );
 
 -- جدول حرکات تمرینی
-CREATE TABLE public.exercises (
+CREATE TABLE IF NOT EXISTS public.exercises (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     description TEXT,
@@ -26,7 +26,7 @@ CREATE TABLE public.exercises (
 );
 
 -- جدول جزئیات تمرینات
-CREATE TABLE public.workout_exercises (
+CREATE TABLE if not exists public.workout_exercises (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     workout_id UUID NOT NULL REFERENCES public.workouts(id) ON DELETE CASCADE,
     exercise_id UUID NOT NULL REFERENCES public.exercises(id),
@@ -47,19 +47,19 @@ ALTER TABLE public.workout_exercises ENABLE ROW LEVEL SECURITY;
 -- سیاست‌های workouts
 CREATE POLICY "Users can view their own workouts" 
 ON public.workouts FOR SELECT 
-USING (auth.uid() = profile_id);
+USING (auth.uid() = id);
 
 CREATE POLICY "Users can insert their own workouts" 
 ON public.workouts FOR INSERT 
-WITH CHECK (auth.uid() = profile_id);
+WITH CHECK (auth.uid() = id);
 
 CREATE POLICY "Users can update their own workouts" 
 ON public.workouts FOR UPDATE 
-USING (auth.uid() = profile_id);
+USING (auth.uid() = id);
 
 CREATE POLICY "Users can delete their own workouts" 
 ON public.workouts FOR DELETE 
-USING (auth.uid() = profile_id);
+USING (auth.uid() = id);
 
 -- سیاست‌های exercises
 CREATE POLICY "Anyone can view exercises" 
@@ -71,28 +71,28 @@ CREATE POLICY "Users can view their own workout_exercises"
 ON public.workout_exercises FOR SELECT 
 USING (EXISTS (
     SELECT 1 FROM public.workouts w 
-    WHERE w.id = workout_id AND w.profile_id = auth.uid()
+    WHERE w.id = workout_id AND w.id = auth.uid()
 ));
 
 CREATE POLICY "Users can insert their own workout_exercises" 
 ON public.workout_exercises FOR INSERT 
 WITH CHECK (EXISTS (
     SELECT 1 FROM public.workouts w 
-    WHERE w.id = workout_id AND w.profile_id = auth.uid()
+    WHERE w.id = workout_id AND w.id = auth.uid()
 ));
 
 CREATE POLICY "Users can update their own workout_exercises" 
 ON public.workout_exercises FOR UPDATE 
 USING (EXISTS (
     SELECT 1 FROM public.workouts w 
-    WHERE w.id = workout_id AND w.profile_id = auth.uid()
+    WHERE w.id = workout_id AND w.id = auth.uid()
 ));
 
 CREATE POLICY "Users can delete their own workout_exercises" 
 ON public.workout_exercises FOR DELETE 
 USING (EXISTS (
     SELECT 1 FROM public.workouts w 
-    WHERE w.id = workout_id AND w.profile_id = auth.uid()
+    WHERE w.id = workout_id AND w.id = auth.uid()
 ));
 
 -- ایجاد تریگر برای بروزرسانی updated_at
@@ -123,7 +123,7 @@ BEGIN
             WITH dates AS (
                 SELECT DISTINCT workout_date
                 FROM public.workouts
-                WHERE profile_id = user_id
+                WHERE id = user_id
                 ORDER BY workout_date DESC
             ),
             consecutive AS (
@@ -141,16 +141,9 @@ BEGIN
         )
     ) INTO result
     FROM public.workouts
-    WHERE profile_id = user_id;
+    WHERE id = user_id;
     
     RETURN result;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- اضافه کردن چند حرکت پیش‌فرض
-INSERT INTO public.exercises (name, description, muscle_group, difficulty_level, instructions) VALUES
-('پرس سینه', 'حرکت پایه برای عضلات سینه', 'سینه', 'متوسط', 'روی نیمکت بخوابید و وزنه را بالای سینه خود نگه دارید...'),
-('اسکات', 'حرکت پایه برای عضلات پا', 'پا', 'متوسط', 'پاها به اندازه عرض شانه باز، پشت صاف، زانوها را خم کنید...'),
-('زیربغل سیم‌کش', 'حرکت کششی برای عضلات پشت', 'پشت', 'مبتدی', 'رو به دستگاه بایستید، پاها به اندازه عرض شانه باز...'),
-('جلو بازو هالتر', 'حرکت پایه برای عضلات جلو بازو', 'بازو', 'مبتدی', 'هالتر را با دست‌ها در حالتی که کف دست رو به بالاست بگیرید...'),
-('پلانک', 'حرکت ایزومتریک برای تقویت مرکز بدن', 'شکم', 'مبتدی', 'در حالت شنا قرار بگیرید اما به جای دست‌ها روی ساعد تکیه کنید...'); 

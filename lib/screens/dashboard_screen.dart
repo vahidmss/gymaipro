@@ -4,12 +4,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../screens/profile_screen.dart';
+import '../screens/exercise_list_screen.dart';
 import '../widgets/weight_chart.dart';
 import '../widgets/fitness_metrics.dart';
-import '../widgets/stats_grid.dart';
 import '../widgets/achievements_section.dart';
-import '../services/achievement_service.dart';
-import '../theme/app_theme.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -165,7 +163,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CircularProgressIndicator(
+                    const CircularProgressIndicator(
                       color: goldColor,
                       strokeWidth: 3,
                     ),
@@ -203,11 +201,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                 _buildDrawerItem(LucideIcons.layoutDashboard, 'داشبورد', 0),
                 _buildDrawerItem(LucideIcons.user, 'پروفایل من', 1),
                 _buildDrawerItem(LucideIcons.dumbbell, 'برنامه تمرینی من', 2),
+                _buildDrawerItem(LucideIcons.book, 'آموزش تمرینات', 3),
                 _buildDrawerItem(
-                    LucideIcons.clipboardList, 'ثبت تمرین امروز', 3),
-                _buildDrawerItem(LucideIcons.lineChart, 'نمودار پیشرفت', 4),
+                    LucideIcons.clipboardList, 'ثبت تمرین امروز', 4),
+                _buildDrawerItem(LucideIcons.lineChart, 'نمودار پیشرفت', 5),
+                _buildDrawerItem(LucideIcons.users, 'مربیان', 6),
                 _buildDrawerItem(
-                    LucideIcons.messageCircle, 'مشاوره با مربی', 5),
+                    LucideIcons.messageCircle, 'مشاوره با مربی', 7),
 
                 // Divider before settings
                 const Padding(
@@ -215,9 +215,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                   child: Divider(color: Colors.white24, height: 1),
                 ),
 
-                _buildDrawerItem(LucideIcons.settings, 'تنظیمات', 6),
+                _buildDrawerItem(LucideIcons.settings, 'تنظیمات', 8),
                 _buildDrawerItem(
-                    LucideIcons.helpCircle, 'راهنما و پشتیبانی', 7),
+                    LucideIcons.helpCircle, 'راهنما و پشتیبانی', 9),
               ],
             ),
           ),
@@ -334,6 +334,22 @@ class _DashboardScreenState extends State<DashboardScreen>
               context,
               MaterialPageRoute(builder: (context) => const ProfileScreen()),
             );
+          } else if (index == 2) {
+            // Workout program builder
+            Navigator.pushNamed(context, '/workout-program-builder');
+          } else if (index == 3) {
+            // Exercise Tutorials
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const ExerciseListScreen()),
+            );
+          } else if (index == 4) {
+            // ثبت تمرین
+            Navigator.pushNamed(context, '/workout-log');
+          } else if (index == 6) {
+            // مربیان
+            Navigator.pushNamed(context, '/trainers');
           }
         },
         selected: isSelected,
@@ -353,28 +369,56 @@ class _DashboardScreenState extends State<DashboardScreen>
           top: BorderSide(color: Colors.white10, width: 1),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
-          Text(
-            'نسخه 1.0.0',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
-              fontSize: 12,
-            ),
-          ),
-          ElevatedButton.icon(
-            onPressed: _signOut,
-            icon: const Icon(LucideIcons.logOut, size: 16),
-            label: const Text('خروج'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.withOpacity(0.2),
-              foregroundColor: Colors.red.shade300,
-              elevation: 0,
+          // Test functionality button - for developers only
+          OutlinedButton(
+            onPressed: () {
+              Navigator.pushNamed(context, '/test-program-log');
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: accentColor,
+              side: const BorderSide(color: accentColor),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.science, size: 18),
+                SizedBox(width: 8),
+                Text('تست لاگ برنامه تمرینی'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Original footer content
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'نسخه 1.0.0',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 12,
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: _signOut,
+                icon: const Icon(LucideIcons.logOut, size: 16),
+                label: const Text('خروج'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.withOpacity(0.2),
+                  foregroundColor: Colors.red.shade300,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
