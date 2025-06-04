@@ -25,7 +25,7 @@ class OTPService {
       // Normalize phone number
       final normalizedPhone = normalizePhoneNumber(phoneNumber);
 
-      // فقط لاگ کن و پیامک ارسال نکن
+      // فقط لاگ کن و پیامک ارسال نکن (در محیط توسعه)
       print('==============================');
       print('      ⚡️ OTP CODE FOR TEST ⚡️');
       print('      PHONE: $normalizedPhone');
@@ -56,12 +56,12 @@ class OTPService {
         });
         print('RPC call successful, database connection works');
       } catch (e) {
+        // خطای RPC باعث توقف روند نمی‌شود
         print('RPC test failed: $e');
       }
 
-      // روش اول: استفاده از insert با select
       try {
-        print('Trying insertion with select');
+        // تلاش برای ذخیره کد OTP
         final insertResponse = await client.from('otp_codes').insert({
           'phone_number': phoneNumber,
           'code': code,
@@ -69,48 +69,22 @@ class OTPService {
           'is_used': false,
         }).select();
 
-        print('Insert response: $insertResponse');
         return insertResponse.isNotEmpty;
       } catch (e) {
-        print('Error with insert+select: $e');
+        // تلاش دوم: فقط insert بدون select
+        await client.from('otp_codes').insert({
+          'phone_number': phoneNumber,
+          'code': code,
+          'expires_at': expiresAt.toIso8601String(),
+          'is_used': false,
+        });
 
-        // روش دوم: فقط insert بدون select
-        try {
-          print('Trying insertion without select');
-          await client.from('otp_codes').insert({
-            'phone_number': phoneNumber,
-            'code': code,
-            'expires_at': expiresAt.toIso8601String(),
-            'is_used': false,
-          });
-
-          print('Insert without select successful');
-          return true;
-        } catch (e2) {
-          print('Error with insert-only: $e2');
-
-          // روش سوم: استفاده از SQL مستقیم
-          try {
-            print('Trying direct SQL execution');
-            await client.rpc('insert_otp_code', params: {
-              'p_phone_number': phoneNumber,
-              'p_code': code,
-              'p_expires_at': expiresAt.toIso8601String(),
-            });
-
-            print('Direct SQL execution successful');
-            return true;
-          } catch (e3) {
-            print('Error with direct SQL: $e3');
-            return false;
-          }
-        }
+        return true;
       }
     } catch (e) {
       print('Error saving OTP to Supabase: $e');
       if (e is PostgrestException) {
-        print(
-            'PostgrestException details: ${e.message}, code: ${e.code}, details: ${e.details}');
+        print('PostgrestException: ${e.message}');
       }
       return false;
     }
@@ -155,8 +129,8 @@ class OTPService {
 
           return true;
         } catch (e) {
-          print('Error marking OTP as used in Supabase: $e');
           // اگر OTP معتبر است اما نتوانستیم آن را علامت‌گذاری کنیم
+          print('Error marking OTP as used: $e');
           return true;
         }
       }

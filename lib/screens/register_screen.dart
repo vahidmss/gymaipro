@@ -122,12 +122,8 @@ class _RegisterScreenState extends State<RegisterScreen>
         }
       }
 
-      // Log before sending OTP for clarity
-      print(
-          'RegisterScreen: Attempting to send OTP to $normalizedPhone for username: $username');
-
+      // تولید و ارسال کد OTP
       final otpCode = OTPService.generateOTP();
-      // Assuming sendOTP will handle showing errors internally or throw an exception
       final success = await OTPService.sendOTP(normalizedPhone, otpCode);
 
       if (!success) {
@@ -142,9 +138,6 @@ class _RegisterScreenState extends State<RegisterScreen>
       }
 
       if (mounted) {
-        // Navigate to OTP verification screen regardless of direct sendOTP success,
-        // as OTPVerificationScreen will handle the actual verification and profile creation.
-        // The sendOTP function itself should indicate failure if critical (e.g. network error).
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(

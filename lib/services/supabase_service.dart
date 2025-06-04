@@ -10,10 +10,37 @@ class SupabaseService {
   String normalizePhoneNumber(String phoneNumber) {
     // Remove any spaces or special characters
     String normalized = phoneNumber.replaceAll(RegExp(r'\s+'), '');
+    normalized = normalized.replaceAll(RegExp(r'[^\d]'), '');
 
-    // Ensure it starts with 0
+    // Ensure it starts with 0 for Supabase storage
     if (!normalized.startsWith('0')) {
       normalized = '0$normalized';
+    }
+
+    // Remove +98 if present and replace with 0
+    if (normalized.startsWith('+98')) {
+      normalized = '0${normalized.substring(3)}';
+    } else if (normalized.startsWith('98')) {
+      normalized = '0${normalized.substring(2)}';
+    }
+
+    return normalized;
+  }
+
+  // حذف صفر ابتدایی برای ذخیره در وردپرس
+  String normalizePhoneNumberForWordPress(String phoneNumber) {
+    // حذف هرگونه فاصله یا کاراکترهای خاص
+    String normalized = phoneNumber.replaceAll(RegExp(r'\s+'), '');
+    normalized = normalized.replaceAll(RegExp(r'[^\d]'), '');
+
+    // حذف صفر ابتدایی - فقط صفر اول
+    if (normalized.startsWith('0')) {
+      normalized = normalized.substring(1);
+    }
+
+    // حذف کد کشور اگر وجود داشته باشد
+    if (normalized.startsWith('98')) {
+      normalized = normalized.substring(2);
     }
 
     return normalized;

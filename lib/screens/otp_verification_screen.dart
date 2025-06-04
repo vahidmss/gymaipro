@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import '../services/otp_service.dart';
 import '../services/supabase_service.dart';
+import '../services/sync_service.dart';
 import 'dart:async';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_state_service.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
@@ -27,6 +27,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   Timer? _resendTimer;
   int _remainingTime = 60;
   bool _canResend = false;
+  final SyncService _syncService = SyncService();
 
   @override
   void initState() {
@@ -138,19 +139,20 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         _showError('کد وارد شده صحیح نیست');
         return;
       }
-      // تلاش برای دریافت کاربر فعلی
-      var user = Supabase.instance.client.auth.currentUser;
-      // اگر کاربر لاگین نیست، ثبت‌نام و لاگین کن
-      if (user == null) {
-        // ثبت‌نام در Supabase Auth
-        final session = await supabaseService.signUpWithPhone(
-            normalizedPhone, widget.username);
-        if (session == null) {
-          _showError('خطا در ثبت‌نام کاربر. لطفاً دوباره تلاش کنید.');
-          return;
-        }
 
-        print('User signed up successfully, saving session...');
+      // ثبت نام همزمان در وردپرس و سوپابیس
+      final syncResult =
+          await _syncService.syncRegister(widget.username, normalizedPhone);
+
+      if (!syncResult['success']) {
+        _showError(syncResult['message']);
+        return;
+      }
+
+      // اگر همه چیز موفقیت‌آمیز بود، احراز هویت کاربر
+      final session = syncResult['session'];
+      if (session != null) {
+        print('User registered successfully, saving session...');
         try {
           await AuthStateService().saveAuthState(session);
           print('Session saved after registration');
@@ -162,22 +164,6 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         } catch (e) {
           print('Error saving session after registration: $e');
         }
-
-        user = Supabase.instance.client.auth.currentUser;
-        if (user == null) {
-          _showError('خطا در ورود کاربر. لطفاً دوباره تلاش کنید.');
-          return;
-        }
-      }
-      // ایجاد پروفایل کاربر
-      final userProfile = await supabaseService.createInitialProfile(
-        user,
-        normalizedPhone,
-        username: widget.username,
-      );
-      if (userProfile == null) {
-        _showError('خطا در ایجاد پروفایل کاربری. لطفاً دوباره تلاش کنید.');
-        return;
       }
 
       // ابتدا انیمیشن‌ها و تایمرها را متوقف می‌کنیم
@@ -270,6 +256,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                   inactiveColor: Colors.grey,
                 ),
                 enableActiveFill: true,
+                autoDisposeControllers: false,
                 onChanged: (value) {
                   if (_errorMessage != null) {
                     setState(() {
@@ -277,30 +264,36 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                     });
                   }
                 },
-                beforeTextPaste: (text) =>
-                    text?.length == 6 && text!.contains(RegExp(r'^\d+$')),
-                autoDisposeControllers: false,
               ),
-              const SizedBox(height: 16),
               if (_errorMessage != null) ...[
-                Text(
-                  _errorMessage!,
-                  style: const TextStyle(
-                    color: Colors.red,
-                    fontSize: 14,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
                 const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _errorMessage!,
+                    style: TextStyle(
+                      color: Colors.red.shade700,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
               ],
+              const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _verifyAndNavigate,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                   child: _isLoading
@@ -308,38 +301,39 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                           width: 24,
                           height: 24,
                           child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
+                            color: Colors.white,
                           ),
                         )
                       : const Text(
-                          'تایید',
+                          'تایید و ادامه',
                           style: TextStyle(fontSize: 16),
                         ),
                 ),
               ),
               const SizedBox(height: 24),
-              Column(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    _remainingTime > 0
-                        ? 'ارسال مجدد کد تا $_remainingTime ثانیه دیگر'
-                        : 'کد را دریافت نکردید؟',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
+                  TextButton(
                     onPressed: (_canResend && !_isLoading) ? _resendOTP : null,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('ارسال مجدد کد'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: _canResend ? Colors.blue : Colors.grey,
+                    child: Text(
+                      _canResend
+                          ? 'ارسال مجدد کد'
+                          : 'ارسال مجدد کد (${_remainingTime}s)',
+                      style: TextStyle(
+                        color: (_canResend && !_isLoading)
+                            ? Theme.of(context).primaryColor
+                            : Colors.grey,
+                      ),
                     ),
+                  ),
+                  TextButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            Navigator.of(context).pop();
+                          },
+                    child: const Text('بازگشت'),
                   ),
                 ],
               ),
