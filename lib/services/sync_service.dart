@@ -1,10 +1,16 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_service.dart';
 import 'wordpress_service.dart';
+import 'package:shamsi_date/shamsi_date.dart';
 
 class SyncService {
   final SupabaseService _supabaseService = SupabaseService();
   final WordPressService _wordpressService = WordPressService();
+
+  // تست اتصال به API وردپرس
+  Future<bool> testWordPressConnection() async {
+    return await _wordpressService.testConnection();
+  }
 
   // ثبت نام همزمان در وردپرس و سوپابیس
   Future<Map<String, dynamic>> syncRegister(
@@ -251,6 +257,151 @@ class SyncService {
         'success': false,
         'message': 'خطا در فرآیند ثبت نام: ${e.toString()}',
         'exists_in': 'wordpress'
+      };
+    }
+  }
+
+  // همگام‌سازی پروفایل کاربر بین سوپابیس و وردپرس
+  Future<Map<String, dynamic>> syncUserProfile(
+      String phoneNumber, Map<String, dynamic> profileData) async {
+    try {
+      // نرمال‌سازی شماره موبایل برای وردپرس (فقط حذف صفر ابتدایی)
+      final normalizedPhoneWP =
+          _supabaseService.normalizePhoneNumberForWordPress(phoneNumber);
+
+      print(
+          'شروع فرآیند همگام‌سازی پروفایل با شماره موبایل: $normalizedPhoneWP');
+      print('داده‌های پروفایل برای ارسال: $profileData');
+
+      // پردازش داده‌های پروفایل برای ارسال به وردپرس
+      final Map<String, dynamic> wordpressProfileData = {};
+
+      // کپی فیلدهای متنی با بررسی خالی نبودن
+      final textFields = [
+        'first_name',
+        'last_name',
+        'bio',
+        'experience_level',
+        'preferred_training_time',
+        'gender',
+      ];
+
+      for (var field in textFields) {
+        if (profileData.containsKey(field) &&
+            profileData[field] != null &&
+            profileData[field].toString().isNotEmpty) {
+          wordpressProfileData[field] = profileData[field];
+        }
+      }
+
+      // اطمینان از وجود فیلد profile_picture برای وردپرس
+      if (profileData.containsKey('avatar_url') &&
+          profileData['avatar_url'] != null &&
+          profileData['avatar_url'].toString().isNotEmpty) {
+        wordpressProfileData['profile_picture'] = profileData['avatar_url'];
+      }
+
+      // تبدیل فیلدهای عددی به صورت صحیح
+      final numericFields = [
+        'weight',
+        'height',
+        'arm_circumference',
+        'chest_circumference',
+        'waist_circumference',
+        'hip_circumference',
+      ];
+
+      for (var field in numericFields) {
+        if (profileData.containsKey(field) &&
+            profileData[field] != null &&
+            profileData[field].toString().isNotEmpty) {
+          try {
+            // تبدیل به عدد برای اطمینان از صحت
+            var numValue = num.tryParse(profileData[field].toString());
+            if (numValue != null) {
+              wordpressProfileData[field] = numValue;
+            }
+          } catch (e) {
+            print('خطا در تبدیل فیلد $field به عدد: $e');
+          }
+        }
+      }
+
+      // اضافه کردن سن (اگر تاریخ تولد موجود باشد)
+      if (profileData.containsKey('birth_date') &&
+          profileData['birth_date'] != null &&
+          profileData['birth_date'].toString().isNotEmpty) {
+        try {
+          // تبدیل birth_date به DateTime اگر به صورت رشته نباشد
+          DateTime birthDate;
+          if (profileData['birth_date'] is DateTime) {
+            birthDate = profileData['birth_date'] as DateTime;
+          } else {
+            birthDate = DateTime.parse(profileData['birth_date'].toString());
+          }
+
+          final now = DateTime.now();
+          final age = now.year -
+              birthDate.year -
+              (now.month < birthDate.month ||
+                      (now.month == birthDate.month && now.day < birthDate.day)
+                  ? 1
+                  : 0);
+          wordpressProfileData['age'] = age;
+
+          // تبدیل تاریخ میلادی به شمسی با فرمت سال/ماه/روز
+          final persianDate = Jalali.fromDateTime(birthDate);
+          String day = persianDate.day.toString().padLeft(2, '0');
+          String month = persianDate.month.toString().padLeft(2, '0');
+          String year = persianDate.year.toString();
+          final persianDateStr = '$year/$month/$day';
+
+          wordpressProfileData['birth_date'] = persianDateStr;
+        } catch (e) {
+          print('خطا در محاسبه سن: $e');
+        }
+      }
+
+      // ارسال اطلاعات به وردپرس
+      print('ارسال اطلاعات به وردپرس با شماره: $normalizedPhoneWP');
+      print('داده‌های آماده شده برای وردپرس: $wordpressProfileData');
+
+      final wpResult = await _wordpressService.updateUserProfile(
+          normalizedPhoneWP, wordpressProfileData);
+
+      print('نتیجه به‌روزرسانی پروفایل در وردپرس: $wpResult');
+
+      if (wpResult['success'] != true) {
+        print(
+            'خطا در به‌روزرسانی پروفایل در وردپرس: ${wpResult['error'] ?? 'خطای نامشخص'}');
+        return {
+          'success': false,
+          'wordpress_sync': false,
+          'supabase_sync': false,
+          'message':
+              'خطا در به‌روزرسانی پروفایل در سایت: ${wpResult['error'] ?? 'خطای نامشخص'}'
+        };
+      }
+
+      print('پروفایل در وردپرس با موفقیت به‌روز شد');
+      print('فیلدهای به‌روز شده: ${wpResult['updated_fields']}');
+
+      // در حالت فعلی نیازی به به‌روزرسانی مجدد سوپابیس نیست
+      // چون قبلاً در _saveProfile انجام شده است
+
+      return {
+        'success': true,
+        'wordpress_sync': true,
+        'message': 'پروفایل با موفقیت در سایت به‌روز شد',
+        'updated_fields': wpResult['updated_fields']
+      };
+    } catch (e) {
+      print('خطا در همگام‌سازی پروفایل: $e');
+      return {
+        'success': false,
+        'wordpress_sync': false,
+        'supabase_sync': false,
+        'message': 'خطا در فرآیند همگام‌سازی پروفایل: ${e.toString()}'
       };
     }
   }

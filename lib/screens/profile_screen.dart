@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shamsi_date/shamsi_date.dart';
+import '../services/sync_service.dart';
+import '../services/wordpress_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -25,8 +27,11 @@ class _ProfileScreenState extends State<ProfileScreen>
   final _healthFormKey = GlobalKey<FormState>();
 
   bool _isLoading = true;
+  bool _isDataLoaded = false;
   bool _isProfileComplete = false;
   File? _avatarFile;
+  String? _avatarUrl;
+  String? _selectedGender;
   final ImagePicker _picker = ImagePicker();
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
@@ -35,6 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
+  double? _prevProfileWeight; // مقدار قبلی وزن برای مقایسه
   final Map<String, dynamic> _profileData = {
     'first_name': '',
     'last_name': '',
@@ -86,65 +92,89 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Future<void> _loadProfileData() async {
     try {
-      setState(() => _isLoading = true);
-
       final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        final supabaseService = SupabaseService();
-        final profile = await supabaseService.getProfileByAuthId();
-
-        if (profile != null && mounted) {
-          setState(() {
-            _profileData.addAll({
-              'first_name': profile.firstName ?? '',
-              'last_name': profile.lastName ?? '',
-              'avatar_url': profile.avatarUrl ?? '',
-              'bio': profile.bio ?? '',
-              'birth_date': profile.birthDate?.toIso8601String() ?? '',
-              'height': profile.height?.toString() ?? '',
-              'weight': profile.weight?.toString() ?? '',
-              'arm_circumference': profile.armCircumference?.toString() ?? '',
-              'chest_circumference':
-                  profile.chestCircumference?.toString() ?? '',
-              'waist_circumference':
-                  profile.waistCircumference?.toString() ?? '',
-              'hip_circumference': profile.hipCircumference?.toString() ?? '',
-              'experience_level': profile.experienceLevel ?? '',
-              'preferred_training_days':
-                  profile.preferredTrainingDays ?? <String>[],
-              'preferred_training_time': profile.preferredTrainingTime ?? '',
-              'fitness_goals': profile.fitnessGoals ?? <String>[],
-              'medical_conditions': profile.medicalConditions ?? <String>[],
-              'dietary_preferences': profile.dietaryPreferences ?? <String>[],
-              'gender': profile.gender ?? 'male',
-              'weight_history': profile.weightHistory ?? [],
-            });
-
-            // اطمینان از اینکه مقادیر dropdown ها معتبر هستند
-            if (!AppConfig.experienceLevels
-                .containsKey(_profileData['experience_level'])) {
-              _profileData['experience_level'] = '';
-            }
-            if (!AppConfig.trainingTimes
-                .containsKey(_profileData['preferred_training_time'])) {
-              _profileData['preferred_training_time'] = '';
-            }
-
-            _isProfileComplete = _checkProfileCompletion();
-            _isLoading = false;
-
-            print('داده‌های پروفایل با موفقیت بارگذاری شدند:');
-            print('تاریخ تولد: ${_profileData['birth_date']}');
-            print('وزن: ${_profileData['weight']}');
-            print('قد: ${_profileData['height']}');
-          });
-        }
+      if (user == null) {
+        throw Exception('کاربر وارد نشده است');
       }
+
+      // دریافت پروفایل از سوپابیس
+      final data = await Supabase.instance.client
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .single();
+
+      // بروزرسانی وضعیت با داده‌های دریافتی
+      setState(() {
+        _isDataLoaded = true;
+
+        // تنظیم فیلدهای پروفایل با داده‌های دریافتی
+        _profileData['first_name'] = data['first_name'] ?? '';
+        _profileData['last_name'] = data['last_name'] ?? '';
+        _profileData['bio'] = data['bio'] ?? '';
+        _profileData['avatar_url'] = data['avatar_url'] ?? '';
+        _avatarUrl = data['avatar_url'];
+
+        // تنظیم داده‌های بدنی
+        _profileData['height'] = data['height']?.toString() ?? '';
+        _profileData['weight'] = data['weight']?.toString() ?? '';
+
+        // ذخیره مقدار قبلی وزن برای مقایسه
+        _prevProfileWeight = data['weight'] != null
+            ? double.tryParse(data['weight'].toString())
+            : null;
+
+        _profileData['arm_circumference'] =
+            data['arm_circumference']?.toString() ?? '';
+        _profileData['chest_circumference'] =
+            data['chest_circumference']?.toString() ?? '';
+        _profileData['waist_circumference'] =
+            data['waist_circumference']?.toString() ?? '';
+        _profileData['hip_circumference'] =
+            data['hip_circumference']?.toString() ?? '';
+
+        // تنظیم داده‌های تمرینی
+        _profileData['experience_level'] = data['experience_level'] ?? '';
+        _profileData['preferred_training_days'] =
+            data['preferred_training_days'] ?? [];
+        _profileData['preferred_training_time'] =
+            data['preferred_training_time'] ?? '';
+        _profileData['fitness_goals'] = data['fitness_goals'] ?? [];
+
+        // تنظیم داده‌های سلامتی
+        _profileData['medical_conditions'] = data['medical_conditions'] ?? [];
+        _profileData['dietary_preferences'] = data['dietary_preferences'] ?? [];
+
+        // تنظیم جنسیت
+        _selectedGender = data['gender'];
+        _profileData['gender'] = data['gender'] ?? '';
+
+        // تنظیم تاریخ تولد اگر موجود باشد
+        if (data['birth_date'] != null) {
+          try {
+            _profileData['birth_date'] = DateTime.parse(data['birth_date']);
+          } catch (e) {
+            print('خطا در تبدیل تاریخ تولد: $e');
+            _profileData['birth_date'] = null;
+          }
+        }
+
+        // تنظیم تاریخچه وزن
+        if (data['weight_history'] != null) {
+          _profileData['weight_history'] = data['weight_history'];
+        }
+      });
+
+      // نمایش اطلاعات بارگذاری شده برای اشکال‌زدایی
+      print('داده‌های پروفایل با موفقیت بارگذاری شدند:');
+      print('تاریخ تولد: ${_profileData['birth_date']}');
+      print('وزن: ${_profileData['weight']}');
+      print('قد: ${_profileData['height']}');
     } catch (e) {
-      print('خطا در بارگذاری اطلاعات: $e');
+      print('خطا در بارگذاری پروفایل: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطا در بارگذاری اطلاعات: $e')),
+          SnackBar(content: Text('خطا در بارگذاری پروفایل: ${e.toString()}')),
         );
       }
     } finally {
@@ -181,97 +211,315 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _saveProfile() async {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
+    if (!_formKey.currentState!.validate() &&
+        !_bodyFormKey.currentState!.validate() &&
+        !_trainingFormKey.currentState!.validate() &&
+        !_healthFormKey.currentState!.validate()) {
+      return;
+    }
+
+    try {
       setState(() => _isLoading = true);
 
-      try {
-        final user = Supabase.instance.client.auth.currentUser;
-        if (user != null) {
-          final supabaseService = SupabaseService();
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        throw Exception('کاربر وارد نشده است');
+      }
 
-          // بررسی اینکه آیا وزن جدیدی وارد شده است یا خیر
-          final String? newWeightStr = _profileData['weight']?.toString();
-          final double? newWeight =
-              newWeightStr != null && newWeightStr.isNotEmpty
-                  ? double.tryParse(newWeightStr)
-                  : null;
+      // آماده‌سازی تاریخ تولد
+      DateTime? birthDate;
+      if (_profileData['birth_date'] != null &&
+          _profileData['birth_date'].isNotEmpty) {
+        try {
+          birthDate = DateTime.parse(_profileData['birth_date']);
+          print('تاریخ تولد برای ذخیره: $birthDate');
+        } catch (e) {
+          print('خطا در تبدیل تاریخ تولد: $e');
+        }
+      }
 
-          // بررسی اینکه آیا قبلا رکورد وزنی ثبت شده است
-          final hasWeightRecord = _profileData['weight_history'] != null &&
-              (_profileData['weight_history'] as List<dynamic>).isNotEmpty;
+      // آماده‌سازی وزن
+      double? weight;
+      if (_profileData['weight'] != null && _profileData['weight'].isNotEmpty) {
+        try {
+          weight = double.parse(_profileData['weight']);
 
+          // اضافه کردن وزن به تاریخچه وزن
+          final hasWeightChanged = _prevProfileWeight != weight;
           print('ثبت وزن: نمایش وضعیت قبل از ذخیره:');
-          print('وزن جدید: $newWeight');
-          print('وضعیت قبلی وزن: $hasWeightRecord');
+          print('وزن جدید: $weight');
+          print('وضعیت قبلی وزن: $hasWeightChanged');
+
+          // فقط اگر وزن تغییر کرده باشد آن را به تاریخچه اضافه کن
+          if (hasWeightChanged && weight != null) {
+            final weightHistoryRecord = {
+              'weight': weight,
+              'date': DateTime.now().toIso8601String(),
+            };
+
+            final List<Map<String, dynamic>> weightHistory =
+                _profileData['weight_history'] != null
+                    ? List<Map<String, dynamic>>.from(
+                        _profileData['weight_history'])
+                    : [];
+
+            weightHistory.add(weightHistoryRecord);
+            _profileData['weight_history'] = weightHistory;
+
+            print('تعداد رکوردهای موجود: ${weightHistory.length}');
+          }
+        } catch (e) {
+          print('خطا در تبدیل وزن: $e');
+        }
+      }
+
+      // ساخت آبجکت داده‌های پروفایل با مقادیر تمیز شده
+      final updatedProfileData = Map<String, dynamic>.from(_profileData);
+
+      // اطمینان از اینکه فیلدهای خالی به null تبدیل نمی‌شوند
+      updatedProfileData.forEach((key, value) {
+        if (value is String && value.isEmpty) {
+          updatedProfileData[key] = '';
+        }
+      });
+
+      // چاپ داده‌های نهایی برای اشکال‌زدایی
+      print('داده‌های نهایی برای ارسال به سرور:');
+      print(updatedProfileData);
+
+      // بروزرسانی پروفایل در سوپابیس
+      print('در حال بروزرسانی پروفایل کاربر ${user.id} با داده‌های زیر:');
+      print(updatedProfileData);
+
+      // حذف فیلدهای اضافی و تمیز کردن داده‌ها
+      final Map<String, dynamic> cleanProfileData = {
+        'first_name': updatedProfileData['first_name'] ?? '',
+        'last_name': updatedProfileData['last_name'] ?? '',
+        'avatar_url': updatedProfileData['avatar_url'] ?? '',
+        'bio': updatedProfileData['bio'] ?? '',
+      };
+
+      // اضافه کردن فیلدهای اختیاری اگر وجود داشته باشند
+      if (birthDate != null) {
+        cleanProfileData['birth_date'] = birthDate.toIso8601String();
+      }
+
+      if (weight != null) {
+        cleanProfileData['weight'] = weight;
+      }
+
+      if (_profileData['height'] != null && _profileData['height'].isNotEmpty) {
+        try {
+          cleanProfileData['height'] = double.parse(_profileData['height']);
+        } catch (e) {
+          print('خطا در تبدیل قد: $e');
+        }
+      }
+
+      if (_profileData['gender'] != null && _profileData['gender'].isNotEmpty) {
+        cleanProfileData['gender'] = _profileData['gender'];
+      }
+
+      if (_profileData['experience_level'] != null &&
+          _profileData['experience_level'].isNotEmpty) {
+        cleanProfileData['experience_level'] = _profileData['experience_level'];
+      }
+
+      if (_profileData['preferred_training_time'] != null &&
+          _profileData['preferred_training_time'].isNotEmpty) {
+        cleanProfileData['preferred_training_time'] =
+            _profileData['preferred_training_time'];
+      }
+
+      if (_profileData['weight_history'] != null) {
+        cleanProfileData['weight_history'] = _profileData['weight_history'];
+      }
+
+      print('داده‌های تمیز شده برای ارسال به دیتابیس:');
+      print(cleanProfileData);
+
+      // بروزرسانی پروفایل در سوپابیس
+      final response = await Supabase.instance.client
+          .from('profiles')
+          .update(cleanProfileData)
+          .eq('id', user.id);
+
+      print('پاسخ بروزرسانی پروفایل: $response');
+      print('پروفایل با موفقیت به‌روزرسانی شد');
+
+      // همگام‌سازی با وردپرس
+      try {
+        final syncService = SyncService();
+        final userProfile = await SupabaseService().getProfileByAuthId();
+        final phoneNumber = userProfile?.phoneNumber ?? '';
+
+        if (phoneNumber.isNotEmpty) {
           print(
-              'تعداد رکوردهای موجود: ${(_profileData['weight_history'] as List?)?.length ?? 0}');
+              'شروع همگام‌سازی پروفایل با وردپرس - شماره موبایل: $phoneNumber');
 
-          // تبدیل فیلدهای عددی و تاریخ به مقدار مناسب
-          final Map<String, dynamic> cleanProfileData = Map.from(_profileData);
-          for (final key in [
-            'height',
-            'arm_circumference',
-            'chest_circumference',
-            'waist_circumference',
-            'hip_circumference',
-          ]) {
-            final value = cleanProfileData[key];
-            cleanProfileData[key] =
-                (value != null && value.toString().trim().isNotEmpty)
-                    ? num.tryParse(value.toString())
-                    : null;
+          // اضافه کردن فیلدهای مورد نیاز برای وردپرس
+          cleanProfileData['profile_picture'] = cleanProfileData['avatar_url'];
+
+          final syncResult =
+              await syncService.syncUserProfile(phoneNumber, cleanProfileData);
+
+          if (!syncResult['success']) {
+            print(
+                'هشدار: همگام‌سازی با وردپرس ناموفق بود: ${syncResult['message']}');
+            // هشدار به کاربر
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                      'همگام‌سازی با سایت ناموفق بود: ${syncResult['message']}'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+          } else {
+            print(
+                'همگام‌سازی با وردپرس موفقیت‌آمیز بود: ${syncResult['message']}');
+            if (mounted) {
+              // نمایش فیلدهای به‌روز شده در وردپرس
+              if (syncResult.containsKey('updated_fields') &&
+                  syncResult['updated_fields'] is List &&
+                  (syncResult['updated_fields'] as List).isNotEmpty) {
+                final fields =
+                    (syncResult['updated_fields'] as List).join('، ');
+
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    backgroundColor: const Color(0xFF1A1A1A),
+                    title: Text(
+                      'همگام‌سازی با وردپرس',
+                      style: GoogleFonts.vazirmatn(
+                        textStyle: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    content: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                            size: 48,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'اطلاعات با موفقیت در سایت به‌روز شد.',
+                            style: GoogleFonts.vazirmatn(
+                              textStyle: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'فیلدهای به‌روز شده:',
+                            style: GoogleFonts.vazirmatn(
+                              textStyle: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 14,
+                              ),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.black26,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            width: double.infinity,
+                            child: Text(
+                              fields,
+                              style: GoogleFonts.vazirmatn(
+                                textStyle: TextStyle(
+                                  color: Colors.green.withOpacity(0.9),
+                                  fontSize: 12,
+                                ),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.goldColor,
+                        ),
+                        child: Text(
+                          'تایید',
+                          style: GoogleFonts.vazirmatn(),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('اطلاعات با موفقیت در سایت نیز به‌روز شد'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            }
           }
-          // تاریخ تولد
-          final birthDate = cleanProfileData['birth_date'];
-          cleanProfileData['birth_date'] =
-              (birthDate != null && birthDate.toString().trim().isNotEmpty)
-                  ? birthDate.toString().split('T')[0] // فقط بخش تاریخ
-                  : null;
-
-          // اگر وزن جدید داریم و قبلا رکورد وزنی ثبت نشده، آن را به weight_records اضافه کنیم
-          if (newWeight != null && !hasWeightRecord) {
-            print('ثبت وزن اولیه: $newWeight');
-            await supabaseService.addWeightRecord(user.id, newWeight);
-
-            // وزن را از cleanProfileData حذف می‌کنیم چون دیگر نباید در پروفایل ذخیره شود
-            cleanProfileData.remove('weight');
-            cleanProfileData.remove(
-                'weight_history'); // این را هم حذف می‌کنیم چون نباید در پروفایل ذخیره شود
-
-            print('وزن اولیه به weight_records اضافه شد: $newWeight');
-          } else if (hasWeightRecord) {
-            // اگر قبلا رکورد وزنی داریم، وزن را از پروفایل حذف کنیم
-            cleanProfileData.remove('weight');
-            cleanProfileData.remove(
-                'weight_history'); // این را هم حذف می‌کنیم چون نباید در پروفایل ذخیره شود
-            print('وزن قبلاً ثبت شده - از پروفایل حذف شد');
-          }
-
-          await supabaseService.updateProfile(user.id, cleanProfileData);
-
+        } else {
+          print('هشدار: شماره موبایل برای همگام‌سازی با وردپرس یافت نشد');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('اطلاعات با موفقیت ذخیره شد')),
+              const SnackBar(
+                content: Text('شماره موبایل برای همگام‌سازی با سایت یافت نشد'),
+                backgroundColor: Colors.orange,
+              ),
             );
-            setState(() {
-              _isProfileComplete = _checkProfileCompletion();
-            });
-
-            // بارگذاری مجدد داده‌های پروفایل
-            _loadProfileData();
           }
         }
       } catch (e) {
+        print('خطا در همگام‌سازی با وردپرس: $e');
+        // این خطا نباید باعث توقف روند اصلی شود
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('خطا در ذخیره اطلاعات: $e')),
+            SnackBar(
+              content: Text('خطا در همگام‌سازی با سایت: $e'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
-      } finally {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('پروفایل با موفقیت به‌روزرسانی شد')),
+        );
+        // بازگشت به صفحه قبل
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      print('خطا در ذخیره پروفایل: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('خطا در به‌روزرسانی پروفایل: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -384,8 +632,14 @@ class _ProfileScreenState extends State<ProfileScreen>
         // تاریخ تولد
         final birthDate = cleanProfileData['birth_date'];
         if (birthDate != null && birthDate.toString().trim().isNotEmpty) {
-          cleanProfileData['birth_date'] =
-              birthDate.toString().split('T')[0]; // فقط بخش تاریخ
+          if (birthDate is DateTime) {
+            cleanProfileData['birth_date'] = birthDate
+                .toString()
+                .split('.')[0]; // فقط بخش تاریخ بدون میلی‌ثانیه
+          } else {
+            cleanProfileData['birth_date'] =
+                birthDate.toString().split('T')[0]; // فقط بخش تاریخ
+          }
         } else {
           cleanProfileData.remove('birth_date');
         }
@@ -417,29 +671,159 @@ class _ProfileScreenState extends State<ProfileScreen>
         print('داده‌های نهایی برای ارسال به سرور:');
         print(cleanProfileData);
 
-        // ذخیره اطلاعات پروفایل
+        // ذخیره اطلاعات پروفایل در سوپابیس
         await supabaseService.updateProfile(user.id, cleanProfileData);
         print('پروفایل با موفقیت بروزرسانی شد');
 
+        // بارگذاری مجدد داده‌های پروفایل برای اطمینان از بروز بودن
+        await _loadProfileData();
+
+        // همگام‌سازی با وردپرس
         if (mounted) {
-          // بارگذاری مجدد داده‌های پروفایل برای اطمینان از بروز بودن
-          await _loadProfileData();
+          try {
+            // دریافت شماره موبایل کاربر
+            final userProfile = await supabaseService.getProfileByAuthId();
+            if (userProfile?.phoneNumber != null) {
+              final syncService = SyncService();
+              final syncResult = await syncService.syncUserProfile(
+                  userProfile!.phoneNumber, _profileData);
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'اطلاعات با موفقیت ذخیره شدند',
-                style: GoogleFonts.vazirmatn(),
-              ),
-              backgroundColor: Colors.green,
-            ),
-          );
+              print(
+                  'همگام‌سازی با وردپرس: ${syncResult['success'] == true ? 'موفق' : 'ناموفق'}');
+              print(
+                  'همگام‌سازی با وردپرس موفقیت‌آمیز بود: ${syncResult['message']}');
+              if (mounted) {
+                // نمایش فیلدهای به‌روز شده در وردپرس
+                if (syncResult.containsKey('updated_fields') &&
+                    syncResult['updated_fields'] is List &&
+                    (syncResult['updated_fields'] as List).isNotEmpty) {
+                  final fields =
+                      (syncResult['updated_fields'] as List).join('، ');
 
-          setState(() {
-            _isProfileComplete = _checkProfileCompletion();
-            _isLoading = false;
-          });
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      backgroundColor: const Color(0xFF1A1A1A),
+                      title: Text(
+                        'همگام‌سازی با وردپرس',
+                        style: GoogleFonts.vazirmatn(
+                          textStyle: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      content: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.check_circle,
+                              color: Colors.green,
+                              size: 48,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'اطلاعات با موفقیت در سایت به‌روز شد.',
+                              style: GoogleFonts.vazirmatn(
+                                textStyle: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'فیلدهای به‌روز شده:',
+                              style: GoogleFonts.vazirmatn(
+                                textStyle: TextStyle(
+                                  color: Colors.white.withOpacity(0.7),
+                                  fontSize: 14,
+                                ),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.black26,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              width: double.infinity,
+                              child: Text(
+                                fields,
+                                style: GoogleFonts.vazirmatn(
+                                  textStyle: TextStyle(
+                                    color: Colors.green.withOpacity(0.9),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppTheme.goldColor,
+                          ),
+                          child: Text(
+                            'تایید',
+                            style: GoogleFonts.vazirmatn(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('اطلاعات با موفقیت ذخیره شدند'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              }
+            } else {
+              // نمایش پیام موفقیت بدون همگام‌سازی
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'اطلاعات با موفقیت ذخیره شدند (بدون همگام‌سازی)',
+                      style: GoogleFonts.vazirmatn(),
+                    ),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            }
+          } catch (syncError) {
+            print('خطا در همگام‌سازی با وردپرس: $syncError');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'اطلاعات در اپلیکیشن ذخیره شدند اما همگام‌سازی با وردپرس با خطا مواجه شد: $syncError',
+                    style: GoogleFonts.vazirmatn(),
+                  ),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
+          }
         }
+
+        setState(() {
+          _isProfileComplete = _checkProfileCompletion();
+          _isLoading = false;
+        });
       }
     } catch (e) {
       print('خطا در ذخیره پروفایل: $e');
@@ -1394,7 +1778,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                         // آپدیت state والد با تاریخ جدید
                         this.setState(() {
-                          _profileData['birth_date'] = isoDate;
+                          _profileData['birth_date'] = gregorianDate;
                           // بلافاصله فرم را validate کنیم تا کاربر بازخورد فوری ببیند
                           _formKey.currentState?.validate();
                         });
@@ -1500,29 +1884,33 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildPersianDate(String dateStr) {
+  Widget _buildPersianDate(dynamic dateValue) {
     try {
-      final gregorianDate = DateTime.parse(dateStr);
+      DateTime gregorianDate;
+
+      // اگر ورودی از نوع DateTime باشد
+      if (dateValue is DateTime) {
+        gregorianDate = dateValue;
+      }
+      // اگر ورودی از نوع String باشد
+      else if (dateValue is String) {
+        gregorianDate = DateTime.parse(dateValue);
+      }
+      // اگر ورودی نامعتبر باشد
+      else {
+        throw Exception('نوع داده نامعتبر: ${dateValue.runtimeType}');
+      }
+
       final persianDate = Jalali.fromDateTime(gregorianDate);
 
       // فرمت فارسی تاریخ: سال/ماه/روز
-      final persianMonthNames = [
-        'فروردین',
-        'اردیبهشت',
-        'خرداد',
-        'تیر',
-        'مرداد',
-        'شهریور',
-        'مهر',
-        'آبان',
-        'آذر',
-        'دی',
-        'بهمن',
-        'اسفند'
-      ];
+      // تبدیل ماه و روز به فرمت دو رقمی با صفر در ابتدا اگر لازم باشد
+      String day = persianDate.day.toString().padLeft(2, '0');
+      String month = persianDate.month.toString().padLeft(2, '0');
+      String year = persianDate.year.toString();
 
       return Text(
-        '${persianDate.day} ${persianMonthNames[persianDate.month - 1]} ${persianDate.year}',
+        '$year/$month/$day',
         style: GoogleFonts.vazirmatn(
           textStyle: const TextStyle(
             color: Colors.white,
@@ -1532,6 +1920,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
       );
     } catch (e) {
+      print('خطا در تبدیل تاریخ: $e');
       return Text(
         'تاریخ نامعتبر',
         style: GoogleFonts.vazirmatn(
@@ -1544,9 +1933,23 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  Widget _buildAgeInfo(String dateStr) {
+  Widget _buildAgeInfo(dynamic dateValue) {
     try {
-      final birthDate = DateTime.parse(dateStr);
+      DateTime birthDate;
+
+      // اگر ورودی از نوع DateTime باشد
+      if (dateValue is DateTime) {
+        birthDate = dateValue;
+      }
+      // اگر ورودی از نوع String باشد
+      else if (dateValue is String) {
+        birthDate = DateTime.parse(dateValue);
+      }
+      // اگر ورودی نامعتبر باشد
+      else {
+        throw Exception('نوع داده نامعتبر: ${dateValue.runtimeType}');
+      }
+
       final now = DateTime.now();
 
       // محاسبه سن
@@ -1585,6 +1988,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
       );
     } catch (e) {
+      print('خطا در محاسبه سن: $e');
       return const SizedBox.shrink();
     }
   }
@@ -1845,29 +2249,474 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildSaveButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: ElevatedButton(
-        onPressed: _saveProfile,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.goldColor,
-          foregroundColor: Colors.black,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+  Widget _buildApplyButton() {
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _saveProfileData,
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.black,
+              backgroundColor: AppTheme.goldColor,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              shadowColor: AppTheme.goldColor.withOpacity(0.5),
+              elevation: 5,
+            ),
+            child: _isLoading
+                ? const CircularProgressIndicator(
+                    color: Colors.black,
+                    strokeWidth: 3,
+                  )
+                : Text(
+                    'ذخیره تغییرات',
+                    style: GoogleFonts.vazirmatn(
+                      textStyle: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
           ),
         ),
-        child: Text(
-          'ذخیره تغییرات',
+
+        // دکمه تست API وردپرس
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton(
+                onPressed: _testWordPressConnection,
+                child: Text(
+                  'تست اتصال به وردپرس',
+                  style: GoogleFonts.vazirmatn(
+                    textStyle: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              TextButton(
+                onPressed: _testDirectProfileSync,
+                child: Text(
+                  'تست مستقیم ارسال پروفایل',
+                  style: GoogleFonts.vazirmatn(
+                    textStyle: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              TextButton(
+                onPressed: _showWordPressPluginGuide,
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.blue.withOpacity(0.2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.help_outline,
+                        color: Colors.blue, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      'راهنمای نصب افزونه',
+                      style: GoogleFonts.vazirmatn(
+                        textStyle: const TextStyle(
+                          color: Colors.blue,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // تست اتصال به API وردپرس
+  Future<void> _testWordPressConnection() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final syncService = SyncService();
+      final isConnected = await syncService.testWordPressConnection();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isConnected
+                  ? 'اتصال به وردپرس با موفقیت انجام شد!'
+                  : 'خطا در اتصال به وردپرس. لطفاً لاگ‌ها را بررسی کنید.',
+              style: GoogleFonts.vazirmatn(),
+            ),
+            backgroundColor: isConnected ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print('خطا در تست اتصال: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'خطا در تست اتصال: $e',
+              style: GoogleFonts.vazirmatn(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // تست مستقیم ارسال پروفایل به وردپرس
+  Future<void> _testDirectProfileSync() async {
+    setState(() => _isLoading = true);
+
+    try {
+      // دریافت سرویس‌های مورد نیاز
+      final syncService = SyncService();
+      final supabaseService = SupabaseService();
+
+      // دریافت شماره موبایل کاربر
+      final userProfile = await supabaseService.getProfileByAuthId();
+      final phoneNumber = userProfile?.phoneNumber ?? '';
+
+      if (phoneNumber.isEmpty) {
+        throw Exception('شماره موبایل کاربر یافت نشد');
+      }
+
+      // ساخت داده تست با مقادیر عددی صحیح
+      final testData = {
+        'first_name': 'تست',
+        'last_name': 'ارسال مستقیم',
+        'profile_picture': 'https://example.com/test.jpg',
+        'age': 30,
+        'weight': 75.5,
+        'height': 180,
+        'gender': 'male',
+        'experience_level': 'beginner',
+        'waist_circumference': 90,
+        'bio': 'این یک تست برای همگام‌سازی است',
+      };
+
+      // ارسال مستقیم به وردپرس با استفاده از سرویس همگام‌سازی
+      // که منطق درست تبدیل داده را انجام می‌دهد
+      final syncResult =
+          await syncService.syncUserProfile(phoneNumber, testData);
+
+      if (mounted) {
+        if (syncResult['success'] == true) {
+          // نمایش فیلدهای به‌روز شده در وردپرس
+          if (syncResult.containsKey('updated_fields') &&
+              syncResult['updated_fields'] is List &&
+              (syncResult['updated_fields'] as List).isNotEmpty) {
+            final fields = (syncResult['updated_fields'] as List).join('، ');
+
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                backgroundColor: const Color(0xFF1A1A1A),
+                title: Text(
+                  'تست ارسال مستقیم',
+                  style: GoogleFonts.vazirmatn(
+                    textStyle: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.check_circle,
+                        color: Colors.green,
+                        size: 48,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'اطلاعات با موفقیت در سایت به‌روز شد.',
+                        style: GoogleFonts.vazirmatn(
+                          textStyle: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'فیلدهای به‌روز شده:',
+                        style: GoogleFonts.vazirmatn(
+                          textStyle: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 14,
+                          ),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        width: double.infinity,
+                        child: Text(
+                          fields,
+                          style: GoogleFonts.vazirmatn(
+                            textStyle: TextStyle(
+                              color: Colors.green.withOpacity(0.9),
+                              fontSize: 12,
+                            ),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.goldColor,
+                    ),
+                    child: Text(
+                      'تایید',
+                      style: GoogleFonts.vazirmatn(),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'ارسال مستقیم به وردپرس موفق بود: ${syncResult['message']}',
+                  style: GoogleFonts.vazirmatn(),
+                ),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          // نمایش خطا
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'خطا در ارسال مستقیم به وردپرس: ${syncResult['message']}',
+                style: GoogleFonts.vazirmatn(),
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('خطا در تست ارسال مستقیم: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'خطا در تست ارسال مستقیم: $e',
+              style: GoogleFonts.vazirmatn(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // نمایش راهنمای نصب افزونه وردپرس
+  void _showWordPressPluginGuide() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A1A),
+        title: Text(
+          'راهنمای نصب افزونه وردپرس',
           style: GoogleFonts.vazirmatn(
             textStyle: const TextStyle(
+              color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 16,
+            ),
+          ),
+          textAlign: TextAlign.center,
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildGuideStep(
+                '1',
+                'فایل wordpress_api.php را در مسیر wp-content/plugins/gymai-sync قرار دهید.',
+              ),
+              const SizedBox(height: 12),
+              _buildGuideStep(
+                '2',
+                'یک فایل جدید با نام gymai-sync.php در همان مسیر ایجاد کنید.',
+              ),
+              const SizedBox(height: 12),
+              _buildGuideStep(
+                '3',
+                'کد زیر را در ابتدای فایل gymai-sync.php قرار دهید:',
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                ),
+                child: Text(
+                  '<?php\n/**\n * Plugin Name: GymAI Sync\n * Description: همگام‌سازی اپلیکیشن GymAI Pro با وردپرس\n * Version: 1.0\n * Author: شما\n */\n\nrequire_once(__DIR__ . \'/wordpress_api.php\');',
+                  style: GoogleFonts.vazirmatn(
+                    textStyle: const TextStyle(
+                      color: Colors.green,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildGuideStep(
+                '4',
+                'افزونه را از بخش افزونه‌های وردپرس فعال کنید.',
+              ),
+              const SizedBox(height: 12),
+              _buildGuideStep(
+                '5',
+                'اطمینان حاصل کنید که API REST وردپرس فعال است.',
+              ),
+              const SizedBox(height: 16),
+              const Divider(color: Colors.white24),
+              const SizedBox(height: 16),
+              Text(
+                'تست API:',
+                style: GoogleFonts.vazirmatn(
+                  textStyle: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'آدرس زیر را در مرورگر باز کنید:',
+                style: GoogleFonts.vazirmatn(
+                  textStyle: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'https://gymaipro.ir/wp-json/gymai/v1/test',
+                  style: GoogleFonts.vazirmatn(
+                    textStyle: const TextStyle(
+                      color: Colors.blue,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.goldColor,
+            ),
+            child: Text(
+              'متوجه شدم',
+              style: GoogleFonts.vazirmatn(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuideStep(String number, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppTheme.goldColor,
+          ),
+          child: Center(
+            child: Text(
+              number,
+              style: GoogleFonts.vazirmatn(
+                textStyle: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
             ),
           ),
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.vazirmatn(
+              textStyle: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -2036,40 +2885,6 @@ class _ProfileScreenState extends State<ProfileScreen>
           Tab(text: 'تمرینات'),
           Tab(text: 'سلامت'),
         ],
-      ),
-    );
-  }
-
-  Widget _buildApplyButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: _saveProfileData,
-        style: ElevatedButton.styleFrom(
-          foregroundColor: Colors.black,
-          backgroundColor: AppTheme.goldColor,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          shadowColor: AppTheme.goldColor.withOpacity(0.5),
-          elevation: 5,
-        ),
-        child: _isLoading
-            ? const CircularProgressIndicator(
-                color: Colors.black,
-                strokeWidth: 3,
-              )
-            : Text(
-                'ذخیره تغییرات',
-                style: GoogleFonts.vazirmatn(
-                  textStyle: const TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
       ),
     );
   }

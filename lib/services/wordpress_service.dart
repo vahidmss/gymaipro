@@ -1,12 +1,61 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'dart:async';
 
 class WordPressService {
   // آدرس API وردپرس - این آدرس را با آدرس واقعی سایت وردپرس خود جایگزین کنید
   final String baseUrl = 'https://gymaipro.ir/wp-json/gymai/v1';
 
-  // تبدیل شماره موبایل به فرمت بدون صفر در ابتدا
+  // آدرس‌های جایگزین برای آزمایش اتصال
+  final List<String> alternativeUrls = [
+    'https://gymaipro.ir/wp-json/gymai/v1',
+    'https://www.gymaipro.ir/wp-json/gymai/v1',
+    'http://gymaipro.ir/wp-json/gymai/v1',
+    'https://gymaipro.ir/index.php/wp-json/gymai/v1',
+  ];
+
+  // روش برای تست اتصال به API وردپرس
+  Future<bool> testConnection() async {
+    try {
+      print('تست اتصال به API وردپرس: $baseUrl/test');
+
+      final response = await http.get(Uri.parse('$baseUrl/test'));
+
+      print('کد وضعیت پاسخ تست: ${response.statusCode}');
+      print('پاسخ تست: ${response.body}');
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('خطا در تست اتصال به API وردپرس: $e');
+
+      // تلاش با آدرس‌های جایگزین
+      for (final url in alternativeUrls) {
+        if (url == baseUrl) continue; // اگر همان آدرس اصلی است، رد کن
+
+        try {
+          print('تلاش با آدرس جایگزین: $url/test');
+          final altResponse = await http.get(Uri.parse('$url/test'));
+          print('کد وضعیت پاسخ جایگزین: ${altResponse.statusCode}');
+
+          if (altResponse.statusCode == 200) {
+            print('آدرس جایگزین موفق: $url');
+            return true;
+          }
+        } catch (altError) {
+          print('خطا با آدرس جایگزین $url: $altError');
+        }
+      }
+
+      return false;
+    }
+  }
+
+  // تبدیل شماره موبایل به فرمت مناسب برای وردپرس (فقط حذف صفر ابتدایی)
   String normalizePhoneNumber(String phoneNumber) {
+    if (phoneNumber.isEmpty) {
+      return phoneNumber;
+    }
+
     // حذف فاصله‌ها و کاراکترهای اضافی
     String normalized = phoneNumber.replaceAll(RegExp(r'\s+'), '');
     normalized = normalized.replaceAll(RegExp(r'[^\d]'), '');
@@ -20,6 +69,8 @@ class WordPressService {
     if (normalized.startsWith('98')) {
       normalized = normalized.substring(2);
     }
+
+    print('تبدیل شماره موبایل از $phoneNumber به $normalized');
 
     return normalized;
   }
@@ -110,6 +161,107 @@ class WordPressService {
     } catch (e) {
       print('خطا در بررسی وجود کاربر در وردپرس: $e');
       return {'exists': false, 'error': e.toString()};
+    }
+  }
+
+  // به‌روزرسانی پروفایل کاربر در وردپرس
+  Future<Map<String, dynamic>> updateUserProfile(
+      String mobile, Map<String, dynamic> profileData) async {
+    try {
+      // تبدیل شماره موبایل به فرمت بدون صفر
+      final normalizedMobile = normalizePhoneNumber(mobile);
+
+      print('************ شروع به‌روزرسانی پروفایل در وردپرس ************');
+      print('شماره موبایل اصلی: $mobile');
+      print('شماره موبایل نرمال شده: $normalizedMobile');
+      print('داده‌های پروفایل برای ارسال: $profileData');
+
+      // اطمینان از وجود فیلدهای متادیتای مورد نیاز
+      Map<String, dynamic> metaData = Map.from(profileData);
+
+      // اطمینان از وجود فیلد profile_picture برای متادیتا
+      if (profileData.containsKey('avatar_url') &&
+          profileData['avatar_url'] != null &&
+          profileData['avatar_url'].toString().isNotEmpty &&
+          !profileData.containsKey('profile_picture')) {
+        metaData['profile_picture'] = profileData['avatar_url'];
+      }
+
+      // تبدیل تمام مقادیر عددی و تاریخ به string
+      for (var key in metaData.keys.toList()) {
+        if (metaData[key] is num || metaData[key] is DateTime) {
+          metaData[key] = metaData[key].toString();
+        }
+      }
+
+      final requestBody = {
+        'mobile': normalizedMobile,
+        'profile_data': metaData,
+      };
+
+      print('داده‌های نهایی برای ارسال به API: ${jsonEncode(requestBody)}');
+      print('آدرس API: $baseUrl/update-profile');
+
+      // تنظیم timeout برای درخواست به 15 ثانیه
+      final client = http.Client();
+      try {
+        final response = await client
+            .post(
+              Uri.parse('$baseUrl/update-profile'),
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode(requestBody),
+            )
+            .timeout(const Duration(seconds: 15));
+
+        print('کد وضعیت پاسخ: ${response.statusCode}');
+        print('پاسخ دریافتی از API وردپرس: ${response.body}');
+
+        if (response.statusCode == 200) {
+          Map<String, dynamic> data;
+          try {
+            data = jsonDecode(response.body);
+          } catch (e) {
+            print('خطا در تجزیه پاسخ JSON: $e');
+            return {
+              'success': false,
+              'error': 'پاسخ دریافتی از سرور قابل پردازش نیست',
+            };
+          }
+
+          print('داده‌های دریافتی از وردپرس: $data');
+          print('فیلدهای به‌روزرسانی شده: ${data['updated_fields']}');
+          return {
+            'success': data['success'] == true,
+            'user_id': data['user_id'],
+            'updated_fields': data['updated_fields'],
+            'message': data['message'],
+          };
+        } else {
+          print(
+              'خطا در به‌روزرسانی پروفایل کاربر در وردپرس: ${response.statusCode}');
+          print('پیام خطا: ${response.body}');
+          return {
+            'success': false,
+            'error': 'خطا در اتصال به سرور وردپرس: ${response.statusCode}',
+            'body': response.body
+          };
+        }
+      } finally {
+        client.close();
+      }
+    } on http.ClientException catch (e) {
+      print('خطای HTTP در به‌روزرسانی پروفایل کاربر در وردپرس: $e');
+      return {'success': false, 'error': 'خطای شبکه: ${e.message}'};
+    } on TimeoutException catch (e) {
+      print('خطای timeout در به‌روزرسانی پروفایل کاربر در وردپرس: $e');
+      return {'success': false, 'error': 'زمان پاسخگویی سرور به پایان رسید'};
+    } catch (e) {
+      print('استثنا در به‌روزرسانی پروفایل کاربر در وردپرس: $e');
+      return {'success': false, 'error': e.toString()};
+    } finally {
+      print('************ پایان به‌روزرسانی پروفایل در وردپرس ************');
     }
   }
 }

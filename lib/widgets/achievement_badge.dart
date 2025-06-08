@@ -105,8 +105,8 @@ class _AchievementBadgeState extends State<AchievementBadge>
           );
         },
         child: SizedBox(
-          width: 100,
-          height: 140,
+          width: 92,
+          height: 110,
           child: Card(
             elevation: 3,
             color: AppTheme.cardColor,
@@ -124,9 +124,11 @@ class _AchievementBadgeState extends State<AchievementBadge>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  AspectRatio(
-                    aspectRatio: 1.0,
+                  SizedBox(
+                    height: 50,
+                    width: 50,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
@@ -149,7 +151,7 @@ class _AchievementBadgeState extends State<AchievementBadge>
                               color: widget.isUnlocked
                                   ? badgeColor
                                   : Colors.grey.withOpacity(0.5),
-                              size: 24,
+                              size: 20,
                             ),
                           ),
                         ),
@@ -165,8 +167,8 @@ class _AchievementBadgeState extends State<AchievementBadge>
                             right: 0,
                             bottom: 0,
                             child: Container(
-                              width: 15,
-                              height: 15,
+                              width: 12,
+                              height: 12,
                               decoration: BoxDecoration(
                                 color: Colors.black54,
                                 shape: BoxShape.circle,
@@ -176,7 +178,7 @@ class _AchievementBadgeState extends State<AchievementBadge>
                               ),
                               child: const Icon(
                                 Icons.lock,
-                                size: 8,
+                                size: 6,
                                 color: Colors.grey,
                               ),
                             ),
@@ -189,7 +191,7 @@ class _AchievementBadgeState extends State<AchievementBadge>
                     widget.title,
                     style: TextStyle(
                       color: widget.isUnlocked ? badgeColor : Colors.grey,
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: widget.isUnlocked
                           ? FontWeight.bold
                           : FontWeight.normal,
@@ -207,9 +209,11 @@ class _AchievementBadgeState extends State<AchievementBadge>
                       color: widget.isUnlocked
                           ? Colors.green
                           : Colors.white.withOpacity(0.5),
-                      fontSize: 10,
+                      fontSize: 9,
                     ),
                     textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

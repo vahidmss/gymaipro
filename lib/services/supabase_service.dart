@@ -33,7 +33,7 @@ class SupabaseService {
     String normalized = phoneNumber.replaceAll(RegExp(r'\s+'), '');
     normalized = normalized.replaceAll(RegExp(r'[^\d]'), '');
 
-    // حذف صفر ابتدایی - فقط صفر اول
+    // اگر با صفر شروع می‌شود، صفر را حذف کن
     if (normalized.startsWith('0')) {
       normalized = normalized.substring(1);
     }
