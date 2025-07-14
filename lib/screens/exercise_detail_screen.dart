@@ -6,6 +6,7 @@ import '../services/exercise_service.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ExerciseDetailScreen extends StatefulWidget {
   final Exercise exercise;
@@ -383,10 +384,19 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen>
             fit: StackFit.expand,
             children: [
               // Background image
-              Image.network(
-                widget.exercise.imageUrl,
+              CachedNetworkImage(
+                imageUrl: widget.exercise.imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
+                placeholder: (context, url) => Container(
+                  color: Colors.grey[900],
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      color: goldColor,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+                errorWidget: (context, error, stackTrace) => Container(
                   color: Colors.grey[900],
                   child: const Icon(
                     LucideIcons.dumbbell,

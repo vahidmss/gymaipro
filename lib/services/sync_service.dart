@@ -27,14 +27,15 @@ class SyncService {
       print(
           'شروع فرآیند ثبت نام همزمان با شماره: $normalizedPhone (وردپرس: $normalizedPhoneWP)');
 
-      // بررسی وجود کاربر در وردپرس
-      final wpCheckResult =
-          await _wordpressService.checkUserExists(normalizedPhoneWP);
-      final existsInWordPress = wpCheckResult['exists'] == true;
+      // بررسی وجود کاربر در هر دو سیستم به صورت موازی برای افزایش سرعت
+      final futures = await Future.wait([
+        _wordpressService.checkUserExists(normalizedPhoneWP),
+        _supabaseService.doesUserExist(normalizedPhone),
+      ]);
 
-      // بررسی وجود کاربر در سوپابیس
-      final existsInSupabase =
-          await _supabaseService.doesUserExist(normalizedPhone);
+      final wpCheckResult = futures[0] as Map<String, dynamic>;
+      final existsInWordPress = wpCheckResult['exists'] == true;
+      final existsInSupabase = futures[1] as bool;
 
       print(
           'وضعیت وجود کاربر - وردپرس: $existsInWordPress، سوپابیس: $existsInSupabase');

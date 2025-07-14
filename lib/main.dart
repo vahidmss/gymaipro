@@ -1,13 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:provider/provider.dart';
+import 'dart:async';
 import 'services/route_service.dart';
 import 'theme/app_theme.dart';
 import 'services/auth_state_service.dart';
 import 'services/exercise_service.dart';
+import 'services/food_service.dart';
 import 'services/database_migration_service.dart';
+import 'services/supabase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // بهینه‌سازی عملکرد
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+    ),
+  );
+
+  // محدود کردن فریم‌ریت برای کاهش مصرف باتری
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   print('Starting application...');
 
@@ -17,28 +35,20 @@ void main() async {
       url: 'http://10.0.2.2:54321',
       anonKey:
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0',
-      debug: true, // Enable debug mode for more detailed logs
+      debug: false, // غیرفعال کردن حالت دیباگ در محیط اصلی
     );
     print('Supabase initialized successfully');
 
-    // Verify Supabase connection
-    try {
-      final testResponse = await Supabase.instance.client
-          .from('profiles')
-          .select('count')
-          .limit(1);
-      print('Database connection test: $testResponse');
-    } catch (e) {
-      print('Warning: Database connection test failed: $e');
-    }
-
-    // اولیه‌سازی سرویس‌های اپلیکیشن
-    await ExerciseService.initAll();
-    print('Exercise service initialized successfully');
-
-    // Run database migrations
-    await DatabaseMigrationService.runMigrations();
-    print('Database migrations completed');
+    // اولیه‌سازی سرویس‌های اپلیکیشن - به صورت موازی
+    Future.wait([
+      _initExerciseService(),
+      _initFoodService(),
+      _runDatabaseMigrations(),
+    ]).then((_) {
+      print('All initialization services completed');
+    }).catchError((error) {
+      print('Error in initialization services: $error');
+    });
   } catch (e) {
     print('Error initializing services: $e');
   }
@@ -89,7 +99,46 @@ void main() async {
     initialRoute = '/welcome'; // Default route if error occurs
   }
 
-  runApp(MyApp(initialRoute: initialRoute));
+  // ساخت یک نمونه از SupabaseService
+  final supabaseService = SupabaseService();
+
+  runApp(
+    // افزودن Provider برای SupabaseService
+    Provider<SupabaseService>(
+      create: (_) => supabaseService,
+      child: MyApp(initialRoute: initialRoute),
+    ),
+  );
+}
+
+// اولیه‌سازی سرویس تمرین‌ها به صورت جداگانه
+Future<void> _initExerciseService() async {
+  try {
+    await ExerciseService.initAll();
+    print('Exercise service initialized successfully');
+  } catch (e) {
+    print('Error initializing exercise service: $e');
+  }
+}
+
+// اولیه‌سازی سرویس خوراکی‌ها به صورت جداگانه
+Future<void> _initFoodService() async {
+  try {
+    await FoodService.initAll();
+    print('Food service initialized successfully');
+  } catch (e) {
+    print('Error initializing food service: $e');
+  }
+}
+
+// اجرای مهاجرت‌های پایگاه داده به صورت جداگانه
+Future<void> _runDatabaseMigrations() async {
+  try {
+    await DatabaseMigrationService.runMigrations();
+    print('Database migrations completed');
+  } catch (e) {
+    print('Error running database migrations: $e');
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -116,6 +165,13 @@ class MyApp extends StatelessWidget {
             primary: AppTheme.goldColor,
             secondary: AppTheme.darkGold,
             surface: AppTheme.cardColor,
+          ),
+          // بهینه‌سازی انیمیشن‌ها
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+              TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+            },
           ),
         ),
         debugShowCheckedModeBanner: false,

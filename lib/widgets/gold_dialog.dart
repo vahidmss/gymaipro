@@ -97,7 +97,7 @@ class _GoldDialogState extends State<GoldDialog>
       curve: Curves.easeOutCubic,
     );
 
-    Future.delayed(const Duration(milliseconds: 50), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _controller.forward();
       }

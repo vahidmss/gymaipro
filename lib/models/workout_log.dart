@@ -2,10 +2,10 @@ import 'package:uuid/uuid.dart';
 import 'workout_program.dart';
 
 class WorkoutLog {
-  String id;
-  String userId;
-  DateTime createdAt;
-  Map<String, dynamic> workoutData;
+  final String id;
+  final String userId;
+  final DateTime createdAt;
+  final Map<String, dynamic> workoutData;
 
   WorkoutLog({
     String? id,
@@ -26,7 +26,7 @@ class WorkoutLog {
   ExerciseType get exerciseType =>
       _parseExerciseType(workoutData['exercise_type'] as String);
   List<WorkoutSet> get sets => (workoutData['sets'] as List)
-      .map((set) => WorkoutSet.fromJson(set))
+      .map((set) => WorkoutSet.fromJson(set as Map<String, dynamic>))
       .toList();
   String? get notes => workoutData['notes'] as String?;
   int? get durationSeconds => workoutData['duration_seconds'] as int?;
@@ -64,7 +64,7 @@ class WorkoutLog {
     // Check if we're getting data from the new structure or legacy format
     if (json.containsKey('workout_data')) {
       // New JSON structure
-      workoutData = Map<String, dynamic>.from(json['workout_data']);
+      workoutData = Map<String, dynamic>.from(json['workout_data'] as Map);
     } else {
       // Legacy format or direct mapping
       workoutData = {
@@ -87,9 +87,9 @@ class WorkoutLog {
     }
 
     return WorkoutLog(
-      id: json['id'],
-      userId: json['user_id'],
-      createdAt: DateTime.parse(json['created_at']),
+      id: json['id'] as String,
+      userId: json['user_id'] as String,
+      createdAt: DateTime.parse(json['created_at'] as String),
       workoutData: workoutData,
     );
   }
@@ -152,7 +152,7 @@ class WorkoutLog {
 
   // Helper method to get the full JSON representation (for analytics)
   Map<String, dynamic> toFullJson() {
-    final json = workoutData.map((key, value) => MapEntry(key, value));
+    final json = Map<String, dynamic>.from(workoutData);
     json['id'] = id;
     json['user_id'] = userId;
     json['created_at'] = createdAt.toIso8601String();
@@ -173,10 +173,10 @@ class WorkoutLog {
 }
 
 class WorkoutSet {
-  int? reps;
-  double? weight;
-  int? timeSeconds;
-  bool isCompleted;
+  final int? reps;
+  final double? weight;
+  final int? timeSeconds;
+  final bool isCompleted;
 
   WorkoutSet({
     this.reps,
@@ -187,11 +187,11 @@ class WorkoutSet {
 
   factory WorkoutSet.fromJson(Map<String, dynamic> json) {
     return WorkoutSet(
-      reps: json['reps'],
+      reps: json['reps'] as int?,
       weight:
           json['weight'] != null ? (json['weight'] as num).toDouble() : null,
-      timeSeconds: json['time_seconds'],
-      isCompleted: json['is_completed'] ?? false,
+      timeSeconds: json['time_seconds'] as int?,
+      isCompleted: json['is_completed'] as bool? ?? false,
     );
   }
 
@@ -206,11 +206,11 @@ class WorkoutSet {
 }
 
 class WorkoutLogFilter {
-  DateTime? startDate;
-  DateTime? endDate;
-  String? programId;
-  String? exerciseTag; // گروه عضلانی
-  String? exerciseName;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final String? programId;
+  final String? exerciseTag;
+  final String? exerciseName;
 
   WorkoutLogFilter({
     this.startDate,
@@ -220,7 +220,6 @@ class WorkoutLogFilter {
     this.exerciseName,
   });
 
-  // عملگر منطقی AND برای فیلترها
   bool matches(WorkoutLog log) {
     if (startDate != null && log.createdAt.isBefore(startDate!)) {
       return false;

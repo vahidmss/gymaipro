@@ -32,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen>
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 500),
     );
 
     // تنظیم مقدار اولیه به 0.0 برای اطمینان از شروع صحیح
@@ -42,8 +42,8 @@ class _LoginScreenState extends State<LoginScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
     );
 
-    // شروع انیمیشن با تأخیر تا از تکمیل سایر کارها مطمئن شویم
-    Future.delayed(const Duration(milliseconds: 100), () {
+    // شروع انیمیشن بدون تأخیر
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _animationController.forward();
       }
@@ -162,7 +162,8 @@ class _LoginScreenState extends State<LoginScreen>
           print('Login successful, saving session...');
           // ذخیره وضعیت لاگین
           try {
-            await AuthStateService().saveAuthState(session);
+            await AuthStateService()
+                .saveAuthState(session, phoneNumber: normalizedPhone);
             print('Session saved after login');
 
             // بررسی مجدد وضعیت لاگین برای اطمینان
@@ -413,6 +414,8 @@ class _LoginScreenState extends State<LoginScreen>
             beforeTextPaste: (text) =>
                 text?.length == 6 && text!.contains(RegExp(r'^\d+$')),
             autoDisposeControllers: false,
+            animationDuration: const Duration(milliseconds: 150),
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           ),
           if (_error != null) ...[
             const SizedBox(height: 16),

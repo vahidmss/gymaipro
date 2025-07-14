@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../theme/app_theme.dart';
 import 'achievement_badge.dart';
 import 'gold_dialog.dart';
 
@@ -40,8 +39,8 @@ class _AchievementsSectionState extends State<AchievementsSection>
       ),
     );
 
-    // با تأخیر انیمیشن را شروع می‌کنیم تا از تکمیل سایر کارها مطمئن شویم
-    Future.delayed(const Duration(milliseconds: 100), () {
+    // شروع انیمیشن بدون تأخیر
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _controller.forward();
       }
@@ -159,69 +158,40 @@ class _AchievementsSectionState extends State<AchievementsSection>
       },
     ];
 
-    // رفع مشکل overflow با استفاده از ابعاد مناسب و Flexible
+    // طراحی جدید و ساده برای دستاوردها
     return Opacity(
       opacity: _animation.value,
       child: Transform.translate(
         offset: Offset(0, 20 * (1 - _animation.value)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize:
-              MainAxisSize.min, // اضافه کردن این خط برای جلوگیری از overflow
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    right: BorderSide(color: AppTheme.goldColor, width: 2),
-                  ),
-                ),
-                child: const Text(
-                  'دستاوردهای شما',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+        child: GridView.builder(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            childAspectRatio: 0.8,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+          ),
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: achievements.length,
+          itemBuilder: (context, index) {
+            final achievement = achievements[index];
+            return AchievementBadge(
+              title: achievement['title'] as String,
+              description: achievement['description'] as String,
+              icon: achievement['icon'] as IconData,
+              isUnlocked: achievement['isUnlocked'] as bool,
+              progress: achievement['progress'] as double,
+              color: achievement['color'] as Color,
+              onTap: () => _showBadgeDetails(
+                context,
+                title: achievement['title'] as String,
+                description: achievement['description'] as String,
+                icon: achievement['icon'] as IconData,
+                isUnlocked: achievement['isUnlocked'] as bool,
+                color: achievement['color'] as Color,
+                tip: achievement['tip'] as String,
               ),
-            ),
-            const SizedBox(height: 12), // کاهش ارتفاع از 16 به 12
-            Flexible(
-              // استفاده از Flexible به جای SizedBox با ارتفاع ثابت
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: achievements.length,
-                itemBuilder: (context, index) {
-                  final achievement = achievements[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: AchievementBadge(
-                      title: achievement['title'] as String,
-                      description: achievement['description'] as String,
-                      icon: achievement['icon'] as IconData,
-                      isUnlocked: achievement['isUnlocked'] as bool,
-                      progress: achievement['progress'] as double,
-                      color: achievement['color'] as Color,
-                      onTap: () => _showBadgeDetails(
-                        context,
-                        title: achievement['title'] as String,
-                        description: achievement['description'] as String,
-                        icon: achievement['icon'] as IconData,
-                        isUnlocked: achievement['isUnlocked'] as bool,
-                        color: achievement['color'] as Color,
-                        tip: achievement['tip'] as String,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

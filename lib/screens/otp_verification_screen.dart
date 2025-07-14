@@ -171,9 +171,6 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       _cancelTimer();
 
       if (mounted) {
-        // اضافه کردن تأخیر طولانی‌تر برای اطمینان از اینکه همه چیز آماده است
-        await Future.delayed(const Duration(milliseconds: 800));
-
         // مطمئن می‌شویم که ابتدا صفحه Dashboard بارگذاری شود و سپس انیمیشن‌ها شروع شوند
         Navigator.of(context).pushNamedAndRemoveUntil(
           '/dashboard',
@@ -256,7 +253,6 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                   inactiveColor: Colors.grey,
                 ),
                 enableActiveFill: true,
-                autoDisposeControllers: false,
                 onChanged: (value) {
                   if (_errorMessage != null) {
                     setState(() {
@@ -264,6 +260,11 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                     });
                   }
                 },
+                beforeTextPaste: (text) =>
+                    text?.length == 6 && text!.contains(RegExp(r'^\d+$')),
+                autoDisposeControllers: false,
+                animationDuration: const Duration(milliseconds: 150),
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               ),
               if (_errorMessage != null) ...[
                 const SizedBox(height: 16),
@@ -301,7 +302,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                           width: 24,
                           height: 24,
                           child: CircularProgressIndicator(
-                            color: Colors.white,
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : const Text(

@@ -5,19 +5,19 @@ import 'supabase_service.dart';
 
 class WorkoutLogService {
   final SupabaseService _supabaseService;
-  final _tableName = 'workout_logs';
+  final String _tableName = 'workout_logs';
 
   WorkoutLogService({SupabaseService? supabaseService})
       : _supabaseService = supabaseService ?? SupabaseService();
 
+  /// Get all workout logs for a user with optional filtering
   Future<List<WorkoutLog>> getUserLogs(String userId,
       {WorkoutLogFilter? filter}) async {
     try {
       final client = Supabase.instance.client;
-
       var query = client.from(_tableName).select().eq('user_id', userId);
 
-      // اعمال فیلترها
+      // Apply filters if provided
       if (filter != null) {
         if (filter.startDate != null) {
           query = query.gte('created_at', filter.startDate!.toIso8601String());
@@ -38,7 +38,6 @@ class WorkoutLogService {
       }
 
       final data = await query.order('created_at', ascending: false);
-
       return data.map((log) => WorkoutLog.fromJson(log)).toList();
     } catch (e) {
       debugPrint('Error fetching workout logs: $e');
@@ -46,13 +45,12 @@ class WorkoutLogService {
     }
   }
 
+  /// Save a new workout log to the database
   Future<WorkoutLog?> saveWorkoutLog(WorkoutLog log) async {
     try {
       final client = Supabase.instance.client;
-
       final data =
           await client.from(_tableName).insert(log.toJson()).select().single();
-
       return WorkoutLog.fromJson(data);
     } catch (e) {
       debugPrint('Error saving workout log: $e');
@@ -60,12 +58,11 @@ class WorkoutLogService {
     }
   }
 
+  /// Update an existing workout log
   Future<bool> updateWorkoutLog(WorkoutLog log) async {
     try {
       final client = Supabase.instance.client;
-
       await client.from(_tableName).update(log.toJson()).eq('id', log.id);
-
       return true;
     } catch (e) {
       debugPrint('Error updating workout log: $e');
@@ -73,12 +70,11 @@ class WorkoutLogService {
     }
   }
 
+  /// Delete a workout log by ID
   Future<bool> deleteWorkoutLog(String logId) async {
     try {
       final client = Supabase.instance.client;
-
       await client.from(_tableName).delete().eq('id', logId);
-
       return true;
     } catch (e) {
       debugPrint('Error deleting workout log: $e');
@@ -86,17 +82,18 @@ class WorkoutLogService {
     }
   }
 
+  /// Get all logs for a specific workout program
   Future<List<WorkoutLog>> getLogsByProgram(
       String userId, String programId) async {
     final filter = WorkoutLogFilter(programId: programId);
     return getUserLogs(userId, filter: filter);
   }
 
+  /// Get all logs for a specific exercise
   Future<List<WorkoutLog>> getLogsByExercise(
       String userId, String exerciseId) async {
     try {
       final client = Supabase.instance.client;
-
       final data = await client
           .from(_tableName)
           .select()
@@ -106,12 +103,12 @@ class WorkoutLogService {
 
       return data.map((log) => WorkoutLog.fromJson(log)).toList();
     } catch (e) {
-      debugPrint('Error fetching workout logs: $e');
+      debugPrint('Error fetching workout logs by exercise: $e');
       return [];
     }
   }
 
-  // Helper method to get full JSON workout logs for analytics
+  /// Get workout logs in a format suitable for analytics
   Future<List<Map<String, dynamic>>> getWorkoutLogsForAnalytics(String userId,
       {WorkoutLogFilter? filter}) async {
     try {

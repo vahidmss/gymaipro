@@ -47,6 +47,7 @@ dependencies:
   provider: ^6.1.5
   image_picker: ^1.0.7
   percent_indicator: ^4.2.5
+  intl: ^0.19.0
   
   # Exercise screen dependencies
   cached_network_image: ^3.3.1
@@ -56,6 +57,7 @@ dependencies:
   animate_do: ^3.3.4
   flutter_animate: ^4.5.2
   path_provider: ^2.1.5
+  url_launcher: ^6.3.1
   
   
 dev_dependencies:

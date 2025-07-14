@@ -19,33 +19,21 @@ class WordPressService {
     try {
       print('تست اتصال به API وردپرس: $baseUrl/test');
 
-      final response = await http.get(Uri.parse('$baseUrl/test'));
+      // تنظیم timeout برای جلوگیری از انتظار طولانی
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/test'),
+            // تنظیم timeout به 5 ثانیه
+          )
+          .timeout(const Duration(seconds: 5));
 
       print('کد وضعیت پاسخ تست: ${response.statusCode}');
-      print('پاسخ تست: ${response.body}');
 
       return response.statusCode == 200;
     } catch (e) {
       print('خطا در تست اتصال به API وردپرس: $e');
 
-      // تلاش با آدرس‌های جایگزین
-      for (final url in alternativeUrls) {
-        if (url == baseUrl) continue; // اگر همان آدرس اصلی است، رد کن
-
-        try {
-          print('تلاش با آدرس جایگزین: $url/test');
-          final altResponse = await http.get(Uri.parse('$url/test'));
-          print('کد وضعیت پاسخ جایگزین: ${altResponse.statusCode}');
-
-          if (altResponse.statusCode == 200) {
-            print('آدرس جایگزین موفق: $url');
-            return true;
-          }
-        } catch (altError) {
-          print('خطا با آدرس جایگزین $url: $altError');
-        }
-      }
-
+      // برگشت false بدون تلاش‌های اضافی برای افزایش سرعت
       return false;
     }
   }
@@ -85,22 +73,25 @@ class WordPressService {
       print(
           'تلاش برای ثبت نام کاربر در وردپرس - نام کاربری: $username، موبایل: $normalizedMobile');
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/register'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'username': username,
-          'mobile': normalizedMobile,
-        }),
-      );
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/register'),
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'username': username,
+              'mobile': normalizedMobile,
+            }),
+          )
+          .timeout(const Duration(
+              seconds: 10)); // اضافه کردن timeout برای جلوگیری از انتظار طولانی
 
-      print('پاسخ API وردپرس: ${response.statusCode} - ${response.body}');
+      print('پاسخ API وردپرس: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('ثبت نام در وردپرس موفقیت‌آمیز بود: $data');
+        print('ثبت نام در وردپرس موفقیت‌آمیز بود');
         return data;
       } else if (response.statusCode == 409) {
         // کاربر قبلاً وجود دارد
@@ -109,7 +100,7 @@ class WordPressService {
             'کاربری با این نام کاربری یا شماره موبایل قبلاً ثبت شده است');
       } else {
         // خطای دیگر
-        print('خطای API وردپرس: ${response.statusCode} - ${response.body}');
+        print('خطای API وردپرس: ${response.statusCode}');
         Map<String, dynamic> errorData = {};
         try {
           errorData = jsonDecode(response.body);
@@ -136,12 +127,14 @@ class WordPressService {
 
       print('بررسی وجود کاربر در وردپرس با شماره موبایل: $normalizedMobile');
 
-      final response = await http.get(
-        Uri.parse('$baseUrl/check-user?mobile=$normalizedMobile'),
-      );
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/check-user?mobile=$normalizedMobile'),
+          )
+          .timeout(const Duration(
+              seconds: 5)); // اضافه کردن timeout برای افزایش سرعت
 
-      print(
-          'پاسخ API وردپرس (بررسی وجود کاربر): ${response.statusCode} - ${response.body}');
+      print('پاسخ API وردپرس (بررسی وجود کاربر): ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

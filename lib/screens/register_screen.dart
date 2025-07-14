@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
 import '../services/otp_service.dart';
 import 'otp_verification_screen.dart';
+import 'dart:async';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -24,12 +25,16 @@ class _RegisterScreenState extends State<RegisterScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
+  // Debounce timer for username check
+  Timer? _debounceTimer;
+  static const _debounceDuration = Duration(milliseconds: 500);
+
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 500), // Reduced from 800ms
     );
 
     // تنظیم مقدار اولیه به 0.0 برای اطمینان از شروع صحیح
@@ -39,8 +44,8 @@ class _RegisterScreenState extends State<RegisterScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
     );
 
-    // شروع انیمیشن با تأخیر تا از تکمیل سایر کارها مطمئن شویم
-    Future.delayed(const Duration(milliseconds: 100), () {
+    // شروع انیمیشن بدون تأخیر
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _animationController.forward();
       }
@@ -53,6 +58,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     _usernameController.dispose();
     _phoneController.dispose();
     _animationController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -72,6 +78,14 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   Future<void> _checkUsername() async {
     if (_usernameController.text.isEmpty) return;
+
+    // Minimum length check to avoid unnecessary API calls
+    if (_usernameController.text.length < 3) {
+      setState(() {
+        _usernameError = null; // Clear previous error
+      });
+      return;
+    }
 
     setState(() {
       _isCheckingUsername = true;
@@ -97,6 +111,26 @@ class _RegisterScreenState extends State<RegisterScreen>
         setState(() => _isCheckingUsername = false);
       }
     }
+  }
+
+  void _onUsernameChanged(String value) {
+    // Cancel previous timer
+    _debounceTimer?.cancel();
+
+    // Clear previous error if user is typing
+    if (_usernameError != null) {
+      setState(() {
+        _usernameError = null;
+      });
+    }
+
+    // Don't check short usernames
+    if (value.length < 3) return;
+
+    // Set a new timer
+    _debounceTimer = Timer(_debounceDuration, () {
+      _checkUsername();
+    });
   }
 
   Future<void> _sendOTP() async {
@@ -289,11 +323,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                     }
                                     return null;
                                   },
-                                  onChanged: (_) {
-                                    Future.delayed(
-                                        const Duration(milliseconds: 500),
-                                        _checkUsername);
-                                  },
+                                  onChanged: _onUsernameChanged,
                                 ),
                                 const SizedBox(height: 20),
                                 TextFormField(

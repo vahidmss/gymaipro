@@ -56,7 +56,7 @@ class _AchievementBadgeState extends State<AchievementBadge>
     );
 
     if (widget.isUnlocked) {
-      Future.delayed(const Duration(milliseconds: 100), () {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _controller.repeat(
               reverse: true,
@@ -104,119 +104,114 @@ class _AchievementBadgeState extends State<AchievementBadge>
             ),
           );
         },
-        child: SizedBox(
-          width: 92,
-          height: 110,
-          child: Card(
-            elevation: 3,
-            color: AppTheme.cardColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: widget.isUnlocked
-                    ? badgeColor
-                    : badgeColor.withOpacity(0.3),
-                width: widget.isUnlocked ? 2 : 1,
-              ),
+        child: Card(
+          elevation: 4,
+          color: AppTheme.cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color:
+                  widget.isUnlocked ? badgeColor : badgeColor.withOpacity(0.3),
+              width: widget.isUnlocked ? 2 : 1,
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    height: 50,
-                    width: 50,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.max,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(
+                  height: 45,
+                  width: 45,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: widget.isUnlocked
+                              ? badgeColor.withOpacity(0.2)
+                              : Colors.grey.withOpacity(0.1),
+                          border: Border.all(
                             color: widget.isUnlocked
-                                ? badgeColor.withOpacity(0.2)
-                                : Colors.grey.withOpacity(0.1),
-                            border: Border.all(
-                              color: widget.isUnlocked
-                                  ? badgeColor
-                                  : Colors.grey.withOpacity(0.3),
-                              width: 2,
-                            ),
+                                ? badgeColor
+                                : Colors.grey.withOpacity(0.3),
+                            width: 2,
                           ),
-                          child: Center(
-                            child: Icon(
-                              widget.icon,
-                              color: widget.isUnlocked
-                                  ? badgeColor
-                                  : Colors.grey.withOpacity(0.5),
-                              size: 20,
+                        ),
+                        child: Center(
+                          child: Icon(
+                            widget.icon,
+                            color: widget.isUnlocked
+                                ? badgeColor
+                                : Colors.grey.withOpacity(0.5),
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      if (!widget.isUnlocked && widget.progress > 0)
+                        CircularProgressIndicator(
+                          value: widget.progress,
+                          strokeWidth: 2,
+                          color: badgeColor,
+                          backgroundColor: Colors.grey.withOpacity(0.2),
+                        ),
+                      if (!widget.isUnlocked)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.grey.withOpacity(0.3),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.lock,
+                              size: 6,
+                              color: Colors.grey,
                             ),
                           ),
                         ),
-                        if (!widget.isUnlocked && widget.progress > 0)
-                          CircularProgressIndicator(
-                            value: widget.progress,
-                            strokeWidth: 2,
-                            color: badgeColor,
-                            backgroundColor: Colors.grey.withOpacity(0.2),
-                          ),
-                        if (!widget.isUnlocked)
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.grey.withOpacity(0.3),
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.lock,
-                                size: 6,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    widget.title,
-                    style: TextStyle(
-                      color: widget.isUnlocked ? badgeColor : Colors.grey,
-                      fontSize: 10,
-                      fontWeight: widget.isUnlocked
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.title,
+                  style: TextStyle(
+                    color: widget.isUnlocked ? badgeColor : Colors.grey,
+                    fontSize: 10,
+                    fontWeight:
+                        widget.isUnlocked ? FontWeight.bold : FontWeight.w600,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    widget.isUnlocked
-                        ? 'تکمیل شده'
-                        : '${(widget.progress * 100).toInt()}٪',
-                    style: TextStyle(
-                      color: widget.isUnlocked
-                          ? Colors.green
-                          : Colors.white.withOpacity(0.5),
-                      fontSize: 9,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.isUnlocked
+                      ? 'تکمیل شده'
+                      : '${(widget.progress * 100).toInt()}٪',
+                  style: TextStyle(
+                    color: widget.isUnlocked
+                        ? badgeColor
+                        : Colors.white.withOpacity(0.5),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w500,
                   ),
-                ],
-              ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
         ),

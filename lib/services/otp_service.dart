@@ -45,47 +45,19 @@ class OTPService {
       String phoneNumber, String code) async {
     try {
       final client = Supabase.instance.client;
-      final expiresAt = DateTime.now()
-          .add(const Duration(minutes: 2)); // افزایش زمان انقضا به ۲ دقیقه
+      final expiresAt = DateTime.now().add(const Duration(minutes: 2));
 
-      // ابتدا RLS را بررسی کنیم
-      try {
-        print('Testing RLS with an SQL query');
-        await client.rpc('check_user_exists', params: {
-          'phone': phoneNumber,
-        });
-        print('RPC call successful, database connection works');
-      } catch (e) {
-        // خطای RPC باعث توقف روند نمی‌شود
-        print('RPC test failed: $e');
-      }
+      // تلاش برای ذخیره کد OTP - روش بهینه‌شده
+      await client.from('otp_codes').insert({
+        'phone_number': phoneNumber,
+        'code': code,
+        'expires_at': expiresAt.toIso8601String(),
+        'is_used': false,
+      });
 
-      try {
-        // تلاش برای ذخیره کد OTP
-        final insertResponse = await client.from('otp_codes').insert({
-          'phone_number': phoneNumber,
-          'code': code,
-          'expires_at': expiresAt.toIso8601String(),
-          'is_used': false,
-        }).select();
-
-        return insertResponse.isNotEmpty;
-      } catch (e) {
-        // تلاش دوم: فقط insert بدون select
-        await client.from('otp_codes').insert({
-          'phone_number': phoneNumber,
-          'code': code,
-          'expires_at': expiresAt.toIso8601String(),
-          'is_used': false,
-        });
-
-        return true;
-      }
+      return true;
     } catch (e) {
       print('Error saving OTP to Supabase: $e');
-      if (e is PostgrestException) {
-        print('PostgrestException: ${e.message}');
-      }
       return false;
     }
   }
@@ -109,10 +81,10 @@ class OTPService {
     try {
       final client = Supabase.instance.client;
 
-      // بررسی OTP در Supabase
+      // بررسی OTP در Supabase با کوئری بهینه‌شده
       final response = await client
           .from('otp_codes')
-          .select()
+          .select('id')
           .eq('phone_number', phoneNumber)
           .eq('code', code)
           .eq('is_used', false)
@@ -143,7 +115,7 @@ class OTPService {
   }
 
   static String generateOTP() {
-    // تولید کد 6 رقمی تصادفی
+    // تولید کد 6 رقمی تصادفی - روش بهینه‌شده
     return (100000 + (DateTime.now().millisecondsSinceEpoch % 900000))
         .toString();
   }

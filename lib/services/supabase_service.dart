@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // import '../models/profile_model.dart'; // Removed this line
 import '../models/user_profile.dart';
 import 'dart:io';
+import 'auth_state_service.dart';
 
 class SupabaseService {
   static final SupabaseClient _client = Supabase.instance.client;
@@ -85,6 +86,28 @@ class SupabaseService {
       final Map<String, dynamic> cleanData = Map.from(data);
       cleanData.remove('weight_history');
 
+      // بررسی داده‌های حساس قبل از ارسال
+      if (cleanData.containsKey('birth_date')) {
+        print('تاریخ تولد برای ارسال: ${cleanData['birth_date']}');
+        if (cleanData['birth_date'] is DateTime) {
+          cleanData['birth_date'] = cleanData['birth_date'].toIso8601String();
+          print('تبدیل تاریخ تولد به ISO8601 فرمت: ${cleanData['birth_date']}');
+        }
+      }
+
+      if (cleanData.containsKey('weight')) {
+        print('وزن برای ارسال: ${cleanData['weight']}');
+        final weightValue = cleanData['weight'];
+        if (weightValue is String) {
+          try {
+            cleanData['weight'] = double.parse(weightValue);
+            print('تبدیل وزن از رشته به عدد: ${cleanData['weight']}');
+          } catch (e) {
+            print('خطا در تبدیل وزن: $e');
+          }
+        }
+      }
+
       print('داده‌های تمیز شده برای ارسال به دیتابیس:');
       print(cleanData);
 
@@ -93,6 +116,21 @@ class SupabaseService {
 
       print('پاسخ بروزرسانی پروفایل: $response');
       print('پروفایل با موفقیت به‌روزرسانی شد');
+
+      // بررسی پروفایل به‌روز شده
+      try {
+        final updatedProfile =
+            await _client.from('profiles').select().eq('id', userId).single();
+        print('پروفایل به‌روز شده: $updatedProfile');
+
+        // بررسی تاریخ تولد
+        if (updatedProfile['birth_date'] != null) {
+          print(
+              'تاریخ تولد در پروفایل به‌روز شده: ${updatedProfile['birth_date']}');
+        }
+      } catch (e) {
+        print('خطا در بررسی پروفایل به‌روز شده: $e');
+      }
     } catch (e) {
       print('خطای جدی در بروزرسانی پروفایل: $e');
       if (e is PostgrestException) {
@@ -191,44 +229,19 @@ class SupabaseService {
 
       print('Checking if user exists with phone number: $normalizedPhone');
 
-      // روش اول: استفاده از کوئری مستقیم
+      // روش مستقیم: استفاده از کوئری بهینه‌شده
       try {
         final response = await _client
             .from('profiles')
-            .select('id, username, phone_number')
+            .select('id') // فقط شناسه را برای کاهش حجم داده‌ها بازیابی می‌کنیم
             .eq('phone_number', normalizedPhone)
             .maybeSingle();
 
-        print('User existence check direct query response: $response');
-        if (response != null) {
-          print('User found with direct query');
-          return true;
-        }
+        return response != null;
       } catch (e) {
         print('Direct query failed: $e');
+        return false;
       }
-
-      // روش دوم: بررسی همه پروفایل‌ها و مقایسه دستی
-      final allProfiles = await getAllProfiles();
-      print('Got ${allProfiles.length} profiles for manual check');
-
-      // چاپ همه پروفایل‌ها برای دیباگ
-      for (var profile in allProfiles) {
-        print('Profile: ${profile['username']} - ${profile['phone_number']}');
-      }
-
-      // بررسی دستی شماره موبایل در لیست پروفایل‌ها
-      for (var profile in allProfiles) {
-        if (profile['phone_number'] == normalizedPhone) {
-          print(
-              'Found matching profile with manual check: ${profile['username']}');
-          return true;
-        }
-      }
-
-      print(
-          'No matching profile found after checking ${allProfiles.length} profiles');
-      return false;
     } catch (e) {
       print('Error checking user existence: $e');
       return false;
@@ -604,6 +617,13 @@ class SupabaseService {
 
         print(
             'Sign in successful with primary email: ${response.session != null}');
+
+        // همگام‌سازی توکن با وردپرس
+        if (response.session != null) {
+          await AuthStateService()
+              .saveAuthState(response.session!, phoneNumber: phoneNumber);
+        }
+
         return response.session;
       } catch (e) {
         print('Primary sign in failed: $e');
@@ -621,6 +641,13 @@ class SupabaseService {
             );
             print(
                 'Sign in successful with phone email: ${response.session != null}');
+
+            // همگام‌سازی توکن با وردپرس
+            if (response.session != null) {
+              await AuthStateService()
+                  .saveAuthState(response.session!, phoneNumber: phoneNumber);
+            }
+
             return response.session;
           } catch (e2) {
             print('Phone-based email sign in failed: $e2');
@@ -651,6 +678,13 @@ class SupabaseService {
                 );
                 print(
                     'Sign in successful with username email: ${response.session != null}');
+
+                // همگام‌سازی توکن با وردپرس
+                if (response.session != null) {
+                  await AuthStateService().saveAuthState(response.session!,
+                      phoneNumber: phoneNumber);
+                }
+
                 return response.session;
               } catch (e3) {
                 print('Username-based email sign in failed: $e3');
@@ -749,6 +783,12 @@ class SupabaseService {
 
             if (checkProfile != null) {
               print('Profile verified successfully: $checkProfile');
+
+              // همگام‌سازی توکن با وردپرس
+              if (response.session != null) {
+                await AuthStateService()
+                    .saveAuthState(response.session!, phoneNumber: phoneNumber);
+              }
             } else {
               print(
                   'WARNING: Profile verification failed - profile may not exist');
@@ -924,8 +964,7 @@ class SupabaseService {
         print('Second profile creation attempt failed: $e');
       }
 
-      // اگر تمام تلاش‌ها ناموفق بود، صبر کنیم و پروفایل را دریافت کنیم
-      await Future.delayed(const Duration(seconds: 1));
+      // اگر تمام تلاش‌ها ناموفق بود، پروفایل را دریافت کنیم
       return getProfileByAuthId();
     } catch (e) {
       print('Error creating initial profile: $e');
