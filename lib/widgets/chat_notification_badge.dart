@@ -50,7 +50,7 @@ class _ChatNotificationBadgeState extends State<ChatNotificationBadge> {
       margin: const EdgeInsets.only(left: 8),
       child: Stack(
         children: [
-          Icon(
+          const Icon(
             LucideIcons.messageCircle,
             color: AppTheme.goldColor,
             size: 20,

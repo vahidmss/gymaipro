@@ -73,11 +73,11 @@ class WelcomeCard extends StatelessWidget {
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 14,
-                        shadows: [
+                        shadows: const [
                           Shadow(
                             color: Colors.black38,
                             blurRadius: 2,
-                            offset: const Offset(0, 1),
+                            offset: Offset(0, 1),
                           ),
                         ],
                       ),

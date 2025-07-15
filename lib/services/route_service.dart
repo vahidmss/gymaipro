@@ -15,7 +15,6 @@ import '../screens/food_detail_screen.dart';
 import '../screens/conversations_screen.dart';
 import '../screens/chat_screen.dart';
 import '../models/food.dart';
-import '../models/chat_message.dart';
 import '../services/auth_state_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 

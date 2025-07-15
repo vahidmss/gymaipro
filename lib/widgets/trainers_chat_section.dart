@@ -100,7 +100,7 @@ class _TrainersChatSectionState extends State<TrainersChatSection> {
             ),
             child: Row(
               children: [
-                Icon(
+                const Icon(
                   LucideIcons.users,
                   color: Colors.purple,
                   size: 24,
@@ -178,7 +178,7 @@ class _TrainersChatSectionState extends State<TrainersChatSection> {
             CircleAvatar(
               radius: 30,
               backgroundColor: Colors.purple.withValues(alpha: 0.2),
-              child: Icon(
+              child: const Icon(
                 LucideIcons.user,
                 color: Colors.purple,
                 size: 30,

@@ -80,7 +80,7 @@ class _LatestItemsSectionState extends State<LatestItemsSection> {
             ),
             child: Row(
               children: [
-                Icon(
+                const Icon(
                   LucideIcons.trendingUp,
                   color: AppTheme.goldColor,
                   size: 24,
@@ -222,8 +222,8 @@ class _LatestItemsSectionState extends State<LatestItemsSection> {
               flex: 3,
               child: Container(
                 width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(
+                decoration: const BoxDecoration(
+                  borderRadius: BorderRadius.vertical(
                     top: Radius.circular(16),
                   ),
                 ),
@@ -289,7 +289,7 @@ class _LatestItemsSectionState extends State<LatestItemsSection> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
+                        const Icon(
                           LucideIcons.flame,
                           color: Colors.orange,
                           size: 12,
@@ -345,8 +345,8 @@ class _LatestItemsSectionState extends State<LatestItemsSection> {
               flex: 3,
               child: Container(
                 width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(
+                decoration: const BoxDecoration(
+                  borderRadius: BorderRadius.vertical(
                     top: Radius.circular(16),
                   ),
                 ),
@@ -412,7 +412,7 @@ class _LatestItemsSectionState extends State<LatestItemsSection> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
+                        const Icon(
                           LucideIcons.target,
                           color: Colors.green,
                           size: 12,

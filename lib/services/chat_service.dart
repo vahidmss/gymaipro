@@ -23,7 +23,6 @@ class ChatService {
       final response = await _supabase
           .from('chat_conversations')
           .select()
-          .eq('user_id', user.id)
           .order('last_message_at', ascending: false);
 
       return (response as List)
@@ -49,6 +48,7 @@ class ChatService {
           .from('chat_messages')
           .select()
           .or('and(sender_id.eq.$userId,receiver_id.eq.$otherUserId),and(sender_id.eq.$otherUserId,receiver_id.eq.$userId)')
+          .eq('is_deleted', false)
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
@@ -67,8 +67,11 @@ class ChatService {
   Future<ChatMessage> sendMessage({
     required String receiverId,
     required String message,
+    String messageType = 'text',
     String? attachmentUrl,
     String? attachmentType,
+    String? attachmentName,
+    int? attachmentSize,
   }) async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
@@ -80,8 +83,11 @@ class ChatService {
         'sender_id': user.id,
         'receiver_id': receiverId,
         'message': message,
+        'message_type': messageType,
         'attachment_url': attachmentUrl,
         'attachment_type': attachmentType,
+        'attachment_name': attachmentName,
+        'attachment_size': attachmentSize,
       };
 
       final response = await _supabase
@@ -108,12 +114,49 @@ class ChatService {
     }
   }
 
-  // Delete a message
+  // Mark conversation as read
+  Future<void> markConversationAsRead(String otherUserId) async {
+    try {
+      await _supabase.rpc('mark_conversation_as_read',
+          params: {'p_other_user_id': otherUserId});
+    } catch (e) {
+      debugPrint('Error marking conversation as read: $e');
+      rethrow;
+    }
+  }
+
+  // Get unread message count
+  Future<int> getUnreadMessageCount() async {
+    try {
+      final response = await _supabase.rpc('get_unread_message_count');
+      return response as int;
+    } catch (e) {
+      debugPrint('Error getting unread message count: $e');
+      return 0;
+    }
+  }
+
+  // Delete a message (soft delete)
   Future<void> deleteMessage(String messageId) async {
     try {
-      await _supabase.from('chat_messages').delete().eq('id', messageId);
+      await _supabase
+          .from('chat_messages')
+          .update({'is_deleted': true}).eq('id', messageId);
     } catch (e) {
       debugPrint('Error deleting message: $e');
+      rethrow;
+    }
+  }
+
+  // Edit a message
+  Future<void> editMessage(String messageId, String newMessage) async {
+    try {
+      await _supabase.from('chat_messages').update({
+        'message': newMessage,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', messageId);
+    } catch (e) {
+      debugPrint('Error editing message: $e');
       rethrow;
     }
   }
@@ -129,7 +172,7 @@ class ChatService {
     final controller = StreamController<ChatMessage>();
 
     // Subscribe to messages where current user is sender or receiver
-    final channel = _supabase.channel('chat_messages');
+    final channel = _supabase.channel('chat_messages_$otherUserId');
     final subscription = channel
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -137,11 +180,12 @@ class ChatService {
           table: 'chat_messages',
           callback: (payload) {
             final message = ChatMessage.fromJson(payload.newRecord);
-            // Filter messages for this conversation only
-            if ((message.senderId == userId &&
-                    message.receiverId == otherUserId) ||
-                (message.senderId == otherUserId &&
-                    message.receiverId == userId)) {
+            // Filter messages for this conversation only and not deleted
+            if (!message.isDeleted &&
+                ((message.senderId == userId &&
+                        message.receiverId == otherUserId) ||
+                    (message.senderId == otherUserId &&
+                        message.receiverId == userId))) {
               controller.add(message);
             }
           },
@@ -166,8 +210,8 @@ class ChatService {
     final userId = user.id;
     final controller = StreamController<ChatConversation>();
 
-    // First, subscribe to new messages
-    final channel = _supabase.channel('chat_conversations');
+    // Subscribe to new messages
+    final channel = _supabase.channel('chat_conversations_$userId');
     final subscription = channel
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -175,8 +219,9 @@ class ChatService {
           table: 'chat_messages',
           callback: (payload) async {
             final message = ChatMessage.fromJson(payload.newRecord);
-            // Filter messages for this user only
-            if (message.senderId == userId || message.receiverId == userId) {
+            // Filter messages for this user only and not deleted
+            if (!message.isDeleted &&
+                (message.senderId == userId || message.receiverId == userId)) {
               // When a new message arrives, fetch the updated conversation
               final otherUserId = message.senderId == userId
                   ? message.receiverId
@@ -215,18 +260,20 @@ class ChatService {
         throw Exception('User not authenticated');
       }
 
-      // Get trainers for this client
+      // Get all trainers
       final response = await _supabase
-          .from('trainer_clients')
-          .select('trainer:trainer_id(id, profiles(id, full_name, avatar_url))')
-          .eq('client_id', user.id);
+          .from('profiles')
+          .select('id, first_name, last_name, avatar_url, role')
+          .eq('role', 'trainer')
+          .limit(20);
 
       return (response as List).map((item) {
-        final trainer = item['trainer']['profiles'];
         return {
-          'id': trainer['id'],
-          'name': trainer['full_name'],
-          'avatar': trainer['avatar_url'],
+          'id': item['id'],
+          'name':
+              '${item['first_name'] ?? ''} ${item['last_name'] ?? ''}'.trim(),
+          'avatar': item['avatar_url'],
+          'role': item['role'],
         };
       }).toList();
     } catch (e) {
@@ -243,23 +290,96 @@ class ChatService {
         throw Exception('User not authenticated');
       }
 
-      // Get clients for this trainer
+      // Get all athletes
       final response = await _supabase
-          .from('trainer_clients')
-          .select('client:client_id(id, profiles(id, full_name, avatar_url))')
-          .eq('trainer_id', user.id);
+          .from('profiles')
+          .select('id, first_name, last_name, avatar_url, role')
+          .eq('role', 'athlete')
+          .limit(20);
 
       return (response as List).map((item) {
-        final client = item['client']['profiles'];
         return {
-          'id': client['id'],
-          'name': client['full_name'],
-          'avatar': client['avatar_url'],
+          'id': item['id'],
+          'name':
+              '${item['first_name'] ?? ''} ${item['last_name'] ?? ''}'.trim(),
+          'avatar': item['avatar_url'],
+          'role': item['role'],
         };
       }).toList();
     } catch (e) {
       debugPrint('Error getting clients: $e');
       rethrow;
+    }
+  }
+
+  // Search conversations
+  Future<List<ChatConversation>> searchConversations(String query) async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final response = await _supabase
+          .from('chat_conversations')
+          .select()
+          .ilike('other_user_name', '%$query%')
+          .order('last_message_at', ascending: false);
+
+      return (response as List)
+          .map((json) => ChatConversation.fromJson(json))
+          .toList();
+    } catch (e) {
+      debugPrint('Error searching conversations: $e');
+      rethrow;
+    }
+  }
+
+  // Get conversation by user ID
+  Future<ChatConversation?> getConversationByUserId(String otherUserId) async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final response = await _supabase
+          .from('chat_conversations')
+          .select()
+          .eq('other_user_id', otherUserId)
+          .maybeSingle();
+
+      if (response != null) {
+        return ChatConversation.fromJson(response);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error getting conversation: $e');
+      return null;
+    }
+  }
+
+  // Create a new conversation (if it doesn't exist)
+  Future<ChatConversation?> createConversation(String otherUserId) async {
+    try {
+      // First check if conversation already exists
+      final existing = await getConversationByUserId(otherUserId);
+      if (existing != null) {
+        return existing;
+      }
+
+      // If no conversation exists, send a welcome message to create one
+      await sendMessage(
+        receiverId: otherUserId,
+        message: 'سلام! 👋',
+        messageType: 'text',
+      );
+
+      // Now get the conversation
+      return await getConversationByUserId(otherUserId);
+    } catch (e) {
+      debugPrint('Error creating conversation: $e');
+      return null;
     }
   }
 }

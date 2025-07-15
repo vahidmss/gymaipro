@@ -28,7 +28,7 @@ class ProfileHeader extends StatelessWidget {
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   colors: [AppTheme.goldColor, AppTheme.darkGold],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -67,7 +67,7 @@ class ProfileHeader extends StatelessWidget {
             ),
             IconButton(
               onPressed: onEditProfile,
-              icon: Icon(
+              icon: const Icon(
                 LucideIcons.edit,
                 color: AppTheme.goldColor,
                 size: 20,

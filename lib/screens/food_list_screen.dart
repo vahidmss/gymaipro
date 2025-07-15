@@ -403,7 +403,7 @@ class _FoodListScreenState extends State<FoodListScreen>
             // Food Image
             Expanded(
               flex: 3,
-              child: Container(
+              child: SizedBox(
                 width: double.infinity,
                 child: Stack(
                   children: [

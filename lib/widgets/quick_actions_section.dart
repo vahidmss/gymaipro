@@ -178,7 +178,7 @@ class QuickActionsSection extends StatelessWidget {
                   ),
                 ],
               ),
-              SizedBox(
+              const SizedBox(
                 height: 10,
               ),
               Flexible(

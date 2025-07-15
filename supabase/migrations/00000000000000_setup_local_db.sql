@@ -217,3 +217,5 @@ END;
 $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON FUNCTION public.check_user_exists(TEXT) TO anon;
 GRANT EXECUTE ON FUNCTION public.check_user_exists(TEXT) TO authenticated; 
+
+-- ALTER TABLE chat_rooms ALTER COLUMN created_by DROP NOT NULL; 

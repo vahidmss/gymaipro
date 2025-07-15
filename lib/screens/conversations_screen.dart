@@ -246,7 +246,6 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
         builder: (context) => ChatScreen(
           otherUserId: conversation.otherUserId,
           otherUserName: conversation.otherUserName,
-          otherUserAvatar: conversation.otherUserAvatar,
         ),
       ),
     );
@@ -316,7 +315,6 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                         builder: (context) => ChatScreen(
                           otherUserId: contact['id'],
                           otherUserName: contact['name'],
-                          otherUserAvatar: contact['avatar'],
                         ),
                       ),
                     );

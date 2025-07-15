@@ -32,7 +32,7 @@ class MealPlanningSection extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(
+                const Icon(
                   LucideIcons.utensils,
                   color: Colors.green,
                   size: 24,

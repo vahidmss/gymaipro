@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../models/workout_program.dart';
 import '../models/exercise.dart';
 import '../services/workout_program_service.dart';
@@ -7,7 +8,10 @@ import '../services/workout_program_log_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/exercise_service.dart';
 import 'package:shamsi_date/shamsi_date.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import '../theme/app_theme.dart';
+import '../widgets/program_selection_card.dart';
+import '../widgets/exercise_card.dart';
+import '../widgets/workout_calendar.dart';
 
 class WorkoutLogScreen extends StatefulWidget {
   const WorkoutLogScreen({Key? key}) : super(key: key);
@@ -16,7 +20,8 @@ class WorkoutLogScreen extends StatefulWidget {
   State<WorkoutLogScreen> createState() => _WorkoutLogScreenState();
 }
 
-class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
+class _WorkoutLogScreenState extends State<WorkoutLogScreen>
+    with TickerProviderStateMixin {
   final _workoutProgramService = WorkoutProgramService();
   final _workoutProgramLogService = WorkoutProgramLogService();
   final _exerciseService = ExerciseService();
@@ -31,16 +36,26 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
   final Map<int, List<TextEditingController>> _repsControllers = {};
   final Map<int, List<TextEditingController>> _weightControllers = {};
 
+  late TabController _tabController;
+  DateTime _selectedDate = DateTime.now();
+  final Map<DateTime, List<WorkoutProgramLog>> _workoutCalendar = {};
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadPrograms();
     _loadHistory();
   }
 
   @override
   void dispose() {
-    // Clean up all controllers
+    _tabController.dispose();
+    _disposeControllers();
+    super.dispose();
+  }
+
+  void _disposeControllers() {
     for (var controllers in _repsControllers.values) {
       for (var controller in controllers) {
         controller.dispose();
@@ -51,10 +66,8 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
         controller.dispose();
       }
     }
-    super.dispose();
   }
 
-  /// Load available workout programs
   Future<void> _loadPrograms() async {
     final programs = await _workoutProgramService.getPrograms();
     if (mounted) {
@@ -70,7 +83,6 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     await _initExerciseControllers();
   }
 
-  /// Load workout history logs
   Future<void> _loadHistory() async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return;
@@ -82,6 +94,7 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
         setState(() {
           _historyLogs = logs;
         });
+        _buildWorkoutCalendar();
       }
 
       _updateSavedSetsFromLogs();
@@ -90,17 +103,23 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     }
   }
 
-  /// Update saved sets from logs
+  void _buildWorkoutCalendar() {
+    _workoutCalendar.clear();
+    for (final log in _historyLogs) {
+      final date =
+          DateTime(log.createdAt.year, log.createdAt.month, log.createdAt.day);
+      if (!_workoutCalendar.containsKey(date)) {
+        _workoutCalendar[date] = [];
+      }
+      _workoutCalendar[date]!.add(log);
+    }
+  }
+
   void _updateSavedSetsFromLogs() {
     _savedSets.clear();
-
     final today = DateTime.now().toUtc();
-
-    // Sort logs by creation time (newest first)
     final sortedLogs = List.of(_historyLogs)
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    // Consider only today's logs
     final todayLogs = sortedLogs
         .where((log) =>
             log.createdAt.year == today.year &&
@@ -108,11 +127,8 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
             log.createdAt.day == today.day)
         .toList();
 
-    if (todayLogs.isEmpty) {
-      return;
-    }
+    if (todayLogs.isEmpty) return;
 
-    // For each program, find the latest logs of today (grouped by program name)
     final Map<String, WorkoutProgramLog> latestLogsByProgram = {};
     for (final log in todayLogs) {
       final programName = log.programName;
@@ -122,17 +138,14 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
       }
     }
 
-    // For each program, update all exercises recorded in the latest log
     for (final log in latestLogsByProgram.values) {
       for (final session in log.sessions) {
         for (final exercise in session.exercises) {
           if (exercise is NormalExerciseLog) {
             final exerciseKey = exercise.exerciseId.toString();
-
             if (!_savedSets.containsKey(exerciseKey)) {
               _savedSets[exerciseKey] = {};
             }
-
             for (int i = 0; i < exercise.sets.length; i++) {
               _savedSets[exerciseKey]![i] = true;
             }
@@ -142,7 +155,6 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     }
   }
 
-  /// Handle program selection
   void _onSelectProgram(WorkoutProgram? program) async {
     setState(() {
       _selectedProgram = program;
@@ -152,7 +164,6 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     await _initExerciseControllers();
   }
 
-  /// Handle session selection
   void _onSelectSession(WorkoutSession? session) async {
     setState(() {
       _selectedSession = session;
@@ -160,20 +171,8 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     await _initExerciseControllers();
   }
 
-  /// Initialize controllers for all exercises in the selected session
   Future<void> _initExerciseControllers() async {
-    // Clear previous controllers
-    for (var controllers in _repsControllers.values) {
-      for (var controller in controllers) {
-        controller.dispose();
-      }
-    }
-    for (var controllers in _weightControllers.values) {
-      for (var controller in controllers) {
-        controller.dispose();
-      }
-    }
-
+    _disposeControllers();
     _repsControllers.clear();
     _weightControllers.clear();
     _exerciseDetails.clear();
@@ -185,7 +184,6 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
         final exercise = await _exerciseService.getExerciseById(ex.exerciseId);
         _exerciseDetails[ex.exerciseId] = exercise;
 
-        // Create controllers for each set
         _repsControllers[ex.exerciseId] =
             List.generate(ex.sets.length, (i) => TextEditingController());
         _weightControllers[ex.exerciseId] =
@@ -198,7 +196,6 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     }
   }
 
-  /// Find the last set log for a specific exercise and set index
   ExerciseSetLog? _findLastSetLog(int exerciseId, int setIdx) {
     final sortedLogs = List.of(_historyLogs)
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -217,12 +214,10 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     return null;
   }
 
-  /// Save a set to the database
   Future<void> _saveSet(int exerciseId, int setIdx) async {
-    // Close keyboard first
     FocusScope.of(context).unfocus();
-
     setState(() {});
+
     try {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) throw Exception('User not logged in');
@@ -279,7 +274,6 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
         updatedAt: DateTime.now(),
       );
 
-      // Use WorkoutProgramLogService to save the log
       final workoutProgramLogService = WorkoutProgramLogService();
       final savedLog = await workoutProgramLogService.saveProgramLog(log);
 
@@ -287,14 +281,12 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
         throw Exception('Failed to save log. Database returned null.');
       }
 
-      // Update saved sets tracking
       final exerciseKey = exerciseId.toString();
       if (!_savedSets.containsKey(exerciseKey)) {
         _savedSets[exerciseKey] = {};
       }
       _savedSets[exerciseKey]![setIdx] = true;
 
-      // Show success feedback
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('ست با موفقیت ثبت شد'),
@@ -310,275 +302,211 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     }
   }
 
+  void _onDateSelected(DateTime date) {
+    setState(() {
+      _selectedDate = date;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Get current date for header
     final now = DateTime.now();
     final persianDate = _getPersianFormattedDate(now);
 
-    return GestureDetector(
-      onTap: () {
-        // Close keyboard when tapping elsewhere
-        FocusScope.of(context).unfocus();
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(persianDate),
-          centerTitle: true,
-        ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  _buildProgramSelectionRow(),
-                  Expanded(
-                    child: _buildExercisesList(),
-                  ),
-                ],
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        backgroundColor: AppTheme.backgroundColor,
+        elevation: 0,
+        title: Column(
+          children: [
+            const Text(
+              'ثبت تمرین',
+              style: TextStyle(
+                color: AppTheme.goldColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
               ),
+            ),
+            Text(
+              persianDate,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(LucideIcons.arrowRight, color: AppTheme.goldColor),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.goldColor))
+          : Column(
+              children: [
+                _buildTabBar(),
+                Expanded(child: _buildTabBarView()),
+              ],
+            ),
     );
   }
 
-  Widget _buildProgramSelectionRow() {
-    return Padding(
-      padding: const EdgeInsets.all(12.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: DropdownButtonFormField<WorkoutProgram>(
-              value: _selectedProgram,
-              decoration: const InputDecoration(
-                labelText: 'برنامه تمرینی',
-                border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              items: _programs
-                  .map((p) => DropdownMenuItem(
-                        value: p,
-                        child: Text(p.name, overflow: TextOverflow.ellipsis),
-                      ))
-                  .toList(),
-              onChanged: _onSelectProgram,
+  Widget _buildTabBar() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        indicator: BoxDecoration(
+          color: AppTheme.goldColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        labelColor: Colors.black,
+        unselectedLabelColor: Colors.white.withValues(alpha: 0.7),
+        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        unselectedLabelStyle:
+            const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
+        dividerColor: Colors.transparent,
+        tabs: const [
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(LucideIcons.dumbbell, size: 16),
+                SizedBox(width: 6),
+                Text('امروز'),
+              ],
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: DropdownButtonFormField<WorkoutSession>(
-              value: _selectedSession,
-              decoration: const InputDecoration(
-                labelText: 'جلسه',
-                border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-              items: _selectedProgram?.sessions
-                      .map((s) => DropdownMenuItem(
-                            value: s,
-                            child: Text(s.day, overflow: TextOverflow.ellipsis),
-                          ))
-                      .toList() ??
-                  [],
-              onChanged: _onSelectSession,
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(LucideIcons.calendar, size: 16),
+                SizedBox(width: 6),
+                Text('تقویم'),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTabBarView() {
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        _buildTodayWorkout(),
+        _buildCalendarTab(),
+      ],
+    );
+  }
+
+  Widget _buildTodayWorkout() {
+    return Column(
+      children: [
+        ProgramSelectionCard(
+          programs: _programs,
+          selectedProgram: _selectedProgram,
+          selectedSession: _selectedSession,
+          onProgramChanged: _onSelectProgram,
+          onSessionChanged: _onSelectSession,
+        ),
+        Expanded(child: _buildExercisesList()),
+      ],
+    );
+  }
+
+  Widget _buildCalendarTab() {
+    return Column(
+      children: [
+        WorkoutCalendar(
+          workoutCalendar: _workoutCalendar,
+          onDateSelected: _onDateSelected,
+        ),
+        Expanded(
+          child: WorkoutDayDetails(
+            selectedDate: _selectedDate,
+            workouts: _workoutCalendar[_selectedDate] ?? [],
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildExercisesList() {
     if (_selectedSession == null) {
-      return const Center(
-        child: Text(
-          'جلسه‌ای انتخاب نشده',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-      );
-    }
-
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return _buildEmptyState('جلسه‌ای انتخاب نشده');
     }
 
     if (_selectedSession!.exercises.isEmpty) {
-      return const Center(
-        child: Text(
-          'هیچ تمرینی برای این جلسه تعریف نشده است.',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-      );
+      return _buildEmptyState('هیچ تمرینی برای این جلسه تعریف نشده است.');
     }
 
-    // Filter to show only NormalExercise for now
     final exercises =
         _selectedSession!.exercises.whereType<NormalExercise>().toList();
 
     if (exercises.isEmpty) {
-      return const Center(
-        child: Text(
-          'هیچ تمرین استانداردی برای این جلسه تعریف نشده است.',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-      );
+      return _buildEmptyState(
+          'هیچ تمرین استانداردی برای این جلسه تعریف نشده است.');
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: exercises.length,
       itemBuilder: (context, idx) {
         final exercise = exercises[idx];
-        return _buildExerciseCard(exercise);
+        final exerciseDetails = _exerciseDetails[exercise.exerciseId];
+        final exerciseKey = exercise.exerciseId.toString();
+        final loggedSets = _savedSets[exerciseKey]
+                ?.entries
+                .where((entry) => entry.value)
+                .length ??
+            0;
+
+        return ExerciseCard(
+          exercise: exercise,
+          exerciseDetails: exerciseDetails,
+          loggedSets: loggedSets,
+          repsControllers: _repsControllers,
+          weightControllers: _weightControllers,
+          savedSets: _savedSets,
+          onSaveSet: _saveSet,
+          findLastSetLog: _findLastSetLog,
+        );
       },
     );
   }
 
-  Widget _buildExerciseCard(NormalExercise exercise) {
-    final exerciseDetails = _exerciseDetails[exercise.exerciseId];
-    final exerciseKey = exercise.exerciseId.toString();
-
-    // Check how many sets are logged
-    final loggedSets =
-        _savedSets[exerciseKey]?.entries.where((entry) => entry.value).length ??
-            0;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  Widget _buildEmptyState(String message) {
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Exercise header with image and name
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Exercise image
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  bottomLeft: Radius.circular(0),
-                ),
-                child: exerciseDetails?.imageUrl != null &&
-                        exerciseDetails!.imageUrl.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: exerciseDetails.imageUrl,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          width: 80,
-                          height: 80,
-                          color: Colors.grey.shade300,
-                          child: const Center(
-                              child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )),
-                        ),
-                        errorWidget: (c, e, s) => Container(
-                          width: 80,
-                          height: 80,
-                          color: Colors.grey.shade300,
-                          child: const Icon(Icons.fitness_center, size: 40),
-                        ),
-                      )
-                    : Container(
-                        width: 80,
-                        height: 80,
-                        color: Colors.grey.shade300,
-                        child: const Icon(Icons.fitness_center, size: 40),
-                      ),
-              ),
-
-              // Exercise info
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        exerciseDetails?.name ?? 'تمرین',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        exercise.tag,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primaryContainer,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              exercise.style == ExerciseStyle.setsReps
-                                  ? 'ست-تکرار'
-                                  : 'ست-زمان',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onPrimaryContainer,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          if (loggedSets > 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                '$loggedSets/${exercise.sets.length}',
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.green,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+          Icon(
+            LucideIcons.dumbbell,
+            size: 64,
+            color: Colors.white.withValues(alpha: 0.3),
           ),
-
-          // Exercise sets logging
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Column(
-              children: List.generate(
-                exercise.sets.length,
-                (setIdx) => _buildSetRow(exercise, setIdx),
-              ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 16,
             ),
           ),
         ],
@@ -586,154 +514,24 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     );
   }
 
-  Widget _buildSetRow(NormalExercise exercise, int setIdx) {
-    final exerciseId = exercise.exerciseId;
-    final exerciseKey = exerciseId.toString();
-    final isLogged = _savedSets[exerciseKey]?[setIdx] ?? false;
-    final lastLog = _findLastSetLog(exerciseId, setIdx);
-
-    // Get planned value for this set
-    final setPlannedValue = exercise.style == ExerciseStyle.setsReps
-        ? (exercise.sets[setIdx].reps?.toString() ?? '')
-        : (exercise.sets[setIdx].timeSeconds?.toString() ?? '');
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Row(
-        children: [
-          // Set number indicator
-          Container(
-            width: 28,
-            height: 28,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: isLogged
-                  ? Colors.green
-                  : Theme.of(context).colorScheme.primaryContainer,
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              '${setIdx + 1}',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isLogged
-                    ? Colors.white
-                    : Theme.of(context).colorScheme.onPrimaryContainer,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // Reps/Time input
-          Expanded(
-            child: TextField(
-              controller: _repsControllers[exerciseId]?[setIdx],
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                border: const OutlineInputBorder(),
-                labelText: exercise.style == ExerciseStyle.setsReps
-                    ? 'تکرار'
-                    : 'ثانیه',
-                hintText: setPlannedValue,
-                suffixIcon: lastLog != null
-                    ? IconButton(
-                        icon: const Icon(Icons.history, size: 16),
-                        onPressed: () {
-                          final value = exercise.style == ExerciseStyle.setsReps
-                              ? lastLog.reps?.toString() ?? ''
-                              : lastLog.seconds?.toString() ?? '';
-                          setState(() {
-                            _repsControllers[exerciseId]![setIdx].text = value;
-                          });
-                        },
-                      )
-                    : null,
-              ),
-              keyboardType: TextInputType.number,
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // Weight input
-          Expanded(
-            child: TextField(
-              controller: _weightControllers[exerciseId]?[setIdx],
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                border: const OutlineInputBorder(),
-                labelText: 'وزن',
-                hintText: lastLog?.weight?.toString() ?? '',
-                suffixIcon: lastLog?.weight != null
-                    ? IconButton(
-                        icon: const Icon(Icons.history, size: 16),
-                        onPressed: () {
-                          setState(() {
-                            _weightControllers[exerciseId]![setIdx].text =
-                                lastLog!.weight?.toString() ?? '';
-                          });
-                        },
-                      )
-                    : null,
-              ),
-              keyboardType: TextInputType.number,
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // Save button
-          ElevatedButton(
-            onPressed: () => _saveSet(exerciseId, setIdx),
-            style: ElevatedButton.styleFrom(
-              shape: const CircleBorder(),
-              padding: const EdgeInsets.all(8),
-              backgroundColor: isLogged
-                  ? Colors.green
-                  : Theme.of(context).colorScheme.primary,
-            ),
-            child: Icon(
-              isLogged ? Icons.check : Icons.save,
-              color: Colors.white,
-              size: 18,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Convert DateTime to Persian formatted date
   String _getPersianFormattedDate(DateTime date) {
     final gregorian = Gregorian.fromDateTime(date);
     final jalali = gregorian.toJalali();
-
     final weekDay = _getPersianWeekDay(date.weekday);
-
     return '$weekDay ${jalali.day}/${jalali.month}/${jalali.year}';
   }
 
-  /// Get Persian weekday name
   String _getPersianWeekDay(int weekday) {
-    switch (weekday) {
-      case 1:
-        return 'دوشنبه';
-      case 2:
-        return 'سه‌شنبه';
-      case 3:
-        return 'چهارشنبه';
-      case 4:
-        return 'پنجشنبه';
-      case 5:
-        return 'جمعه';
-      case 6:
-        return 'شنبه';
-      case 7:
-        return 'یکشنبه';
-      default:
-        return '';
-    }
+    const weekdays = [
+      '',
+      'دوشنبه',
+      'سه‌شنبه',
+      'چهارشنبه',
+      'پنج‌شنبه',
+      'جمعه',
+      'شنبه',
+      'یکشنبه'
+    ];
+    return weekdays[weekday];
   }
 }

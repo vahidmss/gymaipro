@@ -15,6 +15,9 @@ import 'package:gymaipro/widgets/meal_planning_section.dart';
 import 'package:gymaipro/widgets/weight_height_display.dart';
 import 'package:gymaipro/widgets/chat_notification_badge.dart';
 import 'package:gymaipro/widgets/trainers_chat_section.dart';
+import 'package:gymaipro/widgets/chat_widget.dart';
+import 'package:gymaipro/widgets/public_chat_widget.dart';
+import 'package:gymaipro/widgets/chat_tabs_widget.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -265,7 +268,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     height: '${_profileData['height'] ?? '0'} سانتی‌متر',
                   ),
                   const SizedBox(height: 20),
-                  const TrainersChatSection(),
+                  const ChatTabsWidget(),
                   const SizedBox(height: 20),
                   const quick_actions.QuickActionsSection(),
                   const SizedBox(height: 20),
@@ -401,28 +404,28 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   List<Widget> _buildAnalyticsCards() {
     return [
-      AnalyticsCard(
+      const AnalyticsCard(
         title: 'تمرینات این هفته',
         value: '5',
         subtitle: 'از 7 روز',
         icon: LucideIcons.calendar,
         color: Colors.blue,
       ),
-      AnalyticsCard(
+      const AnalyticsCard(
         title: 'وزن کل',
         value: '1250',
         subtitle: 'کیلوگرم',
         icon: LucideIcons.dumbbell,
         color: Colors.green,
       ),
-      AnalyticsCard(
+      const AnalyticsCard(
         title: 'زمان تمرین',
         value: '45',
         subtitle: 'دقیقه',
         icon: LucideIcons.clock,
         color: Colors.orange,
       ),
-      AnalyticsCard(
+      const AnalyticsCard(
         title: 'کالری سوزانده',
         value: '320',
         subtitle: 'کالری',
@@ -434,19 +437,19 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   List<Widget> _buildProgressBars() {
     return [
-      ProgressBar(
+      const ProgressBar(
         label: 'پرس سینه',
         progress: 0.8,
         value: '80 کیلوگرم',
         color: Colors.blue,
       ),
-      ProgressBar(
+      const ProgressBar(
         label: 'اسکوات',
         progress: 0.6,
         value: '100 کیلوگرم',
         color: Colors.green,
       ),
-      ProgressBar(
+      const ProgressBar(
         label: 'ددلیفت',
         progress: 0.9,
         value: '120 کیلوگرم',
@@ -457,19 +460,19 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   List<Widget> _buildProfileStatItems() {
     return [
-      ProfileStatItem(
+      const ProfileStatItem(
         label: 'تعداد تمرینات',
         value: '24',
         icon: LucideIcons.dumbbell,
         color: Colors.blue,
       ),
-      ProfileStatItem(
+      const ProfileStatItem(
         label: 'روزهای تمرین',
         value: '12',
         icon: LucideIcons.calendar,
         color: Colors.green,
       ),
-      ProfileStatItem(
+      const ProfileStatItem(
         label: 'زمان کل',
         value: '18 ساعت',
         icon: LucideIcons.clock,

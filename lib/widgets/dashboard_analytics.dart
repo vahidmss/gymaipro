@@ -71,7 +71,7 @@ class AnalyticsCard extends StatelessWidget {
                   child: Icon(icon, color: color, size: 16),
                 ),
                 const Spacer(),
-                Icon(
+                const Icon(
                   LucideIcons.trendingUp,
                   color: Colors.green,
                   size: 14,
