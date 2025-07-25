@@ -19,6 +19,7 @@ class _FoodListScreenState extends State<FoodListScreen>
   final FoodService _foodService = FoodService();
   final TextEditingController _searchController = TextEditingController();
   late TabController _tabController;
+  late AnimationController _animationController;
 
   List<Food> _foods = [];
   List<Food> _filteredFoods = [];
@@ -28,17 +29,23 @@ class _FoodListScreenState extends State<FoodListScreen>
   bool _isLoading = true;
   bool _isSearching = false;
 
-  // Gold theme colors
+  // Enhanced Gold theme colors
   static const Color goldColor = Color(0xFFD4AF37);
   static const Color darkGold = Color(0xFFB8860B);
-  static const Color backgroundColor = Color(0xFF121212);
-  static const Color cardColor = Color(0xFF1E1E1E);
-  static const Color accentColor = Color(0xFFFFD700); // Gold accent
+  static const Color backgroundColor = Color(0xFF0F0F0F);
+  static const Color cardColor = Color(0xFF1A1A1A);
+  static const Color accentColor = Color(0xFFFFD700);
+  static const Color gradientStart = Color(0xFF1A1A1A);
+  static const Color gradientEnd = Color(0xFF2A2A2A);
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
     _loadData();
   }
 
@@ -46,6 +53,7 @@ class _FoodListScreenState extends State<FoodListScreen>
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -65,6 +73,7 @@ class _FoodListScreenState extends State<FoodListScreen>
         _foodCategories = categories;
         _isLoading = false;
       });
+      _animationController.forward();
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -75,6 +84,9 @@ class _FoodListScreenState extends State<FoodListScreen>
           SnackBar(
             content: Text('خطا در بارگذاری خوراکی‌ها: $e'),
             backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -111,18 +123,19 @@ class _FoodListScreenState extends State<FoodListScreen>
         // food.isFavorite is already updated in the service
         if (food.isFavorite) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('خوراکی به لیست علاقه‌مندی‌ها اضافه شد'),
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.favorite, color: Colors.red, size: 20),
+                  SizedBox(width: 8),
+                  Text('به علاقه‌مندی‌ها اضافه شد'),
+                ],
+              ),
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 1),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('خوراکی از لیست علاقه‌مندی‌ها حذف شد'),
-              backgroundColor: Colors.blue,
-              duration: Duration(seconds: 1),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              duration: const Duration(seconds: 1),
             ),
           );
         }
@@ -132,6 +145,9 @@ class _FoodListScreenState extends State<FoodListScreen>
         SnackBar(
           content: Text('خطا: $e'),
           backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -142,14 +158,21 @@ class _FoodListScreenState extends State<FoodListScreen>
       final wasLiked = food.isLikedByUser;
       await _foodService.toggleLike(food.id);
       setState(() {
-        // food.isLikedByUser and food.likes are already updated in the service
         if (!wasLiked && food.isLikedByUser) {
-          // Successfully liked
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('خوراکی را پسندیدید'),
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.thumb_up, color: Colors.blue, size: 20),
+                  SizedBox(width: 8),
+                  Text('پسندیدید'),
+                ],
+              ),
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 1),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              duration: const Duration(seconds: 1),
             ),
           );
         }
@@ -159,6 +182,9 @@ class _FoodListScreenState extends State<FoodListScreen>
         SnackBar(
           content: Text('خطا: $e'),
           backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -169,99 +195,166 @@ class _FoodListScreenState extends State<FoodListScreen>
     return Theme(
       data: AppTheme.darkTheme,
       child: GestureDetector(
-        onTap: () =>
-            FocusScope.of(context).unfocus(), // Hide keyboard on tap outside
+        onTap: () => FocusScope.of(context).unfocus(),
         child: Scaffold(
           backgroundColor: backgroundColor,
-          appBar: AppBar(
-            backgroundColor: backgroundColor,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            title: _isSearching
-                ? _buildSearchField()
-                : const Text(
-                    'خوراکی‌ها',
-                    style: TextStyle(
-                      color: goldColor,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-            actions: [
-              IconButton(
-                icon: Icon(
-                  _isSearching ? LucideIcons.x : LucideIcons.search,
-                  color: goldColor,
-                  size: 22,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _isSearching = !_isSearching;
-                    if (!_isSearching) {
-                      _searchController.clear();
-                      _searchQuery = '';
-                      _filterFoods();
-                    }
-                  });
-                },
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [backgroundColor, Color(0xFF1A1A1A)],
               ),
-            ],
-            leading: IconButton(
-              icon: const Icon(
-                LucideIcons.arrowLeft,
-                color: goldColor,
-                size: 22,
-              ),
-              onPressed: () => Navigator.of(context).pop(),
             ),
-          ),
-          body: Column(
-            children: [
-              // Category Filter Tabs
-              if (!_isSearching) _buildCategoryTabs(),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  // Custom App Bar
+                  _buildCustomAppBar(),
 
-              // Food List
-              Expanded(
-                child: _isLoading
-                    ? _buildLoadingGrid()
-                    : _filteredFoods.isEmpty
-                        ? _buildEmptyState()
-                        : _buildFoodGrid(),
+                  // Category Filter Tabs
+                  if (!_isSearching) _buildCategoryTabs(),
+
+                  // Food List
+                  Expanded(
+                    child: _isLoading
+                        ? _buildLoadingGrid()
+                        : _filteredFoods.isEmpty
+                            ? _buildEmptyState()
+                            : _buildFoodGrid(),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildSearchField() {
-    return TextField(
-      controller: _searchController,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        hintText: 'جستجو در خوراکی‌ها...',
-        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-        border: InputBorder.none,
-        prefixIcon: const Icon(LucideIcons.search, color: goldColor),
+  Widget _buildCustomAppBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            cardColor.withValues(alpha: 0.8),
+            cardColor.withValues(alpha: 0.4),
+          ],
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      onChanged: (value) {
-        setState(() {
-          _searchQuery = value;
-          _filterFoods();
-        });
-      },
+      child: Row(
+        children: [
+          // Back Button
+          Container(
+            decoration: BoxDecoration(
+              color: goldColor.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(
+                LucideIcons.arrowLeft,
+                color: goldColor,
+                size: 20,
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+          const SizedBox(width: 16),
+
+          // Title or Search Field
+          Expanded(
+            child: _isSearching
+                ? _buildSearchField()
+                : const Text(
+                    'خوراکی‌ها',
+                    style: TextStyle(
+                      color: goldColor,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+          ),
+
+          // Search Button
+          Container(
+            decoration: BoxDecoration(
+              color: goldColor.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: Icon(
+                _isSearching ? LucideIcons.x : LucideIcons.search,
+                color: goldColor,
+                size: 20,
+              ),
+              onPressed: () {
+                setState(() {
+                  _isSearching = !_isSearching;
+                  if (!_isSearching) {
+                    _searchController.clear();
+                    _searchQuery = '';
+                    _filterFoods();
+                  }
+                });
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: goldColor.withValues(alpha: 0.3)),
+      ),
+      child: TextField(
+        controller: _searchController,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+        decoration: InputDecoration(
+          hintText: 'جستجو در خوراکی‌ها...',
+          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+          border: InputBorder.none,
+          prefixIcon:
+              const Icon(LucideIcons.search, color: goldColor, size: 20),
+          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        ),
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value;
+            _filterFoods();
+          });
+        },
+      ),
     );
   }
 
   Widget _buildCategoryTabs() {
     return Container(
-      height: 50,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      height: 60,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: _foodCategories.length + 1, // +1 for "همه" option
+        itemCount: _foodCategories.length + 1,
         itemBuilder: (context, index) {
           final category = index == 0 ? '' : _foodCategories[index - 1];
           final isSelected = _selectedCategory == category;
@@ -273,26 +366,47 @@ class _FoodListScreenState extends State<FoodListScreen>
                 _filterFoods();
               });
             },
-            child: Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               decoration: BoxDecoration(
-                color: isSelected ? goldColor : cardColor,
-                borderRadius: BorderRadius.circular(20),
+                gradient: isSelected
+                    ? const LinearGradient(
+                        colors: [goldColor, darkGold],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : LinearGradient(
+                        colors: [
+                          cardColor.withValues(alpha: 0.8),
+                          cardColor.withValues(alpha: 0.6),
+                        ],
+                      ),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: isSelected
                       ? goldColor
-                      : Colors.white.withValues(alpha: 0.3),
+                      : Colors.white.withValues(alpha: 0.2),
+                  width: 1.5,
                 ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: goldColor.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : [],
               ),
               child: Center(
                 child: Text(
                   index == 0 ? 'همه' : category,
                   style: TextStyle(
                     color: isSelected ? Colors.black : Colors.white,
-                    fontWeight:
-                        isSelected ? FontWeight.bold : FontWeight.normal,
-                    fontSize: 12,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    fontSize: 14,
                   ),
                 ),
               ),
@@ -305,10 +419,10 @@ class _FoodListScreenState extends State<FoodListScreen>
 
   Widget _buildLoadingGrid() {
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.8,
+        childAspectRatio: 0.95,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
@@ -320,7 +434,7 @@ class _FoodListScreenState extends State<FoodListScreen>
           child: Container(
             decoration: BoxDecoration(
               color: cardColor,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
             ),
           ),
         );
@@ -333,17 +447,25 @@ class _FoodListScreenState extends State<FoodListScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            LucideIcons.utensils,
-            size: 64,
-            color: Colors.white.withValues(alpha: 0.5),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: cardColor.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Icon(
+              LucideIcons.utensils,
+              size: 64,
+              color: goldColor.withValues(alpha: 0.7),
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Text(
             'هیچ خوراکی‌ای یافت نشد',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 16,
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
@@ -360,18 +482,27 @@ class _FoodListScreenState extends State<FoodListScreen>
   }
 
   Widget _buildFoodGrid() {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.8,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: _filteredFoods.length,
-      itemBuilder: (context, index) {
-        final food = _filteredFoods[index];
-        return _buildFoodCard(food);
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        return GridView.builder(
+          padding: const EdgeInsets.all(20),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            childAspectRatio: 0.95, // افزایش ارتفاع کارت برای نمایش بهتر اسم
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+          ),
+          itemCount: _filteredFoods.length,
+          itemBuilder: (context, index) {
+            final food = _filteredFoods[index];
+            return AnimatedContainer(
+              duration: Duration(milliseconds: 300 + (index * 100)),
+              curve: Curves.easeOutBack,
+              child: _buildFoodCard(food),
+            );
+          },
+        );
       },
     );
   }
@@ -380,20 +511,47 @@ class _FoodListScreenState extends State<FoodListScreen>
     return GestureDetector(
       onTap: () {
         Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => FoodDetailScreen(food: food),
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                FoodDetailScreen(food: food),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+              return SlideTransition(
+                position: animation.drive(
+                  Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                      .chain(CurveTween(curve: Curves.easeInOut)),
+                ),
+                child: child,
+              );
+            },
           ),
         );
       },
       child: Container(
         decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              cardColor.withValues(alpha: 0.9),
+              cardColor.withValues(alpha: 0.7),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.1),
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: goldColor.withValues(alpha: 0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -402,21 +560,30 @@ class _FoodListScreenState extends State<FoodListScreen>
           children: [
             // Food Image
             Expanded(
-              flex: 3,
+              flex: 2, // کاهش فضای عکس برای اسم بیشتر
               child: SizedBox(
                 width: double.infinity,
                 child: Stack(
                   children: [
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(16),
+                        top: Radius.circular(20),
                       ),
                       child: food.imageUrl.isNotEmpty
                           ? CachedNetworkImage(
                               imageUrl: food.imageUrl,
                               fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
                               placeholder: (context, url) => Container(
-                                color: cardColor,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      cardColor,
+                                      cardColor.withValues(alpha: 0.7),
+                                    ],
+                                  ),
+                                ),
                                 child: const Center(
                                   child: CircularProgressIndicator(
                                     color: goldColor,
@@ -425,85 +592,69 @@ class _FoodListScreenState extends State<FoodListScreen>
                                 ),
                               ),
                               errorWidget: (context, url, error) => Container(
-                                color: cardColor,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      cardColor,
+                                      cardColor.withValues(alpha: 0.7),
+                                    ],
+                                  ),
+                                ),
                                 child: const Icon(
                                   LucideIcons.utensils,
                                   color: goldColor,
-                                  size: 32,
+                                  size: 40,
                                 ),
                               ),
                             )
                           : Container(
-                              color: cardColor,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    cardColor,
+                                    cardColor.withValues(alpha: 0.7),
+                                  ],
+                                ),
+                              ),
                               child: const Icon(
                                 LucideIcons.utensils,
                                 color: goldColor,
-                                size: 32,
+                                size: 40,
                               ),
                             ),
                     ),
-                    // Favorite Button
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: GestureDetector(
-                        onTap: () => _toggleFavorite(food),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            food.isFavorite
-                                ? LucideIcons.heart
-                                : LucideIcons.heart,
-                            color: food.isFavorite ? Colors.red : Colors.white,
-                            size: 16,
-                          ),
+                    // Gradient Overlay
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(20),
+                        ),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.3),
+                          ],
                         ),
                       ),
                     ),
-                    // Like Button
+                    // Action Buttons
                     Positioned(
-                      top: 8,
-                      left: 8,
-                      child: GestureDetector(
-                        onTap: () => _toggleLike(food),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                food.isLikedByUser
-                                    ? LucideIcons.thumbsUp
-                                    : LucideIcons.thumbsUp,
-                                color: food.isLikedByUser
-                                    ? goldColor
-                                    : Colors.white,
-                                size: 14,
-                              ),
-                              if (food.likes > 0) ...[
-                                const SizedBox(width: 4),
-                                Text(
-                                  food.likes.toString(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
+                      top: 12,
+                      right: 12,
+                      child: _buildActionButton(
+                        icon: food.isFavorite
+                            ? LucideIcons.heart
+                            : LucideIcons.heart,
+                        color: food.isFavorite ? Colors.red : Colors.white,
+                        onTap: () => _toggleFavorite(food),
                       ),
+                    ),
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: _buildLikeButton(food),
                     ),
                   ],
                 ),
@@ -511,58 +662,78 @@ class _FoodListScreenState extends State<FoodListScreen>
             ),
             // Food Info
             Expanded(
-              flex: 2,
+              flex: 3, // افزایش فضای متن
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Food Title
-                    Flexible(
+                    // Food Title - بزرگ‌تر و واضح‌تر
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.only(bottom: 8),
                       child: Text(
                         food.title,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 14,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
+                          height: 1.3,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right, // راست‌چین برای فارسی
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    // Nutrition Info
-                    Row(
-                      children: [
-                        Flexible(
-                          child: _buildNutritionChip(
-                            '${food.nutrition.calories} کالری',
-                            Colors.orange,
+                    // Main Nutrition Info
+                    Flexible(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _buildNutritionChip(
+                              food.nutrition.calories,
+                              'کالری',
+                              Colors.orange,
+                              LucideIcons.flame,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: _buildNutritionChip(
-                            '${food.nutrition.protein}g پروتئین',
-                            Colors.green,
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: _buildNutritionChip(
+                              '${food.nutrition.protein}g',
+                              'پروتئین',
+                              Colors.green,
+                              LucideIcons.zap,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    // Categories
-                    if (food.classList.isNotEmpty)
-                      Flexible(
-                        child: Text(
-                          food.classList.first,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 10,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        ],
                       ),
+                    ),
+                    const SizedBox(height: 3),
+                    // Secondary Nutrition Info
+                    Flexible(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _buildNutritionChip(
+                              '${food.nutrition.carbohydrates}g',
+                              'کربوهیدرات',
+                              Colors.blue,
+                              LucideIcons.wheat,
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: _buildNutritionChip(
+                              '${food.nutrition.fat}g',
+                              'چربی',
+                              Colors.red,
+                              LucideIcons.droplet,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -573,21 +744,114 @@ class _FoodListScreenState extends State<FoodListScreen>
     );
   }
 
-  Widget _buildNutritionChip(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.2),
+            width: 1,
+          ),
         ),
+        child: Icon(
+          icon,
+          color: color,
+          size: 18,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLikeButton(Food food) {
+    return GestureDetector(
+      onTap: () => _toggleLike(food),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.2),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              food.isLikedByUser ? LucideIcons.thumbsUp : LucideIcons.thumbsUp,
+              color: food.isLikedByUser ? goldColor : Colors.white,
+              size: 16,
+            ),
+            if (food.likes > 0) ...[
+              const SizedBox(width: 4),
+              Text(
+                food.likes.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNutritionChip(
+      String value, String label, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 8),
+          const SizedBox(width: 2),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    height: 0.9,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color.withValues(alpha: 0.8),
+                    fontSize: 6,
+                    height: 0.9,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

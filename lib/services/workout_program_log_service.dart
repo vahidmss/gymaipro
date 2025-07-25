@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/workout_program_log.dart';
-import 'supabase_service.dart';
-import 'package:uuid/uuid.dart';
 
 class WorkoutProgramLogService {
-  final SupabaseService _supabaseService;
   final _tableName = 'workout_program_logs';
-  static const _uuid = Uuid();
 
-  WorkoutProgramLogService({SupabaseService? supabaseService})
-      : _supabaseService = supabaseService ?? SupabaseService();
+  WorkoutProgramLogService();
 
   Future<List<WorkoutProgramLog>> getUserProgramLogs(String userId) async {
     try {
@@ -20,7 +15,7 @@ class WorkoutProgramLogService {
           .from(_tableName)
           .select()
           .eq('user_id', userId)
-          .order('created_at', ascending: false);
+          .order('log_date', ascending: false);
 
       return data.map((log) => WorkoutProgramLog.fromJson(log)).toList();
     } catch (e) {
@@ -37,9 +32,7 @@ class WorkoutProgramLogService {
       final logWithIds = _ensureValidUuids(log);
 
       // بررسی آیا برای این برنامه و روز، رکوردی در همان روز وجود دارد
-      final today = DateTime.now();
-      final startOfDay = DateTime(today.year, today.month, today.day).toUtc();
-      final endOfDay = startOfDay.add(const Duration(days: 1)).toUtc();
+      final logDate = logWithIds.logDate;
 
       // جستجوی لاگ‌های امروز با همین نام برنامه
       final existingLogs = await client
@@ -47,8 +40,8 @@ class WorkoutProgramLogService {
           .select()
           .eq('user_id', logWithIds.userId)
           .eq('program_name', logWithIds.programName)
-          .gte('created_at', startOfDay.toIso8601String())
-          .lt('created_at', endOfDay.toIso8601String());
+          .eq('log_date',
+              logWithIds.logDate.toIso8601String().substring(0, 10));
 
       if (existingLogs.isNotEmpty) {
         // لاگ قبلی وجود دارد - به‌روزرسانی آن
@@ -102,6 +95,7 @@ class WorkoutProgramLogService {
           id: existingLog.id,
           userId: existingLog.userId,
           programName: existingLog.programName,
+          logDate: existingLog.logDate,
           sessions: mergedSessions.values.toList(),
           createdAt: existingLog.createdAt,
           updatedAt: DateTime.now(),
@@ -123,7 +117,10 @@ class WorkoutProgramLogService {
             .select()
             .single();
 
-        return WorkoutProgramLog.fromJson(data);
+        return WorkoutProgramLog.fromJson({
+          ...data,
+          'log_date': logWithIds.logDate.toIso8601String().substring(0, 10),
+        });
       }
     } catch (e) {
       debugPrint('خطا در ذخیره لاگ تمرین: $e');
@@ -137,15 +134,21 @@ class WorkoutProgramLogService {
 
   // تولید UUID برای تمام فیلدهای id که خالی هستند
   WorkoutProgramLog _ensureValidUuids(WorkoutProgramLog log) {
-    final mainId = log.id.isEmpty ? _uuid.v4() : log.id;
+    final mainId = log.id.isEmpty
+        ? DateTime.now().millisecondsSinceEpoch.toString()
+        : log.id;
 
     // کپی کردن جلسات با تولید id های جدید
     final updatedSessions = log.sessions.map((session) {
-      final sessionId = session.id.isEmpty ? _uuid.v4() : session.id;
+      final sessionId = session.id.isEmpty
+          ? DateTime.now().millisecondsSinceEpoch.toString()
+          : session.id;
 
       // کپی کردن تمرین‌ها با تولید id های جدید
       final updatedExercises = session.exercises.map((exercise) {
-        final exerciseId = exercise.id.isEmpty ? _uuid.v4() : exercise.id;
+        final exerciseId = exercise.id.isEmpty
+            ? DateTime.now().millisecondsSinceEpoch.toString()
+            : exercise.id;
 
         if (exercise is NormalExerciseLog) {
           return NormalExerciseLog(
@@ -179,6 +182,7 @@ class WorkoutProgramLogService {
       id: mainId,
       userId: log.userId,
       programName: log.programName,
+      logDate: log.logDate,
       sessions: updatedSessions,
       createdAt: log.createdAt,
       updatedAt: log.updatedAt,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:gymaipro/workout_plan/workout_plan_builder/models/workout_program.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../models/workout_program.dart';
 import '../models/exercise.dart';
 
 class WorkoutProgramExerciseCard extends StatefulWidget {
@@ -58,7 +58,13 @@ class _WorkoutProgramExerciseCardState
             _buildHeader(isDarkMode),
             if (_isExpanded) ...[
               const SizedBox(height: 12),
-              _buildExerciseDetails(isDarkMode),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                    maxHeight: 320), // Limit height to avoid drag target error
+                child: SingleChildScrollView(
+                  child: _buildExerciseDetails(isDarkMode),
+                ),
+              ),
             ],
           ],
         ),
@@ -1249,12 +1255,6 @@ class _WorkoutProgramExerciseCardState
         ),
       ],
     );
-  }
-
-  String _formatSeconds(int seconds) {
-    final minutes = seconds ~/ 60;
-    final remainingSeconds = seconds % 60;
-    return '$minutes:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
   Exercise? _findExerciseById(int id) {

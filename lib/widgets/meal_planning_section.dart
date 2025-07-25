@@ -3,7 +3,12 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../theme/app_theme.dart';
 
 class MealPlanningSection extends StatelessWidget {
-  const MealPlanningSection({Key? key}) : super(key: key);
+  final VoidCallback? onCreateMealPlan;
+  final VoidCallback? onLogDailyMeal;
+
+  const MealPlanningSection(
+      {Key? key, this.onCreateMealPlan, this.onLogDailyMeal})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -81,15 +86,7 @@ class MealPlanningSection extends StatelessWidget {
                         'ایجاد برنامه غذایی',
                         LucideIcons.plus,
                         Colors.green,
-                        () {
-                          // TODO: Navigate to meal plan builder
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('به زودی در دسترس خواهد بود'),
-                              backgroundColor: Colors.blue,
-                            ),
-                          );
-                        },
+                        onCreateMealPlan ?? () {},
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -99,15 +96,7 @@ class MealPlanningSection extends StatelessWidget {
                         'ثبت رژیم روزانه',
                         LucideIcons.calendar,
                         Colors.orange,
-                        () {
-                          // TODO: Navigate to daily meal log
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('به زودی در دسترس خواهد بود'),
-                              backgroundColor: Colors.blue,
-                            ),
-                          );
-                        },
+                        onLogDailyMeal ?? () {},
                       ),
                     ),
                   ],

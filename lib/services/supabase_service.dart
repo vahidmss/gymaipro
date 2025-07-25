@@ -5,7 +5,7 @@ import 'dart:io';
 import 'auth_state_service.dart';
 
 class SupabaseService {
-  static final SupabaseClient _client = Supabase.instance.client;
+  static final SupabaseClient client = Supabase.instance.client;
 
   // Normalize phone number format
   String normalizePhoneNumber(String phoneNumber) {
@@ -112,7 +112,7 @@ class SupabaseService {
       print(cleanData);
 
       final response =
-          await _client.from('profiles').update(cleanData).eq('id', userId);
+          await client.from('profiles').update(cleanData).eq('id', userId);
 
       print('پاسخ بروزرسانی پروفایل: $response');
       print('پروفایل با موفقیت به‌روزرسانی شد');
@@ -120,7 +120,7 @@ class SupabaseService {
       // بررسی پروفایل به‌روز شده
       try {
         final updatedProfile =
-            await _client.from('profiles').select().eq('id', userId).single();
+            await client.from('profiles').select().eq('id', userId).single();
         print('پروفایل به‌روز شده: $updatedProfile');
 
         // بررسی تاریخ تولد
@@ -145,7 +145,7 @@ class SupabaseService {
   Future<void> addWeightRecord(String profileId, double weight) async {
     try {
       // افزودن به جدول weight_records
-      await _client.from('weight_records').insert({
+      await client.from('weight_records').insert({
         'profile_id': profileId,
         'weight': weight,
         'recorded_at': DateTime.now().toIso8601String(),
@@ -170,7 +170,7 @@ class SupabaseService {
   // دریافت آخرین وزن ثبت شده کاربر
   Future<double?> getLatestWeight(String profileId) async {
     try {
-      final response = await _client
+      final response = await client
           .from('weight_records')
           .select()
           .eq('profile_id', profileId)
@@ -191,7 +191,7 @@ class SupabaseService {
   // بازیابی تاریخچه وزن کاربر
   Future<List<Map<String, dynamic>>> getWeightRecords(String profileId) async {
     try {
-      final response = await _client
+      final response = await client
           .from('weight_records')
           .select()
           .eq('profile_id', profileId)
@@ -208,7 +208,7 @@ class SupabaseService {
   Future<bool> isUsernameUnique(String username) async {
     try {
       print('Checking username uniqueness for: $username');
-      final response = await _client
+      final response = await client
           .from('profiles')
           .select('id')
           .eq('username', username)
@@ -231,7 +231,7 @@ class SupabaseService {
 
       // روش مستقیم: استفاده از کوئری بهینه‌شده
       try {
-        final response = await _client
+        final response = await client
             .from('profiles')
             .select('id') // فقط شناسه را برای کاهش حجم داده‌ها بازیابی می‌کنیم
             .eq('phone_number', normalizedPhone)
@@ -266,7 +266,7 @@ class SupabaseService {
       String email = createFakeEmail(username, normalizedPhone);
 
       // ثبت‌نام در Supabase Auth
-      final response = await _client.auth.signUp(
+      final response = await client.auth.signUp(
         email: email,
         password: normalizedPhone, // استفاده از شماره موبایل به عنوان پسورد
       );
@@ -276,7 +276,7 @@ class SupabaseService {
       }
 
       // ایجاد پروفایل در جدول profiles
-      await _client.from('profiles').insert({
+      await client.from('profiles').insert({
         'username': username,
         'phone_number': normalizedPhone,
       });
@@ -305,7 +305,7 @@ class SupabaseService {
       }
 
       // جستجوی کاربر با شماره موبایل
-      final response = await _client
+      final response = await client
           .from('profiles')
           .select('*') // دریافت تمام فیلدها برای دیباگ
           .eq('phone_number', normalizedPhone)
@@ -350,7 +350,7 @@ class SupabaseService {
   // خروج کاربر
   Future<void> signOut() async {
     try {
-      await _client.auth.signOut();
+      await client.auth.signOut();
       print('User signed out successfully');
     } catch (e) {
       print('Error signing out: $e');
@@ -373,7 +373,7 @@ class SupabaseService {
     // print('Attempting to get profile for normalized phone number: $normalizedPhone (original: $phoneNumber)');
 
     try {
-      final response = await _client
+      final response = await client
           .from('profiles')
           .select()
           // .eq('phone_number', normalizedPhone) // Use normalizedPhone for lookup
@@ -424,12 +424,12 @@ class SupabaseService {
       print('Supabase client initialized: ${client != null}');
 
       // استفاده از دستور SQL مستقیم برای دریافت همه پروفایل‌ها
-      final response = await _client.rpc('get_all_profiles');
+      final response = await client.rpc('get_all_profiles');
 
-      if (response == null || response.isEmpty) {
+      if (response.isEmpty) {
         print('No profiles found using RPC, trying direct query');
         // اگر RPC کار نکرد، از کوئری مستقیم استفاده کنیم
-        final directResponse = await _client.from('profiles').select('*');
+        final directResponse = await client.from('profiles').select('*');
 
         // Log detailed information about the response
         print('Direct query response type: ${directResponse.runtimeType}');
@@ -450,7 +450,7 @@ class SupabaseService {
       try {
         // تلاش مجدد با استفاده از روش دیگر
         print('Trying alternative method to get profiles');
-        final rawResponse = await _client.from('profiles').select('*');
+        final rawResponse = await client.from('profiles').select('*');
         print('Alternative method response: $rawResponse');
         return rawResponse;
       } catch (e2) {
@@ -473,7 +473,7 @@ class SupabaseService {
       String email = createFakeEmail(username, normalizedPhone);
 
       // ثبت‌نام در Supabase Auth
-      final authResponse = await _client.auth.signUp(
+      final authResponse = await client.auth.signUp(
         email: email,
         password: normalizedPhone, // Consider a stronger password strategy
       );
@@ -500,7 +500,7 @@ class SupabaseService {
 
       // Clear any existing profile entry (in case it exists but is incomplete)
       try {
-        await _client.from('profiles').delete().eq('id', authResponse.user!.id);
+        await client.from('profiles').delete().eq('id', authResponse.user!.id);
         print('Deleted any existing incomplete profile');
       } catch (e) {
         print('No existing profile to delete or error: $e');
@@ -509,14 +509,14 @@ class SupabaseService {
       // Create the profile
       try {
         final profileResponse =
-            await _client.from('profiles').insert(profileData).select();
+            await client.from('profiles').insert(profileData).select();
         print('Profile creation response: $profileResponse');
       } catch (e) {
         print('Profile creation with select failed: $e');
 
         // Try without select
         try {
-          await _client.from('profiles').insert(profileData);
+          await client.from('profiles').insert(profileData);
           print('Profile created without select');
         } catch (e2) {
           print('Profile creation without select also failed: $e2');
@@ -526,7 +526,7 @@ class SupabaseService {
 
       // Verify profile was created by checking if we can retrieve it
       try {
-        final checkProfile = await _client
+        final checkProfile = await client
             .from('profiles')
             .select()
             .eq('id', authResponse.user!.id)
@@ -561,7 +561,7 @@ class SupabaseService {
       final normalizedPhone = normalizePhoneNumber(phoneNumber);
 
       print('Checking if user exists with RPC: $normalizedPhone');
-      final result = await _client.rpc('check_user_exists', params: {
+      final result = await client.rpc('check_user_exists', params: {
         'phone': normalizedPhone,
       });
 
@@ -575,7 +575,7 @@ class SupabaseService {
 
   Future<UserProfile?> getProfileByEmail(String email) async {
     try {
-      final response = await _client
+      final response = await client
           .from('profiles')
           .select()
           .eq('email',
@@ -657,7 +657,7 @@ class SupabaseService {
 
         // تلاش سوم: بررسی پروفایل کاربر و استخراج نام کاربری برای ساخت ایمیل
         try {
-          final profile = await _client
+          final profile = await client
               .from('profiles')
               .select('username')
               .eq('phone_number', normalizedPhone)
@@ -728,7 +728,7 @@ class SupabaseService {
 
         // Clear any existing profile for this user ID (if it exists)
         try {
-          await _client.from('profiles').delete().eq('id', response.user!.id);
+          await client.from('profiles').delete().eq('id', response.user!.id);
           print('Cleared any existing profile for this user');
         } catch (e) {
           print('No existing profile to clear or error: $e');
@@ -751,7 +751,7 @@ class SupabaseService {
 
         // First attempt: insert with select
         try {
-          final insertResponse = await _client
+          final insertResponse = await client
               .from('profiles')
               .insert(profileData)
               .select()
@@ -764,7 +764,7 @@ class SupabaseService {
 
           // Second attempt: insert without select
           try {
-            await _client.from('profiles').insert(profileData);
+            await client.from('profiles').insert(profileData);
             print('Profile created successfully (method 2)');
             profileCreated = true;
           } catch (e2) {
@@ -775,7 +775,7 @@ class SupabaseService {
         // Verify profile creation
         if (profileCreated) {
           try {
-            final checkProfile = await _client
+            final checkProfile = await client
                 .from('profiles')
                 .select()
                 .eq('id', response.user!.id)
@@ -815,14 +815,14 @@ class SupabaseService {
       final filePath =
           'public/$fileName'; // Standard path for public access if needed
 
-      await _client.storage.from('profile_images').upload(
+      await client.storage.from('profile_images').upload(
             filePath,
             imageFile,
             fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
           );
 
       final imageUrlResponse =
-          _client.storage.from('profile_images').getPublicUrl(filePath);
+          client.storage.from('profile_images').getPublicUrl(filePath);
       // The new updateProfile function expects userId (which is auth user id)
       // and a map of data.
       // Ensure 'avatar_url' is a column in your 'profiles' table.
@@ -836,7 +836,7 @@ class SupabaseService {
 
   Future<UserProfile?> getProfileByAuthId() async {
     try {
-      final user = _client.auth.currentUser;
+      final user = client.auth.currentUser;
       if (user == null) {
         print('هیچ کاربر فعالی وجود ندارد');
         return null;
@@ -844,7 +844,7 @@ class SupabaseService {
 
       try {
         final data =
-            await _client.from('profiles').select().eq('id', user.id).single();
+            await client.from('profiles').select().eq('id', user.id).single();
 
         // بازیابی تاریخچه وزن
         final weightHistory = await getWeightRecords(user.id);
@@ -876,11 +876,11 @@ class SupabaseService {
               'created_at': DateTime.now().toIso8601String(),
             };
 
-            await _client.from('profiles').insert(initialProfileData);
+            await client.from('profiles').insert(initialProfileData);
             print('پروفایل اولیه ایجاد شد. در حال تلاش مجدد...');
 
             // دوباره تلاش کنیم
-            final newData = await _client
+            final newData = await client
                 .from('profiles')
                 .select()
                 .eq('id', user.id)
@@ -906,7 +906,7 @@ class SupabaseService {
       {String? username}) async {
     try {
       // Check if a profile already exists for this user ID to prevent duplicates
-      final existingProfile = await _client
+      final existingProfile = await client
           .from('profiles')
           .select('id')
           .eq('id', user.id)
@@ -937,7 +937,7 @@ class SupabaseService {
       // تلاش اول: استفاده از روش insert با select
       try {
         final response =
-            await _client.from('profiles').insert(profileData).select();
+            await client.from('profiles').insert(profileData).select();
         print('Profile created successfully with insert+select: $response');
         if (response.isNotEmpty) {
           return UserProfile.fromJson(response[0]);
@@ -948,11 +948,11 @@ class SupabaseService {
 
       // تلاش دوم: فقط insert بدون select
       try {
-        await _client.from('profiles').insert(profileData);
+        await client.from('profiles').insert(profileData);
         print('Profile created with insert only');
 
         // حالا پروفایل را دریافت کنیم
-        final profileResponse = await _client
+        final profileResponse = await client
             .from('profiles')
             .select()
             .eq('id', user.id)
@@ -984,7 +984,7 @@ class SupabaseService {
       // ابتدا چک کنیم آیا جدول weight_records وجود دارد
       try {
         // اول همه رکوردهای قبلی را حذف می‌کنیم
-        await _client
+        await client
             .from('weight_records')
             .delete()
             .eq('profile_id', profileId);
@@ -1044,7 +1044,7 @@ class SupabaseService {
       // اضافه کردن هر رکورد به صورت تکی برای مدیریت بهتر خطاها
       for (int i = 0; i < sampleData.length; i++) {
         try {
-          await _client.from('weight_records').insert(sampleData[i]);
+          await client.from('weight_records').insert(sampleData[i]);
           print(
               'رکورد ${i + 1} با موفقیت اضافه شد: ${sampleData[i]['weight']} کیلوگرم');
         } catch (e) {

@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_theme.dart';
 import '../models/public_chat_message.dart';
 import '../services/public_chat_service.dart';
-import '../theme/app_colors.dart';
 
 class PublicChatWidget extends StatefulWidget {
   @override

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:gymaipro/workout_plan/workout_plan_builder/screens/workout_program_builder_screen.dart';
 import '../screens/welcome_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/register_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/profile_screen.dart';
-import '../screens/workout_program_builder_screen.dart';
 import '../screens/workout_log_screen.dart';
 import '../screens/trainers_list_screen.dart';
 import '../screens/trainer_profile_screen.dart';
@@ -50,10 +50,10 @@ class RouteService {
         return MaterialPageRoute(
           builder: (_) => WorkoutProgramBuilderScreen(programId: programId),
         );
-      case '/workout-log':
-        return MaterialPageRoute(
-          builder: (_) => const WorkoutLogScreen(),
-        );
+      //  case '/workout-log':
+      //  return MaterialPageRoute(
+      // builder: (_) => const WorkoutLogScreen(),
+      //   );
       case '/trainers':
         return MaterialPageRoute(
           builder: (_) => const TrainersListScreen(),

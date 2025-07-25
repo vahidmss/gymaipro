@@ -13,11 +13,10 @@ import 'package:gymaipro/widgets/quick_actions_section.dart' as quick_actions;
 import 'package:gymaipro/widgets/latest_items_section.dart';
 import 'package:gymaipro/widgets/meal_planning_section.dart';
 import 'package:gymaipro/widgets/weight_height_display.dart';
-import 'package:gymaipro/widgets/chat_notification_badge.dart';
-import 'package:gymaipro/widgets/trainers_chat_section.dart';
-import 'package:gymaipro/widgets/chat_widget.dart';
-import 'package:gymaipro/widgets/public_chat_widget.dart';
+
 import 'package:gymaipro/widgets/chat_tabs_widget.dart';
+import '../meal_plan/meal_plan_builder/screens/meal_plan_builder_screen.dart';
+import '../meal_plan/meal_log/screens/meal_log_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({Key? key}) : super(key: key);
@@ -88,8 +87,8 @@ class _DashboardScreenState extends State<DashboardScreen>
             _username =
                 profile.firstName ?? profile.phoneNumber ?? 'کاربر عزیز';
             _profileData = {
-              'height': profile.height?.toString() ?? '',
-              'weight': profile.weight?.toString() ?? '',
+              'height': profile.height?.toString() ?? '0',
+              'weight': profile.weight?.toString() ?? '0',
               'arm_circumference': profile.armCircumference?.toString() ?? '',
               'chest_circumference':
                   profile.chestCircumference?.toString() ?? '',
@@ -270,11 +269,27 @@ class _DashboardScreenState extends State<DashboardScreen>
                   const SizedBox(height: 20),
                   const ChatTabsWidget(),
                   const SizedBox(height: 20),
+                  // Removed duplicate meal plan/food log buttons here
+                  // Only keep the MealPlanningSection below
                   const quick_actions.QuickActionsSection(),
                   const SizedBox(height: 20),
                   const LatestItemsSection(),
                   const SizedBox(height: 20),
-                  const MealPlanningSection(),
+                  MealPlanningSection(
+                    onCreateMealPlan: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                const MealPlanBuilderScreen()),
+                      );
+                    },
+                    onLogDailyMeal: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (context) => const FoodLogScreen()),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 20),
                   FitnessMetrics(profileData: _profileData),
                   const SizedBox(height: 20),

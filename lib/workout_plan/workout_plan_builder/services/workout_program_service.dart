@@ -363,7 +363,6 @@ class WorkoutProgramService {
 
       print('تعداد برنامه‌های یافت شده در دیتابیس: ${existingPrograms.length}');
 
-      Map<String, dynamic>? foundDbProgram;
       String? foundDbId;
 
       // جستجوی تطابق در برنامه‌ها
@@ -390,7 +389,6 @@ class WorkoutProgramService {
           if (dbProgramId == programToDelete.id ||
               dbProgramName == programToDelete.name ||
               dbProgram['program_name'] == programToDelete.name) {
-            foundDbProgram = dbProgram;
             foundDbId = dbProgram['id'];
             print('برنامه در دیتابیس پیدا شد با شناسه اصلی: $foundDbId');
             break;

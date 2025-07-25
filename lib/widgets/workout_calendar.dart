@@ -3,6 +3,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import '../models/workout_program_log.dart';
 import '../theme/app_theme.dart';
+import '../screens/workout_log_details_screen.dart';
 
 class WorkoutCalendar extends StatefulWidget {
   final Map<DateTime, List<WorkoutProgramLog>> workoutCalendar;
@@ -188,6 +189,9 @@ class _WorkoutCalendarState extends State<WorkoutCalendar> {
               setState(() {
                 _selectedDate = date;
               });
+              if (hasWorkout) {
+                _showWorkoutSummaryBottomSheet(context, date);
+              }
               widget.onDateSelected(date);
             },
             child: Container(
@@ -225,14 +229,17 @@ class _WorkoutCalendarState extends State<WorkoutCalendar> {
                   ),
                   if (hasWorkout)
                     Positioned(
-                      top: 4,
-                      right: 4,
-                      child: Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: Colors.green,
-                          shape: BoxShape.circle,
+                      bottom: 6,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: const BoxDecoration(
+                            color: AppTheme.goldColor,
+                            shape: BoxShape.circle,
+                          ),
                         ),
                       ),
                     ),
@@ -242,6 +249,91 @@ class _WorkoutCalendarState extends State<WorkoutCalendar> {
           ),
         );
       }),
+    );
+  }
+
+  void _showWorkoutSummaryBottomSheet(BuildContext context, DateTime date) {
+    final workouts = widget.workoutCalendar[date] ?? [];
+    if (workouts.isEmpty) return;
+    final workout = workouts.first;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(LucideIcons.dumbbell,
+                  color: AppTheme.goldColor, size: 36),
+              const SizedBox(height: 12),
+              Text(
+                'تمرین ثبت شده در ${_getPersianFormattedDate(date)}',
+                style: const TextStyle(
+                  color: AppTheme.goldColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'برنامه: ${workout.programName}',
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+              ),
+              Text(
+                'جلسه: ${workout.sessions.isNotEmpty ? workout.sessions.first.day : "-"}',
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'مجموع ست‌ها: ${workout.sessions.fold<int>(0, (sum, s) => sum + s.exercises.fold<int>(0, (sum2, e) => e is NormalExerciseLog ? sum2 + e.sets.length : sum2))}',
+                style: const TextStyle(color: AppTheme.goldColor, fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'زمان ثبت: ${workout.createdAt.hour.toString().padLeft(2, '0')}:${workout.createdAt.minute.toString().padLeft(2, '0')}',
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.goldColor,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                icon: const Icon(LucideIcons.info, size: 18),
+                label: const Text('جزئیات بیشتر'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => WorkoutLogDetailsScreen(log: workout),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -262,234 +354,6 @@ class _WorkoutCalendarState extends State<WorkoutCalendar> {
       'اسفند'
     ];
     return months[month];
-  }
-}
-
-class WorkoutDayDetails extends StatelessWidget {
-  final DateTime selectedDate;
-  final List<WorkoutProgramLog> workouts;
-
-  const WorkoutDayDetails({
-    Key? key,
-    required this.selectedDate,
-    required this.workouts,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    if (workouts.isEmpty) {
-      return Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          color: AppTheme.cardColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppTheme.goldColor.withValues(alpha: 0.2),
-            width: 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              LucideIcons.calendarX,
-              size: 48,
-              color: Colors.white.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'هیچ تمرینی در این روز ثبت نشده',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppTheme.goldColor.withValues(alpha: 0.2),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.goldColor.withValues(alpha: 0.1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  LucideIcons.dumbbell,
-                  color: AppTheme.goldColor,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'تمرینات ${_getPersianFormattedDate(selectedDate)}',
-                    style: const TextStyle(
-                      color: AppTheme.goldColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Flexible(
-            child: SingleChildScrollView(
-              child: Column(
-                children: workouts
-                    .map((workout) => _buildWorkoutItem(workout))
-                    .toList(),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWorkoutItem(WorkoutProgramLog workout) {
-    return Container(
-      margin: const EdgeInsets.all(8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.goldColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  LucideIcons.dumbbell,
-                  color: AppTheme.goldColor,
-                  size: 16,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      workout.programName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    Text(
-                      '${workout.sessions.length} جلسه',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '${workout.createdAt.hour.toString().padLeft(2, '0')}:${workout.createdAt.minute.toString().padLeft(2, '0')}',
-                style: const TextStyle(
-                  color: AppTheme.goldColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...workout.sessions
-              .map((session) => _buildSessionItem(session))
-              .toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSessionItem(WorkoutSessionLog session) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            session.day,
-            style: const TextStyle(
-              color: AppTheme.goldColor,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 4),
-          ...session.exercises.map((exercise) {
-            if (exercise is NormalExerciseLog) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  children: [
-                    const Text(
-                      '• ',
-                      style: TextStyle(color: AppTheme.goldColor),
-                    ),
-                    Expanded(
-                      child: Text(
-                        exercise.exerciseName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${exercise.sets.length} ست',
-                      style: const TextStyle(
-                        color: AppTheme.goldColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-            return const SizedBox.shrink();
-          }).toList(),
-        ],
-      ),
-    );
   }
 
   String _getPersianFormattedDate(DateTime date) {

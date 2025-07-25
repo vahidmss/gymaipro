@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/workout_program.dart';
+import 'package:gymaipro/workout_plan/workout_plan_builder/models/workout_program.dart';
 import '../theme/app_theme.dart';
 
 class ProgramSelectionCard extends StatelessWidget {

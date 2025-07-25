@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:gymaipro/models/exercise.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../models/workout_program.dart';
-import '../models/exercise.dart';
 
 class AddExerciseDialog extends StatefulWidget {
   final List<Exercise> exercises;
@@ -21,9 +21,9 @@ class _AddExerciseDialogState extends State<AddExerciseDialog>
   final TextEditingController _searchController = TextEditingController();
   late List<Exercise> _filteredExercises;
 
-  ExerciseType _selectedType = ExerciseType.normal;
-  ExerciseStyle _selectedStyle = ExerciseStyle.setsReps;
-  String _selectedTag = MuscleTags.availableTags.first;
+  // 1. Remove DropdownButton, ChoiceChip, or any widget for selecting style (تکرار/زمان), sets, reps, time, weight, or tag.
+  // 2. Only keep the search bar, exercise list, and selected exercises list in each tab.
+  // 3. The only action is to select exercises and confirm.
 
   // رنگ‌های اصلی برای بهبود رابط کاربری
   final Color primaryColor = const Color(0xFF3F51B5);
@@ -47,14 +47,14 @@ class _AddExerciseDialogState extends State<AddExerciseDialog>
       setState(() {
         switch (_tabController.index) {
           case 0:
-            _selectedType = ExerciseType.normal;
+            // _selectedType = ExerciseType.normal; // Removed
             break;
           case 1:
-            _selectedType = ExerciseType.superset;
+            // _selectedType = ExerciseType.superset; // Removed
             _selectedExercises.clear();
             break;
           case 2:
-            _selectedType = ExerciseType.triset;
+            // _selectedType = ExerciseType.triset; // Removed
             _selectedExercises.clear();
             break;
         }
@@ -77,35 +77,31 @@ class _AddExerciseDialogState extends State<AddExerciseDialog>
   }
 
   void _addExerciseToSuperset(Exercise exercise) {
-    if (_selectedType == ExerciseType.superset &&
-        _selectedExercises.length < 2) {
+    if (_tabController.index == 1 && _selectedExercises.length < 2) {
       setState(() {
         _selectedExercises.add(
           SupersetItem(
             exerciseId: exercise.id,
             sets: [
               ExerciseSet(
-                reps: _selectedStyle == ExerciseStyle.setsReps ? 10 : null,
-                timeSeconds:
-                    _selectedStyle == ExerciseStyle.setsTime ? 60 : null,
-                weight: 0,
+                reps: 10, // Default reps
+                timeSeconds: 60, // Default time
+                weight: 0, // Default weight
               ),
             ],
           ),
         );
       });
-    } else if (_selectedType == ExerciseType.triset &&
-        _selectedExercises.length < 3) {
+    } else if (_tabController.index == 2 && _selectedExercises.length < 3) {
       setState(() {
         _selectedExercises.add(
           SupersetItem(
             exerciseId: exercise.id,
             sets: [
               ExerciseSet(
-                reps: _selectedStyle == ExerciseStyle.setsReps ? 10 : null,
-                timeSeconds:
-                    _selectedStyle == ExerciseStyle.setsTime ? 60 : null,
-                weight: 0,
+                reps: 10, // Default reps
+                timeSeconds: 60, // Default time
+                weight: 0, // Default weight
               ),
             ],
           ),
@@ -123,7 +119,7 @@ class _AddExerciseDialogState extends State<AddExerciseDialog>
   void _addExercise() {
     WorkoutExercise exercise;
 
-    if (_selectedType == ExerciseType.normal) {
+    if (_tabController.index == 0) {
       if (_selectedExerciseId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('لطفا یک تمرین انتخاب کنید')),
@@ -133,17 +129,17 @@ class _AddExerciseDialogState extends State<AddExerciseDialog>
 
       exercise = NormalExercise(
         exerciseId: _selectedExerciseId!,
-        tag: _selectedTag,
-        style: _selectedStyle,
+        tag: MuscleTags.availableTags.first, // Default tag
+        style: ExerciseStyle.setsReps, // Default style
         sets: [
           ExerciseSet(
-            reps: _selectedStyle == ExerciseStyle.setsReps ? 10 : null,
-            timeSeconds: _selectedStyle == ExerciseStyle.setsTime ? 60 : null,
-            weight: 0,
+            reps: 10, // Default reps
+            timeSeconds: 60, // Default time
+            weight: 0, // Default weight
           ),
         ],
       );
-    } else if (_selectedType == ExerciseType.superset) {
+    } else if (_tabController.index == 1) {
       if (_selectedExercises.length != 2) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -154,8 +150,8 @@ class _AddExerciseDialogState extends State<AddExerciseDialog>
 
       exercise = SupersetExercise(
         exercises: _selectedExercises,
-        tag: _selectedTag,
-        style: _selectedStyle,
+        tag: MuscleTags.availableTags.first, // Default tag
+        style: ExerciseStyle.setsReps, // Default style
       );
     } else {
       // _selectedType == ExerciseType.triset
@@ -169,8 +165,8 @@ class _AddExerciseDialogState extends State<AddExerciseDialog>
 
       exercise = TrisetExercise(
         exercises: _selectedExercises,
-        tag: _selectedTag,
-        style: _selectedStyle,
+        tag: MuscleTags.availableTags.first, // Default tag
+        style: ExerciseStyle.setsReps, // Default style
       );
     }
 
@@ -187,248 +183,150 @@ class _AddExerciseDialogState extends State<AddExerciseDialog>
     final isDarkMode = brightness == Brightness.dark;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      backgroundColor: isDarkMode ? const Color(0xFF1E1E1E) : Colors.white,
+      backgroundColor: Colors.transparent,
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        height: MediaQuery.of(context).size.height * 0.8,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Title bar
-            Row(
-              children: [
-                Icon(LucideIcons.dumbbell, color: primaryColor),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'افزودن تمرین جدید',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: isDarkMode ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(
-                    LucideIcons.x,
-                    color: isDarkMode ? Colors.white70 : Colors.black54,
-                    size: 20,
-                  ),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Tab bar for exercise type
-            Container(
-              decoration: BoxDecoration(
-                color:
-                    isDarkMode ? Colors.black26 : Colors.grey.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TabBar(
-                controller: _tabController,
-                tabs: const [
-                  Tab(text: 'تمرین عادی'),
-                  Tab(text: 'سوپرست'),
-                  Tab(text: 'تریپل‌ست'),
-                ],
-                labelColor: primaryColor,
-                unselectedLabelColor:
-                    isDarkMode ? Colors.white54 : Colors.black54,
-                indicator: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: isDarkMode
-                      ? primaryColor.withOpacity(0.3)
-                      : primaryColor.withOpacity(0.1),
-                ),
-                dividerColor: Colors.transparent,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Exercise style selector only - simplified UI
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: isDarkMode
-                          ? Colors.black12
-                          : Colors.grey.withOpacity(0.05),
-                      border: Border.all(
-                        color: isDarkMode ? Colors.white12 : Colors.black12,
-                      ),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<ExerciseStyle>(
-                        value: _selectedStyle,
-                        borderRadius: BorderRadius.circular(12),
-                        dropdownColor:
-                            isDarkMode ? const Color(0xFF2A2A2A) : Colors.white,
-                        icon: Icon(
-                          LucideIcons.chevronDown,
-                          color: isDarkMode ? Colors.white70 : Colors.black54,
-                          size: 18,
-                        ),
-                        items: [
-                          DropdownMenuItem(
-                            value: ExerciseStyle.setsReps,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  LucideIcons.repeat,
-                                  size: 16,
-                                  color: isDarkMode
-                                      ? Colors.white70
-                                      : primaryColor,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'ست-تکرار',
-                                  style: TextStyle(
-                                    color: isDarkMode
-                                        ? Colors.white
-                                        : Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: ExerciseStyle.setsTime,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  LucideIcons.timer,
-                                  size: 16,
-                                  color:
-                                      isDarkMode ? Colors.white70 : accentColor,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'ست-زمان',
-                                  style: TextStyle(
-                                    color: isDarkMode
-                                        ? Colors.white
-                                        : Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() {
-                              _selectedStyle = value;
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Hidden tag selector but still stored
-                Opacity(
-                  opacity: 0,
-                  child: SizedBox(
-                    width: 1,
-                    height: 1,
-                    child: IgnorePointer(
-                      child: Container(
-                        constraints: const BoxConstraints(maxWidth: 100),
-                        child: DropdownButtonFormField<String>(
-                          value: _selectedTag,
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                            border: InputBorder.none,
-                          ),
-                          items: MuscleTags.availableTags.map((tag) {
-                            return DropdownMenuItem(
-                              value: tag,
-                              child: Text(tag),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _selectedTag = value;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Different content based on selected tab
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  // Normal exercise tab
-                  _buildNormalExerciseTab(),
-
-                  // Superset tab
-                  _buildSupersetTab(),
-
-                  // Triset tab
-                  _buildTrisetTab(),
-                ],
-              ),
-            ),
-
-            // Action buttons
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white10
-                        : Colors.black12,
-                  ),
-                ),
-              ),
-              padding: const EdgeInsets.only(top: 12, right: 8, left: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(
-                      'انصراف',
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: _addExercise,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryColor,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                    ),
-                    child: const Text('افزودن'),
-                  ),
-                ],
-              ),
+        margin: const EdgeInsets.all(20),
+        constraints: const BoxConstraints(maxWidth: 450),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF2C1810),
+              Color(0xFF3D2317),
+              Color(0xFF4A2C1A),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: Colors.amber[700]!.withOpacity(0.4),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber[700]?.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(
+                      LucideIcons.dumbbell,
+                      color: Colors.amber[700],
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      'افزودن تمرین جدید',
+                      style: TextStyle(
+                        color: Colors.amber[200],
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.amber[700]?.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.amber[700]!.withOpacity(0.3),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        LucideIcons.x,
+                        color: Colors.amber[700],
+                        size: 20,
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              // Tab bar for exercise type
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.amber[700]?.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  tabs: const [
+                    Tab(text: 'تمرین عادی'),
+                    Tab(text: 'سوپرست'),
+                    Tab(text: 'تریپل‌ست'),
+                  ],
+                  labelColor: Colors.amber,
+                  unselectedLabelColor: Colors.amber[200],
+                  indicator: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.amber[700]?.withOpacity(0.15),
+                  ),
+                  dividerColor: Colors.transparent,
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Tab content
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildNormalExerciseTab(),
+                    _buildSupersetTab(),
+                    _buildTrisetTab(),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('انصراف',
+                          style: TextStyle(color: Colors.amber)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _addExercise,
+                      icon: const Icon(LucideIcons.check),
+                      label: const Text('افزودن'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: Colors.amber[700],
+                        foregroundColor: Colors.black,
+                        textStyle: Theme.of(context).textTheme.titleMedium,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -920,7 +818,7 @@ class _AddExerciseDialogState extends State<AddExerciseDialog>
     );
 
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final isTriset = _selectedType == ExerciseType.triset;
+    final isTriset = _tabController.index == 2;
     final color = isTriset ? Colors.purple : Colors.blue;
 
     return Container(

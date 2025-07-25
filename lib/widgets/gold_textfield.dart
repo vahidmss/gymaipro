@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class GoldTextField extends StatelessWidget {
   final TextEditingController controller;
@@ -9,6 +10,7 @@ class GoldTextField extends StatelessWidget {
   final bool obscureText;
   final Widget? suffixIcon;
   final bool enabled;
+  final void Function(String)? onChanged;
 
   const GoldTextField({
     required this.controller,
@@ -19,24 +21,28 @@ class GoldTextField extends StatelessWidget {
     this.obscureText = false,
     this.suffixIcon,
     this.enabled = true,
+    this.onChanged,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        validator: validator,
-        obscureText: obscureText,
-        enabled: enabled,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          suffixIcon: suffixIcon,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 350),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          validator: validator,
+          obscureText: obscureText,
+          enabled: enabled,
+          onChanged: onChanged,
+          style:
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+          decoration: AppTheme.textFieldDecoration(label, hint: hint).copyWith(
+            suffixIcon: suffixIcon,
+          ),
         ),
       ),
     );

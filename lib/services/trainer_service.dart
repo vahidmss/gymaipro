@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:gymaipro/workout_plan/workout_plan_builder/models/workout_program.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_profile.dart';
 import '../models/trainer_detail.dart';
 import '../models/trainer_client.dart';
 import '../models/trainer_review.dart';
-import '../models/workout_program.dart';
 
 class TrainerService {
   final SupabaseClient _client = Supabase.instance.client;

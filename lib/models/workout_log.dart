@@ -1,5 +1,5 @@
+import 'package:gymaipro/workout_plan/workout_plan_builder/models/workout_program.dart';
 import 'package:uuid/uuid.dart';
-import 'workout_program.dart';
 
 class WorkoutLog {
   final String id;

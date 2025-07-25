@@ -35,6 +35,9 @@ class FoodService {
   Future<void> init() async {
     print('Food service initialized successfully');
 
+    // Clear cache to apply title cleaning changes
+    clearCache();
+
     // Create food tables if they don't exist
     await _createFoodTables();
   }
@@ -156,6 +159,8 @@ class FoodService {
         final List<dynamic> data = json.decode(response.body);
         final foods = data.map((json) => Food.fromJson(json)).toList();
         _cachedFoods = foods;
+        print(
+            'Food titles cleaned: ${foods.take(3).map((f) => f.title).join(', ')}'); // Debug log
         return await _applyUserData(foods);
       } else {
         throw Exception('Failed to load foods: ${response.statusCode}');
@@ -368,5 +373,11 @@ class FoodService {
 
       return true;
     }).toList();
+  }
+
+  // این متدها برای جستجو و انتخاب غذا در UI استفاده می‌شوند.
+  Future<List<Food>> getFoodsByQuery(String query) async {
+    // TODO: پیاده‌سازی جستجو در API یا دیتابیس خوراکی‌ها
+    throw UnimplementedError();
   }
 }

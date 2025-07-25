@@ -64,9 +64,12 @@ class Food {
           .toList();
     }
 
+    // Clean title by removing trailing numbers and years
+    String cleanTitle = _cleanFoodTitle(json['title']?['rendered'] ?? '');
+
     return Food(
       id: json['id'] ?? 0,
-      title: json['title']?['rendered'] ?? '',
+      title: cleanTitle,
       content: json['content']?['rendered'] ?? '',
       imageUrl: imageUrl,
       slug: json['slug'] ?? '',
@@ -80,6 +83,38 @@ class Food {
       foodCategories: List<int>.from(json['food-categories'] ?? []),
       classList: filteredClassList,
     );
+  }
+
+  /// Clean food title by removing trailing numbers, years, and unnecessary characters
+  static String _cleanFoodTitle(String title) {
+    if (title.isEmpty) return title;
+
+    // Remove HTML entities and decode them
+    String cleanedTitle = title
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#8217;', "'")
+        .replaceAll('&#8220;', '"')
+        .replaceAll('&#8221;', '"');
+
+    // Remove trailing numbers in parentheses like (2024), (2025), (123), etc.
+    cleanedTitle = cleanedTitle.replaceAll(RegExp(r'\(\d+\)$'), '');
+
+    // Remove trailing years like 2024, 2025, etc.
+    cleanedTitle = cleanedTitle.replaceAll(RegExp(r'\b20\d{2}\b$'), '');
+
+    // Remove trailing numbers at the end
+    cleanedTitle = cleanedTitle.replaceAll(RegExp(r'\d+$'), '');
+
+    // Remove trailing dashes, spaces, and other unwanted characters
+    cleanedTitle = cleanedTitle.replaceAll(RegExp(r'[-\s]+$'), '');
+
+    // Remove leading and trailing whitespace
+    cleanedTitle = cleanedTitle.trim();
+
+    return cleanedTitle;
   }
 
   Map<String, dynamic> toJson() {
@@ -102,6 +137,26 @@ class Food {
       'likes': likes,
       'isLikedByUser': isLikedByUser,
     };
+  }
+
+  /// Create an empty food instance
+  factory Food.empty() {
+    return Food(
+      id: 0,
+      title: '',
+      content: '',
+      imageUrl: '',
+      slug: '',
+      date: DateTime.now(),
+      modified: DateTime.now(),
+      status: '',
+      type: '',
+      link: '',
+      featuredMedia: 0,
+      nutrition: FoodNutrition.empty(),
+      foodCategories: [],
+      classList: [],
+    );
   }
 }
 
@@ -158,5 +213,21 @@ class FoodNutrition {
       'sodium': sodium,
       'potassium': potassium,
     };
+  }
+
+  /// Create an empty nutrition instance
+  factory FoodNutrition.empty() {
+    return FoodNutrition(
+      protein: '0',
+      calories: '0',
+      carbohydrates: '0',
+      fat: '0',
+      saturatedFat: '0',
+      fiber: '0',
+      sugar: '0',
+      cholesterol: '0',
+      sodium: '0',
+      potassium: '0',
+    );
   }
 }

@@ -19,8 +19,6 @@ class _RegisterScreenState extends State<RegisterScreen>
   final _otpController = TextEditingController();
   bool _isLoading = false;
   bool _isCheckingUsername = false;
-  final bool _isOtpSent = false;
-  final bool _isVerifying = false;
   String? _usernameError;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -187,45 +185,6 @@ class _RegisterScreenState extends State<RegisterScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('خطا در ارسال کد تایید: ${e.toString()}')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _directRegister() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_usernameError != null) return;
-
-    setState(() => _isLoading = true);
-    try {
-      final normalizedPhone = _normalizePhoneNumber(_phoneController.text);
-
-      final success = await SupabaseService().registerUserDirectly(
-        _usernameController.text,
-        normalizedPhone,
-      );
-
-      if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ثبت‌نام مستقیم با موفقیت انجام شد')),
-        );
-        // Navigate to dashboard
-        Navigator.pushNamedAndRemoveUntil(
-            context, '/dashboard', (route) => false);
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('خطا در ثبت‌نام مستقیم')),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error in direct registration: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطا در ثبت‌نام مستقیم: ${e.toString()}')),
         );
       }
     } finally {

@@ -5,6 +5,7 @@ class WorkoutProgramLog {
   String id;
   String userId;
   String programName;
+  DateTime logDate; // تاریخ روز لاگ
   List<WorkoutSessionLog> sessions;
   DateTime createdAt;
   DateTime updatedAt;
@@ -13,6 +14,7 @@ class WorkoutProgramLog {
     String? id,
     required this.userId,
     required this.programName,
+    required this.logDate,
     required this.sessions,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -25,6 +27,7 @@ class WorkoutProgramLog {
       id: json['id'],
       userId: json['user_id'],
       programName: json['program_name'],
+      logDate: DateTime.parse(json['log_date']),
       sessions: (json['sessions'] as List)
           .map((s) => WorkoutSessionLog.fromJson(s))
           .toList(),
@@ -42,6 +45,7 @@ class WorkoutProgramLog {
       'id': id,
       'user_id': userId,
       'program_name': programName,
+      'log_date': logDate.toIso8601String().substring(0, 10),
       'sessions': sessions.map((s) => s.toJson()).toList(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
