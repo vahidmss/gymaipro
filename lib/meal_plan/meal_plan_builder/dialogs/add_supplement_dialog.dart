@@ -269,8 +269,9 @@ class _AddSupplementDialogState extends State<AddSupplementDialog> {
                               ),
                             ),
                             onPressed: () {
-                              if (_formKey.currentState?.validate() != true)
+                              if (_formKey.currentState?.validate() != true) {
                                 return;
+                              }
                               Navigator.of(context).pop(
                                 SupplementEntry(
                                   name: _name,

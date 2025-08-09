@@ -27,7 +27,10 @@ class PublicChatMessage {
       senderId: json['sender_id'] as String,
       message: json['message'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'] as String)
+          : DateTime.parse(json['created_at']
+              as String), // اگر updated_at نباشه از created_at استفاده کن
       isDeleted: json['is_deleted'] as bool? ?? false,
       senderName: json['sender_name'] as String?,
       senderAvatar: json['sender_avatar'] as String?,

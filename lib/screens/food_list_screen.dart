@@ -58,6 +58,8 @@ class _FoodListScreenState extends State<FoodListScreen>
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
     });
@@ -67,19 +69,21 @@ class _FoodListScreenState extends State<FoodListScreen>
       final foods = await _foodService.getFoods();
       final categories = await _foodService.getFoodCategories();
 
-      setState(() {
-        _foods = foods;
-        _filteredFoods = foods;
-        _foodCategories = categories;
-        _isLoading = false;
-      });
-      _animationController.forward();
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-
       if (mounted) {
+        setState(() {
+          _foods = foods;
+          _filteredFoods = foods;
+          _foodCategories = categories;
+          _isLoading = false;
+        });
+        _animationController.forward();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('خطا در بارگذاری خوراکی‌ها: $e'),
@@ -111,16 +115,21 @@ class _FoodListScreenState extends State<FoodListScreen>
                     .any((category) => category.toLowerCase().contains(query));
           }).toList();
 
-    setState(() {
-      _filteredFoods = filtered;
-    });
+    if (mounted) {
+      setState(() {
+        _filteredFoods = filtered;
+      });
+    }
   }
 
   void _toggleFavorite(Food food) async {
     try {
       await _foodService.toggleFavorite(food.id);
-      setState(() {
-        // food.isFavorite is already updated in the service
+      if (mounted) {
+        setState(() {
+          // food.isFavorite is already updated in the service
+        });
+
         if (food.isFavorite) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -139,17 +148,19 @@ class _FoodListScreenState extends State<FoodListScreen>
             ),
           );
         }
-      });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('خطا: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطا: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
     }
   }
 
@@ -157,36 +168,40 @@ class _FoodListScreenState extends State<FoodListScreen>
     try {
       final wasLiked = food.isLikedByUser;
       await _foodService.toggleLike(food.id);
-      setState(() {
-        if (!wasLiked && food.isLikedByUser) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Row(
-                children: [
-                  Icon(Icons.thumb_up, color: Colors.blue, size: 20),
-                  SizedBox(width: 8),
-                  Text('پسندیدید'),
-                ],
+      if (mounted) {
+        setState(() {
+          if (!wasLiked && food.isLikedByUser) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.thumb_up, color: Colors.blue, size: 20),
+                    SizedBox(width: 8),
+                    Text('پسندیدید'),
+                  ],
+                ),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                duration: const Duration(seconds: 1),
               ),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              duration: const Duration(seconds: 1),
-            ),
-          );
-        }
-      });
+            );
+          }
+        });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('خطا: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطا: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
     }
   }
 
@@ -303,14 +318,16 @@ class _FoodListScreenState extends State<FoodListScreen>
                 size: 20,
               ),
               onPressed: () {
-                setState(() {
-                  _isSearching = !_isSearching;
-                  if (!_isSearching) {
-                    _searchController.clear();
-                    _searchQuery = '';
-                    _filterFoods();
-                  }
-                });
+                if (mounted) {
+                  setState(() {
+                    _isSearching = !_isSearching;
+                    if (!_isSearching) {
+                      _searchController.clear();
+                      _searchQuery = '';
+                      _filterFoods();
+                    }
+                  });
+                }
               },
             ),
           ),
@@ -339,10 +356,12 @@ class _FoodListScreenState extends State<FoodListScreen>
           contentPadding: const EdgeInsets.symmetric(vertical: 8),
         ),
         onChanged: (value) {
-          setState(() {
-            _searchQuery = value;
-            _filterFoods();
-          });
+          if (mounted) {
+            setState(() {
+              _searchQuery = value;
+              _filterFoods();
+            });
+          }
         },
       ),
     );
@@ -361,10 +380,12 @@ class _FoodListScreenState extends State<FoodListScreen>
 
           return GestureDetector(
             onTap: () {
-              setState(() {
-                _selectedCategory = category;
-                _filterFoods();
-              });
+              if (mounted) {
+                setState(() {
+                  _selectedCategory = category;
+                  _filterFoods();
+                });
+              }
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),

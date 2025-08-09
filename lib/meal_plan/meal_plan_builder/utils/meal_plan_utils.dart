@@ -1,5 +1,4 @@
 import '../../../models/food.dart';
-import '../../../models/meal_plan.dart';
 
 // متد ساخت غذای پیش‌فرض برای مواقعی که غذا پیدا نشود
 defaultFood(int id) {

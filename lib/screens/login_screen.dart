@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_state_service.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
+import '../utils/safe_set_state.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -79,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _sendOTP() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
+    SafeSetState.call(this, () {
       _isLoading = true;
       _error = null;
     });
@@ -105,13 +106,13 @@ class _LoginScreenState extends State<LoginScreen>
       final otpCode = OTPService.generateOTP();
       final success = await OTPService.sendOTP(normalizedPhone, otpCode);
 
-      if (success && mounted) {
-        setState(() => _isOtpSent = true);
+      if (success) {
+        SafeSetState.call(this, () => _isOtpSent = true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('کد تایید ارسال شد')),
         );
-      } else if (mounted) {
-        setState(() {
+      } else {
+        SafeSetState.call(this, () {
           _error = 'خطا در ارسال کد تایید. لطفاً دوباره تلاش کنید';
         });
         ScaffoldMessenger.of(context).showSnackBar(
@@ -120,25 +121,21 @@ class _LoginScreenState extends State<LoginScreen>
       }
     } catch (e) {
       print('Error in _sendOTP: $e');
-      if (mounted) {
-        setState(() {
-          _error = 'خطا در ارسال کد تایید: ${e.toString()}';
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('خطا در ارسال کد تایید')),
-        );
-      }
+      SafeSetState.call(this, () {
+        _error = 'خطا در ارسال کد تایید: ${e.toString()}';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('خطا در ارسال کد تایید')),
+      );
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      SafeSetState.call(this, () => _isLoading = false);
     }
   }
 
   Future<void> _verifyOTP() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
+    SafeSetState.call(this, () {
       _isVerifying = true;
       _error = null; // پاک کردن خطای قبلی
     });
@@ -186,7 +183,7 @@ class _LoginScreenState extends State<LoginScreen>
               const SnackBar(content: Text('ورود با موفقیت انجام شد')),
             );
             Navigator.pushNamedAndRemoveUntil(
-                context, '/dashboard', (route) => false);
+                context, '/main', (route) => false);
           }
         } else {
           setState(() {
@@ -206,18 +203,14 @@ class _LoginScreenState extends State<LoginScreen>
       }
     } catch (e) {
       print('Error in _verifyOTP: $e');
-      if (mounted) {
-        setState(() {
-          _error = 'خطا در بررسی کد تایید: ${e.toString()}';
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('خطا در بررسی کد تایید')),
-        );
-      }
+      SafeSetState.call(this, () {
+        _error = 'خطا در بررسی کد تایید: ${e.toString()}';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('خطا در بررسی کد تایید')),
+      );
     } finally {
-      if (mounted) {
-        setState(() => _isVerifying = false);
-      }
+      SafeSetState.call(this, () => _isVerifying = false);
     }
   }
 

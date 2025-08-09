@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
@@ -10,6 +11,7 @@ import 'services/exercise_service.dart';
 import 'services/food_service.dart';
 import 'services/database_migration_service.dart';
 import 'services/supabase_service.dart';
+import 'config/app_config.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,36 +23,52 @@ void main() async {
     ),
   );
 
-  // محدود کردن فریم‌ریت برای کاهش مصرف باتری
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  // محدود کردن جهت صفحه برای بهبود تجربه کاربری
+  await SystemChrome.setPreferredOrientations(
+    [
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ],
+  );
 
-  print('Starting application...');
+  if (kDebugMode) print('Starting application...');
 
   // Initialize Supabase
   try {
+    if (kDebugMode) {
+      print('Initializing Supabase with URL: ${AppConfig.supabaseUrl}');
+    }
+    if (kDebugMode) {
+      print('Anon Key is set: ${AppConfig.supabaseAnonKey.isNotEmpty}');
+    }
+
     await Supabase.initialize(
-      url: 'http://192.168.1.3:54321',
-      anonKey:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0',
-      debug: false, // غیرفعال کردن حالت دیباگ در محیط اصلی
+      url: AppConfig.supabaseUrl,
+      anonKey: AppConfig.supabaseAnonKey,
     );
-    print('Supabase initialized successfully');
+    if (kDebugMode) print('Supabase initialized successfully');
+
+    // Test connection
+    try {
+      await Supabase.instance.client.from('profiles').select('id').limit(1);
+      if (kDebugMode) print('Supabase connection test successful');
+    } catch (e) {
+      if (kDebugMode) print('Supabase connection test failed: $e');
+    }
 
     // اولیه‌سازی سرویس‌های اپلیکیشن - به صورت موازی
-    Future.wait([
+    unawaited(Future.wait([
       _initExerciseService(),
       _initFoodService(),
       _runDatabaseMigrations(),
     ]).then((_) {
-      print('All initialization services completed');
+      if (kDebugMode) print('All initialization services completed');
     }).catchError((error) {
-      print('Error in initialization services: $error');
-    });
+      if (kDebugMode) print('Error in initialization services: $error');
+    }));
   } catch (e) {
-    print('Error initializing services: $e');
+    if (kDebugMode) print('Error initializing Supabase: $e');
+    if (kDebugMode) print('Error details: ${e.toString()}');
   }
 
   // Auth service setup
@@ -58,13 +76,15 @@ void main() async {
   try {
     // Check current authentication state
     final currentUser = Supabase.instance.client.auth.currentUser;
-    print('Current user at startup: ${currentUser?.id ?? "None"}');
+    if (kDebugMode) {
+      print('Current user at startup: ${currentUser?.id ?? "None"}');
+    }
 
     final session = await authService.restoreSession();
-    print('Session restored: ${session != null}');
+    if (kDebugMode) print('Session restored: ${session != null}');
 
     if (session != null) {
-      print('User is logged in: ${session.user.id}');
+      if (kDebugMode) print('User is logged in: ${session.user.id}');
 
       // Verify the user has a profile
       try {
@@ -75,28 +95,33 @@ void main() async {
             .maybeSingle();
 
         if (profile != null) {
-          print('User profile found: ${profile['username']}');
+          if (kDebugMode) print('User profile found: ${profile['username']}');
         } else {
-          print('Warning: No profile found for authenticated user');
+          if (kDebugMode) {
+            print('Warning: No profile found for authenticated user');
+          }
         }
       } catch (e) {
-        print('Error checking user profile: $e');
+        if (kDebugMode) print('Error checking user profile: $e');
       }
     } else {
-      print('No active session found');
+      if (kDebugMode) print('No active session found');
     }
   } catch (e) {
-    print('Error restoring session: $e');
+    if (kDebugMode) print('Error restoring session: $e');
   }
 
   // Determine initial route
-  String initialRoute;
+  String initialRoute = '/welcome'; // Default to welcome screen
   try {
+    if (kDebugMode) print('=== MAIN: About to call getInitialRoute() ===');
     initialRoute = await RouteService.getInitialRoute();
-    print('Initial route: $initialRoute');
+    if (kDebugMode) {
+      print('=== MAIN: Initial route determined: $initialRoute ===');
+    }
   } catch (e) {
-    print('Error determining initial route: $e');
-    initialRoute = '/welcome'; // Default route if error occurs
+    if (kDebugMode) print('=== MAIN: Error determining initial route: $e ===');
+    if (kDebugMode) print('=== MAIN: Using default route: /welcome ===');
   }
 
   // ساخت یک نمونه از SupabaseService
@@ -115,9 +140,9 @@ void main() async {
 Future<void> _initExerciseService() async {
   try {
     await ExerciseService.initAll();
-    print('Exercise service initialized successfully');
+    if (kDebugMode) print('Exercise service initialized successfully');
   } catch (e) {
-    print('Error initializing exercise service: $e');
+    if (kDebugMode) print('Error initializing exercise service: $e');
   }
 }
 
@@ -125,9 +150,9 @@ Future<void> _initExerciseService() async {
 Future<void> _initFoodService() async {
   try {
     await FoodService.initAll();
-    print('Food service initialized successfully');
+    if (kDebugMode) print('Food service initialized successfully');
   } catch (e) {
-    print('Error initializing food service: $e');
+    if (kDebugMode) print('Error initializing food service: $e');
   }
 }
 
@@ -135,9 +160,9 @@ Future<void> _initFoodService() async {
 Future<void> _runDatabaseMigrations() async {
   try {
     await DatabaseMigrationService.runMigrations();
-    print('Database migrations completed');
+    if (kDebugMode) print('Database migrations completed');
   } catch (e) {
-    print('Error running database migrations: $e');
+    if (kDebugMode) print('Error running database migrations: $e');
   }
 }
 

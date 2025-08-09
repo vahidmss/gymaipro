@@ -3,10 +3,11 @@ import 'dart:async';
 import 'package:gymaipro/models/chat_message.dart';
 import 'package:gymaipro/services/chat_service.dart';
 import 'package:gymaipro/services/supabase_service.dart';
-import 'package:gymaipro/screens/chat_screen.dart';
+import 'package:gymaipro/chat/screens/chat_screen.dart';
 import 'package:gymaipro/theme/app_colors.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../widgets/user_role_badge.dart';
 
 class ConversationsScreen extends StatefulWidget {
   const ConversationsScreen({Key? key}) : super(key: key);
@@ -176,9 +177,20 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
               )
             : null,
       ),
-      title: Text(
-        conversation.otherUserName,
-        style: const TextStyle(fontWeight: FontWeight.bold),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              conversation.otherUserName,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          if (conversation.isTrainer)
+            const UserRoleBadge(
+              role: 'trainer',
+              fontSize: 10,
+            ),
+        ],
       ),
       subtitle: Text(
         conversation.lastMessageText ?? '',

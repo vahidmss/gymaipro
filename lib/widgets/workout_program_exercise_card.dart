@@ -59,7 +59,7 @@ class _WorkoutProgramExerciseCardState
             if (_isExpanded) ...[
               const SizedBox(height: 12),
               ConstrainedBox(
-                constraints: BoxConstraints(
+                constraints: const BoxConstraints(
                     maxHeight: 320), // Limit height to avoid drag target error
                 child: SingleChildScrollView(
                   child: _buildExerciseDetails(isDarkMode),
@@ -291,6 +291,7 @@ class _WorkoutProgramExerciseCardState
                           children: [
                             InkWell(
                               onTap: () {
+                                if (!mounted) return;
                                 setState(() {
                                   if (sets > 1) {
                                     sets--;
@@ -349,6 +350,7 @@ class _WorkoutProgramExerciseCardState
                             ),
                             InkWell(
                               onTap: () {
+                                if (!mounted) return;
                                 setState(() {
                                   sets++;
                                   exercise.sets = List.generate(
@@ -405,6 +407,7 @@ class _WorkoutProgramExerciseCardState
                           children: [
                             InkWell(
                               onTap: () {
+                                if (!mounted) return;
                                 setState(() {
                                   if (exercise.style ==
                                       ExerciseStyle.setsReps) {
@@ -470,6 +473,7 @@ class _WorkoutProgramExerciseCardState
                             ),
                             InkWell(
                               onTap: () {
+                                if (!mounted) return;
                                 setState(() {
                                   if (exercise.style ==
                                       ExerciseStyle.setsReps) {
@@ -648,6 +652,7 @@ class _WorkoutProgramExerciseCardState
                           children: [
                             InkWell(
                               onTap: () {
+                                if (!mounted) return;
                                 setState(() {
                                   if (sets > 1) {
                                     sets--;
@@ -709,6 +714,7 @@ class _WorkoutProgramExerciseCardState
                             ),
                             InkWell(
                               onTap: () {
+                                if (!mounted) return;
                                 setState(() {
                                   sets++;
                                   // Update all exercises in superset
@@ -768,6 +774,7 @@ class _WorkoutProgramExerciseCardState
                           children: [
                             InkWell(
                               onTap: () {
+                                if (!mounted) return;
                                 setState(() {
                                   if (exercise.style ==
                                       ExerciseStyle.setsReps) {
@@ -836,6 +843,7 @@ class _WorkoutProgramExerciseCardState
                             ),
                             InkWell(
                               onTap: () {
+                                if (!mounted) return;
                                 setState(() {
                                   if (exercise.style ==
                                       ExerciseStyle.setsReps) {
@@ -1016,6 +1024,7 @@ class _WorkoutProgramExerciseCardState
                           children: [
                             InkWell(
                               onTap: () {
+                                if (!mounted) return;
                                 setState(() {
                                   if (sets > 1) {
                                     sets--;
@@ -1077,6 +1086,7 @@ class _WorkoutProgramExerciseCardState
                             ),
                             InkWell(
                               onTap: () {
+                                if (!mounted) return;
                                 setState(() {
                                   sets++;
                                   // Update all exercises in triset
@@ -1136,6 +1146,7 @@ class _WorkoutProgramExerciseCardState
                           children: [
                             InkWell(
                               onTap: () {
+                                if (!mounted) return;
                                 setState(() {
                                   if (exercise.style ==
                                       ExerciseStyle.setsReps) {
@@ -1204,6 +1215,7 @@ class _WorkoutProgramExerciseCardState
                             ),
                             InkWell(
                               onTap: () {
+                                if (!mounted) return;
                                 setState(() {
                                   if (exercise.style ==
                                       ExerciseStyle.setsReps) {

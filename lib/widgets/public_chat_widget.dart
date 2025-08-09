@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_theme.dart';
 import '../models/public_chat_message.dart';
 import '../services/public_chat_service.dart';
+import '../utils/safe_set_state.dart';
+import 'user_role_badge.dart';
 
 class PublicChatWidget extends StatefulWidget {
   @override
@@ -69,33 +71,40 @@ class PublicChatWidgetState extends State<PublicChatWidget>
   void _setupSubscription() {
     _subscription = _service.subscribeMessages();
     _subscription.listen((msg) {
-      if (mounted) {
-        setState(() {
-          // بررسی اینکه پیام قبلاً اضافه نشده باشد
-          if (!_messages.any((m) => m.id == msg.id)) {
-            _messages.add(msg);
-          }
-        });
-        _scrollToBottom();
-      }
+      print('=== CHAT WIDGET: Received new message: ${msg.message} ===');
+      SafeSetState.call(this, () {
+        // بررسی اینکه پیام قبلاً اضافه نشده باشد
+        if (!_messages.any((m) => m.id == msg.id)) {
+          _messages.add(msg);
+          print('=== CHAT WIDGET: Added new message to list ===');
+        } else {
+          print('=== CHAT WIDGET: Message already exists, skipping ===');
+        }
+      });
+      _scrollToBottom();
+    }, onError: (error) {
+      print('=== CHAT WIDGET: Subscription error: $error ===');
     });
   }
 
   Future<void> _loadMessages() async {
     try {
-      setState(() => _isLoading = true);
+      SafeSetState.call(this, () => _isLoading = true);
+
+      // اضافه کردن debug برای بررسی مشکل
+      await _service.debugMessages();
+
       final msgs = await _service.getMessages(limit: 50);
-      if (mounted) {
-        setState(() {
-          _messages = msgs;
-          _isLoading = false;
-        });
-        _scrollToBottom();
-      }
+      debugPrint('Loaded ${msgs.length} messages');
+
+      SafeSetState.call(this, () {
+        _messages = msgs;
+        _isLoading = false;
+      });
+      _scrollToBottom();
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      debugPrint('Error loading messages: $e');
+      SafeSetState.call(this, () => _isLoading = false);
     }
   }
 
@@ -119,13 +128,26 @@ class PublicChatWidgetState extends State<PublicChatWidget>
     final txt = _controller.text.trim();
     if (txt.isEmpty || _isSending) return;
 
-    setState(() => _isSending = true);
+    SafeSetState.call(this, () => _isSending = true);
     _controller.clear();
     _focusNode.unfocus();
 
     try {
-      await _service.sendMessage(message: txt);
+      print('=== CHAT WIDGET: Sending message: $txt ===');
+      final sentMessage = await _service.sendMessage(message: txt);
+      print(
+          '=== CHAT WIDGET: Message sent successfully: ${sentMessage.id} ===');
+
+      // اضافه کردن پیام به لیست محلی برای نمایش فوری
+      SafeSetState.call(this, () {
+        if (!_messages.any((m) => m.id == sentMessage.id)) {
+          _messages.add(sentMessage);
+          print('=== CHAT WIDGET: Added sent message to local list ===');
+        }
+      });
+      _scrollToBottom();
     } catch (e) {
+      print('=== CHAT WIDGET: Error sending message: $e ===');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('خطا در ارسال پیام: $e'),
@@ -134,7 +156,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
       );
     }
 
-    setState(() => _isSending = false);
+    SafeSetState.call(this, () => _isSending = false);
   }
 
   // Add this public method
@@ -159,7 +181,6 @@ class PublicChatWidgetState extends State<PublicChatWidget>
       child: SlideTransition(
         position: _slideAnimation,
         child: Container(
-          height: 280,
           decoration: BoxDecoration(
             color: AppTheme.backgroundColor,
             borderRadius: BorderRadius.circular(16),
@@ -364,27 +385,9 @@ class PublicChatWidgetState extends State<PublicChatWidget>
                         ),
                         if (msg.senderRole != null) ...[
                           const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: msg.senderRole == 'trainer'
-                                  ? AppTheme.goldColor.withValues(alpha: 0.2)
-                                  : Colors.blue.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              msg.senderRole == 'trainer' ? 'مربی' : 'شاگرد',
-                              style: TextStyle(
-                                color: msg.senderRole == 'trainer'
-                                    ? AppTheme.goldColor
-                                    : Colors.blue,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                          UserRoleBadge(
+                            role: msg.senderRole!,
+                            fontSize: 10,
                           ),
                         ],
                       ],

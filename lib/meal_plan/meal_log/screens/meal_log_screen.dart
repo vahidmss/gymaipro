@@ -1,29 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:gymaipro/models/meal_plan.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:fl_chart/fl_chart.dart';
 
 import '../../../models/food.dart';
 import '../../../services/food_service.dart';
 
 import '../../meal_plan_builder/services/meal_plan_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../utils/safe_set_state.dart';
 
 // [STEP 1] Extract all meal log-specific widgets to lib/meal_plan/meal_log/widgets/ and import them here.
 import '../widgets/meal_log_widgets.dart';
 import '../widgets/nutrition_chart.dart';
 import '../widgets/add_item_menu.dart';
-import '../widgets/meal_type_selector_overlay.dart';
 import '../widgets/meal_type_card.dart';
-import '../widgets/session_selector.dart';
-import '../widgets/empty_state_guide.dart';
 
 // [STEP 2] Extract all meal log-specific dialogs to lib/meal_plan/meal_log/dialogs/ and import them here.
 import '../dialogs/add_food_dialog.dart';
-
-import '../dialogs/substitute_food_dialog.dart';
-import '../dialogs/persian_food_log_date_picker_dialog.dart';
 
 // [STEP 3] Extract all meal log-specific utils to lib/meal_plan/meal_log/utils/ and import them here.
 import '../utils/meal_log_utils.dart';
@@ -80,27 +73,24 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    SafeSetState.call(this, () => _isLoading = true);
     try {
       _allFoods = await _foodService.getFoods();
       _availablePlans = await _mealPlanService.getPlans();
       await _loadCurrentLog();
-      setState(() => _isLoading = false);
+      SafeSetState.call(this, () => _isLoading = false);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('خطا در بارگذاری: $e')),
       );
-      setState(() => _isLoading = false);
+      SafeSetState.call(this, () => _isLoading = false);
     }
   }
 
   Future<void> _loadCurrentLog() async {
     try {
       _currentLog = await _foodLogService.getLogForDate(_selectedDate);
-      if (_currentLog == null) {
-        // اگر از سرور نبود، از لوکال بخوان
-        _currentLog = await _foodLogService.loadLogLocal(_selectedDate);
-      }
+      _currentLog ??= await _foodLogService.loadLogLocal(_selectedDate);
     } catch (e) {
       // Log doesn't exist yet, create empty one
       _currentLog = await _foodLogService.loadLogLocal(_selectedDate);
@@ -614,17 +604,15 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                   await _foodLogService.saveLastPlanLocal(
                       _selectedDate, _selectedPlan!.id);
                 }
-                if (_currentLog == null) {
-                  _currentLog = FoodLog(
-                    id: '',
-                    userId: Supabase.instance.client.auth.currentUser?.id ?? '',
-                    logDate: _selectedDate,
-                    meals: [],
-                    supplements: [],
-                    createdAt: DateTime.now(),
-                    updatedAt: DateTime.now(),
-                  );
-                }
+                _currentLog ??= FoodLog(
+                  id: '',
+                  userId: Supabase.instance.client.auth.currentUser?.id ?? '',
+                  logDate: _selectedDate,
+                  meals: [],
+                  supplements: [],
+                  createdAt: DateTime.now(),
+                  updatedAt: DateTime.now(),
+                );
                 await _mapPlanToLogIfNeeded();
                 setState(() {}); // Force UI rebuild after mapping
               },

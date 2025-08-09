@@ -1,6 +1,7 @@
 class UserProfile {
   final String? id;
-  final String phoneNumber;
+  final String username; // Added username field
+  final String? phoneNumber;
   final String? firstName;
   final String? lastName;
   final String? avatarUrl;
@@ -23,10 +24,13 @@ class UserProfile {
   final List<Map<String, dynamic>>? weightHistory;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final DateTime? lastSeenAt;
+  final bool? isOnline;
 
   UserProfile({
     this.id,
-    required this.phoneNumber,
+    required this.username, // Made username required
+    this.phoneNumber,
     this.firstName,
     this.lastName,
     this.avatarUrl,
@@ -49,12 +53,15 @@ class UserProfile {
     this.weightHistory,
     this.createdAt,
     this.updatedAt,
+    this.lastSeenAt,
+    this.isOnline,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
       id: json['id'],
-      phoneNumber: json['phone_number'],
+      username: json['username'] ?? '', // Added username mapping
+      phoneNumber: json['phone_number'] as String?,
       firstName: json['first_name'],
       lastName: json['last_name'],
       avatarUrl: json['avatar_url'],
@@ -85,7 +92,7 @@ class UserProfile {
               json['hip_circumference'].toString().isNotEmpty)
           ? double.tryParse(json['hip_circumference'].toString())
           : null,
-      experienceLevel: json['experience_level'],
+      experienceLevel: json['experience_level'], // Fixed field name
       preferredTrainingDays: json['preferred_training_days'] != null
           ? List<String>.from(json['preferred_training_days'])
           : null,
@@ -112,12 +119,18 @@ class UserProfile {
           json['updated_at'] != null && json['updated_at'].toString().isNotEmpty
               ? DateTime.tryParse(json['updated_at'])
               : null,
+      lastSeenAt: json['last_seen_at'] != null &&
+              json['last_seen_at'].toString().isNotEmpty
+          ? DateTime.tryParse(json['last_seen_at'])
+          : null,
+      isOnline: json['is_online'] as bool?,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'username': username, // Added username to JSON
       'phone_number': phoneNumber,
       'first_name': firstName,
       'last_name': lastName,
@@ -130,7 +143,7 @@ class UserProfile {
       'chest_circumference': chestCircumference,
       'waist_circumference': waistCircumference,
       'hip_circumference': hipCircumference,
-      'experience_level': experienceLevel,
+      'experience_level': experienceLevel, // Fixed field name
       'preferred_training_days': preferredTrainingDays,
       'preferred_training_time': preferredTrainingTime,
       'fitness_goals': fitnessGoals,
@@ -138,13 +151,17 @@ class UserProfile {
       'dietary_preferences': dietaryPreferences,
       'gender': gender,
       'role': role,
+      'weight_history': weightHistory, // Added weight_history
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
+      'last_seen_at': lastSeenAt?.toIso8601String(),
+      'is_online': isOnline,
     };
   }
 
   UserProfile copyWith({
     String? id,
+    String? username, // Added username
     String? phoneNumber,
     String? firstName,
     String? lastName,
@@ -168,9 +185,12 @@ class UserProfile {
     List<Map<String, dynamic>>? weightHistory,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? lastSeenAt,
+    bool? isOnline,
   }) {
     return UserProfile(
       id: id ?? this.id,
+      username: username ?? this.username, // Added username
       phoneNumber: phoneNumber ?? this.phoneNumber,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
@@ -196,6 +216,8 @@ class UserProfile {
       weightHistory: weightHistory ?? this.weightHistory,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      lastSeenAt: lastSeenAt ?? this.lastSeenAt,
+      isOnline: isOnline ?? this.isOnline,
     );
   }
 

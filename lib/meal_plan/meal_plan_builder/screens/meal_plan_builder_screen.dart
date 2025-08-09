@@ -9,6 +9,7 @@ import '../../../models/meal_plan.dart';
 import '../../../services/food_service.dart';
 import '../services/meal_plan_service.dart';
 import '../utils/meal_plan_utils.dart';
+import '../../../utils/safe_set_state.dart';
 
 // ویجت‌های ماژولار meal plan builder
 import '../widgets/widgets.dart';
@@ -60,7 +61,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    SafeSetState.call(this, () => _isLoading = true);
     try {
       _allFoods = await _foodService.getFoods();
       _savedPlans = await _mealPlanService.getPlans();
@@ -77,12 +78,12 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
         );
       }
       _planNameController.text = _mealPlan.planName;
-      setState(() => _isLoading = false);
+      SafeSetState.call(this, () => _isLoading = false);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('خطا در بارگذاری: $e')),
       );
-      setState(() => _isLoading = false);
+      SafeSetState.call(this, () => _isLoading = false);
     }
   }
 
@@ -434,7 +435,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
       );
       return;
     }
-    setState(() => _isSaving = true);
+    SafeSetState.call(this, () => _isSaving = true);
     try {
       _mealPlan = MealPlan(
         id: _mealPlan.id,
@@ -449,20 +450,20 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('برنامه غذایی با موفقیت ذخیره شد')),
       );
-      setState(() => _isSaving = false);
+      SafeSetState.call(this, () => _isSaving = false);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('خطا در ذخیره برنامه: $e')),
       );
-      setState(() => _isSaving = false);
+      SafeSetState.call(this, () => _isSaving = false);
     }
   }
 
   // Drawer مدیریت برنامه‌های غذایی
-  void _openDrawer() => setState(() => _showDrawer = true);
-  void _closeDrawer() => setState(() => _showDrawer = false);
+  void _openDrawer() => SafeSetState.call(this, () => _showDrawer = true);
+  void _closeDrawer() => SafeSetState.call(this, () => _showDrawer = false);
   void _selectPlan(MealPlan plan) {
-    setState(() {
+    SafeSetState.call(this, () {
       _mealPlan = plan;
       _planNameController.text = plan.planName;
       _showDrawer = false;
@@ -472,7 +473,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
   Future<void> _deletePlanById(String id) async {
     await _mealPlanService.deletePlan(id);
     await _loadData();
-    setState(() => _showDrawer = false);
+    SafeSetState.call(this, () => _showDrawer = false);
   }
 
   @override
@@ -766,7 +767,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
                                       day.items[itemIdx] is MealItem
                                           ? MealCardMealPlanBuilder(
                                               key: ValueKey(
-                                                  'meal_${(day.items[itemIdx] as MealItem).id}_${itemIdx}'),
+                                                  'meal_${(day.items[itemIdx] as MealItem).id}_$itemIdx'),
                                               meal: day.items[itemIdx]
                                                   as MealItem,
                                               itemIdx: itemIdx,
@@ -829,7 +830,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
                                                   is SupplementEntry
                                               ? SupplementCardMealPlanBuilder(
                                                   key: ValueKey(
-                                                      'supplement_${itemIdx}'),
+                                                      'supplement_$itemIdx'),
                                                   supplement: day.items[itemIdx]
                                                       as SupplementEntry,
                                                   itemIdx: itemIdx,
@@ -1366,7 +1367,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
   Future<void> _showAddSupplementDialog() async {
     final result = await showDialog<SupplementEntry>(
       context: context,
-      builder: (context) => AddSupplementDialog(),
+      builder: (context) => const AddSupplementDialog(),
     );
     if (result != null) {
       setState(() {

@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_theme.dart';
 import '../services/supabase_service.dart';
+import '../services/weekly_weight_service.dart';
 import '../config/app_config.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import '../services/sync_service.dart';
+import '../utils/safe_set_state.dart';
+import '../widgets/user_role_badge.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -26,11 +29,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   final _healthFormKey = GlobalKey<FormState>();
 
   bool _isLoading = true;
-  bool _isDataLoaded = false;
-  final bool _isProfileComplete = false;
   File? _avatarFile;
-  String? _avatarUrl;
-  String? _selectedGender;
+  // Removed unused field _avatarUrl
   final ImagePicker _picker = ImagePicker();
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
@@ -40,6 +40,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   late Animation<double> _fadeAnimation;
 
   double? _prevProfileWeight; // مقدار قبلی وزن برای مقایسه
+  bool _isFromGuidanceDialog = false; // آیا از دیالوگ راهنما ثبت شده
+  bool _hasWeightRecord = false; // آیا کاربر قبلاً رکورد وزنی دارد
   final Map<String, dynamic> _profileData = {
     'first_name': '',
     'last_name': '',
@@ -105,14 +107,12 @@ class _ProfileScreenState extends State<ProfileScreen>
 
       // بروزرسانی وضعیت با داده‌های دریافتی
       setState(() {
-        _isDataLoaded = true;
-
         // تنظیم فیلدهای پروفایل با داده‌های دریافتی
         _profileData['first_name'] = data['first_name'] ?? '';
         _profileData['last_name'] = data['last_name'] ?? '';
         _profileData['bio'] = data['bio'] ?? '';
         _profileData['avatar_url'] = data['avatar_url'] ?? '';
-        _avatarUrl = data['avatar_url'];
+        // _avatarUrl field removed
 
         // تنظیم داده‌های بدنی
         _profileData['height'] = data['height']?.toString() ?? '';
@@ -145,7 +145,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         _profileData['dietary_preferences'] = data['dietary_preferences'] ?? [];
 
         // تنظیم جنسیت
-        _selectedGender = data['gender'];
         _profileData['gender'] = data['gender'] ?? '';
 
         // تنظیم تاریخ تولد اگر موجود باشد
@@ -164,6 +163,17 @@ class _ProfileScreenState extends State<ProfileScreen>
         }
       });
 
+      // بررسی وجود رکوردهای وزن
+      try {
+        final supabaseService = SupabaseService();
+        final weightRecords = await supabaseService.getWeightRecords(user.id);
+        _hasWeightRecord = weightRecords.isNotEmpty;
+        print('تعداد رکوردهای وزن موجود: ${weightRecords.length}');
+      } catch (e) {
+        print('خطا در بررسی رکوردهای وزن: $e');
+        _hasWeightRecord = false;
+      }
+
       // نمایش اطلاعات بارگذاری شده برای اشکال‌زدایی
       print('داده‌های پروفایل با موفقیت بارگذاری شدند:');
       print('تاریخ تولد: ${_profileData['birth_date']}');
@@ -177,27 +187,12 @@ class _ProfileScreenState extends State<ProfileScreen>
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      SafeSetState.call(this, () => _isLoading = false);
     }
   }
 
-  bool _checkProfileCompletion() {
-    final requiredFields = [
-      'first_name',
-      'last_name',
-      'height',
-      'weight',
-      'birth_date',
-      'experience_level',
-      'gender',
-    ];
-
-    return requiredFields.every((field) =>
-        _profileData[field] != null &&
-        _profileData[field].toString().isNotEmpty);
-  }
+  // removed unused completion check
+  // bool _checkProfileCompletion() => true;
 
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -209,6 +204,8 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
+  // removed legacy _saveProfile()
+  /*
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate() &&
         !_bodyFormKey.currentState!.validate() &&
@@ -218,7 +215,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
 
     try {
-      setState(() => _isLoading = true);
+      SafeSetState.call(this, () => _isLoading = true);
 
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) {
@@ -511,11 +508,10 @@ class _ProfileScreenState extends State<ProfileScreen>
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      SafeSetState.call(this, () => _isLoading = false);
     }
   }
+  */
 
   Future<void> _saveProfileData() async {
     // بررسی معتبر بودن فرم فعال براساس تب جاری
@@ -555,7 +551,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         break;
     }
 
-    setState(() => _isLoading = true);
+    SafeSetState.call(this, () => _isLoading = true);
 
     try {
       final user = Supabase.instance.client.auth.currentUser;
@@ -569,15 +565,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ? double.tryParse(newWeightStr)
                 : null;
 
-        // بررسی اینکه آیا قبلا رکورد وزنی ثبت شده است
-        final hasWeightRecord = _profileData['weight_history'] != null &&
-            (_profileData['weight_history'] as List<dynamic>).isNotEmpty;
+        // بررسی اینکه آیا وزن قبلاً در پروفایل وجود دارد
+        final hasExistingWeight = _profileData['weight'] != null &&
+            _profileData['weight'].toString().isNotEmpty;
 
         print('ثبت وزن: نمایش وضعیت قبل از ذخیره:');
         print('وزن جدید: $newWeight');
-        print('وضعیت قبلی وزن: $hasWeightRecord');
-        print(
-            'تعداد رکوردهای موجود: ${(_profileData['weight_history'] as List?)?.length ?? 0}');
+        print('وزن قبلی موجود: $hasExistingWeight');
+        print('وزن قبلی: ${_profileData['weight']}');
 
         // تبدیل فیلدهای عددی و تاریخ به مقدار مناسب
         final Map<String, dynamic> cleanProfileData = Map.from(_profileData);
@@ -605,10 +600,27 @@ class _ProfileScreenState extends State<ProfileScreen>
         // بررسی صحت وزن
         if (newWeight != null) {
           // اگر وزن جدید داریم و قبلا رکورد وزنی ثبت نشده، آن را به weight_records اضافه کنیم
-          if (!hasWeightRecord) {
+          if (!_hasWeightRecord) {
             print('ثبت وزن اولیه: $newWeight');
             await supabaseService.addWeightRecord(user.id, newWeight);
             print('وزن اولیه به weight_records اضافه شد: $newWeight');
+          }
+
+          // ثبت وزن در جدول weekly_weight_records (فقط اگر از طریق پروفایل ثبت شده)
+          // اگر از دیالوگ راهنما ثبت شده، اینجا ثبت نمی‌کنیم
+          if (!_isFromGuidanceDialog) {
+            try {
+              final success = await WeeklyWeightService.recordWeeklyWeight(
+                  user.id, newWeight);
+              if (success) {
+                print('وزن در جدول weekly_weight_records ثبت شد: $newWeight');
+              } else {
+                print(
+                    'وزن در جدول weekly_weight_records ثبت نشد (ممکن است در 7 روز گذشته ثبت شده باشد)');
+              }
+            } catch (e) {
+              print('خطا در ثبت وزن در جدول weekly_weight_records: $e');
+            }
           }
 
           // وزن را در پروفایل هم نگه می‌داریم برای نمایش
@@ -678,7 +690,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             if (userProfile?.phoneNumber != null) {
               final syncService = SyncService();
               final syncResult = await syncService.syncUserProfile(
-                  userProfile!.phoneNumber, cleanProfileData);
+                  userProfile!.phoneNumber!, cleanProfileData);
 
               print(
                   'همگام‌سازی با وردپرس: ${syncResult['success'] == true ? 'موفق' : 'ناموفق'}');
@@ -730,9 +742,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      SafeSetState.call(this, () => _isLoading = false);
     }
   }
 
@@ -755,62 +765,33 @@ class _ProfileScreenState extends State<ProfileScreen>
         centerTitle: true,
       ),
       body: _isLoading ? _buildLoadingView() : _buildMainContent(),
+      floatingActionButton: _isLoading
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _saveProfileData,
+              backgroundColor: AppTheme.goldColor,
+              foregroundColor: Colors.black,
+              label: Text(
+                'ذخیره تغییرات',
+                style: GoogleFonts.vazirmatn(
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              icon: const Icon(Icons.save_rounded),
+            ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
   Widget _buildMainContent() {
     return Column(
       children: [
-        // Profile Completion Indicator
-        if (!_isProfileComplete)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: _buildProfileCompletionIndicator(),
-          ),
-
-        // Avatar & Name - Now centered
+        // Redesigned header
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildSimpleAvatar(small: true),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "${_profileData['first_name']} ${_profileData['last_name']}",
-                      style: GoogleFonts.vazirmatn(
-                        textStyle: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    if (_profileData['bio']?.isNotEmpty == true)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          _profileData['bio'],
-                          style: GoogleFonts.vazirmatn(
-                            textStyle: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
-                              fontSize: 12,
-                            ),
-                          ),
-                          maxLines: 2,
-                          textAlign: TextAlign.start,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: _buildHeaderCard(),
         ),
 
         // Stats Cards
@@ -830,10 +811,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                     child: TabBarView(
                       controller: _tabController,
                       children: [
-                        _buildTabBasicInfo(),
-                        _buildTabPhysicalInfo(),
-                        _buildTabTrainingInfo(),
-                        _buildTabHealthInfo(),
+                        _buildTabBasicInfo(showSave: false),
+                        _buildTabPhysicalInfo(showSave: false),
+                        _buildTabTrainingInfo(showSave: false),
+                        _buildTabHealthInfo(showSave: false),
                       ],
                     ),
                   ),
@@ -846,56 +827,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildTabs() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        indicator: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.goldColor.withOpacity(0.3),
-              blurRadius: 8,
-              spreadRadius: 1,
-            ),
-          ],
-          gradient: const LinearGradient(
-            colors: [
-              AppTheme.goldColor,
-              Color(0xFFD4AF37),
-            ],
-          ),
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        labelColor: Colors.black,
-        unselectedLabelColor: Colors.white70,
-        labelStyle: GoogleFonts.vazirmatn(
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-        ),
-        unselectedLabelStyle: GoogleFonts.vazirmatn(
-          textStyle: const TextStyle(
-            fontSize: 13,
-          ),
-        ),
-        dividerColor: Colors.transparent,
-        indicatorPadding:
-            const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-        tabs: const [
-          Tab(text: 'اطلاعات'),
-          Tab(text: 'بدن'),
-          Tab(text: 'تمرینات'),
-          Tab(text: 'سلامت'),
-        ],
-      ),
-    );
-  }
+  // removed old unused _buildTabs()
 
   Widget _buildSimpleAvatar({bool small = false}) {
     return GestureDetector(
@@ -941,67 +873,10 @@ class _ProfileScreenState extends State<ProfileScreen>
     return null;
   }
 
-  Widget _buildProfileCompletionIndicator() {
-    final requiredFields = [
-      'first_name',
-      'last_name',
-      'height',
-      'weight',
-      'birth_date',
-      'experience_level',
-      'gender',
-    ];
+  // deprecated: inline completion bar (moved into header card)
+  // Widget _buildProfileCompletionIndicator() => const SizedBox.shrink();
 
-    int completedFields = 0;
-    for (final field in requiredFields) {
-      if (_profileData[field] != null &&
-          _profileData[field].toString().isNotEmpty) {
-        completedFields++;
-      }
-    }
-
-    final completionPercentage =
-        (completedFields / requiredFields.length) * 100;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'تکمیل پروفایل',
-              style: GoogleFonts.vazirmatn(
-                textStyle: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            Text(
-              '${completionPercentage.toInt()}%',
-              style: GoogleFonts.vazirmatn(
-                textStyle: const TextStyle(
-                  color: AppTheme.goldColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        LinearProgressIndicator(
-          value: completionPercentage / 100,
-          backgroundColor: Colors.grey.withOpacity(0.3),
-          valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.goldColor),
-          minHeight: 4,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTabBasicInfo() {
+  Widget _buildTabBasicInfo({bool showSave = true}) {
     return SingleChildScrollView(
       child: Form(
         key: _formKey,
@@ -1009,7 +884,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           children: [
             _buildInfoSection(),
             const SizedBox(height: 16),
-            _buildApplyButton(),
+            if (showSave) _buildApplyButton(),
             const SizedBox(height: 24),
           ],
         ),
@@ -1063,9 +938,10 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildTabPhysicalInfo() {
-    final hasWeightRecord = _profileData['weight_history'] != null &&
-        (_profileData['weight_history'] as List<dynamic>).isNotEmpty;
+  Widget _buildTabPhysicalInfo({bool showSave = true}) {
+    // بررسی اینکه آیا وزن در پروفایل وجود دارد
+    final hasWeight = _profileData['weight'] != null &&
+        _profileData['weight'].toString().isNotEmpty;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -1090,7 +966,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: hasWeightRecord
+                      child: hasWeight
                           ? _buildReadOnlyWeightField()
                           : _buildTextField(
                               'وزن (کیلوگرم)',
@@ -1151,7 +1027,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               ],
             ),
             const SizedBox(height: 16),
-            _buildApplyButton(),
+            if (showSave) _buildApplyButton(),
             const SizedBox(height: 24),
           ],
         ),
@@ -1159,7 +1035,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildTabTrainingInfo() {
+  Widget _buildTabTrainingInfo({bool showSave = true}) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Form(
@@ -1200,7 +1076,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               ],
             ),
             const SizedBox(height: 16),
-            _buildApplyButton(),
+            if (showSave) _buildApplyButton(),
             const SizedBox(height: 24),
           ],
         ),
@@ -1208,7 +1084,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildTabHealthInfo() {
+  Widget _buildTabHealthInfo({bool showSave = true}) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Form(
@@ -1234,7 +1110,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               ],
             ),
             const SizedBox(height: 16),
-            _buildApplyButton(),
+            if (showSave) _buildApplyButton(),
             const SizedBox(height: 24),
           ],
         ),
@@ -1284,17 +1160,19 @@ class _ProfileScreenState extends State<ProfileScreen>
           labelStyle: GoogleFonts.vazirmatn(
             textStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
           ),
+          filled: true,
+          fillColor: Colors.white.withOpacity(0.06),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppTheme.goldColor),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppTheme.goldColor, width: 1.2),
           ),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -2049,80 +1927,452 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildReadOnlyWeightField() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                'وزن (کیلوگرم)',
-                style: GoogleFonts.vazirmatn(
-                  textStyle: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
-                    fontSize: 14,
+    return GestureDetector(
+      onTap: () => _showWeeklyWeightGuidance(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.white.withOpacity(0.3)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  '(KG) وزن هفتگی ',
+                  style: GoogleFonts.vazirmatn(
+                    textStyle: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 14,
+                    ),
                   ),
                 ),
-              ),
-              const Spacer(),
-              const Icon(
-                Icons.lock_outline,
-                color: AppTheme.goldColor,
-                size: 16,
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _profileData['weight']?.toString() ?? '-',
-            style: GoogleFonts.vazirmatn(
-              textStyle: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
+                const Spacer(),
+                const Icon(
+                  Icons.info_outline,
+                  color: AppTheme.goldColor,
+                  size: 16,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _profileData['weight']?.toString() ?? '-',
+              style: GoogleFonts.vazirmatn(
+                textStyle: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildInfoNote(String text, {IconData? icon}) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.goldColor.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            icon ?? Icons.info_outline,
-            color: AppTheme.goldColor,
-            size: 20,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: GoogleFonts.vazirmatn(
-                textStyle: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 14,
+  void _showWeeklyWeightGuidance(BuildContext context) {
+    final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
+    final TextEditingController weightController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => FutureBuilder<int>(
+        future: WeeklyWeightService.getDaysUntilNextRecord(userId),
+        builder: (context, snapshot) {
+          final daysUntilNext = snapshot.data ?? 0;
+          final canRecordNow = daysUntilNext == 0;
+
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              backgroundColor: AppTheme.backgroundColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Row(
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    color: AppTheme.goldColor,
+                    size: 24,
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    'راهنمای ثبت وزن',
+                    style: TextStyle(
+                      color: AppTheme.goldColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      fontFamily: 'Vazir',
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topRight,
+                          end: Alignment.bottomLeft,
+                          colors: [
+                            AppTheme.goldColor.withOpacity(0.2),
+                            AppTheme.goldColor.withOpacity(0.1),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppTheme.goldColor.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            canRecordNow
+                                ? 'الان می‌توانی ثبت کنی!'
+                                : 'وزن بعدی: $daysUntilNext روز دیگر',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Vazir',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'حداقل 7 روز بین هر ثبت',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: 14,
+                              fontFamily: 'Vazir',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (canRecordNow) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppTheme.goldColor.withOpacity(0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'وزن جدید خود را وارد کنید:',
+                              style: TextStyle(
+                                color: AppTheme.goldColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Vazir',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: weightController,
+                              keyboardType: TextInputType.number,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontFamily: 'Vazir',
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'مثال: 75.5',
+                                hintStyle: TextStyle(
+                                  color: Colors.white.withOpacity(0.5),
+                                  fontFamily: 'Vazir',
+                                ),
+                                labelText: 'وزن (کیلوگرم)',
+                                labelStyle: const TextStyle(
+                                  color: AppTheme.goldColor,
+                                  fontFamily: 'Vazir',
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: AppTheme.goldColor.withOpacity(0.5),
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: AppTheme.goldColor.withOpacity(0.5),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(
+                                    color: AppTheme.goldColor,
+                                    width: 2,
+                                  ),
+                                ),
+                                filled: true,
+                                fillColor: Colors.white.withOpacity(0.05),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.1),
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  'مزایای سیستم هفتگی:',
+                                  style: TextStyle(
+                                    color: AppTheme.goldColor,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'Vazir',
+                                  ),
+                                ),
+                              ),
+                              TextButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  _showWeightHistory(context);
+                                },
+                                icon: const Icon(
+                                  Icons.history,
+                                  color: AppTheme.goldColor,
+                                  size: 16,
+                                ),
+                                label: const Text(
+                                  'تاریخچه',
+                                  style: TextStyle(
+                                    color: AppTheme.goldColor,
+                                    fontSize: 12,
+                                    fontFamily: 'Vazir',
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _buildGuidanceItem(
+                            Icons.calendar_today,
+                            'ثبت هفتگی',
+                            'حداقل 7 روز بین هر ثبت وزن',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildGuidanceItem(
+                            Icons.trending_up,
+                            'روند دقیق',
+                            'نمایش روند واقعی وزن بدون نوسانات روزانه',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildGuidanceItem(
+                            Icons.psychology,
+                            'کاهش استرس',
+                            'بدون نگرانی از تغییرات طبیعی روزانه',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildGuidanceItem(
+                            Icons.insights,
+                            'تحلیل بهتر',
+                            'نمودارهای دقیق‌تر برای تصمیم‌گیری',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              actions: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (canRecordNow) ...[
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final weightStr = weightController.text.trim();
+                            if (weightStr.isNotEmpty) {
+                              final weight = double.tryParse(weightStr);
+                              if (weight != null && weight > 0) {
+                                // ثبت وزن در جدول weekly_weight_records
+                                final success = await WeeklyWeightService
+                                    .recordWeeklyWeight(userId, weight);
+                                if (success) {
+                                  // به‌روزرسانی وزن در پروفایل
+                                  _profileData['weight'] = weight;
+                                  _isFromGuidanceDialog = true; // علامت‌گذاری
+                                  await _saveProfileData();
+                                  _isFromGuidanceDialog =
+                                      false; // پاک کردن علامت
+
+                                  // به‌روزرسانی UI
+                                  setState(() {
+                                    // UI خودکار به‌روزرسانی می‌شه
+                                  });
+
+                                  Navigator.pop(context);
+
+                                  // استفاده از context اصلی برای SnackBar
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                            'وزن جدید ثبت شد: $weight کیلوگرم'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('خطا در ثبت وزن'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                }
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('لطفاً وزن معتبر وارد کنید'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('لطفاً وزن را وارد کنید'),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.goldColor,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: const Text(
+                            'ثبت وزن',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              fontFamily: 'Vazir',
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white.withOpacity(0.1),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: Text(
+                          canRecordNow ? 'انصراف' : 'متوجه شدم',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            fontFamily: 'Vazir',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
+
+  Widget _buildGuidanceItem(IconData icon, String title, String description) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: AppTheme.goldColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(
+            icon,
+            color: AppTheme.goldColor,
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  fontFamily: 'Vazir',
+                ),
+              ),
+              Text(
+                description,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 12,
+                  fontFamily: 'Vazir',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // removed unused _buildInfoNote helper
 
   Widget _buildApplyButton() {
     return Column(
@@ -2177,76 +2427,240 @@ class _ProfileScreenState extends State<ProfileScreen>
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            _buildMiniStat(
-                icon: Icons.accessibility,
-                title: 'قد',
-                value: _profileData['height']?.toString() ?? '-',
-                unit: 'cm'),
+            _buildStatCard(
+              icon: Icons.accessibility_new_rounded,
+              title: 'قد',
+              value: _profileData['height']?.toString() ?? '-',
+              unit: 'cm',
+            ),
             const SizedBox(width: 12),
-            _buildMiniStat(
-                icon: Icons.monitor_weight,
-                title: 'وزن',
-                value: _profileData['weight']?.toString() ?? '-',
-                unit: 'kg'),
+            _buildStatCard(
+              icon: Icons.monitor_weight,
+              title: 'وزن',
+              value: _profileData['weight']?.toString() ?? '-',
+              unit: 'kg',
+            ),
             const SizedBox(width: 12),
-            _buildMiniStat(
-                icon: Icons.fitness_center,
-                title: 'تجربه',
-                value: _profileData['experience_level']?.isNotEmpty == true
-                    ? AppConfig.experienceLevels[
-                            _profileData['experience_level']] ??
-                        '-'
-                    : '-',
-                unit: ''),
+            _buildStatCard(
+              icon: Icons.fitness_center,
+              title: 'تجربه',
+              value: _profileData['experience_level']?.isNotEmpty == true
+                  ? (AppConfig
+                          .experienceLevels[_profileData['experience_level']] ??
+                      '-')
+                  : '-',
+              unit: '',
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMiniStat(
-      {required IconData icon,
-      required String title,
-      required String value,
-      required String unit}) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: AppTheme.goldColor, size: 18),
-            const SizedBox(width: 4),
-            Text(
-              value,
-              style: GoogleFonts.vazirmatn(
-                textStyle: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14),
-              ),
-            ),
-            if (unit.isNotEmpty) ...[
-              const SizedBox(width: 2),
+  Widget _buildStatCard({
+    required IconData icon,
+    required String title,
+    required String value,
+    required String unit,
+  }) {
+    return Container(
+      width: 130,
+      height: 80,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.06),
+            Colors.white.withOpacity(0.02),
+          ],
+        ),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppTheme.goldColor, size: 18),
+              const Spacer(),
               Text(
-                unit,
+                title,
                 style: GoogleFonts.vazirmatn(
                   textStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.7), fontSize: 11),
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 11,
+                  ),
                 ),
               ),
             ],
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(
-          title,
-          style: GoogleFonts.vazirmatn(
-            textStyle:
-                TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11),
           ),
-        ),
-      ],
+          const Spacer(),
+          Row(
+            children: [
+              Text(
+                value,
+                style: GoogleFonts.vazirmatn(
+                  textStyle: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+              if (unit.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Text(
+                  unit,
+                  style: GoogleFonts.vazirmatn(
+                    textStyle: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
     );
+  }
+
+  // Header card with gradient background and avatar progress ring
+  Widget _buildHeaderCard() {
+    final fullName =
+        "${_profileData['first_name'] ?? ''} ${_profileData['last_name'] ?? ''}"
+            .trim();
+    final bio = (_profileData['bio'] ?? '') as String;
+    final completion = _calculateCompletionPercentage();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1F1A0F), Color(0xFF121212)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: AppTheme.goldColor.withOpacity(0.15)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _buildAvatarWithProgress(completion),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        fullName.isEmpty ? 'کاربر' : fullName,
+                        style: GoogleFonts.vazirmatn(
+                          textStyle: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_profileData['role'] != null)
+                      UserRoleBadge(
+                        role: _profileData['role'],
+                        fontSize: 12,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                if (bio.isNotEmpty)
+                  Text(
+                    bio,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.vazirmatn(
+                      textStyle: TextStyle(
+                        color: Colors.white.withOpacity(0.7),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: completion / 100,
+                    minHeight: 6,
+                    backgroundColor: Colors.white.withOpacity(0.12),
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(AppTheme.goldColor),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'تکمیل پروفایل: ${completion.toInt()}%',
+                  style: GoogleFonts.vazirmatn(
+                    textStyle: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarWithProgress(double completion) {
+    return SizedBox(
+      width: 72,
+      height: 72,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 72,
+            height: 72,
+            child: CircularProgressIndicator(
+              value: completion / 100,
+              strokeWidth: 3.5,
+              backgroundColor: Colors.white.withOpacity(0.12),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(AppTheme.goldColor),
+            ),
+          ),
+          _buildSimpleAvatar(small: true),
+        ],
+      ),
+    );
+  }
+
+  double _calculateCompletionPercentage() {
+    final requiredFields = [
+      'first_name',
+      'last_name',
+      'height',
+      'weight',
+      'birth_date',
+      'experience_level',
+      'gender',
+    ];
+    int completed = 0;
+    for (final f in requiredFields) {
+      if (_profileData[f] != null && _profileData[f].toString().isNotEmpty) {
+        completed++;
+      }
+    }
+    return (completed / requiredFields.length) * 100;
   }
 
   Widget _buildTabBar() {
@@ -2299,5 +2713,366 @@ class _ProfileScreenState extends State<ProfileScreen>
         ],
       ),
     );
+  }
+
+  void _showWeightHistory(BuildContext context) {
+    final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
+
+    showDialog(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: AppTheme.backgroundColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Row(
+            children: [
+              Icon(
+                Icons.history,
+                color: AppTheme.goldColor,
+                size: 24,
+              ),
+              SizedBox(width: 12),
+              Text(
+                'تاریخچه وزن',
+                style: TextStyle(
+                  color: AppTheme.goldColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  fontFamily: 'Vazir',
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 400,
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: WeeklyWeightService.getFullWeightHistory(userId),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: AppTheme.goldColor,
+                    ),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'خطا در بارگذاری تاریخچه',
+                          style: GoogleFonts.vazirmatn(
+                            textStyle: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final history = snapshot.data ?? [];
+                if (history.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.history,
+                          color: Colors.grey,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'تاریخچه‌ای موجود نیست',
+                          style: GoogleFonts.vazirmatn(
+                            textStyle: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return Column(
+                  children: [
+                    // آمار کلی
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.goldColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppTheme.goldColor.withOpacity(0.3),
+                        ),
+                      ),
+                      child: FutureBuilder<Map<String, dynamic>>(
+                        future: WeeklyWeightService.getWeightStats(userId),
+                        builder: (context, statsSnapshot) {
+                          final stats = statsSnapshot.data ?? {};
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildStatItem(
+                                  'تعداد', '${stats['total_records'] ?? 0}'),
+                              _buildStatItem('میانگین',
+                                  '${(stats['average_weight'] ?? 0).toStringAsFixed(1)}'),
+                              _buildStatItem('روند', stats['trend'] ?? 'ثابت'),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // لیست تاریخچه
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: history.length,
+                        itemBuilder: (context, index) {
+                          final record = history[index]; // از قدیم به جدید
+                          final date = DateTime.parse(record['recorded_at']);
+                          final weight = record['weight'] as double;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.1),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.goldColor.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '${index + 1}',
+                                      style: GoogleFonts.vazirmatn(
+                                        textStyle: const TextStyle(
+                                          color: AppTheme.goldColor,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '${weight.toStringAsFixed(1)} کیلوگرم',
+                                            style: GoogleFonts.vazirmatn(
+                                              textStyle: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: index == 0
+                                                  ? Colors.green
+                                                      .withOpacity(0.2)
+                                                  : Colors.blue
+                                                      .withOpacity(0.2),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              index == 0
+                                                  ? 'اولین'
+                                                  : '${index + 1}مین',
+                                              style: GoogleFonts.vazirmatn(
+                                                textStyle: TextStyle(
+                                                  color: index == 0
+                                                      ? Colors.green
+                                                      : Colors.blue,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Text(
+                                        _formatDate(date),
+                                        style: GoogleFonts.vazirmatn(
+                                          textStyle: TextStyle(
+                                            color:
+                                                Colors.white.withOpacity(0.7),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () => _deleteWeightRecord(
+                                      context, record['id']),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.red,
+                                    size: 20,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.goldColor,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'بستن',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  fontFamily: 'Vazir',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String title, String value) {
+    return Column(
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.vazirmatn(
+            textStyle: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 12,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: GoogleFonts.vazirmatn(
+            textStyle: const TextStyle(
+              color: AppTheme.goldColor,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final persianDate = Jalali.fromDateTime(date);
+    return '${persianDate.year}/${persianDate.month}/${persianDate.day}';
+  }
+
+  Future<void> _deleteWeightRecord(
+      BuildContext context, String recordId) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.backgroundColor,
+        title: const Text(
+          'حذف رکورد',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'آیا مطمئن هستید که می‌خواهید این رکورد را حذف کنید؟',
+          style: TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('انصراف'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final success =
+          await WeeklyWeightService.deleteWeightRecord(userId, recordId);
+      if (success) {
+        Navigator.pop(context); // بستن دیالوگ تاریخچه
+        _showWeightHistory(context); // باز کردن مجدد
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('رکورد حذف شد'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('خطا در حذف رکورد'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

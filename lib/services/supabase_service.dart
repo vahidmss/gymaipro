@@ -6,6 +6,28 @@ import 'auth_state_service.dart';
 
 class SupabaseService {
   static final SupabaseClient client = Supabase.instance.client;
+  bool _weightRecordsTableChecked = false;
+  bool _weightRecordsTableExists = false;
+
+  // بررسی وجود جدول weight_records
+  Future<bool> _checkWeightRecordsTable() async {
+    if (_weightRecordsTableChecked) {
+      return _weightRecordsTableExists;
+    }
+
+    try {
+      // تست ساده برای بررسی وجود جدول
+      await client.from('weight_records').select('count').limit(1);
+      _weightRecordsTableExists = true;
+      print('جدول weight_records موجود است');
+    } catch (e) {
+      _weightRecordsTableExists = false;
+      print('جدول weight_records موجود نیست');
+    }
+
+    _weightRecordsTableChecked = true;
+    return _weightRecordsTableExists;
+  }
 
   // Normalize phone number format
   String normalizePhoneNumber(String phoneNumber) {
@@ -144,14 +166,45 @@ class SupabaseService {
   // ثبت وزن
   Future<void> addWeightRecord(String profileId, double weight) async {
     try {
-      // افزودن به جدول weight_records
-      await client.from('weight_records').insert({
-        'profile_id': profileId,
-        'weight': weight,
-        'recorded_at': DateTime.now().toIso8601String(),
-      });
+      // بررسی وجود جدول weight_records
+      final tableExists = await _checkWeightRecordsTable();
 
-      print('وزن جدید با موفقیت ثبت شد: $weight کیلوگرم');
+      if (tableExists) {
+        // افزودن به جدول weight_records
+        await client.from('weight_records').insert({
+          'profile_id': profileId,
+          'weight': weight,
+          'recorded_at': DateTime.now().toIso8601String(),
+        });
+
+        print(
+            'وزن جدید با موفقیت در جدول weight_records ثبت شد: $weight کیلوگرم');
+      } else {
+        // اگر جدول weight_records وجود ندارد، در weight_history ذخیره کنیم
+        print(
+            'جدول weight_records موجود نیست، وزن در weight_history ذخیره می‌شود');
+
+        // دریافت پروفایل فعلی
+        final currentProfile = await getProfileByAuthId();
+        if (currentProfile != null) {
+          // اضافه کردن وزن جدید به weight_history
+          final List<Map<String, dynamic>> weightHistory =
+              List<Map<String, dynamic>>.from(
+                  currentProfile.weightHistory ?? []);
+
+          weightHistory.add({
+            'weight': weight,
+            'date': DateTime.now().toIso8601String(),
+          });
+
+          // به‌روزرسانی weight_history در جدول profiles
+          await client.from('profiles').update({
+            'weight_history': weightHistory,
+          }).eq('id', profileId);
+
+          print('وزن جدید در weight_history ذخیره شد: $weight کیلوگرم');
+        }
+      }
 
       // بلافاصله پروفایل را به‌روز کنیم تا weight_history به‌روز شود
       final profile = await getProfileByAuthId();
@@ -163,24 +216,51 @@ class SupabaseService {
       }
     } catch (e) {
       print('خطا در ثبت وزن جدید: $e');
-      rethrow;
+      // این خطا را rethrow نمی‌کنیم چون ممکن است جدول وجود نداشته باشد
     }
   }
 
   // دریافت آخرین وزن ثبت شده کاربر
   Future<double?> getLatestWeight(String profileId) async {
     try {
-      final response = await client
-          .from('weight_records')
-          .select()
-          .eq('profile_id', profileId)
-          .order('recorded_at', ascending: false)
-          .limit(1)
-          .maybeSingle();
+      // بررسی وجود جدول weight_records
+      final tableExists = await _checkWeightRecordsTable();
 
-      if (response != null) {
-        return response['weight'].toDouble();
+      if (tableExists) {
+        // از جدول weight_records بخوانیم
+        final response = await client
+            .from('weight_records')
+            .select()
+            .eq('profile_id', profileId)
+            .order('recorded_at', ascending: false)
+            .limit(1)
+            .maybeSingle();
+
+        if (response != null) {
+          return response['weight'].toDouble();
+        }
+      } else {
+        // اگر جدول weight_records وجود ندارد، از weight_history استفاده کنیم
+        final profile = await getProfileByAuthId();
+        if (profile != null &&
+            profile.weightHistory != null &&
+            profile.weightHistory!.isNotEmpty) {
+          // مرتب کردن بر اساس تاریخ و گرفتن آخرین رکورد
+          final sortedHistory =
+              List<Map<String, dynamic>>.from(profile.weightHistory!);
+          sortedHistory.sort((a, b) {
+            final dateA = DateTime.tryParse(a['date'] ?? '') ?? DateTime(1900);
+            final dateB = DateTime.tryParse(b['date'] ?? '') ?? DateTime(1900);
+            return dateB.compareTo(dateA); // نزولی
+          });
+
+          if (sortedHistory.isNotEmpty) {
+            final latestRecord = sortedHistory.first;
+            return latestRecord['weight']?.toDouble();
+          }
+        }
       }
+
       return null;
     } catch (e) {
       print('خطا در دریافت آخرین وزن: $e');
@@ -191,33 +271,69 @@ class SupabaseService {
   // بازیابی تاریخچه وزن کاربر
   Future<List<Map<String, dynamic>>> getWeightRecords(String profileId) async {
     try {
-      final response = await client
-          .from('weight_records')
-          .select()
-          .eq('profile_id', profileId)
-          .order('recorded_at', ascending: true);
+      // بررسی وجود جدول weight_records
+      final tableExists = await _checkWeightRecordsTable();
 
-      return List<Map<String, dynamic>>.from(response);
+      if (tableExists) {
+        // از جدول weight_records بخوانیم
+        final response = await client
+            .from('weight_records')
+            .select()
+            .eq('profile_id', profileId)
+            .order('recorded_at', ascending: true);
+
+        return List<Map<String, dynamic>>.from(response);
+      } else {
+        // اگر جدول weight_records وجود ندارد، از weight_history استفاده کنیم
+        final profile = await getProfileByAuthId();
+        if (profile != null && profile.weightHistory != null) {
+          return List<Map<String, dynamic>>.from(profile.weightHistory!);
+        }
+      }
+
+      return [];
     } catch (e) {
       print('خطا در بازیابی تاریخچه وزن: $e');
       return [];
     }
   }
 
-  // بررسی یکتا بودن نام کاربری
+  // بررسی یکتا بودن نام کاربری (با fallback)
   Future<bool> isUsernameUnique(String username) async {
     try {
       print('Checking username uniqueness for: $username');
+
+      // Test connection first
+      try {
+        await client.from('profiles').select('count').limit(1);
+        print('Supabase connection test successful');
+      } catch (e) {
+        print('Supabase connection test failed: $e');
+        // Fallback: return true to allow registration to continue
+        print('Using fallback: allowing username to be considered unique');
+        return true;
+      }
+
       final response = await client
           .from('profiles')
           .select('id')
           .eq('username', username)
           .maybeSingle();
+
       print('isUsernameUnique response: $response');
       return response == null;
     } catch (e) {
       print('Error in isUsernameUnique: $e');
-      rethrow;
+      print('Error type: ${e.runtimeType}');
+      if (e is PostgrestException) {
+        print(
+            'PostgrestException details: ${e.message}, code: ${e.code}, details: ${e.details}');
+      }
+
+      // Fallback: return true to allow registration to continue
+      print(
+          'Using fallback due to error: allowing username to be considered unique');
+      return true;
     }
   }
 
@@ -275,13 +391,16 @@ class SupabaseService {
         throw Exception('Registration failed: User not created');
       }
 
-      // ایجاد پروفایل در جدول profiles
+      // ایجاد پروفایل در جدول profiles با id کاربر
       await client.from('profiles').insert({
+        'id': response.user!.id, // اضافه کردن id کاربر
         'username': username,
         'phone_number': normalizedPhone,
+        'email': email, // اضافه کردن ایمیل
       });
 
-      print('User registered successfully with email: $email');
+      print(
+          'User registered successfully with email: $email and id: ${response.user!.id}');
     } catch (e) {
       print('Error registering user: $e');
       rethrow;
@@ -846,18 +965,12 @@ class SupabaseService {
         final data =
             await client.from('profiles').select().eq('id', user.id).single();
 
-        // بازیابی تاریخچه وزن
-        final weightHistory = await getWeightRecords(user.id);
-
-        // بازیابی آخرین وزن
-        final latestWeight = await getLatestWeight(user.id);
-        if (latestWeight != null) {
-          // اگر وزنی در رکوردها وجود دارد، آن را جایگزین وزن پروفایل کنیم
-          data['weight'] = latestWeight.toString();
-        }
-
-        // اضافه کردن تاریخچه وزن به داده‌های پروفایل
+        // بازیابی تاریخچه وزن از weight_history در پروفایل (فقط برای نمایش)
+        final weightHistory = data['weight_history'] ?? [];
         data['weight_history'] = weightHistory;
+
+        // وزن اصلی از ستون weight گرفته می‌شه، نه از weight_history
+        // data['weight'] همان وزن فعلی پروفایل است
 
         return UserProfile.fromJson(data);
       } catch (e) {

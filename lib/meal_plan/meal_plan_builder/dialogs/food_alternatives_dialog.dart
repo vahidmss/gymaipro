@@ -194,7 +194,7 @@ class _FoodAlternativesDialogState extends State<FoodAlternativesDialog> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Icon(LucideIcons.check,
+                                const Icon(LucideIcons.check,
                                     color: Colors.greenAccent, size: 20),
                               ] else
                                 Icon(LucideIcons.plus,

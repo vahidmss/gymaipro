@@ -120,11 +120,16 @@ class WorkoutProgram {
     };
   }
 
-  // Create an empty program with one empty session
+  // Create an empty program with 7 sessions (days)
   factory WorkoutProgram.empty() {
     return WorkoutProgram(
       name: "برنامه جدید",
-      sessions: [WorkoutSession.empty()],
+      sessions: List.generate(
+          7,
+          (index) => WorkoutSession(
+                day: "روز ${index + 1}",
+                exercises: [],
+              )),
     );
   }
 
@@ -235,6 +240,7 @@ abstract class WorkoutExercise {
 class NormalExercise extends WorkoutExercise {
   int exerciseId;
   List<ExerciseSet> sets;
+  String? note;
 
   NormalExercise({
     String? id,
@@ -242,6 +248,7 @@ class NormalExercise extends WorkoutExercise {
     required String tag,
     required ExerciseStyle style,
     required this.sets,
+    this.note,
   }) : super(
           id: id,
           type: ExerciseType.normal,
@@ -258,6 +265,7 @@ class NormalExercise extends WorkoutExercise {
           ? ExerciseStyle.setsReps
           : ExerciseStyle.setsTime,
       sets: (json['sets'] as List).map((e) => ExerciseSet.fromJson(e)).toList(),
+      note: json['note'],
     );
   }
 
@@ -270,6 +278,7 @@ class NormalExercise extends WorkoutExercise {
       'tag': tag,
       'style': style == ExerciseStyle.setsReps ? 'sets_reps' : 'sets_time',
       'sets': sets.map((set) => set.toJson()).toList(),
+      if (note != null) 'note': note,
     };
   }
 }
@@ -277,12 +286,14 @@ class NormalExercise extends WorkoutExercise {
 // Superset exercise (two exercises)
 class SupersetExercise extends WorkoutExercise {
   List<SupersetItem> exercises;
+  String? note;
 
   SupersetExercise({
     String? id,
     required this.exercises,
     required String tag,
     required ExerciseStyle style,
+    this.note,
   }) : super(
           id: id,
           type: ExerciseType.superset,
@@ -300,6 +311,7 @@ class SupersetExercise extends WorkoutExercise {
       exercises: (json['exercises'] as List)
           .map((e) => SupersetItem.fromJson(e))
           .toList(),
+      note: json['note'],
     );
   }
 
@@ -311,6 +323,7 @@ class SupersetExercise extends WorkoutExercise {
       'tag': tag,
       'style': style == ExerciseStyle.setsReps ? 'sets_reps' : 'sets_time',
       'exercises': exercises.map((exercise) => exercise.toJson()).toList(),
+      if (note != null) 'note': note,
     };
   }
 }
@@ -360,16 +373,21 @@ class TrisetExercise extends WorkoutExercise {
 class SupersetItem {
   int exerciseId;
   List<ExerciseSet> sets;
+  ExerciseStyle style; // Add individual style for each exercise
 
   SupersetItem({
     required this.exerciseId,
     required this.sets,
+    required this.style,
   });
 
   factory SupersetItem.fromJson(Map<String, dynamic> json) {
     return SupersetItem(
       exerciseId: json['exercise_id'],
       sets: (json['sets'] as List).map((e) => ExerciseSet.fromJson(e)).toList(),
+      style: json['style'] == 'sets_time'
+          ? ExerciseStyle.setsTime
+          : ExerciseStyle.setsReps,
     );
   }
 
@@ -377,6 +395,7 @@ class SupersetItem {
     return {
       'exercise_id': exerciseId,
       'sets': sets.map((set) => set.toJson()).toList(),
+      'style': style == ExerciseStyle.setsReps ? 'sets_reps' : 'sets_time',
     };
   }
 }

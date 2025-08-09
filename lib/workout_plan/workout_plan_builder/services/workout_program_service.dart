@@ -473,6 +473,7 @@ class WorkoutProgramService {
                           ? 'sets_reps'
                           : 'sets_time',
                       'sets': exercise.sets.map((set) => set.toJson()).toList(),
+                      'note': exercise.note, // اضافه شد
                     };
                   } else if (exercise is SupersetExercise) {
                     return {
@@ -490,23 +491,7 @@ class WorkoutProgramService {
                                     .toList(),
                               })
                           .toList(),
-                    };
-                  } else if (exercise is TrisetExercise) {
-                    return {
-                      'id': exercise.id,
-                      'type': 'triset',
-                      'tag': exercise.tag,
-                      'style': exercise.style == ExerciseStyle.setsReps
-                          ? 'sets_reps'
-                          : 'sets_time',
-                      'exercises': exercise.exercises
-                          .map((item) => {
-                                'exercise_id': item.exerciseId,
-                                'sets': item.sets
-                                    .map((set) => set.toJson())
-                                    .toList(),
-                              })
-                          .toList(),
+                      'note': exercise.note, // اضافه شد
                     };
                   } else {
                     throw Exception('نوع تمرین نامشخص');

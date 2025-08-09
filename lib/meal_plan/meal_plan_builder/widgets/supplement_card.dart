@@ -167,11 +167,12 @@ class SupplementCardMealPlanBuilder extends StatelessWidget {
                               if (supplement.protein != null)
                                 Text(
                                     'پروتئین: ${supplement.protein!.toStringAsFixed(1)}g',
-                                    style: TextStyle(color: Colors.green)),
+                                    style:
+                                        const TextStyle(color: Colors.green)),
                               if (supplement.carbs != null)
                                 Text(
                                     'کربوهیدرات: ${supplement.carbs!.toStringAsFixed(1)}g',
-                                    style: TextStyle(color: Colors.blue)),
+                                    style: const TextStyle(color: Colors.blue)),
                             ],
                           ),
                         ),

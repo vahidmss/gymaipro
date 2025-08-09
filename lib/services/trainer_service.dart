@@ -323,4 +323,75 @@ class TrainerService {
       return false;
     }
   }
+
+  // Get trainer-client relationships for a trainer with full client profiles
+  Future<List<Map<String, dynamic>>> getTrainerClientsWithProfiles(String trainerId) async {
+    try {
+      final response = await _client
+          .from('trainer_clients')
+          .select('''
+            *,
+            client:profiles!trainer_clients_client_id_fkey(
+              id,
+              username,
+              first_name,
+              last_name,
+              avatar_url,
+              role
+            )
+          ''')
+          .eq('trainer_id', trainerId)
+          .eq('status', 'active')
+          .order('created_at', ascending: false);
+
+      return response.map((data) => {
+        'id': data['id'],
+        'trainer_id': data['trainer_id'],
+        'client_id': data['client_id'],
+        'status': data['status'],
+        'created_at': data['created_at'],
+        'updated_at': data['updated_at'],
+        'client_profile': data['client'],
+      }).toList();
+    } catch (e) {
+      debugPrint('Error fetching trainer clients with profiles: $e');
+      return [];
+    }
+  }
+
+  // Get client-trainer relationships for a client with full trainer profiles
+  Future<List<Map<String, dynamic>>> getClientTrainersWithProfiles(String clientId) async {
+    try {
+      final response = await _client
+          .from('trainer_clients')
+          .select('''
+            *,
+            trainer:profiles!trainer_clients_trainer_id_fkey(
+              id,
+              username,
+              first_name,
+              last_name,
+              avatar_url,
+              bio,
+              role
+            )
+          ''')
+          .eq('client_id', clientId)
+          .eq('status', 'active')
+          .order('created_at', ascending: false);
+
+      return response.map((data) => {
+        'id': data['id'],
+        'trainer_id': data['trainer_id'],
+        'client_id': data['client_id'],
+        'status': data['status'],
+        'created_at': data['created_at'],
+        'updated_at': data['updated_at'],
+        'trainer_profile': data['trainer'],
+      }).toList();
+    } catch (e) {
+      debugPrint('Error fetching client trainers with profiles: $e');
+      return [];
+    }
+  }
 }

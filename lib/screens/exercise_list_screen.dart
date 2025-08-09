@@ -50,6 +50,8 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
     });
@@ -59,18 +61,20 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
       final exercises = await _exerciseService.getExercises();
       final muscleGroups = await _exerciseService.getMuscleGroups();
 
-      setState(() {
-        _exercises = exercises;
-        _filteredExercises = exercises;
-        _muscleGroups = muscleGroups;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-
       if (mounted) {
+        setState(() {
+          _exercises = exercises;
+          _filteredExercises = exercises;
+          _muscleGroups = muscleGroups;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('خطا در بارگذاری تمرینات: $e'),
@@ -100,16 +104,21 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                     .any((name) => name.toLowerCase().contains(query));
           }).toList();
 
-    setState(() {
-      _filteredExercises = filtered;
-    });
+    if (mounted) {
+      setState(() {
+        _filteredExercises = filtered;
+      });
+    }
   }
 
   void _toggleFavorite(Exercise exercise) async {
     try {
       await _exerciseService.toggleFavorite(exercise.id);
-      setState(() {
-        // exercise.isFavorite is already updated in the service
+      if (mounted) {
+        setState(() {
+          // exercise.isFavorite is already updated in the service
+        });
+
         if (exercise.isFavorite) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -127,14 +136,16 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
             ),
           );
         }
-      });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('خطا: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطا: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -142,8 +153,11 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
     try {
       final wasLiked = exercise.isLikedByUser;
       await _exerciseService.toggleLike(exercise.id);
-      setState(() {
-        // exercise.isLikedByUser and exercise.likes are already updated in the service
+      if (mounted) {
+        setState(() {
+          // exercise.isLikedByUser and exercise.likes are already updated in the service
+        });
+
         if (!wasLiked && exercise.isLikedByUser) {
           // Successfully liked
           ScaffoldMessenger.of(context).showSnackBar(
@@ -154,14 +168,16 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
             ),
           );
         }
-      });
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('خطا: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطا: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -197,21 +213,25 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                   size: 22,
                 ),
                 onPressed: () {
-                  setState(() {
-                    _isSearching = !_isSearching;
-                    if (!_isSearching) {
-                      _searchController.clear();
-                      _searchQuery = '';
-                      _filterExercises();
-                      // Hide keyboard when exiting search mode
-                      FocusScope.of(context).unfocus();
-                    } else {
-                      // Focus on search field when entering search mode
-                      Future.delayed(const Duration(milliseconds: 100), () {
-                        FocusScope.of(context).requestFocus(FocusNode());
-                      });
-                    }
-                  });
+                  if (mounted) {
+                    setState(() {
+                      _isSearching = !_isSearching;
+                      if (!_isSearching) {
+                        _searchController.clear();
+                        _searchQuery = '';
+                        _filterExercises();
+                        // Hide keyboard when exiting search mode
+                        FocusScope.of(context).unfocus();
+                      } else {
+                        // Focus on search field when entering search mode
+                        Future.delayed(const Duration(milliseconds: 100), () {
+                          if (mounted) {
+                            FocusScope.of(context).requestFocus(FocusNode());
+                          }
+                        });
+                      }
+                    });
+                  }
                 },
               ),
               IconButton(
@@ -291,10 +311,12 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
       ),
       style: const TextStyle(color: Colors.white, fontSize: 16),
       onChanged: (value) {
-        setState(() {
-          _searchQuery = value;
-          _filterExercises();
-        });
+        if (mounted) {
+          setState(() {
+            _searchQuery = value;
+            _filterExercises();
+          });
+        }
       },
     );
   }
@@ -355,10 +377,12 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                           setModalState(() {
                             _selectedMuscleGroup = '';
                           });
-                          setState(() {
-                            _selectedMuscleGroup = '';
-                            _filterExercises();
-                          });
+                          if (mounted) {
+                            setState(() {
+                              _selectedMuscleGroup = '';
+                              _filterExercises();
+                            });
+                          }
                         },
                       ),
 
@@ -381,10 +405,12 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                             setModalState(() {
                               _selectedMuscleGroup = selected ? group : '';
                             });
-                            setState(() {
-                              _selectedMuscleGroup = selected ? group : '';
-                              _filterExercises();
-                            });
+                            if (mounted) {
+                              setState(() {
+                                _selectedMuscleGroup = selected ? group : '';
+                                _filterExercises();
+                              });
+                            }
                           },
                         );
                       }).toList(),

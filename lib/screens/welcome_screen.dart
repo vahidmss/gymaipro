@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import '../theme/app_theme.dart';
+import '../utils/safe_set_state.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({Key? key}) : super(key: key);
@@ -69,7 +70,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 child: PageView.builder(
                   controller: _pageController,
                   onPageChanged: (index) {
-                    setState(() => _currentPage = index);
+                    SafeSetState.call(this, () => _currentPage = index);
                   },
                   itemCount: _pages.length,
                   itemBuilder: (context, index) {

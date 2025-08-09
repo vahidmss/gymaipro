@@ -22,6 +22,7 @@ class WebLoginButton extends StatelessWidget {
         const url = 'https://gymaipro.ir/?direct_login=true';
 
         // نمایش پیام
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('در حال انتقال به سایت...')),
         );
@@ -30,12 +31,14 @@ class WebLoginButton extends StatelessWidget {
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       } else {
         // نمایش خطا
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('خطا در ورود به سایت. لطفاً دوباره تلاش کنید')),
         );
       }
     } catch (e) {
+      if (!context.mounted) return;
       print('خطا در ورود به سایت: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('خطا: ${e.toString()}')),

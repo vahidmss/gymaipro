@@ -1,5 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/exercise.dart' as exercise_model;
 import '../models/workout.dart';
+import 'package:gymaipro/workout_plan/workout_log/models/workout_log.dart'
+    hide WorkoutSet;
 
 class WorkoutService {
   static final WorkoutService _instance = WorkoutService._internal();
@@ -28,7 +31,7 @@ class WorkoutService {
   }
 
   Future<Workout> createWorkout(String userId, String name, String description,
-      List<Exercise> exercises) async {
+      List<exercise_model.Exercise> exercises) async {
     try {
       final response = await Supabase.instance.client
           .from('workouts')
@@ -96,7 +99,7 @@ class WorkoutService {
     }
   }
 
-  Future<List<Exercise>> getAllExercises() async {
+  Future<List<exercise_model.Exercise>> getAllExercises() async {
     try {
       final response = await Supabase.instance.client
           .from('exercises')
@@ -104,8 +107,8 @@ class WorkoutService {
           .order('name');
 
       return (response as List<dynamic>)
-          .map(
-              (exercise) => Exercise.fromJson(exercise as Map<String, dynamic>))
+          .map((exercise) => exercise_model.Exercise.fromJson(
+              exercise as Map<String, dynamic>))
           .toList();
     } catch (e) {
       print('Error getting exercises: $e');
@@ -113,7 +116,7 @@ class WorkoutService {
     }
   }
 
-  Future<List<Exercise>> searchExercises(String query) async {
+  Future<List<exercise_model.Exercise>> searchExercises(String query) async {
     try {
       final response = await Supabase.instance.client
           .from('exercises')
@@ -122,8 +125,8 @@ class WorkoutService {
           .order('name');
 
       return (response as List<dynamic>)
-          .map(
-              (exercise) => Exercise.fromJson(exercise as Map<String, dynamic>))
+          .map((exercise) => exercise_model.Exercise.fromJson(
+              exercise as Map<String, dynamic>))
           .toList();
     } catch (e) {
       print('Error searching exercises: $e');
@@ -131,7 +134,8 @@ class WorkoutService {
     }
   }
 
-  Future<List<Exercise>> getExercisesByMuscleGroup(String muscleGroup) async {
+  Future<List<exercise_model.Exercise>> getExercisesByMuscleGroup(
+      String muscleGroup) async {
     try {
       final response = await Supabase.instance.client
           .from('exercises')
@@ -140,8 +144,8 @@ class WorkoutService {
           .order('name');
 
       return (response as List<dynamic>)
-          .map(
-              (exercise) => Exercise.fromJson(exercise as Map<String, dynamic>))
+          .map((exercise) => exercise_model.Exercise.fromJson(
+              exercise as Map<String, dynamic>))
           .toList();
     } catch (e) {
       print('Error getting exercises by muscle group: $e');

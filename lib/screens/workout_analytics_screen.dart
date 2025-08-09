@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/workout_log.dart';
-import '../services/workout_log_service.dart';
-import '../widgets/workout_log_export_button.dart';
+import 'package:gymaipro/workout_plan/workout_log/models/workout_log.dart';
+import 'package:gymaipro/workout_plan/workout_log/services/workout_log_service.dart';
+import 'package:gymaipro/workout_plan/workout_log/widgets/workout_log_export_button.dart';
 
 class WorkoutAnalyticsScreen extends StatefulWidget {
   final String userId;

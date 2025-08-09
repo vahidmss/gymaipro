@@ -27,9 +27,13 @@ class UserService {
           return profile.firstName!;
         } else if (profile.lastName != null) {
           return profile.lastName!;
+        } else if (profile.username.isNotEmpty) {
+          return profile.username;
+        } else if (profile.phoneNumber != null &&
+            profile.phoneNumber!.isNotEmpty) {
+          return profile.phoneNumber!.replaceRange(0, 7, '***');
         } else {
-          // اگر نام و نام خانوادگی نباشد، از شماره تلفن استفاده کن
-          return profile.phoneNumber.replaceRange(0, 7, '***');
+          return 'کاربر ناشناس';
         }
       }
       return 'کاربر ناشناس';

@@ -3,6 +3,7 @@ import '../models/user_profile.dart';
 import '../services/trainer_service.dart';
 import 'trainer_profile_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../widgets/user_role_badge.dart';
 
 class TrainersListScreen extends StatefulWidget {
   const TrainersListScreen({Key? key}) : super(key: key);
@@ -167,12 +168,22 @@ class _TrainersListScreenState extends State<TrainersListScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      trainer.fullName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            trainer.fullName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ),
+                        UserRoleBadge(
+                          role: trainer.role,
+                          fontSize: 12,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     if (trainer.bio != null && trainer.bio!.isNotEmpty)

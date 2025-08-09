@@ -48,21 +48,36 @@ class AuthStateService {
 
   Future<bool> isLoggedIn() async {
     try {
+      print('=== AUTH SERVICE: Checking if user is logged in... ===');
+
       // Check if there's an active session in the Supabase client
       final currentSession = Supabase.instance.client.auth.currentSession;
-      if (currentSession != null &&
-          currentSession.accessToken.isNotEmpty &&
-          !currentSession.isExpired) {
+      print(
+          '=== AUTH SERVICE: Current session: ${currentSession != null ? "exists" : "null"} ===');
+
+      if (currentSession != null) {
         print(
-            'Active session found: ${currentSession.accessToken.substring(0, 10)}...');
-        return true;
+            '=== AUTH SERVICE: Session access token: ${currentSession.accessToken.isNotEmpty ? "exists" : "empty"} ===');
+        print(
+            '=== AUTH SERVICE: Session expired: ${currentSession.isExpired} ===');
+
+        if (currentSession.accessToken.isNotEmpty &&
+            !currentSession.isExpired) {
+          print(
+              '=== AUTH SERVICE: Active session found: ${currentSession.accessToken.substring(0, 10)}... ===');
+          return true;
+        } else {
+          print(
+              '=== AUTH SERVICE: Session exists but is invalid (empty token or expired) ===');
+        }
       }
 
       // If no active session, user is not logged in
-      print('No active session found, user is not logged in');
+      print(
+          '=== AUTH SERVICE: No active session found, user is not logged in ===');
       return false;
     } catch (e) {
-      print('Error in isLoggedIn: $e');
+      print('=== AUTH SERVICE: Error in isLoggedIn: $e ===');
       return false;
     }
   }

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:gymaipro/trainer_dashboard/screens/client_management/client_management_screen.dart';
+import 'package:gymaipro/workout_plan/workout_log/screens/workout_log_screen.dart';
 import 'package:gymaipro/workout_plan/workout_plan_builder/screens/workout_program_builder_screen.dart';
+import 'package:gymaipro/meal_plan/meal_plan_builder/screens/meal_plan_builder_screen.dart';
+import 'package:gymaipro/meal_plan/meal_log/screens/meal_log_screen.dart';
+import 'package:gymaipro/navigation/navigation.dart';
 import '../screens/welcome_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/register_screen.dart';
-import '../screens/dashboard_screen.dart';
+import '../dashboard/screens/dashboard_screen.dart';
 import '../screens/profile_screen.dart';
-import '../screens/workout_log_screen.dart';
 import '../screens/trainers_list_screen.dart';
 import '../screens/trainer_profile_screen.dart';
 import '../screens/web_login_screen.dart';
@@ -13,7 +17,9 @@ import '../screens/exercise_list_screen.dart';
 import '../screens/food_list_screen.dart';
 import '../screens/food_detail_screen.dart';
 import '../screens/conversations_screen.dart';
-import '../screens/chat_screen.dart';
+import '../chat/screens/chat_screen.dart';
+import '../chat/screens/chat_main_screen.dart';
+import '../chat/screens/broadcast_messages_screen.dart';
 import '../models/food.dart';
 import '../services/auth_state_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -37,6 +43,10 @@ class RouteService {
         return MaterialPageRoute(
           builder: (_) => const DashboardScreen(),
         );
+      case '/main':
+        return MaterialPageRoute(
+          builder: (_) => const MainNavigationScreen(),
+        );
       case '/profile':
         return MaterialPageRoute(
           builder: (_) => const ProfileScreen(),
@@ -50,10 +60,19 @@ class RouteService {
         return MaterialPageRoute(
           builder: (_) => WorkoutProgramBuilderScreen(programId: programId),
         );
-      //  case '/workout-log':
-      //  return MaterialPageRoute(
-      // builder: (_) => const WorkoutLogScreen(),
-      //   );
+      case '/workout-log':
+        return MaterialPageRoute(
+          builder: (_) => const WorkoutLogScreen(),
+        );
+      case '/meal-plan-builder':
+        final String? planId = settings.arguments as String?;
+        return MaterialPageRoute(
+          builder: (_) => MealPlanBuilderScreen(planId: planId),
+        );
+      case '/meal-log':
+        return MaterialPageRoute(
+          builder: (_) => const FoodLogScreen(),
+        );
       case '/trainers':
         return MaterialPageRoute(
           builder: (_) => const TrainersListScreen(),
@@ -86,6 +105,14 @@ class RouteService {
         return MaterialPageRoute(
           builder: (_) => const ConversationsScreen(),
         );
+      case '/chat-main':
+        return MaterialPageRoute(
+          builder: (_) => const ChatMainScreen(),
+        );
+      case '/broadcast-messages':
+        return MaterialPageRoute(
+          builder: (_) => const BroadcastMessagesScreen(),
+        );
       case '/chat':
         final Map<String, dynamic> args =
             settings.arguments as Map<String, dynamic>;
@@ -96,6 +123,10 @@ class RouteService {
             otherUserId: otherUserId,
             otherUserName: otherUserName,
           ),
+        );
+      case '/client-management':
+        return MaterialPageRoute(
+          builder: (_) => const ClientManagementScreen(),
         );
 
       default:
@@ -110,27 +141,33 @@ class RouteService {
   static Future<String> getInitialRoute() async {
     try {
       final authService = AuthStateService();
-      print('Checking login state for initial route...');
+      print('=== ROUTE SERVICE: Checking login state for initial route... ===');
 
       final isLoggedIn = await authService.isLoggedIn();
-      print('Login state: $isLoggedIn');
+      print('=== ROUTE SERVICE: Login state: $isLoggedIn ===');
 
       // اگر کاربر لاگین است، بررسی کنیم که آیا کاربر فعلی در کلاینت وجود دارد
       if (isLoggedIn) {
         final currentUser = Supabase.instance.client.auth.currentUser;
+        print(
+            '=== ROUTE SERVICE: Current user: ${currentUser?.id ?? "null"} ===');
+
         if (currentUser != null) {
-          print('User is logged in with ID: ${currentUser.id}');
-          return '/dashboard';
+          print(
+              '=== ROUTE SERVICE: User is logged in with ID: ${currentUser.id} ===');
+          print('=== ROUTE SERVICE: Returning /main ===');
+          return '/main'; // تغییر به صفحه اصلی جدید
         } else {
           print(
-              'Warning: isLoggedIn is true but currentUser is null. Defaulting to welcome screen.');
+              '=== ROUTE SERVICE: Warning: isLoggedIn is true but currentUser is null. Defaulting to welcome screen. ===');
           return '/welcome';
         }
       }
 
+      print('=== ROUTE SERVICE: User not logged in, returning /welcome ===');
       return '/welcome';
     } catch (e) {
-      print('Error in getInitialRoute: $e');
+      print('=== ROUTE SERVICE: Error in getInitialRoute: $e ===');
       // در صورت خطا به صفحه خوش‌آمدگویی هدایت می‌کنیم
       return '/welcome';
     }

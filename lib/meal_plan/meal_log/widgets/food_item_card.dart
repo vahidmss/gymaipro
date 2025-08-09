@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../models/food_log_item.dart';
 import '../../../models/food.dart';
-import '../utils/meal_log_utils.dart';
 
 class FoodItemCard extends StatelessWidget {
   final FoodLogItem foodItem;

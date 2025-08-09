@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/public_chat_message.dart';
 import 'user_service.dart';
@@ -11,63 +12,50 @@ class PublicChatService {
   Future<List<PublicChatMessage>> getMessages(
       {int limit = 50, int offset = 0}) async {
     try {
+      // استفاده از view جدید که اطلاعات کامل sender را دارد
       final response = await _supabase
-          .from('public_chat_messages')
-          .select('''
-            *,
-            profiles!public_chat_messages_sender_id_fkey (
-              first_name,
-              last_name,
-              avatar_url,
-              role
-            )
-          ''')
+          .from('public_chat_with_senders')
+          .select('*')
           .eq('is_deleted', false)
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
       List<PublicChatMessage> messages = [];
       for (var item in response) {
-        final profile = item['profiles'] as Map<String, dynamic>?;
+        // ساخت نام کامل از first_name و last_name
         String? senderName;
-        String? senderAvatar;
-        String? senderRole;
+        final firstName = item['sender_first_name'] as String?;
+        final lastName = item['sender_last_name'] as String?;
+        final username = item['sender_username'] as String?;
 
-        if (profile != null) {
-          final firstName = profile['first_name'] as String?;
-          final lastName = profile['last_name'] as String?;
-          if (firstName != null && lastName != null) {
-            senderName = '$firstName $lastName';
-          } else if (firstName != null) {
-            senderName = firstName;
-          } else if (lastName != null) {
-            senderName = lastName;
-          } else if (item['username'] != null) {
-            senderName = item['username'];
-          } else {
-            senderName = 'کاربر ناشناس';
-          }
-          senderAvatar = profile['avatar_url'] as String?;
-          senderRole = profile['role'] as String?;
+        if (firstName != null && lastName != null) {
+          senderName = '$firstName $lastName';
+        } else if (firstName != null) {
+          senderName = firstName;
+        } else if (lastName != null) {
+          senderName = lastName;
+        } else if (username != null) {
+          senderName = username;
         } else {
-          // اگر profile وجود ندارد، باز هم username را چک کن
-          if (item['username'] != null) {
-            senderName = item['username'];
-          } else {
-            senderName = 'کاربر ناشناس';
-          }
+          senderName = 'کاربر ناشناس';
         }
 
         messages.add(PublicChatMessage.fromJson({
-          ...item,
+          'id': item['id'],
+          'sender_id': item['sender_id'],
+          'message': item['message'],
+          'created_at': item['created_at'],
+          'updated_at': item['updated_at'],
+          'is_deleted': item['is_deleted'],
           'sender_name': senderName,
-          'sender_avatar': senderAvatar,
-          'sender_role': senderRole,
+          'sender_avatar': item['sender_avatar_url'],
+          'sender_role': item['sender_role'],
         }));
       }
 
       return messages.reversed.toList();
     } catch (e) {
+      debugPrint('Error loading public chat messages: $e');
       rethrow;
     }
   }
@@ -82,6 +70,9 @@ class PublicChatService {
         throw Exception('User not authenticated');
       }
 
+      print(
+          '=== PUBLIC CHAT SERVICE: Sending message for user: ${user.id} ===');
+
       // ابتدا فقط پیام را ارسال کن (بدون اطلاعات اضافی)
       final data = {
         'sender_id': user.id,
@@ -94,19 +85,64 @@ class PublicChatService {
           .select()
           .single();
 
-      // حالا اطلاعات کاربر را دریافت کن
-      final displayName = await _userService.getDisplayName(user.id);
-      final avatar = await _userService.getUserAvatar(user.id);
-      final role = await _userService.getUserRole(user.id);
+      print('=== PUBLIC CHAT SERVICE: Message inserted successfully ===');
 
-      // پیام را با اطلاعات کامل برگردان
-      return PublicChatMessage.fromJson({
-        ...response,
-        'sender_name': displayName,
-        'sender_avatar': avatar,
-        'sender_role': role,
-      });
+      // حالا اطلاعات کاربر را از view دریافت کن
+      try {
+        final userInfo = await _supabase
+            .from('public_chat_with_senders')
+            .select(
+                'sender_username, sender_first_name, sender_last_name, sender_avatar_url, sender_role')
+            .eq('id', response['id'])
+            .single();
+
+        print('=== PUBLIC CHAT SERVICE: User info from view: $userInfo ===');
+
+        final firstName = userInfo['sender_first_name'] as String?;
+        final lastName = userInfo['sender_last_name'] as String?;
+        final username = userInfo['sender_username'] as String?;
+        final avatarUrl = userInfo['sender_avatar_url'] as String?;
+        final role = userInfo['sender_role'] as String?;
+
+        String senderName;
+        if (firstName != null && lastName != null) {
+          senderName = '$firstName $lastName';
+        } else if (firstName != null) {
+          senderName = firstName;
+        } else if (lastName != null) {
+          senderName = lastName;
+        } else if (username != null && username.isNotEmpty) {
+          senderName = username;
+        } else {
+          senderName = 'کاربر ناشناس';
+        }
+
+        print('=== PUBLIC CHAT SERVICE: Sender name: $senderName ===');
+
+        // پیام را با اطلاعات کامل برگردان
+        return PublicChatMessage.fromJson({
+          ...response,
+          'sender_name': senderName,
+          'sender_avatar': avatarUrl,
+          'sender_role': role ?? 'athlete',
+        });
+      } catch (e) {
+        print(
+            '=== PUBLIC CHAT SERVICE: Error getting user info from view: $e ===');
+        // اگر نتوانستیم از view اطلاعات بگیریم، از UserService استفاده کن
+        final displayName = await _userService.getDisplayName(user.id);
+        final avatar = await _userService.getUserAvatar(user.id);
+        final role = await _userService.getUserRole(user.id);
+
+        return PublicChatMessage.fromJson({
+          ...response,
+          'sender_name': displayName,
+          'sender_avatar': avatar,
+          'sender_role': role,
+        });
+      }
     } catch (e) {
+      print('=== PUBLIC CHAT SERVICE: Error in sendMessage: $e ===');
       rethrow;
     }
   }
@@ -164,13 +200,31 @@ class PublicChatService {
   Future<int> getUnreadCount() async {
     try {
       final response = await _supabase
-          .from('public_chat_messages')
+          .from('public_chat_with_senders')
           .select('id')
           .eq('is_deleted', false);
 
       return response.length;
     } catch (e) {
+      debugPrint('Error getting unread count: $e');
       return 0;
+    }
+  }
+
+  // متد تست برای بررسی پیام‌ها
+  Future<void> debugMessages() async {
+    try {
+      debugPrint('=== Debug: Loading public chat messages ===');
+      final response =
+          await _supabase.from('public_chat_with_senders').select('*').limit(5);
+
+      debugPrint('Found ${response.length} messages');
+      for (var item in response) {
+        debugPrint(
+            'Message: ${item['message']} from ${item['sender_first_name']} ${item['sender_last_name']}');
+      }
+    } catch (e) {
+      debugPrint('Debug error: $e');
     }
   }
 }

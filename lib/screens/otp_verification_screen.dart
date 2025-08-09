@@ -173,7 +173,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       if (mounted) {
         // مطمئن می‌شویم که ابتدا صفحه Dashboard بارگذاری شود و سپس انیمیشن‌ها شروع شوند
         Navigator.of(context).pushNamedAndRemoveUntil(
-          '/dashboard',
+          '/main',
           (route) => false,
         );
       }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/supabase_service.dart';
 import '../services/otp_service.dart';
+import '../utils/safe_set_state.dart';
 import 'otp_verification_screen.dart';
 import 'dart:async';
 
@@ -105,9 +106,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         });
       }
     } finally {
-      if (mounted) {
-        setState(() => _isCheckingUsername = false);
-      }
+      SafeSetState.call(this, () => _isCheckingUsername = false);
     }
   }
 
@@ -116,7 +115,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     _debounceTimer?.cancel();
 
     // Clear previous error if user is typing
-    if (_usernameError != null) {
+    if (_usernameError != null && mounted) {
       setState(() {
         _usernameError = null;
       });
@@ -127,7 +126,9 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     // Set a new timer
     _debounceTimer = Timer(_debounceDuration, () {
-      _checkUsername();
+      if (mounted) {
+        _checkUsername();
+      }
     });
   }
 
@@ -135,7 +136,8 @@ class _RegisterScreenState extends State<RegisterScreen>
     if (!_formKey.currentState!.validate()) return;
     if (_usernameError != null) return;
 
-    setState(() => _isLoading = true);
+    if (!mounted) return;
+    SafeSetState.call(this, () => _isLoading = true);
     try {
       final normalizedPhone = _normalizePhoneNumber(_phoneController.text);
       final username = _usernameController.text;
@@ -149,7 +151,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                 content:
                     Text('کاربر با این شماره موبایل قبلا ثبت‌نام کرده است')),
           );
-          setState(() => _isLoading = false);
+          SafeSetState.call(this, () => _isLoading = false);
           return;
         }
       }
@@ -164,7 +166,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             const SnackBar(
                 content: Text('خطا در ارسال کد تایید. لطفا دوباره تلاش کنید')),
           );
-          setState(() => _isLoading = false);
+          SafeSetState.call(this, () => _isLoading = false);
           return;
         }
       }
@@ -188,9 +190,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      SafeSetState.call(this, () => _isLoading = false);
     }
   }
 

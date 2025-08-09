@@ -6,6 +6,8 @@ import '../theme/app_theme.dart';
 import '../services/chat_service.dart';
 import '../services/supabase_service.dart';
 import '../models/chat_message.dart';
+import '../utils/safe_set_state.dart';
+import 'user_role_badge.dart';
 
 class ChatWidget extends StatefulWidget {
   const ChatWidget({Key? key}) : super(key: key);
@@ -63,18 +65,14 @@ class _ChatWidgetState extends State<ChatWidget> with TickerProviderStateMixin {
 
   Future<void> _loadConversations() async {
     try {
-      setState(() => _isLoading = true);
+      SafeSetState.call(this, () => _isLoading = true);
       final conversations = await _chatService.getConversations();
-      if (mounted) {
-        setState(() {
-          _conversations = conversations;
-          _isLoading = false;
-        });
-      }
+      SafeSetState.call(this, () {
+        _conversations = conversations;
+        _isLoading = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      SafeSetState.call(this, () => _isLoading = false);
     }
   }
 
@@ -400,23 +398,9 @@ class _ChatWidgetState extends State<ChatWidget> with TickerProviderStateMixin {
                             ),
                           ),
                           if (conversation.isTrainer)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.purple.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Text(
-                                'مربی',
-                                style: TextStyle(
-                                  color: Colors.purple,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                            const UserRoleBadge(
+                              role: 'trainer',
+                              fontSize: 10,
                             ),
                         ],
                       ),
