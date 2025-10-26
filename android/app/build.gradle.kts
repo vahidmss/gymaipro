@@ -37,6 +37,12 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // Ensure R8 uses our proguard rules (minify is enabled by Flutter in release)
+            isMinifyEnabled = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                file("proguard-rules.pro"),
+            )
         }
     }
 }
@@ -50,4 +56,9 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.firebase:firebase-analytics")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Add OkHttp/Okio for uCrop's network helper used by image_cropper
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okio:okio:3.9.0")
+    // Play Core for splitcompat/deferred components references required by Flutter engine
+    implementation("com.google.android.play:core:1.10.3")
 }

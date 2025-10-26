@@ -91,9 +91,12 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   very_good_analysis: ^6.0.0
+  # dart_code_metrics: ^5.6.0  # No longer maintained, requires license
   build_runner: ^2.4.13
   json_serializable: ^6.8.0
   flutter_native_splash: ^2.4.0
+  # Additional quality tools (commented out due to dependency conflicts)
+  # custom_lint: ^0.6.8
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -106,17 +109,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # Formatting & quality scripts
-scripts:
-  format: dart format .
-  analyze: flutter analyze
-
   # To add assets to your application, add an assets section, like this:
   assets:
     - images/
-    - assets/
-    - assets/images/
-  #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

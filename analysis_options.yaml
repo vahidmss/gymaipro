@@ -1,4 +1,4 @@
-include: package:flutter_lints/flutter.yaml
+include: package:very_good_analysis/analysis_options.yaml
 
 linter:
   rules:
@@ -71,4 +71,8 @@ analyzer:
     missing_return: error
     dead_code: warning
     todo: ignore
+
+# Additional custom lint rules for better code quality
+# Note: dart_code_metrics is no longer maintained and requires a license
+# Using very_good_analysis which provides comprehensive linting rules
 
