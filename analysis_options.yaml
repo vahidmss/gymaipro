@@ -2,7 +2,7 @@ include: package:very_good_analysis/analysis_options.yaml
 
 linter:
   rules:
-    # Elevate strictness beyond defaults
+    # Additional rules for better code quality
     always_declare_return_types: true
     avoid_dynamic_calls: true
     avoid_print: true
@@ -50,6 +50,60 @@ linter:
     use_named_constants: true
     use_setters_to_change_properties: true
     use_string_buffers: true
+    # ScreenUtil specific rules
+    avoid_web_libraries_in_flutter: true
+    avoid_relative_lib_imports: true
+    avoid_unnecessary_containers: true
+    avoid_unused_constructor_parameters: true
+    avoid_void_async: true
+    camel_case_extensions: true
+    camel_case_types: true
+    constant_identifier_names: true
+    file_names: true
+    library_names: true
+    library_prefixes: true
+    non_constant_identifier_names: true
+    prefer_adjacent_string_concatenation: true
+    prefer_asserts_in_initializer_lists: true
+    prefer_asserts_with_message: true
+    prefer_conditional_assignment: true
+    prefer_contains: true
+    prefer_expression_function_bodies: true
+    prefer_for_elements_to_map_fromIterable: true
+    prefer_function_declarations_over_variables: true
+    prefer_generic_function_type_aliases: true
+    prefer_if_elements_to_conditional_expressions: true
+    prefer_if_null_operators: true
+    prefer_initializing_formals: true
+    prefer_inlined_adds: true
+    prefer_int_literals: true
+    prefer_interpolation_to_compose_strings: true
+    prefer_is_empty: true
+    prefer_is_not_empty: true
+    prefer_is_not_operator: true
+    prefer_iterable_whereType: true
+    prefer_null_aware_operators: true
+    prefer_single_quotes: true
+    prefer_spread_collections: true
+    prefer_typing_uninitialized_variables: true
+    prefer_void_to_null: true
+    require_trailing_commas: true
+    sort_child_properties_last: true
+    sort_unnamed_constructors_first: true
+    use_full_hex_values_for_flutter_colors: true
+    use_function_type_syntax_for_parameters: true
+    use_if_null_to_convert_nulls_to_bools: true
+    use_is_even_rather_than_modulo: true
+    use_key_in_widget_constructors: true
+    use_late_for_private_fields_and_variables: true
+    use_named_constants: true
+    use_raw_strings: true
+    use_rethrow_when_possible: true
+    use_setters_to_change_properties: true
+    use_string_buffers: true
+    use_super_parameters: true
+    use_test_throws_matchers: true
+    use_to_and_as_if_applicable: true
 
 analyzer:
   language:
@@ -65,12 +119,21 @@ analyzer:
     - windows/**
     - web/**
     - test/**.mocks.dart
+    - lib/generated/**
   errors:
     invalid_use_of_visible_for_testing_member: error
     missing_required_param: error
     missing_return: error
     dead_code: warning
     todo: ignore
+    # ScreenUtil specific errors
+    invalid_annotation_target: error
+    missing_required_param: error
+    missing_return: error
+    type_check_is_not_null: error
+    type_check_is_null: error
+    unreachable_switch_case: error
+    use_build_context_synchronously: error
 
 # Additional custom lint rules for better code quality
 # Note: dart_code_metrics is no longer maintained and requires a license
