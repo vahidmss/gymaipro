@@ -3,9 +3,44 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AppConfig {
   // Supabase configuration
-  static const String supabaseUrl = 'https://oaztoennovtcfcxvnswa.supabase.co';
-  static const String supabaseAnonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9henRvZW5ub3Z0Y2ZjeHZuc3dhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY4NzYzNzEsImV4cCI6MjA2MjQ1MjM3MX0.UywfAvKyqUjByLQHRnRqJ85Bal6NdvAOwQQJXVaQfGk';
+  // Try to get from environment variable first (--dart-define), then from .env file
+  static String get supabaseUrl {
+    const envUrl = String.fromEnvironment('SUPABASE_URL');
+    if (envUrl.isNotEmpty) {
+      return envUrl;
+    }
+    try {
+      final dotenvUrl = dotenv.env['SUPABASE_URL'] ?? '';
+      if (dotenvUrl.isNotEmpty) {
+        return dotenvUrl;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AppConfig: dotenv not initialized: $e');
+      }
+    }
+    // Default fallback (should not be used in production)
+    return 'https://oaztoennovtcfcxvnswa.supabase.co';
+  }
+
+  static String get supabaseAnonKey {
+    const envKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+    if (envKey.isNotEmpty) {
+      return envKey;
+    }
+    try {
+      final dotenvKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+      if (dotenvKey.isNotEmpty) {
+        return dotenvKey;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AppConfig: dotenv not initialized: $e');
+      }
+    }
+    // Default fallback (should not be used in production)
+    return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9henRvZW5ub3Z0Y2ZjeHZuc3dhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY4NzYzNzEsImV4cCI6MjA2MjQ1MjM3MX0.UywfAvKyqUjByLQHRnRqJ85Bal6NdvAOwQQJXVaQfGk';
+  }
 
   // App configuration
   static const String appName = 'GymAI Pro';
