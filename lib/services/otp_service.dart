@@ -1,13 +1,11 @@
-﻿import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:gymaipro/config/app_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OTPService {
-  // These constants are kept for future use
-  // static const String _baseUrl =
-  //     'https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber';
-  // static const String _username = '1990557589';
-  // static const String _password = '08918b92-394d-4d42-a2a5-8828112ded71';
-  // static const int _bodyId = 318085;
-
   // Normalize phone number format
   static String normalizePhoneNumber(String phoneNumber) {
     // Remove any spaces or special characters
@@ -26,17 +24,116 @@ class OTPService {
       // Normalize phone number
       final normalizedPhone = normalizePhoneNumber(phoneNumber);
 
-      // فقط لاگ کن و پیامک ارسال نکن (در محیط توسعه)
-      print('==============================');
-      print('      ⚡️ OTP CODE FOR TEST ⚡️');
-      print('      PHONE: $normalizedPhone');
-      print('      OTP:   $code');
-      print('==============================');
+      // ارسال پیامک واقعی
+      final smsSent = await _sendRealSMS(normalizedPhone, code);
 
-      // ذخیره OTP در دیتابیس Supabase
-      return await _saveOtpToSupabase(normalizedPhone, code);
+      if (!smsSent) {
+        print('⚠️ Warning: Failed to send SMS, but saving OTP to database');
+      }
+
+      // ذخیره OTP در دیتابیس Supabase (حتی اگر پیامک ارسال نشد)
+      final saved = await _saveOtpToSupabase(normalizedPhone, code);
+
+      return saved;
     } catch (e) {
       print('Error sending OTP: $e');
+      return false;
+    }
+  }
+
+  /// ارسال پیامک واقعی از طریق API پیامک پنل
+  static Future<bool> _sendRealSMS(String phoneNumber, String code) async {
+    try {
+      // بررسی وجود تنظیمات SMS API
+      final baseUrl = AppConfig.smsApiBaseUrl;
+      final username = AppConfig.smsApiUsername;
+      final password = AppConfig.smsApiPassword;
+      final bodyId = AppConfig.smsApiBodyId;
+
+      if (username.isEmpty || password.isEmpty || bodyId == 0) {
+        if (kDebugMode) {
+          print('❌ SMS API credentials not configured');
+          print(
+            'Please set SMS_API_USERNAME, SMS_API_PASSWORD, and SMS_API_BODY_ID',
+          );
+        }
+        return false;
+      }
+
+      // تبدیل شماره تلفن به فرمت بین‌المللی (بدون 0 اول)
+      String internationalPhone = phoneNumber;
+      if (internationalPhone.startsWith('0')) {
+        internationalPhone = '98${internationalPhone.substring(1)}';
+      } else if (!internationalPhone.startsWith('98')) {
+        internationalPhone = '98$internationalPhone';
+      }
+
+      // متن پیامک
+      final message = 'کد تایید شما: $code\nGymAI Pro';
+
+      // ساخت درخواست
+      final url = Uri.parse(baseUrl);
+
+      // استفاده از form-data (فرمت استاندارد API پیامک پنل)
+      final requestBody = {
+        'username': username,
+        'password': password,
+        'to': internationalPhone,
+        'text': message,
+        'bodyId': bodyId.toString(),
+      };
+
+      print('📱 Sending SMS to: $internationalPhone');
+      print('📝 Message: $message');
+
+      // ارسال درخواست با form-data
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Accept': 'application/json',
+            },
+            body: requestBody,
+          )
+          .timeout(const Duration(seconds: 30));
+
+      print('📡 SMS API Response: ${response.statusCode}');
+      print('📡 SMS API Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        try {
+          final responseData =
+              jsonDecode(response.body) as Map<String, dynamic>;
+
+          // بررسی پاسخ API (بسته به فرمت پاسخ API پیامک پنل)
+          // معمولاً اگر موفق باشد، یک فیلد success یا status دارد
+          final isSuccess =
+              responseData['StrRetStatus'] == '1' ||
+              responseData['RetStatus'] == 1 ||
+              responseData['success'] == true ||
+              (responseData['status'] != null &&
+                  (responseData['status'] == 'success' ||
+                      responseData['status'] == 200));
+
+          if (isSuccess) {
+            print('✅ SMS sent successfully');
+            return true;
+          } else {
+            print('❌ SMS API returned error: ${responseData.toString()}');
+            return false;
+          }
+        } catch (e) {
+          // اگر JSON parse نشد، اما status code 200 بود، احتمالاً موفق بوده
+          print('⚠️ Could not parse response, but status is 200: $e');
+          return true;
+        }
+      } else {
+        print('❌ SMS API error: ${response.statusCode} - ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      print('❌ Error in _sendRealSMS: $e');
       return false;
     }
   }

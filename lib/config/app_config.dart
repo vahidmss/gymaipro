@@ -1,4 +1,7 @@
-﻿class AppConfig {
+import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+class AppConfig {
   // Supabase configuration
   static const String supabaseUrl = 'https://oaztoennovtcfcxvnswa.supabase.co';
   static const String supabaseAnonKey =
@@ -13,7 +16,34 @@
   static const int maxRetries = 3;
 
   // OpenAI configuration
-  static const String openaiApiKey = String.fromEnvironment('OPENAI_API_KEY');
+  // Try to get from environment variable first (--dart-define), then from .env file
+  static String get openaiApiKey {
+    const envKey = String.fromEnvironment('OPENAI_API_KEY');
+    if (envKey.isNotEmpty) {
+      if (kDebugMode) {
+        print('AppConfig: Using API key from --dart-define');
+      }
+      return envKey;
+    }
+    // Try to get from dotenv (loaded from .env file)
+    try {
+      final dotenvKey = dotenv.env['OPENAI_API_KEY'] ?? '';
+      if (dotenvKey.isNotEmpty) {
+        if (kDebugMode) {
+          print('AppConfig: Using API key from .env file');
+        }
+        return dotenvKey;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AppConfig: dotenv not initialized: $e');
+      }
+    }
+    if (kDebugMode) {
+      print('AppConfig: No API key found');
+    }
+    return '';
+  }
 
   // Payment gateway configuration
   static const String zibalMerchantId = String.fromEnvironment(
@@ -25,6 +55,102 @@
   );
   // Zibal requires callbackUrl domain to match merchant; use gymaipro.ir
   static const String zibalCallbackUrl = 'https://gymaipro.ir/payment/callback';
+
+  // OTP/SMS configuration
+  // Try to get from environment variable first (--dart-define), then from .env file
+  static String get smsApiBaseUrl {
+    const envUrl = String.fromEnvironment('SMS_API_BASE_URL');
+    if (envUrl.isNotEmpty) {
+      return envUrl;
+    }
+    try {
+      final dotenvUrl = dotenv.env['SMS_API_BASE_URL'] ?? '';
+      if (dotenvUrl.isNotEmpty) {
+        return dotenvUrl;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AppConfig: dotenv not initialized: $e');
+      }
+    }
+    // Default fallback (should not be used in production)
+    return 'https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber';
+  }
+
+  static String get smsApiUsername {
+    const envUsername = String.fromEnvironment('SMS_API_USERNAME');
+    if (envUsername.isNotEmpty) {
+      return envUsername;
+    }
+    try {
+      final dotenvUsername = dotenv.env['SMS_API_USERNAME'] ?? '';
+      if (dotenvUsername.isNotEmpty) {
+        return dotenvUsername;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AppConfig: dotenv not initialized: $e');
+      }
+    }
+    if (kDebugMode) {
+      print('AppConfig: SMS API username not found');
+    }
+    return '';
+  }
+
+  static String get smsApiPassword {
+    const envPassword = String.fromEnvironment('SMS_API_PASSWORD');
+    if (envPassword.isNotEmpty) {
+      return envPassword;
+    }
+    try {
+      final dotenvPassword = dotenv.env['SMS_API_PASSWORD'] ?? '';
+      if (dotenvPassword.isNotEmpty) {
+        return dotenvPassword;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AppConfig: dotenv not initialized: $e');
+      }
+    }
+    if (kDebugMode) {
+      print('AppConfig: SMS API password not found');
+    }
+    return '';
+  }
+
+  static int get smsApiBodyId {
+    const envBodyId = String.fromEnvironment('SMS_API_BODY_ID');
+    if (envBodyId.isNotEmpty) {
+      try {
+        return int.parse(envBodyId);
+      } catch (e) {
+        if (kDebugMode) {
+          print('AppConfig: Invalid SMS_API_BODY_ID format: $e');
+        }
+      }
+    }
+    try {
+      final dotenvBodyId = dotenv.env['SMS_API_BODY_ID'] ?? '';
+      if (dotenvBodyId.isNotEmpty) {
+        try {
+          return int.parse(dotenvBodyId);
+        } catch (e) {
+          if (kDebugMode) {
+            print('AppConfig: Invalid SMS_API_BODY_ID format in .env: $e');
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AppConfig: dotenv not initialized: $e');
+      }
+    }
+    if (kDebugMode) {
+      print('AppConfig: SMS API body ID not found');
+    }
+    return 0;
+  }
 
   // Activity levels
   static const Map<String, String> activityLevels = {
