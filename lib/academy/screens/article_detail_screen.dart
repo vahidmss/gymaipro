@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/article.dart';
 import 'package:gymaipro/academy/services/article_comment_supabase_service.dart';
@@ -10,6 +10,8 @@ import 'package:gymaipro/academy/widgets/comment_card.dart';
 import 'package:gymaipro/academy/widgets/comment_form.dart';
 import 'package:gymaipro/academy/widgets/rating_stars.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/safe_set_state.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -60,7 +62,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     try {
       await _loadProfilesForComments();
     } catch (_) {}
-    if (mounted) setState(() => _loadingComments = false);
+    WidgetSafetyUtils.safeSetState(this, () => _loadingComments = false);
   }
 
   Future<void> _loadProfilesForComments() async {
@@ -98,9 +100,15 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('برای ثبت نظر وارد شوید')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'برای ثبت نظر وارد شوید',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        );
         return;
       }
       final displayName =
@@ -116,14 +124,20 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         widget.article.id,
       );
       if (mounted) {
-        setState(() => _comments = list);
+        SafeSetState.call(this, () => _comments = list);
         await _loadProfilesForComments();
-        if (mounted) setState(() {});
+        SafeSetState.call(this, () {});
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('خطا در ثبت نظر: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'خطا در ثبت نظر: $e',
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
     }
   }
 
@@ -143,6 +157,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         title: Text(
           'جزئیات مقاله',
           style: AppTheme.headingStyle.copyWith(fontSize: 18.sp),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         centerTitle: true,
       ),
@@ -174,9 +190,13 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                         color: AppTheme.goldColor,
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        _formatJalali(widget.article.date),
-                        style: AppTheme.bodyStyle.copyWith(fontSize: 12.sp),
+                      Flexible(
+                        child: Text(
+                          _formatJalali(widget.article.date),
+                          style: AppTheme.bodyStyle.copyWith(fontSize: 12.sp),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       const Spacer(),
                       IconButton(
@@ -241,7 +261,12 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(color: Colors.white10),
         ),
-        child: Text('نظری ثبت نشده است.', style: AppTheme.bodyStyle),
+        child: Text(
+          'نظری ثبت نشده است.',
+          style: AppTheme.bodyStyle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
       );
     }
     return DecoratedBox(

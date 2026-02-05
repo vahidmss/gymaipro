@@ -1,5 +1,82 @@
-﻿import 'package:flutter/material.dart';
- import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+
+/// Extension برای فراخوانی ایمن متدهای AnimationController
+/// جلوگیری از خطای "AnimationController methods called after dispose"
+extension SafeAnimationController on AnimationController {
+  /// بررسی اینکه controller هنوز dispose نشده
+  /// با استفاده از try-catch برای بررسی خطای assertion
+  bool get _isDisposed {
+    try {
+      // تلاش برای دسترسی به value - اگر dispose شده باشد خطا می‌دهد
+      final _ = value;
+      // بررسی اینکه ticker null نیست (از طریق isAnimating)
+      final _ = isAnimating;
+      return false;
+    } catch (e) {
+      // اگر خطای assertion یا هر خطای دیگری رخ داد، controller dispose شده
+      return true;
+    }
+  }
+
+  /// فراخوانی ایمن stop
+  void safeStop() {
+    if (_isDisposed) return;
+    try {
+      if (isAnimating) {
+        stop();
+      }
+    } catch (e) {
+      // ignore - controller already disposed
+    }
+  }
+
+  /// فراخوانی ایمن forward
+  Future<void> safeForward() async {
+    if (_isDisposed) return;
+    try {
+      await forward();
+    } catch (e) {
+      // ignore - controller already disposed
+    }
+  }
+
+  /// فراخوانی ایمن reverse
+  Future<void> safeReverse() async {
+    if (_isDisposed) return;
+    try {
+      await reverse();
+    } catch (e) {
+      // ignore - controller already disposed
+    }
+  }
+
+  /// فراخوانی ایمن repeat
+  void safeRepeat() {
+    if (_isDisposed) return;
+    try {
+      repeat();
+    } catch (e) {
+      // ignore - controller already disposed
+    }
+  }
+
+  /// فراخوانی ایمن reset
+  void safeReset() {
+    if (_isDisposed) return;
+    try {
+      reset();
+    } catch (e) {
+      // ignore - controller already disposed
+    }
+  }
+
+  /// بررسی اینکه controller هنوز valid است
+  bool get isSafe {
+    return !_isDisposed;
+  }
+}
+
 class AnimationUtils {
   // Fade-in with slide animation for widgets
   static Widget fadeSlideIn({

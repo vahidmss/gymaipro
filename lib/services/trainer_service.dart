@@ -3,7 +3,7 @@ import 'package:gymaipro/models/trainer_client.dart';
 import 'package:gymaipro/models/trainer_detail.dart';
 import 'package:gymaipro/models/trainer_review.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
-import 'package:gymaipro/workout_plan/workout_plan_builder/models/workout_program.dart';
+import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TrainerService {

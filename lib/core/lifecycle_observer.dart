@@ -26,7 +26,9 @@ class _LifecycleObserverState extends State<LifecycleObserver>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // Only initialize notification service for non-web platforms
+    // IMPORTANT:
+    // Do NOT construct services that require Firebase before Firebase is initialized.
+    // NotificationService is now lazy-safe, but we still keep this best-effort.
     if (!kIsWeb) {
       _notificationService = NotificationService();
     }

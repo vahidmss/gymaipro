@@ -1,12 +1,14 @@
-﻿import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/chat/screens/chat_screen.dart';
 import 'package:gymaipro/payment/models/trainer_subscription.dart';
 import 'package:gymaipro/payment/services/trainer_payment_service.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
+import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_ranking/models/certificate.dart';
@@ -14,9 +16,14 @@ import 'package:gymaipro/trainer_ranking/models/trainer_ranking_model.dart'
     show TrainerReview;
 import 'package:gymaipro/trainer_ranking/services/certificate_service.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_ranking_service.dart';
+import 'package:gymaipro/trainer_ranking/utils/dialog_helpers.dart';
+import 'package:gymaipro/trainer_ranking/utils/format_utils.dart';
 import 'package:gymaipro/trainer_ranking/widgets/certificate_carousel.dart';
+import 'package:gymaipro/trainer_ranking/widgets/package_card_widget.dart';
 import 'package:gymaipro/trainer_ranking/widgets/review_submission_widget.dart';
+import 'package:gymaipro/trainer_ranking/widgets/service_card_widget.dart';
 import 'package:gymaipro/trainer_ranking/widgets/trainer_review_widget.dart';
+import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -56,6 +63,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
 
   // Service selection state
   String? _selectedService;
+  String? _processingServiceId; // برای نمایش loading در کارت خاص
 
   // Payment services
   final TrainerPaymentService _paymentService = TrainerPaymentService();
@@ -99,35 +107,19 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     }
   }
 
-  void _showNetworkErrorDialog() {
-    if (mounted) {
-      showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('خطا در اتصال', style: GoogleFonts.vazirmatn()),
-          content: Text(
-            'لطفاً اتصال اینترنت خود را بررسی کنید و دوباره تلاش کنید.',
-            style: GoogleFonts.vazirmatn(),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('باشه', style: GoogleFonts.vazirmatn()),
-            ),
-          ],
-        ),
-      );
-    }
-  }
-
   Future<void> _loadReviews() async {
     try {
       final hasConnection = await _checkConnectivity();
       if (!hasConnection) {
         if (mounted) {
-          _showNetworkErrorDialog();
-          setState(() {
+          SafeSetState.call(this, () {
             _isLoadingReviews = false;
+          });
+          // نمایش dialog بعد از build
+          SchedulerBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              DialogHelpers.showNetworkError(context);
+            }
           });
         }
         return;
@@ -136,16 +128,21 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
       final reviews = await _service.getTrainerReviews(widget.trainer.id!);
 
       if (mounted) {
-        setState(() {
+        SafeSetState.call(this, () {
           _reviews = reviews;
           _isLoadingReviews = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        _showNetworkErrorDialog();
-        setState(() {
+        SafeSetState.call(this, () {
           _isLoadingReviews = false;
+        });
+        // نمایش dialog بعد از build
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            DialogHelpers.showNetworkError(context);
+          }
         });
       }
     }
@@ -154,24 +151,36 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
   // به‌روزرسانی اطلاعات مربی از دیتابیس
   Future<void> _refreshTrainerInfo() async {
     try {
-      print('🔄 به‌روزرسانی اطلاعات مربی...');
+      if (kDebugMode) {
+        print('🔄 به‌روزرسانی اطلاعات مربی...');
+      }
       final updatedTrainer = await _service.getTrainerDetails(
         widget.trainer.id!,
       );
       if (updatedTrainer != null && mounted) {
-        setState(() {
-          // به‌روزرسانی اطلاعات مربی در state
-          _currentRating = updatedTrainer.rating ?? 0.0;
-          _currentReviewCount = updatedTrainer.reviewCount ?? 0;
-          _currentStudentCount = updatedTrainer.studentCount ?? 0;
-          _currentActiveStudentCount = updatedTrainer.activeStudentCount ?? 0;
+        // استفاده از post-frame callback برای جلوگیری از خطای build
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            SafeSetState.call(this, () {
+              // به‌روزرسانی اطلاعات مربی در state
+              _currentRating = updatedTrainer.rating ?? 0.0;
+              _currentReviewCount = updatedTrainer.reviewCount ?? 0;
+              _currentStudentCount = updatedTrainer.studentCount ?? 0;
+              _currentActiveStudentCount =
+                  updatedTrainer.activeStudentCount ?? 0;
+            });
+            if (kDebugMode) {
+              print(
+                '🔄 اطلاعات مربی به‌روزرسانی شد - امتیاز: $_currentRating, نظرات: $_currentReviewCount, کل شاگردان: $_currentStudentCount, شاگردان فعال: $_currentActiveStudentCount',
+              );
+            }
+          }
         });
-        print(
-          '🔄 اطلاعات مربی به‌روزرسانی شد - امتیاز: $_currentRating, نظرات: $_currentReviewCount, کل شاگردان: $_currentStudentCount, شاگردان فعال: $_currentActiveStudentCount',
-        );
       }
     } catch (e) {
-      print('🔄 خطا در به‌روزرسانی اطلاعات مربی: $e');
+      if (kDebugMode) {
+        print('🔄 خطا در به‌روزرسانی اطلاعات مربی: $e');
+      }
     }
   }
 
@@ -180,7 +189,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
       final hasConnection = await _checkConnectivity();
       if (!hasConnection) {
         if (mounted) {
-          setState(() {
+          SafeSetState.call(this, () {
             _isLoadingStats = false;
           });
         }
@@ -189,14 +198,14 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
 
       final stats = await _service.getTrainerProgramStats(widget.trainer.id!);
       if (mounted) {
-        setState(() {
+        SafeSetState.call(this, () {
           _programStats = stats;
           _isLoadingStats = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
+        SafeSetState.call(this, () {
           _isLoadingStats = false;
         });
       }
@@ -208,7 +217,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
       final hasConnection = await _checkConnectivity();
       if (!hasConnection) {
         if (mounted) {
-          setState(() => _isLoadingServices = false);
+          SafeSetState.call(this, () => _isLoadingServices = false);
         }
         return;
       }
@@ -221,7 +230,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
           .eq('id', widget.trainer.id!)
           .maybeSingle();
       if (mounted) {
-        setState(() {
+        SafeSetState.call(this, () {
           _trainingCost = (json?['monthly_training_cost'] as num?) ?? 0;
           _dietCost = (json?['monthly_diet_cost'] as num?) ?? 0;
           _discountPct = (json?['package_discount_pct'] as num?) ?? 0;
@@ -235,7 +244,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _isLoadingServices = false);
+        SafeSetState.call(this, () => _isLoadingServices = false);
       }
     }
   }
@@ -246,8 +255,9 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
       if (currentUser != null) {
         final wallet = await _walletService.getUserWallet();
         if (wallet != null && mounted) {
-          setState(() {
-            _walletBalance = wallet.balance;
+          SafeSetState.call(this, () {
+            // استفاده از availableBalance به جای balance (مثل dashboard)
+            _walletBalance = wallet.availableBalance;
           });
         }
       }
@@ -256,28 +266,6 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         print('خطا در دریافت موجودی کیف پول: $e');
       }
     }
-  }
-
-  String _toFa(String input) {
-    const fa = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-    final b = StringBuffer();
-    for (final ch in input.split('')) {
-      final d = int.tryParse(ch);
-      b.write(d == null ? ch : fa[d]);
-    }
-    return b.toString();
-  }
-
-  String _formatAmountFa(num value) {
-    final s = value.toStringAsFixed(0);
-    final rev = s.split('').reversed.toList();
-    final out = StringBuffer();
-    for (int i = 0; i < rev.length; i++) {
-      if (i != 0 && i % 3 == 0) out.write(',');
-      out.write(rev[i]);
-    }
-    final withSep = out.toString().split('').reversed.join();
-    return _toFa(withSep);
   }
 
   void _messageTrainer() {
@@ -297,25 +285,43 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
   void _showReviewDialog() {
     showDialog<void>(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: SingleChildScrollView(
-          child: ReviewSubmissionWidget(
-            trainerId: widget.trainer.id ?? '',
-            onReviewSubmitted: _loadReviews,
+      barrierDismissible: true,
+      builder: (context) {
+        final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: 16.w,
+            vertical: keyboardHeight > 0 ? 8.h : 24.h,
           ),
-        ),
-      ),
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: ReviewSubmissionWidget(
+              trainerId: widget.trainer.id ?? '',
+              onReviewSubmitted: _loadReviews,
+            ),
+          ),
+        );
+      },
     );
   }
 
   void _selectService(String serviceId, double cost) {
-    if (mounted) {
-      setState(() {
-        _selectedService = serviceId;
-      });
-    }
-    _showPaymentDialog(serviceId, cost);
+    // بازخورد لمسی فوری
+    HapticFeedback.mediumImpact();
+
+    // نمایش فوری بازخورد بصری
+    SafeSetState.call(this, () {
+      _selectedService = serviceId;
+      _processingServiceId = serviceId;
+    });
+
+    // نمایش دیالوگ بدون تأخیر
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (mounted) {
+        _showPaymentDialog(serviceId, cost);
+      }
+    });
   }
 
   void _showPaymentDialog(String serviceId, double cost) {
@@ -331,204 +337,266 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         serviceName = 'بسته کامل';
     }
 
+    // بازخورد لمسی برای باز شدن دیالوگ
+    HapticFeedback.lightImpact();
+
+    // به‌روزرسانی موجودی کیف پول قبل از نمایش دیالوگ
+    _loadWalletBalance();
+
     showDialog<void>(
       context: context,
+      barrierDismissible: true,
       builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF2A2A2A),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.r),
-          ),
-          title: Text(
-            'انتخاب روش پرداخت',
-            style: GoogleFonts.vazirmatn(
-              color: Colors.white,
-              fontSize: 18.sp,
-              fontWeight: FontWeight.bold,
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return PopScope(
+          canPop: !_isProcessingPayment,
+          child: AlertDialog(
+            backgroundColor: context.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20.r),
+              side: BorderSide(
+                color: AppTheme.goldColor.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'خدمت: $serviceName',
-                style: GoogleFonts.vazirmatn(
-                  color: AppTheme.goldColor,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
+            title: Text(
+              'انتخاب روش پرداخت',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textColor,
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'مبلغ: ${_formatAmountFa(cost)} تومان',
-                style: GoogleFonts.vazirmatn(
-                  color: Colors.white,
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              // نمایش موجودی کیف پول
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3A3A3A),
-                  borderRadius: BorderRadius.circular(8.r),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      LucideIcons.wallet,
-                      color: AppTheme.goldColor,
-                      size: 16.sp,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'موجودی کیف پول: ${_formatAmountFa(_walletBalance / 10)} تومان',
-                      style: GoogleFonts.vazirmatn(
-                        color: Colors.white,
-                        fontSize: 12.sp,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              // ورودی کد تخفیف
-              TextField(
-                onChanged: (value) {
-                  _discountCode = value.trim().isEmpty ? null : value.trim();
-                },
-                style: GoogleFonts.vazirmatn(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'کد تخفیف (اختیاری)',
-                  hintStyle: GoogleFonts.vazirmatn(color: Colors.grey[400]),
-                  filled: true,
-                  fillColor: const Color(0xFF3A3A3A),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.r),
-                    borderSide: BorderSide.none,
+              textAlign: TextAlign.center,
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'خدمت: $serviceName',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: AppTheme.goldColor,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.bold,
                   ),
-                  contentPadding: EdgeInsets.symmetric(
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  'مبلغ: ${FormatUtils.formatAmount(cost)} تومان',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 12.h),
+                // نمایش موجودی کیف پول
+                Container(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 12.w,
                     vertical: 8.h,
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'روش پرداخت خود را انتخاب کنید:',
-                style: GoogleFonts.vazirmatn(
-                  color: Colors.grey[300],
-                  fontSize: 14.sp,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-          actions: [
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _isProcessingPayment
-                        ? null
-                        : () {
-                            Navigator.of(context).pop();
-                            _processPayment('wallet', serviceId, cost);
-                          },
-                    icon: _isProcessingPayment
-                        ? SizedBox(
-                            width: 18.w,
-                            height: 18.h,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                        : const Icon(LucideIcons.wallet, size: 18),
-                    label: Text(
-                      _isProcessingPayment ? 'در حال پردازش...' : 'کیف پول',
-                      style: GoogleFonts.vazirmatn(fontSize: 14),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? context.veryDarkBackground
+                        : AppTheme.lightButtonBackground,
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(
+                      color: AppTheme.goldColor.withValues(alpha: 0.2),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _isProcessingPayment
-                          ? Colors.grey[600]
-                          : AppTheme.goldColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.r),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.wallet,
+                        color: AppTheme.goldColor,
+                        size: 18.sp,
                       ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        'موجودی کیف پول: ${PaymentConstants.formatAmount(_walletBalance)}',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: context.textColor,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                // ورودی کد تخفیف
+                TextField(
+                  onChanged: (value) {
+                    _discountCode = value.trim().isEmpty ? null : value.trim();
+                  },
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                    fontSize: 14.sp,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'کد تخفیف (اختیاری)',
+                    hintStyle: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textSecondary,
+                      fontSize: 14.sp,
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? context.veryDarkBackground
+                        : AppTheme.lightButtonBackground,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                      borderSide: BorderSide(color: context.separatorColor),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                      borderSide: BorderSide(color: context.separatorColor),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                      borderSide: BorderSide(
+                        color: AppTheme.goldColor,
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16.w,
+                      vertical: 12.h,
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _isProcessingPayment
-                        ? null
-                        : () {
-                            Navigator.of(context).pop();
-                            _processPayment('direct', serviceId, cost);
-                          },
-                    icon: _isProcessingPayment
-                        ? SizedBox(
-                            width: 18.w,
-                            height: 18.h,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                AppTheme.goldColor,
-                              ),
-                            ),
-                          )
-                        : const Icon(LucideIcons.creditCard, size: 18),
-                    label: Text(
-                      _isProcessingPayment
-                          ? 'در حال پردازش...'
-                          : 'پرداخت مستقیم',
-                      style: GoogleFonts.vazirmatn(fontSize: 14),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: _isProcessingPayment
-                          ? Colors.grey[400]
-                          : AppTheme.goldColor,
-                      side: BorderSide(
-                        color: _isProcessingPayment
-                            ? Colors.grey[400]!
-                            : AppTheme.goldColor,
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.r),
-                      ),
-                    ),
+                SizedBox(height: 16.h),
+                Text(
+                  'روش پرداخت خود را انتخاب کنید:',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textSecondary,
+                    fontSize: 14.sp,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(
-                  'انصراف',
-                  style: GoogleFonts.vazirmatn(
-                    color: Colors.grey[400],
-                    fontSize: 14.sp,
+            actions: [
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _isProcessingPayment
+                          ? null
+                          : () {
+                              Navigator.of(context).pop();
+                              _processPayment('wallet', serviceId, cost);
+                            },
+                      icon: _isProcessingPayment
+                          ? SizedBox(
+                              width: 18.w,
+                              height: 18.h,
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                          : const Icon(LucideIcons.wallet, size: 18),
+                      label: Text(
+                        _isProcessingPayment ? 'در حال پردازش...' : 'کیف پول',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 14,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _isProcessingPayment
+                            ? context.textSecondary
+                            : AppTheme.goldColor,
+                        foregroundColor: _isProcessingPayment
+                            ? context.textColor
+                            : (isDark ? AppTheme.onGoldColor : Colors.white),
+                        padding: EdgeInsets.symmetric(vertical: 12.h),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                        elevation: _isProcessingPayment ? 0 : 4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _isProcessingPayment
+                          ? null
+                          : () {
+                              Navigator.of(context).pop();
+                              _processPayment('direct', serviceId, cost);
+                            },
+                      icon: _isProcessingPayment
+                          ? SizedBox(
+                              width: 18.w,
+                              height: 18.h,
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  AppTheme.goldColor,
+                                ),
+                              ),
+                            )
+                          : const Icon(LucideIcons.creditCard, size: 18),
+                      label: Text(
+                        _isProcessingPayment
+                            ? 'در حال پردازش...'
+                            : 'پرداخت مستقیم',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 14,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _isProcessingPayment
+                            ? context.textSecondary
+                            : AppTheme.goldColor,
+                        side: BorderSide(
+                          color: _isProcessingPayment
+                              ? context.separatorColor
+                              : AppTheme.goldColor,
+                          width: 2,
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: 12.h),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    'انصراف',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textSecondary,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -541,16 +609,18 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
   ) async {
     if (_isProcessingPayment) return;
 
-    if (mounted) {
-      setState(() {
-        _isProcessingPayment = true;
-      });
-    }
+    SafeSetState.call(this, () {
+      _isProcessingPayment = true;
+      _processingServiceId = serviceId;
+    });
 
     try {
       final currentUser = Supabase.instance.client.auth.currentUser;
       if (currentUser == null) {
-        _showErrorDialog('لطفاً ابتدا وارد حساب کاربری خود شوید');
+        DialogHelpers.showError(
+          context,
+          'لطفاً ابتدا وارد حساب کاربری خود شوید',
+        );
         return;
       }
 
@@ -566,7 +636,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         case 'package':
           serviceType = TrainerServiceType.package;
         default:
-          _showErrorDialog('نوع خدمات نامعتبر');
+          DialogHelpers.showError(context, 'نوع خدمات نامعتبر');
           return;
       }
 
@@ -588,32 +658,43 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
 
       if (result['success'] == true) {
         if (paymentMethod == 'wallet') {
-          _showSuccessDialog(
-            'اشتراک با موفقیت خریداری شد',
-            'اشتراک شما فعال شده و می‌توانید از خدمات مربی استفاده کنید.',
-          );
+          if (mounted) {
+            DialogHelpers.showSuccess(
+              context,
+              'اشتراک شما فعال شده و می‌توانید از خدمات مربی استفاده کنید.',
+              title: 'اشتراک با موفقیت خریداری شد',
+            );
+          }
           // به‌روزرسانی موجودی کیف پول
-          await _loadWalletBalance();
+          if (mounted) {
+            await _loadWalletBalance();
+          }
         } else {
           // هدایت به درگاه پرداخت
-          _showPaymentRedirectDialog(
-            result['payment_url']! as String,
-            result['track_id']! as String,
-          );
+          if (mounted) {
+            _showPaymentRedirectDialog(
+              result['payment_url']! as String,
+              result['track_id']! as String,
+            );
+          }
         }
       } else {
-        _showErrorDialog(
-          (result['error'] as String?) ?? 'خطا در پردازش پرداخت',
-        );
+        if (mounted) {
+          DialogHelpers.showError(
+            context,
+            (result['error'] as String?) ?? 'خطا در پردازش پرداخت',
+          );
+        }
       }
     } catch (e) {
-      _showErrorDialog('خطا در پردازش: $e');
-    } finally {
       if (mounted) {
-        setState(() {
-          _isProcessingPayment = false;
-        });
+        DialogHelpers.showError(context, 'خطا در پردازش: $e');
       }
+    } finally {
+      SafeSetState.call(this, () {
+        _isProcessingPayment = false;
+        _processingServiceId = null;
+      });
     }
   }
 
@@ -632,182 +713,240 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     }
   }
 
-  void _showErrorDialog(String message) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A2A2A),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.r),
-        ),
-        title: Text(
-          'خطا',
-          style: GoogleFonts.vazirmatn(
-            color: Colors.red,
-            fontSize: 18.sp,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.vazirmatn(color: Colors.white, fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'باشه',
-              style: GoogleFonts.vazirmatn(color: AppTheme.goldColor),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSuccessDialog(String title, String message) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A2A2A),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.r),
-        ),
-        title: Text(
-          title,
-          style: GoogleFonts.vazirmatn(
-            color: Colors.green,
-            fontSize: 18.sp,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.vazirmatn(color: Colors.white, fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'باشه',
-              style: GoogleFonts.vazirmatn(color: AppTheme.goldColor),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showPaymentRedirectDialog(String paymentUrl, String trackId) {
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A2A2A),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.r),
-        ),
-        title: Text(
-          'هدایت به درگاه پرداخت',
-          style: GoogleFonts.vazirmatn(
-            color: AppTheme.goldColor,
-            fontSize: 18.sp,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'برای تکمیل پرداخت، به درگاه پرداخت هدایت می‌شوید.',
-              style: GoogleFonts.vazirmatn(color: Colors.white, fontSize: 14),
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: context.cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.r),
+            side: BorderSide(
+              color: AppTheme.goldColor.withValues(alpha: 0.3),
+              width: 1.5,
             ),
-            const SizedBox(height: 16),
-            Text(
-              'کد پیگیری: $trackId',
-              style: GoogleFonts.vazirmatn(
-                color: Colors.grey[400],
-                fontSize: 12.sp,
+          ),
+          title: Text(
+            'هدایت به درگاه پرداخت',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: AppTheme.goldColor,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'برای تکمیل پرداخت، به درگاه پرداخت هدایت می‌شوید.',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textColor,
+                  fontSize: 14.sp,
+                ),
+              ),
+              SizedBox(height: 16.h),
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? context.veryDarkBackground
+                      : AppTheme.lightButtonBackground,
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(
+                    color: AppTheme.goldColor.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      LucideIcons.hash,
+                      color: AppTheme.goldColor,
+                      size: 18.sp,
+                    ),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: Text(
+                        'کد پیگیری: $trackId',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: context.textColor,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'انصراف',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textSecondary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                final uri = Uri.parse(paymentUrl);
+                final can = await canLaunchUrl(uri);
+                if (can) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } else {
+                  // fallback try without canLaunch
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.goldColor,
+                foregroundColor: isDark ? AppTheme.onGoldColor : Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                elevation: 4,
+              ),
+              child: Text(
+                'ادامه پرداخت',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'انصراف',
-              style: GoogleFonts.vazirmatn(color: Colors.grey[400]),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              final uri = Uri.parse(paymentUrl);
-              final can = await canLaunchUrl(uri);
-              if (can) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              } else {
-                // fallback try without canLaunch
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.goldColor,
-              foregroundColor: Colors.white,
-            ),
-            child: Text('ادامه پرداخت', style: GoogleFonts.vazirmatn()),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: context.backgroundColor,
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
-            expandedHeight: 300,
+            expandedHeight: 280.h,
+            floating: false,
             pinned: true,
-            backgroundColor: const Color(0xFF1A1A1A),
-            flexibleSpace: FlexibleSpaceBar(background: _buildHeader()),
-            leading: IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(LucideIcons.arrowRight, color: Colors.white),
+            backgroundColor: context.backgroundColor,
+            elevation: 0,
+            leading: Container(
+              margin: EdgeInsets.all(8.w),
+              decoration: BoxDecoration(
+                color: context.cardColor.withValues(alpha: 0.9),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8.r,
+                    offset: Offset(0, 2.h),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: Icon(
+                  LucideIcons.arrowRight,
+                  color: context.textColor,
+                  size: 20.sp,
+                ),
+              ),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: _buildHeader(),
+              centerTitle: false,
             ),
           ),
         ],
         body: Column(
           children: [
             _buildActionButtons(),
-            ColoredBox(
-              color: const Color(0xFF2A2A2A),
+            Container(
+              decoration: BoxDecoration(
+                color: context.cardColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4.r,
+                    offset: Offset(0, 2.h),
+                  ),
+                ],
+              ),
               child: TabBar(
                 controller: _tabController,
                 indicatorColor: AppTheme.goldColor,
+                indicatorWeight: 3,
+                indicatorSize: TabBarIndicatorSize.tab,
                 labelColor: AppTheme.goldColor,
-                unselectedLabelColor: Colors.grey[400],
+                unselectedLabelColor: context.textSecondary,
+                labelStyle: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.bold,
+                ),
+                unselectedLabelStyle: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                ),
                 tabs: [
-                  Tab(child: Text('اطلاعات', style: GoogleFonts.vazirmatn())),
-                  Tab(child: Text('نظرات', style: GoogleFonts.vazirmatn())),
                   Tab(
-                    child: Text(' گواهینامه', style: GoogleFonts.vazirmatn()),
+                    child: Text(
+                      'اطلاعات',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  Tab(child: Text('تعرفه ها', style: GoogleFonts.vazirmatn())),
+                  Tab(
+                    child: Text(
+                      'نظرات',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Tab(
+                    child: Text(
+                      'گواهینامه',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Tab(
+                    child: Text(
+                      'تعرفه‌ها',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
             ),
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildInfoTab(),
-                  _buildReviewsTab(),
-                  _buildCertificatesTab(),
-                  _buildServicesTab(),
-                ],
+              child: Container(
+                color: context.backgroundColor,
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildInfoTab(),
+                    _buildReviewsTab(),
+                    _buildCertificatesTab(),
+                    _buildServicesTab(),
+                  ],
+                ),
               ),
             ),
           ],
@@ -817,82 +956,93 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
   }
 
   Widget _buildHeader() {
-    return DecoratedBox(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppTheme.goldColor.withValues(alpha: 0.8),
-            const Color(0xFF1A1A1A),
-          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  AppTheme.goldColor.withValues(alpha: 0.12),
+                  AppTheme.goldColor.withValues(alpha: 0.05),
+                  context.backgroundColor,
+                ]
+              : [
+                  AppTheme.lightGradientStart.withValues(alpha: 0.3),
+                  AppTheme.lightGradientStart.withValues(alpha: 0.15),
+                  context.backgroundColor,
+                ],
         ),
       ),
       child: SafeArea(
+        bottom: false,
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8),
+          padding: EdgeInsets.only(top: 8.h, bottom: 16.h),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // تصویر مربی
-              Stack(
-                children: [
-                  Hero(
-                    tag:
-                        'trainer_${widget.trainer.id}_${widget.trainer.username}',
-                    child: Container(
-                      width: 100.w,
-                      height: 100.h,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 3),
+              // آواتار مربی با طراحی مدرن
+              Hero(
+                tag: 'trainer_${widget.trainer.id}_${widget.trainer.username}',
+                child: Container(
+                  width: 110.w,
+                  height: 110.h,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppTheme.goldColor,
+                        AppTheme.goldColor.withValues(alpha: 0.7),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.goldColor.withValues(alpha: 0.4),
+                        blurRadius: 24.r,
+                        spreadRadius: 0,
+                        offset: Offset(0, 8.h),
                       ),
-                      child: ClipOval(
-                        child: widget.trainer.avatarUrl != null
-                            ? Image.network(
-                                widget.trainer.avatarUrl!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return _buildDefaultAvatar();
-                                },
-                              )
-                            : _buildDefaultAvatar(),
-                      ),
+                    ],
+                  ),
+                  padding: EdgeInsets.all(4.w),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: context.cardColor,
+                    ),
+                    child: ClipOval(
+                      child: widget.trainer.avatarUrl != null
+                          ? Image.network(
+                              widget.trainer.avatarUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return _buildDefaultAvatar();
+                              },
+                            )
+                          : _buildDefaultAvatar(),
                     ),
                   ),
-                  if (widget.trainer.isOnline ?? false)
-                    Positioned(
-                      bottom: 0.h,
-                      right: 0.w,
-                      child: Container(
-                        width: 28.w,
-                        height: 28.h,
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: Icon(
-                          LucideIcons.wifi,
-                          color: Colors.white,
-                          size: 14.sp,
-                        ),
-                      ),
-                    ),
-                ],
+                ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 16.h),
 
-              // نام و رتبه
-              Flexible(
+              // نام مربی
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24.w),
                 child: Text(
                   widget.trainer.fullName.isNotEmpty
                       ? widget.trainer.fullName
                       : widget.trainer.username,
-                  style: GoogleFonts.vazirmatn(
-                    color: Colors.white,
-                    fontSize: 20.sp,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: isDark ? Colors.white : context.textColor,
+                    fontSize: 22.sp,
                     fontWeight: FontWeight.bold,
+                    height: 1.2,
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 2,
@@ -900,41 +1050,61 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                 ),
               ),
 
-              Container(
-                margin: const EdgeInsets.only(top: 6),
-                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                decoration: BoxDecoration(
-                  color: AppTheme.goldColor,
-                  borderRadius: BorderRadius.circular(16.r),
-                ),
-                child: Text(
-                  'رتبه #${widget.trainer.ranking ?? 999}',
-                  style: GoogleFonts.vazirmatn(
-                    color: Colors.white,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
+              SizedBox(height: 10.h),
 
-              // امتیاز و آمار
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildStatItem(
-                    icon: LucideIcons.star,
-                    label: 'امتیاز',
-                    value: _currentRating.toStringAsFixed(1),
-                    color: Colors.amber,
-                  ),
-                  _buildStatItem(
-                    icon: LucideIcons.messageCircle,
-                    label: 'نظرات',
-                    value: _currentReviewCount.toString(),
-                    color: Colors.blue,
-                  ),
-                ],
+              // رتبه و آمار در یک ردیف
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24.w),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // رتبه
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 14.w,
+                        vertical: 6.h,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.goldColor,
+                            AppTheme.goldColor.withValues(alpha: 0.9),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(20.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.goldColor.withValues(alpha: 0.3),
+                            blurRadius: 8.r,
+                            offset: Offset(0, 3.h),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            LucideIcons.trophy,
+                            color: isDark ? AppTheme.onGoldColor : Colors.white,
+                            size: 14.sp,
+                          ),
+                          SizedBox(width: 5.w),
+                          Text(
+                            '#${widget.trainer.ranking ?? 999}',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              color: isDark
+                                  ? AppTheme.onGoldColor
+                                  : Colors.white,
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -945,25 +1115,57 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
 
   Widget _buildActionButtons() {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12),
-      child: Center(
-        child: SizedBox(
-          width: 200.w,
+      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+      decoration: BoxDecoration(
+        color: context.cardColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8.r,
+            offset: Offset(0, -2.h),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppTheme.goldColor, AppTheme.darkGold],
+            ),
+            borderRadius: BorderRadius.circular(16.r),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.goldColor.withValues(alpha: 0.4),
+                blurRadius: 12.r,
+                offset: Offset(0, 4.h),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
           child: ElevatedButton.icon(
             onPressed: _messageTrainer,
-            icon: const Icon(LucideIcons.messageCircle, size: 20),
+            icon: Icon(LucideIcons.messageCircle, size: 20.sp),
             label: Text(
               'پیام خصوصی',
-              style: GoogleFonts.vazirmatn(fontSize: 14),
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.3,
+              ),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.goldColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+              backgroundColor: Colors.transparent,
+              foregroundColor: AppTheme.onGoldColor,
+              shadowColor: Colors.transparent,
+              padding: EdgeInsets.symmetric(horizontal: 28.w, vertical: 14.h),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.r),
+                borderRadius: BorderRadius.circular(16.r),
               ),
-              elevation: 4,
+              elevation: 0,
             ),
           ),
         ),
@@ -979,86 +1181,83 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         children: [
           // بیوگرافی
           if (widget.trainer.bio != null && widget.trainer.bio!.isNotEmpty) ...[
-            Text(
-              'خود نوشته',
-              style: GoogleFonts.vazirmatn(
-                color: Colors.white,
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            _buildSectionTitle('خود نوشته'),
             SizedBox(height: 8.h),
             Container(
-              padding: EdgeInsets.all(8.w),
+              padding: EdgeInsets.all(16.w),
               decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(8.r),
-                border: Border.all(
-                  color: Colors.grey.withValues(alpha: 0.2),
-                  width: 0.5,
-                ),
+                color: context.cardColor,
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(color: context.separatorColor, width: 1),
               ),
               child: Text(
                 widget.trainer.bio!,
-                style: GoogleFonts.vazirmatn(
-                  color: Colors.grey[300],
-                  fontSize: 12.sp,
-                  height: 1.4,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textColor,
+                  fontSize: 14.sp,
+                  height: 1.6,
                 ),
                 textAlign: TextAlign.justify,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 20.h),
           ],
 
           // تخصص‌ها
           _buildSectionTitle('تخصص‌ها'),
+          SizedBox(height: 8.h),
           if ((widget.trainer.specializations ?? []).isEmpty)
             Container(
-              padding: const EdgeInsets.all(12.0 * 1.5),
+              padding: EdgeInsets.all(20.w),
               decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(10.r),
+                color: context.cardColor,
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(color: context.separatorColor),
               ),
               child: Text(
                 'تخصصی ثبت نشده',
-                style: GoogleFonts.vazirmatn(
-                  color: Colors.grey[400],
-                  fontSize: 13.sp,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textSecondary,
+                  fontSize: 14.sp,
                 ),
                 textAlign: TextAlign.center,
               ),
             )
           else
             Wrap(
-              spacing: 6,
-              runSpacing: 6,
+              spacing: 8.w,
+              runSpacing: 8.h,
               children: (widget.trainer.specializations ?? []).map((spec) {
                 return Container(
                   padding: EdgeInsets.symmetric(
-                    horizontal: 10.w,
-                    vertical: 6.h,
+                    horizontal: 14.w,
+                    vertical: 8.h,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.goldColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(16.r),
+                    color: AppTheme.goldColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20.r),
                     border: Border.all(
-                      color: AppTheme.goldColor.withValues(alpha: 0.5),
+                      color: AppTheme.goldColor.withValues(alpha: 0.4),
+                      width: 1.5,
                     ),
                   ),
                   child: Text(
                     spec,
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
                       color: AppTheme.goldColor,
-                      fontSize: 11.sp,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 );
               }).toList(),
             ),
-          const SizedBox(height: 20),
+          SizedBox(height: 24.h),
 
           // آمار
           _buildSectionTitle('آمار'),
@@ -1145,27 +1344,30 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     return Column(
       children: [
         // دکمه افزودن نظر
-        Container(
-          width: double.infinity,
-          margin: EdgeInsets.all(16.w),
-          child: ElevatedButton.icon(
-            onPressed: _showReviewDialog,
-            icon: const Icon(LucideIcons.star),
-            label: Text(
-              'نظر خود را ثبت کنید',
-              style: GoogleFonts.vazirmatn(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.bold,
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _showReviewDialog,
+              icon: const Icon(LucideIcons.star),
+              label: Text(
+                'نظر خود را ثبت کنید',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.goldColor,
-              foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(vertical: 12.h),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.r),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.goldColor,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                elevation: 4,
               ),
-              elevation: 4,
             ),
           ),
         ),
@@ -1180,21 +1382,33 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
               ? SingleChildScrollView(
                   child: Center(
                     child: Padding(
-                      padding: EdgeInsets.all(32.w),
+                      padding: EdgeInsets.all(48.w),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             LucideIcons.messageCircle,
-                            size: 64.sp,
-                            color: Colors.grey[600],
+                            size: 80.sp,
+                            color: context.textSecondary,
                           ),
-                          SizedBox(height: 16.h),
+                          SizedBox(height: 24.h),
                           Text(
                             'هنوز نظری ثبت نشده',
-                            style: GoogleFonts.vazirmatn(
-                              color: Colors.grey[600],
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              color: context.textColor,
                               fontSize: 18.sp,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          SizedBox(height: 8.h),
+                          Text(
+                            'اولین کسی باشید که نظر می‌دهد',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              color: context.textSecondary,
+                              fontSize: 14.sp,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -1207,7 +1421,9 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                   padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12),
                   itemCount: _reviews.length,
                   itemBuilder: (BuildContext context, int index) {
-                    print('🔄 نمایش نظر ${index + 1} از ${_reviews.length}');
+                    if (kDebugMode) {
+                      print('🔄 نمایش نظر ${index + 1} از ${_reviews.length}');
+                    }
                     return TrainerReviewWidget(review: _reviews[index]);
                   },
                 ),
@@ -1221,33 +1437,45 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
       future: _loadCertificates(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(
+            child: CircularProgressIndicator(color: AppTheme.goldColor),
+          );
         }
 
         if (snapshot.hasError) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(LucideIcons.alertCircle, size: 64.sp, color: Colors.red),
-                const SizedBox(height: 16),
-                Text(
-                  'خطا در بارگذاری مدارک',
-                  style: GoogleFonts.vazirmatn(
-                    color: Colors.red,
-                    fontSize: 18.sp,
+            child: Padding(
+              padding: EdgeInsets.all(32.w),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    LucideIcons.alertCircle,
+                    size: 80.sp,
+                    color: AppTheme.errorColor,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  snapshot.error.toString(),
-                  style: GoogleFonts.vazirmatn(
-                    color: Colors.grey[500],
-                    fontSize: 14.sp,
+                  SizedBox(height: 24.h),
+                  Text(
+                    'خطا در بارگذاری مدارک',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: AppTheme.errorColor,
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                  SizedBox(height: 12.h),
+                  Text(
+                    snapshot.error.toString(),
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textSecondary,
+                      fontSize: 14.sp,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -1259,28 +1487,38 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
 
         if (approvedCertificates.isEmpty) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(LucideIcons.award, size: 64.sp, color: Colors.grey[600]),
-                const SizedBox(height: 16),
-                Text(
-                  'مدرکی ثبت نشده',
-                  style: GoogleFonts.vazirmatn(
-                    color: Colors.grey[600],
-                    fontSize: 18.sp,
+            child: Padding(
+              padding: EdgeInsets.all(48.w),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    LucideIcons.award,
+                    size: 80.sp,
+                    color: context.textSecondary,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'مربی هنوز مدرکی ثبت نکرده یا مدارک در انتظار تایید هستند',
-                  style: GoogleFonts.vazirmatn(
-                    color: Colors.grey[500],
-                    fontSize: 14.sp,
+                  SizedBox(height: 24.h),
+                  Text(
+                    'مدرکی ثبت نشده',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textColor,
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                  SizedBox(height: 12.h),
+                  Text(
+                    'مربی هنوز مدرکی ثبت نکرده یا مدارک در انتظار تایید هستند',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textSecondary,
+                      fontSize: 14.sp,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -1345,44 +1583,16 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 6.h),
+      padding: EdgeInsets.only(bottom: 8.h),
       child: Text(
         title,
-        style: GoogleFonts.vazirmatn(
-          color: Colors.white,
-          fontSize: 14.sp,
-          fontWeight: FontWeight.w600,
+        style: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          color: context.textColor,
+          fontSize: 16.sp,
+          fontWeight: FontWeight.bold,
         ),
       ),
-    );
-  }
-
-  Widget _buildStatItem({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: GoogleFonts.vazirmatn(
-            color: color,
-            fontSize: 14.sp,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label,
-          style: GoogleFonts.vazirmatn(color: Colors.white, fontSize: 10),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
     );
   }
 
@@ -1393,29 +1603,49 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     required Color color,
   }) {
     return Container(
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(10.r),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.1),
+            blurRadius: 8.r,
+            offset: Offset(0.w, 2.h),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 6),
+          Container(
+            padding: EdgeInsets.all(10.w),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 26.sp),
+          ),
+          SizedBox(height: 12.h),
           Text(
             value,
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
               color: color,
-              fontSize: 16.sp,
+              fontSize: 20.sp,
               fontWeight: FontWeight.bold,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 6.h),
           Text(
             title,
-            style: GoogleFonts.vazirmatn(color: Colors.grey[400], fontSize: 10),
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textSecondary,
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w500,
+            ),
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -1449,13 +1679,13 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         _buildSectionTitle('خدمات ارائه شده'),
 
         // برنامه تمرینی
-        _buildServiceCard(
+        ServiceCardWidget(
           icon: LucideIcons.dumbbell,
           title: 'برنامه تمرینی',
           description: 'برنامه تمرینی شخصی‌سازی شده براساس اهداف شما',
           price: _serviceTrainingEnabled
-              ? _formatAmountFa(_trainingCost)
-              : _toFa('۰'),
+              ? FormatUtils.formatAmount(_trainingCost)
+              : FormatUtils.toPersianDigits('۰'),
           period: 'ماهانه',
           features: [
             'برنامه ی تمرینی روزانه',
@@ -1468,16 +1698,21 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
           color: Colors.orange,
           disabled: !_serviceTrainingEnabled,
           serviceId: 'training',
+          isSelected: _selectedService == 'training',
+          isProcessing:
+              _processingServiceId == 'training' && _isProcessingPayment,
           onTap: () => _selectService('training', _trainingCost.toDouble()),
         ),
         const SizedBox(height: 12),
 
         // برنامه رژیم غذایی
-        _buildServiceCard(
+        ServiceCardWidget(
           icon: LucideIcons.apple,
           title: 'برنامه رژیم غذایی',
           description: 'رژیم غذایی متعادل متناسب با اهداف و شرایط شما',
-          price: _serviceDietEnabled ? _formatAmountFa(_dietCost) : _toFa('۰'),
+          price: _serviceDietEnabled
+              ? FormatUtils.formatAmount(_dietCost)
+              : FormatUtils.toPersianDigits('۰'),
           period: 'ماهانه',
           features: [
             'برنامه ی غذایی روزانه',
@@ -1490,18 +1725,20 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
           color: Colors.purple,
           disabled: !_serviceDietEnabled,
           serviceId: 'diet',
+          isSelected: _selectedService == 'diet',
+          isProcessing: _processingServiceId == 'diet' && _isProcessingPayment,
           onTap: () => _selectService('diet', _dietCost.toDouble()),
         ),
         const SizedBox(height: 12),
 
         // مشاوره و نظارت
-        _buildServiceCard(
+        ServiceCardWidget(
           icon: LucideIcons.headphones,
           title: 'مشاوره و نظارت',
           description: 'مشاوره تخصصی و نظارت مداوم بر روند پیشرفت شما',
           price: _serviceConsultEnabled && _serviceTrainingEnabled
-              ? _formatAmountFa(consultingCost)
-              : _toFa('۰'),
+              ? FormatUtils.formatAmount(consultingCost)
+              : FormatUtils.toPersianDigits('۰'),
           period: 'ماهانه',
           features: [
             'چت نامحدود با مربی',
@@ -1513,362 +1750,34 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
           color: Colors.blue,
           disabled: !_serviceConsultEnabled || !_serviceTrainingEnabled,
           serviceId: 'consulting',
+          isSelected: _selectedService == 'consulting',
+          isProcessing:
+              _processingServiceId == 'consulting' && _isProcessingPayment,
           onTap: () => _selectService('consulting', consultingCost.toDouble()),
         ),
         const SizedBox(height: 16),
 
         // بسته کامل
-        GestureDetector(
+        PackageCardWidget(
+          cost: packageFinal.toDouble(),
+          packageRaw: _trainingCost + _dietCost + consultingCost,
+          discountPct: _discountPct,
+          isSelected: _selectedService == 'package',
+          isProcessing:
+              _processingServiceId == 'package' && _isProcessingPayment,
           onTap: () => _selectService('package', packageFinal.toDouble()),
-          child: Container(
-            padding: const EdgeInsets.all(12.0 * 1.5),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.goldColor.withValues(alpha: 0.2),
-                  AppTheme.goldColor.withValues(alpha: 0.1),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12.r),
-              border: Border.all(
-                color: _selectedService == 'package'
-                    ? AppTheme.goldColor
-                    : AppTheme.goldColor.withValues(alpha: 0.5),
-                width: _selectedService == 'package' ? 3 : 2,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(6.w),
-                      decoration: BoxDecoration(
-                        color: AppTheme.goldColor,
-                        borderRadius: BorderRadius.circular(6.r),
-                      ),
-                      child: Icon(
-                        LucideIcons.crown,
-                        color: Colors.white,
-                        size: 20.sp,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'بسته کامل',
-                            style: GoogleFonts.vazirmatn(
-                              color: AppTheme.goldColor,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            'همه خدمات با تخفیف ویژه',
-                            style: GoogleFonts.vazirmatn(
-                              color: Colors.grey[300],
-                              fontSize: 12.sp,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Price (dynamic later)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'تومان ',
-                              style: GoogleFonts.vazirmatn(
-                                color: Colors.grey[300],
-                                fontSize: 10.sp,
-                              ),
-                            ),
-                            Flexible(
-                              child: Text(
-                                _formatAmountFa(packageFinal),
-                                style: GoogleFonts.vazirmatn(
-                                  color: AppTheme.goldColor,
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          'ماهانه',
-                          style: GoogleFonts.vazirmatn(
-                            color: Colors.grey[400],
-                            fontSize: 10.sp,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'شامل: برنامه تمرینی + برنامه رژیم غذایی + مشاوره و نظارت',
-                  style: GoogleFonts.vazirmatn(
-                    color: Colors.white,
-                    fontSize: 12.sp,
-                    height: 1.4.h,
-                  ),
-                  textAlign: TextAlign.justify,
-                ),
-                const SizedBox(height: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (packageRaw > 0 && _discountPct > 0)
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12.w,
-                          vertical: 6.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green,
-                          borderRadius: BorderRadius.circular(8.r),
-                        ),
-                        child: Text(
-                          'تخفیف ${_toFa(_discountPct.toStringAsFixed(0))}٪',
-                          style: GoogleFonts.vazirmatn(
-                            color: Colors.white,
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
         ),
       ],
     );
   }
 
-  Widget _buildServiceCard({
-    required IconData icon,
-    required String title,
-    required String description,
-    required String price,
-    required String period,
-    required List<String> features,
-    required Color color,
-    bool isPopular = false,
-    bool disabled = false,
-    String? serviceId,
-    VoidCallback? onTap,
-  }) {
-    return Opacity(
-      opacity: disabled ? 0.5 : 1,
-      child: GestureDetector(
-        onTap: disabled ? null : onTap,
-        child: Container(
-          padding: EdgeInsets.all(12.w),
-          decoration: BoxDecoration(
-            color: const Color(0xFF2A2A2A),
-            borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(
-              color: _selectedService == serviceId
-                  ? AppTheme.goldColor
-                  : (isPopular
-                        ? AppTheme.goldColor
-                        : color.withValues(alpha: 0.3)),
-              width: _selectedService == serviceId ? 3 : (isPopular ? 2 : 1),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 6.r,
-                offset: Offset(0.w, 2.h),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(6.w),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(6.r),
-                    ),
-                    child: Icon(icon, color: color, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                title,
-                                style: GoogleFonts.vazirmatn(
-                                  color: Colors.white,
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (isPopular) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 6.w,
-                                  vertical: 2.h,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.goldColor,
-                                  borderRadius: BorderRadius.circular(6.r),
-                                ),
-                                child: Text(
-                                  'محبوب',
-                                  style: GoogleFonts.vazirmatn(
-                                    color: Colors.white,
-                                    fontSize: 9.sp,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                            if (_selectedService == serviceId) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 6.w,
-                                  vertical: 2.h,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.green,
-                                  borderRadius: BorderRadius.circular(6.r),
-                                ),
-                                child: Text(
-                                  'انتخاب شده',
-                                  style: GoogleFonts.vazirmatn(
-                                    color: Colors.white,
-                                    fontSize: 9.sp,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          description,
-                          style: GoogleFonts.vazirmatn(
-                            color: Colors.grey[400],
-                            fontSize: 11.sp,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'تومان ',
-                            style: GoogleFonts.vazirmatn(
-                              color: Colors.grey[300],
-                              fontSize: 10.sp,
-                            ),
-                          ),
-                          Flexible(
-                            child: Text(
-                              price,
-                              style: GoogleFonts.vazirmatn(
-                                color: color,
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        period,
-                        style: GoogleFonts.vazirmatn(
-                          color: Colors.grey[400],
-                          fontSize: 10.sp,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'شامل:',
-                style: GoogleFonts.vazirmatn(
-                  color: Colors.white,
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 6),
-              ...features.map(
-                (feature) => Padding(
-                  padding: const EdgeInsets.only(bottom: 3),
-                  child: Row(
-                    children: [
-                      Icon(LucideIcons.check, color: color, size: 14),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          feature,
-                          style: GoogleFonts.vazirmatn(
-                            color: Colors.grey[300],
-                            fontSize: 11.sp,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildDefaultAvatar() {
-    return const ColoredBox(
-      color: Color(0xFF3A3A3A),
-      child: Icon(LucideIcons.user, color: Colors.white, size: 60),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ColoredBox(
+      color: isDark
+          ? context.veryDarkBackground
+          : AppTheme.lightButtonBackground,
+      child: Icon(LucideIcons.user, color: context.textSecondary, size: 60.sp),
     );
   }
 
@@ -1877,7 +1786,9 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     try {
       return await CertificateService.getPublicCertificates(widget.trainer.id!);
     } catch (e) {
-      throw Exception('خطا در بارگذاری مدارک: $e');
+      // به جای throw کردن، لیست خالی برمی‌گردانیم تا برنامه کرش نکند
+      debugPrint('_loadCertificates error: $e');
+      return [];
     }
   }
 
@@ -1906,10 +1817,11 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
-                        padding: EdgeInsets.all(32.w),
+                        padding: EdgeInsets.all(48.w),
                         decoration: BoxDecoration(
-                          color: Colors.grey[800],
-                          borderRadius: BorderRadius.circular(16.r),
+                          color: context.cardColor,
+                          borderRadius: BorderRadius.circular(20.r),
+                          border: Border.all(color: context.separatorColor),
                         ),
                         child: Center(
                           child: Column(
@@ -1917,15 +1829,17 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                             children: [
                               Icon(
                                 Icons.image_not_supported,
-                                color: Colors.grey[400],
+                                color: context.textSecondary,
                                 size: 64.sp,
                               ),
                               SizedBox(height: 16.h),
                               Text(
                                 'خطا در بارگذاری تصویر',
-                                style: GoogleFonts.vazirmatn(
-                                  color: Colors.grey[400],
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  color: context.textColor,
                                   fontSize: 16.sp,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],

@@ -1,4 +1,4 @@
-﻿import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/food.dart';
@@ -6,6 +6,7 @@ import 'package:gymaipro/screens/food_detail_screen.dart';
 import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/services/navigation_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -82,7 +83,7 @@ class _FoodListScreenState extends State<FoodListScreen>
         });
         // Apply initial filter + sort by likes desc
         _filterFoods();
-        _animationController.forward();
+        _animationController.safeForward();
       }
     } catch (e) {
       if (mounted) {
@@ -92,7 +93,11 @@ class _FoodListScreenState extends State<FoodListScreen>
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطا در بارگذاری خوراکی‌ها: $e'),
+            content: Text(
+              'خطا در بارگذاری خوراکی‌ها: $e',
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -142,7 +147,13 @@ class _FoodListScreenState extends State<FoodListScreen>
                 children: [
                   Icon(Icons.favorite, color: Colors.red, size: 20),
                   SizedBox(width: 8),
-                  Text('به علاقه‌مندی‌ها اضافه شد'),
+                  Flexible(
+                    child: Text(
+                      'به علاقه‌مندی‌ها اضافه شد',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
               backgroundColor: Colors.green,
@@ -159,7 +170,11 @@ class _FoodListScreenState extends State<FoodListScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطا: $e'),
+            content: Text(
+              'خطا: $e',
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -183,7 +198,11 @@ class _FoodListScreenState extends State<FoodListScreen>
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('خطا در لایک: $e'),
+          content: Text(
+            'خطا در لایک: $e',
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -585,7 +604,7 @@ class _FoodListScreenState extends State<FoodListScreen>
       child: InkWell(
         onTap: () {
           Navigator.of(context).push(
-            PageRouteBuilder(
+            PageRouteBuilder<void>(
               pageBuilder: (context, animation, secondaryAnimation) =>
                   FoodDetailScreen(food: food),
               transitionsBuilder:

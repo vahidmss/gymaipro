@@ -5,57 +5,66 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class WeeklyWeightService {
   static const String _tableName = 'weekly_weight_records';
 
-  // بررسی اینکه آیا کاربر در 7 روز گذشته وزن ثبت کرده یا نه
-  static Future<bool> hasRecordedThisWeek(String userId) async {
+  // بررسی اینکه آیا کاربر امروز وزنی ثبت کرده یا نه (همان روز)
+  static Future<Map<String, dynamic>?> _getTodayRecord(String userId) async {
     try {
       final now = DateTime.now();
-      final sevenDaysAgo = now.subtract(const Duration(days: 7));
+      final startOfDay = DateTime(now.year, now.month, now.day).toUtc();
+      final endOfDay = startOfDay.add(const Duration(days: 1));
 
       final response = await Supabase.instance.client
           .from(_tableName)
           .select()
           .eq('user_id', userId)
-          .gte('recorded_at', sevenDaysAgo.toIso8601String())
-          .limit(1);
+          .gte('recorded_at', startOfDay.toIso8601String())
+          .lt('recorded_at', endOfDay.toIso8601String())
+          .maybeSingle();
 
-      final hasRecorded = response.isNotEmpty;
-      debugPrint(
-        'بررسی ثبت وزن هفتگی: ${hasRecorded ? 'ثبت شده' : 'ثبت نشده'}',
-      );
-      return hasRecorded;
+      if (response is Map<String, dynamic>) {
+        return response;
+      }
+      return null;
     } catch (e) {
-      debugPrint('خطا در بررسی ثبت وزن هفتگی: $e');
-      return false;
+      debugPrint('خطا در بررسی رکورد امروز: $e');
+      return null;
     }
   }
 
-  // ثبت وزن جدید (همیشه اضافه می‌کنه، روی هم نمی‌نویسه)
+  // ثبت وزن: اگر امروز رکوردی وجود داشته باشد، همان رکورد به‌روزرسانی می‌شود؛ در غیر این صورت رکورد جدید درج می‌شود
   static Future<bool> recordWeeklyWeight(String userId, double weight) async {
     try {
       final now = DateTime.now();
 
-      // بررسی اینکه آیا در 7 روز گذشته ثبت شده
-      final hasRecorded = await hasRecordedThisWeek(userId);
-      if (hasRecorded) {
-        debugPrint('در 7 روز گذشته قبلاً وزن ثبت شده است');
-        return false;
+      final todayRecord = await _getTodayRecord(userId);
+      if (todayRecord != null) {
+        // به‌روزرسانی رکورد امروز
+        final String recordId = todayRecord['id'] as String;
+        await Supabase.instance.client
+            .from(_tableName)
+            .update({
+              'weight': weight,
+              'recorded_at': now.toIso8601String(),
+              'week_number': _getWeekNumber(now),
+              'year': now.year,
+            })
+            .eq('id', recordId);
+        debugPrint('وزن امروز به‌روزرسانی شد: $weight');
+      } else {
+        // درج رکورد جدید
+        await Supabase.instance.client.from(_tableName).insert({
+          'user_id': userId,
+          'weight': weight,
+          'recorded_at': now.toIso8601String(),
+          'week_number': _getWeekNumber(now),
+          'year': now.year,
+        });
+        debugPrint(
+          'وزن جدید به تاریخچه اضافه شد: $weight در تاریخ ${now.toIso8601String()}',
+        );
       }
-
-      // همیشه رکورد جدید اضافه می‌کنیم (تاریخچه کامل)
-      await Supabase.instance.client.from(_tableName).insert({
-        'user_id': userId,
-        'weight': weight,
-        'recorded_at': now.toIso8601String(),
-        'week_number': _getWeekNumber(now),
-        'year': now.year,
-      });
 
       // به‌روزرسانی وزن در جدول پروفایل
       await _updateProfileWeight(userId, weight);
-
-      debugPrint(
-        'وزن جدید به تاریخچه اضافه شد: $weight در تاریخ ${now.toIso8601String()}',
-      );
       return true;
     } catch (e) {
       debugPrint('خطا در ثبت وزن هفتگی: $e');
@@ -108,12 +117,12 @@ class WeeklyWeightService {
     int weeks = 12,
   }) async {
     try {
+      // بازگرداندن تمام رکوردها (محدودیت دلخواه سمت UI فیلتر می‌شود)
       final response = await Supabase.instance.client
           .from(_tableName)
           .select()
           .eq('user_id', userId)
-          .order('recorded_at', ascending: false)
-          .limit(weeks);
+          .order('recorded_at', ascending: false);
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {

@@ -1,5 +1,9 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
+import 'package:gymaipro/notification/models/notification_model.dart';
+import 'package:gymaipro/notification/services/notification_data_service.dart';
 import 'package:gymaipro/payment/models/trainer_subscription.dart';
+import 'package:gymaipro/payment/services/payout_service.dart';
+import 'package:gymaipro/trainer_dashboard/services/trainer_client_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// سرویس مدیریت اشتراک‌های مربی
@@ -10,6 +14,7 @@ class TrainerSubscriptionService {
       TrainerSubscriptionService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
+  final PayoutService _payoutService = PayoutService();
 
   /// ایجاد اشتراک جدید
   Future<TrainerSubscription?> createSubscription({
@@ -52,7 +57,29 @@ class TrainerSubscriptionService {
         print('اشتراک مربی با موفقیت ایجاد شد: ${subscription.id}');
       }
 
-      return TrainerSubscription.fromJson(response);
+      final createdSubscription = TrainerSubscription.fromJson(response);
+
+      // افزودن کاربر به شاگردان مربی (active) و ارسال نوتیفیکیشن
+      try {
+        final trainerClientService = TrainerClientService();
+        final isNewRelationship = await trainerClientService
+            .ensureActiveRelationship(trainerId: trainerId, clientId: userId);
+
+        // اعلان پیوستن شاگرد جدید - فقط اگر رابطه جدید باشد
+        if (isNewRelationship) {
+          await _notifyTrainerNewStudent(
+            trainerId: trainerId,
+            buyerUserId: userId,
+          );
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('⚠️ خطا در اضافه کردن شاگرد یا ارسال نوتیفیکیشن: $e');
+        }
+        // ادامه می‌دهیم حتی اگر این بخش خطا داشته باشد
+      }
+
+      return createdSubscription;
     } catch (e) {
       if (kDebugMode) {
         print('خطا در ایجاد اشتراک مربی: $e');
@@ -189,6 +216,23 @@ class TrainerSubscriptionService {
           .from('trainer_subscriptions')
           .update(updateData)
           .eq('id', id);
+
+      // اگر program_registration_date ثبت شد، trainer_withdrawable را به‌روزرسانی کن
+      if (programRegistrationDate != null) {
+        try {
+          final subscription = await getSubscription(id);
+          if (subscription != null) {
+            await _payoutService.updateTrainerWithdrawable(
+              subscription.trainerId,
+            );
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('⚠️ خطا در به‌روزرسانی موجودی قابل برداشت: $e');
+          }
+          // خطا در به‌روزرسانی نباید جریان اصلی را متوقف کند
+        }
+      }
 
       if (kDebugMode) {
         print('وضعیت اشتراک به‌روزرسانی شد: $id -> $status');
@@ -444,6 +488,109 @@ class TrainerSubscriptionService {
         print('خطا در جستجوی اشتراک‌ها: $e');
       }
       return [];
+    }
+  }
+
+  /// بر اساس profile id مربی، auth user id را برمی‌گرداند (برای اعلان و device_tokens که با auth.uid کار می‌کنند)
+  Future<String> _getAuthUserIdForProfileId(String profileId) async {
+    try {
+      final row = await _client
+          .from('profiles')
+          .select('auth_user_id')
+          .eq('id', profileId)
+          .maybeSingle();
+      final authId = row?['auth_user_id'] as String?;
+      return (authId != null && authId.isNotEmpty) ? authId : profileId;
+    } catch (_) {
+      return profileId;
+    }
+  }
+
+  /// ارسال اعلان: شاگرد جدید به مربی اضافه شد
+  Future<void> _notifyTrainerNewStudent({
+    required String trainerId,
+    required String buyerUserId,
+  }) async {
+    try {
+      final trainerAuthId = await _getAuthUserIdForProfileId(trainerId);
+
+      // نام خریدار
+      String buyerName = '';
+      try {
+        final p = await _client
+            .from('profiles')
+            .select('first_name, last_name, username, phone_number')
+            .eq('id', buyerUserId)
+            .maybeSingle();
+        if (p != null) {
+          final first = (p['first_name'] as String?)?.trim() ?? '';
+          final last = (p['last_name'] as String?)?.trim() ?? '';
+          final combined = '$first $last'.trim();
+          final username = (p['username'] as String?)?.trim() ?? '';
+          final phone = (p['phone_number'] as String?)?.trim() ?? '';
+          if (combined.isNotEmpty) {
+            buyerName = combined;
+          } else if (username.isNotEmpty)
+            buyerName = username;
+          else if (phone.isNotEmpty)
+            buyerName = phone;
+        }
+      } catch (_) {}
+      if (buyerName.isEmpty) buyerName = 'یک کاربر';
+
+      const title = 'شاگرد جدید';
+      final message = '$buyerName به شاگردان شما اضافه شد.';
+
+      // ایجاد نوتیفیکیشن داخل برنامه (user_id باید auth.uid باشد)
+      await NotificationDataService.createNotification(
+        userId: trainerAuthId,
+        title: title,
+        message: message,
+        type: NotificationType.payment,
+        priority: 2,
+        data: {'buyer_user_id': buyerUserId, 'event': 'student_added'},
+      );
+
+      // ارسال پوش نوتیفیکیشن مستقیم به device tokens (user_id در جدول = auth.uid)
+      try {
+        final List<dynamic> tokensRes = await _client
+            .from('device_tokens')
+            .select('token')
+            .eq('user_id', trainerAuthId)
+            .eq('is_push_enabled', true);
+        final List<String> tokens = tokensRes
+            .map((e) => (e as Map)['token']?.toString() ?? '')
+            .whereType<String>()
+            .where((t) => t.isNotEmpty)
+            .toList();
+
+        if (tokens.isNotEmpty) {
+          await _client.functions.invoke(
+            'send-notifications',
+            body: {
+              'mode': 'direct',
+              'target_type': 'device_tokens',
+              'tokens': tokens,
+              'title': title,
+              'body': message,
+              'data': {
+                'type': 'payment',
+                'route': '/trainer-dashboard',
+                'buyer_user_id': buyerUserId,
+                'event': 'student_added',
+              },
+            },
+          );
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('⚠️ خطا در ارسال پوش نوتیفیکیشن: $e');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ خطا در ایجاد اعلان: $e');
+      }
     }
   }
 }

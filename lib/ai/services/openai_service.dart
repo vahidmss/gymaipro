@@ -1,8 +1,9 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/ai/models/ai_chat_message.dart';
+import 'package:gymaipro/config/app_config.dart';
 import 'package:http/http.dart' as http;
 
 /// سرویس OpenAI برای ارتباط با API
@@ -14,7 +15,9 @@ class OpenAIService {
             maxTokens: 2000, // افزایش برای JSON کامل
           );
   static const String _baseUrl = 'https://api.openai.com/v1';
-  static const String _apiKey = String.fromEnvironment('OPENAI_API_KEY');
+
+  // Get API key from AppConfig (supports both --dart-define and .env file)
+  String get _apiKey => AppConfig.openaiApiKey;
 
   final http.Client _client = http.Client();
   final ChatSettings _settings;
@@ -25,8 +28,23 @@ class OpenAIService {
     String? systemPrompt,
   }) async {
     try {
+      if (kDebugMode) {
+        print(
+          'OpenAI: API Key check - isEmpty: ${_apiKey.isEmpty}, length: ${_apiKey.length}',
+        );
+        if (_apiKey.isNotEmpty) {
+          print(
+            'OpenAI: API Key starts with: ${_apiKey.substring(0, _apiKey.length > 10 ? 10 : _apiKey.length)}...',
+          );
+        }
+      }
+
       if (_apiKey.isEmpty) {
-        throw const OpenAIException('کلید OPENAI_API_KEY تنظیم نشده است');
+        throw const OpenAIException(
+          'کلید OPENAI_API_KEY تنظیم نشده است.\n'
+          '۱) فایل .env در ریشه پروژه بسازید (کپی از .env.example) و خط OPENAI_API_KEY=sk-... را با کلید واقعی پر کنید.\n'
+          '۲) اپ را کاملاً ببندید و دوباره Run کنید (Hot Reload کافی نیست).',
+        );
       }
       if (kDebugMode) {
         print('OpenAI: Sending message with ${messages.length} messages');

@@ -1,0 +1,12 @@
+-keep class com.yalantis.ucrop.** { *; }
+-keep class okhttp3.** { *; }
+-keep class okio.** { *; }
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keep class com.google.firebase.** { *; }
+-dontwarn com.google.firebase.**
+-keep class io.flutter.plugins.** { *; }
+-keep class io.flutter.embedding.** { *; }
+## Google Play Core (deferred components / splitinstall)
+-keep class com.google.android.play.** { *; }
+-dontwarn com.google.android.play.**

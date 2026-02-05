@@ -1,12 +1,12 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/screens/chat_screen.dart';
+import 'package:gymaipro/chat/widgets/search_bar_widget.dart';
+import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/trainer_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
-import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
-import 'package:gymaipro/chat/widgets/search_bar_widget.dart';
 import 'package:gymaipro/widgets/user_role_badge.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -196,8 +196,22 @@ class _ChatTrainerSelectionScreenState
   @override
   Widget build(BuildContext context) {
     if (_userRole == null) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.goldColor),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: AppTheme.goldColor),
+            SizedBox(height: 16.h),
+            Text(
+              'در حال بارگذاری...',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textSecondary,
+                fontSize: 14.sp,
+              ),
+            ),
+          ],
+        ),
       );
     }
 
@@ -212,7 +226,7 @@ class _ChatTrainerSelectionScreenState
               _filterTrainers(value);
             });
           },
-          hintText: 'جستجوی مربی...',
+          hintText: _userRole == 'trainer' ? 'جستجوی شاگرد...' : 'جستجوی مربی...',
         ),
         Expanded(child: _buildContent()),
       ],
@@ -225,9 +239,19 @@ class _ChatTrainerSelectionScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(color: AppTheme.goldColor),
-            const SizedBox(height: 16),
-            Text('در حال بارگذاری...', style: AppTheme.bodyStyle),
+            CircularProgressIndicator(
+              color: AppTheme.goldColor,
+              strokeWidth: 3,
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'در حال بارگذاری...',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textSecondary,
+                fontSize: 14.sp,
+              ),
+            ),
           ],
         ),
       );
@@ -246,43 +270,77 @@ class _ChatTrainerSelectionScreenState
 
   Widget _buildErrorState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: EdgeInsets.all(20.w),
-            decoration: BoxDecoration(
-              color: AppTheme.cardColor,
-              borderRadius: BorderRadius.circular(20.r),
+      child: Padding(
+        padding: EdgeInsets.all(32.w),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: EdgeInsets.all(24.w),
+              decoration: BoxDecoration(
+                color: context.cardColor,
+                borderRadius: BorderRadius.circular(20.r),
+                border: Border.all(
+                  color: AppTheme.goldColor.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Icon(
+                LucideIcons.alertCircle,
+                size: 64.sp,
+                color: AppTheme.goldColor.withValues(alpha: 0.6),
+              ),
             ),
-            child: Icon(
-              LucideIcons.alertCircle,
-              size: 64.sp,
-              color: AppTheme.goldColor.withValues(alpha: 0.5),
+            SizedBox(height: 24.h),
+            Text(
+              _errorMessage!,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontWeight: FontWeight.bold,
+                fontSize: 18.sp,
+                color: context.textColor,
+              ),
+              textAlign: TextAlign.center,
             ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            _errorMessage!,
-            style: AppTheme.headingStyle.copyWith(fontSize: 18.sp),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: _loadUserInfo,
-            icon: const Icon(LucideIcons.refreshCw),
-            label: const Text('تلاش مجدد'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.goldColor,
-              foregroundColor: AppTheme.textColor,
+            SizedBox(height: 16.h),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: context.goldGradientColors,
+                ),
+                borderRadius: BorderRadius.circular(12.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.goldColor.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: Offset(0, 2.h),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _loadUserInfo,
+                icon: Icon(LucideIcons.refreshCw, color: AppTheme.onGoldColor),
+                label: Text(
+                  'تلاش مجدد',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: AppTheme.onGoldColor,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildHeader() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final title = _userRole == 'trainer' ? 'شاگردان من' : 'مربیان';
     final subtitle = _userRole == 'trainer'
         ? 'شاگردان خود را انتخاب کنید و با آن‌ها چت کنید'
@@ -293,45 +351,62 @@ class _ChatTrainerSelectionScreenState
 
     return Container(
       margin: EdgeInsets.all(16.w),
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.4),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.05 : 0.1),
+            blurRadius: 8,
+            offset: Offset(0, 2.h),
+          ),
+        ],
       ),
       child: Row(
+        textDirection: TextDirection.rtl,
         children: [
           Container(
             padding: EdgeInsets.all(12.w),
             decoration: BoxDecoration(
-              color:
-                  (_userRole == 'trainer'
-                          ? AppTheme.goldColor
-                          : AppTheme.primaryColor)
-                      .withValues(alpha: 0.2),
+              gradient: LinearGradient(
+                colors: context.goldGradientColors
+                    .map((c) => c.withValues(alpha: 0.2))
+                    .toList(),
+              ),
               borderRadius: BorderRadius.circular(12.r),
             ),
             child: Icon(
               icon,
-              color: _userRole == 'trainer'
-                  ? AppTheme.goldColor
-                  : AppTheme.primaryColor,
+              color: AppTheme.goldColor,
               size: 24.sp,
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: AppTheme.headingStyle.copyWith(fontSize: 18.sp),
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18.sp,
+                    color: context.textColor,
+                  ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4.h),
                 Text(
                   subtitle,
-                  style: AppTheme.bodyStyle.copyWith(fontSize: 14.sp),
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 14.sp,
+                    color: context.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -356,36 +431,51 @@ class _ChatTrainerSelectionScreenState
 
     return SingleChildScrollView(
       child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(20.w),
-              decoration: BoxDecoration(
-                color: AppTheme.cardColor,
-                borderRadius: BorderRadius.circular(20.r),
+        child: Padding(
+          padding: EdgeInsets.all(32.w),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: EdgeInsets.all(24.w),
+                decoration: BoxDecoration(
+                  color: context.cardColor,
+                  borderRadius: BorderRadius.circular(20.r),
+                  border: Border.all(
+                    color: AppTheme.goldColor.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Icon(
+                  _searchQuery.isNotEmpty
+                      ? LucideIcons.search
+                      : LucideIcons.userX,
+                  size: 64.sp,
+                  color: AppTheme.goldColor.withValues(alpha: 0.6),
+                ),
               ),
-              child: Icon(
-                _searchQuery.isNotEmpty
-                    ? LucideIcons.search
-                    : LucideIcons.userX,
-                size: 64.sp,
-                color: AppTheme.goldColor.withValues(alpha: 0.5),
+              SizedBox(height: 24.h),
+              Text(
+                message,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18.sp,
+                  color: context.textColor,
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              message,
-              style: AppTheme.headingStyle.copyWith(fontSize: 18.sp),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: AppTheme.bodyStyle.copyWith(fontSize: 14.sp),
-              textAlign: TextAlign.center,
-            ),
-          ],
+              SizedBox(height: 8.h),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 14.sp,
+                  color: context.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -407,6 +497,7 @@ class _ChatTrainerSelectionScreenState
   }
 
   Widget _buildTrainerTile(Map<String, dynamic> trainer) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final name = trainer['name'] ?? 'نامشخص';
     final specialization = (trainer['specialization'] as String?) ?? '';
     final rating = trainer['rating']?.toString() ?? '0';
@@ -414,14 +505,23 @@ class _ChatTrainerSelectionScreenState
     final isOnline = (trainer['is_online'] as bool?) ?? false;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.only(bottom: 12.h),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.3),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.05 : 0.08),
+            blurRadius: 8,
+            offset: Offset(0, 2.h),
+          ),
+        ],
       ),
       child: Material(
-        color: AppTheme.backgroundColor,
+        color: Colors.transparent,
         child: InkWell(
           onTap: () => _startChat(trainer),
           onLongPress: () => _showTrainerInfo(trainer),
@@ -429,14 +529,39 @@ class _ChatTrainerSelectionScreenState
           child: Padding(
             padding: EdgeInsets.all(16.w),
             child: Row(
+              textDirection: TextDirection.rtl,
               children: [
-                // آواتار
-                UserAvatarWidget(
-                  avatarUrl: avatar as String?,
-                  isOnline: isOnline,
-                  role: _userRole == 'trainer' ? 'athlete' : 'trainer',
+                // دکمه چت
+                Container(
+                  width: 48.w,
+                  height: 48.w,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: context.goldGradientColors,
+                    ),
+                    borderRadius: BorderRadius.circular(12.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.goldColor.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: Offset(0, 2.h),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12.r),
+                      onTap: () => _startChat(trainer),
+                      child: Icon(
+                        LucideIcons.messageCircle,
+                        color: AppTheme.onGoldColor,
+                        size: 20.sp,
+                      ),
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 12.w),
 
                 // محتوا
                 Expanded(
@@ -444,12 +569,14 @@ class _ChatTrainerSelectionScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        textDirection: TextDirection.rtl,
                         children: [
                           Expanded(
                             child: Text(
                               name as String,
                               style: TextStyle(
-                                color: AppTheme.textColor,
+                                fontFamily: AppTheme.fontFamily,
+                                color: context.textColor,
                                 fontSize: 16.sp,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -457,6 +584,7 @@ class _ChatTrainerSelectionScreenState
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          SizedBox(width: 8.w),
                           UserRoleBadge(
                             role: _userRole == 'trainer'
                                 ? 'athlete'
@@ -465,29 +593,32 @@ class _ChatTrainerSelectionScreenState
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4.h),
                       if (specialization.isNotEmpty)
                         Text(
                           specialization,
                           style: TextStyle(
-                            color: AppTheme.bodyStyle.color,
+                            fontFamily: AppTheme.fontFamily,
+                            color: context.textSecondary,
                             fontSize: 14.sp,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4.h),
                       Row(
+                        textDirection: TextDirection.rtl,
                         children: [
                           Icon(
                             LucideIcons.star,
                             color: AppTheme.goldColor,
                             size: 16.sp,
                           ),
-                          const SizedBox(width: 4),
+                          SizedBox(width: 4.w),
                           Text(
                             rating,
                             style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
                               color: AppTheme.goldColor,
                               fontSize: 14.sp,
                               fontWeight: FontWeight.bold,
@@ -498,21 +629,13 @@ class _ChatTrainerSelectionScreenState
                     ],
                   ),
                 ),
+                SizedBox(width: 12.w),
 
-                // دکمه چت
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppTheme.goldColor,
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      LucideIcons.messageCircle,
-                      color: AppTheme.textColor,
-                      size: 20.sp,
-                    ),
-                    onPressed: () => _startChat(trainer),
-                  ),
+                // آواتار
+                UserAvatarWidget(
+                  avatarUrl: avatar as String?,
+                  isOnline: isOnline,
+                  role: _userRole == 'trainer' ? 'athlete' : 'trainer',
                 ),
               ],
             ),
@@ -555,7 +678,7 @@ class _ChatTrainerSelectionScreenState
   void _showTrainerInfo(Map<String, dynamic> trainer) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppTheme.cardColor,
+      backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
       ),
@@ -568,24 +691,27 @@ class _ChatTrainerSelectionScreenState
               width: 60.w,
               height: 4.h,
               decoration: BoxDecoration(
-                color: (AppTheme.bodyStyle.color ?? AppTheme.textColor)
-                    .withValues(alpha: 0.3),
+                color: context.separatorColor,
                 borderRadius: BorderRadius.circular(2.r),
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20.h),
             Row(
+              textDirection: TextDirection.rtl,
               children: [
                 Container(
                   width: 60.w,
                   height: 60.h,
                   decoration: BoxDecoration(
-                    color:
-                        (_userRole == 'trainer'
-                                ? AppTheme.goldColor
-                                : AppTheme.primaryColor)
-                            .withValues(alpha: 0.2),
+                    gradient: LinearGradient(
+                      colors: context.goldGradientColors
+                          .map((c) => c.withValues(alpha: 0.2))
+                          .toList(),
+                    ),
                     borderRadius: BorderRadius.circular(30.r),
+                    border: Border.all(
+                      color: AppTheme.goldColor.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: trainer['avatar'] != null
                       ? ClipRRect(
@@ -598,9 +724,7 @@ class _ChatTrainerSelectionScreenState
                                 _userRole == 'trainer'
                                     ? LucideIcons.user
                                     : LucideIcons.userCheck,
-                                color: _userRole == 'trainer'
-                                    ? AppTheme.goldColor
-                                    : AppTheme.primaryColor,
+                                color: AppTheme.goldColor,
                                 size: 30.sp,
                               );
                             },
@@ -610,13 +734,11 @@ class _ChatTrainerSelectionScreenState
                           _userRole == 'trainer'
                               ? LucideIcons.user
                               : LucideIcons.userCheck,
-                          color: _userRole == 'trainer'
-                              ? AppTheme.goldColor
-                              : AppTheme.primaryColor,
+                          color: AppTheme.goldColor,
                           size: 30.sp,
                         ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -624,12 +746,13 @@ class _ChatTrainerSelectionScreenState
                       Text(
                         (trainer['name'] as String?) ?? 'نامشخص',
                         style: TextStyle(
-                          color: AppTheme.textColor,
+                          fontFamily: AppTheme.fontFamily,
+                          color: context.textColor,
                           fontSize: 18.sp,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4.h),
                       UserRoleBadge(
                         role: _userRole == 'trainer' ? 'athlete' : 'trainer',
                         fontSize: 12.sp,
@@ -639,20 +762,46 @@ class _ChatTrainerSelectionScreenState
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20.h),
             Row(
+              textDirection: TextDirection.rtl,
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _startChat(trainer);
-                    },
-                    icon: const Icon(LucideIcons.messageCircle),
-                    label: const Text('شروع چت'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.goldColor,
-                      foregroundColor: AppTheme.textColor,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: context.goldGradientColors,
+                      ),
+                      borderRadius: BorderRadius.circular(12.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.goldColor.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: Offset(0, 2.h),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _startChat(trainer);
+                      },
+                      icon: Icon(
+                        LucideIcons.messageCircle,
+                        color: AppTheme.onGoldColor,
+                      ),
+                      label: Text(
+                        'شروع چت',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: AppTheme.onGoldColor,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: EdgeInsets.symmetric(vertical: 12.h),
+                      ),
                     ),
                   ),
                 ),

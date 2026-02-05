@@ -50,6 +50,12 @@ linter:
     use_named_constants: true
     use_setters_to_change_properties: true
     use_string_buffers: true
+    
+    # Overflow prevention rules
+    avoid_unnecessary_containers: true
+    sized_box_for_whitespace: true
+    use_key_in_widget_constructors: true
+    prefer_final_in_for_each: true
 
 analyzer:
   language:

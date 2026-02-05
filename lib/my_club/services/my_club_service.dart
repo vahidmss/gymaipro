@@ -26,12 +26,23 @@ class MyClubService {
           .select('id')
           .or('user_id.eq.$userId,friend_id.eq.$userId');
 
-      // آمار برنامه‌ها
-      final programStats = await _db
-          .from('workout_programs')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('is_deleted', false);
+      // آمار برنامه‌ها (فقط برنامه‌های ارسال شده)
+      List<dynamic> programStats;
+      try {
+        programStats = await _db
+            .from('workout_programs')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('is_deleted', false)
+            .not('sent_at', 'is', null); // فقط برنامه‌های ارسال شده
+      } catch (e) {
+        // اگر ستون sent_at وجود نداشت، بدون فیلتر بخوانیم
+        programStats = await _db
+            .from('workout_programs')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('is_deleted', false);
+      }
 
       // آمار درخواست‌ها
       final pendingTrainerRequests = await _db
@@ -72,14 +83,27 @@ class MyClubService {
 
       final activities = <Map<String, dynamic>>[];
 
-      // آخرین برنامه‌های ورزشی
-      final recentPrograms = await _db
-          .from('workout_programs')
-          .select('id, program_name, created_at, trainer_id')
-          .eq('user_id', userId)
-          .eq('is_deleted', false)
-          .order('created_at', ascending: false)
-          .limit(3);
+      // آخرین برنامه‌های ورزشی (فقط برنامه‌های ارسال شده)
+      List<dynamic> recentPrograms;
+      try {
+        recentPrograms = await _db
+            .from('workout_programs')
+            .select('id, program_name, created_at, trainer_id')
+            .eq('user_id', userId)
+            .eq('is_deleted', false)
+            .not('sent_at', 'is', null) // فقط برنامه‌های ارسال شده
+            .order('created_at', ascending: false)
+            .limit(3);
+      } catch (e) {
+        // اگر ستون sent_at وجود نداشت، بدون فیلتر بخوانیم
+        recentPrograms = await _db
+            .from('workout_programs')
+            .select('id, program_name, created_at, trainer_id')
+            .eq('user_id', userId)
+            .eq('is_deleted', false)
+            .order('created_at', ascending: false)
+            .limit(3);
+      }
 
       for (final program in recentPrograms) {
         activities.add({
@@ -196,12 +220,23 @@ class MyClubService {
         });
       }
 
-      // بررسی برنامه‌ها
-      final programCount = await _db
-          .from('workout_programs')
-          .select('id')
-          .eq('user_id', userId)
-          .eq('is_deleted', false);
+      // بررسی برنامه‌ها (فقط برنامه‌های ارسال شده)
+      List<dynamic> programCount;
+      try {
+        programCount = await _db
+            .from('workout_programs')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('is_deleted', false)
+            .not('sent_at', 'is', null); // فقط برنامه‌های ارسال شده
+      } catch (e) {
+        // اگر ستون sent_at وجود نداشت، بدون فیلتر بخوانیم
+        programCount = await _db
+            .from('workout_programs')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('is_deleted', false);
+      }
 
       if (programCount.isEmpty) {
         suggestions.add({

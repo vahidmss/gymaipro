@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
@@ -7,6 +8,7 @@ import 'package:gymaipro/trainer_dashboard/screens/certificate_upload_screen.dar
 import 'package:gymaipro/trainer_ranking/models/certificate.dart';
 import 'package:gymaipro/trainer_ranking/services/certificate_service.dart';
 import 'package:gymaipro/trainer_ranking/widgets/certificate_carousel.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -82,51 +84,76 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
     try {
       await SimpleProfileService.updateProfile(data);
       if (!mounted) return;
+      final isDark = Theme.of(context).brightness == Brightness.dark;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('پروفایل مربی با موفقیت ذخیره شد'),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: Text(
+            'پروفایل مربی با موفقیت ذخیره شد',
+            style: TextStyle(
+              color: context.textColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          backgroundColor: isDark
+              ? AppTheme.successColor.withValues(alpha: 0.2)
+              : AppTheme.successColor.withValues(alpha: 0.15),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.r),
+            side: BorderSide(
+              color: AppTheme.successColor.withValues(alpha: 0.5),
+              width: 1,
+            ),
+          ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('خطا در ذخیره پروفایل: $e'),
-          backgroundColor: Colors.red,
-        ),
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'خطا در ذخیره پروفایل: $e',
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? AppTheme.errorColor.withValues(alpha: 0.2)
+            : AppTheme.errorColor.withValues(alpha: 0.15),
       );
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      WidgetSafetyUtils.safeSetState(this, () => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.goldColor),
+      return Center(
+        child: CircularProgressIndicator(
+          color: AppTheme.goldColor,
+          strokeWidth: 3,
+        ),
       );
     }
 
     return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeaderPreview(),
-            const SizedBox(height: 12),
+            SizedBox(height: 20.h),
             _buildTextArea(
               controller: _bioCtr,
               label: 'بایو (نمایش در لیست مربیان)',
               hint: 'در چند خط کوتاه خودت را معرفی کن...',
               maxLines: 4,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 16.h),
+            _buildSectionTitle('تخصص‌ها'),
+            SizedBox(height: 8.h),
             _buildChips(),
-            const SizedBox(height: 12),
+            SizedBox(height: 20.h),
             _buildNumberField(
               controller: _experienceYearsCtr,
               label: 'سال‌های تجربه',
@@ -135,82 +162,142 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
                   ? null
                   : (int.tryParse(v) == null ? 'عدد نامعتبر' : null),
             ),
-            const SizedBox(height: 16),
-
-            // بخش مدارک
+            SizedBox(height: 24.h),
             _buildCertificatesSection(),
-
-            const SizedBox(height: 16),
+            SizedBox(height: 24.h),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _save,
+                onPressed: _isLoading ? null : _save,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.goldColor,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  foregroundColor: AppTheme.onGoldColor,
+                  padding: EdgeInsets.symmetric(vertical: 16.h),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.r),
+                    borderRadius: BorderRadius.circular(16.r),
+                  ),
+                  elevation: isDark ? 4 : 2,
+                  shadowColor: AppTheme.goldColor.withValues(alpha: 0.3),
+                ),
+                icon: Icon(
+                  LucideIcons.save,
+                  size: 20.sp,
+                ),
+                label: Text(
+                  'ذخیره پروفایل مربی',
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.3,
                   ),
                 ),
-                icon: const Icon(LucideIcons.save),
-                label: const Text('ذخیره پروفایل مربی'),
               ),
             ),
+            SizedBox(height: 16.h),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        color: context.textColor,
+        fontSize: 14.sp,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.2,
+      ),
+    );
+  }
+
   Widget _buildHeaderPreview() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final name = (_profile?.fullName.isNotEmpty ?? false)
         ? _profile!.fullName
-        : _profile?.username ?? '';
+        : _profile?.username ?? 'مربی';
     final avatarUrl = _profile?.avatarUrl;
+
     return Container(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.2)),
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.2),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : AppTheme.goldColor.withValues(alpha: 0.08),
+            blurRadius: 12.r,
+            offset: Offset(0, 4.h),
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 26,
-            backgroundColor: AppTheme.goldColor,
-            backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
-                ? NetworkImage(avatarUrl)
-                : null,
-            child: (avatarUrl == null || avatarUrl.isEmpty)
-                ? Text(
-                    (name.isNotEmpty ? name[0] : 'T').toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  )
-                : null,
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppTheme.goldColor.withValues(alpha: 0.5),
+                width: 2.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.goldColor.withValues(alpha: 0.2),
+                  blurRadius: 8.r,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: CircleAvatar(
+              radius: 32.r,
+              backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
+              backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                  ? NetworkImage(avatarUrl)
+                  : null,
+              child: (avatarUrl == null || avatarUrl.isEmpty)
+                  ? Text(
+                      (name.isNotEmpty ? name[0] : 'T').toUpperCase(),
+                      style: TextStyle(
+                        color: AppTheme.onGoldColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20.sp,
+                      ),
+                    )
+                  : null,
+            ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 16.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: context.textColor,
                     fontWeight: FontWeight.bold,
+                    fontSize: 18.sp,
+                    letterSpacing: 0.2,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 6.h),
                 Text(
                   _bioCtr.text.isNotEmpty
                       ? _bioCtr.text
                       : 'بایو نمایش داده می‌شود...',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  style: TextStyle(
+                    color: context.textSecondary,
+                    fontSize: 13.sp,
+                    height: 1.4,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -223,9 +310,11 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
   }
 
   Widget _buildChips() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Wrap(
-      spacing: 6,
-      runSpacing: 6,
+      spacing: 8.w,
+      runSpacing: 8.h,
       children: _allSpecializations.map((s) {
         final selected = _selectedSpecs.contains(s);
         return InkWell(
@@ -238,34 +327,56 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
               }
             });
           },
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+          borderRadius: BorderRadius.circular(18.r),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
             decoration: BoxDecoration(
               color: selected
-                  ? AppTheme.goldColor.withValues(alpha: 0.25)
-                  : Colors.white.withValues(alpha: 0.06),
+                  ? AppTheme.goldColor
+                  : (isDark
+                      ? context.cardColor.withValues(alpha: 0.6)
+                      : context.separatorColor.withValues(alpha: 0.3)),
               border: Border.all(
                 color: selected
                     ? AppTheme.goldColor
-                    : Colors.white.withValues(alpha: 0.2),
+                    : (isDark
+                        ? context.separatorColor
+                        : AppTheme.goldColor.withValues(alpha: 0.3)),
+                width: selected ? 0 : 1.5,
               ),
-              borderRadius: BorderRadius.circular(16.r),
+              borderRadius: BorderRadius.circular(18.r),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: AppTheme.goldColor.withValues(alpha: 0.3),
+                        blurRadius: 8.r,
+                        offset: Offset(0, 2.h),
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  selected ? LucideIcons.badgeCheck : LucideIcons.plus,
-                  size: 12.sp,
-                  color: selected ? Colors.black : AppTheme.goldColor,
+                  selected ? LucideIcons.check : LucideIcons.plus,
+                  size: 14.sp,
+                  color: selected
+                      ? AppTheme.onGoldColor
+                      : AppTheme.goldColor,
                 ),
-                const SizedBox(width: 4),
+                SizedBox(width: 6.w),
                 Text(
                   s,
                   style: TextStyle(
-                    color: selected ? Colors.black : Colors.white,
+                    color: selected
+                        ? AppTheme.onGoldColor
+                        : context.textColor,
                     fontWeight: FontWeight.w600,
-                    fontSize: 11.sp,
+                    fontSize: 12.sp,
+                    letterSpacing: 0.2,
                   ),
                 ),
               ],
@@ -285,7 +396,11 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(
+        color: context.textColor,
+        fontSize: 14.sp,
+        height: 1.5,
+      ),
       decoration: _inputDecoration(
         label: label,
         hint: hint,
@@ -303,7 +418,10 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
     return TextFormField(
       controller: controller,
       keyboardType: TextInputType.number,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(
+        color: context.textColor,
+        fontSize: 14.sp,
+      ),
       validator: validator,
       decoration: _inputDecoration(label: label, icon: icon),
     );
@@ -314,52 +432,117 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
     IconData? icon,
     String? hint,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return InputDecoration(
       labelText: label,
       hintText: hint,
-      labelStyle: const TextStyle(color: Colors.white70),
-      hintStyle: const TextStyle(color: Colors.white54),
+      labelStyle: TextStyle(
+        color: context.textSecondary,
+        fontSize: 13.sp,
+        fontWeight: FontWeight.w500,
+      ),
+      hintStyle: TextStyle(
+        color: context.textSecondary.withValues(alpha: 0.7),
+        fontSize: 13.sp,
+      ),
       prefixIcon: icon != null
-          ? Icon(icon, color: AppTheme.goldColor, size: 18)
+          ? Icon(
+              icon,
+              color: AppTheme.goldColor,
+              size: 20.sp,
+            )
           : null,
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.05),
+      fillColor: isDark
+          ? context.cardColor.withValues(alpha: 0.5)
+          : context.cardColor,
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.r),
-        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+        borderRadius: BorderRadius.circular(16.r),
+        borderSide: BorderSide(
+          color: isDark
+              ? context.separatorColor
+              : AppTheme.goldColor.withValues(alpha: 0.2),
+          width: 1.5,
+        ),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.r),
-        borderSide: const BorderSide(color: AppTheme.goldColor),
+        borderRadius: BorderRadius.circular(16.r),
+        borderSide: BorderSide(
+          color: AppTheme.goldColor,
+          width: 2,
+        ),
       ),
-      contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16.r),
+        borderSide: BorderSide(
+          color: AppTheme.errorColor.withValues(alpha: 0.6),
+          width: 1.5,
+        ),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16.r),
+        borderSide: BorderSide(
+          color: AppTheme.errorColor,
+          width: 2,
+        ),
+      ),
+      contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
     );
   }
 
   Widget _buildCertificatesSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.2)),
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.2),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : AppTheme.goldColor.withValues(alpha: 0.08),
+            blurRadius: 12.r,
+            offset: Offset(0, 4.h),
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(LucideIcons.award, color: AppTheme.goldColor, size: 20.sp),
-              SizedBox(width: 8.w),
-              Text(
-                'مدارک و گواهینامه‌ها',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.bold,
+              Container(
+                padding: EdgeInsets.all(8.w),
+                decoration: BoxDecoration(
+                  color: AppTheme.goldColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Icon(
+                  LucideIcons.award,
+                  color: AppTheme.goldColor,
+                  size: 20.sp,
                 ),
               ),
-              const Spacer(),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Text(
+                  'مدارک و گواهینامه‌ها',
+                  style: TextStyle(
+                    color: context.textColor,
+                    fontSize: 17.sp,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
               TextButton.icon(
                 onPressed: () {
                   Navigator.of(context).push(
@@ -368,51 +551,85 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
                     ),
                   );
                 },
-                icon: const Icon(LucideIcons.plus, size: 16),
-                label: const Text('افزودن مدرک'),
+                icon: Icon(
+                  LucideIcons.plus,
+                  size: 16.sp,
+                ),
+                label: Text(
+                  'افزودن',
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 style: TextButton.styleFrom(
                   foregroundColor: AppTheme.goldColor,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12.w,
+                    vertical: 8.h,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                    side: BorderSide(
+                      color: AppTheme.goldColor.withValues(alpha: 0.3),
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 16.h),
           Text(
             'مدارک خود را آپلود کنید تا در پروفایل عمومی نمایش داده شوند',
-            style: TextStyle(color: Colors.white70, fontSize: 12.sp),
+            style: TextStyle(
+              color: context.textSecondary,
+              fontSize: 13.sp,
+              height: 1.5,
+            ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 16.h),
           FutureBuilder<List<Certificate>>(
             future: _loadCertificates(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: CircularProgressIndicator(color: AppTheme.goldColor),
+                return Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32.h),
+                    child: CircularProgressIndicator(
+                      color: AppTheme.goldColor,
+                      strokeWidth: 3,
+                    ),
+                  ),
                 );
               }
 
               if (snapshot.hasError) {
                 return Container(
-                  padding: EdgeInsets.all(12.w),
+                  padding: EdgeInsets.all(16.w),
                   decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8.r),
+                    color: AppTheme.errorColor.withValues(alpha: isDark ? 0.15 : 0.1),
+                    borderRadius: BorderRadius.circular(12.r),
                     border: Border.all(
-                      color: Colors.red.withValues(alpha: 0.3),
+                      color: AppTheme.errorColor.withValues(alpha: 0.3),
+                      width: 1.5,
                     ),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         LucideIcons.alertCircle,
-                        color: Colors.red,
-                        size: 16.sp,
+                        color: AppTheme.errorColor,
+                        size: 20.sp,
                       ),
-                      SizedBox(width: 8.w),
+                      SizedBox(width: 12.w),
                       Expanded(
                         child: Text(
                           'خطا در بارگذاری مدارک',
-                          style: TextStyle(color: Colors.red, fontSize: 12.sp),
+                          style: TextStyle(
+                            color: AppTheme.errorColor,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -424,31 +641,40 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
 
               if (certificates.isEmpty) {
                 return Container(
-                  padding: EdgeInsets.all(16.w),
+                  padding: EdgeInsets.symmetric(vertical: 32.h, horizontal: 16.w),
                   decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8.r),
+                    color: isDark
+                        ? context.cardColor.withValues(alpha: 0.5)
+                        : context.separatorColor.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12.r),
                     border: Border.all(
-                      color: Colors.grey.withValues(alpha: 0.3),
+                      color: isDark
+                          ? context.separatorColor
+                          : AppTheme.goldColor.withValues(alpha: 0.2),
+                      width: 1.5,
                     ),
                   ),
                   child: Column(
                     children: [
-                      Icon(LucideIcons.award, color: Colors.grey, size: 32.sp),
-                      SizedBox(height: 8.h),
+                      Icon(
+                        LucideIcons.award,
+                        color: context.textSecondary,
+                        size: 48.sp,
+                      ),
+                      SizedBox(height: 12.h),
                       Text(
                         'هنوز مدرکی ثبت نشده',
                         style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w500,
+                          color: context.textColor,
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      SizedBox(height: 4.h),
+                      SizedBox(height: 6.h),
                       Text(
                         'برای شروع، اولین مدرک خود را آپلود کنید',
                         style: TextStyle(
-                          color: Colors.grey[600],
+                          color: context.textSecondary,
                           fontSize: 12.sp,
                         ),
                         textAlign: TextAlign.center,
@@ -460,7 +686,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
 
               // Group certificates by type
               final Map<CertificateType, List<Certificate>>
-              groupedCertificates = {};
+                  groupedCertificates = {};
               for (final certificate in certificates) {
                 if (!groupedCertificates.containsKey(certificate.type)) {
                   groupedCertificates[certificate.type] = [];
@@ -470,14 +696,17 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
 
               return Column(
                 children: groupedCertificates.entries.map((entry) {
-                  return CertificateCarousel(
-                    title: _getCertificateTypeTitle(entry.key),
-                    certificates: entry.value,
-                    onCertificateTap: (certificate) {
-                      if (certificate.certificateUrl != null) {
-                        _showImageDialog(certificate.certificateUrl!);
-                      }
-                    },
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: 16.h),
+                    child: CertificateCarousel(
+                      title: _getCertificateTypeTitle(entry.key),
+                      certificates: entry.value,
+                      onCertificateTap: (certificate) {
+                        if (certificate.certificateUrl != null) {
+                          _showImageDialog(certificate.certificateUrl!);
+                        }
+                      },
+                    ),
                   );
                 }).toList(),
               );
@@ -494,6 +723,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
       context: context,
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.all(16.w),
         child: GestureDetector(
           onTap: () => Navigator.of(context).pop(),
           child: Container(
@@ -505,41 +735,70 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
                 onTap: () {}, // Prevent closing when tapping on image
                 child: Container(
                   constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.9,
-                    maxHeight: MediaQuery.of(context).size.height * 0.8,
+                    maxWidth: MediaQuery.of(context).size.width * 0.95,
+                    maxHeight: MediaQuery.of(context).size.height * 0.85,
                   ),
-                  child: Image.network(
-                    imageUrl,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        padding: EdgeInsets.all(32.w),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[800],
-                          borderRadius: BorderRadius.circular(16.r),
-                        ),
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.image_not_supported,
-                                color: Colors.grey[400],
-                                size: 64.sp,
-                              ),
-                              SizedBox(height: 16.h),
-                              Text(
-                                'خطا در بارگذاری تصویر',
-                                style: TextStyle(
-                                  color: Colors.grey[400],
-                                  fontSize: 16.sp,
-                                ),
-                              ),
-                            ],
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        blurRadius: 20.r,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20.r),
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          color: context.cardColor,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: AppTheme.goldColor,
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                      loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          padding: EdgeInsets.all(32.w),
+                          decoration: BoxDecoration(
+                            color: context.cardColor,
+                            borderRadius: BorderRadius.circular(20.r),
+                          ),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.image_not_supported,
+                                  color: context.textSecondary,
+                                  size: 64.sp,
+                                ),
+                                SizedBox(height: 16.h),
+                                Text(
+                                  'خطا در بارگذاری تصویر',
+                                  style: TextStyle(
+                                    color: context.textColor,
+                                    fontSize: 16.sp,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -557,7 +816,9 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
 
       return await CertificateService.getAllTrainerCertificates(user.id);
     } catch (e) {
-      throw Exception('خطا در بارگذاری مدارک: $e');
+      // به جای throw کردن، لیست خالی برمی‌گردانیم تا برنامه کرش نکند
+      debugPrint('_loadCertificates error: $e');
+      return [];
     }
   }
 

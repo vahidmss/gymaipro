@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -130,7 +130,7 @@ class VideoCacheService {
           retryCount++;
           print('تلاش $retryCount ناموفق برای دانلود $url: $e');
           if (retryCount < _maxRetries) {
-            await Future.delayed(
+            await Future<void>.delayed(
               Duration(seconds: retryCount * 2),
             ); // تاخیر افزایشی
           }
@@ -223,7 +223,7 @@ class VideoCacheService {
   /// دانلود ویدیو با progress tracking (برای UI)
   Future<bool> cacheVideoWithProgress(
     String url,
-    Function(double) onProgress,
+    void Function(double) onProgress,
   ) async {
     if (_cacheDir == null) return false;
 
@@ -271,63 +271,125 @@ class VideoCacheService {
   Future<bool> _downloadVideoWithProgress(
     String url,
     File file,
-    Function(double) onProgress,
+    void Function(double) onProgress,
   ) async {
+    http.Client? client;
+    IOSink? sink;
+
     try {
-      final client = http.Client();
+      client = http.Client();
 
-      try {
-        final headResponse = await client
-            .head(Uri.parse(url))
-            .timeout(_downloadTimeout);
+      // درخواست HEAD برای دریافت اندازه فایل
+      final headResponse = await client
+          .head(Uri.parse(url))
+          .timeout(_downloadTimeout);
 
-        if (headResponse.statusCode != 200) {
-          return false;
-        }
+      if (headResponse.statusCode != 200 && headResponse.statusCode != 206) {
+        print('خطا در دریافت اطلاعات فایل: ${headResponse.statusCode}');
+        return false;
+      }
 
-        final contentLength = headResponse.headers['content-length'];
-        final totalSize = contentLength != null
-            ? int.tryParse(contentLength)
-            : null;
+      final contentLength = headResponse.headers['content-length'];
+      final totalSize = contentLength != null
+          ? int.tryParse(contentLength)
+          : null;
 
-        if (totalSize == null) {
-          // اگر اندازه فایل مشخص نیست، دانلود معمولی
-          final response = await client
-              .get(Uri.parse(url))
-              .timeout(_downloadTimeout);
-
-          if (response.statusCode == 200) {
-            await file.writeAsBytes(response.bodyBytes);
-            onProgress(1);
-            return true;
-          }
-          return false;
-        }
-
-        // دانلود chunked با progress
+      if (totalSize == null || totalSize == 0) {
+        // اگر اندازه فایل مشخص نیست، دانلود معمولی
+        print('اندازه فایل مشخص نیست، دانلود معمولی...');
         final response = await client
-            .get(Uri.parse(url), headers: {'Range': 'bytes=0-'})
+            .get(Uri.parse(url))
             .timeout(_downloadTimeout);
 
-        if (response.statusCode == 200 || response.statusCode == 206) {
-          await file.writeAsBytes(response.bodyBytes);
+        if (response.statusCode == 200) {
+          int downloadedBytes = 0;
+          final bodyBytes = response.bodyBytes;
+          final bodyLength = bodyBytes.length;
 
-          final downloadedSize = await file.length();
-          if (downloadedSize < totalSize * 0.9) {
-            return false;
+          sink = file.openWrite();
+          int lastProgressUpdate = 0;
+          const progressUpdateInterval = 1024 * 100; // هر 100KB به‌روزرسانی کن
+
+          for (int i = 0; i < bodyLength; i += 8192) {
+            final end = (i + 8192 < bodyLength) ? i + 8192 : bodyLength;
+            sink.add(bodyBytes.sublist(i, end));
+            downloadedBytes = end;
+
+            // به‌روزرسانی progress فقط هر چند KB یکبار
+            if (downloadedBytes - lastProgressUpdate >=
+                    progressUpdateInterval ||
+                downloadedBytes >= bodyLength) {
+              final progress = (downloadedBytes / bodyLength).clamp(0.0, 0.99);
+              onProgress(progress);
+              lastProgressUpdate = downloadedBytes;
+            }
+
+            await sink.flush();
           }
+          await sink.close();
+          sink = null;
 
-          onProgress(1);
+          onProgress(1.0);
           return true;
         }
-
         return false;
-      } finally {
-        client.close();
       }
+
+      print(
+        'شروع دانلود ویدیو - اندازه: ${(totalSize / (1024 * 1024)).toStringAsFixed(2)}MB',
+      );
+
+      // دانلود streaming با progress واقعی
+      final request = http.Request('GET', Uri.parse(url));
+      final streamedResponse = await client
+          .send(request)
+          .timeout(_downloadTimeout);
+
+      if (streamedResponse.statusCode == 200 ||
+          streamedResponse.statusCode == 206) {
+        sink = file.openWrite();
+        int downloadedBytes = 0;
+        int lastProgressUpdate = 0;
+        const progressUpdateInterval = 1024 * 100; // هر 100KB به‌روزرسانی کن
+
+        await for (final chunk in streamedResponse.stream) {
+          sink.add(chunk);
+          downloadedBytes += chunk.length;
+
+          // به‌روزرسانی progress فقط هر چند KB یکبار برای عملکرد بهتر
+          if (downloadedBytes - lastProgressUpdate >= progressUpdateInterval ||
+              downloadedBytes >= totalSize) {
+            final progress = (downloadedBytes / totalSize).clamp(0.0, 0.99);
+            onProgress(progress);
+            lastProgressUpdate = downloadedBytes;
+          }
+
+          await sink.flush();
+        }
+
+        await sink.close();
+        sink = null;
+
+        // بررسی صحت فایل
+        final finalSize = await file.length();
+        if (finalSize < totalSize * 0.95) {
+          print('فایل ناقص دانلود شده: $finalSize از $totalSize');
+          onProgress(0.0); // Reset progress on failure
+          return false;
+        }
+
+        onProgress(1.0);
+        print('دانلود کامل شد: $finalSize بایت');
+        return true;
+      }
+
+      return false;
     } catch (e) {
       print('خطا در دانلود با progress: $e');
       return false;
+    } finally {
+      await sink?.close();
+      client?.close();
     }
   }
 
@@ -436,6 +498,29 @@ class VideoCacheService {
     } catch (e) {
       print('خطا در شمارش فایل‌های کش: $e');
       return 0;
+    }
+  }
+
+  /// حذف ویدیو خاص از کش
+  Future<bool> deleteCachedVideo(String url) async {
+    if (_cacheDir == null) return false;
+
+    try {
+      final fileName = _getCacheFileName(url);
+      final file = File('${_cacheDir!.path}/$fileName');
+
+      if (await file.exists()) {
+        await file.delete();
+        _accessTimes.remove(url);
+        _downloadingVideos.remove(url);
+        print('ویدیو از کش حذف شد: $url');
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      print('خطا در حذف ویدیو از کش: $e');
+      return false;
     }
   }
 }

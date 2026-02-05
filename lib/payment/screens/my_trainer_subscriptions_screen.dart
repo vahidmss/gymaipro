@@ -75,6 +75,7 @@ class _MyTrainerSubscriptionsScreenState
     }
   }
 
+  @Deprecated('Not used')
   List<TrainerSubscription> get _filteredSubscriptions {
     switch (_selectedFilter) {
       case 'active':
@@ -247,7 +248,7 @@ class _MyTrainerSubscriptionsScreenState
   }
 
   void _showSubscriptionDetails(TrainerSubscription subscription) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF2A2A2A),

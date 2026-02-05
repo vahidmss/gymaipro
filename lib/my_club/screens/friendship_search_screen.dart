@@ -88,68 +88,99 @@ class _FriendshipSearchScreenState extends State<FriendshipSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A1A),
-        elevation: 0,
-        title: Text(
-          'جستجوی دوستان',
-          style: GoogleFonts.vazirmatn(
-            fontWeight: FontWeight.bold,
-            fontSize: 20.sp,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          backgroundColor: isDark
+              ? context.backgroundColor
+              : Colors.transparent,
+          elevation: 0,
+          title: Text(
+            'جستجوی دوستان',
+            style: GoogleFonts.vazirmatn(
+              fontWeight: FontWeight.bold,
+              fontSize: 20.sp,
+              color: AppTheme.goldColor,
+            ),
+          ),
+          centerTitle: true,
+          leading: IconButton(
+            icon: Icon(
+              LucideIcons.arrowRight,
+              color: AppTheme.goldColor,
+            ),
+            onPressed: () => Navigator.pop(context),
           ),
         ),
-        leading: IconButton(
-          icon: const Icon(LucideIcons.arrowRight),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Column(
-        children: [
-          // Search Bar
-          Container(
-            padding: EdgeInsets.all(16.w),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _searchUsers,
-              style: GoogleFonts.vazirmatn(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: 'جستجو بر اساس نام کاربری...',
-                hintStyle: GoogleFonts.vazirmatn(color: Colors.grey[400]),
-                prefixIcon: const Icon(
-                  LucideIcons.search,
-                  color: AppTheme.goldColor,
-                ),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(LucideIcons.x, color: Colors.grey),
-                        onPressed: () {
-                          _searchController.clear();
-                          _searchUsers('');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: const Color(0xFF2A2A2A),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                  borderSide: BorderSide(color: Colors.grey[600]!),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                  borderSide: BorderSide(color: Colors.grey[600]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                  borderSide: const BorderSide(color: AppTheme.goldColor),
+        body: Column(
+          children: [
+            // Search Bar
+            Container(
+              padding: EdgeInsets.all(16.w),
+              child: TextField(
+                controller: _searchController,
+                onChanged: _searchUsers,
+                style: GoogleFonts.vazirmatn(color: context.textColor),
+                decoration: InputDecoration(
+                  hintText: 'جستجو بر اساس نام کاربری...',
+                  hintStyle: GoogleFonts.vazirmatn(
+                    color: isDark
+                        ? Colors.grey[400]
+                        : AppTheme.lightTextSecondary.withValues(alpha: 0.6),
+                  ),
+                  prefixIcon: const Icon(
+                    LucideIcons.search,
+                    color: AppTheme.goldColor,
+                  ),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            LucideIcons.x,
+                            color: isDark
+                                ? Colors.grey
+                                : AppTheme.lightTextSecondary.withValues(alpha: 0.6),
+                          ),
+                          onPressed: () {
+                            _searchController.clear();
+                            _searchUsers('');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: context.cardColor,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? Colors.grey[600]!
+                          : AppTheme.lightDividerColor.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: BorderSide(
+                      color: isDark
+                          ? Colors.grey[600]!
+                          : AppTheme.lightDividerColor.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: const BorderSide(
+                      color: AppTheme.goldColor,
+                      width: 2,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-          // Content
-          Expanded(child: _buildContent()),
-        ],
+            // Content
+            Expanded(child: _buildContent()),
+          ],
+        ),
       ),
     );
   }
@@ -169,25 +200,34 @@ class _FriendshipSearchScreenState extends State<FriendshipSearchScreen> {
   }
 
   Widget _buildSearchResults() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (_searchResults.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(LucideIcons.search, size: 64.sp, color: Colors.grey[600]),
+            Icon(
+              LucideIcons.search,
+              size: 64.sp,
+              color: isDark
+                  ? Colors.grey[600]
+                  : AppTheme.lightTextSecondary.withValues(alpha: 0.5),
+            ),
             const SizedBox(height: 16),
             Text(
               'نتیجه‌ای یافت نشد',
               style: GoogleFonts.vazirmatn(
                 fontSize: 18.sp,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey[400],
+                color: context.textColor,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'نام کاربری دیگری امتحان کنید',
-              style: GoogleFonts.vazirmatn(color: Colors.grey[500]),
+              style: GoogleFonts.vazirmatn(
+                color: context.textSecondary,
+              ),
             ),
           ],
         ),
@@ -209,25 +249,34 @@ class _FriendshipSearchScreenState extends State<FriendshipSearchScreen> {
   }
 
   Widget _buildSuggestedUsers() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (_suggestedUsers.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(LucideIcons.users, size: 64.sp, color: Colors.grey[600]),
+            Icon(
+              LucideIcons.users,
+              size: 64.sp,
+              color: isDark
+                  ? Colors.grey[600]
+                  : AppTheme.lightTextSecondary.withValues(alpha: 0.5),
+            ),
             const SizedBox(height: 16),
             Text(
               'پیشنهادی نداریم',
               style: GoogleFonts.vazirmatn(
                 fontSize: 18.sp,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey[400],
+                color: context.textColor,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'برای پیدا کردن دوستان، نام کاربری آن‌ها را جستجو کنید',
-              style: GoogleFonts.vazirmatn(color: Colors.grey[500]),
+              style: GoogleFonts.vazirmatn(
+                color: context.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -245,7 +294,7 @@ class _FriendshipSearchScreenState extends State<FriendshipSearchScreen> {
             style: GoogleFonts.vazirmatn(
               fontSize: 18.sp,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: AppTheme.goldColor,
             ),
           ),
         ),
@@ -338,85 +387,108 @@ class _UserCardState extends State<_UserCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: Colors.grey[600]!),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(16.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: AppTheme.goldColor,
-                      backgroundImage: widget.user.avatarUrl != null
-                          ? NetworkImage(widget.user.avatarUrl!)
-                          : null,
-                      child: widget.user.avatarUrl == null
-                          ? const Icon(LucideIcons.user, color: Colors.black)
-                          : null,
-                    ),
-                    if (widget.user.isOnline)
-                      Positioned(
-                        right: 0.w,
-                        bottom: 0.h,
-                        child: Container(
-                          width: 12.w,
-                          height: 12.h,
-                          decoration: const BoxDecoration(
-                            color: Colors.green,
-                            shape: BoxShape.circle,
-                            border: Border.fromBorderSide(
-                              BorderSide(color: Color(0xFF2A2A2A), width: 2),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: widget.onViewProfile,
+      borderRadius: BorderRadius.circular(12.r),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: context.cardColor,
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(
+            color: isDark
+                ? Colors.grey[600]!
+                : AppTheme.lightDividerColor.withValues(alpha: 0.5),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.2)
+                  : AppTheme.goldColor.withValues(alpha: 0.08),
+              blurRadius: 4.r,
+              offset: Offset(0.w, 2.h),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(16.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Stack(
                     children: [
-                      Text(
-                        widget.user.fullName ?? widget.user.username,
-                        style: GoogleFonts.vazirmatn(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16.sp,
-                        ),
-                      ),
-                      Text(
-                        '@${widget.user.username}',
-                        style: GoogleFonts.vazirmatn(
-                          color: Colors.grey[400],
-                          fontSize: 14.sp,
-                        ),
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: AppTheme.goldColor,
+                        backgroundImage: widget.user.avatarUrl != null
+                            ? NetworkImage(widget.user.avatarUrl!)
+                            : null,
+                        child: widget.user.avatarUrl == null
+                            ? Icon(
+                                LucideIcons.user,
+                                color: AppTheme.onGoldColor,
+                              )
+                            : null,
                       ),
                       if (widget.user.isOnline)
-                        Text(
-                          'آنلاین',
-                          style: GoogleFonts.vazirmatn(
-                            color: Colors.green,
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.w500,
+                        Positioned(
+                          right: 0.w,
+                          bottom: 0.h,
+                          child: Container(
+                            width: 12.w,
+                            height: 12.h,
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: context.cardColor,
+                                width: 2,
+                              ),
+                            ),
                           ),
                         ),
                     ],
                   ),
-                ),
-                _buildActionButton(),
-              ],
-            ),
-          ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.user.fullName ?? widget.user.username,
+                          style: GoogleFonts.vazirmatn(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16.sp,
+                            color: context.textColor,
+                          ),
+                        ),
+                        Text(
+                          '@${widget.user.username}',
+                          style: GoogleFonts.vazirmatn(
+                            color: context.textSecondary,
+                            fontSize: 14.sp,
+                          ),
+                        ),
+                        if (widget.user.isOnline)
+                          Text(
+                            'آنلاین',
+                            style: GoogleFonts.vazirmatn(
+                              color: Colors.green,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  _buildActionButton(),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -442,7 +514,7 @@ class _UserCardState extends State<_UserCard> {
           label: const Text('ارسال درخواست'),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.goldColor,
-            foregroundColor: Colors.black,
+            foregroundColor: AppTheme.onGoldColor,
             padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8),
           ),
         );
@@ -486,7 +558,7 @@ class _UserCardState extends State<_UserCard> {
           label: const Text('ارسال مجدد'),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.goldColor,
-            foregroundColor: Colors.black,
+            foregroundColor: AppTheme.onGoldColor,
             padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8),
           ),
         );

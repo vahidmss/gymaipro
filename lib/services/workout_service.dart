@@ -1,7 +1,6 @@
 ﻿import 'package:gymaipro/models/exercise.dart' as exercise_model;
 import 'package:gymaipro/models/workout.dart';
-import 'package:gymaipro/workout_plan/workout_log/models/workout_log.dart'
-    hide WorkoutSet;
+import 'package:gymaipro/workout_log/models/workout_log.dart' hide WorkoutSet;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class WorkoutService {
@@ -108,7 +107,7 @@ class WorkoutService {
   Future<List<exercise_model.Exercise>> getAllExercises() async {
     try {
       final response = await Supabase.instance.client
-          .from('exercises')
+          .from('ai_exercises')
           .select()
           .order('name');
 
@@ -128,7 +127,7 @@ class WorkoutService {
   Future<List<exercise_model.Exercise>> searchExercises(String query) async {
     try {
       final response = await Supabase.instance.client
-          .from('exercises')
+          .from('ai_exercises')
           .select()
           .ilike('name', '%$query%')
           .order('name');
@@ -151,7 +150,7 @@ class WorkoutService {
   ) async {
     try {
       final response = await Supabase.instance.client
-          .from('exercises')
+          .from('ai_exercises')
           .select()
           .eq('muscle_group', muscleGroup)
           .order('name');

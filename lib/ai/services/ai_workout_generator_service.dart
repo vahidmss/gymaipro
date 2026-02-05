@@ -1,10 +1,10 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/services/ai_exercise_read_service.dart';
-import 'package:gymaipro/workout_plan/models/workout_questionnaire_models.dart';
-import 'package:gymaipro/workout_plan/workout_plan_builder/models/workout_program.dart';
+import 'package:gymaipro/workout_questionnaire/models/workout_questionnaire_models.dart';
+import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:http/http.dart' as http;
 
 /// کلاس تحلیل علمی کاربر
@@ -63,63 +63,112 @@ class AIWorkoutGeneratorService {
     required List<WorkoutQuestion> questions,
   }) async {
     try {
-      print('شروع تولید برنامه تمرینی حرفه‌ای...');
+      print('\n========================================');
+      print('=== شروع تولید برنامه تمرینی حرفه‌ای ===');
+      print('========================================');
       print('تعداد پاسخ‌ها: ${responses.length}');
       print('تعداد سوالات: ${questions.length}');
+
+      // لاگ کردن پاسخ‌های دریافتی
+      print('\n--- پاسخ‌های دریافتی ---');
+      for (final entry in responses.entries) {
+        final response = entry.value;
+        print('  سوال ID: ${entry.key}');
+        if (response.answerText != null)
+          print('    متن: ${response.answerText}');
+        if (response.answerNumber != null)
+          print('    عدد: ${response.answerNumber}');
+        if (response.answerChoices != null &&
+            response.answerChoices!.isNotEmpty) {
+          print('    انتخاب‌ها: ${response.answerChoices!.join(", ")}');
+        }
+      }
 
       // تبدیل پاسخ‌ها به پروفایل جامع
       final userProfile = _buildUserProfile(responses, questions);
       _lastUserProfile = userProfile;
-      print('پروفایل کاربر ساخته شد: ${userProfile.keys.length} فیلد');
+      print('\n--- پروفایل کاربر ساخته شد ---');
+      print('تعداد فیلدها: ${userProfile.keys.length}');
 
       // تحلیل علمی و پزشکی عمیق پاسخ‌های کاربر
+      print('\n--- شروع تحلیل علمی کاربر ---');
       final analysis = _performUserAnalysis(userProfile);
       _lastUserAnalysis = analysis;
+      print('تحلیل کامل شد:');
+      print('  - سن: ${analysis.age} سال');
+      print('  - سطح تجربه: ${analysis.experience}');
       print(
-        'تحلیل کاربر: آسیب=${analysis.hasInjuries}, خطر=${analysis.riskLevel}',
+        '  - آسیب‌ها: ${analysis.injuries.isEmpty ? "ندارد" : analysis.injuries.join(", ")}',
       );
+      print('  - اهداف: ${analysis.goals.join(", ")}');
+      print('  - درصد چربی: ${analysis.bodyFatPercentage}');
+      print('  - خواب: ${analysis.sleepHours}');
+      print('  - شدت مطلوب: ${analysis.desiredIntensity}');
+      print('  - سطح خطر: ${analysis.riskLevel}');
+      print('  - امکان برنامه آنلاین: ${analysis.canReceiveOnlineProgram}');
       _lastUserAnalysis = analysis; // ذخیره برای استفاده در logging
 
       // بررسی امکان ارائه برنامه آنلاین
       if (!analysis.canReceiveOnlineProgram) {
-        print('کاربر به دلیل مشکلات پزشکی نمی‌تواند برنامه آنلاین دریافت کند');
+        print(
+          '\n⚠️ کاربر به دلیل مشکلات پزشکی نمی‌تواند برنامه آنلاین دریافت کند',
+        );
+        print('  - آسیب‌ها: ${analysis.injuries.join(", ")}');
+        print('  - سطح خطر: ${analysis.riskLevel}');
         return _createMedicalReferralProgram(analysis);
       }
 
       // دریافت تمرینات مناسب از Supabase (جدول ai_exercises)
+      print('\n--- دریافت تمرینات از دیتابیس ---');
       final availableExercises = await AIExerciseReadService()
           .getExercisesForAI();
+      print('تعداد تمرینات دریافت شده: ${availableExercises.length}');
       if (availableExercises.isEmpty) {
-        print('هیچ تمرینی از Supabase دریافت نشد - عدم امکان تولید برنامه');
+        print('❌ هیچ تمرینی از Supabase دریافت نشد - عدم امکان تولید برنامه');
         return null;
       }
 
       // فیلتر کردن تمرینات بر اساس محدودیت‌های کاربر
+      print('\n--- فیلتر کردن تمرینات بر اساس محدودیت‌ها ---');
       final suitableExercises = _filterExercisesByLimitations(
         availableExercises,
         analysis,
       );
+      print('تعداد تمرینات مناسب: ${suitableExercises.length}');
       if (suitableExercises.isEmpty) {
-        print('هیچ تمرین مناسبی برای محدودیت‌های کاربر پیدا نشد');
+        print('❌ هیچ تمرین مناسبی برای محدودیت‌های کاربر پیدا نشد');
         return _createLimitedOptionsProgram();
       }
 
       // ایجاد prompt حرفه‌ای و علمی
+      print('\n--- ساخت پرامپت حرفه‌ای ---');
       final prompt = await _buildScientificPrompt(
         userProfile,
         analysis,
         suitableExercises,
       );
-      print('Prompt علمی ساخته شد، طول: ${prompt.length} کاراکتر');
+      print('✅ پرامپت علمی ساخته شد');
+      print('  - طول: ${prompt.length} کاراکتر');
+      print('  - تعداد خطوط: ${prompt.split("\n").length}');
 
       // ارسال درخواست به OpenAI با ریتری در صورت JSON معیوب
+      print('\n--- ارسال درخواست به OpenAI ---');
       final program = await _generateFromPromptWithRetry(prompt, analysis);
-      if (program != null) return program;
+      if (program != null) {
+        print('\n========================================');
+        print('✅ برنامه با موفقیت تولید شد!');
+        print('  - نام برنامه: ${program.name}');
+        print('  - تعداد جلسات: ${program.sessions.length}');
+        print('========================================\n');
+        return program;
+      }
 
-      print('خطا در تولید برنامه - عدم امکان ایجاد برنامه مناسب');
+      print('\n❌ خطا در تولید برنامه - عدم امکان ایجاد برنامه مناسب');
       return null;
-    } catch (e) {
-      print('خطا در تولید برنامه تمرینی: $e');
+    } catch (e, stackTrace) {
+      print('\n❌❌❌ خطا در تولید برنامه تمرینی ❌❌❌');
+      print('خطا: $e');
+      print('Stack trace: $stackTrace');
       return null;
     }
   }
@@ -169,26 +218,45 @@ class AIWorkoutGeneratorService {
   ) {
     final profile = <String, dynamic>{};
 
+    print('=== ساخت پروفایل کاربر ===');
+    print('تعداد سوالات: ${questions.length}');
+    print('تعداد پاسخ‌ها: ${responses.length}');
+
     for (final question in questions) {
       final response = responses[question.id];
-      if (response != null) {
-        String answer = '';
+      String answer = '';
 
+      if (response != null) {
         switch (question.questionType) {
           case QuestionType.text:
           case QuestionType.singleChoice:
             answer = response.answerText ?? '';
+            break;
           case QuestionType.multipleChoice:
             answer = response.answerChoices?.join(', ') ?? '';
+            break;
           case QuestionType.number:
           case QuestionType.slider:
             answer = response.answerNumber?.toString() ?? '';
+            break;
         }
+      } else {
+        // استفاده از مقدار پیش‌فرض برای سوالات مهم
+        answer = _getDefaultAnswer(question);
+        print(
+          '  ⚠️ پاسخ برای سوال ${question.id} یافت نشد - استفاده از مقدار پیش‌فرض: $answer',
+        );
+      }
 
+      // ذخیره هم با متن سوال و هم با ID برای دسترسی بهتر
+      if (answer.isNotEmpty) {
         profile[question.questionText] = answer;
+        profile[question.id] = answer; // برای دسترسی مستقیم با ID
+        print('  سوال: ${question.id} = $answer');
       }
     }
 
+    print('پروفایل ساخته شد با ${profile.length} فیلد');
     return profile;
   }
 
@@ -244,12 +312,24 @@ class AIWorkoutGeneratorService {
   /// استخراج سن کاربر
   int _extractAge(Map<String, dynamic> profile) {
     try {
+      // اول با ID سوال جستجو کن
+      if (profile.containsKey('bb_age')) {
+        final ageValue = profile['bb_age'];
+        final age = int.tryParse(ageValue.toString()) ?? 25;
+        print('سن استخراج شد (با ID): $age');
+        return age;
+      }
+
+      // اگر پیدا نشد، با متن سوال جستجو کن
       final entry = profile.entries.firstWhere(
-        (e) => e.key.contains('سن') || e.key.contains('age'),
+        (e) => e.key.contains('سن') || e.key.toLowerCase().contains('age'),
         orElse: () => const MapEntry('', '25'),
       );
-      return int.tryParse(entry.value.toString()) ?? 25;
-    } catch (_) {
+      final age = int.tryParse(entry.value.toString()) ?? 25;
+      print('سن استخراج شد (با متن): $age');
+      return age;
+    } catch (e) {
+      print('خطا در استخراج سن: $e');
       return 25;
     }
   }
@@ -257,18 +337,44 @@ class AIWorkoutGeneratorService {
   /// استخراج سطح تجربه
   String _extractExperienceLevel(Map<String, dynamic> profile) {
     try {
+      // اول با ID سوال جستجو کن
+      if (profile.containsKey('bb_experience_level')) {
+        final value = profile['bb_experience_level'].toString();
+        print('سطح تجربه استخراج شد (با ID): $value');
+
+        if (value.contains('مبتدی') || value.contains('0 تا 6 ماه')) {
+          return 'مبتدی';
+        } else if (value.contains('نیمه‌مبتدی') ||
+            value.contains('6 ماه تا 1.5 سال')) {
+          return 'نیمه‌مبتدی';
+        } else if (value.contains('متوسط') || value.contains('1.5 تا 3 سال')) {
+          return 'متوسط';
+        } else if (value.contains('پیشرفته') || value.contains('3+ سال')) {
+          return 'حرفه‌ای';
+        }
+        return 'متوسط';
+      }
+
+      // اگر پیدا نشد، با متن سوال جستجو کن
       final entry = profile.entries.firstWhere(
         (e) => e.key.contains('تجربه') || e.key.contains('سطح'),
         orElse: () => const MapEntry('', 'متوسط'),
       );
       final value = entry.value.toString();
+      print('سطح تجربه استخراج شد (با متن): $value');
+
       if (value.contains('مبتدی') || value.contains('6 ماه')) {
         return 'مبتدی';
-      } else if (value.contains('حرفه') || value.contains('2 سال')) {
+      } else if (value.contains('حرفه') ||
+          value.contains('پیشرفته') ||
+          value.contains('3+ سال')) {
         return 'حرفه‌ای';
+      } else if (value.contains('نیمه‌مبتدی')) {
+        return 'نیمه‌مبتدی';
       }
       return 'متوسط';
-    } catch (_) {
+    } catch (e) {
+      print('خطا در استخراج سطح تجربه: $e');
       return 'متوسط';
     }
   }
@@ -276,22 +382,57 @@ class AIWorkoutGeneratorService {
   /// استخراج آسیب‌دیدگی‌ها
   List<String> _extractInjuries(Map<String, dynamic> profile) {
     try {
-      final entry = profile.entries.firstWhere(
-        (e) => e.key.contains('آسیب') || e.key.contains('محدودیت'),
-        orElse: () => const MapEntry('', 'خیر'),
-      );
-      final value = entry.value.toString();
-      if (value.contains('خیر')) return [];
-
       final injuries = <String>[];
-      if (value.contains('کمر')) injuries.add('کمر');
-      if (value.contains('زانو')) injuries.add('زانو');
-      if (value.contains('شانه')) injuries.add('شانه');
-      if (value.contains('آرنج')) injuries.add('آرنج');
-      if (value.contains('مچ')) injuries.add('مچ');
 
+      // اول با ID سوال آسیب‌ها جستجو کن
+      if (profile.containsKey('bb_injury_areas')) {
+        final value = profile['bb_injury_areas'].toString();
+        print('آسیب‌ها استخراج شد (با ID): $value');
+
+        if (value.contains('ندارم') || value.isEmpty) {
+          return [];
+        }
+
+        // استخراج آسیب‌ها از پاسخ multiple choice
+        if (value.contains('شانه')) injuries.add('شانه');
+        if (value.contains('آرنج')) injuries.add('آرنج');
+        if (value.contains('مچ دست')) injuries.add('مچ');
+        if (value.contains('گردن')) injuries.add('گردن');
+        if (value.contains('کمر')) injuries.add('کمر');
+        if (value.contains('لگن')) injuries.add('لگن');
+        if (value.contains('زانو')) injuries.add('زانو');
+        if (value.contains('مچ پا')) injuries.add('مچ پا');
+      }
+
+      // اگر پیدا نشد، با متن سوال جستجو کن
+      if (injuries.isEmpty) {
+        final entry = profile.entries.firstWhere(
+          (e) =>
+              e.key.contains('آسیب') ||
+              e.key.contains('محدودیت') ||
+              e.key.contains('درد'),
+          orElse: () => const MapEntry('', 'ندارم'),
+        );
+        final value = entry.value.toString();
+        print('آسیب‌ها استخراج شد (با متن): $value');
+
+        if (value.contains('ندارم') || value.contains('خیر') || value.isEmpty) {
+          return [];
+        }
+
+        if (value.contains('کمر')) injuries.add('کمر');
+        if (value.contains('زانو')) injuries.add('زانو');
+        if (value.contains('شانه')) injuries.add('شانه');
+        if (value.contains('آرنج')) injuries.add('آرنج');
+        if (value.contains('مچ')) injuries.add('مچ');
+        if (value.contains('گردن')) injuries.add('گردن');
+        if (value.contains('لگن')) injuries.add('لگن');
+      }
+
+      print('آسیب‌های استخراج شده: ${injuries.join(", ")}');
       return injuries;
-    } catch (_) {
+    } catch (e) {
+      print('خطا در استخراج آسیب‌ها: $e');
       return [];
     }
   }
@@ -299,31 +440,77 @@ class AIWorkoutGeneratorService {
   /// استخراج اهداف کاربر
   List<String> _extractGoals(Map<String, dynamic> profile) {
     try {
-      final entry = profile.entries.firstWhere(
-        (e) => e.key.contains('هدف') || e.key.contains('goals'),
-        orElse: () => const MapEntry('', 'تناسب اندام'),
-      );
-      final value = entry.value.toString();
       final goals = <String>[];
 
-      if (value.contains('حجم') || value.contains('Hypertrophy')) {
-        goals.add('حجم‌سازی');
+      // اول با ID سوال هدف جستجو کن
+      if (profile.containsKey('bb_goal_primary')) {
+        final value = profile['bb_goal_primary'].toString();
+        print('هدف استخراج شد (با ID): $value');
+
+        if (value.contains('افزایش حجم') || value.contains('Bulk')) {
+          goals.add('حجم‌سازی');
+        }
+        if (value.contains('کات') ||
+            value.contains('کاهش چربی') ||
+            value.contains('Cut')) {
+          goals.add('چربی‌سوزی');
+        }
+        if (value.contains('ریکامپ') ||
+            value.contains('هم عضله، هم چربی کمتر')) {
+          goals.add('ریکامپ');
+          goals.add('حجم‌سازی');
+          goals.add('چربی‌سوزی');
+        }
+        if (value.contains('بهبود فرم') || value.contains('تناسب')) {
+          goals.add('تناسب اندام');
+        }
+        if (value.contains('آماده‌سازی مسابقه') || value.contains('فیزیک')) {
+          goals.add('آماده‌سازی مسابقه');
+          goals.add('چربی‌سوزی');
+        }
       }
-      if (value.contains('چربی') || value.contains('لاغری')) {
-        goals.add('چربی‌سوزی');
+
+      // اگر پیدا نشد، با متن سوال جستجو کن
+      if (goals.isEmpty) {
+        final entry = profile.entries.firstWhere(
+          (e) => e.key.contains('هدف') || e.key.toLowerCase().contains('goal'),
+          orElse: () => const MapEntry('', 'تناسب اندام'),
+        );
+        final value = entry.value.toString();
+        print('هدف استخراج شد (با متن): $value');
+
+        if (value.contains('حجم') ||
+            value.contains('Hypertrophy') ||
+            value.contains('Bulk')) {
+          goals.add('حجم‌سازی');
+        }
+        if (value.contains('چربی') ||
+            value.contains('لاغری') ||
+            value.contains('کات') ||
+            value.contains('Cut')) {
+          goals.add('چربی‌سوزی');
+        }
+        if (value.contains('قدرت')) {
+          goals.add('قدرت');
+        }
+        if (value.contains('استقامت')) {
+          goals.add('استقامت');
+        }
+        if (value.contains('ریکامپ')) {
+          goals.add('ریکامپ');
+          goals.add('حجم‌سازی');
+          goals.add('چربی‌سوزی');
+        }
       }
-      if (value.contains('قدرت')) {
-        goals.add('قدرت');
-      }
-      if (value.contains('استقامت')) {
-        goals.add('استقامت');
-      }
+
       if (goals.isEmpty) {
         goals.add('تناسب اندام');
       }
 
+      print('اهداف استخراج شده: ${goals.join(", ")}');
       return goals;
-    } catch (_) {
+    } catch (e) {
+      print('خطا در استخراج اهداف: $e');
       return ['تناسب اندام'];
     }
   }
@@ -331,18 +518,44 @@ class AIWorkoutGeneratorService {
   /// استخراج درصد چربی بدن
   String _extractBodyFatPercentage(Map<String, dynamic> profile) {
     try {
+      // اول با ID سوال جستجو کن
+      if (profile.containsKey('bb_bodyfat_estimate')) {
+        final value = profile['bb_bodyfat_estimate'].toString();
+        print('درصد چربی استخراج شد (با ID): $value');
+
+        if (value.contains('خیلی کم') || value.contains('10-12%'))
+          return 'خیلی کم';
+        if (value.contains('کم') || value.contains('13-15%')) return 'کم';
+        if (value.contains('متوسط') || value.contains('16-20%')) return 'متوسط';
+        if (value.contains('بالا') || value.contains('21-25%')) return 'زیاد';
+        if (value.contains('خیلی بالا') || value.contains('26%+'))
+          return 'خیلی زیاد';
+        return 'متوسط';
+      }
+
+      // اگر پیدا نشد، با متن سوال جستجو کن
       final entry = profile.entries.firstWhere(
-        (e) => e.key.contains('چربی'),
+        (e) =>
+            e.key.contains('چربی') || e.key.toLowerCase().contains('bodyfat'),
         orElse: () => const MapEntry('', 'متوسط'),
       );
       final value = entry.value.toString();
-      if (value.contains('کم') || value.contains('10%')) return 'کم';
-      if (value.contains('زیاد') || value.contains('20%')) return 'زیاد';
-      if (value.contains('خیلی زیاد') || value.contains('30%')) {
+      print('درصد چربی استخراج شد (با متن): $value');
+
+      if (value.contains('خیلی کم') || value.contains('10%')) return 'خیلی کم';
+      if (value.contains('کم') || value.contains('13%')) return 'کم';
+      if (value.contains('زیاد') ||
+          value.contains('21%') ||
+          value.contains('20%'))
+        return 'زیاد';
+      if (value.contains('خیلی زیاد') ||
+          value.contains('26%') ||
+          value.contains('30%')) {
         return 'خیلی زیاد';
       }
       return 'متوسط';
-    } catch (_) {
+    } catch (e) {
+      print('خطا در استخراج درصد چربی: $e');
       return 'متوسط';
     }
   }
@@ -366,15 +579,31 @@ class AIWorkoutGeneratorService {
   /// استخراج ساعات خواب
   String _extractSleepHours(Map<String, dynamic> profile) {
     try {
+      // اول با ID سوال جستجو کن
+      if (profile.containsKey('bb_sleep_hours')) {
+        final value = profile['bb_sleep_hours'].toString();
+        print('ساعات خواب استخراج شد (با ID): $value');
+
+        final hours = double.tryParse(value) ?? 7.0;
+        if (hours < 6) return 'کم';
+        if (hours > 8) return 'زیاد';
+        return 'مناسب';
+      }
+
+      // اگر پیدا نشد، با متن سوال جستجو کن
       final entry = profile.entries.firstWhere(
-        (e) => e.key.contains('خواب'),
-        orElse: () => const MapEntry('', '6-8 ساعت'),
+        (e) => e.key.contains('خواب') || e.key.toLowerCase().contains('sleep'),
+        orElse: () => const MapEntry('', '7'),
       );
       final value = entry.value.toString();
-      if (value.contains('کمتر از 6')) return 'کم';
-      if (value.contains('بالای 8')) return 'زیاد';
+      print('ساعات خواب استخراج شد (با متن): $value');
+
+      final hours = double.tryParse(value) ?? 7.0;
+      if (hours < 6) return 'کم';
+      if (hours > 8) return 'زیاد';
       return 'مناسب';
-    } catch (_) {
+    } catch (e) {
+      print('خطا در استخراج ساعات خواب: $e');
       return 'مناسب';
     }
   }
@@ -398,25 +627,56 @@ class AIWorkoutGeneratorService {
   /// استخراج شدت/سختی مطلوب کاربر (سنگین/متوسط/سبک)
   String _extractDesiredIntensity(Map<String, dynamic> profile) {
     try {
+      // اول با ID سوال جستجو کن
+      if (profile.containsKey('bb_effort_level')) {
+        final value = profile['bb_effort_level'].toString().toLowerCase();
+        print('شدت تمرین استخراج شد (با ID): $value');
+
+        if (value.contains('تقریباً تا ناتوانی') ||
+            value.contains('0-1 تکرار در ذخیره')) {
+          return 'سنگین';
+        }
+        if (value.contains('نزدیک ناتوانی') ||
+            value.contains('1-2 تکرار در ذخیره')) {
+          return 'سنگین';
+        }
+        if (value.contains('با فاصله') || value.contains('3+ تکرار در ذخیره')) {
+          return 'متوسط';
+        }
+        return 'متوسط';
+      }
+
+      // اگر پیدا نشد، با متن سوال جستجو کن
       final entry = profile.entries.firstWhere(
         (e) =>
             e.key.contains('شدت') ||
             e.key.contains('سختی') ||
             e.key.contains('فشار') ||
+            e.key.contains('ناتوانی') ||
             e.key.toLowerCase().contains('intensity') ||
-            e.key.toLowerCase().contains('difficulty'),
+            e.key.toLowerCase().contains('difficulty') ||
+            e.key.toLowerCase().contains('effort'),
         orElse: () => const MapEntry('', 'متوسط'),
       );
       final value = entry.value.toString().toLowerCase();
+      print('شدت تمرین استخراج شد (با متن): $value');
+
       if (value.contains('سنگین') ||
           value.contains('شدید') ||
           value.contains('heavy') ||
-          value.contains('پرفشار')) {
+          value.contains('پرفشار') ||
+          value.contains('ناتوانی') ||
+          value.contains('0-1')) {
         return 'سنگین';
       }
-      if (value.contains('سبک') || value.contains('light')) return 'سبک';
+      if (value.contains('سبک') ||
+          value.contains('light') ||
+          value.contains('3+')) {
+        return 'سبک';
+      }
       return 'متوسط';
-    } catch (_) {
+    } catch (e) {
+      print('خطا در استخراج شدت تمرین: $e');
       return 'متوسط';
     }
   }
@@ -597,34 +857,82 @@ class AIWorkoutGeneratorService {
     final int targetSessions = _extractDaysFromProfile(userProfile);
     print('تعداد جلسات هدف: $targetSessions'); // استفاده برای logging
 
-    return '''
-شما یک مربی بدنسازی خبره و متخصص فیزیوتراپی با 20 سال تجربه در طراحی برنامه‌های تمرینی علمی هستید. وظیفه شما طراحی برنامه‌ای است که هم اهداف کاربر را محقق کند و هم کاملاً ایمن باشد.
+    // استخراج اطلاعات اضافی از پروفایل
+    final equipment = _extractEquipment(userProfile);
+    final splitPreference = _extractSplitPreference(userProfile);
+    final priorityMuscles = _extractPriorityMuscles(userProfile);
+    final compoundMovements = _extractCompoundMovements(userProfile);
+    final injuryDetails = _extractInjuryDetails(userProfile);
+    final extraNotes = _extractExtraNotes(userProfile);
+    final trainingConsistency = _extractTrainingConsistency(userProfile);
+    final sex = _extractSex(userProfile);
+    final weight = _extractWeight(userProfile);
+    final height = _extractHeight(userProfile);
+    final stylePreference = _extractStylePreference(userProfile);
 
-### اطلاعات کاربر:
+    return '''
+شما یک مربی بدنسازی خبره و متخصص فیزیوتراپی با 20 سال تجربه در طراحی برنامه‌های تمرینی علمی و حرفه‌ای هستید. وظیفه شما طراحی برنامه‌ای است که هم اهداف کاربر را محقق کند و هم کاملاً ایمن و قابل اجرا باشد.
+
+### اطلاعات کامل کاربر:
 ${userProfile.entries.map((e) => '${e.key}: ${e.value}').join('\n')}
 
-### تحلیل علمی کاربر:
-- سن: ${analysis.age} سال
-- سطح تجربه: ${analysis.experience}
-- آسیب‌دیدگی‌ها: ${analysis.injuries.isEmpty ? 'ندارد' : analysis.injuries.join(', ')}
-- اهداف: ${analysis.goals.join(', ')}
-- سطح خطر: ${analysis.riskLevel}
-- نیازهای ویژه: ${analysis.specialNeeds.join(', ')}
+### تحلیل علمی و حرفه‌ای کاربر:
+- **سن**: ${analysis.age} سال
+- **جنسیت**: ${sex}
+- **قد**: ${height} سانتی‌متر
+- **وزن**: ${weight} کیلوگرم
+- **سطح تجربه**: ${analysis.experience}
+- **تداوم تمرین در 3 ماه اخیر**: ${trainingConsistency}
+- **آسیب‌دیدگی‌ها**: ${analysis.injuries.isEmpty ? 'ندارد' : analysis.injuries.join(', ')}
+${injuryDetails.isNotEmpty ? '- **جزئیات آسیب‌ها**: $injuryDetails' : ''}
+- **اهداف اصلی**: ${analysis.goals.join(', ')}
+- **درصد چربی بدن**: ${analysis.bodyFatPercentage}
+- **ساعات خواب شبانه**: ${analysis.sleepHours} (${_extractSleepHoursRaw(userProfile)} ساعت)
+- **سطح فعالیت روزانه**: ${analysis.activityLevel}
+- **سطح استرس**: ${analysis.stressLevel}
+- **شدت مطلوب تمرین**: ${analysis.desiredIntensity}
+- **سطح خطر**: ${analysis.riskLevel}
+- **نیازهای ویژه**: ${analysis.specialNeeds.join(', ')}
 
-### اصول علمی حتمی:
-1. **ایمنی مطلق**: هیچ تمرینی که با آسیب‌دیدگی‌های کاربر تداخل داشته باشد انتخاب نشود
-2. **تطبیق با سطح تجربه**: حجم و پیچیدگی دقیقاً متناسب با تجربه باشد
-3. **اهداف محور**: ${analysis.goals.contains('چربی‌سوزی')
-        ? 'شامل تمرینات هوازی و مقاومتی با تکرار بالا'
+### اطلاعات تمرین:
+- **تعداد روزهای تمرین در هفته**: ${_extractDaysFromProfile(userProfile)} روز
+- **مدت زمان هر جلسه**: ${_extractSessionDurationRaw(userProfile)} دقیقه
+- **دسترسی به تجهیزات**: $equipment
+- **ترجیح سبک تمرین**: $stylePreference
+- **ترجیح تقسیم‌بندی**: $splitPreference
+- **عضلات اولویت**: ${priorityMuscles.isNotEmpty ? priorityMuscles.join(', ') : 'بدون اولویت خاص'}
+- **حرکات پایه راحت**: ${compoundMovements.isNotEmpty ? compoundMovements.join(', ') : 'نیاز به آموزش'}
+${extraNotes.isNotEmpty ? '- **یادداشت‌های اضافی**: $extraNotes' : ''}
+
+### اصول علمی حتمی (مثل یک مربی 20 ساله):
+1. **ایمنی مطلق اولویت اول**: هیچ تمرینی که با آسیب‌دیدگی‌های کاربر تداخل داشته باشد انتخاب نشود. ${analysis.injuries.isNotEmpty ? 'تمرینات جایگزین ایمن برای ${analysis.injuries.join(", ")} استفاده شود.' : ''}
+2. **تطبیق دقیق با سطح تجربه**: حجم، پیچیدگی و شدت دقیقاً متناسب با تجربه ${analysis.experience} باشد. ${analysis.experience == 'مبتدی'
+        ? 'تمرکز بر آموزش فرم صحیح و حرکات پایه.'
+        : analysis.experience == 'حرفه‌ای'
+        ? 'استفاده از تکنیک‌های پیشرفته و برنامه‌های پیچیده مجاز است.'
+        : 'تعادل بین پایه و پیشرفته.'}
+3. **اهداف محور و علمی**: ${analysis.goals.contains('چربی‌سوزی')
+        ? 'شامل تمرینات هوازی (15-20 دقیقه در پایان هر جلسه) و مقاومتی با تکرار بالا (12-20 تکرار) برای حداکثر کالری‌سوزی. استراحت کوتاه‌تر (30-60 ثانیه) بین ست‌ها.'
         : analysis.goals.contains('حجم‌سازی')
-        ? 'تمرکز بر هایپرتروفی با محدوده 8-12 تکرار'
+        ? 'تمرکز بر هایپرتروفی با محدوده 8-12 تکرار. استراحت 2-3 دقیقه بین ست‌ها برای ریکاوری کامل. حجم تمرین بالا.'
+        : analysis.goals.contains('ریکامپ')
+        ? 'ترکیب هوازی متوسط و مقاومتی با تکرار 8-12. تعادل بین حجم و چربی‌سوزی.'
         : 'متناسب با هدف مشخص شده'}
-4. **تدریجی بودن**: پیشرفت هفتگی کنترل‌شده و علمی
-5. **بازیابی مناسب**: ${analysis.stressLevel == 'زیاد' ? 'توجه ویژه به استراحت بیشتر' : 'استراحت استاندارد'}
-6. **شدت مطلوب کاربر**: کاربر «${analysis.desiredIntensity}» می‌خواهد. شدت واقعی تمرین‌ها، حجم ست/تکرار/زمان، استراحت بین ست‌ها، و انتخاب حرکات باید این را بازتاب دهد. برای «سنگین»: حرکات چندمفصلی بیشتر، محدوده تکرار پایین‌تر یا ست‌های زمان‌محور با RPE/RIR پایین‌تر، استراحت بلندتر. برای «متوسط»: محدوده کلاسیک هایپرتروفی، استراحت متوسط. برای «سبک»: حجم کمتر، استراحت کوتاه‌تر، شدت ذهنی کمتر.
+4. **تدریجی بودن و پیشرفت علمی**: پیشرفت هفتگی کنترل‌شده (افزایش 2.5-5% وزن یا 1-2 تکرار). از افزایش ناگهانی حجم یا شدت پرهیز شود.
+5. **بازیابی و ریکاوری مناسب**: ${analysis.stressLevel == 'زیاد' ? 'توجه ویژه به استراحت بیشتر بین ست‌ها و روزهای استراحت. کاهش حجم تمرین.' : 'استراحت استاندارد بین ست‌ها و روزهای استراحت کافی.'} خواب ${analysis.sleepHours} ساعت باید در نظر گرفته شود.
+6. **شدت مطلوب کاربر**: کاربر «${analysis.desiredIntensity}» می‌خواهد. شدت واقعی تمرین‌ها، حجم ست/تکرار/زمان، استراحت بین ست‌ها، و انتخاب حرکات باید این را بازتاب دهد.
+   - برای «سنگین»: حرکات چندمفصلی بیشتر، محدوده تکرار پایین‌تر (4-8 تکرار) یا ست‌های زمان‌محور با RPE بالا (8-10)، استراحت بلندتر (3-5 دقیقه)، حجم متوسط.
+   - برای «متوسط»: محدوده کلاسیک هایپرتروفی (8-12 تکرار)، استراحت متوسط (2-3 دقیقه)، حجم متعادل.
+   - برای «سبک»: حجم کمتر، استراحت کوتاه‌تر (60-90 ثانیه)، شدت ذهنی کمتر (RPE 6-7)، تکرار بیشتر (12-15).
+7. **تطبیق با تجهیزات**: برنامه باید کاملاً با دسترسی به «$equipment» سازگار باشد.
+8. **تقسیم‌بندی مناسب**: استفاده از «$splitPreference» با توجه به ${_extractDaysFromProfile(userProfile)} روز تمرین در هفته.
+9. **اولویت عضلات**: ${priorityMuscles.isNotEmpty ? 'تمرکز بیشتر روی ${priorityMuscles.join(", ")} با حجم و تکرار بالاتر.' : 'توزیع متعادل حجم بین همه گروه‌های عضلانی.'}
+10. **حرکات پایه**: ${compoundMovements.isNotEmpty ? 'استفاده از ${compoundMovements.join(", ")} در برنامه.' : 'استفاده از حرکات پایه ساده‌تر و آموزش فرم صحیح.'}
 
-### فهرست نام‌های تمرینات:
+### فهرست نام‌های تمرینات (فقط از این نام‌ها استفاده کنید):
 $availableExerciseNames
+
+**مهم**: در JSON خروجی، برای هر تمرین باید دقیقاً یکی از نام‌های بالا را در فیلد `tag` یا `name` قرار دهید. از نام‌های انگلیسی یا نام‌های دیگر استفاده نکنید.
 
 ### محدودیت‌های اجباری برای این کاربر:
 ${analysis.injuries.isNotEmpty ? '- تمرینات ممنوع: ${_getProhibitedExercises(analysis.injuries).join(', ')}' : '- محدودیت خاصی ندارد'}
@@ -635,11 +943,22 @@ ${analysis.experience == 'مبتدی'
         ? '- تا 7-8 حرکت مجاز'
         : '- 5-6 حرکت در هر جلسه'}
 
-برنامه تمرینی را در قالب JSON زیر برگردانید. خروجی باید دقیقاً ${_extractDaysFromProfile(userProfile)} جلسه در آرایه sessions داشته باشد (نه کمتر، نه بیشتر). برای هر تمرین، یکی از دو سبک زیر را الزاماً مشخص کنید:
-- sets_reps: ست‌های تکرارمحور با کلیدهای {"reps": number}
-- sets_time: ست‌های زمان‌محور با کلیدهای {"time_seconds": number}
+برنامه تمرینی را در قالب JSON زیر برگردانید. خروجی باید دقیقاً ${_extractDaysFromProfile(userProfile)} جلسه در آرایه sessions داشته باشد (نه کمتر، نه بیشتر). 
 
-همچنین در صورت هدف هوازی/کاردیو، از سبک sets_time با زمان 600 تا 1200 ثانیه استفاده کنید.
+**قوانین مهم برای تمرینات:**
+1. برای هر تمرین، حتماً از یکی از نام‌های موجود در فهرست بالا استفاده کنید (نام فارسی کامل)
+2. فیلد `tag` باید دقیقاً همان نام فارسی تمرین باشد که در فهرست بالا آمده است
+3. فیلد `exercise_id` را 0 قرار دهید (سیستم خودش ID را پیدا می‌کند)
+4. برای هر تمرین، یکی از دو سبک زیر را الزاماً مشخص کنید:
+   - sets_reps: ست‌های تکرارمحور با کلیدهای {"reps": number}
+   - sets_time: ست‌های زمان‌محور با کلیدهای {"time_seconds": number}
+5. در صورت هدف هوازی/کاردیو، از سبک sets_time با زمان 600 تا 1200 ثانیه استفاده کنید
+
+**مثال صحیح:**
+{"type":"normal","tag":"پرس سینه هالتر", "style":"sets_reps","exercise_id":0,"sets":[{"reps":10}]}
+
+**مثال غلط (استفاده نکنید):**
+{"type":"normal","tag":"bench_press", "style":"sets_reps","exercise_id":0,"sets":[{"reps":10}]}
 
 {
   "program_name": "برنامه ${analysis.goals.join(' و ')} ${analysis.experience} ${_extractDaysFromProfile(userProfile)}روزه",
@@ -648,7 +967,7 @@ ${analysis.experience == 'مبتدی'
   "duration": "مدت برنامه (هفته)",
   "frequency": "تعداد جلسات در هفته",
   "sessions": [
-    {"name": "روز 1 - گروه عضلانی", "notes": "...", "exercises": [{"type":"normal","tag":"", "style":"sets_reps","exercise_id":0,"sets":[{"reps":10}]}]},
+    {"name": "روز 1 - گروه عضلانی", "notes": "...", "exercises": [{"type":"normal","tag":"نام فارسی کامل تمرین از فهرست بالا", "style":"sets_reps","exercise_id":0,"sets":[{"reps":10}]}]},
     {"name": "روز 2 - گروه عضلانی", "notes": "...", "exercises": []},
     {"name": "روز 3 - گروه عضلانی", "notes": "...", "exercises": []},
     {"name": "روز 4 - گروه عضلانی", "notes": "...", "exercises": []}
@@ -801,15 +1120,40 @@ ${analysis.experience == 'مبتدی'
                 ) ??
                 0;
             final providedName =
-                (exerciseData['name'] ?? exerciseData['tag'] ?? '').toString();
-            final resolvedId = providedId > 0
-                ? providedId
-                : await _getExerciseIdByName(providedName);
+                (exerciseData['name'] ?? exerciseData['tag'] ?? '')
+                    .toString()
+                    .trim();
+
+            // همیشه سعی کن ID را از نام پیدا کنی (حتی اگر providedId > 0 باشد)
+            // چون ممکن است AI ID اشتباه بفرستد
+            int resolvedId = providedId;
+            if (providedName.isNotEmpty) {
+              final foundId = await _getExerciseIdByName(providedName);
+              if (foundId > 0) {
+                resolvedId = foundId;
+                print('ID از نام پیدا شد: "$providedName" -> ID=$foundId');
+              } else if (providedId > 0) {
+                // اگر از نام پیدا نشد اما providedId > 0 است، از آن استفاده کن
+                resolvedId = providedId;
+                print(
+                  'استفاده از providedId: $providedId برای "$providedName"',
+                );
+              } else {
+                print('⚠️ هیچ ID برای "$providedName" پیدا نشد');
+              }
+            }
+
+            final tagValue = (exerciseData['tag'] ?? exerciseData['name'] ?? '')
+                .toString()
+                .trim();
+
+            print(
+              'پارس تمرین: providedId=$providedId, resolvedId=$resolvedId, tag="$tagValue", name="${exerciseData['name']}"',
+            );
 
             final exercise = NormalExercise(
               exerciseId: resolvedId,
-              tag: (exerciseData['tag'] ?? exerciseData['name'] ?? '')
-                  .toString(),
+              tag: tagValue.isNotEmpty ? tagValue : providedName.trim(),
               style: _parseStyle(exerciseData as Map<String, dynamic>),
               sets: _parseSets(
                 exerciseData,
@@ -819,6 +1163,10 @@ ${analysis.experience == 'مبتدی'
               note:
                   (exerciseData['note'] ?? exerciseData['notes'] ?? '')
                       as String?,
+            );
+
+            print(
+              'تمرین ایجاد شد: exerciseId=${exercise.exerciseId}, tag="${exercise.tag}"',
             );
             exercises.add(exercise);
           } catch (e) {
@@ -959,15 +1307,39 @@ ${analysis.experience == 'مبتدی'
   /// استخراج تعداد روزهای تمرین از پروفایل
   int _extractDaysFromProfile(Map<String, dynamic> profile) {
     try {
+      // اول با ID سوال جستجو کن
+      if (profile.containsKey('bb_days_per_week')) {
+        final value = profile['bb_days_per_week'].toString();
+        print('تعداد روزهای تمرین استخراج شد (با ID): $value');
+
+        final match = RegExp(r'(\d+)').firstMatch(value);
+        if (match != null) {
+          final days = int.parse(match.group(1)!);
+          print('تعداد روزها: $days');
+          return days;
+        }
+      }
+
+      // اگر پیدا نشد، با متن سوال جستجو کن
       final entry = profile.entries.firstWhere(
-        (e) => e.key.contains('چند روز') || e.key.contains('چند روز در هفته'),
-        orElse: () => const MapEntry('', ''),
+        (e) =>
+            e.key.contains('چند روز') ||
+            e.key.contains('چند روز در هفته') ||
+            e.key.toLowerCase().contains('days per week'),
+        orElse: () => const MapEntry('', '3'),
       );
       final value = entry.value.toString();
+      print('تعداد روزهای تمرین استخراج شد (با متن): $value');
+
       final match = RegExp(r'(\d+)').firstMatch(value);
-      if (match != null) return int.parse(match.group(1)!);
+      if (match != null) {
+        final days = int.parse(match.group(1)!);
+        print('تعداد روزها: $days');
+        return days;
+      }
       return 3;
-    } catch (_) {
+    } catch (e) {
+      print('خطا در استخراج تعداد روزها: $e');
       return 3;
     }
   }
@@ -975,15 +1347,37 @@ ${analysis.experience == 'مبتدی'
   /// استخراج مدت زمان هر جلسه
   String _extractSessionDuration(Map<String, dynamic> profile) {
     try {
+      // اول با ID سوال جستجو کن
+      if (profile.containsKey('bb_session_minutes')) {
+        final value = profile['bb_session_minutes'].toString();
+        print('مدت زمان جلسه استخراج شد (با ID): $value');
+
+        final minutes = double.tryParse(value) ?? 60.0;
+        if (minutes >= 90) return 'حجم بالاتر مجاز (۵-۶ حرکت)';
+        if (minutes >= 60) return 'حجم متوسط (۴-۵ حرکت)';
+        if (minutes >= 45) return 'حجم متوسط (۴-۵ حرکت)';
+        return 'حجم محدود (۳-۴ حرکت)';
+      }
+
+      // اگر پیدا نشد، با متن سوال جستجو کن
       final entry = profile.entries.firstWhere(
-        (e) => e.key.contains('مدت زمان هر جلسه'),
-        orElse: () => const MapEntry('', ''),
+        (e) =>
+            e.key.contains('مدت زمان') ||
+            e.key.contains('زمان دارید') ||
+            e.key.toLowerCase().contains('session') ||
+            e.key.toLowerCase().contains('minutes'),
+        orElse: () => const MapEntry('', '60'),
       );
       final value = entry.value.toString();
-      if (value.contains('بالای 90')) return 'حجم بالاتر مجاز (۵-۶ حرکت)';
-      if (value.contains('45-60')) return 'حجم متوسط (۴-۵ حرکت)';
-      return '۴-۶ حرکت';
-    } catch (_) {
+      print('مدت زمان جلسه استخراج شد (با متن): $value');
+
+      final minutes = double.tryParse(value) ?? 60.0;
+      if (minutes >= 90) return 'حجم بالاتر مجاز (۵-۶ حرکت)';
+      if (minutes >= 60) return 'حجم متوسط (۴-۵ حرکت)';
+      if (minutes >= 45) return 'حجم متوسط (۴-۵ حرکت)';
+      return 'حجم محدود (۳-۴ حرکت)';
+    } catch (e) {
+      print('خطا در استخراج مدت زمان جلسه: $e');
       return '۴-۶ حرکت';
     }
   }
@@ -1409,39 +1803,88 @@ ${analysis.experience == 'مبتدی'
   Future<int> _getExerciseIdByName(String exerciseName) async {
     try {
       final allExercises = await AIExerciseReadService().getExercisesForAI();
+      final searchName = exerciseName.trim().toLowerCase();
 
       // جستجوی دقیق
       for (final exercise in allExercises) {
-        if (exercise.name.trim() == exerciseName.trim()) {
+        if (exercise.name.trim().toLowerCase() == searchName) {
+          print(
+            'تمرین پیدا شد (دقیق): "$exerciseName" -> ${exercise.name} (ID: ${exercise.id})',
+          );
           return exercise.id;
         }
       }
 
+      // جستجوی در otherNames
+      for (final exercise in allExercises) {
+        for (final otherName in exercise.otherNames) {
+          if (otherName.trim().toLowerCase() == searchName) {
+            print(
+              'تمرین پیدا شد (otherNames): "$exerciseName" -> ${exercise.name} (ID: ${exercise.id})',
+            );
+            return exercise.id;
+          }
+        }
+      }
+
       // جستجوی تقریبی بر اساس کلمات کلیدی
-      final keywords = exerciseName.toLowerCase().split(' ');
+      final keywords = searchName
+          .split(RegExp(r'[_\s]+'))
+          .where((w) => w.length > 2)
+          .toList();
       int bestScore = 0;
       int bestId = 0;
 
       for (final exercise in allExercises) {
         int score = 0;
         final exerciseLower = exercise.name.toLowerCase();
+        final exerciseMainMuscle = exercise.mainMuscle.toLowerCase();
 
-        // امتیازدهی بر اساس تطبیق کلمات
+        // امتیازدهی بر اساس تطبیق کلمات در نام تمرین
         for (final keyword in keywords) {
           if (exerciseLower.contains(keyword)) score += 10;
-        }
-
-        // امتیاز اضافی برای تطبیق عضله اصلی
-        if (exercise.mainMuscle.isNotEmpty) {
-          for (final keyword in keywords) {
-            if (exercise.mainMuscle.toLowerCase().contains(keyword)) score += 5;
+          // جستجو در otherNames
+          for (final otherName in exercise.otherNames) {
+            if (otherName.toLowerCase().contains(keyword)) score += 8;
           }
         }
 
-        // امتیاز اضافی برای نام‌های دیگر
-        for (final otherName in exercise.otherNames) {
+        // امتیاز اضافی برای تطبیق عضله اصلی
+        if (exerciseMainMuscle.isNotEmpty) {
           for (final keyword in keywords) {
-            if (otherName.toLowerCase().contains(keyword)) score += 8;
+            if (exerciseMainMuscle.contains(keyword)) score += 5;
+          }
+        }
+
+        // امتیاز اضافی برای تطبیق کلمات کلیدی رایج
+        final commonMappings = {
+          'bench': ['پرس', 'سینه'],
+          'press': ['پرس'],
+          'curl': ['جلو بازو', 'بازو'],
+          'row': ['زیر بغل', 'لت', 'پشت'],
+          'squat': ['اسکوات', 'اسکات'],
+          'deadlift': ['ددلیفت'],
+          'pull': ['زیر بغل', 'لت'],
+          'push': ['پرس'],
+          'raise': ['نشر', 'بالا'],
+          'dip': ['دیپ'],
+          'extension': ['باز', 'کشش'],
+          'tricep': ['پشت بازو'],
+          'bicep': ['جلو بازو'],
+          'chest': ['سینه'],
+          'back': ['پشت', 'زیر بغل'],
+          'shoulder': ['شانه'],
+          'leg': ['پا', 'ران'],
+          'calf': ['ساق'],
+        };
+
+        for (final entry in commonMappings.entries) {
+          if (searchName.contains(entry.key)) {
+            for (final persianWord in entry.value) {
+              if (exerciseLower.contains(persianWord)) {
+                score += 15; // امتیاز بالا برای تطبیق کلمات کلیدی
+              }
+            }
           }
         }
 
@@ -1452,12 +1895,18 @@ ${analysis.experience == 'مبتدی'
       }
 
       if (bestScore > 0) {
+        final foundExercise = allExercises.firstWhere((e) => e.id == bestId);
+        print(
+          'تمرین پیدا شد (تقریبی): "$exerciseName" -> ${foundExercise.name} (ID: $bestId, Score: $bestScore)',
+        );
         return bestId;
       }
 
+      print('⚠️ هیچ تمرینی برای "$exerciseName" پیدا نشد');
       // اگر هیچ تطبیقی پیدا نشد، 0 برگردان تا باعث خطا شود
       return 0;
     } catch (e) {
+      print('خطا در جستجوی تمرین "$exerciseName": $e');
       // در صورت خطا، 0 برگردان تا تمرین جعلی ساخته نشود
       return 0;
     }
@@ -1631,6 +2080,276 @@ ${analysis.experience == 'مبتدی'
       return int.tryParse(secondsString.trim()) ?? 60;
     } catch (_) {
       return 60;
+    }
+  }
+
+  /// استخراج تجهیزات در دسترس
+  String _extractEquipment(Map<String, dynamic> profile) {
+    try {
+      if (profile.containsKey('bb_equipment_access')) {
+        return profile['bb_equipment_access'].toString();
+      }
+      final entry = profile.entries.firstWhere(
+        (e) =>
+            e.key.contains('تجهیزات') ||
+            e.key.contains('محیط') ||
+            e.key.toLowerCase().contains('equipment'),
+        orElse: () => const MapEntry('', 'باشگاه کامل'),
+      );
+      return entry.value.toString();
+    } catch (_) {
+      return 'باشگاه کامل';
+    }
+  }
+
+  /// استخراج ترجیح تقسیم‌بندی
+  String _extractSplitPreference(Map<String, dynamic> profile) {
+    try {
+      if (profile.containsKey('bb_split_preference')) {
+        return profile['bb_split_preference'].toString();
+      }
+      final entry = profile.entries.firstWhere(
+        (e) => e.key.contains('تقسیم') || e.key.contains('split'),
+        orElse: () => const MapEntry('', 'فرقی ندارد'),
+      );
+      return entry.value.toString();
+    } catch (_) {
+      return 'فرقی ندارد';
+    }
+  }
+
+  /// استخراج عضلات اولویت
+  List<String> _extractPriorityMuscles(Map<String, dynamic> profile) {
+    try {
+      if (profile.containsKey('bb_priority_muscles')) {
+        final value = profile['bb_priority_muscles'].toString();
+        if (value.contains('بدون اولویت')) return [];
+        return value.split(', ').where((e) => e.isNotEmpty).toList();
+      }
+      final entry = profile.entries.firstWhere(
+        (e) => e.key.contains('اولویت') || e.key.contains('عضلات'),
+        orElse: () => const MapEntry('', ''),
+      );
+      final value = entry.value.toString();
+      if (value.contains('بدون اولویت')) return [];
+      return value.split(', ').where((e) => e.isNotEmpty).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// استخراج حرکات پایه راحت
+  List<String> _extractCompoundMovements(Map<String, dynamic> profile) {
+    try {
+      if (profile.containsKey('bb_compound_comfort')) {
+        final value = profile['bb_compound_comfort'].toString();
+        if (value.contains('هیچکدام') || value.contains('مطمئن نیستم'))
+          return [];
+        return value
+            .split(', ')
+            .where((e) => e.isNotEmpty && !e.contains('هیچکدام'))
+            .toList();
+      }
+      final entry = profile.entries.firstWhere(
+        (e) => e.key.contains('حرکات پایه') || e.key.contains('راحت'),
+        orElse: () => const MapEntry('', ''),
+      );
+      final value = entry.value.toString();
+      if (value.contains('هیچکدام') || value.contains('مطمئن نیستم')) return [];
+      return value
+          .split(', ')
+          .where((e) => e.isNotEmpty && !e.contains('هیچکدام'))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// استخراج جزئیات آسیب‌ها
+  String _extractInjuryDetails(Map<String, dynamic> profile) {
+    try {
+      if (profile.containsKey('bb_injury_details')) {
+        final value = profile['bb_injury_details'].toString();
+        return value.isNotEmpty ? value : '';
+      }
+      final entry = profile.entries.firstWhere(
+        (e) => e.key.contains('محدودیت') && e.key.contains('دقیقاً'),
+        orElse: () => const MapEntry('', ''),
+      );
+      return entry.value.toString();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// استخراج یادداشت‌های اضافی
+  String _extractExtraNotes(Map<String, dynamic> profile) {
+    try {
+      if (profile.containsKey('bb_extra_notes')) {
+        final value = profile['bb_extra_notes'].toString();
+        return value.isNotEmpty ? value : '';
+      }
+      final entry = profile.entries.firstWhere(
+        (e) => e.key.contains('نکته') || e.key.contains('یادداشت'),
+        orElse: () => const MapEntry('', ''),
+      );
+      return entry.value.toString();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// استخراج تداوم تمرین
+  String _extractTrainingConsistency(Map<String, dynamic> profile) {
+    try {
+      if (profile.containsKey('bb_training_consistency')) {
+        return profile['bb_training_consistency'].toString();
+      }
+      final entry = profile.entries.firstWhere(
+        (e) => e.key.contains('چند روز در هفته') && e.key.contains('3 ماه'),
+        orElse: () => const MapEntry('', '3 روز'),
+      );
+      return entry.value.toString();
+    } catch (_) {
+      return '3 روز';
+    }
+  }
+
+  /// استخراج جنسیت
+  String _extractSex(Map<String, dynamic> profile) {
+    try {
+      if (profile.containsKey('bb_sex')) {
+        return profile['bb_sex'].toString();
+      }
+      final entry = profile.entries.firstWhere(
+        (e) => e.key.contains('جنسیت'),
+        orElse: () => const MapEntry('', 'مرد'),
+      );
+      return entry.value.toString();
+    } catch (_) {
+      return 'مرد';
+    }
+  }
+
+  /// استخراج وزن
+  String _extractWeight(Map<String, dynamic> profile) {
+    try {
+      if (profile.containsKey('bb_weight_kg')) {
+        return profile['bb_weight_kg'].toString();
+      }
+      final entry = profile.entries.firstWhere(
+        (e) => e.key.contains('وزن') && e.key.contains('کیلو'),
+        orElse: () => const MapEntry('', '70'),
+      );
+      return entry.value.toString();
+    } catch (_) {
+      return '70';
+    }
+  }
+
+  /// استخراج قد
+  String _extractHeight(Map<String, dynamic> profile) {
+    try {
+      if (profile.containsKey('bb_height_cm')) {
+        return profile['bb_height_cm'].toString();
+      }
+      final entry = profile.entries.firstWhere(
+        (e) => e.key.contains('قد') && e.key.contains('سانتی'),
+        orElse: () => const MapEntry('', '175'),
+      );
+      return entry.value.toString();
+    } catch (_) {
+      return '175';
+    }
+  }
+
+  /// استخراج ترجیح سبک تمرین
+  String _extractStylePreference(Map<String, dynamic> profile) {
+    try {
+      if (profile.containsKey('bb_style_preference')) {
+        return profile['bb_style_preference'].toString();
+      }
+      final entry = profile.entries.firstWhere(
+        (e) => e.key.contains('ترجیح سبک') || e.key.contains('سبک تمرین'),
+        orElse: () => const MapEntry('', 'ترکیبی'),
+      );
+      return entry.value.toString();
+    } catch (_) {
+      return 'ترکیبی';
+    }
+  }
+
+  /// استخراج ساعات خواب به صورت عدد
+  String _extractSleepHoursRaw(Map<String, dynamic> profile) {
+    try {
+      if (profile.containsKey('bb_sleep_hours')) {
+        return profile['bb_sleep_hours'].toString();
+      }
+      final entry = profile.entries.firstWhere(
+        (e) => e.key.contains('خواب'),
+        orElse: () => const MapEntry('', '7'),
+      );
+      return entry.value.toString();
+    } catch (_) {
+      return '7';
+    }
+  }
+
+  /// استخراج مدت زمان جلسه به صورت عدد
+  String _extractSessionDurationRaw(Map<String, dynamic> profile) {
+    try {
+      if (profile.containsKey('bb_session_minutes')) {
+        return profile['bb_session_minutes'].toString();
+      }
+      final entry = profile.entries.firstWhere(
+        (e) => e.key.contains('زمان دارید') || e.key.contains('مدت زمان'),
+        orElse: () => const MapEntry('', '60'),
+      );
+      return entry.value.toString();
+    } catch (_) {
+      return '60';
+    }
+  }
+
+  /// دریافت مقدار پیش‌فرض برای سوالات پرسشنامه
+  String _getDefaultAnswer(WorkoutQuestion question) {
+    switch (question.id) {
+      case 'bb_training_consistency':
+        return '3 روز';
+      case 'bb_days_per_week':
+        return '3 روز';
+      case 'bb_session_minutes':
+        return '60';
+      case 'bb_equipment_access':
+        return 'باشگاه کامل (دمبل، هالتر، دستگاه، کابل، اسمیت)';
+      case 'bb_style_preference':
+        return 'ترکیبی (وزنه آزاد + دستگاه)';
+      case 'bb_split_preference':
+        return 'فرقی ندارد (بهترین را انتخاب کن)';
+      case 'bb_priority_muscles':
+        return 'بدون اولویت خاص';
+      case 'bb_compound_comfort':
+        return 'هیچکدام/مطمئن نیستم';
+      case 'bb_injury_areas':
+        return 'ندارم';
+      case 'bb_injury_details':
+        return '';
+      case 'bb_age':
+        return '25';
+      case 'bb_height_cm':
+        return '175';
+      case 'bb_weight_kg':
+        return '70';
+      case 'bb_bodyfat_estimate':
+        return 'متوسط (16-20%)';
+      case 'bb_sleep_hours':
+        return '7';
+      case 'bb_effort_level':
+        return 'با فاصله (3+ تکرار در ذخیره)';
+      case 'bb_extra_notes':
+        return '';
+      default:
+        return '';
     }
   }
 }

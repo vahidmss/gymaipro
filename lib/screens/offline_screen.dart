@@ -2,13 +2,17 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
-import 'package:gymaipro/services/route_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OfflineScreen extends StatefulWidget {
-  const OfflineScreen({super.key});
+  const OfflineScreen({
+    this.onReconnect,
+    super.key,
+  });
+
+  final VoidCallback? onReconnect;
 
   @override
   State<OfflineScreen> createState() => _OfflineScreenState();
@@ -35,11 +39,9 @@ class _OfflineScreenState extends State<OfflineScreen> {
     setState(() => _checking = false);
     if (!mounted) return;
     if (online && dbReachable) {
-      try {
-        final target = await RouteService.getInitialRoute();
-        if (!mounted) return;
-        Navigator.pushNamedAndRemoveUntil(context, target, (route) => false);
-      } catch (_) {
+      if (widget.onReconnect != null) {
+        widget.onReconnect!();
+      } else {
         Navigator.pushNamedAndRemoveUntil(context, '/main', (route) => false);
       }
     } else {

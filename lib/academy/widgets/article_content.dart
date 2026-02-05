@@ -11,22 +11,25 @@ class ArticleContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = context.textColor;
+    final textSecondary = context.textSecondary;
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: Colors.white10),
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(0),
       ),
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.zero,
       child: Html(
         data: contentHtml,
         style: {
           'body': Style(
-            color: Colors.white.withValues(alpha: 0.9),
+            color: textColor,
             fontSize: FontSize(16),
-            lineHeight: const LineHeight(1.4),
+            lineHeight: const LineHeight(1.6),
             margin: Margins.zero,
             padding: HtmlPaddings.zero,
+            fontFamily: AppTheme.fontFamily,
           ),
           'p': Style(
             margin: Margins.only(top: 0.h, bottom: 2),
@@ -45,22 +48,25 @@ class ArticleContent extends StatelessWidget {
           'h2': Style(margin: Margins.only(top: 2.h, bottom: 2)),
           'h3': Style(margin: Margins.only(top: 2.h, bottom: 2)),
           'h4': Style(
-            color: Colors.white,
+            color: textColor,
             fontWeight: FontWeight.w700,
             margin: Margins.only(top: 2.h, bottom: 2),
             padding: HtmlPaddings.zero,
+            fontFamily: AppTheme.fontFamily,
           ),
           'h5': Style(
-            color: Colors.white,
+            color: textColor,
             fontWeight: FontWeight.w600,
             margin: Margins.only(top: 2.h, bottom: 2),
             padding: HtmlPaddings.zero,
+            fontFamily: AppTheme.fontFamily,
           ),
           'h6': Style(
-            color: Colors.white,
+            color: textColor,
             fontWeight: FontWeight.w600,
             margin: Margins.only(top: 2.h, bottom: 2),
             padding: HtmlPaddings.zero,
+            fontFamily: AppTheme.fontFamily,
           ),
           'hr': Style(margin: Margins.only(top: 6.h, bottom: 6)),
         },
@@ -86,7 +92,9 @@ class ArticleContent extends StatelessWidget {
               }
               return Container(
                 decoration: BoxDecoration(
-                  color: Colors.white10,
+                  color: isDark
+                      ? AppTheme.goldColor.withValues(alpha: 0.15)
+                      : AppTheme.goldColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8.r),
                   border: Border(
                     right: BorderSide(color: AppTheme.goldColor, width: bar),
@@ -96,11 +104,12 @@ class ArticleContent extends StatelessWidget {
                 child: Text(
                   text,
                   textAlign: TextAlign.right,
-                  style: GoogleFonts.vazirmatn(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: textColor,
                     fontWeight: weight,
                     letterSpacing: 0.2,
                     fontSize: fontSize,
+                    fontFamily: AppTheme.fontFamily,
                   ),
                 ),
               );

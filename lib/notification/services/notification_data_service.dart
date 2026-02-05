@@ -1,4 +1,5 @@
-﻿import 'package:supabase_flutter/supabase_flutter.dart';
+﻿import 'package:gymaipro/notification/models/notification_model.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotificationDataService {
   static final SupabaseClient _client = Supabase.instance.client;
@@ -41,7 +42,7 @@ class NotificationDataService {
         params: {'user_uuid': user.id},
       );
 
-      return response ?? 0;
+      return response;
     } catch (e) {
       print('Error fetching unread count: $e');
       return 0;
@@ -65,7 +66,7 @@ class NotificationDataService {
       final user = _client.auth.currentUser;
       if (user == null) return false;
 
-      final response = await _client.rpc(
+      final response = await _client.rpc<Map<String, dynamic>>(
         'mark_notification_as_read',
         params: {'notification_uuid': notificationId, 'user_uuid': user.id},
       );
@@ -83,7 +84,7 @@ class NotificationDataService {
       final user = _client.auth.currentUser;
       if (user == null) return 0;
 
-      final response = await _client.rpc(
+      final response = await _client.rpc<int>(
         'mark_all_notifications_as_read',
         params: {'user_uuid': user.id},
       );
@@ -151,7 +152,7 @@ class NotificationDataService {
       if (user == null) return 0;
 
       // استفاده از RPC function برای حذف اعلان‌های خوانده شده
-      final response = await _client.rpc(
+      final response = await _client.rpc<int>(
         'delete_read_notifications',
         params: {'user_uuid': user.id},
       );
@@ -208,100 +209,4 @@ class NotificationDataService {
       return Stream.value([]);
     }
   }
-}
-
-class NotificationItem {
-  NotificationItem({
-    required this.id,
-    required this.title,
-    required this.message,
-    required this.timestamp,
-    required this.isRead,
-    required this.type,
-    this.priority = 1,
-    this.data = const {},
-    this.actionUrl,
-    this.expiresAt,
-  });
-
-  factory NotificationItem.fromJson(Map<String, dynamic> json) {
-    return NotificationItem(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      message: json['message'] as String,
-      timestamp: DateTime.parse(json['created_at'] as String),
-      isRead: json['is_read'] as bool,
-      type: NotificationType.values.firstWhere(
-        (e) => e.name == json['type'],
-        orElse: () => NotificationType.system,
-      ),
-      priority: json['priority'] as int? ?? 1,
-      data: Map<String, dynamic>.from(json['data'] as Map? ?? {}),
-      actionUrl: json['action_url'] as String?,
-      expiresAt: json['expires_at'] != null
-          ? DateTime.parse(json['expires_at'] as String)
-          : null,
-    );
-  }
-  final String id;
-  final String title;
-  final String message;
-  final DateTime timestamp;
-  bool isRead;
-  final NotificationType type;
-  final int priority;
-  final Map<String, dynamic> data;
-  final String? actionUrl;
-  final DateTime? expiresAt;
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'message': message,
-      'created_at': timestamp.toIso8601String(),
-      'is_read': isRead,
-      'type': type.name,
-      'priority': priority,
-      'data': data,
-      'action_url': actionUrl,
-      'expires_at': expiresAt?.toIso8601String(),
-    };
-  }
-
-  NotificationItem copyWith({
-    String? id,
-    String? title,
-    String? message,
-    DateTime? timestamp,
-    bool? isRead,
-    NotificationType? type,
-    int? priority,
-    Map<String, dynamic>? data,
-    String? actionUrl,
-    DateTime? expiresAt,
-  }) {
-    return NotificationItem(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      message: message ?? this.message,
-      timestamp: timestamp ?? this.timestamp,
-      isRead: isRead ?? this.isRead,
-      type: type ?? this.type,
-      priority: priority ?? this.priority,
-      data: data ?? this.data,
-      actionUrl: actionUrl ?? this.actionUrl,
-      expiresAt: expiresAt ?? this.expiresAt,
-    );
-  }
-}
-
-enum NotificationType {
-  welcome,
-  workout,
-  reminder,
-  achievement,
-  message,
-  payment,
-  system,
 }

@@ -1,9 +1,12 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/models/friendship_models.dart';
 import 'package:gymaipro/my_club/screens/friendship_search_screen.dart';
 import 'package:gymaipro/my_club/services/friendship_service.dart';
+import 'package:gymaipro/my_club/widgets/unified_empty_state.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/cache_service.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
@@ -16,62 +19,152 @@ class MyFriendsScreen extends StatefulWidget {
   State<MyFriendsScreen> createState() => _MyFriendsScreenState();
 }
 
-class _MyFriendsScreenState extends State<MyFriendsScreen> {
+class _MyFriendsScreenState extends State<MyFriendsScreen>
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   bool _isLoading = true;
+  bool _isRefreshing = false;
   List<UserProfile> _friends = [];
   List<FriendshipRequest> _receivedRequests = [];
   List<FriendshipRequest> _sentRequests = [];
   int _receivedRequestsCount = 0;
 
+  // Stream subscriptions for real-time updates
+  StreamSubscription<List<UserProfile>>? _friendsSubscription;
+  StreamSubscription<List<FriendshipRequest>>? _requestsSubscription;
+
+  // Tab controller
+  TabController? _tabController;
+
+  // Auto-refresh timer (refresh every 30 seconds when visible)
+  Timer? _autoRefreshTimer;
+
   @override
   void initState() {
     super.initState();
-    _loadFriends();
+    WidgetsBinding.instance.addObserver(this);
+    _tabController = TabController(length: 3, vsync: this);
+    _loadFriends(showCache: true);
+    _setupRealTimeUpdates();
+    _startAutoRefresh();
   }
 
-  Future<void> _loadFriends() async {
-    // 1) Try cache-first
-    final cached = await CacheService.getJsonMap('friends_screen_cache');
-    if (cached != null) {
-      final friends = (cached['friends'] as List<dynamic>? ?? [])
-          .map(
-            (e) => UserProfile.fromJson(
-              Map<String, dynamic>.from(e as Map<dynamic, dynamic>),
-            ),
-          )
-          .toList();
-      final received = (cached['received'] as List<dynamic>? ?? [])
-          .map(
-            (e) => FriendshipRequest.fromJson(
-              Map<String, dynamic>.from(e as Map<dynamic, dynamic>),
-            ),
-          )
-          .toList();
-      final sent = (cached['sent'] as List<dynamic>? ?? [])
-          .map(
-            (e) => FriendshipRequest.fromJson(
-              Map<String, dynamic>.from(e as Map<dynamic, dynamic>),
-            ),
-          )
-          .toList();
-      SafeSetState.call(this, () {
-        _friends = friends;
-        _receivedRequests = received;
-        _sentRequests = sent;
-        _receivedRequestsCount = received.length;
-        _isLoading = false; // no full screen loading if cache exists
-      });
-    } else {
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _friendsSubscription?.cancel();
+    _requestsSubscription?.cancel();
+    _autoRefreshTimer?.cancel();
+    _tabController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Refresh when app comes to foreground
+    if (state == AppLifecycleState.resumed) {
+      _refreshData(forceRefresh: true);
+    }
+  }
+
+  void _setupRealTimeUpdates() {
+    try {
+      // Listen to friends changes
+      _friendsSubscription = FriendshipService.watchFriends().listen(
+        (friends) {
+          if (mounted) {
+            SafeSetState.call(this, () {
+              _friends = friends;
+            });
+            // Update cache silently
+            _updateCache();
+          }
+        },
+        onError: (Object error) {
+          debugPrint('Error in friends stream: $error');
+        },
+      );
+
+      // Listen to received requests changes
+      _requestsSubscription = FriendshipService.watchReceivedRequests().listen(
+        (requests) {
+          if (mounted) {
+            SafeSetState.call(this, () {
+              _receivedRequests = requests;
+              _receivedRequestsCount = requests.length;
+            });
+            // Update cache silently
+            _updateCache();
+          }
+        },
+        onError: (Object error) {
+          debugPrint('Error in requests stream: $error');
+        },
+      );
+    } catch (e) {
+      debugPrint('Error setting up real-time updates: $e');
+    }
+  }
+
+  void _startAutoRefresh() {
+    // Auto-refresh every 30 seconds when screen is visible
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted &&
+          SchedulerBinding.instance.schedulerPhase != SchedulerPhase.idle) {
+        // Only refresh if screen is visible and not currently refreshing
+        if (!_isRefreshing && !_isLoading) {
+          _refreshData(forceRefresh: false, silent: true);
+        }
+      }
+    });
+  }
+
+  Future<void> _loadFriends({bool showCache = false}) async {
+    if (!showCache) {
       SafeSetState.call(this, () => _isLoading = true);
     }
+
+    // 1) Try cache-first only on initial load
+    if (showCache) {
+      final cached = await CacheService.getJsonMap('friends_screen_cache');
+      if (cached != null) {
+        final friends = (cached['friends'] as List<dynamic>? ?? [])
+            .map(
+              (e) => UserProfile.fromJson(
+                Map<String, dynamic>.from(e as Map<dynamic, dynamic>),
+              ),
+            )
+            .toList();
+        final received = (cached['received'] as List<dynamic>? ?? [])
+            .map(
+              (e) => FriendshipRequest.fromJson(
+                Map<String, dynamic>.from(e as Map<dynamic, dynamic>),
+              ),
+            )
+            .toList();
+        final sent = (cached['sent'] as List<dynamic>? ?? [])
+            .map(
+              (e) => FriendshipRequest.fromJson(
+                Map<String, dynamic>.from(e as Map<dynamic, dynamic>),
+              ),
+            )
+            .toList();
+        SafeSetState.call(this, () {
+          _friends = friends;
+          _receivedRequests = received;
+          _sentRequests = sent;
+          _receivedRequestsCount = received.length;
+          _isLoading = false;
+        });
+      } else {
+        SafeSetState.call(this, () => _isLoading = true);
+      }
+    }
+
     try {
-      // Load friends
+      // Load fresh data from API
       final friends = await FriendshipService.getFriends();
-
-      // Load received requests
       final receivedRequests = await FriendshipService.getReceivedRequests();
-
-      // Load sent requests
       final sentRequests = await FriendshipService.getSentRequests();
 
       SafeSetState.call(this, () {
@@ -80,15 +173,79 @@ class _MyFriendsScreenState extends State<MyFriendsScreen> {
         _sentRequests = sentRequests;
         _receivedRequestsCount = receivedRequests.length;
         _isLoading = false;
+        _isRefreshing = false;
       });
-      // 3) Update cache
+
+      // Update cache
+      await _updateCache();
+    } catch (e) {
+      SafeSetState.call(this, () {
+        _isLoading = false;
+        _isRefreshing = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطا در بارگذاری دوستان: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _refreshData({
+    bool forceRefresh = false,
+    bool silent = false,
+  }) async {
+    if (_isRefreshing && !forceRefresh) return;
+
+    if (!silent) {
+      SafeSetState.call(this, () => _isRefreshing = true);
+    }
+
+    try {
+      // Invalidate cache on manual refresh
+      if (forceRefresh) {
+        await CacheService.clear('friends_screen_cache');
+      }
+
+      // Load fresh data
+      final friends = await FriendshipService.getFriends();
+      final receivedRequests = await FriendshipService.getReceivedRequests();
+      final sentRequests = await FriendshipService.getSentRequests();
+
+      SafeSetState.call(this, () {
+        _friends = friends;
+        _receivedRequests = receivedRequests;
+        _sentRequests = sentRequests;
+        _receivedRequestsCount = receivedRequests.length;
+        _isRefreshing = false;
+      });
+
+      // Update cache
+      await _updateCache();
+    } catch (e) {
+      SafeSetState.call(this, () => _isRefreshing = false);
+      if (mounted && !silent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطا در به‌روزرسانی: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateCache() async {
+    try {
       await CacheService.setJson('friends_screen_cache', {
         'friends': _friends
             .map(
               (f) => {
                 'id': f.id,
                 'username': f.username,
-                // full name will be rebuilt from first/last if present in future
                 'full_name': f.fullName,
                 'avatar_url': f.avatarUrl,
                 'is_online': f.isOnline,
@@ -133,38 +290,39 @@ class _MyFriendsScreenState extends State<MyFriendsScreen> {
             .toList(),
       });
     } catch (e) {
-      SafeSetState.call(this, () => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطا در بارگذاری دوستان: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      debugPrint('Error updating cache: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.goldColor),
-            )
-          : DefaultTabController(
-              length: 3,
-              child: Column(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: AppTheme.goldColor),
+              )
+            : Column(
                 children: [
-                  ColoredBox(
-                    color: const Color(0xFF2A2A2A),
+                  Container(
+                    color: context.cardColor,
                     child: TabBar(
+                      controller: _tabController!,
                       indicatorColor: AppTheme.goldColor,
                       labelColor: AppTheme.goldColor,
-                      unselectedLabelColor: Colors.grey[400],
-                      labelStyle: GoogleFonts.vazirmatn(
+                      unselectedLabelColor: isDark
+                          ? Colors.white.withValues(alpha: 0.5)
+                          : AppTheme.lightTextSecondary.withValues(alpha: 0.6),
+                      labelStyle: TextStyle(
                         fontWeight: FontWeight.w600,
+                        fontFamily: AppTheme.fontFamily,
+                      ),
+                      unselectedLabelStyle: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontFamily: AppTheme.fontFamily,
                       ),
                       tabs: [
                         const Tab(text: 'دوستان'),
@@ -204,11 +362,12 @@ class _MyFriendsScreenState extends State<MyFriendsScreen> {
                                         _receivedRequestsCount > 99
                                             ? '99+'
                                             : '$_receivedRequestsCount',
-                                        style: GoogleFonts.vazirmatn(
+                                        style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 8.sp,
                                           fontWeight: FontWeight.bold,
                                           height: 1.h,
+                                          fontFamily: AppTheme.fontFamily,
                                         ),
                                       ),
                                     ),
@@ -223,6 +382,7 @@ class _MyFriendsScreenState extends State<MyFriendsScreen> {
                   ),
                   Expanded(
                     child: TabBarView(
+                      controller: _tabController!,
                       children: [
                         _buildFriendsList(),
                         _buildReceivedRequests(),
@@ -232,137 +392,180 @@ class _MyFriendsScreenState extends State<MyFriendsScreen> {
                   ),
                 ],
               ),
-            ),
+      ),
     );
   }
 
   Widget _buildFriendsList() {
-    if (_friends.isEmpty) {
-      return _buildEmptyFriendsState();
-    }
-
-    return ListView.builder(
-      padding: EdgeInsets.all(16.w),
-      itemCount: _friends.length,
-      itemBuilder: (context, index) {
-        final friend = _friends[index];
-        return _FriendCard(
-          friend: friend,
-          onChat: () => _openChat(friend),
-          onViewProfile: () => _viewProfile(friend),
-          onRemove: () => _removeFriend(friend),
-        );
-      },
+    return RefreshIndicator(
+      onRefresh: () => _refreshData(forceRefresh: true),
+      color: AppTheme.goldColor,
+      child: _friends.isEmpty
+          ? _buildEmptyFriendsState()
+          : ListView.builder(
+              padding: EdgeInsets.all(16.w),
+              itemCount: _friends.length + (_isRefreshing ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == _friends.length && _isRefreshing) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppTheme.goldColor,
+                      ),
+                    ),
+                  );
+                }
+                final friend = _friends[index];
+                return _FriendCard(
+                  friend: friend,
+                  onChat: () => _openChat(friend),
+                  onViewProfile: () => _viewProfile(friend),
+                  onRemove: () => _removeFriend(friend),
+                );
+              },
+            ),
     );
   }
 
   Widget _buildReceivedRequests() {
-    if (_receivedRequests.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(LucideIcons.userCheck, size: 64.sp, color: Colors.grey[600]),
-            const SizedBox(height: 16),
-            Text(
-              'درخواست دوستی ندارید',
-              style: GoogleFonts.vazirmatn(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[400],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return RefreshIndicator(
+      onRefresh: () => _refreshData(forceRefresh: true),
+      color: AppTheme.goldColor,
+      child: _receivedRequests.isEmpty
+          ? SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.6,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        LucideIcons.userCheck,
+                        size: 64.sp,
+                        color: isDark
+                            ? Colors.grey[600]
+                            : AppTheme.lightTextSecondary.withValues(
+                                alpha: 0.5,
+                              ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'درخواست دوستی ندارید',
+                        style: TextStyle(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w600,
+                          color: context.textSecondary,
+                          fontFamily: AppTheme.fontFamily,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+            )
+          : ListView.builder(
+              padding: EdgeInsets.all(16.w),
+              itemCount: _receivedRequests.length + (_isRefreshing ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == _receivedRequests.length && _isRefreshing) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppTheme.goldColor,
+                      ),
+                    ),
+                  );
+                }
+                final request = _receivedRequests[index];
+                return _PendingRequestCard(
+                  request: request,
+                  onAccept: () => _acceptRequest(request),
+                  onReject: () => _rejectRequest(request),
+                );
+              },
             ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: EdgeInsets.all(16.w),
-      itemCount: _receivedRequests.length,
-      itemBuilder: (context, index) {
-        final request = _receivedRequests[index];
-        return _PendingRequestCard(
-          request: request,
-          onAccept: () => _acceptRequest(request),
-          onReject: () => _rejectRequest(request),
-        );
-      },
     );
   }
 
   Widget _buildSentRequests() {
-    if (_sentRequests.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(LucideIcons.userPlus, size: 64.sp, color: Colors.grey[600]),
-            const SizedBox(height: 16),
-            Text(
-              'درخواست ارسال شده ندارید',
-              style: GoogleFonts.vazirmatn(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey[400],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return RefreshIndicator(
+      onRefresh: () => _refreshData(forceRefresh: true),
+      color: AppTheme.goldColor,
+      child: _sentRequests.isEmpty
+          ? SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.6,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        LucideIcons.userPlus,
+                        size: 64.sp,
+                        color: isDark
+                            ? Colors.grey[600]
+                            : AppTheme.lightTextSecondary.withValues(
+                                alpha: 0.5,
+                              ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'درخواست ارسال شده ندارید',
+                        style: TextStyle(
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w600,
+                          color: context.textSecondary,
+                          fontFamily: AppTheme.fontFamily,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+            )
+          : ListView.builder(
+              padding: EdgeInsets.all(16.w),
+              itemCount: _sentRequests.length + (_isRefreshing ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == _sentRequests.length && _isRefreshing) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppTheme.goldColor,
+                      ),
+                    ),
+                  );
+                }
+                final request = _sentRequests[index];
+                return _SentRequestCard(
+                  request: request,
+                  onCancel: () => _cancelRequest(request),
+                );
+              },
             ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: EdgeInsets.all(16.w),
-      itemCount: _sentRequests.length,
-      itemBuilder: (context, index) {
-        final request = _sentRequests[index];
-        return _SentRequestCard(
-          request: request,
-          onCancel: () => _cancelRequest(request),
-        );
-      },
     );
   }
 
   Widget _buildEmptyFriendsState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(LucideIcons.users, size: 64.sp, color: Colors.grey[600]),
-          const SizedBox(height: 16),
-          Text(
-            'هنوز دوستی ندارید',
-            style: GoogleFonts.vazirmatn(
-              fontSize: 18.sp,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[400],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'برای شروع، از بخش جستجو دوستان جدید پیدا کنید',
-            style: GoogleFonts.vazirmatn(color: Colors.grey[500]),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (context) => const FriendshipSearchScreen(),
-              ),
-            ),
-            icon: const Icon(LucideIcons.search),
-            label: const Text('جستجوی دوستان'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.goldColor,
-              foregroundColor: Colors.black,
-              padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12),
-            ),
-          ),
-        ],
+    return UnifiedEmptyState(
+      icon: LucideIcons.users,
+      title: 'هنوز دوستی ندارید',
+      subtitle:
+          'برای شروع، از بخش جستجو دوستان جدید پیدا کنید و با آن‌ها ارتباط برقرار کنید',
+      actionText: 'جستجوی دوستان',
+      actionIcon: LucideIcons.search,
+      onAction: () => Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (context) => const FriendshipSearchScreen(),
+        ),
       ),
     );
   }
@@ -406,8 +609,8 @@ class _MyFriendsScreenState extends State<MyFriendsScreen> {
     if (confirmed ?? false) {
       try {
         await FriendshipService.removeFriend(friend.id);
-
-        _loadFriends();
+        await CacheService.clear('friends_screen_cache');
+        _refreshData(forceRefresh: true);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -431,12 +634,26 @@ class _MyFriendsScreenState extends State<MyFriendsScreen> {
 
   Future<void> _acceptRequest(FriendshipRequest request) async {
     try {
+      // تایید درخواست
       await FriendshipService.acceptFriendRequest(request.id);
 
-      SafeSetState.call(this, () {
-        _receivedRequestsCount--;
-      });
-      _loadFriends();
+      // پاک کردن کش
+      await CacheService.clear('friends_screen_cache');
+
+      // کمی صبر می‌کنیم تا trigger دیتابیس دوستی را ایجاد کند
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+
+      // رفرش داده‌ها با retry mechanism
+      await _refreshDataWithRetry(
+        maxRetries: 3,
+        retryDelay: const Duration(milliseconds: 500),
+      );
+
+      // هدایت به تب دوستان برای نمایش دوست جدید
+      if (mounted && _tabController != null) {
+        _tabController!.animateTo(0); // تب دوستان
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -457,14 +674,56 @@ class _MyFriendsScreenState extends State<MyFriendsScreen> {
     }
   }
 
+  /// رفرش داده‌ها با retry mechanism برای اطمینان از دریافت داده‌های جدید
+  Future<void> _refreshDataWithRetry({
+    int maxRetries = 3,
+    Duration retryDelay = const Duration(milliseconds: 500),
+  }) async {
+    int retryCount = 0;
+    bool success = false;
+
+    while (retryCount < maxRetries && !success) {
+      try {
+        SafeSetState.call(this, () => _isRefreshing = true);
+
+        // بارگذاری داده‌های تازه
+        final friends = await FriendshipService.getFriends();
+        final receivedRequests = await FriendshipService.getReceivedRequests();
+        final sentRequests = await FriendshipService.getSentRequests();
+
+        SafeSetState.call(this, () {
+          _friends = friends;
+          _receivedRequests = receivedRequests;
+          _sentRequests = sentRequests;
+          _receivedRequestsCount = receivedRequests.length;
+          _isRefreshing = false;
+        });
+
+        // به‌روزرسانی کش
+        await _updateCache();
+
+        success = true;
+      } catch (e) {
+        retryCount++;
+        if (retryCount < maxRetries) {
+          debugPrint(
+            'Retry $retryCount/$maxRetries: Error refreshing friends: $e',
+          );
+          await Future<void>.delayed(retryDelay);
+        } else {
+          SafeSetState.call(this, () => _isRefreshing = false);
+          rethrow;
+        }
+      }
+    }
+  }
+
   Future<void> _rejectRequest(FriendshipRequest request) async {
     try {
       await FriendshipService.rejectFriendRequest(request.id);
 
-      SafeSetState.call(this, () {
-        _receivedRequestsCount--;
-      });
-      _loadFriends();
+      await CacheService.clear('friends_screen_cache');
+      _refreshData(forceRefresh: true);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -488,8 +747,8 @@ class _MyFriendsScreenState extends State<MyFriendsScreen> {
   Future<void> _cancelRequest(FriendshipRequest request) async {
     try {
       await FriendshipService.cancelFriendRequest(request.id);
-
-      _loadFriends();
+      await CacheService.clear('friends_screen_cache');
+      _refreshData(forceRefresh: true);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -525,26 +784,27 @@ class _FriendCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2A2A2A), Color(0xFF1F1F1F)],
-        ),
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: friend.isOnline
               ? Colors.green.withValues(alpha: 0.3)
-              : Colors.grey[700]!,
+              : isDark
+              ? Colors.grey[700]!
+              : AppTheme.lightDividerColor.withValues(alpha: 0.5),
           width: 1.5.w,
         ),
         boxShadow: [
           BoxShadow(
             color: friend.isOnline
                 ? Colors.green.withValues(alpha: 0.1)
-                : Colors.black.withValues(alpha: 0.3),
+                : isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : AppTheme.goldColor.withValues(alpha: 0.08),
             blurRadius: 8.r,
             offset: Offset(0.w, 4.h),
           ),
@@ -625,18 +885,20 @@ class _FriendCard extends StatelessWidget {
                     children: [
                       Text(
                         friend.fullName ?? friend.username,
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18.sp,
-                          color: Colors.white,
+                          color: context.textColor,
+                          fontFamily: AppTheme.fontFamily,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '@${friend.username}',
-                        style: GoogleFonts.vazirmatn(
-                          color: Colors.grey[400],
+                        style: TextStyle(
+                          color: context.textSecondary,
                           fontSize: 14.sp,
+                          fontFamily: AppTheme.fontFamily,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -667,10 +929,11 @@ class _FriendCard extends StatelessWidget {
                               const SizedBox(width: 4),
                               Text(
                                 'آنلاین',
-                                style: GoogleFonts.vazirmatn(
+                                style: TextStyle(
                                   color: Colors.green,
                                   fontSize: 11.sp,
                                   fontWeight: FontWeight.w600,
+                                  fontFamily: AppTheme.fontFamily,
                                 ),
                               ),
                             ],
@@ -709,7 +972,7 @@ class _FriendCard extends StatelessWidget {
                       label: const Text('چت'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
-                        foregroundColor: Colors.black,
+                        foregroundColor: AppTheme.onGoldColor,
                         shadowColor: Colors.transparent,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -773,14 +1036,11 @@ class _PendingRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2A2A2A), Color(0xFF1F1F1F)],
-        ),
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: Colors.orange.withValues(alpha: 0.3),
@@ -820,24 +1080,28 @@ class _PendingRequestCard extends StatelessWidget {
                         request.requesterFullName ??
                             request.requesterUsername ??
                             'کاربر ناشناس',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 16.sp,
+                          color: context.textColor,
+                          fontFamily: AppTheme.fontFamily,
                         ),
                       ),
                       if (request.requesterUsername != null)
                         Text(
                           '@${request.requesterUsername}',
-                          style: GoogleFonts.vazirmatn(
-                            color: Colors.grey[400],
+                          style: TextStyle(
+                            color: context.textSecondary,
                             fontSize: 14.sp,
+                            fontFamily: AppTheme.fontFamily,
                           ),
                         ),
                       Text(
                         'درخواست دوستی',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
                           color: Colors.orange,
                           fontSize: 14.sp,
+                          fontFamily: AppTheme.fontFamily,
                         ),
                       ),
                     ],
@@ -845,9 +1109,10 @@ class _PendingRequestCard extends StatelessWidget {
                 ),
                 Text(
                   _formatDateTime(request.createdAt),
-                  style: GoogleFonts.vazirmatn(
-                    color: Colors.grey[500],
+                  style: TextStyle(
+                    color: context.textSecondary,
                     fontSize: 12.sp,
+                    fontFamily: AppTheme.fontFamily,
                   ),
                 ),
               ],
@@ -857,14 +1122,17 @@ class _PendingRequestCard extends StatelessWidget {
               Container(
                 padding: EdgeInsets.all(8.w),
                 decoration: BoxDecoration(
-                  color: Colors.grey[800],
+                  color: isDark
+                      ? Colors.grey[800]
+                      : AppTheme.lightDividerColor.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(8.r),
                 ),
                 child: Text(
                   request.message!,
-                  style: GoogleFonts.vazirmatn(
-                    color: Colors.grey[300],
+                  style: TextStyle(
+                    color: isDark ? Colors.grey[300] : context.textSecondary,
                     fontSize: 14.sp,
+                    fontFamily: AppTheme.fontFamily,
                   ),
                 ),
               ),
@@ -901,25 +1169,6 @@ class _PendingRequestCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _getRequesterName(Map<String, dynamic>? requesterData) {
-    if (requesterData == null) return 'کاربر ناشناس';
-
-    final firstName = (requesterData['first_name'] as String?) ?? '';
-    final lastName = (requesterData['last_name'] as String?) ?? '';
-    final username = (requesterData['username'] as String?) ?? '';
-
-    if (firstName.isNotEmpty && lastName.isNotEmpty) {
-      return '$firstName $lastName';
-    } else if (firstName.isNotEmpty) {
-      return firstName;
-    } else if (lastName.isNotEmpty) {
-      return lastName;
-    } else if (username.isNotEmpty) {
-      return username;
-    }
-    return 'کاربر ناشناس';
   }
 
   String _formatDateTime(DateTime dateTime) {
@@ -972,10 +1221,11 @@ class _SentRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(color: Colors.blue),
       ),
@@ -1005,24 +1255,28 @@ class _SentRequestCard extends StatelessWidget {
                         request.requestedFullName ??
                             request.requestedUsername ??
                             'کاربر ناشناس',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 16.sp,
+                          color: context.textColor,
+                          fontFamily: AppTheme.fontFamily,
                         ),
                       ),
                       if (request.requestedUsername != null)
                         Text(
                           '@${request.requestedUsername}',
-                          style: GoogleFonts.vazirmatn(
-                            color: Colors.grey[400],
+                          style: TextStyle(
+                            color: context.textSecondary,
                             fontSize: 14.sp,
+                            fontFamily: AppTheme.fontFamily,
                           ),
                         ),
                       Text(
                         'در انتظار پاسخ',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
                           color: Colors.blue,
                           fontSize: 14.sp,
+                          fontFamily: AppTheme.fontFamily,
                         ),
                       ),
                     ],
@@ -1030,9 +1284,10 @@ class _SentRequestCard extends StatelessWidget {
                 ),
                 Text(
                   _formatDateTime(request.createdAt),
-                  style: GoogleFonts.vazirmatn(
-                    color: Colors.grey[500],
+                  style: TextStyle(
+                    color: context.textSecondary,
                     fontSize: 12.sp,
+                    fontFamily: AppTheme.fontFamily,
                   ),
                 ),
               ],
@@ -1042,14 +1297,17 @@ class _SentRequestCard extends StatelessWidget {
               Container(
                 padding: EdgeInsets.all(8.w),
                 decoration: BoxDecoration(
-                  color: Colors.grey[800],
+                  color: isDark
+                      ? Colors.grey[800]
+                      : AppTheme.lightDividerColor.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(8.r),
                 ),
                 child: Text(
                   request.message!,
-                  style: GoogleFonts.vazirmatn(
-                    color: Colors.grey[300],
+                  style: TextStyle(
+                    color: isDark ? Colors.grey[300] : context.textSecondary,
                     fontSize: 14.sp,
+                    fontFamily: AppTheme.fontFamily,
                   ),
                 ),
               ),

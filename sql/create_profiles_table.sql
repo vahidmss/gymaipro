@@ -9,9 +9,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     avatar_url TEXT,
     bio TEXT,
     birth_date DATE,
-    height INTEGER, -- قد به سانتی‌متر
-    weight DECIMAL(5,2), -- وزن به کیلوگرم
-    gender VARCHAR(10) CHECK (gender IN ('male', 'female', 'other')),
+    height NUMERIC, -- قد به سانتی‌متر
+    weight NUMERIC, -- وزن به کیلوگرم
+    gender TEXT DEFAULT 'male',
+    activity_level VARCHAR(20) CHECK (activity_level IN ('sedentary', 'light', 'moderate', 'active', 'very_active')),
     role VARCHAR(20) NOT NULL DEFAULT 'athlete' CHECK (role IN ('athlete', 'trainer', 'admin')),
     
     -- اطلاعات مربی

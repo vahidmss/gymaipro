@@ -12,6 +12,7 @@ import 'package:gymaipro/payment/widgets/discount_input.dart';
 import 'package:gymaipro/payment/widgets/payment_method_card.dart';
 import 'package:gymaipro/payment/widgets/payment_summary.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -51,8 +52,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Future<void> _loadWalletInfo() async {
     try {
       final wallet = await _walletService.getUserWallet();
-      if (wallet != null) {
-        setState(() {
+      if (wallet != null && mounted) {
+        WidgetSafetyUtils.safeSetState(this, () {
           _hasWalletBalance = wallet.availableBalance > 0;
           _walletBalance = wallet.availableBalance;
         });
@@ -85,7 +86,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Future<void> _processPayment() async {
     if (_isProcessing) return;
 
-    setState(() {
+    WidgetSafetyUtils.safeSetState(this, () {
       _isProcessing = true;
     });
 
@@ -137,7 +138,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     } catch (e) {
       _showErrorDialog('خطا در پردازش پرداخت: $e');
     } finally {
-      setState(() {
+      WidgetSafetyUtils.safeSetState(this, () {
         _isProcessing = false;
       });
     }
@@ -229,7 +230,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   void _showSuccessDialog(String message) {
-    showDialog(
+    WidgetSafetyUtils.safeShowDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
@@ -244,8 +245,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context); // بازگشت به صفحه قبلی
+              WidgetSafetyUtils.safePop(context);
+              WidgetSafetyUtils.safePop(context); // بازگشت به صفحه قبلی
             },
             child: Text(
               'باشه',
@@ -258,7 +259,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   void _showErrorDialog(String message) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
@@ -272,7 +273,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         content: Text(message, style: GoogleFonts.vazirmatn(fontSize: 14)),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => WidgetSafetyUtils.safePop(context),
             child: Text(
               'متوجه شدم',
               style: GoogleFonts.vazirmatn(color: AppTheme.goldColor),
@@ -302,7 +303,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           elevation: 0,
           leading: IconButton(
             icon: const Icon(LucideIcons.arrowRight, color: AppTheme.goldColor),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => WidgetSafetyUtils.safePop(context),
           ),
         ),
         body: SingleChildScrollView(

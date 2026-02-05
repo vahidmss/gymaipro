@@ -3,6 +3,7 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gymaipro/payment/services/trainer_payment_service.dart';
+import 'package:gymaipro/widgets/responsive_dialog.dart';
 
 /// سرویس مدیریت deeplink های پرداخت
 class PaymentDeeplinkService {
@@ -148,6 +149,7 @@ class PaymentDeeplinkService {
         uri.queryParameters['trackId'] ??
         uri.queryParameters['track_id'] ??
         uri.queryParameters['tid'];
+    final trainerId = uri.queryParameters['trainerId'];
 
     if (_context == null) {
       if (kDebugMode) {
@@ -158,18 +160,30 @@ class PaymentDeeplinkService {
 
     if (kDebugMode) {
       print(
-        'نتیجه پرداخت مربی: status=$status tx=$transactionId track=$trackId',
+        'نتیجه پرداخت مربی: status=$status tx=$transactionId track=$trackId trainer=$trainerId',
       );
     }
 
     if (status != 'success' || transactionId == null || trackId == null) {
       _withNavigatorContext((ctx) async {
+        // هدایت به صفحه مربی در صورت وجود trainerId
+        if (trainerId != null && trainerId.isNotEmpty) {
+          try {
+            Navigator.of(ctx).pushNamedAndRemoveUntil(
+              '/trainer-detail',
+              (route) => route.isFirst,
+              arguments: {'trainerId': trainerId},
+            );
+            await Future<void>.delayed(const Duration(milliseconds: 300));
+          } catch (_) {}
+        }
+        
         await showDialog<void>(
           context: ctx,
           builder: (d) => AlertDialog(
             title: const Text('پرداخت ناموفق'),
-            content: Text(
-              'پرداخت ناموفق بود یا داده‌های بازگشت ناقص است.\n$uri',
+            content: const Text(
+              'پرداخت ناموفق بود. لطفاً مجدد تلاش کنید.',
             ),
             actions: [
               TextButton(
@@ -193,29 +207,72 @@ class PaymentDeeplinkService {
         );
 
         final success = result['success'] == true;
+        
+        // هدایت به صفحه مربی قبل از نمایش دیالوگ
+        if (trainerId != null && trainerId.isNotEmpty) {
+          try {
+            // بستن تمام صفحات قبلی و بازگشت به صفحه مربی
+            Navigator.of(ctx).pushNamedAndRemoveUntil(
+              '/trainer-detail',
+              (route) => route.isFirst,
+              arguments: {'trainerId': trainerId},
+            );
+            // کمی تأخیر برای اطمینان از لود شدن صفحه
+            await Future<void>.delayed(const Duration(milliseconds: 500));
+          } catch (e) {
+            if (kDebugMode) {
+              print('خطا در هدایت به صفحه مربی: $e');
+            }
+          }
+        }
+        
+        // نمایش دیالوگ تبریک و تایید
         await showDialog<void>(
           context: ctx,
           barrierDismissible: false,
           builder: (d) => AlertDialog(
-            title: Text(success ? 'پرداخت موفق' : 'پرداخت ناموفق'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Row(
+              children: [
+                Icon(
+                  success ? Icons.check_circle : Icons.error,
+                  color: success ? Colors.green : Colors.red,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    success ? '🎉 پرداخت موفق!' : 'پرداخت ناموفق',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
             content: Text(
               success
-                  ? 'اشتراک شما فعال شد.'
+                  ? 'تبریک! اشتراک شما با موفقیت فعال شد و می‌توانید از خدمات مربی استفاده کنید.'
                   : (result['error']?.toString() ?? 'تایید پرداخت ناموفق بود.'),
+              style: const TextStyle(fontSize: 16),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(d, rootNavigator: true).pop(),
-                child: const Text('باشه'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                child: const Text(
+                  'عالی!',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
         );
-
-        // می‌توانید کاربر را به صفحه اشتراک‌ها یا اصلی هدایت کنید
-        try {
-          Navigator.of(ctx).pushNamedAndRemoveUntil('/main', (r) => r.isFirst);
-        } catch (_) {}
       } catch (e) {
         if (kDebugMode) {
           print('خطا در تایید پرداخت مربی: $e');
@@ -288,23 +345,15 @@ class PaymentDeeplinkService {
     if (_isShowingDialog) return;
     _isShowingDialog = true;
     _withNavigatorContext((ctx) async {
-      await showDialog<void>(
+      await ResponsiveDialog.showAlert<void>(
         context: ctx,
+        title: 'شارژ موفق',
+        content: 'کیف پول شما با موفقیت شارژ شد. موجودی شما به‌روزرسانی خواهد شد.',
+        confirmText: 'باشه',
         barrierDismissible: false,
-        builder: (dialogCtx) => AlertDialog(
-          title: const Text('شارژ موفق'),
-          content: const Text(
-            'کیف پول شما با موفقیت شارژ شد. موجودی شما به‌روزرسانی خواهد شد.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogCtx, rootNavigator: true).pop();
-              },
-              child: const Text('باشه'),
-            ),
-          ],
-        ),
+        onConfirm: () {
+          Navigator.of(ctx, rootNavigator: true).pop();
+        },
       );
       _isShowingDialog = false;
     });
@@ -315,23 +364,15 @@ class PaymentDeeplinkService {
     if (_isShowingDialog) return;
     _isShowingDialog = true;
     _withNavigatorContext((ctx) async {
-      await showDialog<void>(
+      await ResponsiveDialog.showAlert<void>(
         context: ctx,
+        title: 'شارژ ناموفق',
+        content: 'متأسفانه شارژ کیف پول شما ناموفق بود. لطفاً مجدد تلاش کنید.',
+        confirmText: 'باشه',
         barrierDismissible: false,
-        builder: (dialogCtx) => AlertDialog(
-          title: const Text('شارژ ناموفق'),
-          content: const Text(
-            'متأسفانه شارژ کیف پول شما ناموفق بود. لطفاً مجدد تلاش کنید.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogCtx, rootNavigator: true).pop();
-              },
-              child: const Text('باشه'),
-            ),
-          ],
-        ),
+        onConfirm: () {
+          Navigator.of(ctx, rootNavigator: true).pop();
+        },
       );
       _isShowingDialog = false;
     });

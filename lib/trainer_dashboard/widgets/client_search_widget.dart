@@ -1,5 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/utils/text_controller_utils.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -10,7 +11,7 @@ class ClientSearchWidget extends StatefulWidget {
     super.key,
   });
   final List<Map<String, dynamic>> allClients;
-  final Function(List<Map<String, dynamic>>) onSearchResultsChanged;
+  final void Function(List<Map<String, dynamic>>) onSearchResultsChanged;
 
   @override
   State<ClientSearchWidget> createState() => _ClientSearchWidgetState();
@@ -28,13 +29,23 @@ class _ClientSearchWidgetState extends State<ClientSearchWidget> {
   }
 
   @override
+  void didUpdateWidget(ClientSearchWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.allClients != widget.allClients) {
+      _filteredClients = widget.allClients;
+      _performSearch();
+    }
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
   void _performSearch() {
-    final query = _searchController.text.trim().toLowerCase();
+    if (!_searchController.isSafe) return;
+    final query = _searchController.safeText.trim().toLowerCase();
 
     if (query.isEmpty) {
       setState(() {
@@ -67,43 +78,76 @@ class _ClientSearchWidgetState extends State<ClientSearchWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: _searchController,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              hintText: 'جستجو در شاگردان...',
-              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
-              prefixIcon: const Icon(
-                LucideIcons.search,
-                color: AppTheme.goldColor,
-              ),
-              filled: false,
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.15),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.r),
-                borderSide: const BorderSide(color: AppTheme.goldColor),
-              ),
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 12.w,
-                vertical: 10.h,
-              ),
-            ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.1),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.15)
+                : AppTheme.goldColor.withValues(alpha: 0.04),
+            blurRadius: 6.r,
+            offset: Offset(0, 2.h),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: _searchController,
+        style: TextStyle(
+          color: context.textColor,
+          fontSize: 14.sp,
+          fontFamily: AppTheme.fontFamily,
+        ),
+        decoration: InputDecoration(
+          hintText: 'جستجو در شاگردان...',
+          hintStyle: TextStyle(
+            color: context.textSecondary.withValues(alpha: 0.6),
+            fontSize: 14.sp,
+            fontFamily: AppTheme.fontFamily,
+          ),
+          prefixIcon: Icon(
+            LucideIcons.search,
+            color: AppTheme.goldColor.withValues(alpha: 0.7),
+            size: 18.sp,
+          ),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: Icon(
+                    LucideIcons.x,
+                    color: context.textSecondary,
+                    size: 16.sp,
+                  ),
+                  onPressed: () {
+                    _searchController.clear();
+                  },
+                )
+              : null,
+          filled: true,
+          fillColor: isDark
+              ? context.cardColor.withValues(alpha: 0.5)
+              : context.cardColor,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12.r),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12.r),
+            borderSide: BorderSide(color: AppTheme.goldColor, width: 1.5),
+          ),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: 16.w,
+            vertical: 12.h,
           ),
         ),
-        if (_searchController.text.isNotEmpty)
-          IconButton(
-            icon: const Icon(LucideIcons.x, color: AppTheme.goldColor),
-            onPressed: _searchController.clear,
-          ),
-      ],
+      ),
     );
   }
 }

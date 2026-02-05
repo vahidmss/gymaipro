@@ -16,10 +16,12 @@
 2. فایل `.env` را باز کنید و مقادیر واقعی را وارد کنید:
    ```env
    SMS_API_BASE_URL=https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber
-   SMS_API_USERNAME=your-sms-api-username
-   SMS_API_PASSWORD=your-sms-api-password
+   SMS_API_USERNAME=1990557589
+   SMS_API_PASSWORD=08918b92-394d-4d42-a2a5-8828112ded71
    SMS_API_BODY_ID=your-sms-body-id
    ```
+   
+   **نکته:** مقادیر بالا نمونه هستند. مقادیر واقعی را از پنل پیامک پنل دریافت کنید.
 
 3. فایل `.env` در `.gitignore` قرار دارد و commit نمی‌شود.
 
@@ -57,9 +59,13 @@ flutter run --dart-define=SMS_API_USERNAME=your-username --dart-define=SMS_API_P
 2. وارد حساب کاربری شوید
 3. به بخش "API" یا "Webservice" بروید
 4. اطلاعات زیر را کپی کنید:
-   - **Username**: نام کاربری API
-   - **Password**: رمز عبور API
-   - **Body ID**: شناسه متن پیامک از پیش تعریف شده
+   - **Username**: نام کاربری API (احتمالاً: `1990557589`)
+   - **Password**: رمز عبور API یا API ID (مثال: `08918b92-394d-4d42-a2a5-8828112ded71`)
+   - **Body ID**: شناسه متن پیامک از پیش تعریف شده (از بخش "متن‌های از پیش تعریف شده" در پنل)
+   
+**نکته مهم:** 
+- Base URL برای REST API: `https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber`
+- Base URL برای SOAP API: `https://api.payamak-panel.com/post/send.asmx` (این پروژه از REST استفاده می‌کند)
 
 ## نکات مهم
 

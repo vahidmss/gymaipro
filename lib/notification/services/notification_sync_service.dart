@@ -1,4 +1,4 @@
-﻿import 'package:gymaipro/notification/notification_model.dart';
+﻿import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/services/notification_settings_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 

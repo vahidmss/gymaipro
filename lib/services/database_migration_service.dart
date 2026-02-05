@@ -45,23 +45,31 @@ class DatabaseMigrationService {
         // Note: This requires database admin access and might not work with RLS
         // Alternatively, handle this in the Supabase migrations on the server
         try {
-          await _client.rpc('run_migration_add_role_to_profiles');
+          await _client.rpc<void>('run_migration_add_role_to_profiles');
           debugPrint('Migration SQL executed successfully');
         } catch (e) {
           debugPrint('Error executing migration SQL: $e');
           debugPrint('Attempting to update user profiles programmatically...');
 
-          // Fallback: Update profiles one by one
+          // Fallback: فقط پروفایل‌هایی که role ندارند را روی athlete بگذار (نقش موجود بازنویسی نشود)
           try {
-            final profiles = await _client.from('profiles').select('id');
+            final profiles = await _client.from('profiles').select('id, role');
+            int updated = 0;
             for (final profile in profiles) {
               final id = profile['id'];
-              await _client
-                  .from('profiles')
-                  .update({'role': 'athlete'})
-                  .eq('id', id as Object);
+              final currentRole = profile['role'] as String?;
+              if (currentRole == null ||
+                  currentRole.toString().trim().isEmpty) {
+                await _client
+                    .from('profiles')
+                    .update({'role': 'athlete'})
+                    .eq('id', id as Object);
+                updated++;
+              }
             }
-            debugPrint('Updated ${profiles.length} profiles with default role');
+            debugPrint(
+              'Updated $updated profiles with default role (kept existing roles)',
+            );
           } catch (e) {
             debugPrint('Error updating profiles programmatically: $e');
             throw Exception('Failed to add role to profiles: $e');

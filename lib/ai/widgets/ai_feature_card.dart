@@ -1,7 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class AIFeatureCard extends StatefulWidget {
@@ -56,10 +57,11 @@ class _AIFeatureCardState extends State<AIFeatureCard>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
-      onTapDown: (_) => _animationController.forward(),
-      onTapUp: (_) => _animationController.reverse(),
-      onTapCancel: () => _animationController.reverse(),
+      onTapDown: (_) => _animationController.safeForward(),
+      onTapUp: (_) => _animationController.safeReverse(),
+      onTapCancel: () => _animationController.safeReverse(),
       onTap: widget.isComingSoon ? null : widget.onTap,
       child: AnimatedBuilder(
         animation: _animationController,
@@ -71,23 +73,38 @@ class _AIFeatureCardState extends State<AIFeatureCard>
               child: Container(
                 padding: EdgeInsets.all(16.w),
                 decoration: BoxDecoration(
-                  color: widget.isComingSoon
-                      ? Colors.white.withValues(alpha: 0.1)
-                      : Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(16.r),
+                  gradient: isDark
+                      ? null
+                      : LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            widget.color.withValues(alpha: 0.15),
+                            context.cardColor,
+                            widget.color.withValues(alpha: 0.1),
+                          ],
+                        ),
+                  color: isDark ? context.cardColor : null,
+                  borderRadius: BorderRadius.circular(20.r),
                   border: Border.all(
-                    color: widget.isComingSoon
-                        ? Colors.white.withValues(alpha: 0.1)
-                        : widget.color.withValues(alpha: 0.1),
+                    color: widget.color.withValues(alpha: isDark ? 0.3 : 0.5),
                     width: 1.5.w,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: widget.isComingSoon
-                          ? Colors.transparent
-                          : widget.color.withValues(alpha: 0.1),
-                      blurRadius: 12.r,
-                      offset: Offset(0.w, 4.h),
+                      color: widget.color.withValues(
+                        alpha: isDark ? 0.15 : 0.35,
+                      ),
+                      blurRadius: 16.r,
+                      offset: Offset(0.w, 6.h),
+                      spreadRadius: 1.r,
+                    ),
+                    BoxShadow(
+                      color: isDark
+                          ? Colors.black.withValues(alpha: 0.5)
+                          : context.textColor.withValues(alpha: 0.08),
+                      blurRadius: 8.r,
+                      offset: Offset(0.w, 2.h),
                     ),
                   ],
                 ),
@@ -96,20 +113,23 @@ class _AIFeatureCardState extends State<AIFeatureCard>
                     Container(
                       padding: EdgeInsets.all(12.w),
                       decoration: BoxDecoration(
-                        color: widget.isComingSoon
-                            ? Colors.white.withValues(alpha: 0.1)
-                            : widget.color.withValues(alpha: 0.1),
+                        color: widget.color.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: widget.color.withValues(alpha: 0.2),
+                            blurRadius: 6.r,
+                            offset: Offset(0.w, 2.h),
+                          ),
+                        ],
                       ),
                       child: Icon(
                         widget.icon,
-                        color: widget.isComingSoon
-                            ? Colors.white.withValues(alpha: 0.1)
-                            : widget.color,
+                        color: widget.color,
                         size: 24.sp,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16.w),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,10 +142,10 @@ class _AIFeatureCardState extends State<AIFeatureCard>
                                   style: GoogleFonts.vazirmatn(
                                     fontSize: 18.sp,
                                     fontWeight: FontWeight.bold,
-                                    color: widget.isComingSoon
-                                        ? Colors.black.withValues(alpha: 0.1)
-                                        : Colors.black,
+                                    color: context.textColor,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               if (widget.isComingSoon)
@@ -136,9 +156,14 @@ class _AIFeatureCardState extends State<AIFeatureCard>
                                   ),
                                   decoration: BoxDecoration(
                                     color: AppTheme.goldColor.withValues(
-                                      alpha: 0.1,
+                                      alpha: 0.2,
                                     ),
                                     borderRadius: BorderRadius.circular(8.r),
+                                    border: Border.all(
+                                      color: AppTheme.goldColor.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                    ),
                                   ),
                                   child: Text(
                                     'به زودی',
@@ -151,27 +176,25 @@ class _AIFeatureCardState extends State<AIFeatureCard>
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4.h),
                           Text(
                             widget.description,
                             style: GoogleFonts.vazirmatn(
-                              fontSize: 15.sp,
-                              color: widget.isComingSoon
-                                  ? Colors.black.withValues(alpha: 0.1)
-                                  : Colors.black.withValues(alpha: 0.1),
-                              height: 1.4.h,
+                              fontSize: 14.sp,
+                              color: context.textSecondary,
+                              height: 1.5.h,
                               fontWeight: FontWeight.w500,
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.w),
                     Icon(
                       LucideIcons.chevronLeft,
-                      color: widget.isComingSoon
-                          ? Colors.white.withValues(alpha: 0.1)
-                          : widget.color.withValues(alpha: 0.1),
+                      color: widget.color.withValues(alpha: 0.6),
                       size: 20.sp,
                     ),
                   ],

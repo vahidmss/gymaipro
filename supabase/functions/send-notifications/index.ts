@@ -78,8 +78,37 @@ async function getFCMAccessToken(): Promise<string> {
 }
 
 async function sendToTopic(accessToken: string, projectId: string, topic: string, title: string, body: string, data: any) {
-  // include data only if it has properties
-  const hasData = data && typeof data === 'object' && Object.keys(data).length > 0;
+  console.log('📤 sendToTopic called with data:', JSON.stringify(data));
+  
+  // Parse data if it's a string (from database JSON column)
+  let parsedData: any = {};
+  if (data) {
+    if (typeof data === 'string') {
+      try {
+        parsedData = JSON.parse(data);
+        console.log('✅ Parsed string data:', JSON.stringify(parsedData));
+      } catch (e) {
+        console.error('❌ Error parsing string data:', e);
+        parsedData = {};
+      }
+    } else if (typeof data === 'object' && data !== null) {
+      parsedData = data;
+      console.log('✅ Using object data directly:', JSON.stringify(parsedData));
+    }
+    
+    // Convert all values to strings (FCM requirement)
+    const stringifiedData: any = {};
+    for (const key in parsedData) {
+      if (parsedData[key] !== undefined && parsedData[key] !== null) {
+        stringifiedData[key] = String(parsedData[key]);
+      }
+    }
+    parsedData = stringifiedData;
+    console.log('✅ Stringified data:', JSON.stringify(parsedData));
+  } else {
+    console.log('⚠️ No data provided');
+  }
+
   const message: any = {
     message: {
       topic,
@@ -88,7 +117,16 @@ async function sendToTopic(accessToken: string, projectId: string, topic: string
       apns: { headers: { 'apns-priority': '10' } },
     },
   };
-  if (hasData) message.message.data = data;
+  
+  // Add data if it exists and has properties
+  if (parsedData && typeof parsedData === 'object' && Object.keys(parsedData).length > 0) {
+    message.message.data = parsedData;
+    console.log('✅ Added data to message:', JSON.stringify(message.message.data));
+  } else {
+    console.log('⚠️ No data to add to message');
+  }
+  
+  console.log('📨 Final FCM message:', JSON.stringify(message));
 
   const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
     method: 'POST',
@@ -111,19 +149,47 @@ async function sendToTopic(accessToken: string, projectId: string, topic: string
 async function sendToTokens(accessToken: string, projectId: string, tokens: string[], title: string, body: string, data: any) {
   if (tokens.length === 0) return;
 
+  // Parse data if it's a string (from database JSON column)
+  let parsedData: any = {};
+  if (data) {
+    if (typeof data === 'string') {
+      try {
+        parsedData = JSON.parse(data);
+      } catch {
+        parsedData = {};
+      }
+    } else if (typeof data === 'object' && data !== null) {
+      parsedData = data;
+    }
+  }
+
   // ارسال جداگانه برای هر token
   for (const token of tokens) {
     try {
-      const hasData = data && typeof data === 'object' && Object.keys(data).length > 0;
+      const hasData = parsedData && typeof parsedData === 'object' && Object.keys(parsedData).length > 0;
       
       // فیلتر کردن data payload برای FCM
       let filteredData: any = {};
       if (hasData) {
         // فقط فیلدهای مجاز FCM را نگه دار
-        const allowedKeys = ['type', 'route', 'conversation_id', 'peer_id', 'peer_name', 'sender_id', 'sender_name', 'message_id', 'receiver_id'];
+        // اضافه کردن فیلدهای مربوط به طراحی نوتیفیکیشن
+        const allowedKeys = [
+          'type', 
+          'route', 
+          'conversation_id', 
+          'peer_id', 
+          'peer_name', 
+          'sender_id', 
+          'sender_name', 
+          'message_id', 
+          'receiver_id',
+          'background_color', // رنگ پس‌زمینه
+          'icon', // آیکون
+          'image_url', // آدرس تصویر
+        ];
         for (const key of allowedKeys) {
-          if (data[key] !== undefined) {
-            filteredData[key] = String(data[key]);
+          if (parsedData[key] !== undefined && parsedData[key] !== null) {
+            filteredData[key] = String(parsedData[key]);
           }
         }
       }
@@ -264,9 +330,23 @@ serve(async (req) => {
     let processed = 0;
     for (const r of (requests as BroadcastRequest[])) {
       try {
+        // Parse data if it's a string (from database JSON column)
+        let requestData: any = {};
+        if (r.data) {
+          if (typeof r.data === 'string') {
+            try {
+              requestData = JSON.parse(r.data);
+            } catch {
+              requestData = {};
+            }
+          } else if (typeof r.data === 'object' && r.data !== null) {
+            requestData = r.data;
+          }
+        }
+        
         if (r.target_type === 'topic') {
           const topic = r.topic || 'all';
-          await sendToTopic(accessToken, projectId!, topic, r.title, r.body, r.data);
+          await sendToTopic(accessToken, projectId!, topic, r.title, r.body, requestData);
         } else if (r.target_type === 'inactive_7d') {
           const { data: inactive, error: inactiveErr } = await supabase
             .from('inactive_users_7d')
@@ -281,7 +361,7 @@ serve(async (req) => {
               .eq('is_push_enabled', true);
             if (tokensErr) throw tokensErr;
             const tokens = (tokensRows || []).map((t: any) => t.token as string);
-            await sendToTokens(accessToken, projectId!, tokens, r.title, r.body, r.data);
+            await sendToTokens(accessToken, projectId!, tokens, r.title, r.body, requestData);
           }
         }
         await supabase
@@ -306,5 +386,3 @@ serve(async (req) => {
     return new Response(`Error: ${e}`, { status: 500 });
   }
 });
-
-

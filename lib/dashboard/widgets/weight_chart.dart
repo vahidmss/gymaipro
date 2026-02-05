@@ -1,9 +1,10 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:shamsi_date/shamsi_date.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 
 class WeightChart extends StatefulWidget {
@@ -22,7 +23,7 @@ class _WeightChartState extends State<WeightChart>
 
   List<Map<String, dynamic>> _weightData = [];
   bool _isLoading = true;
-  String _selectedPeriod = '3M';
+  String _selectedPeriod = 'ALL';
 
   @override
   void initState() {
@@ -41,6 +42,16 @@ class _WeightChartState extends State<WeightChart>
   }
 
   @override
+  void didUpdateWidget(WeightChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // اگر userId یا currentWeight تغییر کرد، داده‌ها را دوباره لود کن
+    if (oldWidget.userId != widget.userId ||
+        oldWidget.currentWeight != widget.currentWeight) {
+      _loadWeightData();
+    }
+  }
+
+  @override
   void dispose() {
     _animationController.dispose();
     super.dispose();
@@ -50,7 +61,6 @@ class _WeightChartState extends State<WeightChart>
     try {
       // بررسی اینکه userId خالی نباشد
       if (widget.userId.isEmpty) {
-        debugPrint('خطا: userId خالی است');
         if (mounted) {
           setState(() {
             _isLoading = false;
@@ -69,10 +79,10 @@ class _WeightChartState extends State<WeightChart>
           _isLoading = false;
         });
 
-        _animationController.forward();
+        _animationController.safeForward();
       }
     } catch (e) {
-      debugPrint('خطا در بارگیری داده‌های وزن: $e');
+      // Error loading weight data - handled silently
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -106,17 +116,85 @@ class _WeightChartState extends State<WeightChart>
     return _weightData.where((record) {
       final dateString = record['recorded_at'];
       if (dateString == null) {
-        debugPrint('خطا: تاریخ رکورد null است');
         return false;
       }
       try {
         final recordDate = DateTime.parse(dateString as String);
         return recordDate.isAfter(startDate);
       } catch (e) {
-        debugPrint('خطا در پارس کردن تاریخ: $e');
         return false;
       }
     }).toList();
+  }
+
+  String _toPersianDigits(String input) {
+    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    var output = input;
+    for (var i = 0; i < english.length; i++) {
+      output = output.replaceAll(english[i], persian[i]);
+    }
+    return output;
+  }
+
+  String _formatJalaliFull(DateTime date) {
+    final j = Jalali.fromDateTime(date);
+    final monthNames = [
+      '',
+      'فروردین',
+      'اردیبهشت',
+      'خرداد',
+      'تیر',
+      'مرداد',
+      'شهریور',
+      'مهر',
+      'آبان',
+      'آذر',
+      'دی',
+      'بهمن',
+      'اسفند',
+    ];
+    final monthName = monthNames[j.month];
+    return '\u200F${_toPersianDigits(j.day.toString())} ${monthName} ${_toPersianDigits(j.year.toString())}';
+  }
+
+  String _formatJalaliShort(DateTime date) {
+    final j = Jalali.fromDateTime(date);
+    final m = j.month.toString().padLeft(2, '0');
+    final d = j.day.toString().padLeft(2, '0');
+    return '${_toPersianDigits(m)}/${_toPersianDigits(d)}';
+  }
+
+  Map<String, dynamic> _calculateWeightChange() {
+    final filteredData = _getFilteredData();
+    if (filteredData.length < 2) {
+      return {'change': 0.0, 'isIncrease': false, 'hasChange': false};
+    }
+
+    final firstWeight = filteredData.first['weight'];
+    final lastWeight = filteredData.last['weight'];
+
+    if (firstWeight == null || lastWeight == null) {
+      return {'change': 0.0, 'isIncrease': false, 'hasChange': false};
+    }
+
+    final first = firstWeight is double
+        ? firstWeight
+        : double.tryParse(firstWeight.toString());
+    final last = lastWeight is double
+        ? lastWeight
+        : double.tryParse(lastWeight.toString());
+
+    if (first == null || last == null) {
+      return {'change': 0.0, 'isIncrease': false, 'hasChange': false};
+    }
+
+    final change = last - first;
+    return {
+      'change': change.abs(),
+      'isIncrease': change > 0,
+      'hasChange': change != 0,
+    };
   }
 
   @override
@@ -125,19 +203,36 @@ class _WeightChartState extends State<WeightChart>
       opacity: _fadeAnimation,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF1A1A1A), Color(0xFF252525)],
-          ),
+          gradient: Theme.of(context).brightness == Brightness.dark
+              ? null
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppTheme.lightGradientStart.withValues(alpha: 0.15),
+                    AppTheme.lightCardColor,
+                    AppTheme.lightGradientEnd.withValues(alpha: 0.1),
+                  ],
+                ),
+          color: Theme.of(context).brightness == Brightness.dark
+              ? context.backgroundColor
+              : null,
           borderRadius: BorderRadius.circular(24.r),
           border: Border.all(
-            color: AppTheme.goldColor.withValues(alpha: 0.2),
-            width: 1.5,
+            color: AppTheme.goldColor.withValues(
+              alpha: Theme.of(context).brightness == Brightness.dark
+                  ? 0.2
+                  : 0.35,
+            ),
+            width: 0.5.w,
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.goldColor.withValues(alpha: 0.1),
+              color: AppTheme.goldColor.withValues(
+                alpha: Theme.of(context).brightness == Brightness.dark
+                    ? 0.1
+                    : 0.2,
+              ),
               blurRadius: 20,
               offset: const Offset(0, 8),
               spreadRadius: 2,
@@ -151,11 +246,9 @@ class _WeightChartState extends State<WeightChart>
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildHeader(),
-              SizedBox(height: 20.h),
-              _buildPeriodSelector(),
-              SizedBox(height: 20.h),
+              SizedBox(height: 12.h),
               SizedBox(
-                height: 200.h,
+                height: 100.h,
                 child: _isLoading ? _buildLoadingIndicator() : _buildChart(),
               ),
             ],
@@ -166,201 +259,97 @@ class _WeightChartState extends State<WeightChart>
   }
 
   Widget _buildHeader() {
-    final filteredData = _getFilteredData();
-    final hasData = filteredData.isNotEmpty;
+    final weightChange = _calculateWeightChange();
+    final hasChange = weightChange['hasChange'] as bool;
+    final isIncrease = weightChange['isIncrease'] as bool;
+    final change = weightChange['change'] as double;
 
-    double? avgWeight;
-    double? weightChange;
+    IconData icon;
+    String changeText;
+    Color iconColor;
 
-    if (hasData) {
-      final validWeights = <double>[];
-
-      for (final record in filteredData) {
-        final weight = record['weight'];
-        if (weight != null) {
-          final weightValue = weight is double
-              ? weight
-              : double.tryParse(weight.toString());
-          if (weightValue != null) {
-            validWeights.add(weightValue);
-          }
-        }
+    if (hasChange) {
+      if (isIncrease) {
+        icon = Icons.trending_up;
+        changeText =
+            'افزایش ${_toPersianDigits(change.toStringAsFixed(1))} کیلوگرم';
+        iconColor = AppTheme.successColor;
+      } else {
+        icon = Icons.trending_down;
+        changeText =
+            'کاهش ${_toPersianDigits(change.toStringAsFixed(1))} کیلوگرم';
+        iconColor = AppTheme.errorColor;
       }
-
-      if (validWeights.isNotEmpty) {
-        avgWeight = validWeights.reduce((a, b) => a + b) / validWeights.length;
-
-        if (validWeights.length > 1) {
-          weightChange = validWeights.last - validWeights.first;
-        }
-      }
+    } else {
+      icon = Icons.trending_up;
+      changeText = 'بدون تغییر';
+      iconColor = Theme.of(context).brightness == Brightness.dark
+          ? AppTheme.goldColor
+          : context.textColor;
     }
 
     return Row(
       children: [
         Container(
-          padding: EdgeInsets.all(12.w),
+          padding: EdgeInsets.all(8.w),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                AppTheme.goldColor.withValues(alpha: 0.2),
-                AppTheme.goldColor.withValues(alpha: 0.1),
+                iconColor.withValues(alpha: 0.2),
+                iconColor.withValues(alpha: 0.1),
               ],
             ),
-            borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(
-              color: AppTheme.goldColor.withValues(alpha: 0.3),
-            ),
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(color: iconColor.withValues(alpha: 0.3)),
           ),
           child: Icon(
-            Icons.trending_up,
-            color: AppTheme.goldColor,
+            icon,
+            color: iconColor,
             size: ResponsiveValue(
               context,
-              defaultValue: 24.sp,
+              defaultValue: 14.sp,
               conditionalValues: [
-                Condition.smallerThan(name: MOBILE, value: 22.sp),
-                Condition.largerThan(name: TABLET, value: 26.sp),
+                Condition.smallerThan(name: MOBILE, value: 12.sp),
+                Condition.largerThan(name: TABLET, value: 16.sp),
               ],
             ).value,
           ),
         ),
-        SizedBox(width: 16.w),
+        SizedBox(width: 12.w),
         Expanded(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'روند وزن',
-                style: GoogleFonts.vazirmatn(
-                  textStyle: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.bold,
-                  ),
+                style: AppTheme.subheadingStyle.copyWith(
+                  fontSize: 13.sp,
+                  color: context.textColor,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              SizedBox(height: 4.h),
-              if (hasData) ...[
-                Row(
-                  children: [
-                    Text(
-                      'میانگین: ',
-                      style: GoogleFonts.vazirmatn(
-                        textStyle: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 10.sp,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${avgWeight!.toStringAsFixed(1)} kg',
-                      style: GoogleFonts.vazirmatn(
-                        textStyle: TextStyle(
-                          color: AppTheme.goldColor,
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    if (weightChange != null) ...[
-                      SizedBox(width: 12.w),
-                      Icon(
-                        weightChange > 0
-                            ? Icons.trending_up
-                            : Icons.trending_down,
-                        color: weightChange > 0 ? Colors.red : Colors.green,
-                        size: 14.sp,
-                      ),
-                      Text(
-                        '${weightChange.abs().toStringAsFixed(1)} kg',
-                        style: GoogleFonts.vazirmatn(
-                          textStyle: TextStyle(
-                            color: weightChange > 0 ? Colors.red : Colors.green,
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ] else ...[
+              if (hasChange) ...[
+                SizedBox(height: 2.h),
                 Text(
-                  'داده‌ای موجود نیست',
-                  style: GoogleFonts.vazirmatn(
-                    textStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 10.sp,
-                    ),
+                  changeText,
+                  style: AppTheme.bodyStyle.copyWith(
+                    fontSize: 10.sp,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withValues(alpha: 0.7)
+                        : context.textSecondary,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ],
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildPeriodSelector() {
-    final periods = [
-      {'key': '3M', 'label': '۳ ماه'},
-      {'key': '6M', 'label': '۶ ماه'},
-      {'key': '1Y', 'label': '۱ سال'},
-      {'key': 'ALL', 'label': 'همیشگی'},
-    ];
-
-    return Row(
-      children: periods.map((period) {
-        final isSelected = _selectedPeriod == period['key'];
-        return Expanded(
-          child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedPeriod = period['key']!;
-              });
-            },
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 2),
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-              decoration: BoxDecoration(
-                gradient: isSelected
-                    ? const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [AppTheme.goldColor, Color(0xFFD4AF37)],
-                      )
-                    : null,
-                color: isSelected ? null : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isSelected
-                      ? AppTheme.goldColor
-                      : Colors.white.withValues(alpha: 0.2),
-                ),
-              ),
-              child: Text(
-                period['label']!,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.vazirmatn(
-                  textStyle: TextStyle(
-                    color: isSelected
-                        ? Colors.black
-                        : Colors.white.withValues(alpha: 0.7),
-                    fontSize: 11,
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 
@@ -380,7 +369,12 @@ class _WeightChartState extends State<WeightChart>
           SizedBox(height: 12.h),
           Text(
             'در حال بارگیری...',
-            style: TextStyle(color: Colors.white70, fontSize: 12.sp),
+            style: TextStyle(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white70
+                  : context.textSecondary,
+              fontSize: 12.sp,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -417,48 +411,81 @@ class _WeightChartState extends State<WeightChart>
       return _buildEmptyState();
     }
 
-    return LineChart(
+    // بررسی اینکه آیا فقط یک نقطه داریم
+    final isSinglePoint = spots.length == 1;
+
+    // محاسبه minY و maxY
+    final double minYValue, maxYValue;
+    if (isSinglePoint) {
+      // برای یک نقطه، یک range مناسب تعریف می‌کنیم
+      final singleWeight = spots[0].y;
+      minYValue = singleWeight - 5; // 5 کیلوگرم پایین‌تر
+      maxYValue = singleWeight + 5; // 5 کیلوگرم بالاتر
+    } else {
+      minYValue =
+          spots.map((spot) => spot.y).reduce((a, b) => a < b ? a : b) - 2;
+      maxYValue =
+          spots.map((spot) => spot.y).reduce((a, b) => a > b ? a : b) + 2;
+    }
+
+    // محاسبه minX و maxX
+    final double minXValue, maxXValue;
+    if (isSinglePoint) {
+      // نقطه در x=0 قرار می‌گیره
+      minXValue = 0;
+      maxXValue = 0.5;
+    } else {
+      minXValue = 0;
+      maxXValue = (spots.length - 1).toDouble();
+    }
+
+    final chartWidget = LineChart(
       LineChartData(
         gridData: FlGridData(
+          show: false, // گریدهای وسط چارت نمایش داده نمیشن
           drawVerticalLine: false,
-          horizontalInterval: 5,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.white.withValues(alpha: 0.1),
-              strokeWidth: 1,
-            );
-          },
+          drawHorizontalLine: false,
         ),
         titlesData: FlTitlesData(
           rightTitles: AxisTitles(
             sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 50,
-              interval: 5,
+              showTitles: isSinglePoint, // فقط وقتی یک نقطه هست اعداد نمایش بده
+              reservedSize: isSinglePoint ? 50 : 0,
+              interval: isSinglePoint ? 2.5 : 1,
               getTitlesWidget: (value, meta) {
-                return Text(
-                  value.toInt().toString(),
-                  style: GoogleFonts.vazirmatn(
-                    textStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
+                if (isSinglePoint) {
+                  return Text(
+                    _toPersianDigits(value.toStringAsFixed(1)),
+                    style: AppTheme.bodyStyle.copyWith(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white.withValues(alpha: 0.6)
+                          : context.textSecondary,
                       fontSize: 10,
                     ),
-                  ),
-                );
+                  );
+                }
+                return const SizedBox.shrink();
               },
             ),
           ),
           topTitles: const AxisTitles(),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              interval: (filteredData.length / 5).ceil().toDouble(),
+              showTitles: isSinglePoint, // فقط وقتی یک نقطه هست تاریخ نمایش بده
+              reservedSize: 0, // حاشیه زیر نمودار حذف شد
+              interval: 1,
               getTitlesWidget: (value, meta) {
-                if (value.toInt() >= filteredData.length) {
+                if (!isSinglePoint) {
                   return const SizedBox.shrink();
                 }
-                final record = filteredData[value.toInt()];
+                // برای یک نقطه، فقط وقتی value برابر 0 باشه تاریخ نمایش بده
+                if (value != 0) {
+                  return const SizedBox.shrink();
+                }
+                if (filteredData.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+                final record = filteredData[0];
                 final dateString = record['recorded_at'];
                 if (dateString == null) {
                   return const SizedBox.shrink();
@@ -468,12 +495,12 @@ class _WeightChartState extends State<WeightChart>
                   return Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      '${date.month}/${date.day}',
-                      style: GoogleFonts.vazirmatn(
-                        textStyle: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
-                          fontSize: 10,
-                        ),
+                      _formatJalaliShort(date),
+                      style: AppTheme.bodyStyle.copyWith(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white.withValues(alpha: 0.6)
+                            : context.textSecondary,
+                        fontSize: 10,
                       ),
                     ),
                   );
@@ -486,22 +513,58 @@ class _WeightChartState extends State<WeightChart>
           leftTitles: const AxisTitles(),
         ),
         borderData: FlBorderData(
-          show: true,
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          show: isSinglePoint, // فقط وقتی یک نقطه هست border نمایش بده
+          border: isSinglePoint
+              ? Border.all(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : context.separatorColor,
+                )
+              : null,
         ),
-        minX: 0,
-        maxX: (spots.length - 1).toDouble(),
-        minY: spots.map((spot) => spot.y).reduce((a, b) => a < b ? a : b) - 2,
-        maxY: spots.map((spot) => spot.y).reduce((a, b) => a > b ? a : b) + 2,
+        minX: minXValue,
+        maxX: maxXValue,
+        minY: minYValue,
+        maxY: maxYValue,
+        lineTouchData: LineTouchData(
+          handleBuiltInTouches: true,
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipItems: (List<LineBarSpot> touchedSpots) {
+              return touchedSpots.map((touched) {
+                final index = touched.x.toInt();
+                final record = filteredData[index];
+                final date = DateTime.parse(record['recorded_at'] as String);
+                final dateFa = _formatJalaliFull(date);
+                final weightFa = _toPersianDigits(touched.y.toStringAsFixed(1));
+                return LineTooltipItem(
+                  '$dateFa\n$weightFa کیلوگرم',
+                  TextStyle(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white
+                        : context.textColor,
+                    fontSize: 12.sp,
+                    height: 1.6,
+                    fontFamily: AppTheme.fontFamily,
+                  ),
+                );
+              }).toList();
+            },
+          ),
+        ),
         lineBarsData: [
           LineChartBarData(
             spots: spots,
             isCurved: true,
             gradient: LinearGradient(
-              colors: [
-                AppTheme.goldColor.withValues(alpha: 0.8),
-                AppTheme.goldColor.withValues(alpha: 0.4),
-              ],
+              colors: Theme.of(context).brightness == Brightness.dark
+                  ? [
+                      AppTheme.goldColor.withValues(alpha: 0.8),
+                      AppTheme.goldColor.withValues(alpha: 0.4),
+                    ]
+                  : [
+                      context.textColor.withValues(alpha: 0.8),
+                      context.textColor.withValues(alpha: 0.4),
+                    ],
             ),
             barWidth: 3,
             isStrokeCapRound: true,
@@ -509,26 +572,35 @@ class _WeightChartState extends State<WeightChart>
               getDotPainter: (spot, percent, barData, index) {
                 return FlDotCirclePainter(
                   radius: 4,
-                  color: AppTheme.goldColor,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppTheme.goldColor
+                      : context.textColor,
                   strokeWidth: 2,
-                  strokeColor: Colors.white,
+                  strokeColor: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : context.cardColor,
                 );
               },
             ),
             belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppTheme.goldColor.withValues(alpha: 0.3),
-                  AppTheme.goldColor.withValues(alpha: 0.05),
-                ],
-              ),
+              show: false, // پر شدن زیر نمودار حذف شد
             ),
           ),
         ],
       ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final baseWidthPerPoint = 40.w;
+        final minWidth = constraints.maxWidth;
+        final targetWidth = (spots.length * baseWidthPerPoint).toDouble();
+        final width = targetWidth < minWidth ? minWidth : targetWidth;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(width: width, child: chartWidget),
+        );
+      },
     );
   }
 
@@ -536,47 +608,39 @@ class _WeightChartState extends State<WeightChart>
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 60.w,
-            height: 60.h,
+            width: 40.w,
+            height: 40.h,
             decoration: BoxDecoration(
               color: AppTheme.goldColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(30.r),
+              borderRadius: BorderRadius.circular(20.r),
               border: Border.all(
                 color: AppTheme.goldColor.withValues(alpha: 0.3),
-                width: 2,
+                width: 1.5,
               ),
             ),
             child: Icon(
               Icons.trending_up,
-              color: AppTheme.goldColor.withValues(alpha: 0.7),
-              size: 30.sp,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppTheme.goldColor.withValues(alpha: 0.7)
+                  : context.textColor.withValues(alpha: 0.7),
+              size: 20.sp,
             ),
-          ),
-          SizedBox(height: 12.h),
-          Text(
-            'هنوز داده‌ای ثبت نشده',
-            style: GoogleFonts.vazirmatn(
-              textStyle: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            textAlign: TextAlign.center,
           ),
           SizedBox(height: 6.h),
           Text(
-            'برای مشاهده روند وزن، ابتدا وزن خود را ثبت کنید',
-            style: GoogleFonts.vazirmatn(
-              textStyle: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 10.sp,
-              ),
+            'هنوز داده‌ای ثبت نشده',
+            style: AppTheme.bodyStyle.copyWith(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white.withValues(alpha: 0.7)
+                  : context.textSecondary,
+              fontSize: 10.sp,
+              fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ],

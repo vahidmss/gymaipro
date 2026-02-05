@@ -1,7 +1,9 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/date_utils.dart' as du;
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TrainerActivitiesTab extends StatefulWidget {
@@ -64,11 +66,12 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    if (!WidgetSafetyUtils.isMounted(this)) return;
+    WidgetSafetyUtils.safeSetState(this, () => _loading = true);
     try {
       final current = _client.auth.currentUser;
       if (current == null) {
-        setState(() {
+        WidgetSafetyUtils.safeSetState(this, () {
           _items = const [];
           _loading = false;
         });
@@ -126,7 +129,7 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
             resolvedItems.add(merged);
           }
 
-          setState(() {
+          WidgetSafetyUtils.safeSetState(this, () {
             _items = resolvedItems;
             _profilesById = profilesById;
             _loading = false;
@@ -187,13 +190,13 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
         } catch (_) {}
       }
 
-      setState(() {
+      WidgetSafetyUtils.safeSetState(this, () {
         _items = items;
         _profilesById = profilesById;
         _loading = false;
       });
     } catch (e) {
-      setState(() {
+      WidgetSafetyUtils.safeSetState(this, () {
         _items = const [];
         _loading = false;
       });
@@ -202,17 +205,46 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(
+          color: AppTheme.goldColor,
+        ),
+      );
     }
 
     if (_items.isEmpty) {
       return RefreshIndicator(
         onRefresh: _load,
+        color: AppTheme.goldColor,
         child: ListView(
-          children: const [
-            SizedBox(height: 120),
-            Center(child: Text('فعلاً برنامه ارائه‌شده‌ای وجود ندارد')),
+          children: [
+            SizedBox(height: 120.h),
+            Center(
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.list_alt_outlined,
+                    size: 64.sp,
+                    color: isDark
+                        ? context.textColor.withValues(alpha: 0.3)
+                        : context.textSecondary,
+                  ),
+                  SizedBox(height: 16.h),
+                  Text(
+                    'فعلاً برنامه ارائه‌شده‌ای وجود ندارد',
+                    style: GoogleFonts.vazirmatn(
+                      color: isDark
+                          ? context.textColor.withValues(alpha: 0.6)
+                          : context.textSecondary,
+                      fontSize: 16.sp,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       );
@@ -220,10 +252,11 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
 
     return RefreshIndicator(
       onRefresh: _load,
+      color: AppTheme.goldColor,
       child: ListView.separated(
-        padding: EdgeInsets.all(12.w),
+        padding: EdgeInsets.all(16.w),
         itemCount: _items.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        separatorBuilder: (_, __) => SizedBox(height: 12.h),
         itemBuilder: (context, index) {
           final it = _items[index];
           final userId = it['user_id'] as String?;
@@ -254,9 +287,14 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
           final registeredAt = DateTime.tryParse(
             it['program_registration_date'] as String? ?? '',
           );
-          final expiryAt = DateTime.tryParse(
-            it['expiry_date'] as String? ?? '',
-          );
+          
+          // محاسبه expiry_date: از زمان ارسال برنامه (sent_at) تا 33 روز بعد
+          // اگر sent_at در دیتابیس نبود، از program_registration_date استفاده می‌کنیم (همان زمان sent_at است)
+          DateTime? expiryAt;
+          if (registeredAt != null) {
+            // program_registration_date همان زمان sent_at است
+            expiryAt = registeredAt.add(const Duration(days: 33));
+          }
           final finalAmount = it['final_amount'] as int?;
           final avatarFromItem =
               ((it['avatar_resolved_url'] as String?) ??
@@ -274,29 +312,53 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
           String fmtDate(DateTime? d) => d == null ? '-' : du.toJalali(d);
           String fmtAmount(int? a) => _formatTomanFromRial(a);
 
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          
           return DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20.r),
-              color: AppTheme.cardColor,
+              gradient: isDark
+                  ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        context.cardColor,
+                        context.cardColor.withValues(alpha: 0.95),
+                        context.veryDarkBackground,
+                      ],
+                    )
+                  : LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        context.cardColor,
+                        context.cardColor.withValues(alpha: 0.98),
+                        AppTheme.lightGradientStart.withValues(alpha: 0.1),
+                      ],
+                    ),
               border: Border.all(
-                color: AppTheme.goldColor.withValues(alpha: 0.12),
+                color: AppTheme.goldColor.withValues(
+                  alpha: isDark ? 0.2 : 0.3,
+                ),
+                width: 1.5.w,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 14.r,
-                  offset: Offset(0.w, 8.h),
+                  color: AppTheme.goldColor.withValues(
+                    alpha: isDark ? 0.15 : 0.25,
+                  ),
+                  blurRadius: 16.r,
+                  offset: Offset(0.w, 6.h),
+                  spreadRadius: 1.r,
+                ),
+                BoxShadow(
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.3)
+                      : AppTheme.lightTextColor.withValues(alpha: 0.08),
+                  blurRadius: 8.r,
+                  offset: Offset(0.w, 2.h),
                 ),
               ],
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1A1A1A),
-                  Color(0xFF1F1F1F),
-                  Color(0xFF232323),
-                ],
-              ),
             ),
             child: Padding(
               padding: EdgeInsets.all(16.w),
@@ -317,11 +379,10 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                                 Expanded(
                                   child: Text(
                                     displayName,
-                                    style: TextStyle(
-                                      color: Colors.white,
+                                    style: GoogleFonts.vazirmatn(
+                                      color: context.textColor,
                                       fontWeight: FontWeight.w700,
                                       fontSize: 16.sp,
-                                      letterSpacing: 0.1,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -371,13 +432,13 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
-                                        fmtAmount(finalAmount),
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 14.sp,
-                                        ),
+                                      fmtAmount(finalAmount),
+                                      style: GoogleFonts.vazirmatn(
+                                        color: AppTheme.goldColor,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15.sp,
                                       ),
+                                    ),
                                     ],
                                   ),
                                 ),
@@ -391,8 +452,8 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                                     const SizedBox(width: 6),
                                     Text(
                                       'ثبت: ${fmtDate(registeredAt ?? purchaseAt)}',
-                                      style: TextStyle(
-                                        color: Colors.white60,
+                                      style: GoogleFonts.vazirmatn(
+                                        color: context.textSecondary,
                                         fontSize: 12.sp,
                                       ),
                                     ),
@@ -414,8 +475,10 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                                       const SizedBox(width: 6),
                                       Text(
                                         'خرید: ${fmtDate(purchaseAt)}',
-                                        style: TextStyle(
-                                          color: Colors.white38,
+                                        style: GoogleFonts.vazirmatn(
+                                          color: context.textSecondary.withValues(
+                                            alpha: 0.7,
+                                          ),
                                           fontSize: 12.sp,
                                         ),
                                       ),
@@ -432,8 +495,10 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                                     const SizedBox(width: 6),
                                     Text(
                                       'انقضا: ${fmtDate(expiryAt)}',
-                                      style: TextStyle(
-                                        color: Colors.white38,
+                                      style: GoogleFonts.vazirmatn(
+                                        color: context.textSecondary.withValues(
+                                          alpha: 0.7,
+                                        ),
                                         fontSize: 12.sp,
                                       ),
                                     ),
@@ -476,7 +541,14 @@ class _Chip extends StatelessWidget {
         gradient: LinearGradient(colors: [bg1, bg2]),
         borderRadius: BorderRadius.circular(999.r),
       ),
-      child: Text(text, style: TextStyle(color: fg, fontSize: 12)),
+      child: Text(
+        text,
+        style: GoogleFonts.vazirmatn(
+          color: fg,
+          fontSize: 12.sp,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
@@ -492,30 +564,51 @@ class _Avatar extends StatelessWidget {
         ? displayName.characters.first
         : 'ک';
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999.r),
-      child: Container(
-        width: 44.w,
-        height: 44.h,
-        color: const Color(0xFF222222),
-        child: avatarUrl != null && avatarUrl!.isNotEmpty
-            ? Image.network(
-                avatarUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _Initials(initials: initials),
-                loadingBuilder: (ctx, child, progress) => progress == null
-                    ? child
-                    : Center(
-                        child: SizedBox(
-                          width: 16.w,
-                          height: 16.h,
-                          child: const CircularProgressIndicator(
-                            strokeWidth: 2,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: 0.3),
+          width: 2.w,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.goldColor.withValues(alpha: 0.2),
+            blurRadius: 8.r,
+            spreadRadius: 1.r,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(999.r),
+        child: Container(
+          width: 52.w,
+          height: 52.h,
+          color: isDark
+              ? context.veryDarkBackground
+              : AppTheme.lightSurfaceColor,
+          child: avatarUrl != null && avatarUrl!.isNotEmpty
+              ? Image.network(
+                  avatarUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _Initials(initials: initials),
+                  loadingBuilder: (ctx, child, progress) => progress == null
+                      ? child
+                      : Center(
+                          child: SizedBox(
+                            width: 16.w,
+                            height: 16.h,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.goldColor,
+                            ),
                           ),
                         ),
-                      ),
-              )
-            : _Initials(initials: initials),
+                )
+              : _Initials(initials: initials),
+        ),
       ),
     );
   }
@@ -527,12 +620,17 @@ class _Initials extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Center(
       child: Text(
         initials,
-        style: const TextStyle(
-          color: Colors.white,
+        style: GoogleFonts.vazirmatn(
+          color: isDark
+              ? AppTheme.goldColor
+              : AppTheme.lightTextColor,
           fontWeight: FontWeight.w700,
+          fontSize: 20.sp,
         ),
       ),
     );

@@ -7,6 +7,7 @@
     required this.createdAt,
     required this.updatedAt,
     this.restrictions,
+    this.sentAt,
   });
 
   factory MealPlan.fromJson(Map<String, dynamic> json) {
@@ -35,6 +36,9 @@
       updatedAt: DateTime.parse(
         (json['updated_at'] as String?) ?? DateTime.now().toIso8601String(),
       ),
+      sentAt: json['sent_at'] != null
+          ? DateTime.parse(json['sent_at'] as String)
+          : null,
     );
   }
   final String id;
@@ -44,6 +48,7 @@
   final List<String>? restrictions; // new: list of restrictions
   final DateTime createdAt;
   final DateTime updatedAt;
+  final DateTime? sentAt; // تاریخ ارسال برنامه به شاگرد
 
   // Helper method to get the data object for JSON storage
   Map<String, dynamic> get dataObject {
@@ -98,7 +103,11 @@ abstract class DayItem {
 class MealPlanDay {
   // unified list of meals and supplements
 
-  const MealPlanDay({required this.dayOfWeek, required this.items});
+  const MealPlanDay({
+    required this.dayOfWeek,
+    required this.items,
+    this.comment,
+  });
 
   factory MealPlanDay.fromJson(Map<String, dynamic> json) {
     List<DayItem> items = [];
@@ -126,10 +135,15 @@ class MealPlanDay {
       }
     }
 
-    return MealPlanDay(dayOfWeek: json['day_of_week'] as int, items: items);
+    return MealPlanDay(
+      dayOfWeek: json['day_of_week'] as int,
+      items: items,
+      comment: json['comment'] as String?,
+    );
   }
   final int dayOfWeek; // 0=شنبه ... 6=جمعه
   final List<DayItem> items;
+  final String? comment; // کامنت مربی برای این روز
 
   // Helper getters for backward compatibility
   List<MealItem> get meals => items.whereType<MealItem>().toList();
@@ -137,10 +151,14 @@ class MealPlanDay {
       items.whereType<SupplementEntry>().toList();
 
   Map<String, dynamic> toJson() {
-    return {
+    final json = <String, dynamic>{
       'day_of_week': dayOfWeek,
       'items': items.map((item) => item.toJson()).toList(),
     };
+    if (comment != null) {
+      json['comment'] = comment;
+    }
+    return json;
   }
 }
 
@@ -248,6 +266,7 @@ class SupplementEntry extends DayItem {
     this.note,
     this.protein,
     this.carbs,
+    this.calories,
   }) : super(id: id ?? _generateId(), type: 'supplement');
 
   factory SupplementEntry.fromJson(Map<String, dynamic> json) {
@@ -268,6 +287,9 @@ class SupplementEntry extends DayItem {
           ? (json['protein'] as num).toDouble()
           : null,
       carbs: json['carbs'] != null ? (json['carbs'] as num).toDouble() : null,
+      calories: json['calories'] != null
+          ? (json['calories'] as num).toDouble()
+          : null,
     );
   }
   final String name;
@@ -278,6 +300,7 @@ class SupplementEntry extends DayItem {
   final String supplementType; // "مکمل" یا "دارو"
   final double? protein; // گرم پروتئین
   final double? carbs;
+  final double? calories;
 
   static String _generateId() =>
       DateTime.now().millisecondsSinceEpoch.toString();
@@ -295,6 +318,7 @@ class SupplementEntry extends DayItem {
       'supplement_type': supplementType,
       if (protein != null) 'protein': protein,
       if (carbs != null) 'carbs': carbs,
+      if (calories != null) 'calories': calories,
     };
   }
 }

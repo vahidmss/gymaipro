@@ -1,6 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:gymaipro/my_club/widgets/unified_empty_state.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_dashboard/services/trainer_client_service.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
@@ -74,217 +74,73 @@ class _MyTrainersScreenState extends State<MyTrainersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
-      appBar: AppBar(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
         backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'مربی‌های من',
-          style: GoogleFonts.vazirmatn(
-            fontWeight: FontWeight.w700,
-            fontSize: 20.sp,
-            color: Colors.white,
-          ),
-        ),
-        centerTitle: true,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                const Color(0xFF1A1A1A),
-                const Color(0xFF1A1A1A).withValues(alpha: 0.8),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            decoration: BoxDecoration(
-              color: AppTheme.goldColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12.r),
-              border: Border.all(
-                color: AppTheme.goldColor.withValues(alpha: 0.3),
-              ),
-            ),
-            child: IconButton(
-              onPressed: _loadTrainers,
-              icon: Icon(
-                LucideIcons.refreshCw,
-                color: AppTheme.goldColor,
-                size: 20.sp,
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(20.w),
-                    decoration: BoxDecoration(
-                      color: AppTheme.goldColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(16.r),
-                      border: Border.all(
-                        color: AppTheme.goldColor.withValues(alpha: 0.3),
+        body: _isLoading
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(20.w),
+                      decoration: BoxDecoration(
+                        color: AppTheme.goldColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(16.r),
+                        border: Border.all(
+                          color: AppTheme.goldColor.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: const CircularProgressIndicator(
+                        color: AppTheme.goldColor,
+                        strokeWidth: 3,
                       ),
                     ),
-                    child: const CircularProgressIndicator(
-                      color: AppTheme.goldColor,
-                      strokeWidth: 3,
+                    const SizedBox(height: 16),
+                    Text(
+                      'در حال بارگذاری مربی‌ها...',
+                      style: TextStyle(
+                        color: context.textSecondary,
+                        fontSize: 16.sp,
+                        fontFamily: AppTheme.fontFamily,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'در حال بارگذاری مربی‌ها...',
-                    style: GoogleFonts.vazirmatn(
-                      color: Colors.grey[400],
-                      fontSize: 16.sp,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
+              )
+            : _trainers.isEmpty
+            ? _buildEmptyState()
+            : RefreshIndicator(
+                onRefresh: _loadTrainers,
+                color: AppTheme.goldColor,
+                backgroundColor: isDark
+                    ? const Color(0xFF2A2A2A)
+                    : context.cardColor,
+                child: ListView.builder(
+                  padding: EdgeInsets.all(16.w),
+                  itemCount: _trainers.length,
+                  itemBuilder: (context, index) {
+                    final trainer = _trainers[index];
+                    return _TrainerCard(
+                      trainer: trainer,
+                      onChat: () => _openChat(trainer),
+                      onViewProfile: () => _viewProfile(trainer),
+                      onEndRelationship: () => _endRelationship(trainer),
+                    );
+                  },
+                ),
               ),
-            )
-          : _trainers.isEmpty
-          ? _buildEmptyState()
-          : RefreshIndicator(
-              onRefresh: _loadTrainers,
-              color: AppTheme.goldColor,
-              backgroundColor: const Color(0xFF2A2A2A),
-              child: ListView.builder(
-                padding: EdgeInsets.all(16.w),
-                itemCount: _trainers.length,
-                itemBuilder: (context, index) {
-                  final trainer = _trainers[index];
-                  return _TrainerCard(
-                    trainer: trainer,
-                    onChat: () => _openChat(trainer),
-                    onViewProfile: () => _viewProfile(trainer),
-                    onEndRelationship: () => _endRelationship(trainer),
-                  );
-                },
-              ),
-            ),
+      ),
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(32.w),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(32.w),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppTheme.goldColor.withValues(alpha: 0.1),
-                    AppTheme.goldColor.withValues(alpha: 0.05),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(24.r),
-                border: Border.all(
-                  color: AppTheme.goldColor.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Icon(
-                LucideIcons.userX,
-                size: 80.sp,
-                color: AppTheme.goldColor.withValues(alpha: 0.7),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'هنوز مربی‌ای ندارید',
-              style: GoogleFonts.vazirmatn(
-                fontSize: 24.sp,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'برای شروع سفر ورزشی خود، یک مربی حرفه‌ای انتخاب کنید',
-              style: GoogleFonts.vazirmatn(
-                color: Colors.grey[400],
-                fontSize: 16.sp,
-                height: 1.5.h,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppTheme.goldColor,
-                    AppTheme.goldColor.withValues(alpha: 0.8),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16.r),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.goldColor.withValues(alpha: 0.3),
-                    blurRadius: 12.r,
-                    offset: Offset(0.w, 4.h),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => Navigator.pushNamed(context, '/trainers'),
-                  borderRadius: BorderRadius.circular(16.r),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 32.w,
-                      vertical: 16.h,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          LucideIcons.search,
-                          color: Colors.black,
-                          size: 20.sp,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'جستجوی مربی‌ها',
-                          style: GoogleFonts.vazirmatn(
-                            color: Colors.black,
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'یا از بخش "مربی‌ها" در منوی اصلی استفاده کنید',
-              style: GoogleFonts.vazirmatn(
-                color: Colors.grey[500],
-                fontSize: 14.sp,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+    return UnifiedEmptyState(
+      icon: LucideIcons.userX,
+      title: 'هنوز مربی‌ای ندارید',
+      subtitle: 'برای شروع سفر ورزشی خود، یک مربی حرفه‌ای انتخاب کنید',
     );
   }
 
@@ -406,29 +262,30 @@ class _TrainerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final trainerData = trainer['trainer'] as Map<String, dynamic>?;
     final status = trainer['status'] as String? ?? 'pending';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2A2A2A), Color(0xFF1F1F1F)],
-        ),
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: status == 'active'
               ? AppTheme.goldColor.withValues(alpha: 0.3)
-              : Colors.grey[700]!,
+              : isDark
+              ? Colors.grey[700]!
+              : AppTheme.lightDividerColor.withValues(alpha: 0.5),
           width: 1.5.w,
         ),
         boxShadow: [
           BoxShadow(
             color: status == 'active'
                 ? AppTheme.goldColor.withValues(alpha: 0.1)
-                : Colors.black.withValues(alpha: 0.3),
+                : isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : AppTheme.goldColor.withValues(alpha: 0.08),
             blurRadius: 8.r,
             offset: Offset(0.w, 4.h),
           ),
@@ -481,10 +338,11 @@ class _TrainerCard extends StatelessWidget {
                     children: [
                       Text(
                         _getTrainerName(trainerData),
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 18.sp,
-                          color: Colors.white,
+                          color: context.textColor,
+                          fontFamily: AppTheme.fontFamily,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -505,10 +363,11 @@ class _TrainerCard extends StatelessWidget {
                             (trainerData!['specializations'] as List<dynamic>?)
                                     ?.join(' • ') ??
                                 'تخصص ثبت نشده',
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
                               color: AppTheme.goldColor,
                               fontSize: 12.sp,
                               fontWeight: FontWeight.w500,
+                              fontFamily: AppTheme.fontFamily,
                             ),
                           ),
                         ),
@@ -550,10 +409,11 @@ class _TrainerCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         status == 'active' ? 'فعال' : 'در انتظار',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 12.sp,
                           fontWeight: FontWeight.w600,
+                          fontFamily: AppTheme.fontFamily,
                         ),
                       ),
                     ],
@@ -649,10 +509,11 @@ class _TrainerCard extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             value,
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
               color: color,
               fontSize: 12.sp,
               fontWeight: FontWeight.w600,
+              fontFamily: AppTheme.fontFamily,
             ),
           ),
         ],
@@ -707,12 +568,13 @@ class _TrainerCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   label,
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
                     color: isEnabled && onPressed != null
                         ? Colors.white
                         : Colors.grey[500],
                     fontSize: 12.sp,
                     fontWeight: FontWeight.w600,
+                    fontFamily: AppTheme.fontFamily,
                   ),
                 ),
               ],

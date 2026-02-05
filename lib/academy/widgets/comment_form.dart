@@ -35,6 +35,8 @@ class _CommentFormState extends State<CommentForm> {
           Text(
             'ثبت نظر',
             style: AppTheme.headingStyle.copyWith(fontSize: 16.sp),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
           TextField(
@@ -64,7 +66,11 @@ class _CommentFormState extends State<CommentForm> {
                 ),
               ),
               icon: const Icon(Icons.send, size: 18),
-              label: const Text('ارسال'),
+              label: Text(
+                'ارسال',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
         ],

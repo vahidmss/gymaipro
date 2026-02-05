@@ -1,6 +1,6 @@
-﻿import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter/material.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class GoldDialog extends StatefulWidget {
@@ -13,7 +13,7 @@ class GoldDialog extends StatefulWidget {
     this.actions,
     this.accentColor,
     this.showCloseButton = true,
-    this.maxWidth = 340,
+    this.maxWidth,
   });
   final String title;
   final String message;
@@ -22,7 +22,7 @@ class GoldDialog extends StatefulWidget {
   final List<Widget>? actions;
   final Color? accentColor;
   final bool showCloseButton;
-  final double maxWidth;
+  final double? maxWidth;
 
   static Future<void> show({
     required BuildContext context,
@@ -34,39 +34,58 @@ class GoldDialog extends StatefulWidget {
     Color? accentColor,
     bool barrierDismissible = true,
     bool showCloseButton = true,
-    double maxWidth = 340,
+    double? maxWidth,
   }) {
     return showGeneralDialog<void>(
       context: context,
       barrierDismissible: barrierDismissible,
       barrierLabel: 'Dismiss',
       barrierColor: Colors.black54,
-      transitionDuration: const Duration(milliseconds: 350),
+      useRootNavigator: true, // جلوگیری از conflict با overlay
+      transitionDuration: const Duration(milliseconds: 300),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         final curvedAnimation = CurvedAnimation(
           parent: animation,
-          curve: Curves.easeOutBack,
+          curve: Curves.easeOutCubic,
         );
         return ScaleTransition(
-          scale: Tween<double>(begin: 0.8, end: 1).animate(curvedAnimation),
+          scale: Tween<double>(begin: 0.85, end: 1).animate(curvedAnimation),
           child: FadeTransition(opacity: animation, child: child),
         );
       },
-      pageBuilder: (context, _, __) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-        elevation: 0,
-        child: GoldDialog(
-          title: title,
-          message: message,
-          icon: icon,
-          additionalContent: additionalContent,
-          actions: actions,
-          accentColor: accentColor,
-          showCloseButton: showCloseButton,
-          maxWidth: maxWidth,
-        ),
-      ),
+      pageBuilder: (context, _, __) {
+        final mediaQuery = MediaQuery.of(context);
+        final screenWidth = mediaQuery.size.width;
+        final screenHeight = mediaQuery.size.height;
+        final safePadding = mediaQuery.padding;
+        
+        // محاسبه insetPadding به صورت responsive (مینیمال‌تر)
+        final horizontalInset = screenWidth > 600 
+            ? screenWidth * 0.12 // 12% برای تبلت (کاهش از 15%)
+            : screenWidth * 0.06.clamp(10.0, 20.0); // 6% برای موبایل (کاهش از 8%)
+        final verticalInset = screenHeight * 0.08.clamp(12.0, 32.0); // کاهش از 10%
+        
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.only(
+            left: horizontalInset,
+            right: horizontalInset,
+            top: safePadding.top + verticalInset,
+            bottom: safePadding.bottom + verticalInset,
+          ),
+          elevation: 0,
+          child: GoldDialog(
+            title: title,
+            message: message,
+            icon: icon,
+            additionalContent: additionalContent,
+            actions: actions,
+            accentColor: accentColor,
+            showCloseButton: showCloseButton,
+            maxWidth: maxWidth,
+          ),
+        );
+      },
     );
   }
 
@@ -96,7 +115,7 @@ class _GoldDialogState extends State<GoldDialog>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _controller.forward();
+        _controller.safeForward();
       }
     });
   }
@@ -111,48 +130,68 @@ class _GoldDialogState extends State<GoldDialog>
   Widget build(BuildContext context) {
     final Color accentColor = widget.accentColor ?? AppTheme.goldColor;
 
-    return Container(
-      constraints: BoxConstraints(maxWidth: widget.maxWidth),
-      decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(20.r),
-        boxShadow: [
-          BoxShadow(
-            color: accentColor.withValues(alpha: 0.1),
-            blurRadius: 20.r,
-            spreadRadius: 1.r,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // محاسبه maxWidth به صورت responsive
+        final effectiveMaxWidth = widget.maxWidth ??
+            (constraints.maxWidth > 600 
+                ? constraints.maxWidth * 0.7.clamp(400.0, 600.0)
+                : constraints.maxWidth * 0.9.clamp(280.0, 400.0));
+        
+        // محاسبه corner radius به صورت responsive
+        final cornerRadius = constraints.maxWidth * 0.05.clamp(16.0, 24.0);
+        
+        return Container(
+          constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor,
+            borderRadius: BorderRadius.circular(cornerRadius),
+            boxShadow: [
+              BoxShadow(
+                color: accentColor.withValues(alpha: 0.12),
+                blurRadius: constraints.maxWidth * 0.04.clamp(16.0, 24.0),
+                spreadRadius: 0.5,
+              ),
+            ],
+            border: Border.all(
+              color: accentColor.withValues(alpha: 0.15),
+              width: 1.2,
+            ),
           ),
-        ],
-        border: Border.all(
-          color: accentColor.withValues(alpha: 0.1),
-          width: 1.5.w,
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(19.r),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeader(accentColor),
-            _buildBody(accentColor),
-            if (widget.actions != null && widget.actions!.isNotEmpty)
-              _buildActions(),
-          ],
-        ),
-      ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(cornerRadius - 1),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(accentColor, constraints),
+                _buildBody(accentColor, constraints),
+                if (widget.actions != null && widget.actions!.isNotEmpty)
+                  _buildActions(constraints),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildHeader(Color accentColor) {
+  Widget _buildHeader(Color accentColor, BoxConstraints constraints) {
+    final headerPadding = constraints.maxWidth * 0.035.clamp(10.0, 16.0); // کاهش از 0.04
+    final iconSize = constraints.maxWidth * 0.055.clamp(16.0, 22.0); // کاهش از 0.06
+    final fontSize = constraints.maxWidth * 0.042.clamp(14.0, 17.0); // کاهش از 0.045
+    
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 16),
+      padding: EdgeInsets.symmetric(
+        vertical: headerPadding * 0.5, // کاهش از 0.6
+        horizontal: headerPadding * 0.9, // کاهش از 1.0
+      ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            accentColor.withValues(alpha: 0.1),
-            accentColor.withValues(alpha: 0.1),
+            accentColor.withValues(alpha: 0.12),
+            accentColor.withValues(alpha: 0.08),
           ],
         ),
       ),
@@ -160,27 +199,27 @@ class _GoldDialogState extends State<GoldDialog>
         children: [
           if (widget.icon != null) ...[
             Container(
-              padding: EdgeInsets.all(8.w),
+              padding: EdgeInsets.all(headerPadding * 0.5),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
+                color: Colors.white.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: Icon(widget.icon, color: Colors.white, size: 20),
+              child: Icon(widget.icon, color: Colors.white, size: iconSize),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: headerPadding * 0.75),
           ],
           Expanded(
             child: Text(
               widget.title,
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.bold,
+                fontSize: fontSize,
+                fontWeight: FontWeight.w700,
                 shadows: [
                   Shadow(
-                    color: Colors.black26,
-                    blurRadius: 2.r,
-                    offset: Offset(0.w, 1.h),
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 1.5,
+                    offset: const Offset(0, 0.5),
                   ),
                 ],
               ),
@@ -188,47 +227,60 @@ class _GoldDialogState extends State<GoldDialog>
           ),
           if (widget.showCloseButton)
             IconButton(
-              icon: const Icon(LucideIcons.x, color: Colors.white, size: 20),
+              icon: Icon(
+                LucideIcons.x,
+                color: Colors.white.withValues(alpha: 0.9),
+                size: iconSize * 0.85,
+              ),
               onPressed: () => Navigator.of(context).pop(),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+              padding: EdgeInsets.all(headerPadding * 0.3),
+              constraints: BoxConstraints(
+                minWidth: iconSize * 1.2,
+                minHeight: iconSize * 1.2,
+              ),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildBody(Color accentColor) {
+  Widget _buildBody(Color accentColor, BoxConstraints constraints) {
+    final bodyPadding = constraints.maxWidth * 0.035.clamp(10.0, 16.0); // کاهش از 0.04
+    final fontSize = constraints.maxWidth * 0.036.clamp(12.5, 14.5); // کاهش از 0.038
+    final spacing = constraints.maxWidth * 0.025.clamp(8.0, 12.0); // کاهش از 0.03
+    
     return AnimatedBuilder(
       animation: _contentAnimation,
       builder: (context, child) {
         return Opacity(
           opacity: _contentAnimation.value,
           child: Transform.translate(
-            offset: Offset(0, 20 * (1 - _contentAnimation.value)),
+            offset: Offset(0, 12 * (1 - _contentAnimation.value)),
             child: child,
           ),
         );
       },
       child: Padding(
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.all(bodyPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             // پیام اصلی
             Text(
               widget.message,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.1),
-                fontSize: 14.sp,
-                height: 1.5.h,
+                color: Colors.white.withValues(alpha: 0.95),
+                fontSize: fontSize,
+                height: 1.5,
+                fontFamily: AppTheme.fontFamily,
               ),
               textAlign: TextAlign.justify,
             ),
 
             // محتوای اضافی
             if (widget.additionalContent != null) ...[
-              const SizedBox(height: 16),
+              SizedBox(height: spacing),
               ...widget.additionalContent!,
             ],
           ],
@@ -237,9 +289,16 @@ class _GoldDialogState extends State<GoldDialog>
     );
   }
 
-  Widget _buildActions() {
+  Widget _buildActions(BoxConstraints constraints) {
+    final actionPadding = constraints.maxWidth * 0.035.clamp(10.0, 16.0); // کاهش از 0.04
+    
     return Container(
-      padding: EdgeInsets.fromLTRB(16.w, 0.h, 16.w, 16.h),
+      padding: EdgeInsets.fromLTRB(
+        actionPadding * 0.9, // کاهش از 1.0
+        actionPadding * 0.4, // کاهش از 0.5
+        actionPadding * 0.9, // کاهش از 1.0
+        actionPadding * 0.85, // کاهش از 1.0
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: widget.actions!,

@@ -1,10 +1,12 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/ai/screens/ai_programs_screen.dart';
+import 'package:gymaipro/ai/screens/ai_progress_analysis_screen.dart';
 import 'package:gymaipro/ai/screens/chat_screen.dart';
 import 'package:gymaipro/ai/widgets/ai_feature_card.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class AIHubScreen extends StatefulWidget {
@@ -40,7 +42,7 @@ class _AIHubScreenState extends State<AIHubScreen>
           ),
         );
 
-    _animationController.forward();
+    _animationController.safeForward();
   }
 
   @override
@@ -51,8 +53,9 @@ class _AIHubScreenState extends State<AIHubScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: context.backgroundColor,
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -60,11 +63,11 @@ class _AIHubScreenState extends State<AIHubScreen>
             position: _slideAnimation,
             child: CustomScrollView(
               slivers: [
-                _buildAppBar(),
-                _buildWelcomeSection(),
-                _buildQuickActions(),
-                _buildAIFeatures(),
-                _buildStatsSection(),
+                _buildAppBar(context),
+                _buildWelcomeSection(context, isDark),
+                _buildQuickActions(context, isDark),
+                _buildAIFeatures(context, isDark),
+                _buildStatsSection(context, isDark),
                 const SliverToBoxAdapter(child: SizedBox(height: 100)),
               ],
             ),
@@ -74,54 +77,67 @@ class _AIHubScreenState extends State<AIHubScreen>
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SliverAppBar(
-      expandedHeight: 120,
-      pinned: true,
-      backgroundColor: AppTheme.goldColor,
-      flexibleSpace: FlexibleSpaceBar(
-        title: Text(
-          'جیم‌آی هوشمند',
-          style: GoogleFonts.vazirmatn(
-            color: Colors.white,
-            fontSize: 20.sp,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        background: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppTheme.goldColor, AppTheme.darkGold],
-            ),
-          ),
-          child: Center(
-            child: Icon(LucideIcons.bot, size: 40.sp, color: Colors.white),
-          ),
+      pinned: false,
+      floating: false,
+      backgroundColor: isDark ? context.backgroundColor : Colors.transparent,
+      elevation: 0,
+      automaticallyImplyLeading: false,
+      title: Text(
+        'جیم‌آی هوشمند',
+        style: GoogleFonts.vazirmatn(
+          fontWeight: FontWeight.bold,
+          fontSize: 20.sp,
+          color: isDark ? AppTheme.goldColor : context.textColor,
         ),
       ),
+      centerTitle: true,
     );
   }
 
-  Widget _buildWelcomeSection() {
+  Widget _buildWelcomeSection(BuildContext context, bool isDark) {
     return SliverToBoxAdapter(
       child: Container(
         margin: EdgeInsets.all(16.w),
         padding: EdgeInsets.all(20.w),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.goldColor.withValues(alpha: 0.1),
-              AppTheme.darkGold.withValues(alpha: 0.1),
-            ],
+          gradient: isDark
+              ? null
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    context.goldGradientColors[0].withValues(alpha: 0.15),
+                    context.cardColor,
+                    context.goldGradientColors[1].withValues(alpha: 0.1),
+                  ],
+                ),
+          color: isDark ? context.cardColor : null,
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.5),
+            width: 1.5.w,
           ),
-          borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.2)),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.35),
+              blurRadius: 16.r,
+              offset: Offset(0.w, 6.h),
+              spreadRadius: 1.r,
+            ),
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.5)
+                  : context.textColor.withValues(alpha: 0.08),
+              blurRadius: 8.r,
+              offset: Offset(0.w, 2.h),
+            ),
+          ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -131,6 +147,13 @@ class _AIHubScreenState extends State<AIHubScreen>
                   decoration: BoxDecoration(
                     color: AppTheme.goldColor,
                     borderRadius: BorderRadius.circular(12.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.goldColor.withValues(alpha: 0.3),
+                        blurRadius: 8.r,
+                        offset: Offset(0.w, 2.h),
+                      ),
+                    ],
                   ),
                   child: Icon(
                     LucideIcons.sparkles,
@@ -138,9 +161,11 @@ class _AIHubScreenState extends State<AIHubScreen>
                     size: 24.sp,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
+                SizedBox(width: 12.w),
+                Flexible(
+                  fit: FlexFit.loose,
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
@@ -148,30 +173,37 @@ class _AIHubScreenState extends State<AIHubScreen>
                         style: GoogleFonts.vazirmatn(
                           fontSize: 20.sp,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: context.textColor,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                      SizedBox(height: 4.h),
                       Text(
                         'من جیم‌آی هستم، مربی هوشمند شما',
                         style: GoogleFonts.vazirmatn(
                           fontSize: 16.sp,
-                          color: Colors.black.withValues(alpha: 0.8),
+                          color: context.textSecondary,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
             Text(
               'با استفاده از هوش مصنوعی پیشرفته، برنامه‌های شخصی‌سازی شده برای شما طراحی می‌کنم. از تمرین تا تغذیه، در کنار شما هستم!',
               style: GoogleFonts.vazirmatn(
-                fontSize: 16.sp,
-                color: Colors.black.withValues(alpha: 0.9),
-                height: 1.5.h,
+                fontSize: 15.sp,
+                color: context.textSecondary,
+                height: 1.6.h,
                 fontWeight: FontWeight.w500,
               ),
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -179,11 +211,12 @@ class _AIHubScreenState extends State<AIHubScreen>
     );
   }
 
-  Widget _buildQuickActions() {
+  Widget _buildQuickActions(BuildContext context, bool isDark) {
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: EdgeInsets.symmetric(horizontal: 16.w),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
@@ -191,14 +224,18 @@ class _AIHubScreenState extends State<AIHubScreen>
               style: GoogleFonts.vazirmatn(
                 fontSize: 20.sp,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: context.textColor,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12.h),
             Row(
               children: [
                 Expanded(
                   child: _buildQuickActionCard(
+                    context: context,
+                    isDark: isDark,
                     icon: LucideIcons.messageCircle,
                     title: 'چت با من',
                     subtitle: 'سوالات خود را بپرسید',
@@ -213,13 +250,15 @@ class _AIHubScreenState extends State<AIHubScreen>
                     },
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12.w),
                 Expanded(
                   child: _buildQuickActionCard(
+                    context: context,
+                    isDark: isDark,
                     icon: LucideIcons.dumbbell,
                     title: 'برنامه تمرینی',
                     subtitle: 'درخواست برنامه جدید',
-                    color: AppTheme.accentColor,
+                    color: AppTheme.goldColor,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -239,6 +278,8 @@ class _AIHubScreenState extends State<AIHubScreen>
   }
 
   Widget _buildQuickActionCard({
+    required BuildContext context,
+    required bool isDark,
     required IconData icon,
     required String title,
     required String subtitle,
@@ -250,37 +291,71 @@ class _AIHubScreenState extends State<AIHubScreen>
       child: Container(
         padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          gradient: isDark
+              ? null
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    color.withValues(alpha: 0.15),
+                    context.cardColor,
+                    color.withValues(alpha: 0.1),
+                  ],
+                ),
+          color: isDark ? context.cardColor : null,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(
+            color: color.withValues(alpha: isDark ? 0.3 : 0.5),
+            width: 1.5.w,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: isDark ? 0.15 : 0.25),
+              blurRadius: 12.r,
+              offset: Offset(0.w, 4.h),
+            ),
+          ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               padding: EdgeInsets.all(12.w),
               decoration: BoxDecoration(
                 color: color,
-                borderRadius: BorderRadius.circular(10.r),
+                borderRadius: BorderRadius.circular(12.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.3),
+                    blurRadius: 8.r,
+                    offset: Offset(0.w, 2.h),
+                  ),
+                ],
               ),
-              child: Icon(icon, color: Colors.white, size: 24),
+              child: Icon(icon, color: Colors.white, size: 24.sp),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12.h),
             Text(
               title,
               style: GoogleFonts.vazirmatn(
                 fontSize: 16.sp,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: context.textColor,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: 4.h),
             Text(
               subtitle,
               style: GoogleFonts.vazirmatn(
-                fontSize: 14.sp,
-                color: Colors.white.withValues(alpha: 0.9),
+                fontSize: 13.sp,
+                color: context.textSecondary,
               ),
               textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -288,11 +363,12 @@ class _AIHubScreenState extends State<AIHubScreen>
     );
   }
 
-  Widget _buildAIFeatures() {
+  Widget _buildAIFeatures(BuildContext context, bool isDark) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: EdgeInsets.all(16.w),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
@@ -300,10 +376,12 @@ class _AIHubScreenState extends State<AIHubScreen>
               style: GoogleFonts.vazirmatn(
                 fontSize: 20.sp,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: context.textColor,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
             AIFeatureCard(
               icon: LucideIcons.dumbbell,
               title: 'برنامه‌ریزی تمرینی',
@@ -319,54 +397,29 @@ class _AIHubScreenState extends State<AIHubScreen>
                 );
               },
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12.h),
             AIFeatureCard(
               icon: LucideIcons.apple,
               title: 'برنامه‌ریزی غذایی',
               description: 'برنامه‌های غذایی متعادل و متناسب با نیازهای شما',
-              color: AppTheme.accentColor,
+              color: AppTheme.goldColor,
               onTap: () {
                 // TODO: Navigate to meal planning
               },
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12.h),
             AIFeatureCard(
               icon: LucideIcons.barChart3,
               title: 'تحلیل پیشرفت',
               description: 'تحلیل و بررسی پیشرفت شما با ارائه راهکارهای بهبود',
-              color: Colors.orange,
+              color: AppTheme.goldColor,
               onTap: () {
-                // TODO: Navigate to progress analysis
-              },
-            ),
-            const SizedBox(height: 12),
-            AIFeatureCard(
-              icon: LucideIcons.heart,
-              title: 'مشاوره سلامتی',
-              description: 'مشاوره‌های تخصصی در زمینه سلامت و تناسب اندام',
-              color: Colors.red,
-              onTap: () {
-                // TODO: Navigate to health consultation
-              },
-            ),
-            const SizedBox(height: 12),
-            AIFeatureCard(
-              icon: LucideIcons.target,
-              title: 'تعیین اهداف',
-              description: 'کمک در تعیین و دستیابی به اهداف فیتنس شما',
-              color: Colors.green,
-              onTap: () {
-                // TODO: Navigate to goal setting
-              },
-            ),
-            const SizedBox(height: 12),
-            AIFeatureCard(
-              icon: LucideIcons.bookOpen,
-              title: 'آموزش و راهنمایی',
-              description: 'آموزش تکنیک‌های صحیح تمرین و تغذیه',
-              color: Colors.purple,
-              onTap: () {
-                // TODO: Navigate to education
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (context) => const AIProgressAnalysisScreen(),
+                  ),
+                );
               },
             ),
           ],
@@ -375,23 +428,47 @@ class _AIHubScreenState extends State<AIHubScreen>
     );
   }
 
-  Widget _buildStatsSection() {
+  Widget _buildStatsSection(BuildContext context, bool isDark) {
     return SliverToBoxAdapter(
       child: Container(
         margin: EdgeInsets.all(16.w),
         padding: EdgeInsets.all(20.w),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.goldColor.withValues(alpha: 0.1),
-              AppTheme.darkGold.withValues(alpha: 0.1),
-            ],
+          gradient: isDark
+              ? null
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    context.goldGradientColors[0].withValues(alpha: 0.15),
+                    context.cardColor,
+                    context.goldGradientColors[1].withValues(alpha: 0.1),
+                  ],
+                ),
+          color: isDark ? context.cardColor : null,
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.5),
+            width: 1.5.w,
           ),
-          borderRadius: BorderRadius.circular(16.r),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.35),
+              blurRadius: 16.r,
+              offset: Offset(0.w, 6.h),
+              spreadRadius: 1.r,
+            ),
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.5)
+                  : context.textColor.withValues(alpha: 0.08),
+              blurRadius: 8.r,
+              offset: Offset(0.w, 2.h),
+            ),
+          ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
@@ -399,23 +476,32 @@ class _AIHubScreenState extends State<AIHubScreen>
               style: GoogleFonts.vazirmatn(
                 fontSize: 18.sp,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: context.textColor,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildStatItem(
-                  'برنامه‌های ایجاد شده',
-                  '24',
-                  LucideIcons.dumbbell,
+                  context: context,
+                  label: 'برنامه‌های ایجاد شده',
+                  value: '24',
+                  icon: LucideIcons.dumbbell,
                 ),
-                _buildStatItem('کاربران راضی', '156', LucideIcons.users),
                 _buildStatItem(
-                  'سوالات پاسخ داده',
-                  '1.2K',
-                  LucideIcons.messageCircle,
+                  context: context,
+                  label: 'کاربران راضی',
+                  value: '156',
+                  icon: LucideIcons.users,
+                ),
+                _buildStatItem(
+                  context: context,
+                  label: 'سوالات پاسخ داده',
+                  value: '1.2K',
+                  icon: LucideIcons.messageCircle,
                 ),
               ],
             ),
@@ -425,33 +511,53 @@ class _AIHubScreenState extends State<AIHubScreen>
     );
   }
 
-  Widget _buildStatItem(String label, String value, IconData icon) {
+  Widget _buildStatItem({
+    required BuildContext context,
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           padding: EdgeInsets.all(12.w),
           decoration: BoxDecoration(
-            color: AppTheme.goldColor.withValues(alpha: 0.1),
+            color: AppTheme.goldColor.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(12.r),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.goldColor.withValues(alpha: 0.2),
+                blurRadius: 6.r,
+                offset: Offset(0.w, 2.h),
+              ),
+            ],
           ),
-          child: Icon(icon, color: AppTheme.goldColor, size: 24),
+          child: Icon(icon, color: AppTheme.goldColor, size: 24.sp),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8.h),
         Text(
           value,
           style: GoogleFonts.vazirmatn(
             fontSize: 20.sp,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: context.textColor,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-        Text(
-          label,
-          style: GoogleFonts.vazirmatn(
-            fontSize: 14.sp,
-            color: Colors.white.withValues(alpha: 0.9),
+        SizedBox(height: 4.h),
+        Flexible(
+          child: Text(
+            label,
+            style: GoogleFonts.vazirmatn(
+              fontSize: 12.sp,
+              color: context.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          textAlign: TextAlign.center,
         ),
       ],
     );

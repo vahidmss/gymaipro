@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
@@ -14,59 +13,76 @@ class ProfileImageWidgets {
     required String title,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.all(16.w),
-        decoration: BoxDecoration(
-          color: AppTheme.goldColor.withAlpha(25),
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: AppTheme.goldColor.withAlpha(50)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: AppTheme.goldColor, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: GoogleFonts.vazirmatn(
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
+    return Builder(
+      builder: (context) {
+        return GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: EdgeInsets.all(16.w),
+            decoration: BoxDecoration(
+              color: AppTheme.goldColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(
+                color: AppTheme.goldColor.withValues(alpha: 0.3),
+                width: 1,
               ),
             ),
-          ],
-        ),
-      ),
+            child: Column(
+              children: [
+                Icon(icon, color: AppTheme.goldColor, size: 32.sp),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14.sp,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   static Widget buildDefaultAvatar() {
-    return Container(
-      width: 130.w,
-      height: 130.h,
-      decoration: BoxDecoration(
-        color: AppTheme.goldColor.withAlpha(25),
-        shape: BoxShape.circle,
-        border: Border.all(color: AppTheme.goldColor.withAlpha(50), width: 2),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            LucideIcons.user,
-            size: 48.sp,
-            color: AppTheme.goldColor.withAlpha(150),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'تصویر پروفایل',
-            style: GoogleFonts.vazirmatn(
-              color: AppTheme.goldColor.withAlpha(150),
-              fontSize: 12.sp,
+    return Builder(
+      builder: (context) {
+        return Container(
+          width: 130.w,
+          height: 130.h,
+          decoration: BoxDecoration(
+            color: AppTheme.goldColor.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppTheme.goldColor.withValues(alpha: 0.3),
+              width: 2,
             ),
           ),
-        ],
-      ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                LucideIcons.user,
+                size: 48.sp,
+                color: AppTheme.goldColor.withValues(alpha: 0.6),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'تصویر پروفایل',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: AppTheme.goldColor.withValues(alpha: 0.6),
+                  fontSize: 12.sp,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -103,9 +119,20 @@ class ProfileImageWidgets {
           SnackBar(
             content: Text(
               'خطا در انتخاب تصویر: $e',
-              style: GoogleFonts.vazirmatn(),
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textColor,
+              ),
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: context.cardColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.r),
+              side: BorderSide(
+                color: AppTheme.errorColor.withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
           ),
         );
       }
@@ -161,9 +188,20 @@ class ProfileImageWidgets {
           SnackBar(
             content: Text(
               'خطا در برش تصویر: $e',
-              style: GoogleFonts.vazirmatn(),
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textColor,
+              ),
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: context.cardColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.r),
+              side: BorderSide(
+                color: AppTheme.errorColor.withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
           ),
         );
       }
@@ -179,7 +217,7 @@ class ProfileImageWidgets {
   ) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
       ),
@@ -193,15 +231,16 @@ class ProfileImageWidgets {
                 width: 40.w,
                 height: 4.h,
                 decoration: BoxDecoration(
-                  color: Colors.grey[600],
+                  color: context.textSecondary.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(2.r),
                 ),
               ),
               const SizedBox(height: 20),
               Text(
                 'انتخاب تصویر پروفایل',
-                style: GoogleFonts.vazirmatn(
-                  color: Colors.white,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textColor,
                   fontSize: 18.sp,
                   fontWeight: FontWeight.bold,
                 ),
@@ -233,9 +272,9 @@ class ProfileImageWidgets {
                   child: ElevatedButton.icon(
                     onPressed: onRemoveImage,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red[700],
+                      backgroundColor: AppTheme.errorColor,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12.r),
                       ),
@@ -243,7 +282,11 @@ class ProfileImageWidgets {
                     icon: const Icon(LucideIcons.trash2),
                     label: Text(
                       'حذف تصویر',
-                      style: GoogleFonts.vazirmatn(fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14.sp,
+                      ),
                     ),
                   ),
                 ),
@@ -268,21 +311,33 @@ class ProfileImageWidgets {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
+        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
         return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
+          backgroundColor: context.cardColor,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.r),
+            borderRadius: BorderRadius.circular(20.r),
+            side: BorderSide(
+              color: AppTheme.goldColor.withValues(
+                alpha: isDark ? 0.3 : 0.5,
+              ),
+              width: 1.5,
+            ),
           ),
           title: Text(
             'حذف تصویر پروفایل',
-            style: GoogleFonts.vazirmatn(
-              textStyle: const TextStyle(color: Colors.white, fontSize: 18),
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textColor,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
             ),
           ),
           content: Text(
             'آیا مطمئن هستید که می‌خواهید تصویر پروفایل را حذف کنید؟',
-            style: GoogleFonts.vazirmatn(
-              textStyle: const TextStyle(color: Colors.white70),
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textSecondary,
+              fontSize: 14.sp,
             ),
           ),
           actions: [
@@ -290,7 +345,11 @@ class ProfileImageWidgets {
               onPressed: () => Navigator.pop(dialogContext),
               child: Text(
                 'انصراف',
-                style: GoogleFonts.vazirmatn(color: Colors.grey),
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textSecondary,
+                  fontSize: 14.sp,
+                ),
               ),
             ),
             ElevatedButton(
@@ -301,12 +360,19 @@ class ProfileImageWidgets {
                 onConfirmRemove();
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red[700],
+                backgroundColor: AppTheme.errorColor,
                 foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
               ),
               child: Text(
                 'حذف',
-                style: GoogleFonts.vazirmatn(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14.sp,
+                ),
               ),
             ),
           ],

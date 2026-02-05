@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:gymaipro/config/app_config.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:sms_autofill/sms_autofill.dart' as sms;
 
 class OTPService {
   // Normalize phone number format
@@ -24,8 +25,17 @@ class OTPService {
       // Normalize phone number
       final normalizedPhone = normalizePhoneNumber(phoneNumber);
 
+      // دریافت App Signature برای Android SMS Retriever API
+      String? appSignature;
+      try {
+        appSignature = await sms.SmsAutoFill().getAppSignature;
+        print('📱 App Signature for SMS: $appSignature');
+      } catch (e) {
+        print('⚠️ Could not get app signature: $e');
+      }
+
       // ارسال پیامک واقعی
-      final smsSent = await _sendRealSMS(normalizedPhone, code);
+      final smsSent = await _sendRealSMS(normalizedPhone, code, appSignature);
 
       if (!smsSent) {
         print('⚠️ Warning: Failed to send SMS, but saving OTP to database');
@@ -42,7 +52,11 @@ class OTPService {
   }
 
   /// ارسال پیامک واقعی از طریق API پیامک پنل
-  static Future<bool> _sendRealSMS(String phoneNumber, String code) async {
+  static Future<bool> _sendRealSMS(
+    String phoneNumber,
+    String code,
+    String? appSignature,
+  ) async {
     try {
       // بررسی وجود تنظیمات SMS API
       final baseUrl = AppConfig.smsApiBaseUrl;
@@ -68,8 +82,18 @@ class OTPService {
         internationalPhone = '98$internationalPhone';
       }
 
-      // متن پیامک
-      final message = 'کد تایید شما: $code\nGymAI Pro';
+      // ساخت متن پیامک با فرمت Android SMS Retriever API
+      // فرمت: <#> Your verification code is: 123456\nAppSignatureHash
+      final String message;
+      if (appSignature != null && appSignature.isNotEmpty) {
+        // استفاده از فرمت Android SMS Retriever برای Auto-fill
+        message = '<#> کد تایید شما: $code\n$appSignature';
+        print('📱 Using Android SMS Retriever format with signature');
+      } else {
+        // فرمت عادی اگر signature در دسترس نباشد
+        message = 'کد تایید شما: $code\nGymAI Pro';
+        print('⚠️ App signature not available, using regular format');
+      }
 
       // ساخت درخواست
       final url = Uri.parse(baseUrl);

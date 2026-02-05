@@ -7,7 +7,10 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/notification_navigation_service.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
+import 'package:gymaipro/theme/app_theme.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,7 +21,10 @@ class NotificationService {
   NotificationService._internal();
   static final NotificationService _instance = NotificationService._internal();
 
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  // IMPORTANT:
+  // Do NOT touch FirebaseMessaging.instance in the constructor.
+  // Firebase may not be initialized yet during early app startup (e.g., splash/bootstrap).
+  FirebaseMessaging? _firebaseMessaging;
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
@@ -26,8 +32,8 @@ class NotificationService {
   bool _isInitialized = false;
 
   // Callbacks for handling notifications
-  Function(Map<String, dynamic>)? onNotificationTapped;
-  Function(Map<String, dynamic>)? onNotificationReceived;
+  void Function(Map<String, dynamic>)? onNotificationTapped;
+  void Function(Map<String, dynamic>)? onNotificationReceived;
 
   /// Initialize notification service
   Future<void> initialize() async {
@@ -41,9 +47,14 @@ class NotificationService {
         return;
       }
 
-      // Initialize Firebase
-      await Firebase.initializeApp();
+      // Initialize Firebase (idempotent)
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp();
+      }
       debugPrint('✅ Firebase initialized successfully');
+
+      // Safe to access messaging after Firebase init
+      _firebaseMessaging = FirebaseMessaging.instance;
 
       // Initialize local notifications
       await _initializeLocalNotifications();
@@ -112,11 +123,13 @@ class NotificationService {
         'GymAI Pro Notifications',
         description: 'Notifications for GymAI Pro app',
         importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
       );
 
       await _localNotifications
           .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
+              AndroidFlutterLocalNotificationsPlugin
           >()
           ?.createNotificationChannel(channel);
 
@@ -126,8 +139,13 @@ class NotificationService {
 
   /// Request notification permissions
   Future<void> _requestPermissions() async {
+    if (_firebaseMessaging == null) {
+      // Firebase not ready; skip silently (initialize() should set it)
+      debugPrint('⚠️ FirebaseMessaging not ready; skipping permission request');
+      return;
+    }
     // Request FCM permissions
-    final NotificationSettings settings = await _firebaseMessaging
+    final NotificationSettings settings = await _firebaseMessaging!
         .requestPermission();
 
     // Request local notification permissions
@@ -141,13 +159,17 @@ class NotificationService {
   /// Get FCM token
   Future<void> _getFCMToken() async {
     try {
-      _fcmToken = await _firebaseMessaging.getToken();
+      if (_firebaseMessaging == null) {
+        debugPrint('⚠️ FirebaseMessaging not ready; skipping FCM token fetch');
+        return;
+      }
+      _fcmToken = await _firebaseMessaging!.getToken();
       if (_fcmToken != null) {
         debugPrint('🔑 FCM Token: $_fcmToken');
         await _saveFCMToken(_fcmToken!);
       }
       // Listen for token refresh
-      _firebaseMessaging.onTokenRefresh.listen((newToken) async {
+      _firebaseMessaging!.onTokenRefresh.listen((newToken) async {
         debugPrint('🔄 FCM token refreshed');
         _fcmToken = newToken;
         await _saveFCMToken(newToken);
@@ -163,6 +185,13 @@ class NotificationService {
     await prefs.setString('fcm_token', token);
 
     try {
+      // If offline, keep token locally and skip backend sync for now
+      final isOnline = await ConnectivityService.instance.checkNow();
+      if (!isOnline) {
+        debugPrint('ℹ️ Offline: skipping FCM token sync to Supabase');
+        return;
+      }
+
       final supabase = Supabase.instance.client;
       final user = supabase.auth.currentUser;
       if (user != null) {
@@ -191,29 +220,73 @@ class NotificationService {
 
   Future<void> _subscribeDefaultTopics() async {
     try {
+      if (_firebaseMessaging == null) {
+        debugPrint('⚠️ FirebaseMessaging not ready; skipping topic subscribe');
+        return;
+      }
       final String lang = ui.PlatformDispatcher.instance.locale.languageCode;
-      await _firebaseMessaging.subscribeToTopic('all');
-      await _firebaseMessaging.subscribeToTopic(lang);
+      
+      // Subscribe to 'all' topic - this is critical for broadcast notifications
+      try {
+        await _firebaseMessaging!.subscribeToTopic('all');
+        debugPrint('✅ Successfully subscribed to topic: all');
+      } catch (e) {
+        debugPrint('❌ Error subscribing to topic "all": $e');
+        // Retry once after a short delay
+        await Future<void>.delayed(const Duration(seconds: 1));
+        try {
+          await _firebaseMessaging!.subscribeToTopic('all');
+          debugPrint('✅ Successfully subscribed to topic "all" on retry');
+        } catch (retryError) {
+          debugPrint('❌ Error subscribing to topic "all" on retry: $retryError');
+        }
+      }
+      
+      // Subscribe to language topic
+      try {
+        await _firebaseMessaging!.subscribeToTopic(lang);
+        debugPrint('✅ Successfully subscribed to topic: $lang');
+      } catch (e) {
+        debugPrint('❌ Error subscribing to topic "$lang": $e');
+      }
+      
       debugPrint('📡 Subscribed to topics: all, $lang');
     } catch (e) {
       debugPrint('❌ Error subscribing to topics: $e');
     }
   }
 
+  /// Force subscribe to 'all' topic (useful for troubleshooting)
+  Future<bool> forceSubscribeToAll() async {
+    try {
+      if (_firebaseMessaging == null) {
+        // Try to initialize messaging if Firebase is ready
+        if (!kIsWeb && Firebase.apps.isNotEmpty) {
+          _firebaseMessaging = FirebaseMessaging.instance;
+        }
+      }
+      if (_firebaseMessaging == null) return false;
+
+      await _firebaseMessaging!.subscribeToTopic('all');
+      debugPrint('✅ Force subscribed to topic: all');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Error force subscribing to topic "all": $e');
+      return false;
+    }
+  }
+
   Future<void> _updateLastActiveAt() async {
     try {
-      final supabase = Supabase.instance.client;
-      final user = supabase.auth.currentUser;
-      if (user != null) {
-        // Ensure user.id is a valid UUID
-        if (user.id.isNotEmpty && user.id.length >= 32) {
-          await supabase
+      final profile = await SimpleProfileService.getCurrentProfile();
+      if (profile != null) {
+        final profileId = profile['id'] as String?;
+        if (profileId != null && profileId.isNotEmpty) {
+          await Supabase.instance.client
               .from('profiles')
               .update({'last_active_at': DateTime.now().toIso8601String()})
-              .eq('id', user.id);
+              .eq('id', profileId);
           debugPrint('🕒 Updated last_active_at for user');
-        } else {
-          debugPrint('❌ Invalid user ID format: ${user.id}');
         }
       }
     } catch (e) {
@@ -247,6 +320,10 @@ class NotificationService {
 
   /// Setup Firebase message handlers
   Future<void> _setupFirebaseHandlers() async {
+    if (_firebaseMessaging == null) {
+      debugPrint('⚠️ FirebaseMessaging not ready; skipping handler setup');
+      return;
+    }
     // Handle background messages
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
@@ -260,8 +337,12 @@ class NotificationService {
   /// Handle initial message (app opened from notification)
   Future<void> _handleInitialMessage() async {
     try {
-      final RemoteMessage? initialMessage = await _firebaseMessaging
-          .getInitialMessage();
+      if (_firebaseMessaging == null) {
+        debugPrint('⚠️ FirebaseMessaging not ready; skipping initial message');
+        return;
+      }
+      final RemoteMessage? initialMessage =
+          await _firebaseMessaging!.getInitialMessage();
       if (initialMessage != null) {
         debugPrint('📱 App opened from notification: ${initialMessage.data}');
         // تأخیر در navigation تا اپ کاملاً آماده شود
@@ -283,14 +364,58 @@ class NotificationService {
   }
 
   /// Handle foreground messages
-  void _handleForegroundMessage(RemoteMessage message) {
+  void _handleForegroundMessage(RemoteMessage message) async {
     debugPrint('📨 Foreground message received: ${message.data}');
+
+    // بررسی اینکه آیا این نوتیفیکیشن چت است
+    final messageType = message.data['type'] as String?;
+    if (messageType == 'chat_message') {
+      // بررسی حضور کاربر در چت قبل از نمایش نوتیفیکیشن
+      final conversationId = message.data['conversation_id'] as String?;
+      if (conversationId != null && conversationId.isNotEmpty) {
+        final isUserInChat = await _checkUserPresenceInChat(conversationId);
+        if (isUserInChat) {
+          debugPrint('✅ User is active in chat, skipping notification');
+          // فقط callback را فراخوانی می‌کنیم بدون نمایش نوتیفیکیشن
+          onNotificationReceived?.call(message.data);
+          return;
+        }
+      }
+    }
 
     // Show local notification
     showLocalNotification(message);
 
     // Call callback if provided
     onNotificationReceived?.call(message.data);
+  }
+
+  /// بررسی حضور کاربر در چت
+  Future<bool> _checkUserPresenceInChat(String conversationId) async {
+    try {
+      final supabase = Supabase.instance.client;
+      final user = supabase.auth.currentUser;
+      if (user == null) return false;
+
+      // بررسی حضور کاربر در چت (آخرین 45 ثانیه)
+      final cutoffTime = DateTime.now()
+          .subtract(const Duration(seconds: 45))
+          .toIso8601String();
+
+      final response = await supabase
+          .from('chat_presence')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('conversation_id', conversationId)
+          .eq('is_active', true)
+          .gt('last_seen', cutoffTime)
+          .maybeSingle();
+
+      return response != null;
+    } catch (e) {
+      debugPrint('❌ Error checking user presence in chat: $e');
+      return false;
+    }
   }
 
   /// Handle notification taps
@@ -335,17 +460,149 @@ class NotificationService {
     }
   }
 
+  /// Parse hex color string to Color
+  Color _parseHexColor(String? hexString) {
+    if (hexString == null || hexString.isEmpty) {
+      return AppTheme.goldColor;
+    }
+
+    try {
+      // Remove # if present
+      String hex = hexString.replaceAll('#', '');
+      
+      // Handle 6-digit hex
+      if (hex.length == 6) {
+        hex = 'FF$hex'; // Add alpha channel
+      }
+      
+      // Parse hex to int
+      final intValue = int.parse(hex, radix: 16);
+      return Color(intValue);
+    } catch (e) {
+      debugPrint('❌ Error parsing hex color "$hexString": $e');
+      return AppTheme.goldColor;
+    }
+  }
+
+  /// Get icon resource name from icon string
+  /// Note: Always uses app launcher icon for consistency
+  /// Users can add emojis in the notification text if they want visual icons
+  String _getIconResource(String? iconName) {
+    // Always use app launcher icon - simple and consistent like other apps
+    // Users can add emojis (😊, 🎉, etc.) in the notification text if needed
+    return '@mipmap/ic_launcher';
+  }
+
+  /// Get or create notification channel with specific color
+  /// Uses a dynamic channel ID based on color to ensure color is applied correctly
+  /// For Android 8.0+, we need to set the channel color after creating it
+  Future<String> _getOrCreateNotificationChannel(Color color) async {
+    if (!io.Platform.isAndroid) {
+      return 'gymai_pro_channel';
+    }
+
+    // Create a channel ID based on color (first 6 hex digits)
+    // This ensures each color gets its own channel
+    final colorHex = color.value.toRadixString(16).substring(2, 8);
+    final channelId = 'gymai_pro_channel_$colorHex';
+
+    final androidImplementation =
+        _localNotifications.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidImplementation != null) {
+      try {
+        // Try to delete existing channel first (if it exists)
+        // This ensures we can recreate it with the correct color
+        try {
+          await androidImplementation.deleteNotificationChannel(channelId);
+          debugPrint('🗑️ Deleted existing channel: $channelId');
+        } catch (e) {
+          // Channel might not exist, ignore error
+          debugPrint('ℹ️ Channel does not exist yet: $channelId');
+        }
+
+        // Create new channel
+        final AndroidNotificationChannel channel = AndroidNotificationChannel(
+          channelId,
+          'GymAI Pro Notifications',
+          description: 'Notifications for GymAI Pro app',
+          importance: Importance.high,
+          playSound: true,
+          enableVibration: true,
+        );
+
+        await androidImplementation.createNotificationChannel(channel);
+        debugPrint('✅ Created notification channel: $channelId');
+
+        // Try to set channel color (Android 8.0+)
+        // Note: This method might not be available in all versions of the plugin
+        try {
+          // Use reflection or method channel to set color
+          // For now, we'll rely on the color property in AndroidNotificationDetails
+          // which should work for most cases
+          debugPrint('🎨 Channel color will be set via AndroidNotificationDetails');
+        } catch (e) {
+          debugPrint('⚠️ Could not set channel color directly: $e');
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error creating notification channel: $e');
+      }
+    }
+
+    return channelId;
+  }
+
   /// Show local notification
   Future<void> showLocalNotification(RemoteMessage message) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    // Extract custom styling from message data
+    final backgroundColorHex = message.data['background_color'] as String?;
+    final iconName = message.data['icon'] as String?;
+    final imageUrl = message.data['image_url'] as String?;
+
+    // Debug: Print all message data to see what we're receiving
+    debugPrint('🎨 Full message data: ${message.data}');
+    debugPrint('🎨 Notification data received:');
+    debugPrint('   - background_color: $backgroundColorHex');
+    debugPrint('   - icon: $iconName');
+    debugPrint('   - image_url: $imageUrl');
+
+    // Parse color
+    final notificationColor = _parseHexColor(backgroundColorHex);
+    final colorHex = notificationColor.value.toRadixString(16).substring(2);
+    debugPrint('   - Parsed color: #$colorHex (ARGB: ${notificationColor.value})');
+    
+    // Get icon resource - use ic_notification if available, otherwise ic_launcher
+    final iconResource = _getIconResource(iconName);
+    debugPrint('   - Icon resource: $iconResource');
+
+    // For image support, we need to download the image first
+    // This is a simplified version - full image support requires downloading
+    // the image and saving it locally, then using FilePathSource
+    // TODO: Implement full image support with download and caching
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      debugPrint('📷 Image URL provided: $imageUrl (image support coming soon)');
+    }
+
+    // Get or create notification channel with the specified color
+    // This is important for Android 8.0+ where channel color affects notification appearance
+    final channelId = await _getOrCreateNotificationChannel(notificationColor);
+
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-          'gymai_pro_channel',
+          channelId,
           'GymAI Pro Notifications',
           channelDescription: 'Notifications for GymAI Pro app',
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
-          color: Color(0xFFD4AF37), // Gold color
+          icon: iconResource,
+          color: notificationColor,
+          // LED settings for older Android versions (pre-Oreo)
+          // Must specify both ledOnMs and ledOffMs when enableLights is true
+          enableLights: true,
+          ledColor: notificationColor,
+          ledOnMs: 1000,
+          ledOffMs: 500,
         );
 
     const DarwinNotificationDetails iOSPlatformChannelSpecifics =
@@ -355,7 +612,7 @@ class NotificationService {
           presentSound: true,
         );
 
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    final NotificationDetails platformChannelSpecifics = NotificationDetails(
       android: androidPlatformChannelSpecifics,
       iOS: iOSPlatformChannelSpecifics,
     );
@@ -367,6 +624,11 @@ class NotificationService {
       platformChannelSpecifics,
       payload: json.encode(message.data),
     );
+    
+    debugPrint('✅ Notification shown with color: #${notificationColor.value.toRadixString(16).substring(2)}');
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      debugPrint('📷 Image URL saved in payload (full image support coming soon)');
+    }
   }
 
   /// Show custom local notification
@@ -477,17 +739,33 @@ class NotificationService {
 
   /// Get notification settings
   Future<NotificationSettings> getNotificationSettings() async {
-    return _firebaseMessaging.getNotificationSettings();
+    if (_firebaseMessaging == null) {
+      if (!kIsWeb && Firebase.apps.isNotEmpty) {
+        _firebaseMessaging = FirebaseMessaging.instance;
+      }
+    }
+    return (_firebaseMessaging ?? FirebaseMessaging.instance)
+        .getNotificationSettings();
   }
 
   /// Subscribe to topic
   Future<void> subscribeToTopic(String topic) async {
-    await _firebaseMessaging.subscribeToTopic(topic);
+    if (_firebaseMessaging == null) {
+      if (!kIsWeb && Firebase.apps.isNotEmpty) {
+        _firebaseMessaging = FirebaseMessaging.instance;
+      }
+    }
+    await (_firebaseMessaging ?? FirebaseMessaging.instance).subscribeToTopic(topic);
   }
 
   /// Unsubscribe from topic
   Future<void> unsubscribeFromTopic(String topic) async {
-    await _firebaseMessaging.unsubscribeFromTopic(topic);
+    if (_firebaseMessaging == null) {
+      if (!kIsWeb && Firebase.apps.isNotEmpty) {
+        _firebaseMessaging = FirebaseMessaging.instance;
+      }
+    }
+    await (_firebaseMessaging ?? FirebaseMessaging.instance).unsubscribeFromTopic(topic);
   }
 
   /// Trigger processing of broadcast queue (Edge Function)
@@ -515,6 +793,14 @@ class NotificationService {
   }) async {
     try {
       final supabase = Supabase.instance.client;
+      
+      // Debug: Print what we're sending
+      debugPrint('📤 Sending to Edge Function:');
+      debugPrint('   - topic: $topic');
+      debugPrint('   - title: $title');
+      debugPrint('   - body: $body');
+      debugPrint('   - data: $data');
+      
       final res = await supabase.functions.invoke(
         'send-notifications',
         body: {
@@ -643,7 +929,12 @@ class NotificationService {
       // Prefer fresh token from Firebase; fallback to saved one
       String? token;
       try {
-        token = await _firebaseMessaging.getToken();
+        if (_firebaseMessaging == null) {
+          if (!kIsWeb && Firebase.apps.isNotEmpty) {
+            _firebaseMessaging = FirebaseMessaging.instance;
+          }
+        }
+        token = await _firebaseMessaging?.getToken();
       } catch (_) {}
 
       if (token == null) {
@@ -662,10 +953,12 @@ class NotificationService {
   /// Send chat notification to specific user
   Future<bool> sendChatNotification({
     required String receiverId,
+    required String senderId,
     required String senderName,
     required String message,
     required String messageId,
     required String messageType,
+    String? conversationId,
   }) async {
     try {
       final supabase = Supabase.instance.client;
@@ -674,10 +967,12 @@ class NotificationService {
         'send-chat-notification',
         body: {
           'receiver_id': receiverId,
+          'sender_id': senderId,
           'sender_name': senderName,
           'message': message,
           'message_id': messageId,
           'message_type': messageType,
+          if (conversationId != null) 'conversation_id': conversationId,
         },
       );
 

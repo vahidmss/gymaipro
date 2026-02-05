@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/trainer_ranking/models/certificate.dart';
+import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class CertificateCarousel extends StatelessWidget {
@@ -124,25 +125,25 @@ class _CertificateCardState extends State<_CertificateCard>
 
   void _onTapDown(TapDownDetails details) {
     setState(() => _isPressed = true);
-    _animationController.forward();
+    _animationController.safeForward();
   }
 
   void _onTapUp(TapUpDetails details) {
     setState(() => _isPressed = false);
-    _animationController.reverse();
+    _animationController.safeReverse();
   }
 
   void _onTapCancel() {
     setState(() => _isPressed = false);
-    _animationController.reverse();
+    _animationController.safeReverse();
   }
 
   void _onHover(bool isHovered) {
     setState(() => _isHovered = isHovered);
     if (isHovered) {
-      _hoverController.forward();
+      _hoverController.safeForward();
     } else {
-      _hoverController.reverse();
+      _hoverController.safeReverse();
     }
   }
 

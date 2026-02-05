@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/trainer_ranking/models/certificate.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -14,11 +16,17 @@ class CertificateService {
           .select()
           .eq('trainer_id', trainerId)
           .eq('status', 'approved')
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => <Map<String, dynamic>>[],
+          );
 
       return response.map<Certificate>(Certificate.fromJson).toList();
     } catch (e) {
-      throw Exception('خطا در دریافت مدارک تایید شده: $e');
+      // به جای throw کردن، لیست خالی برمی‌گردانیم تا برنامه کرش نکند
+      debugPrint('CertificateService.getApprovedTrainerCertificates error: $e');
+      return [];
     }
   }
 
@@ -31,11 +39,17 @@ class CertificateService {
           .from('certificates')
           .select()
           .eq('trainer_id', trainerId)
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => <Map<String, dynamic>>[],
+          );
 
       return response.map<Certificate>(Certificate.fromJson).toList();
     } catch (e) {
-      throw Exception('خطا در دریافت مدارک مربی: $e');
+      // به جای throw کردن، لیست خالی برمی‌گردانیم تا برنامه کرش نکند
+      debugPrint('CertificateService.getAllTrainerCertificates error: $e');
+      return [];
     }
   }
 
@@ -62,10 +76,21 @@ class CertificateService {
             'updated_at': DateTime.now().toIso8601String(),
           })
           .select()
-          .single();
+          .single()
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => throw Exception('زمان اتصال به سرور به پایان رسید'),
+          );
 
       return Certificate.fromJson(response);
     } catch (e) {
+      // برای عملیات آپلود، خطا را throw می‌کنیم تا UI بتواند به کاربر اطلاع دهد
+      debugPrint('CertificateService.uploadCertificate error: $e');
+      if (e.toString().contains('Connection reset') ||
+          e.toString().contains('Connection closed') ||
+          e.toString().contains('ClientException')) {
+        throw Exception('خطا در اتصال به سرور. لطفاً اتصال اینترنت خود را بررسی کنید.');
+      }
       throw Exception('خطا در آپلود مدرک: $e');
     }
   }
@@ -76,13 +101,25 @@ class CertificateService {
       final user = _client.auth.currentUser;
       if (user == null) throw Exception('کاربر وارد نشده است');
 
-      await _client.rpc<void>(
-        'delete_certificate',
-        params: {'cert_id': certificateId},
-      );
+      await _client
+          .rpc<void>(
+            'delete_certificate',
+            params: {'cert_id': certificateId},
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('زمان اتصال به سرور به پایان رسید'),
+          );
 
       return true;
     } catch (e) {
+      // برای عملیات حذف، خطا را throw می‌کنیم تا UI بتواند به کاربر اطلاع دهد
+      debugPrint('CertificateService.deleteCertificate error: $e');
+      if (e.toString().contains('Connection reset') ||
+          e.toString().contains('Connection closed') ||
+          e.toString().contains('ClientException')) {
+        throw Exception('خطا در اتصال به سرور. لطفاً اتصال اینترنت خود را بررسی کنید.');
+      }
       throw Exception('خطا در حذف مدرک: $e');
     }
   }
@@ -92,10 +129,15 @@ class CertificateService {
     String trainerId,
   ) async {
     try {
-      final response = await _client.rpc<List<dynamic>>(
-        'get_trainer_certificate_stats',
-        params: {'trainer_uuid': trainerId},
-      );
+      final response = await _client
+          .rpc<List<dynamic>>(
+            'get_trainer_certificate_stats',
+            params: {'trainer_uuid': trainerId},
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => <dynamic>[],
+          );
 
       if (response.isNotEmpty) {
         return Map<String, dynamic>.from(
@@ -104,35 +146,56 @@ class CertificateService {
       }
       return {};
     } catch (e) {
-      throw Exception('خطا در دریافت آمار مدارک: $e');
+      // به جای throw کردن، map خالی برمی‌گردانیم تا برنامه کرش نکند
+      debugPrint('CertificateService.getTrainerCertificateStats error: $e');
+      return {};
     }
   }
 
   /// دریافت مدارک در انتظار تایید (فقط برای ادمین‌ها)
   static Future<List<Map<String, dynamic>>> getPendingCertificates() async {
     try {
-      final response = await _client.rpc<List<dynamic>>(
-        'get_pending_certificates',
-      );
+      final response = await _client
+          .rpc<List<dynamic>>(
+            'get_pending_certificates',
+          )
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => <dynamic>[],
+          );
       return response
           .map(
             (item) => Map<String, dynamic>.from(item as Map<dynamic, dynamic>),
           )
           .toList();
     } catch (e) {
-      throw Exception('خطا در دریافت مدارک در انتظار: $e');
+      // به جای throw کردن، لیست خالی برمی‌گردانیم تا برنامه کرش نکند
+      debugPrint('CertificateService.getPendingCertificates error: $e');
+      return [];
     }
   }
 
   /// تایید مدرک (فقط برای ادمین‌ها)
   static Future<bool> approveCertificate(String certificateId) async {
     try {
-      await _client.rpc<void>(
-        'approve_certificate',
-        params: {'cert_id': certificateId, 'new_status': 'approved'},
-      );
+      await _client
+          .rpc<void>(
+            'approve_certificate',
+            params: {'cert_id': certificateId, 'new_status': 'approved'},
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('زمان اتصال به سرور به پایان رسید'),
+          );
       return true;
     } catch (e) {
+      // برای عملیات تایید، خطا را throw می‌کنیم تا UI بتواند به کاربر اطلاع دهد
+      debugPrint('CertificateService.approveCertificate error: $e');
+      if (e.toString().contains('Connection reset') ||
+          e.toString().contains('Connection closed') ||
+          e.toString().contains('ClientException')) {
+        throw Exception('خطا در اتصال به سرور. لطفاً اتصال اینترنت خود را بررسی کنید.');
+      }
       throw Exception('خطا در تایید مدرک: $e');
     }
   }
@@ -143,16 +206,28 @@ class CertificateService {
     String reason,
   ) async {
     try {
-      await _client.rpc<void>(
-        'approve_certificate',
-        params: {
-          'cert_id': certificateId,
-          'new_status': 'rejected',
-          'rejection_reason': reason,
-        },
-      );
+      await _client
+          .rpc<void>(
+            'approve_certificate',
+            params: {
+              'cert_id': certificateId,
+              'new_status': 'rejected',
+              'rejection_reason': reason,
+            },
+          )
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => throw Exception('زمان اتصال به سرور به پایان رسید'),
+          );
       return true;
     } catch (e) {
+      // برای عملیات رد، خطا را throw می‌کنیم تا UI بتواند به کاربر اطلاع دهد
+      debugPrint('CertificateService.rejectCertificate error: $e');
+      if (e.toString().contains('Connection reset') ||
+          e.toString().contains('Connection closed') ||
+          e.toString().contains('ClientException')) {
+        throw Exception('خطا در اتصال به سرور. لطفاً اتصال اینترنت خود را بررسی کنید.');
+      }
       throw Exception('خطا در رد مدرک: $e');
     }
   }
@@ -163,10 +238,16 @@ class CertificateService {
       final response = await _client
           .from('certificate_statistics')
           .select()
-          .single();
+          .single()
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => <String, dynamic>{},
+          );
       return response;
     } catch (e) {
-      throw Exception('خطا در دریافت آمار کلی: $e');
+      // به جای throw کردن، map خالی برمی‌گردانیم تا برنامه کرش نکند
+      debugPrint('CertificateService.getCertificateStatistics error: $e');
+      return {};
     }
   }
 
@@ -185,27 +266,28 @@ class CertificateService {
           .eq('type', type ?? '')
           .order('created_at', ascending: false)
           .limit(limit ?? 10)
-          .range(offset ?? 0, (offset ?? 0) + (limit ?? 10) - 1);
+          .range(offset ?? 0, (offset ?? 0) + (limit ?? 10) - 1)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => <Map<String, dynamic>>[],
+          );
 
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      throw Exception('خطا در دریافت مدارک: $e');
+      // به جای throw کردن، لیست خالی برمی‌گردانیم تا برنامه کرش نکند
+      debugPrint('CertificateService.getCertificatesWithTrainerInfo error: $e');
+      return [];
     }
   }
 
   /// بررسی دسترسی ادمین
   static Future<bool> isAdmin() async {
     try {
-      final user = _client.auth.currentUser;
-      if (user == null) return false;
-
-      final response = await _client
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-
-      return response['role'] == 'admin';
+      final profile = await SimpleProfileService.queryCurrentUserProfile(
+        select: 'role',
+      );
+      if (profile == null) return false;
+      return profile['role'] == 'admin';
     } catch (e) {
       return false;
     }
@@ -221,11 +303,17 @@ class CertificateService {
           .select()
           .eq('trainer_id', trainerId)
           .eq('status', 'approved')
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () => <Map<String, dynamic>>[],
+          );
 
       return response.map<Certificate>(Certificate.fromJson).toList();
     } catch (e) {
-      throw Exception('خطا در دریافت مدارک عمومی: $e');
+      // به جای throw کردن، لیست خالی برمی‌گردانیم تا برنامه کرش نکند
+      debugPrint('CertificateService.getPublicCertificates error: $e');
+      return [];
     }
   }
 }

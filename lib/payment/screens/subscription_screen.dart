@@ -7,6 +7,7 @@ import 'package:gymaipro/payment/screens/payment_screen.dart';
 import 'package:gymaipro/payment/services/subscription_service.dart';
 import 'package:gymaipro/payment/widgets/subscription_card.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class SubscriptionScreen extends StatefulWidget {
@@ -30,7 +31,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Future<void> _loadSubscriptionData() async {
-    setState(() {
+    WidgetSafetyUtils.safeSetState(this, () {
       _isLoading = true;
     });
 
@@ -38,27 +39,27 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       final subscriptions = await _subscriptionService.getUserSubscriptions();
       final plans = PredefinedPlans.subscriptions;
 
-      setState(() {
-        _subscriptions = subscriptions;
-        _availablePlans = plans;
-      });
+      if (mounted) {
+        WidgetSafetyUtils.safeSetState(this, () {
+          _subscriptions = subscriptions;
+          _availablePlans = plans;
+        });
+      }
     } catch (e) {
       debugPrint('خطا در بارگذاری داده‌های اشتراک: $e');
     } finally {
-      setState(() {
+      WidgetSafetyUtils.safeSetState(this, () {
         _isLoading = false;
       });
     }
   }
 
   void _onPurchasePlan(PaymentPlan plan) {
-    Navigator.push(
+    WidgetSafetyUtils.safeNavigate(
       context,
-      MaterialPageRoute(
-        builder: (context) => PaymentScreen(
-          plan: plan,
-          metadata: {'subscription_type': plan.accessLevel.toString()},
-        ),
+      () => PaymentScreen(
+        plan: plan,
+        metadata: {'subscription_type': plan.accessLevel.toString()},
       ),
     );
   }
@@ -73,26 +74,18 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         );
 
         if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'اشتراک با موفقیت لغو شد',
-                style: GoogleFonts.vazirmatn(),
-              ),
-              backgroundColor: Colors.green,
-            ),
+          WidgetSafetyUtils.safeShowSnackBar(
+            context,
+            'اشتراک با موفقیت لغو شد',
+            backgroundColor: Colors.green,
           );
           _loadSubscriptionData();
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'خطا در لغو اشتراک: $e',
-              style: GoogleFonts.vazirmatn(),
-            ),
-            backgroundColor: Colors.red,
-          ),
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          'خطا در لغو اشتراک: $e',
+          backgroundColor: Colors.red,
         );
       }
     }
@@ -105,19 +98,17 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       orElse: () => _availablePlans.first,
     );
 
-    Navigator.push(
+    WidgetSafetyUtils.safeNavigate(
       context,
-      MaterialPageRoute(
-        builder: (context) => PaymentScreen(
-          plan: plan,
-          metadata: {'renewal': true, 'subscription_id': subscription.id},
-        ),
+      () => PaymentScreen(
+        plan: plan,
+        metadata: {'renewal': true, 'subscription_id': subscription.id},
       ),
     );
   }
 
   Future<bool?> _showCancelConfirmDialog() {
-    return showDialog<bool>(
+    return WidgetSafetyUtils.safeShowDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
@@ -133,14 +124,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => WidgetSafetyUtils.safePop(context, false),
             child: Text(
               'انصراف',
               style: GoogleFonts.vazirmatn(color: Colors.white70),
             ),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => WidgetSafetyUtils.safePop(context, true),
             child: Text(
               'لغو اشتراک',
               style: GoogleFonts.vazirmatn(color: Colors.red),
@@ -170,7 +161,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           elevation: 0,
           leading: IconButton(
             icon: const Icon(LucideIcons.arrowRight, color: AppTheme.goldColor),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => WidgetSafetyUtils.safePop(context),
           ),
         ),
         body: _isLoading

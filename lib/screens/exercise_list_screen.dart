@@ -1,12 +1,19 @@
-﻿import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/screens/exercise_detail_screen.dart';
+import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
+import 'package:gymaipro/services/trainer_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/trainer_dashboard/screens/custom_exercise_editor_screen.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ExerciseListScreen extends StatefulWidget {
   const ExerciseListScreen({super.key});
@@ -18,6 +25,8 @@ class ExerciseListScreen extends StatefulWidget {
 class _ExerciseListScreenState extends State<ExerciseListScreen>
     with TickerProviderStateMixin {
   final ExerciseService _exerciseService = ExerciseService();
+  final CustomExerciseService _customExerciseService = CustomExerciseService();
+  final TrainerService _trainerService = TrainerService();
   final TextEditingController _searchController = TextEditingController();
   late TabController _tabController;
 
@@ -40,12 +49,6 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
   Map<String, List<String>> _availableFilters = {};
   bool _showAdvancedFilters = false;
 
-  // Gold theme colors
-  static const Color goldColor = Color(0xFFD4AF37);
-  static const Color darkGold = Color(0xFFB8860B); // theme reserve
-  static const Color backgroundColor = Color(0xFF121212);
-  static const Color cardColor = Color(0xFF1E1E1E);
-  static const Color accentColor = Color(0xFFFFD700); // Gold accent
 
   @override
   void initState() {
@@ -61,23 +64,51 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
     super.dispose();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool forceRefresh = false}) async {
     if (!mounted) return;
 
-    setState(() {
+    // اگر force refresh نیست، ابتدا از cache نمایش می‌دهیم
+    if (!forceRefresh) {
+      try {
+        final cachedExercises = await _exerciseService.getExercisesFromCache();
+        if (cachedExercises != null && cachedExercises.isNotEmpty) {
+          // نمایش فوری از cache
+          if (mounted) {
+            cachedExercises.sort((a, b) => b.likes.compareTo(a.likes));
+            WidgetSafetyUtils.safeSetState(this, () {
+              _exercises = cachedExercises;
+              _filteredExercises = cachedExercises;
+              _isLoading = false;
+            });
+            
+            // بارگذاری فیلترها در background
+            _loadFiltersInBackground();
+            
+            // به‌روزرسانی داده‌ها در background
+            _refreshDataInBackground();
+            return;
+          }
+        }
+      } catch (e) {
+        debugPrint('Error loading from cache: $e');
+      }
+    }
+
+    // اگر cache موجود نبود یا force refresh بود، loading نشان می‌دهیم
+    WidgetSafetyUtils.safeSetState(this, () {
       _isLoading = true;
     });
 
     try {
       await _exerciseService.init();
-      final exercises = await _exerciseService.getExercises();
+      final exercises = await _exerciseService.getExercises(forceRefresh: forceRefresh);
       final muscleGroups = await _exerciseService.getMuscleGroups();
       final availableFilters = await _exerciseService.getAvailableFilters();
 
       if (mounted) {
         // پیش‌فرض: محبوب‌ترین‌ها بالاتر
         exercises.sort((a, b) => b.likes.compareTo(a.likes));
-        setState(() {
+        WidgetSafetyUtils.safeSetState(this, () {
           _exercises = exercises;
           _filteredExercises = exercises;
           _muscleGroups = muscleGroups;
@@ -87,17 +118,61 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
+        WidgetSafetyUtils.safeSetState(this, () {
           _isLoading = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطا در بارگذاری تمرینات: $e'),
-            backgroundColor: Colors.red,
-          ),
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          'خطا در بارگذاری تمرینات: $e',
+          backgroundColor: Colors.red,
         );
       }
+    }
+  }
+
+  /// بارگذاری فیلترها در background
+  Future<void> _loadFiltersInBackground() async {
+    try {
+      final muscleGroups = await _exerciseService.getMuscleGroups();
+      final availableFilters = await _exerciseService.getAvailableFilters();
+      
+      if (mounted) {
+        WidgetSafetyUtils.safeSetState(this, () {
+          _muscleGroups = muscleGroups;
+          _availableFilters = availableFilters;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading filters in background: $e');
+    }
+  }
+
+  /// به‌روزرسانی داده‌ها در background
+  Future<void> _refreshDataInBackground() async {
+    try {
+      final exercises = await _exerciseService.getExercises(forceRefresh: false);
+      
+      if (mounted && exercises.isNotEmpty) {
+        exercises.sort((a, b) => b.likes.compareTo(a.likes));
+        
+        // فقط اگر داده‌ها تغییر کرده باشند، به‌روزرسانی می‌کنیم
+        if (exercises.length != _exercises.length ||
+            exercises.any((e) => !_exercises.any((existing) => existing.id == e.id))) {
+          WidgetSafetyUtils.safeSetState(this, () {
+            _exercises = exercises;
+            // اگر فیلتر فعال نیست، filteredExercises را هم به‌روزرسانی کن
+            if (_searchQuery.isEmpty && 
+                _selectedDifficulty.isEmpty && 
+                _selectedEquipment.isEmpty && 
+                _selectedExerciseType.isEmpty) {
+              _filteredExercises = exercises;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error refreshing data in background: $e');
     }
   }
 
@@ -145,17 +220,17 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
           _isLoading = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطا در اعمال فیلترها: $e'),
-            backgroundColor: Colors.red,
-          ),
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          'خطا در اعمال فیلترها: $e',
+          backgroundColor: Colors.red,
         );
       }
     }
   }
 
   /// جستجوی هوشمند
+  @Deprecated('Not used')
   Future<void> _performSmartSearch(String query) async {
     // in use via onChanged filter
     if (!mounted) return;
@@ -212,13 +287,34 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
 
   /// نمایش دیالوگ ترتیب‌بندی
   void _showSortDialog() {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: cardColor,
-        title: const Text(
-          'ترتیب‌بندی تمرینات',
-          style: TextStyle(color: Colors.white),
+        backgroundColor: context.cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20.r),
+          side: BorderSide(
+            color: AppTheme.goldColor.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              LucideIcons.arrowUpDown,
+              color: AppTheme.goldColor,
+              size: 20.sp,
+            ),
+            SizedBox(width: 8.w),
+            Text(
+              'ترتیب‌بندی تمرینات',
+              style: TextStyle(
+                color: context.textColor,
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -234,14 +330,21 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('انصراف', style: TextStyle(color: goldColor)),
+            child: Text(
+              'انصراف',
+              style: TextStyle(color: context.textSecondary),
+            ),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _applyAdvancedFilters();
             },
-            child: const Text('اعمال', style: TextStyle(color: goldColor)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.goldColor,
+              foregroundColor: AppTheme.onGoldColor,
+            ),
+            child: const Text('اعمال'),
           ),
         ],
       ),
@@ -255,8 +358,8 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
       title: Text(
         label,
         style: TextStyle(
-          color: isSelected ? goldColor : Colors.white,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected ? AppTheme.goldColor : context.textColor,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
         ),
       ),
       value: value,
@@ -266,19 +369,40 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
           _selectedSortBy = newValue!;
         });
       },
-      activeColor: goldColor,
+      activeColor: AppTheme.goldColor,
     );
   }
 
   /// نمایش دیالوگ فیلتر پیشرفته
   void _showFilterDialog() {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: cardColor,
-        title: const Text(
-          'فیلتر پیشرفته',
-          style: TextStyle(color: Colors.white),
+        backgroundColor: context.cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20.r),
+          side: BorderSide(
+            color: AppTheme.goldColor.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              LucideIcons.filter,
+              color: AppTheme.goldColor,
+              size: 20.sp,
+            ),
+            SizedBox(width: 8.w),
+            Text(
+              'فیلتر پیشرفته',
+              style: TextStyle(
+                color: context.textColor,
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
         content: SingleChildScrollView(
           child: Column(
@@ -314,14 +438,21 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('انصراف', style: TextStyle(color: goldColor)),
+            child: Text(
+              'انصراف',
+              style: TextStyle(color: context.textSecondary),
+            ),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _applyAdvancedFilters();
             },
-            child: const Text('اعمال', style: TextStyle(color: goldColor)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.goldColor,
+              foregroundColor: AppTheme.onGoldColor,
+            ),
+            child: const Text('اعمال'),
           ),
         ],
       ),
@@ -333,22 +464,30 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
     String label,
     String selectedValue,
     List<String> options,
-    Function(String) onChanged,
+    void Function(String) onChanged,
   ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: EdgeInsets.symmetric(vertical: 10.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: TextStyle(color: Colors.white70, fontSize: 14.sp),
+            style: TextStyle(
+              color: context.textColor,
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 10.h),
           DecoratedBox(
             decoration: BoxDecoration(
-              border: Border.all(color: goldColor.withValues(alpha: 0.3)),
-              borderRadius: BorderRadius.circular(8.r),
+              color: context.cardColor,
+              border: Border.all(
+                color: AppTheme.goldColor.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+              borderRadius: BorderRadius.circular(12.r),
             ),
             child: DropdownButtonFormField<String>(
               initialValue: selectedValue.isEmpty ? null : selectedValue,
@@ -356,22 +495,28 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: 16.w,
-                  vertical: 8.h,
+                  vertical: 12.h,
                 ),
               ),
-              dropdownColor: cardColor,
-              style: const TextStyle(color: Colors.white),
+              dropdownColor: context.cardColor,
+              style: TextStyle(
+                color: context.textColor,
+                fontSize: 14.sp,
+              ),
               items: [
-                const DropdownMenuItem(
+                DropdownMenuItem(
                   value: '',
-                  child: Text('همه', style: TextStyle(color: Colors.white70)),
+                  child: Text(
+                    'همه',
+                    style: TextStyle(color: context.textSecondary),
+                  ),
                 ),
                 ...options.map(
                   (option) => DropdownMenuItem(
                     value: option,
                     child: Text(
                       option,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: context.textColor),
                     ),
                   ),
                 ),
@@ -388,43 +533,72 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
 
   /// ساخت پنل فیلترهای پیشرفته
   Widget _buildAdvancedFiltersPanel() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      margin: EdgeInsets.all(16.w),
-      padding: EdgeInsets.all(16.w),
+      margin: EdgeInsets.all(20.w),
+      padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: goldColor.withValues(alpha: 0.3)),
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.2)
+                : AppTheme.goldColor.withValues(alpha: 0.05),
+            blurRadius: 10.r,
+            offset: Offset(0, 3.h),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.filter, color: goldColor, size: 20),
-              const SizedBox(width: 8),
+              Container(
+                padding: EdgeInsets.all(8.w),
+                decoration: BoxDecoration(
+                  color: AppTheme.goldColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Icon(
+                  LucideIcons.filter,
+                  color: AppTheme.goldColor,
+                  size: 20.sp,
+                ),
+              ),
+              SizedBox(width: 12.w),
               Text(
                 'فیلترهای پیشرفته',
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16.sp,
+                  color: context.textColor,
+                  fontSize: 17.sp,
                   fontWeight: FontWeight.bold,
+                  letterSpacing: 0.3,
                 ),
               ),
               const Spacer(),
               IconButton(
-                icon: Icon(LucideIcons.settings, color: goldColor, size: 18.sp),
+                icon: Icon(
+                  LucideIcons.settings,
+                  color: AppTheme.goldColor,
+                  size: 20.sp,
+                ),
                 onPressed: _showFilterDialog,
                 tooltip: 'تنظیمات فیلتر',
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 20.h),
 
           // فیلترهای سریع
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 10.w,
+            runSpacing: 10.h,
             children: [
               _buildQuickFilterChip(
                 'سطح دشواری',
@@ -448,7 +622,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 20.h),
 
           // دکمه‌های عملیات
           Row(
@@ -456,28 +630,33 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: _applyAdvancedFilters,
-                  icon: const Icon(LucideIcons.search, size: 18),
+                  icon: Icon(LucideIcons.search, size: 18.sp),
                   label: const Text('اعمال فیلترها'),
                   style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    backgroundColor: goldColor,
+                    foregroundColor: AppTheme.onGoldColor,
+                    backgroundColor: AppTheme.goldColor,
+                    padding: EdgeInsets.symmetric(vertical: 14.h),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.r),
+                      borderRadius: BorderRadius.circular(12.r),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12.w),
               ElevatedButton.icon(
                 onPressed: _clearAllFilters,
-                icon: const Icon(LucideIcons.x, size: 18),
+                icon: Icon(LucideIcons.x, size: 18.sp),
                 label: const Text('پاک کردن'),
                 style: ElevatedButton.styleFrom(
-                  foregroundColor: goldColor,
+                  foregroundColor: AppTheme.goldColor,
                   backgroundColor: Colors.transparent,
-                  side: const BorderSide(color: goldColor),
+                  side: BorderSide(
+                    color: AppTheme.goldColor,
+                    width: 1.5,
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: 14.h),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8.r),
+                    borderRadius: BorderRadius.circular(12.r),
                   ),
                 ),
               ),
@@ -491,16 +670,24 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
   /// ساخت chip فیلتر سریع
   Widget _buildQuickFilterChip(String label, String value, VoidCallback onTap) {
     final hasValue = value.isNotEmpty;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20.r),
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6),
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
         decoration: BoxDecoration(
           color: hasValue
-              ? goldColor.withValues(alpha: 0.2)
+              ? AppTheme.goldColor.withValues(alpha: 0.2)
               : Colors.transparent,
-          border: Border.all(color: hasValue ? goldColor : Colors.white24),
+          border: Border.all(
+            color: hasValue
+                ? AppTheme.goldColor
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : AppTheme.goldColor.withValues(alpha: 0.3)),
+            width: 1.5,
+          ),
           borderRadius: BorderRadius.circular(20.r),
         ),
         child: Row(
@@ -509,18 +696,20 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
             Text(
               label,
               style: TextStyle(
-                color: hasValue ? goldColor : Colors.white70,
-                fontSize: 12.sp,
-                fontWeight: hasValue ? FontWeight.bold : FontWeight.normal,
+                color: hasValue
+                    ? AppTheme.goldColor
+                    : context.textSecondary,
+                fontSize: 13.sp,
+                fontWeight: hasValue ? FontWeight.bold : FontWeight.w600,
               ),
             ),
             if (hasValue) ...[
-              const SizedBox(width: 4),
+              SizedBox(width: 6.w),
               Text(
                 ': $value',
                 style: TextStyle(
-                  color: goldColor,
-                  fontSize: 12.sp,
+                  color: AppTheme.goldColor,
+                  fontSize: 13.sp,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -579,27 +768,27 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
         });
 
         if (exercise.isFavorite) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('تمرین به لیست علاقه‌مندی‌ها اضافه شد'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 1),
-            ),
+          WidgetSafetyUtils.safeShowSnackBar(
+            context,
+            'تمرین به لیست علاقه‌مندی‌ها اضافه شد',
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 1),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('تمرین از لیست علاقه‌مندی‌ها حذف شد'),
-              backgroundColor: Colors.blue,
-              duration: Duration(seconds: 1),
-            ),
+          WidgetSafetyUtils.safeShowSnackBar(
+            context,
+            'تمرین از لیست علاقه‌مندی‌ها حذف شد',
+            backgroundColor: Colors.blue,
+            duration: const Duration(seconds: 1),
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطا: $e'), backgroundColor: Colors.red),
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          'خطا: $e',
+          backgroundColor: Colors.red,
         );
       }
     }
@@ -616,19 +805,20 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
 
         if (!wasLiked && exercise.isLikedByUser) {
           // Successfully liked
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('تمرین را پسندیدید'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 1),
-            ),
+          WidgetSafetyUtils.safeShowSnackBar(
+            context,
+            'تمرین را پسندیدید',
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 1),
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطا: $e'), backgroundColor: Colors.red),
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          'خطا: $e',
+          backgroundColor: Colors.red,
         );
       }
     }
@@ -636,199 +826,146 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: AppTheme.darkTheme,
-      child: GestureDetector(
-        onTap: () =>
-            FocusScope.of(context).unfocus(), // Hide keyboard on tap outside
-        child: Scaffold(
-          backgroundColor: backgroundColor,
-          appBar: AppBar(
-            backgroundColor: backgroundColor,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            title: _isSearching
-                ? _buildSearchField()
-                : Text(
-                    'آموزش تمرینات',
-                    style: TextStyle(
-                      color: goldColor,
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
+    return GestureDetector(
+      onTap: () =>
+          FocusScope.of(context).unfocus(), // Hide keyboard on tap outside
+      child: Scaffold(
+        backgroundColor: context.backgroundColor,
+        appBar: AppBar(
+          backgroundColor: context.backgroundColor,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          title: _isSearching
+              ? _buildSearchField()
+              : Text(
+                  'آموزش تمرینات',
+                  style: TextStyle(
+                    color: AppTheme.goldColor,
+                    fontSize: 21.sp,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
                   ),
-            actions: [
-              IconButton(
-                icon: Icon(
-                  _isSearching ? LucideIcons.x : LucideIcons.search,
-                  color: goldColor,
-                  size: 22.sp,
                 ),
-                onPressed: () {
-                  if (mounted) {
-                    setState(() {
-                      _isSearching = !_isSearching;
-                      if (!_isSearching) {
-                        _searchController.clear();
-                        _searchQuery = '';
-                        _applyAdvancedFilters();
-                        // Hide keyboard when exiting search mode
-                        FocusScope.of(context).unfocus();
-                      } else {
-                        // Focus on search field when entering search mode
-                        Future.delayed(const Duration(milliseconds: 100), () {
-                          if (mounted) {
-                            FocusScope.of(context).requestFocus(FocusNode());
-                          }
-                        });
-                      }
-                    });
-                  }
-                },
+          actions: [
+            IconButton(
+              icon: Icon(
+                _isSearching ? LucideIcons.x : LucideIcons.search,
+                color: AppTheme.goldColor,
+                size: 22.sp,
               ),
-              IconButton(
-                icon: Icon(
-                  _showAdvancedFilters
-                      ? LucideIcons.filterX
-                      : LucideIcons.filter,
-                  color: _showAdvancedFilters ? Colors.red : goldColor,
-                  size: 22.sp,
-                ),
-                onPressed: () {
+              onPressed: () {
+                if (mounted) {
                   setState(() {
-                    _showAdvancedFilters = !_showAdvancedFilters;
+                    _isSearching = !_isSearching;
+                    if (!_isSearching) {
+                      _searchController.clear();
+                      _searchQuery = '';
+                      _applyAdvancedFilters();
+                      // Hide keyboard when exiting search mode
+                      FocusScope.of(context).unfocus();
+                    } else {
+                      // Focus on search field when entering search mode
+                      Future.delayed(const Duration(milliseconds: 100), () {
+                        if (mounted) {
+                          FocusScope.of(context).requestFocus(FocusNode());
+                        }
+                      });
+                    }
                   });
-                },
-              ),
-              IconButton(
-                icon: Icon(
-                  LucideIcons.arrowUpDown,
-                  color: goldColor,
-                  size: 22.sp,
-                ),
-                onPressed: _showSortDialog,
-              ),
-            ],
-            bottom: TabBar(
-              controller: _tabController,
-              indicatorColor: goldColor,
-              labelColor: goldColor,
-              unselectedLabelColor: Colors.white70,
-              tabs: [
-                Tab(
-                  child: Text('همه تمرینات', style: TextStyle(fontSize: 14.sp)),
-                ),
-                Tab(
-                  child: Text('محبوب‌ترین', style: TextStyle(fontSize: 14.sp)),
-                ),
-                Tab(
-                  child: Text(
-                    'مورد علاقه‌ها',
-                    style: TextStyle(fontSize: 14.sp),
-                  ),
-                ),
-              ],
+                }
+              },
             ),
-          ),
-          body: SafeArea(
-            child: _isLoading
-                ? _buildLoadingIndicator()
-                : Column(
-                    children: [
-                      // نمایش تعداد نتایج
-                      if (_filteredExercises.isNotEmpty ||
-                          _searchQuery.isNotEmpty)
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 16.w,
-                            vertical: 8.h,
-                          ),
-                          color: cardColor.withValues(alpha: 0.5),
-                          child: Row(
-                            children: [
-                              Text(
-                                _getResultsCountText(),
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14.sp,
-                                ),
-                              ),
-                              const Spacer(),
-                              if (_filteredExercises.length !=
-                                  _exercises.length)
-                                TextButton(
-                                  onPressed: _clearAllFilters,
-                                  child: const Text(
-                                    'پاک کردن فیلترها',
-                                    style: TextStyle(color: goldColor),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-
-                      // فیلترهای پیشرفته
-                      if (_showAdvancedFilters) _buildAdvancedFiltersPanel(),
-
-                      // محتوای اصلی با RefreshIndicator برای هر تب
-                      Expanded(
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            RefreshIndicator(
-                              color: goldColor,
-                              onRefresh: () {
-                                _exerciseService.clearCache();
-                                return _loadData();
-                              },
-                              child: _buildExercisesList(_filteredExercises),
-                            ),
-                            RefreshIndicator(
-                              color: goldColor,
-                              onRefresh: () {
-                                _exerciseService.clearCache();
-                                return _loadData();
-                              },
-                              child: FutureBuilder<List<Exercise>>(
-                                future: _exerciseService.getPopularExercises(),
-                                builder: (context, snapshot) {
-                                  if (snapshot.connectionState ==
-                                      ConnectionState.waiting) {
-                                    return _buildLoadingIndicator();
-                                  }
-                                  return _buildExercisesList(
-                                    snapshot.data ?? [],
-                                  );
-                                },
-                              ),
-                            ),
-                            RefreshIndicator(
-                              color: goldColor,
-                              onRefresh: () {
-                                _exerciseService.clearCache();
-                                return _loadData();
-                              },
-                              child: FutureBuilder<List<Exercise>>(
-                                future: _exerciseService.getFavoriteExercises(),
-                                builder: (context, snapshot) {
-                                  if (snapshot.connectionState ==
-                                      ConnectionState.waiting) {
-                                    return _buildLoadingIndicator();
-                                  }
-                                  return _buildExercisesList(
-                                    snapshot.data ?? [],
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+            IconButton(
+              icon: Icon(
+                _showAdvancedFilters
+                    ? LucideIcons.filterX
+                    : LucideIcons.filter,
+                color: _showAdvancedFilters
+                    ? Colors.red[600]
+                    : AppTheme.goldColor,
+                size: 22.sp,
+              ),
+              onPressed: () {
+                setState(() {
+                  _showAdvancedFilters = !_showAdvancedFilters;
+                });
+              },
+            ),
+            IconButton(
+              icon: Icon(
+                LucideIcons.arrowUpDown,
+                color: AppTheme.goldColor,
+                size: 22.sp,
+              ),
+              onPressed: _showSortDialog,
+            ),
+          ],
+          bottom: TabBar(
+            controller: _tabController,
+            isScrollable: false,
+            indicatorColor: AppTheme.goldColor,
+            indicatorWeight: 3.5,
+            labelColor: AppTheme.goldColor,
+            unselectedLabelColor: context.textSecondary,
+            labelStyle: TextStyle(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.2,
+            ),
+            unselectedLabelStyle: TextStyle(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w600,
+            ),
+            tabs: const [
+              Tab(text: 'همه تمرینات'),
+              Tab(text: 'مورد علاقه‌ها'),
+              Tab(text: 'تمرینات مربی'),
+            ],
           ),
         ),
+        body: SafeArea(
+          child: _isLoading
+              ? _buildLoadingIndicator()
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    RefreshIndicator(
+                      color: AppTheme.goldColor,
+                      onRefresh: () {
+                        return _loadData(forceRefresh: true);
+                      },
+                      child: _buildScrollableContent(_filteredExercises),
+                    ),
+                    RefreshIndicator(
+                      color: AppTheme.goldColor,
+                      onRefresh: () {
+                        return _loadData(forceRefresh: true);
+                      },
+                      child: FutureBuilder<List<Exercise>>(
+                        future: _exerciseService.getFavoriteExercises(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return _buildLoadingIndicator();
+                          }
+                          return _buildScrollableContent(
+                            snapshot.data ?? [],
+                          );
+                        },
+                      ),
+                    ),
+                    RefreshIndicator(
+                      color: AppTheme.goldColor,
+                      onRefresh: () async {
+                        // Refresh trainer exercises
+                        setState(() {});
+                      },
+                      child: _buildTrainerExercisesTab(),
+                    ),
+                  ],
+                ),
+        ),
+        floatingActionButton: _buildFloatingActionButton(),
       ),
     );
   }
@@ -841,10 +978,22 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
       onSubmitted: (_) => FocusScope.of(context).unfocus(),
       decoration: InputDecoration(
         hintText: 'جستجوی تمرین...',
-        hintStyle: TextStyle(color: Colors.white54, fontSize: 15.sp),
+        hintStyle: TextStyle(
+          color: context.textSecondary,
+          fontSize: 15.sp,
+        ),
         border: InputBorder.none,
+        prefixIcon: Icon(
+          LucideIcons.search,
+          color: AppTheme.goldColor,
+          size: 20.sp,
+        ),
       ),
-      style: TextStyle(color: Colors.white, fontSize: 16.sp),
+      style: TextStyle(
+        color: context.textColor,
+        fontSize: 16.sp,
+        fontWeight: FontWeight.w500,
+      ),
       onChanged: (value) {
         if (mounted) {
           setState(() {
@@ -857,23 +1006,28 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
   }
 
   Widget _buildLoadingIndicator() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GridView.builder(
-      padding: EdgeInsets.all(12.w),
+      padding: EdgeInsets.all(16.w),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.68, // Match the actual list
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+        childAspectRatio: 0.68,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
       ),
-      itemCount: 6, // Show a few shimmer items
+      itemCount: 6,
       itemBuilder: (context, index) {
         return Shimmer.fromColors(
-          baseColor: cardColor,
-          highlightColor: Colors.grey[800]!,
+          baseColor: isDark
+              ? context.cardColor
+              : context.cardColor.withValues(alpha: 0.5),
+          highlightColor: isDark
+              ? Colors.grey[800]!
+              : Colors.grey[300]!,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.white, // This will be covered by shimmer
-              borderRadius: BorderRadius.circular(16.r),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20.r),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -884,8 +1038,8 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(16.r),
-                        topRight: Radius.circular(16.r),
+                        topLeft: Radius.circular(20.r),
+                        topRight: Radius.circular(20.r),
                       ),
                     ),
                   ),
@@ -936,109 +1090,413 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
     );
   }
 
-  Widget _buildExercisesList(List<Exercise> exercises) {
-    if (exercises.isEmpty) {
-      // برای فعال شدن Pull-to-Refresh حتی در حالت خالی
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _tabController.index == 2
-                          ? LucideIcons.heartOff
-                          : (_tabController.index == 1
-                                ? LucideIcons.trendingDown
-                                : LucideIcons.searchX),
-                      color: Colors.white38,
-                      size: 56.sp,
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      _tabController.index == 2
-                          ? 'هنوز تمرینی را به علاقه‌مندی‌ها اضافه نکرده‌اید'
-                          : (_tabController.index == 1
-                                ? 'موردی برای نمایش در محبوب‌ترین‌ها یافت نشد'
-                                : 'هیچ تمرینی با این مشخصات یافت نشد!'),
-                      style: TextStyle(color: Colors.white70, fontSize: 17.sp),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    if (_tabController.index > 0)
-                      TextButton.icon(
-                        onPressed: () {
-                          _tabController.animateTo(0);
-                        },
-                        icon: Icon(
-                          LucideIcons.listChecks,
-                          size: 18.sp,
-                          color: goldColor,
-                        ),
-                        label: Text(
-                          'مشاهده همه تمرینات',
-                          style: TextStyle(fontSize: 13.sp),
-                        ),
-                        style: TextButton.styleFrom(
-                          foregroundColor: goldColor.withValues(alpha: 0.9),
-                        ),
-                      )
-                    else
-                      Text(
-                        _searchQuery.isNotEmpty ||
-                                _selectedMuscleGroup.isNotEmpty
-                            ? 'جستجو یا فیلتر خود را تغییر دهید.'
-                            : 'لیست تمرینات خالی است.',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 14.sp,
-                        ),
-                      ),
-                  ],
+  Widget _buildScrollableContent(List<Exercise> exercises) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        // فیلترهای پیشرفته - فقط برای تب اول (همه تمرینات)
+        if (_tabController.index == 0 && _showAdvancedFilters)
+          SliverToBoxAdapter(
+            child: _buildAdvancedFiltersPanel(),
+          ),
+
+        // لیست تمرینات
+        if (exercises.isEmpty)
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: _buildEmptyStateContent(),
+          )
+        else
+          SliverPadding(
+            padding: EdgeInsets.all(16.w),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.68,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  return _buildExerciseCard(exercises[index]);
+                },
+                childCount: exercises.length,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildTrainerExercisesTab() {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      return _buildEmptyStateContent();
+    }
+
+    // اول بررسی می‌کنیم که آیا خود کاربر مربی است
+    return FutureBuilder<String?>(
+      future: _getUserRole(),
+      builder: (context, roleSnapshot) {
+        if (roleSnapshot.connectionState == ConnectionState.waiting) {
+          return _buildLoadingIndicator();
+        }
+
+        final userRole = roleSnapshot.data;
+        
+        // اگر کاربر مربی است، تمرینات اختصاصی خودش را نمایش می‌دهیم
+        if (userRole == 'trainer') {
+          return FutureBuilder<List<Exercise>>(
+            future: _loadMyCustomExercises(),
+            builder: (context, exercisesSnapshot) {
+              if (exercisesSnapshot.connectionState == ConnectionState.waiting) {
+                return _buildLoadingIndicator();
+              }
+
+              final exercises = exercisesSnapshot.data ?? [];
+              if (exercises.isEmpty) {
+                return _buildEmptyStateContent();
+              }
+              return _buildScrollableContent(exercises);
+            },
+          );
+        }
+
+        // اگر کاربر شاگرد است، تمرینات مربی‌هایش را نمایش می‌دهیم
+        return FutureBuilder<List<Map<String, dynamic>>>(
+          future: _trainerService.getClientTrainersWithProfiles(user.id),
+          builder: (context, trainerSnapshot) {
+            if (trainerSnapshot.connectionState == ConnectionState.waiting) {
+              return _buildLoadingIndicator();
+            }
+
+            final trainers = trainerSnapshot.data ?? [];
+            final activeTrainers = trainers.where((t) => t['status'] == 'active').toList();
+
+            if (activeTrainers.isEmpty) {
+              return _buildNoTrainerEmptyState();
+            }
+
+            return FutureBuilder<List<Exercise>>(
+              future: _loadTrainerExercises(user.id),
+              builder: (context, exercisesSnapshot) {
+                if (exercisesSnapshot.connectionState == ConnectionState.waiting) {
+                  return _buildLoadingIndicator();
+                }
+
+                final exercises = exercisesSnapshot.data ?? [];
+                return _buildScrollableContent(exercises);
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+  
+  /// بارگذاری تمرینات اختصاصی خود مربی
+  Future<List<Exercise>> _loadMyCustomExercises() async {
+    try {
+      final customExercises = await _customExerciseService.getMyExercises();
+      return await _customExerciseService.customExercisesToExercises(customExercises);
+    } catch (e) {
+      debugPrint('Error loading my custom exercises: $e');
+      return [];
+    }
+  }
+
+  Future<List<Exercise>> _loadTrainerExercises(String clientId) async {
+    try {
+      final exercises = <Exercise>[];
+      
+      // 1. دریافت تمرینات اختصاصی مربی‌های کاربر (اگر کاربر شاگرد باشد)
+      try {
+        final customExercises = await _customExerciseService.getTrainerExercisesForClient(clientId);
+        final trainerExercises = await _customExerciseService.customExercisesToExercises(customExercises);
+        exercises.addAll(trainerExercises);
+      } catch (e) {
+        debugPrint('Error loading trainer exercises for client: $e');
+      }
+      
+      // 2. بررسی اینکه آیا خود کاربر هم مربی است
+      try {
+        final user = Supabase.instance.client.auth.currentUser;
+        if (user != null) {
+          final profile = await SimpleProfileService.queryCurrentUserProfile(
+            select: 'role',
+          );
+          final profileResponse = profile;
+          
+          final role = profileResponse?['role'] as String?;
+          if (role == 'trainer') {
+            // اگر کاربر مربی است، تمرینات اختصاصی خودش را هم اضافه می‌کنیم
+            final myCustomExercises = await _customExerciseService.getMyExercises();
+            final myExercises = await _customExerciseService.customExercisesToExercises(myCustomExercises);
+            
+            // جلوگیری از تکرار: فقط تمریناتی که قبلاً اضافه نشده‌اند
+            final existingIds = exercises.map((e) => e.id).toSet();
+            for (final exercise in myExercises) {
+              if (!existingIds.contains(exercise.id)) {
+                exercises.add(exercise);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error checking trainer role or loading own exercises: $e');
+      }
+      
+      return exercises;
+    } catch (e) {
+      debugPrint('Error loading trainer exercises: $e');
+      return [];
+    }
+  }
+  
+  Widget? _buildFloatingActionButton() {
+    // فقط در تب تمرینات مربی (index 2) نمایش داده می‌شود
+    if (_tabController.index != 2) return null;
+    
+    return FutureBuilder<String?>(
+      future: _getUserRole(),
+      builder: (context, snapshot) {
+        // فقط برای مربی‌ها نمایش داده می‌شود
+        if (snapshot.data != 'trainer') return const SizedBox.shrink();
+        
+        return Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppTheme.goldColor,
+                AppTheme.goldColor.withValues(alpha: 0.8),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.goldColor.withValues(alpha: 0.4),
+                blurRadius: 12.r,
+                offset: Offset(0, 4.h),
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: FloatingActionButton(
+            onPressed: () {
+              Navigator.push<void>(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const CustomExerciseEditorScreen(),
+                ),
+              ).then((_) {
+                // Refresh when returning from editor
+                setState(() {});
+              });
+            },
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Icon(
+              LucideIcons.plus,
+              color: AppTheme.onGoldColor,
+              size: 28.sp,
+            ),
+          ),
+        );
+      },
+    );
+  }
+  
+  Future<String?> _getUserRole() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return null;
+      
+      final profile = await SimpleProfileService.queryCurrentUserProfile(
+        select: 'role',
+      );
+      
+      return profile?['role'] as String?;
+    } catch (e) {
+      debugPrint('Error getting user role: $e');
+      return null;
+    }
+  }
+
+  Widget _buildNoTrainerEmptyState() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(32.w),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: EdgeInsets.all(20.w),
+              decoration: BoxDecoration(
+                color: context.cardColor,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppTheme.goldColor.withValues(alpha: 0.3),
+                  width: 2,
+                ),
+              ),
+              child: Icon(
+                LucideIcons.userPlus,
+                color: AppTheme.goldColor,
+                size: 48.sp,
+              ),
+            ),
+            SizedBox(height: 24.h),
+            Text(
+              'شما هنوز مربی ندارید',
+              style: TextStyle(
+                color: context.textColor,
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 12.h),
+            Text(
+              'با داشتن مربی، می‌توانید به تمرینات اختصاصی و برنامه‌های تمرینی شخصی‌سازی شده دسترسی داشته باشید.',
+              style: TextStyle(
+                color: context.textSecondary,
+                fontSize: 14.sp,
+                height: 1.6,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 24.h),
+            ElevatedButton.icon(
+              onPressed: () {
+                // Navigate to trainer ranking screen
+                Navigator.pushNamed(context, '/trainer-ranking');
+              },
+              icon: Icon(LucideIcons.search, size: 18.sp),
+              label: const Text('جستجوی مربی'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.goldColor,
+                foregroundColor: AppTheme.onGoldColor,
+                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 14.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r),
                 ),
               ),
             ),
-          );
-        },
-      );
-    }
-
-    return GridView.builder(
-      padding: EdgeInsets.all(12.w),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.68, // Adjusted for new card design
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+          ],
+        ),
       ),
-      itemCount: exercises.length,
-      itemBuilder: (context, index) {
-        final exercise = exercises[index];
-        return _buildExerciseCard(exercise);
-      },
+    );
+  }
+
+  Widget _buildEmptyStateContent() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(32.w),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: EdgeInsets.all(20.w),
+              decoration: BoxDecoration(
+                color: context.cardColor,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: context.separatorColor,
+                  width: 2,
+                ),
+              ),
+              child: Icon(
+                _tabController.index == 2
+                    ? LucideIcons.dumbbell
+                    : (_tabController.index == 1
+                          ? LucideIcons.heartOff
+                          : LucideIcons.searchX),
+                color: context.textSecondary,
+                size: 48.sp,
+              ),
+            ),
+            SizedBox(height: 24.h),
+            Text(
+              _tabController.index == 2
+                  ? 'مربی شما هنوز تمرین اختصاصی ایجاد نکرده است'
+                  : (_tabController.index == 1
+                        ? 'هنوز تمرینی را به علاقه‌مندی‌ها اضافه نکرده‌اید'
+                        : 'هیچ تمرینی با این مشخصات یافت نشد!'),
+              style: TextStyle(
+                color: context.textColor,
+                fontSize: 17.sp,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 16.h),
+            if (_tabController.index == 0)
+              Text(
+                _searchQuery.isNotEmpty || _selectedMuscleGroup.isNotEmpty
+                    ? 'جستجو یا فیلتر خود را تغییر دهید.'
+                    : 'لیست تمرینات خالی است.',
+                style: TextStyle(
+                  color: context.textSecondary,
+                  fontSize: 14.sp,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  /// ساخت placeholder یکسان و زیبا برای عکس‌های تمرین
+  Widget _buildImagePlaceholder(bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  Colors.grey[900]!.withValues(alpha: 0.8),
+                  Colors.grey[800]!.withValues(alpha: 0.6),
+                ]
+              : [
+                  Colors.grey[200]!,
+                  Colors.grey[100]!,
+                ],
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          LucideIcons.dumbbell,
+          color: AppTheme.goldColor.withValues(alpha: 0.4),
+          size: 48.sp,
+        ),
+      ),
     );
   }
 
   Widget _buildExerciseCard(Exercise exercise) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(16.r),
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(20.r),
         border: Border.all(
-          color: goldColor.withValues(alpha: 0.25),
-          width: 0.5,
+          color: isDark
+              ? AppTheme.goldColor.withValues(alpha: 0.25)
+              : AppTheme.goldColor.withValues(alpha: 0.3),
+          width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 8.r,
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : AppTheme.goldColor.withValues(alpha: 0.1),
+            blurRadius: 12.r,
             offset: Offset(0.w, 4.h),
           ),
-          BoxShadow(color: goldColor.withValues(alpha: 0.03), blurRadius: 12),
         ],
       ),
       clipBehavior: Clip.antiAlias,
@@ -1048,7 +1506,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
+              MaterialPageRoute<void>(
                 builder: (context) => ExerciseDetailScreen(exercise: exercise),
               ),
             ).then((_) {
@@ -1056,9 +1514,9 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
               _loadData();
             });
           },
-          borderRadius: BorderRadius.circular(16.r),
-          splashColor: goldColor.withValues(alpha: 0.1),
-          highlightColor: goldColor.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(20.r),
+          splashColor: AppTheme.goldColor.withValues(alpha: 0.15),
+          highlightColor: AppTheme.goldColor.withValues(alpha: 0.08),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1073,27 +1531,13 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                       child: CachedNetworkImage(
                         imageUrl: exercise.imageUrl,
                         fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          color: Colors.grey[900]?.withValues(alpha: 0.5),
-                          child: Center(
-                            child: SizedBox(
-                              width: 28.w,
-                              height: 28.h,
-                              child: CircularProgressIndicator(
-                                color: goldColor.withValues(alpha: 0.7),
-                                strokeWidth: 2,
-                              ),
-                            ),
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          color: Colors.grey[900]?.withValues(alpha: 0.5),
-                          child: Icon(
-                            LucideIcons.imageOff,
-                            color: goldColor.withValues(alpha: 0.5),
-                            size: 40.sp,
-                          ),
-                        ),
+                        fadeInDuration: const Duration(milliseconds: 300),
+                        fadeOutDuration: const Duration(milliseconds: 100),
+                        placeholder: (context, url) => _buildImagePlaceholder(isDark),
+                        errorWidget: (context, url, error) =>
+                            _buildImagePlaceholder(isDark),
+                        memCacheWidth: 400, // Optimize memory usage
+                        memCacheHeight: 300,
                       ),
                     ),
                     DecoratedBox(
@@ -1111,26 +1555,31 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                       ),
                     ),
                     Positioned(
-                      top: 8.h,
-                      right: 8.w,
+                      top: 10.h,
+                      right: 10.w,
                       child: Material(
-                        color: Colors.black.withValues(alpha: 0.45),
+                        color: isDark
+                            ? Colors.black.withValues(alpha: 0.6)
+                            : Colors.white.withValues(alpha: 0.9),
                         shape: const CircleBorder(),
                         clipBehavior: Clip.antiAlias,
-                        elevation: 2,
+                        elevation: 3,
+                        shadowColor: Colors.black.withValues(alpha: 0.3),
                         child: InkWell(
                           onTap: () => _toggleFavorite(exercise),
-                          splashColor: goldColor.withValues(alpha: 0.3),
+                          splashColor: AppTheme.goldColor.withValues(alpha: 0.3),
                           child: Padding(
-                            padding: EdgeInsets.all(7.w),
+                            padding: EdgeInsets.all(8.w),
                             child: Icon(
                               exercise.isFavorite
-                                  ? Icons.bookmark
-                                  : Icons.bookmark_border,
+                                  ? LucideIcons.bookmark
+                                  : LucideIcons.bookmarkPlus,
                               color: exercise.isFavorite
-                                  ? accentColor
-                                  : Colors.white.withValues(alpha: 0.85),
-                              size: 19.sp,
+                                  ? AppTheme.goldColor
+                                  : (isDark
+                                      ? Colors.white.withValues(alpha: 0.85)
+                                      : context.textSecondary),
+                              size: 20.sp,
                             ),
                           ),
                         ),
@@ -1202,54 +1651,87 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                     mainAxisAlignment:
                         MainAxisAlignment.spaceBetween, // Use spaceBetween
                     children: [
-                      Text(
-                        exercise.name,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14.5.sp,
-                          height: 1.3.h,
+                      Flexible(
+                        child: Text(
+                          exercise.name,
+                          style: TextStyle(
+                            color: context.textColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15.sp,
+                            height: 1.4.h,
+                            letterSpacing: 0.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
 
                       // اطلاعات اضافی
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
                       Row(
                         children: [
                           Icon(
                             LucideIcons.clock,
-                            color: Colors.white70,
-                            size: 14.sp,
+                            color: context.textSecondary,
+                            size: 15.sp,
                           ),
-                          const SizedBox(width: 4),
+                          SizedBox(width: 6.w),
                           Text(
                             '${(exercise.estimatedDuration / 60).round()} دقیقه',
                             style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11.sp,
+                              color: context.textSecondary,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           const Spacer(),
                           Icon(
                             LucideIcons.dumbbell,
-                            color: Colors.white70,
-                            size: 14.sp,
+                            color: context.textSecondary,
+                            size: 15.sp,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            exercise.equipment,
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11.sp,
+                          SizedBox(width: 6.w),
+                          Flexible(
+                            child: Text(
+                              exercise.equipment,
+                              style: TextStyle(
+                                color: context.textSecondary,
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      // نمایش نویسنده
+                      if (exercise.author != null) ...[
+                        SizedBox(height: 6.h),
+                        Row(
+                          children: [
+                            Icon(
+                              LucideIcons.user,
+                              color: AppTheme.goldColor.withValues(alpha: 0.7),
+                              size: 13.sp,
+                            ),
+                            SizedBox(width: 6.w),
+                            Flexible(
+                              child: Text(
+                                exercise.author!,
+                                style: TextStyle(
+                                  color: AppTheme.goldColor.withValues(alpha: 0.8),
+                                  fontSize: 11.5.sp,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      SizedBox(height: 8.h),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1257,19 +1739,19 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                             color: Colors.transparent,
                             child: InkWell(
                               onTap: () => _toggleLike(exercise),
-                              borderRadius: BorderRadius.circular(8.r),
-                              splashColor: goldColor.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10.r),
+                              splashColor: AppTheme.goldColor.withValues(alpha: 0.2),
                               child: Padding(
                                 padding: EdgeInsets.symmetric(
-                                  vertical: 4.h,
-                                  horizontal: 5.w,
+                                  vertical: 6.h,
+                                  horizontal: 8.w,
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     AnimatedSwitcher(
                                       duration: const Duration(
-                                        milliseconds: 180,
+                                        milliseconds: 200,
                                       ),
                                       transitionBuilder: (child, anim) =>
                                           ScaleTransition(
@@ -1278,18 +1760,18 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                                           ),
                                       child: Icon(
                                         exercise.isLikedByUser
-                                            ? Icons.favorite
-                                            : Icons.favorite_border,
+                                            ? LucideIcons.heart
+                                            : LucideIcons.heart,
                                         key: ValueKey<bool>(
                                           exercise.isLikedByUser,
                                         ),
                                         color: exercise.isLikedByUser
-                                            ? Colors.redAccent
-                                            : Colors.white70,
+                                            ? Colors.red[600]
+                                            : context.textSecondary,
                                         size: 18.sp,
                                       ),
                                     ),
-                                    const SizedBox(width: 5),
+                                    SizedBox(width: 6.w),
                                     AnimatedSwitcher(
                                       duration: const Duration(
                                         milliseconds: 150,
@@ -1304,12 +1786,12 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                                         key: ValueKey<int>(exercise.likes),
                                         style: TextStyle(
                                           color: exercise.isLikedByUser
-                                              ? Colors.redAccent
-                                              : Colors.white70,
-                                          fontSize: 12.5.sp,
+                                              ? Colors.red[600]
+                                              : context.textSecondary,
+                                          fontSize: 13.sp,
                                           fontWeight: exercise.isLikedByUser
                                               ? FontWeight.bold
-                                              : FontWeight.normal,
+                                              : FontWeight.w600,
                                         ),
                                       ),
                                     ),
@@ -1320,8 +1802,8 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                           ),
                           Icon(
                             LucideIcons.chevronLeft,
-                            color: goldColor.withValues(alpha: 0.7),
-                            size: 18.sp,
+                            color: AppTheme.goldColor,
+                            size: 20.sp,
                           ),
                         ],
                       ),

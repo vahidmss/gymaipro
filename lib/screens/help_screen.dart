@@ -1,6 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class HelpScreen extends StatefulWidget {
@@ -82,7 +83,7 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _animationController.forward();
+        _animationController.safeForward();
       }
     });
   }

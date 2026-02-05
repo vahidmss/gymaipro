@@ -330,12 +330,31 @@ class TrainerRankingService {
 
       if (trainersResponse.isEmpty) return;
 
+      // دریافت همه شاگردان فعال یکبار (بهینه‌سازی)
+      final trainerClients = await _supabase
+          .from('trainer_clients')
+          .select('trainer_id, client_id')
+          .eq('status', 'active');
+
+      final Map<String, int> activeStudentCounts = {};
+      for (final rel in trainerClients) {
+        final m = Map<String, dynamic>.from(rel);
+        final trainerId = m['trainer_id'] as String?;
+        if (trainerId != null) {
+          activeStudentCounts[trainerId] = (activeStudentCounts[trainerId] ?? 0) + 1;
+        }
+      }
+
       // محاسبه ranking برای هر مربی
       final List<Map<String, dynamic>> trainersWithScores = [];
 
       for (final trainer in trainersResponse) {
-        final score = await _calculateTrainerScore(trainer);
-        trainersWithScores.add({'id': trainer['id'], 'score': score});
+        final trainerId = trainer['id'] as String;
+        final score = await _calculateTrainerScore(
+          trainer,
+          activeStudentCounts[trainerId] ?? 0,
+        );
+        trainersWithScores.add({'id': trainerId, 'score': score});
       }
 
       // مرتب‌سازی بر اساس امتیاز (نزولی)
@@ -475,7 +494,10 @@ class TrainerRankingService {
   }
 
   // محاسبه امتیاز مربی
-  Future<double> _calculateTrainerScore(Map<String, dynamic> trainer) async {
+  Future<double> _calculateTrainerScore(
+    Map<String, dynamic> trainer, [
+    int activeStudentCount = 0,
+  ]) async {
     double score = 0;
 
     // امتیاز rating (40% وزن)
@@ -486,10 +508,7 @@ class TrainerRankingService {
     final reviewCount = (trainer['review_count'] as num?)?.toInt() ?? 0;
     score += (reviewCount * 0.1).clamp(0.0, 2.0); // حداکثر 2 امتیاز
 
-    // امتیاز تعداد شاگردان فعال (15% وزن) - از جدول trainer_clients
-    final activeStudentCount = await _getActiveStudentCount(
-      trainer['id'] as String,
-    );
+    // امتیاز تعداد شاگردان فعال (15% وزن) - از پارامتر استفاده می‌کنیم
     score += (activeStudentCount * 0.05).clamp(0.0, 1.5); // حداکثر 1.5 امتیاز
 
     // امتیاز سال‌های تجربه (15% وزن)

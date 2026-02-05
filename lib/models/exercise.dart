@@ -22,6 +22,8 @@ class Exercise {
     this.isFavorite = false,
     this.likes = 0,
     this.isLikedByUser = false,
+    this.author,
+    this.createdBy,
   });
 
   factory Exercise.fromJson(Map<String, dynamic> json) {
@@ -207,9 +209,14 @@ class Exercise {
       final fi = json['featured_image'];
       if (fi is String && fi.isNotEmpty) imageUrl = fi;
     }
-    final String versionTag = modified.isNotEmpty
-        ? modified
-        : (json['title']?['rendered'] ?? '').toString();
+    // NOTE: cached exercises use `toJson()` which stores `title` as a String.
+    // WP payload uses `title` as a Map with `rendered`.
+    // We must handle both to avoid: "type 'String' is not a subtype of type 'int' of 'index'".
+    final titleObj = json['title'];
+    final titleRenderedOrValue =
+        (titleObj is Map) ? titleObj['rendered'] : titleObj;
+    final String versionTag =
+        modified.isNotEmpty ? modified : (titleRenderedOrValue ?? '').toString();
     imageUrl = _appendVersion(imageUrl, versionTag);
 
     final String contentText = readStr('learn').isNotEmpty
@@ -294,6 +301,8 @@ class Exercise {
           : readStr('main_muscle'),
       tags: tagsList,
       detailedDescription: detailedDesc,
+      author: json['author'] as String?,
+      createdBy: json['createdBy'] as String?,
     );
   }
   final int id;
@@ -315,6 +324,8 @@ class Exercise {
   final String targetArea; // ناحیه هدف
   final List<String> tags; // تگ‌های اضافی
   final String detailedDescription; // توضیح تکمیلی
+  final String? author; // نویسنده تمرین
+  final String? createdBy; // شناسه کاربری که تمرین را ایجاد کرده (برای تمرین‌های اختصاصی)
 
   bool isFavorite;
   int likes;
@@ -339,6 +350,8 @@ class Exercise {
       'targetArea': targetArea,
       'tags': tags,
       'detailedDescription': detailedDescription,
+      'author': author,
+      'createdBy': createdBy,
       'isFavorite': isFavorite,
       'likes': likes,
       'isLikedByUser': isLikedByUser,

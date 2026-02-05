@@ -1,6 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/animation_utils.dart';
 
 class TypingIndicator extends StatefulWidget {
   const TypingIndicator({required this.animationController, super.key});
@@ -32,7 +34,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
       );
     });
 
-    _dotAnimationController.repeat();
+    _dotAnimationController.safeRepeat();
   }
 
   @override
@@ -43,72 +45,118 @@ class _TypingIndicatorState extends State<TypingIndicator>
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      textDirection: TextDirection.rtl,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // آواتار هوش مصنوعی
-        Container(
-          width: 32.w,
-          height: 32.h,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Colors.blue.shade400, Colors.blue.shade600],
-            ),
-            borderRadius: BorderRadius.circular(16.r),
-          ),
-          child: const Icon(Icons.smart_toy, color: Colors.white, size: 16),
-        ),
-        const SizedBox(width: 8),
-        // حباب تایپ
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppTheme.cardColor,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20.r),
-              topRight: Radius.circular(20.r),
-              bottomLeft: Radius.circular(4.r),
-              bottomRight: Radius.circular(20.r),
-            ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'در حال تایپ',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  fontSize: 12.sp,
-                ),
-              ),
-              const SizedBox(width: 8),
-              ...List.generate(3, (index) {
-                return AnimatedBuilder(
-                  animation: _dotAnimations[index],
-                  builder: (context, child) {
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      child: Opacity(
-                        opacity: _dotAnimations[index].value,
-                        child: Container(
-                          width: 6.w,
-                          height: 6.h,
-                          decoration: BoxDecoration(
-                            color: AppTheme.goldColor,
-                            borderRadius: BorderRadius.circular(3.r),
-                          ),
-                        ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: EdgeInsets.only(left: 0, right: 50.w, bottom: 8.h),
+      child: Row(
+        textDirection: TextDirection.rtl,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          // پیام تایپ
+          Flexible(
+            child: IntrinsicWidth(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.65,
+                    ),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 16.w,
+                      vertical: 12.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: context.cardColor,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(20.r),
+                        topRight: Radius.circular(20.r),
+                        bottomLeft: Radius.circular(4.r),
+                        bottomRight: Radius.circular(20.r),
                       ),
-                    );
-                  },
-                );
-              }),
-            ],
+                      border: Border.all(
+                        color: AppTheme.goldColor.withValues(
+                          alpha: isDark ? 0.2 : 0.3,
+                        ),
+                        width: 1.w,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.goldColor.withValues(
+                            alpha: isDark ? 0.1 : 0.15,
+                          ),
+                          blurRadius: 6.r,
+                          offset: Offset(0.w, 2.h),
+                        ),
+                      ],
+                    ),
+                    child: IntrinsicWidth(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        textDirection: TextDirection.rtl,
+                        children: [
+                          Text(
+                            'در حال تایپ',
+                            style: GoogleFonts.vazirmatn(
+                              color: context.textSecondary,
+                              fontSize: 12.sp,
+                            ),
+                          ),
+                          SizedBox(width: 8.w),
+                          ...List.generate(3, (index) {
+                            return AnimatedBuilder(
+                              animation: _dotAnimations[index],
+                              builder: (context, child) {
+                                return Container(
+                                  margin: EdgeInsets.symmetric(horizontal: 2.w),
+                                  child: Opacity(
+                                    opacity: _dotAnimations[index].value,
+                                    child: Container(
+                                      width: 6.w,
+                                      height: 6.h,
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.goldColor,
+                                        borderRadius: BorderRadius.circular(
+                                          3.r,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ],
+          // آواتار هوش مصنوعی (بعد از پیام - سمت چپ)
+          SizedBox(width: 8.w),
+          Container(
+            width: 36.w,
+            height: 36.h,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppTheme.goldColor, AppTheme.darkGold],
+              ),
+              borderRadius: BorderRadius.circular(18.r),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.goldColor.withValues(alpha: 0.3),
+                  blurRadius: 8.r,
+                  offset: Offset(0.w, 2.h),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.smart_toy, color: Colors.white, size: 18),
+          ),
+        ],
+      ),
     );
   }
 }

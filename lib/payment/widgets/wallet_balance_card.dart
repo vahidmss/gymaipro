@@ -1,7 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/payment/models/wallet.dart';
+import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -18,19 +19,38 @@ class WalletBalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
-      padding: EdgeInsets.all(20.w),
+      padding: EdgeInsets.all(24.w),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            AppTheme.goldColor.withValues(alpha: 0.1),
-            AppTheme.cardColor,
-          ],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
+          colors: isDark
+              ? [
+                  AppTheme.goldColor.withValues(alpha: 0.15),
+                  AppTheme.darkCardColor,
+                ]
+              : [
+                  AppTheme.lightGradientStart,
+                  AppTheme.lightCardColor,
+                ],
         ),
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.1)),
+        borderRadius: BorderRadius.circular(24.r),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: 0.2),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.4)
+                : AppTheme.goldColor.withValues(alpha: 0.1),
+            blurRadius: 16.r,
+            offset: Offset(0.w, 6.h),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -39,18 +59,18 @@ class WalletBalanceCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(8.w),
+                padding: EdgeInsets.all(12.w),
                 decoration: BoxDecoration(
-                  color: AppTheme.goldColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8.r),
+                  color: AppTheme.goldColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(14.r),
                 ),
                 child: Icon(
                   LucideIcons.wallet,
                   color: AppTheme.goldColor,
-                  size: 24.sp,
+                  size: 26.sp,
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 14.w),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -58,112 +78,177 @@ class WalletBalanceCard extends StatelessWidget {
                     Text(
                       'کیف پول',
                       style: GoogleFonts.vazirmatn(
-                        fontSize: 18.sp,
+                        fontSize: 20.sp,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.goldColor,
                       ),
                     ),
-                    Text(
-                      wallet.statusText,
-                      style: GoogleFonts.vazirmatn(
-                        fontSize: 12.sp,
-                        color: Colors.white70,
-                      ),
+                    SizedBox(height: 2.h),
+                    Row(
+                      children: [
+                        Container(
+                          width: 6.w,
+                          height: 6.w,
+                          decoration: BoxDecoration(
+                            color: wallet.isActive && wallet.isVerified
+                                ? AppTheme.successColor
+                                : Colors.orange,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        SizedBox(width: 6.w),
+                        Text(
+                          wallet.statusText,
+                          style: GoogleFonts.vazirmatn(
+                            fontSize: 13.sp,
+                            color: context.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
               if (wallet.needsCharge)
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4.r),
-                  ),
-                  child: Text(
-                    'نیاز به شارژ',
-                    style: GoogleFonts.vazirmatn(
-                      fontSize: 10.sp,
-                      color: Colors.orange,
+                    color: Colors.orange.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8.r),
+                    border: Border.all(
+                      color: Colors.orange.withValues(alpha: 0.3),
                     ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        LucideIcons.alertCircle,
+                        size: 14.sp,
+                        color: Colors.orange,
+                      ),
+                      SizedBox(width: 4.w),
+                      Text(
+                        'نیاز به شارژ',
+                        style: GoogleFonts.vazirmatn(
+                          fontSize: 11.sp,
+                          color: Colors.orange,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 28.h),
 
           // موجودی اصلی
           Center(
             child: Column(
               children: [
                 Text(
-                  'موجودی',
+                  'موجودی قابل برداشت',
                   style: GoogleFonts.vazirmatn(
                     fontSize: 14.sp,
-                    color: Colors.white70,
+                    color: context.textSecondary,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 8.h),
                 Text(
-                  wallet.formattedAvailableBalance,
+                  PaymentConstants.formatAmount(wallet.availableBalance),
                   style: GoogleFonts.vazirmatn(
-                    fontSize: 32.sp,
+                    fontSize: 38.sp,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.goldColor,
+                    letterSpacing: -1,
+                    height: 1.1,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 28.h),
 
           // آمار کیف پول
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatItem(
-                  'کل شارژ',
-                  wallet.formattedTotalCharged,
-                  LucideIcons.trendingUp,
-                  Colors.green,
+          Container(
+            padding: EdgeInsets.all(16.w),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? context.textColor.withValues(alpha: 0.05)
+                  : Colors.white.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildStatItem(
+                    context,
+                    'کل شارژ',
+                    PaymentConstants.formatAmount(wallet.totalCharged),
+                    LucideIcons.trendingUp,
+                    AppTheme.successColor,
+                    isDark,
+                  ),
                 ),
-              ),
-              Container(width: 1.w, height: 40.h, color: Colors.white24),
-              Expanded(
-                child: _buildStatItem(
-                  'کل خرج',
-                  wallet.formattedTotalSpent,
-                  LucideIcons.trendingDown,
-                  Colors.red,
+                Container(
+                  width: 1.w,
+                  height: 50.h,
+                  color: isDark
+                      ? context.textColor.withValues(alpha: 0.1)
+                      : AppTheme.lightDividerColor,
                 ),
-              ),
-            ],
+                SizedBox(width: 16.w),
+                Expanded(
+                  child: _buildStatItem(
+                    context,
+                    'کل خرج',
+                    PaymentConstants.formatAmount(wallet.totalSpent),
+                    LucideIcons.trendingDown,
+                    Colors.red,
+                    isDark,
+                  ),
+                ),
+              ],
+            ),
           ),
 
           if (wallet.blockedBalance > 0) ...[
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
             Container(
-              padding: EdgeInsets.all(12.w),
+              padding: EdgeInsets.all(14.w),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8.r),
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(
+                  color: Colors.orange.withValues(alpha: 0.3),
+                ),
               ),
               child: Row(
                 children: [
-                  const Icon(LucideIcons.lock, color: Colors.orange, size: 16),
-                  const SizedBox(width: 8),
-                  Text(
-                    'موجودی مسدود: ${wallet.formattedBlockedBalance}',
-                    style: GoogleFonts.vazirmatn(
-                      fontSize: 12.sp,
-                      color: Colors.orange,
+                  Icon(
+                    LucideIcons.lock,
+                    color: Colors.orange,
+                    size: 18.sp,
+                  ),
+                  SizedBox(width: 10.w),
+                  Expanded(
+                    child: Text(
+                      'موجودی مسدود: ${PaymentConstants.formatAmount(wallet.blockedBalance)}',
+                      style: GoogleFonts.vazirmatn(
+                        fontSize: 13.sp,
+                        color: Colors.orange,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
           ],
-          const SizedBox(height: 20),
+          SizedBox(height: 24.h),
 
           // دکمه‌های عملیات
           Row(
@@ -172,17 +257,22 @@ class WalletBalanceCard extends StatelessWidget {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: onCharge,
-                    icon: const Icon(LucideIcons.plus, size: 16),
+                    icon: Icon(LucideIcons.plus, size: 18.sp),
                     label: Text(
                       'شارژ کیف پول',
-                      style: GoogleFonts.vazirmatn(fontSize: 12),
+                      style: GoogleFonts.vazirmatn(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.goldColor,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      foregroundColor: AppTheme.onGoldColor,
+                      padding: EdgeInsets.symmetric(vertical: 14.h),
+                      elevation: 4,
+                      shadowColor: AppTheme.goldColor.withValues(alpha: 0.3),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.r),
+                        borderRadius: BorderRadius.circular(14.r),
                       ),
                     ),
                   ),
@@ -190,23 +280,29 @@ class WalletBalanceCard extends StatelessWidget {
               ],
 
               if (onCharge != null && onViewHistory != null)
-                const SizedBox(width: 8),
+                SizedBox(width: 12.w),
 
               if (onViewHistory != null) ...[
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: onViewHistory,
-                    icon: const Icon(LucideIcons.history, size: 16),
+                    icon: Icon(LucideIcons.history, size: 18.sp),
                     label: Text(
                       'تاریخچه',
-                      style: GoogleFonts.vazirmatn(fontSize: 12),
+                      style: GoogleFonts.vazirmatn(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.goldColor,
-                      side: const BorderSide(color: AppTheme.goldColor),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      side: BorderSide(
+                        color: AppTheme.goldColor,
+                        width: 2,
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: 14.h),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.r),
+                        borderRadius: BorderRadius.circular(14.r),
                       ),
                     ),
                   ),
@@ -220,27 +316,45 @@ class WalletBalanceCard extends StatelessWidget {
   }
 
   Widget _buildStatItem(
+    BuildContext context,
     String label,
     String value,
     IconData icon,
     Color color,
+    bool isDark,
   ) {
     return Column(
       children: [
-        Icon(icon, color: color, size: 20),
-        const SizedBox(height: 4),
+        Container(
+          padding: EdgeInsets.all(8.w),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10.r),
+          ),
+          child: Icon(
+            icon,
+            color: color,
+            size: 20.sp,
+          ),
+        ),
+        SizedBox(height: 8.h),
         Text(
           label,
-          style: GoogleFonts.vazirmatn(fontSize: 11.sp, color: Colors.white54),
+          style: GoogleFonts.vazirmatn(
+            fontSize: 12.sp,
+            color: context.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
         ),
-        const SizedBox(height: 2),
+        SizedBox(height: 4.h),
         Text(
           value,
           style: GoogleFonts.vazirmatn(
-            fontSize: 12.sp,
+            fontSize: 14.sp,
             fontWeight: FontWeight.bold,
             color: color,
           ),
+          textAlign: TextAlign.center,
         ),
       ],
     );

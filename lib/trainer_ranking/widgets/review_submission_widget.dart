@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_ranking_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -23,13 +23,26 @@ class ReviewSubmissionWidget extends StatefulWidget {
 class _ReviewSubmissionWidgetState extends State<ReviewSubmissionWidget> {
   final TrainerRankingService _service = TrainerRankingService();
   final TextEditingController _commentController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
 
-  double _rating = 5;
+  double _rating = 1;
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto focus on comment field after build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _commentFocusNode.requestFocus();
+    });
+  }
 
   @override
   void dispose() {
     _commentController.dispose();
+    _commentFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -65,9 +78,16 @@ class _ReviewSubmissionWidgetState extends State<ReviewSubmissionWidget> {
             SnackBar(
               content: Text(
                 'نظر شما با موفقیت ثبت شد',
-                style: GoogleFonts.vazirmatn(),
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 14.sp,
+                ),
               ),
-              backgroundColor: Colors.green,
+              backgroundColor: AppTheme.successColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.r),
+              ),
             ),
           );
         }
@@ -89,12 +109,43 @@ class _ReviewSubmissionWidgetState extends State<ReviewSubmissionWidget> {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('خطا', style: GoogleFonts.vazirmatn()),
-        content: Text(message, style: GoogleFonts.vazirmatn()),
+        backgroundColor: context.cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20.r),
+          side: BorderSide(
+            color: AppTheme.errorColor.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
+        ),
+        title: Text(
+          'خطا',
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            color: AppTheme.errorColor,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          message,
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            color: context.textColor,
+            fontSize: 14.sp,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('باشه', style: GoogleFonts.vazirmatn()),
+            child: Text(
+              'باشه',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: AppTheme.goldColor,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -103,198 +154,340 @@ class _ReviewSubmissionWidgetState extends State<ReviewSubmissionWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.8,
-      ),
-      padding: EdgeInsets.all(20.w),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(16.r),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // عنوان
-            Text(
-              'نظر خود را ثبت کنید',
-              style: GoogleFonts.vazirmatn(
-                color: Colors.white,
-                fontSize: 18.sp,
-                fontWeight: FontWeight.bold,
-              ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: () {
+        // Dismiss keyboard when tapping outside
+        FocusScope.of(context).unfocus();
+      },
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+          maxWidth: 400.w,
+        ),
+        padding: EdgeInsets.all(20.w),
+        decoration: BoxDecoration(
+          color: context.cardColor,
+          borderRadius: BorderRadius.circular(24.r),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 20.r,
+              offset: Offset(0, 8.h),
             ),
-            SizedBox(height: 20.h),
-
-            // امتیازدهی
-            Text(
-              'امتیاز شما:',
-              style: GoogleFonts.vazirmatn(
-                color: Colors.white,
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w500,
+          ],
+        ),
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const ClampingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // عنوان با آیکون
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(10.w),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppTheme.goldColor,
+                          AppTheme.darkGold,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    child: Icon(
+                      LucideIcons.star,
+                      color: AppTheme.onGoldColor,
+                      size: 20.sp,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Text(
+                      'ثبت نظر',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: context.textColor,
+                        fontSize: 20.sp,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            SizedBox(height: 10.h),
+              SizedBox(height: 20.h),
 
-            Row(
-              children: [
-                Expanded(
-                  child: Slider(
-                    value: _rating,
-                    min: 1,
-                    max: 5,
-                    divisions: 4,
-                    activeColor: AppTheme.goldColor,
-                    inactiveColor: Colors.grey[600],
-                    onChanged: (value) {
+              // امتیازدهی با ستاره‌ها
+              Text(
+                'امتیاز شما:',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textColor,
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: 16.h),
+
+              // ستاره‌های تعاملی (از چپ به راست - RTL)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                textDirection: TextDirection.rtl,
+                children: List.generate(5, (index) {
+                  // در RTL، index 0 اولین ستاره سمت راست است
+                  // برای پر شدن از چپ به راست، باید از index 4 شروع کنیم
+                  final rtlIndex = 4 - index; // تبدیل به RTL
+                  final starValue = rtlIndex + 1;
+                  final isSelected = starValue <= _rating;
+                  return GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
                       setState(() {
-                        _rating = value;
+                        _rating = starValue.toDouble();
                       });
                     },
-                  ),
-                ),
-                Container(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4.w),
+                      child: Icon(
+                        LucideIcons.star,
+                        color: isSelected
+                            ? AppTheme.goldColor
+                            : Colors.grey.shade400,
+                        size: 40.sp,
+                        fill: isSelected ? 1.0 : 0.0,
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              SizedBox(height: 10.h),
+
+              // نمایش عدد امتیاز
+              Center(
+                child: Container(
                   padding: EdgeInsets.symmetric(
-                    horizontal: 12.w,
-                    vertical: 6.h,
+                    horizontal: 16.w,
+                    vertical: 8.h,
                   ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
                         AppTheme.goldColor,
-                        AppTheme.goldColor.withValues(alpha: 0.8),
+                        AppTheme.darkGold,
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(8.r),
+                    borderRadius: BorderRadius.circular(20.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.goldColor.withValues(alpha: 0.3),
+                        blurRadius: 8.r,
+                        offset: Offset(0, 3.h),
+                      ),
+                    ],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         LucideIcons.star,
-                        color: Colors.white,
-                        size: 16,
+                        color: AppTheme.onGoldColor,
+                        size: 18.sp,
                       ),
-                      SizedBox(width: 4.w),
+                      SizedBox(width: 6.w),
                       Text(
                         _rating.toStringAsFixed(1),
-                        style: GoogleFonts.vazirmatn(
-                          color: Colors.white,
-                          fontSize: 14.sp,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: AppTheme.onGoldColor,
+                          fontSize: 16.sp,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-            SizedBox(height: 20.h),
-
-            // متن نظر
-            Text(
-              'نظر شما:',
-              style: GoogleFonts.vazirmatn(
-                color: Colors.white,
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w500,
               ),
-            ),
-            SizedBox(height: 10.h),
+              SizedBox(height: 24.h),
 
-            TextField(
-              controller: _commentController,
-              maxLines: 4,
-              style: GoogleFonts.vazirmatn(
-                color: Colors.white,
-                fontSize: 14.sp,
+              // متن نظر
+              Text(
+                'نظر شما:',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textColor,
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              decoration: InputDecoration(
-                hintText: 'نظر خود را در مورد این مربی بنویسید...',
-                hintStyle: GoogleFonts.vazirmatn(
-                  color: Colors.grey[400],
+              SizedBox(height: 12.h),
+
+              TextField(
+                controller: _commentController,
+                focusNode: _commentFocusNode,
+                maxLines: 3,
+                minLines: 3,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  if (!_isSubmitting && _commentController.text.trim().isNotEmpty) {
+                    _submitReview();
+                  }
+                },
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textColor,
                   fontSize: 14.sp,
+                  height: 1.4,
                 ),
-                filled: true,
-                fillColor: const Color(0xFF1A1A1A),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                  borderSide: BorderSide(
-                    color: AppTheme.goldColor.withValues(alpha: 0.3),
+                decoration: InputDecoration(
+                  hintText: 'نظر خود را در مورد این مربی بنویسید...',
+                  hintStyle: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textSecondary,
+                    fontSize: 14.sp,
+                  ),
+                  filled: true,
+                  fillColor: isDark
+                      ? context.veryDarkBackground
+                      : AppTheme.lightButtonBackground,
+                  contentPadding: EdgeInsets.all(14.w),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16.r),
+                    borderSide: BorderSide(
+                      color: context.separatorColor,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16.r),
+                    borderSide: BorderSide(
+                      color: context.separatorColor,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16.r),
+                    borderSide: BorderSide(
+                      color: AppTheme.goldColor,
+                      width: 2,
+                    ),
                   ),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                  borderSide: BorderSide(
-                    color: AppTheme.goldColor.withValues(alpha: 0.3),
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                  borderSide: BorderSide(color: AppTheme.goldColor, width: 2.w),
-                ),
+                onTap: () {
+                  // Scroll to text field when focused
+                  Future.delayed(const Duration(milliseconds: 250), () {
+                    if (_scrollController.hasClients) {
+                      _scrollController.animateTo(
+                        _scrollController.position.maxScrollExtent,
+                        duration: const Duration(milliseconds: 150),
+                        curve: Curves.easeOut,
+                      );
+                    }
+                  });
+                },
               ),
-            ),
-            SizedBox(height: 20.h),
+              SizedBox(height: 20.h),
 
-            // دکمه‌ها
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: 12.h),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.r),
+              // دکمه‌ها
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _isSubmitting
+                          ? null
+                          : () {
+                              FocusScope.of(context).unfocus();
+                              Navigator.of(context).pop();
+                            },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: context.textSecondary,
+                        side: BorderSide(
+                          color: context.separatorColor,
+                          width: 1.5,
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: 14.h),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16.r),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      'انصراف',
-                      style: GoogleFonts.vazirmatn(
-                        color: Colors.grey[400],
-                        fontSize: 14.sp,
+                      child: Text(
+                        'انصراف',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isSubmitting ? null : _submitReview,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.goldColor,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 12.h),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.r),
-                      ),
-                      elevation: 4,
-                    ),
-                    child: _isSubmitting
-                        ? SizedBox(
-                            width: 20.w,
-                            height: 20.h,
-                            child: const CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : Text(
-                            'ثبت نظر',
-                            style: GoogleFonts.vazirmatn(
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.bold,
-                            ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.goldColor,
+                            AppTheme.darkGold,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(16.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.goldColor.withValues(alpha: 0.4),
+                            blurRadius: 12.r,
+                            offset: Offset(0, 4.h),
+                            spreadRadius: 0,
                           ),
+                        ],
+                      ),
+                      child: ElevatedButton(
+                        onPressed: _isSubmitting ? null : _submitReview,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          foregroundColor: AppTheme.onGoldColor,
+                          shadowColor: Colors.transparent,
+                          padding: EdgeInsets.symmetric(vertical: 14.h),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16.r),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: _isSubmitting
+                            ? SizedBox(
+                                width: 20.w,
+                                height: 20.h,
+                                child: CircularProgressIndicator(
+                                  color: AppTheme.onGoldColor,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    LucideIcons.send,
+                                    size: 18.sp,
+                                  ),
+                                  SizedBox(width: 8.w),
+                                  Text(
+                                    'ثبت نظر',
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      fontSize: 15.sp,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

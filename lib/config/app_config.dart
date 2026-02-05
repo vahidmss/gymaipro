@@ -81,13 +81,60 @@ class AppConfig {
   }
 
   // Payment gateway configuration
-  static const String zibalMerchantId = String.fromEnvironment(
-    'ZIBAL_MERCHANT_ID',
-  );
-  static const String zibalApiKey = String.fromEnvironment('ZIBAL_API_KEY');
-  static const String zarinpalMerchantId = String.fromEnvironment(
-    'ZARINPAL_MERCHANT_ID',
-  );
+  static String get zibalMerchantId {
+    const envMerchant = String.fromEnvironment('ZIBAL_MERCHANT_ID');
+    if (envMerchant.isNotEmpty) {
+      return envMerchant;
+    }
+    try {
+      final dotenvMerchant = dotenv.env['ZIBAL_MERCHANT_ID'] ?? '';
+      if (dotenvMerchant.isNotEmpty) {
+        return dotenvMerchant;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AppConfig: dotenv not initialized: $e');
+      }
+    }
+    return '';
+  }
+
+  static String get zibalApiKey {
+    const envKey = String.fromEnvironment('ZIBAL_API_KEY');
+    if (envKey.isNotEmpty) {
+      return envKey;
+    }
+    try {
+      final dotenvKey = dotenv.env['ZIBAL_API_KEY'] ?? '';
+      if (dotenvKey.isNotEmpty) {
+        return dotenvKey;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AppConfig: dotenv not initialized: $e');
+      }
+    }
+    return '';
+  }
+
+  static String get zarinpalMerchantId {
+    const envMerchant = String.fromEnvironment('ZARINPAL_MERCHANT_ID');
+    if (envMerchant.isNotEmpty) {
+      return envMerchant;
+    }
+    try {
+      final dotenvMerchant = dotenv.env['ZARINPAL_MERCHANT_ID'] ?? '';
+      if (dotenvMerchant.isNotEmpty) {
+        return dotenvMerchant;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('AppConfig: dotenv not initialized: $e');
+      }
+    }
+    return '';
+  }
+
   // Zibal requires callbackUrl domain to match merchant; use gymaipro.ir
   static const String zibalCallbackUrl = 'https://gymaipro.ir/payment/callback';
 
@@ -109,6 +156,7 @@ class AppConfig {
       }
     }
     // Default fallback (should not be used in production)
+    // استفاده از REST API پیامک پنل
     return 'https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber';
   }
 

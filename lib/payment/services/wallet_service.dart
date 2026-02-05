@@ -1,9 +1,9 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/payment/models/wallet.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
-import 'package:gymaipro/utils/auth_helper.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// سرویس مدیریت کیف پول
@@ -14,10 +14,61 @@ class WalletService {
 
   final SupabaseClient _client = Supabase.instance.client;
 
+  /// در این پروژه، برای بسیاری از جدول‌ها `user_id` به `profiles.id` وصل است (نه `auth.users.id`).
+  /// پس برای جلوگیری از خطای FK باید profileId را استفاده کنیم.
+  /// اگر پروفایل پیدا نشد، retry می‌کنیم (ممکن است مشکل connection باشد)
+  Future<String?> _getEffectiveUserId() async {
+    int retryCount = 0;
+    const maxRetries = 3;
+
+    while (retryCount < maxRetries) {
+      try {
+        final profile = await SimpleProfileService.getCurrentProfile();
+        final id = profile?['id'] as String?;
+        if (id != null && id.isNotEmpty) return id;
+
+        // اگر پروفایل پیدا نشد و retry باقی مانده، دوباره تلاش می‌کنیم
+        if (retryCount < maxRetries - 1) {
+          await Future<void>.delayed(
+            Duration(milliseconds: 500 * (retryCount + 1)),
+          );
+          retryCount++;
+        } else {
+          break;
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print(
+            'WALLET_SERVICE: Error getting profile (attempt ${retryCount + 1}/$maxRetries): $e',
+          );
+        }
+
+        // اگر retry باقی مانده، دوباره تلاش می‌کنیم
+        if (retryCount < maxRetries - 1) {
+          await Future<void>.delayed(
+            Duration(milliseconds: 500 * (retryCount + 1)),
+          );
+          retryCount++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    // اگر بعد از retry هم پروفایل پیدا نشد، null برمی‌گردانیم
+    // (نه authUserId چون constraint به profiles reference می‌کند)
+    if (kDebugMode) {
+      print(
+        'WALLET_SERVICE: Profile not found after $maxRetries attempts, returning null',
+      );
+    }
+    return null;
+  }
+
   /// دریافت کیف پول کاربر (ایجاد خودکار در صورت عدم وجود)
   Future<Wallet?> getUserWallet() async {
     try {
-      final userId = await AuthHelper.getCurrentUserId();
+      final userId = await _getEffectiveUserId();
       if (userId == null) {
         if (kDebugMode) {
           print('کاربر وارد نشده است');
@@ -59,7 +110,7 @@ class WalletService {
   /// ایجاد کیف پول برای کاربر (متد عمومی)
   Future<Wallet?> createUserWallet() async {
     try {
-      final userId = await AuthHelper.getCurrentUserId();
+      final userId = await _getEffectiveUserId();
       if (userId == null) {
         if (kDebugMode) {
           print('کاربر وارد نشده است');
@@ -149,6 +200,12 @@ class WalletService {
   }
 
   /// پرداخت از کیف پول
+  /// منطق پرداخت:
+  /// - مبلغ فقط از [available_balance] (موجودی قابل برداشت) کسر می‌شود.
+  /// - همزمان [balance] (کل موجودی) هم به‌همان مقدار کم می‌شود؛
+  ///   رابطه: balance = available_balance + blocked_balance
+  /// - اگر بعد از کسر، هر کدام از available_balance یا balance منفی شود،
+  ///   خطا پرتاب می‌شود (موجودی کافی نیست یا ناسازگاری در دیتا).
   Future<bool> payFromWallet({
     required int amount,
     required String description,
@@ -161,14 +218,23 @@ class WalletService {
         throw Exception(PaymentConstants.walletNotFound);
       }
 
-      // بررسی موجودی کافی
-      if (!wallet.hasEnoughBalance(amount)) {
+      // بررسی موجودی کافی - فقط available_balance بررسی می‌شود
+      if (wallet.availableBalance < amount) {
         throw Exception(PaymentConstants.insufficientBalance);
       }
 
-      final newBalance = wallet.balance - amount;
+      // کسر: معیار «موجودی کافی» فقط available_balance است
       final newAvailableBalance = wallet.availableBalance - amount;
+      final newBalance = wallet.balance - amount;
       final newTotalSpent = wallet.totalSpent + amount;
+
+      if (newAvailableBalance < 0) {
+        throw Exception(PaymentConstants.insufficientBalance);
+      }
+      // جلوگیری از نقض CHECK (balance >= 0) در دیتابیس؛ در صورت منفی بودن همان خطای موجودی
+      if (newBalance < 0) {
+        throw Exception(PaymentConstants.insufficientBalance);
+      }
 
       // به‌روزرسانی کیف پول
       await _client
@@ -182,18 +248,35 @@ class WalletService {
           })
           .eq('id', wallet.id);
 
-      // اضافه کردن تراکنش کیف پول
-      await _addWalletTransaction(
-        walletId: wallet.id,
-        userId: wallet.userId,
-        type: WalletTransactionType.payment,
-        amount: amount,
-        balanceBefore: wallet.balance,
-        balanceAfter: newBalance,
-        description: description,
-        referenceId: referenceId,
-        metadata: metadata,
-      );
+      try {
+        // اضافه کردن تراکنش کیف پول (از available_balance استفاده می‌کنیم)
+        await _addWalletTransaction(
+          walletId: wallet.id,
+          userId: wallet.userId,
+          type: WalletTransactionType.payment,
+          amount: amount,
+          balanceBefore: wallet.availableBalance,
+          balanceAfter: newAvailableBalance,
+          description: description,
+          referenceId: referenceId,
+          metadata: metadata,
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print('خطا در ثبت تراکنش کیف پول، در حال بازگرداندن موجودی: $e');
+        }
+        // بازگرداندن موجودی در صورت شکست ثبت تراکنش (RLS یا شبکه)
+        await _client
+            .from('wallets')
+            .update({
+              'balance': wallet.balance,
+              'available_balance': wallet.availableBalance,
+              'total_spent': wallet.totalSpent,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', wallet.id);
+        rethrow;
+      }
 
       if (kDebugMode) {
         print('پرداخت از کیف پول: ${PaymentConstants.formatAmount(amount)}');
@@ -204,7 +287,7 @@ class WalletService {
       if (kDebugMode) {
         print('خطا در پرداخت از کیف پول: $e');
       }
-      return false;
+      rethrow;
     }
   }
 
@@ -328,11 +411,14 @@ class WalletService {
 
       final newAvailableBalance = wallet.availableBalance - amount;
       final newBlockedBalance = wallet.blockedBalance + amount;
+      // balance = available_balance + blocked_balance (همیشه باید برقرار باشد)
+      final newBalance = newAvailableBalance + newBlockedBalance;
 
       // به‌روزرسانی کیف پول
       await _client
           .from('wallets')
           .update({
+            'balance': newBalance,
             'available_balance': newAvailableBalance,
             'blocked_balance': newBlockedBalance,
             'updated_at': DateTime.now().toIso8601String(),
@@ -368,11 +454,14 @@ class WalletService {
 
       final newAvailableBalance = wallet.availableBalance + amount;
       final newBlockedBalance = wallet.blockedBalance - amount;
+      // balance = available_balance + blocked_balance (همیشه باید برقرار باشد)
+      final newBalance = newAvailableBalance + newBlockedBalance;
 
       // به‌روزرسانی کیف پول
       await _client
           .from('wallets')
           .update({
+            'balance': newBalance,
             'available_balance': newAvailableBalance,
             'blocked_balance': newBlockedBalance,
             'updated_at': DateTime.now().toIso8601String(),
@@ -393,34 +482,52 @@ class WalletService {
   }
 
   /// دریافت تاریخچه تراکنش‌های کیف پول
+  /// از wallet جاری کاربر (profile-based) استفاده می‌کند تا با RLS و user_id یکسان باشد.
   Future<List<WalletTransaction>> getWalletTransactions({
     int limit = 50,
     int offset = 0,
     WalletTransactionType? type,
   }) async {
     try {
-      final userId = await AuthHelper.getCurrentUserId();
-      if (userId == null) return [];
+      final wallet = await getUserWallet();
+      if (wallet == null) {
+        if (kDebugMode) {
+          print('WALLET_TX: کیف پول یافت نشد (getUserWallet null)');
+        }
+        return [];
+      }
 
-      final baseQuery = _client
+      var query = _client
           .from('wallet_transactions')
           .select()
-          .eq('user_id', userId);
+          .eq('wallet_id', wallet.id);
 
-      final filteredQuery = type != null
-          ? baseQuery.eq('type', type.toString().split('.').last)
-          : baseQuery;
+      if (type != null) {
+        query = query.eq('type', type.toString().split('.').last);
+      }
 
-      final orderedQuery = filteredQuery.order('created_at', ascending: false);
+      final raw = await query
+          .order('created_at', ascending: false)
+          .range(offset, offset + limit - 1);
 
-      final response = await orderedQuery.range(offset, offset + limit - 1);
-
-      return response
-          .map<WalletTransaction>(WalletTransaction.fromJson)
+      final list = raw as List<dynamic>;
+      final transactions = list
+          .map<WalletTransaction>(
+            (e) => WalletTransaction.fromJson(e as Map<String, dynamic>),
+          )
           .toList();
-    } catch (e) {
+
+      if (kDebugMode) {
+        print(
+          'WALLET_TX: wallet_id=${wallet.id}, تعداد تراکنش‌ها=${transactions.length}',
+        );
+      }
+
+      return transactions;
+    } catch (e, st) {
       if (kDebugMode) {
         print('خطا در دریافت تاریخچه کیف پول: $e');
+        print('WALLET_TX stack: $st');
       }
       return [];
     }
@@ -445,9 +552,11 @@ class WalletService {
       );
 
       return {
-        'current_balance': wallet.balance,
+        'current_balance':
+            wallet.availableBalance, // استفاده از available_balance
         'available_balance': wallet.availableBalance,
         'blocked_balance': wallet.blockedBalance,
+        'total_balance': wallet.balance, // کل موجودی (available + blocked)
         'total_charged': wallet.totalCharged,
         'total_spent': wallet.totalSpent,
         'total_transactions': transactions.length,
@@ -555,6 +664,7 @@ class WalletService {
       if (kDebugMode) {
         print('خطا در اضافه کردن تراکنش کیف پول: $e');
       }
+      rethrow;
     }
   }
 }

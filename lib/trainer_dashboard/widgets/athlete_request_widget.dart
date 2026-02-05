@@ -5,7 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 class AthleteRequestWidget extends StatefulWidget {
   const AthleteRequestWidget({required this.onAthleteSelected, super.key});
-  final Function(Map<String, dynamic>) onAthleteSelected;
+  final void Function(Map<String, dynamic>) onAthleteSelected;
 
   @override
   State<AthleteRequestWidget> createState() => _AthleteRequestWidgetState();

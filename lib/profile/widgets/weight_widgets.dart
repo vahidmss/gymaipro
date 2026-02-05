@@ -1,6 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class WeightWidgets {
@@ -49,22 +49,32 @@ class WeightWidgets {
 
   static void showWeightGuidanceDialog(
     BuildContext context,
-    Function(String) onWeightSubmitted,
+    void Function(String) onWeightSubmitted,
   ) {
     final weightController = TextEditingController();
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (BuildContext context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
+          backgroundColor: context.cardColor,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.r),
+            borderRadius: BorderRadius.circular(20.r),
+            side: BorderSide(
+              color: AppTheme.goldColor.withValues(
+                alpha: isDark ? 0.3 : 0.5,
+              ),
+              width: 1.5,
+            ),
           ),
           title: Text(
             'ثبت وزن جدید',
-            style: GoogleFonts.vazirmatn(
-              textStyle: const TextStyle(color: Colors.white, fontSize: 18),
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textColor,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
             ),
           ),
           content: SizedBox(
@@ -74,27 +84,54 @@ class WeightWidgets {
               children: [
                 Text(
                   'وزن فعلی خود را وارد کنید:',
-                  style: GoogleFonts.vazirmatn(
-                    textStyle: const TextStyle(color: Colors.white70),
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textSecondary,
+                    fontSize: 14.sp,
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: weightController,
                   keyboardType: TextInputType.number,
-                  style: GoogleFonts.vazirmatn(color: Colors.white),
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                    fontSize: 14.sp,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'مثال: 75.5',
-                    hintStyle: GoogleFonts.vazirmatn(color: Colors.grey),
+                    hintStyle: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textSecondary.withValues(alpha: 0.6),
+                      fontSize: 14.sp,
+                    ),
                     filled: true,
-                    fillColor: const Color(0xFF2A2A2A),
+                    fillColor: context.veryDarkBackground,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12.r),
-                      borderSide: BorderSide.none,
+                      borderSide: BorderSide(
+                        color: context.separatorColor,
+                        width: 1,
+                      ),
                     ),
-                    prefixIcon: const Icon(
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                      borderSide: BorderSide(
+                        color: context.separatorColor,
+                        width: 1,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                      borderSide: const BorderSide(
+                        color: AppTheme.goldColor,
+                        width: 2,
+                      ),
+                    ),
+                    prefixIcon: Icon(
                       LucideIcons.scale,
-                      color: Colors.orange,
+                      color: AppTheme.goldColor,
                     ),
                   ),
                 ),
@@ -106,7 +143,11 @@ class WeightWidgets {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'انصراف',
-                style: GoogleFonts.vazirmatn(color: Colors.grey),
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textSecondary,
+                  fontSize: 14.sp,
+                ),
               ),
             ),
             ElevatedButton(
@@ -118,12 +159,19 @@ class WeightWidgets {
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
+                backgroundColor: AppTheme.goldColor,
+                foregroundColor: AppTheme.onGoldColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
               ),
               child: Text(
                 'ثبت',
-                style: GoogleFonts.vazirmatn(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14.sp,
+                ),
               ),
             ),
           ],
@@ -136,18 +184,28 @@ class WeightWidgets {
     BuildContext context,
     List<Map<String, dynamic>> weightHistory,
   ) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (BuildContext context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return AlertDialog(
-          backgroundColor: const Color(0xFF1A1A1A),
+          backgroundColor: context.cardColor,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.r),
+            borderRadius: BorderRadius.circular(20.r),
+            side: BorderSide(
+              color: AppTheme.goldColor.withValues(
+                alpha: isDark ? 0.3 : 0.5,
+              ),
+              width: 1.5,
+            ),
           ),
           title: Text(
             'تاریخچه وزن',
-            style: GoogleFonts.vazirmatn(
-              textStyle: const TextStyle(color: Colors.white, fontSize: 18),
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textColor,
+              fontSize: 18.sp,
+              fontWeight: FontWeight.bold,
             ),
           ),
           content: SizedBox(
@@ -157,8 +215,9 @@ class WeightWidgets {
                 ? Center(
                     child: Text(
                       'هنوز وزنی ثبت نشده است',
-                      style: GoogleFonts.vazirmatn(
-                        color: Colors.grey,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: context.textSecondary,
                         fontSize: 16.sp,
                       ),
                     ),
@@ -171,11 +230,15 @@ class WeightWidgets {
                       final date = record['recorded_at']?.toString() ?? '';
 
                       return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
+                        margin: EdgeInsets.only(bottom: 8.h),
                         padding: EdgeInsets.all(12.w),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A2A),
+                          color: context.veryDarkBackground,
                           borderRadius: BorderRadius.circular(12.r),
+                          border: Border.all(
+                            color: AppTheme.goldColor.withValues(alpha: 0.2),
+                            width: 1,
+                          ),
                         ),
                         child: Row(
                           textDirection: TextDirection.rtl,
@@ -184,15 +247,17 @@ class WeightWidgets {
                               width: 32.w,
                               height: 32.h,
                               decoration: BoxDecoration(
-                                color: Colors.orange.withAlpha(50),
+                                color: AppTheme.goldColor.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(8.r),
                               ),
                               child: Center(
                                 child: Text(
                                   _toPersianNumber((index + 1).toString()),
-                                  style: GoogleFonts.vazirmatn(
-                                    color: Colors.orange,
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
+                                    color: AppTheme.goldColor,
                                     fontWeight: FontWeight.bold,
+                                    fontSize: 12.sp,
                                   ),
                                 ),
                               ),
@@ -204,8 +269,9 @@ class WeightWidgets {
                                 children: [
                                   Text(
                                     '${_toPersianNumber(weight)}  کیلوگرم',
-                                    style: GoogleFonts.vazirmatn(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      color: context.textColor,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16.sp,
                                     ),
@@ -213,8 +279,9 @@ class WeightWidgets {
                                   ),
                                   Text(
                                     _formatDate(date),
-                                    style: GoogleFonts.vazirmatn(
-                                      color: Colors.grey,
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      color: context.textSecondary,
                                       fontSize: 12.sp,
                                     ),
                                   ),
@@ -223,7 +290,7 @@ class WeightWidgets {
                             ),
                             Icon(
                               LucideIcons.lineChart,
-                              color: Colors.orange.withAlpha(150),
+                              color: AppTheme.goldColor.withValues(alpha: 0.6),
                               size: 20.sp,
                             ),
                           ],
@@ -237,7 +304,11 @@ class WeightWidgets {
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'بستن',
-                style: GoogleFonts.vazirmatn(color: Colors.orange),
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: AppTheme.goldColor,
+                  fontSize: 14.sp,
+                ),
               ),
             ),
           ],

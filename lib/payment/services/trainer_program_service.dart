@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/foundation.dart';
+import 'package:gymaipro/payment/services/payout_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 // removed unused import
 
@@ -10,6 +11,7 @@ class TrainerProgramService {
       TrainerProgramService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
+  final PayoutService _payoutService = PayoutService();
 
   /// ثبت برنامه توسط مربی
   Future<bool> registerProgram({
@@ -64,6 +66,16 @@ class TrainerProgramService {
             },
           })
           .eq('id', subscriptionId);
+
+      // به‌روزرسانی trainer_withdrawable
+      try {
+        await _payoutService.updateTrainerWithdrawable(trainerId);
+      } catch (e) {
+        if (kDebugMode) {
+          print('⚠️ خطا در به‌روزرسانی موجودی قابل برداشت: $e');
+        }
+        // خطا در به‌روزرسانی نباید جریان اصلی را متوقف کند
+      }
 
       if (kDebugMode) {
         print('برنامه با موفقیت ثبت شد');

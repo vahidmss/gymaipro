@@ -1,4 +1,5 @@
-﻿import 'package:gymaipro/profile/models/user_profile.dart';
+﻿import 'package:flutter/foundation.dart';
+import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UserService {
@@ -15,6 +16,7 @@ class UserService {
 
       return UserProfile.fromJson(response);
     } catch (e) {
+      debugPrint('⚠️ Error getting user profile for $userId: $e');
       return null;
     }
   }
@@ -25,22 +27,29 @@ class UserService {
       final profile = await getUserProfile(userId);
       if (profile != null) {
         if (profile.firstName != null && profile.lastName != null) {
-          return '${profile.firstName} ${profile.lastName}';
-        } else if (profile.firstName != null) {
+          final name = '${profile.firstName} ${profile.lastName}'.trim();
+          if (name.isNotEmpty) return name;
+        }
+        if (profile.firstName != null && profile.firstName!.isNotEmpty) {
           return profile.firstName!;
-        } else if (profile.lastName != null) {
+        }
+        if (profile.lastName != null && profile.lastName!.isNotEmpty) {
           return profile.lastName!;
-        } else if (profile.username.isNotEmpty) {
+        }
+        if (profile.username.isNotEmpty) {
           return profile.username;
-        } else if (profile.phoneNumber != null &&
+        }
+        if (profile.phoneNumber != null &&
             profile.phoneNumber!.isNotEmpty) {
           return profile.phoneNumber!.replaceRange(0, 7, '***');
-        } else {
-          return 'کاربر ناشناس';
         }
+        debugPrint('⚠️ User $userId has no display name fields');
+        return 'کاربر ناشناس';
       }
+      debugPrint('⚠️ Profile not found for user: $userId');
       return 'کاربر ناشناس';
     } catch (e) {
+      debugPrint('⚠️ Error getting display name for $userId: $e');
       return 'کاربر ناشناس';
     }
   }

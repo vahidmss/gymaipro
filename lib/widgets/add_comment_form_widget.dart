@@ -10,7 +10,7 @@ class AddCommentFormWidget extends StatefulWidget {
     this.initialRating,
     this.isLoading = false,
   });
-  final Function(String content, int? rating) onSubmit;
+  final void Function(String content, int? rating) onSubmit;
   final String? initialContent;
   final int? initialRating;
   final bool isLoading;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
+import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/widgets/user_role_badge.dart';
 import 'package:shamsi_date/shamsi_date.dart';
@@ -100,6 +100,8 @@ class ConversationTileWidget extends StatelessWidget {
                                   color: AppTheme.bodyStyle.color,
                                   fontSize: 11.sp,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ),
@@ -155,6 +157,8 @@ class ConversationTileWidget extends StatelessWidget {
                                       fontSize: 11.sp,
                                       fontWeight: FontWeight.bold,
                                     ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                             ],

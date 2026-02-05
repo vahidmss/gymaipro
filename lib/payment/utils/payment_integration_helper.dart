@@ -46,7 +46,7 @@ class PaymentIntegrationHelper {
     required String featureName,
     String? customMessage,
   }) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('دسترسی محدود'),

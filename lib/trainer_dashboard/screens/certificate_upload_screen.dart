@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_ranking/models/certificate.dart';
 import 'package:gymaipro/trainer_ranking/services/certificate_service.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -61,7 +62,7 @@ class _CertificateUploadScreenState extends State<CertificateUploadScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    WidgetSafetyUtils.safeSetState(this, () => _isLoading = true);
 
     try {
       final user = Supabase.instance.client.auth.currentUser;
@@ -93,25 +94,23 @@ class _CertificateUploadScreenState extends State<CertificateUploadScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('مدرک با موفقیت آپلود شد و در انتظار تایید است'),
-            backgroundColor: Colors.green,
-          ),
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          'مدرک با موفقیت آپلود شد و در انتظار تایید است',
+          backgroundColor: Colors.green,
         );
-        Navigator.pop(context);
+        WidgetSafetyUtils.safePop(context);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطا در آپلود مدرک: $e'),
-            backgroundColor: Colors.red,
-          ),
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          'خطا در آپلود مدرک: $e',
+          backgroundColor: Colors.red,
         );
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      WidgetSafetyUtils.safeSetState(this, () => _isLoading = false);
     }
   }
 

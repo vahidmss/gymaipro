@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
@@ -369,21 +369,31 @@ class SupabaseService {
         print('=== PROFILE: error checking phone number: $phoneError ===');
       }
 
-      print('=== PROFILE: attempting upsert with data: ===');
+      print('=== PROFILE: attempting insert with data (no overwrite) ===');
       print('=== PROFILE: id=$userId ===');
       print('=== PROFILE: username=$finalUsername ===');
       print('=== PROFILE: phone_number=$phoneNumber ===');
       print('=== PROFILE: email=$email ===');
-      print('=== PROFILE: role=athlete ===');
+      print('=== PROFILE: role=athlete (new profile only) ===');
 
-      await client.from('profiles').upsert({
-        'id': userId,
-        'username': finalUsername,
-        'phone_number': phoneNumber,
-        'email': email,
-        'role': 'athlete',
-      });
-      print('=== PROFILE: upsert completed successfully for $userId ===');
+      // فقط insert برای پروفایل جدید؛ upsert نقش موجود را بازنویسی می‌کرد
+      try {
+        await client.from('profiles').insert({
+          'id': userId,
+          'username': finalUsername,
+          'phone_number': phoneNumber,
+          'email': email,
+          'role': 'athlete',
+        });
+        print('=== PROFILE: insert completed successfully for $userId ===');
+      } on PostgrestException catch (e) {
+        if (e.code == '23505') {
+          // conflict (profile already exists) - ignore, never overwrite role
+          print('=== PROFILE: profile already exists, skipping insert ===');
+        } else {
+          rethrow;
+        }
+      }
     } catch (e) {
       print('=== PROFILE: ensure failed with error: $e ===');
       print('=== PROFILE: error type: ${e.runtimeType} ===');
@@ -417,36 +427,148 @@ class SupabaseService {
         );
       }
 
-      // اگر ایمیل در پروفایل ذخیره شده باشد، از همان استفاده کن
+      // دریافت اطلاعات کامل پروفایل (نه فقط ایمیل)
+      Map<String, dynamic>? profileData;
       String? emailFromProfile;
       try {
         final prof = await client
             .from('profiles')
-            .select('email')
+            .select()
             .eq('phone_number', normalizedPhone)
             .maybeSingle();
-        emailFromProfile = (prof != null && (prof['email'] as String?) != null)
-            ? (prof['email'] as String)
-            : null;
-        print('=== SIGNIN: emailFromProfile=${emailFromProfile ?? 'null'} ===');
+        if (prof != null) {
+          profileData = prof;
+          emailFromProfile = prof['email'] as String?;
+          final profileId = prof['id'] as String?;
+          print('=== SIGNIN: Found profile with ID: $profileId ===');
+          print('=== SIGNIN: Profile email: ${emailFromProfile ?? 'null'} ===');
+          print(
+            '=== SIGNIN: Profile username: ${prof['username'] ?? 'null'} ===',
+          );
+        }
       } catch (e) {
-        print('=== SIGNIN: error fetching profile email: $e ===');
+        print('=== SIGNIN: error fetching profile: $e ===');
       }
 
-      final email =
-          emailFromProfile ??
-          _emailForAuth(
-            normalizedPhone: normalizedPhone.replaceAll(RegExp(r'\D'), ''),
+      // نکته مهم:
+      // برای جلوگیری از «لاگین فیک»، فقط باید روی همان کاربرِ مربوط به همین شماره کار کنیم.
+      // پس ایمیلِ هدف را از پروفایل می‌گیریم؛ اگر خالی بود، یک ایمیل استاندارد می‌سازیم.
+      final normalizedDigits = normalizedPhone.replaceAll(RegExp(r'\D'), '');
+      final targetEmail =
+          (emailFromProfile != null && emailFromProfile.trim().isNotEmpty)
+          ? emailFromProfile.trim()
+          : _emailForAuth(normalizedPhone: normalizedDigits);
+
+      // پسوردهای محتمل (قدیمی‌ها ممکن است بدون 0 ذخیره کرده باشند)
+      final candidatePasswords = <String>{
+        normalizedDigits,
+        normalizedDigits.replaceFirst(RegExp(r'^0+'), ''), // 9916...
+      }.where((p) => p.isNotEmpty).toList();
+
+      // 1) تلاش برای ورود با همان ایمیلِ پروفایل/ایمیل استاندارد
+      for (final pw in candidatePasswords) {
+        try {
+          print(
+            '=== SIGNIN: trying signInWithPassword email=$targetEmail, password=$pw ===',
           );
-      print('=== SIGNIN: trying signInWithPassword email=$email ===');
-      final response = await client.auth.signInWithPassword(
-        email: email,
-        password: normalizedPhone,
+          final res = await client.auth.signInWithPassword(
+            email: targetEmail,
+            password: pw,
+          );
+          if (res.session != null) {
+            final currentUserId = res.session!.user.id;
+            print('=== SIGNIN: success! user=$currentUserId ===');
+
+            // NOTE:
+            // Do NOT attempt to copy/delete/duplicate `profiles` rows here.
+            // The `profiles` table has UNIQUE constraints on `username` and `phone_number`,
+            // and other tables often FK to `profiles.id` (legacy profile id), so duplicating
+            // or deleting can break data. We rely on `SimpleProfileService` phone fallback.
+            if (profileData != null) {
+              final existingProfileId = (profileData['id'] ?? '').toString();
+              if (existingProfileId.isNotEmpty &&
+                  existingProfileId != currentUserId) {
+                print(
+                  '=== SIGNIN: Profile/auth id mismatch (profileId=$existingProfileId, authId=$currentUserId). Using phone fallback. ===',
+                );
+                // Best-effort: link profile to the current auth user for correct RLS (auth_user_id)
+                try {
+                  await client
+                      .from('profiles')
+                      .update({'auth_user_id': currentUserId})
+                      .eq('id', existingProfileId);
+                  print(
+                    '=== SIGNIN: profiles.auth_user_id linked (profileId=$existingProfileId -> authUserId=$currentUserId) ===',
+                  );
+                } catch (e) {
+                  print(
+                    '=== SIGNIN: Failed to update profiles.auth_user_id: $e ===',
+                  );
+                }
+              }
+            }
+
+            return res.session;
+          }
+        } catch (e) {
+          print('=== SIGNIN: signInWithPassword failed: $e ===');
+        }
+      }
+
+      // 2) اگر پروفایل داشتیم ولی یوزر auth برایش ساخته نشده/پسورد فرق دارد،
+      // یک بار تلاش می‌کنیم همان ایمیل را signUp کنیم تا «همان کاربر» قابل لاگین شود.
+      // (این کار روی ایمیل دیگری لاگین نمی‌کند، بنابراین حس فیک ایجاد نمی‌شود.)
+      if (profileData != null && targetEmail.isNotEmpty) {
+        try {
+          final pw = normalizedDigits;
+          print(
+            '=== SIGNIN: attempting signUp for existing profile email=$targetEmail ===',
+          );
+          final up = await client.auth.signUp(email: targetEmail, password: pw);
+          Session? newSession = up.session;
+
+          // اگر session نداد (ایمیل کانفرم)، تلاش به signIn
+          if (newSession == null) {
+            final inRes = await client.auth.signInWithPassword(
+              email: targetEmail,
+              password: pw,
+            );
+            newSession = inRes.session;
+          }
+
+          // اگر signUp/signIn موفق بود، پروفایل قدیمی را به ID جدید لینک کن
+          if (newSession != null) {
+            final newUserId = newSession.user.id;
+            print('=== SIGNIN: signUp successful! New user ID: $newUserId ===');
+            // NOTE: Same as above — do not duplicate/delete profiles here.
+            // Rely on phone fallback profile resolution.
+            try {
+              final existingProfileId = (profileData['id'] ?? '').toString();
+              if (existingProfileId.isNotEmpty) {
+                await client
+                    .from('profiles')
+                    .update({'auth_user_id': newUserId})
+                    .eq('id', existingProfileId);
+                print(
+                  '=== SIGNIN: profiles.auth_user_id linked after signUp (profileId=$existingProfileId -> authUserId=$newUserId) ===',
+                );
+              }
+            } catch (e) {
+              print(
+                '=== SIGNIN: Failed to update profiles.auth_user_id after signUp: $e ===',
+              );
+            }
+
+            return newSession;
+          }
+        } catch (e) {
+          print('=== SIGNIN: signUp/signIn fallback failed: $e ===');
+        }
+      }
+
+      throw Exception(
+        'ورود ناموفق بود: اکانت مربوط به این شماره پیدا نشد یا پسورد هم‌خوانی ندارد.',
       );
-      print(
-        '=== SIGNIN: session=${response.session != null} user=${response.session?.user.id ?? 'null'} ===',
-      );
-      return response.session;
     } catch (e) {
       print('=== SIGNIN: Error in signInWithPhone: $e ===');
       rethrow;

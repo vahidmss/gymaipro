@@ -372,7 +372,7 @@ class _FavoriteFoodsScreenState extends State<FavoriteFoodsScreen> {
             if (mounted) {
               Navigator.push(
                 context,
-                MaterialPageRoute(
+                MaterialPageRoute<void>(
                   builder: (context) => FoodDetailScreen(food: fullFood),
                 ),
               );

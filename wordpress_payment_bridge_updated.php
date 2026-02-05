@@ -40,6 +40,104 @@ add_action('template_redirect', function () {
   if (get_query_var('app_callback') || $request_uri === 'pay/callback'){ gymai_handle_callback(); exit; }
 });
 
+/** ===== REST API Endpoint برای پروکسی درخواست‌های پرداخت زیبال ===== */
+add_action('rest_api_init', function () {
+  register_rest_route('gymaipro/v1', '/zibal/request', [
+    'methods' => 'POST',
+    'callback' => 'gymai_zibal_proxy_request',
+    'permission_callback' => '__return_true', // برای اپلیکیشن موبایل
+  ]);
+  
+  register_rest_route('gymaipro/v1', '/zibal/verify', [
+    'methods' => 'POST',
+    'callback' => 'gymai_zibal_proxy_verify',
+    'permission_callback' => '__return_true',
+  ]);
+});
+
+/** پروکسی درخواست پرداخت زیبال */
+function gymai_zibal_proxy_request($request) {
+  $params = $request->get_json_params();
+  
+  // بررسی پارامترهای ضروری
+  if (empty($params['amount']) || empty($params['callbackUrl'])) {
+    return new WP_Error('missing_params', 'مقدار و callbackUrl الزامی است', ['status' => 400]);
+  }
+  
+  // آماده‌سازی درخواست برای زیبال
+  $zibal_request = [
+    'merchant' => GYM_TOPUP_MERCHANT,
+    'amount' => intval($params['amount']),
+    'callbackUrl' => sanitize_url($params['callbackUrl']),
+    'description' => isset($params['description']) ? sanitize_text_field($params['description']) : 'پرداخت',
+  ];
+  
+  if (isset($params['orderId'])) {
+    $zibal_request['orderId'] = sanitize_text_field($params['orderId']);
+  }
+  
+  if (isset($params['mobile'])) {
+    $zibal_request['mobile'] = sanitize_text_field($params['mobile']);
+  }
+  
+  if (isset($params['metadata'])) {
+    $zibal_request['metadata'] = $params['metadata'];
+  }
+  
+  // ارسال درخواست به زیبال
+  $response = wp_remote_post('https://gateway.zibal.ir/v1/request', [
+    'timeout' => 15,
+    'headers' => [
+      'Content-Type' => 'application/json',
+      'Accept' => 'application/json',
+    ],
+    'body' => wp_json_encode($zibal_request),
+  ]);
+  
+  if (is_wp_error($response)) {
+    return new WP_Error('zibal_error', $response->get_error_message(), ['status' => 500]);
+  }
+  
+  $body = wp_remote_retrieve_body($response);
+  $status_code = wp_remote_retrieve_response_code($response);
+  $data = json_decode($body, true);
+  
+  return new WP_REST_Response($data, $status_code);
+}
+
+/** پروکسی تایید پرداخت زیبال */
+function gymai_zibal_proxy_verify($request) {
+  $params = $request->get_json_params();
+  
+  if (empty($params['trackId'])) {
+    return new WP_Error('missing_trackid', 'trackId الزامی است', ['status' => 400]);
+  }
+  
+  $zibal_request = [
+    'merchant' => GYM_TOPUP_MERCHANT,
+    'trackId' => sanitize_text_field($params['trackId']),
+  ];
+  
+  $response = wp_remote_post('https://gateway.zibal.ir/v1/verify', [
+    'timeout' => 15,
+    'headers' => [
+      'Content-Type' => 'application/json',
+      'Accept' => 'application/json',
+    ],
+    'body' => wp_json_encode($zibal_request),
+  ]);
+  
+  if (is_wp_error($response)) {
+    return new WP_Error('zibal_error', $response->get_error_message(), ['status' => 500]);
+  }
+  
+  $body = wp_remote_retrieve_body($response);
+  $status_code = wp_remote_retrieve_response_code($response);
+  $data = json_decode($body, true);
+  
+  return new WP_REST_Response($data, $status_code);
+}
+
 /** ابزارهای کمکی */
 function gymai_h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
@@ -148,8 +246,24 @@ function gymai_render_checkout(){
 
 /** کال‌بک: /pay/callback?gw=zibal&sid=... (+ پارامترهای زیبال مثل trackId و ...) */
 function gymai_handle_callback(){
-  $sid = isset($_GET['sid'])? preg_replace('/[^A-Za-z0-9_\-]/','',$_GET['sid']) : '';
-  $deeplink = GYM_TOPUP_DEEPLINK_FAIL;
+  // بررسی نوع پرداخت (topup یا trainer)
+  $payment_type = isset($_GET['type']) ? sanitize_text_field($_GET['type']) : 'topup';
+  $order_id = isset($_GET['orderId']) ? sanitize_text_field($_GET['orderId']) : '';
+  $trainer_id = isset($_GET['trainerId']) ? sanitize_text_field($_GET['trainerId']) : '';
+  
+  // برای topup از sid استفاده می‌کنیم، برای trainer از orderId
+  $sid = $payment_type === 'trainer' ? $order_id : (isset($_GET['sid'])? preg_replace('/[^A-Za-z0-9_\-]/','',$_GET['sid']) : '');
+  
+  // تعیین deeplink بر اساس نوع پرداخت
+  if ($payment_type === 'trainer' && !empty($trainer_id)) {
+    $deeplink_ok = 'gymaipro://payment/trainer?status=success&transactionId=' . urlencode($order_id) . '&trainerId=' . urlencode($trainer_id);
+    $deeplink_fail = 'gymaipro://payment/trainer?status=failed&transactionId=' . urlencode($order_id) . '&trainerId=' . urlencode($trainer_id);
+  } else {
+    $deeplink_ok = GYM_TOPUP_DEEPLINK_OK;
+    $deeplink_fail = GYM_TOPUP_DEEPLINK_FAIL;
+  }
+  
+  $deeplink = $deeplink_fail;
   $ok = false; $ref = '';
   $is_debug = isset($_GET['debug']) && $_GET['debug'] == '1';
   $verify_body = null; $inquiry_body = null;
@@ -227,8 +341,15 @@ function gymai_handle_callback(){
     }
 
     if(!is_wp_error($r) && $edge_code===200){
-      $deeplink = GYM_TOPUP_DEEPLINK_OK;
+      $deeplink = $deeplink_ok;
     }
+  }
+  
+  // برای trainer payment، trackId را به deeplink اضافه می‌کنیم
+  if ($payment_type === 'trainer' && $ok && !empty($trackId)) {
+    $deeplink = 'gymaipro://payment/trainer?status=success&transactionId=' . urlencode($order_id) . '&trackId=' . urlencode($trackId) . '&trainerId=' . urlencode($trainer_id);
+  } elseif ($payment_type === 'trainer' && !$ok) {
+    $deeplink = $deeplink_fail;
   }
 
   echo "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>

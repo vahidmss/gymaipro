@@ -16,8 +16,8 @@ class TrainerSearchFilterWidget extends StatefulWidget {
     this.isOnline,
   });
   final TextEditingController searchController;
-  final Function(String) onSearchChanged;
-  final Function({
+  final void Function(String) onSearchChanged;
+  final void Function({
     String? specialization,
     double? minRating,
     double? maxHourlyRate,

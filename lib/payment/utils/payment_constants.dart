@@ -24,6 +24,8 @@ class PaymentConstants {
   static const int maxPaymentAmount = 500000000; // 50 میلیون تومان
   static const int minWalletCharge = 10000; // 1000 تومان
   static const int maxWalletCharge = 100000000; // 10 میلیون تومان
+  static const int minWithdrawalAmount = 100000; // 10,000 تومان (100,000 ریال)
+  static const int maxWithdrawalAmount = 100000000; // 10 میلیون تومان
 
   // تنظیمات کیف پول
   static const int defaultWalletMaxBalance = 100000000; // 10 میلیون تومان
@@ -56,6 +58,7 @@ class PaymentConstants {
     105: 'amount بایستی بزرگتر از 1,000 ریال باشد',
     106: 'callbackUrl نامعتبر می‌باشد. (شروع با http و یا https)',
     113: 'amount مبلغ تراکنش از سقف میزان تراکنش بیشتر است.',
+    115: 'آدرس IP معتبر نیست. لطفاً با پشتیبانی تماس بگیرید یا از طریق سرور درخواست ارسال کنید.',
   };
 
   // کدهای وضعیت زرین‌پال
@@ -156,6 +159,10 @@ class PaymentConstants {
   static const int maxTransactionsPerDay = 50;
   static const int maxPaymentAmountPerDay = 1000000000; // 100 میلیون تومان
   static const int maxWalletTransactionsPerHour = 10;
+  
+  // محدودیت‌های برداشت
+  static const int maxPayoutRequestsPerDay = 5; // حداکثر 5 درخواست در روز
+  static const int minHoursBetweenPayoutRequests = 2; // حداقل 2 ساعت بین درخواست‌ها
 
   // کدهای خطای سفارشی
   static const int customErrorInsufficientBalance = 1001;

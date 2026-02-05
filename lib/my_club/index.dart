@@ -3,9 +3,10 @@
 
 export 'my_club_main_screen.dart';
 export 'my_programs_screen.dart';
-export 'screens/my_club_overview_screen.dart';
+export 'screens/confidential_user_info_screen.dart';
 export 'screens/my_friends_screen.dart';
 export 'screens/my_trainers_screen.dart';
+export 'services/confidential_user_info_service.dart';
 export 'services/my_club_service.dart';
 export 'widgets/club_stats_widget.dart';
 export 'widgets/recent_activities_widget.dart';

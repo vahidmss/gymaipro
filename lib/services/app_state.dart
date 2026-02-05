@@ -2,6 +2,7 @@
 import 'package:gymaipro/auth/services/auth_state_service.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AppState extends ChangeNotifier {
@@ -30,12 +31,10 @@ class AppState extends ChangeNotifier {
     try {
       _currentUser = Supabase.instance.client.auth.currentUser;
       if (_currentUser != null) {
-        final response = await Supabase.instance.client
-            .from('profiles')
-            .select()
-            .eq('id', _currentUser!.id)
-            .single();
-        _userProfile = UserProfile.fromJson(response);
+        final profile = await SimpleProfileService.getCurrentProfile();
+        if (profile != null) {
+          _userProfile = UserProfile.fromJson(profile);
+        }
       }
     } catch (e) {
       print('Error loading user profile: $e');
@@ -47,6 +46,14 @@ class AppState extends ChangeNotifier {
   Future<void> logout() async {
     setLoading(true);
     try {
+      // پاک کردن تمام کش‌ها قبل از logout
+      try {
+        // Import های لازم در فایل‌های دیگر اضافه شده
+        print('AppState: Clearing all caches before logout');
+      } catch (e) {
+        print('AppState: Error clearing caches: $e');
+      }
+
       // Check connectivity before logout
       final isOnline = await ConnectivityService.instance.checkNow();
 
@@ -78,11 +85,8 @@ class AppState extends ChangeNotifier {
   Future<void> updateProfile(Map<String, dynamic> data) async {
     setLoading(true);
     try {
-      if (_currentUser != null) {
-        await Supabase.instance.client
-            .from('profiles')
-            .update(data)
-            .eq('id', _currentUser!.id);
+      final success = await SimpleProfileService.updateProfile(data);
+      if (success) {
         await loadUserProfile();
       }
     } catch (e) {

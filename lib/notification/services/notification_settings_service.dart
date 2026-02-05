@@ -1,6 +1,6 @@
 ﻿import 'dart:convert';
 
-import 'package:gymaipro/notification/notification_model.dart';
+import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationSettingsService {

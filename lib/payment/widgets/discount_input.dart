@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/payment/services/discount_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/text_controller_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class DiscountInput extends StatefulWidget {
@@ -36,7 +37,8 @@ class _DiscountInputState extends State<DiscountInput> {
   }
 
   Future<void> _applyDiscount() async {
-    final code = _controller.text.trim();
+    if (!_controller.isSafe) return;
+    final code = _controller.safeText.trim();
     if (code.isEmpty) return;
 
     setState(() {
@@ -82,7 +84,9 @@ class _DiscountInputState extends State<DiscountInput> {
       _hasDiscount = false;
       _discountMessage = null;
       _errorMessage = null;
-      _controller.clear();
+      if (_controller.isSafe) {
+        _controller.safeClear();
+      }
     });
     widget.onDiscountRemoved();
   }
@@ -206,7 +210,7 @@ class _DiscountInputState extends State<DiscountInput> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'کد "${_controller.text}" اعمال شد',
+                          'کد "${_controller.isSafe ? _controller.safeText : ""}" اعمال شد',
                           style: GoogleFonts.vazirmatn(
                             fontSize: 14.sp,
                             fontWeight: FontWeight.bold,

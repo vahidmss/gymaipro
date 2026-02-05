@@ -1,18 +1,18 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/notification/providers/notification_provider.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/animation_utils.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:provider/provider.dart';
 
 class NotificationIcon extends StatefulWidget {
   const NotificationIcon({
     super.key,
     this.onTap,
-    this.hasUnreadNotifications = false,
-    this.unreadCount = 0,
   });
   final VoidCallback? onTap;
-  final bool hasUnreadNotifications;
-  final int unreadCount;
 
   @override
   State<NotificationIcon> createState() => _NotificationIconState();
@@ -47,23 +47,24 @@ class _NotificationIconState extends State<NotificationIcon>
       CurvedAnimation(parent: _bounceController, curve: Curves.elasticOut),
     );
 
-    // Start pulse animation if there are unread notifications
-    if (widget.hasUnreadNotifications) {
-      _pulseController.repeat(reverse: true);
-    }
+    // Load unread count on init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<NotificationProvider>();
+      provider.refreshUnreadCount();
+    });
   }
 
   @override
-  void didUpdateWidget(NotificationIcon oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // Start or stop pulse animation based on unread notifications
-    if (widget.hasUnreadNotifications && !oldWidget.hasUnreadNotifications) {
-      _pulseController.repeat(reverse: true);
-    } else if (!widget.hasUnreadNotifications &&
-        oldWidget.hasUnreadNotifications) {
-      _pulseController.stop();
-      _pulseController.reset();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final provider = context.watch<NotificationProvider>();
+    final hasUnread = provider.unreadCount > 0;
+    
+    if (hasUnread) {
+      _pulseController.safeRepeat();
+    } else {
+      _pulseController.safeStop();
+      _pulseController.safeReset();
     }
   }
 
@@ -75,133 +76,176 @@ class _NotificationIconState extends State<NotificationIcon>
   }
 
   void _handleTap() {
-    _bounceController.forward().then((_) {
-      _bounceController.reverse();
+    _bounceController.safeForward().then((_) {
+      _bounceController.safeReverse();
     });
     widget.onTap?.call();
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _handleTap,
-      child: AnimatedBuilder(
-        animation: Listenable.merge([_pulseAnimation, _bounceAnimation]),
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _bounceAnimation.value,
-            child: Stack(
-              children: [
-                // Main notification container
-                Container(
-                  padding: EdgeInsets.all(8.w),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: widget.hasUnreadNotifications
-                          ? [
-                              AppTheme.goldColor.withValues(alpha: 0.1),
-                              AppTheme.darkGold.withValues(alpha: 0.1),
-                            ]
-                          : [
-                              Colors.white.withValues(alpha: 0.1),
-                              Colors.white.withValues(alpha: 0.1),
-                            ],
-                    ),
-                    borderRadius: BorderRadius.circular(12.r),
-                    border: Border.all(
-                      color: widget.hasUnreadNotifications
-                          ? AppTheme.goldColor.withValues(alpha: 0.1)
-                          : Colors.white.withValues(alpha: 0.1),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 3.r,
-                        offset: Offset(0.w, 1.h),
-                      ),
-                      if (widget.hasUnreadNotifications)
-                        BoxShadow(
-                          color: AppTheme.goldColor.withValues(alpha: 0.1),
-                          blurRadius: 6 * _pulseAnimation.value,
-                          spreadRadius: 1 * _pulseAnimation.value,
+    return Consumer<NotificationProvider>(
+      builder: (context, provider, child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final hasUnread = provider.unreadCount > 0;
+        final unreadCount = provider.unreadCount;
+        final iconColor = hasUnread
+            ? AppTheme.goldColor
+            : context.textSecondary;
+
+        return GestureDetector(
+          onTap: _handleTap,
+          child: AnimatedBuilder(
+            animation: Listenable.merge([_pulseAnimation, _bounceAnimation]),
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _bounceAnimation.value,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Main notification container
+                    Container(
+                      padding: EdgeInsets.all(10.w),
+                      decoration: BoxDecoration(
+                        gradient: hasUnread
+                            ? LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  AppTheme.goldColor.withValues(alpha: 0.2),
+                                  AppTheme.darkGold.withValues(alpha: 0.15),
+                                ],
+                              )
+                            : LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [context.cardColor, context.cardColor],
+                              ),
+                        borderRadius: BorderRadius.circular(14.r),
+                        border: Border.all(
+                          color: hasUnread
+                              ? AppTheme.goldColor.withValues(alpha: 0.5)
+                              : context.separatorColor,
+                          width: hasUnread ? 1.5.w : 1.w,
                         ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Icon(
-                      LucideIcons.bellRing,
-                      color: widget.hasUnreadNotifications
-                          ? AppTheme.goldColor
-                          : Colors.white,
-                      size: 18.sp,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 1.r,
-                          offset: Offset(0.w, 1.h),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Unread count badge
-                if (widget.unreadCount > 0)
-                  Positioned(
-                    right: -3,
-                    top: -3,
-                    child: Transform.scale(
-                      scale: _pulseAnimation.value,
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Colors.red, Color(0xFFE53E3E)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                        boxShadow: [
+                          BoxShadow(
+                            color: isDark
+                                ? Colors.black.withValues(alpha: 0.3)
+                                : context.textColor.withValues(alpha: 0.08),
+                            blurRadius: 6.r,
+                            offset: Offset(0.w, 2.h),
                           ),
-                          borderRadius: BorderRadius.circular(8.r),
-                          boxShadow: [
+                          if (hasUnread)
                             BoxShadow(
-                              color: Colors.red.withValues(alpha: 0.1),
-                              blurRadius: 3.r,
-                              offset: Offset(0.w, 1.h),
+                              color: AppTheme.goldColor.withValues(
+                                alpha: 0.4 * _pulseAnimation.value,
+                              ),
+                              blurRadius: 12 * _pulseAnimation.value,
+                              spreadRadius: 2 * _pulseAnimation.value,
                             ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            widget.unreadCount > 99
-                                ? '99+'
-                                : widget.unreadCount.toString(),
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 9.sp,
-                              fontWeight: FontWeight.bold,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black26,
-                                  blurRadius: 1.r,
-                                  offset: Offset(0.w, 1.h),
-                                ),
-                              ],
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Icon(
+                          LucideIcons.bellRing,
+                          color: iconColor,
+                          size: 22.sp,
+                          shadows: hasUnread
+                              ? [
+                                  Shadow(
+                                    color: AppTheme.goldColor.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                    blurRadius: 6.r,
+                                    offset: Offset(0.w, 0.h),
+                                  ),
+                                ]
+                              : null,
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
+                    // Unread count badge or red dot
+                    if (hasUnread)
+                      Positioned(
+                        right: -3,
+                        top: -3,
+                        child: Transform.scale(
+                          scale: _pulseAnimation.value,
+                          child: unreadCount > 0
+                              ? Container(
+                                  constraints: BoxConstraints(
+                                    minWidth: 20.w,
+                                    minHeight: 20.h,
+                                  ),
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: unreadCount > 9 ? 6.w : 5.w,
+                                    vertical: 3.h,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFFFF4444),
+                                        Color(0xFFE53E3E),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12.r),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.red.withValues(alpha: 0.5),
+                                        blurRadius: 6.r,
+                                        offset: Offset(0.w, 2.h),
+                                        spreadRadius: 1.r,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      unreadCount > 99
+                                          ? '99+'
+                                          : unreadCount.toString(),
+                                      style: GoogleFonts.vazirmatn(
+                                        color: Colors.white,
+                                        fontSize: 11.sp,
+                                        fontWeight: FontWeight.bold,
+                                        height: 1,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                )
+                              : // Red dot when has unread but count is 0
+                                Container(
+                                  width: 12.w,
+                                  height: 12.h,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFFFF4444),
+                                        Color(0xFFE53E3E),
+                                      ],
+                                    ),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.red.withValues(alpha: 0.6),
+                                        blurRadius: 6.r,
+                                        spreadRadius: 1.5.r,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

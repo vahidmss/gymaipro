@@ -17,30 +17,45 @@ class NavigationGuard {
         return true;
       }
 
-      // User is logged in, implement double back to exit
+      // User is logged in, implement double back to show exit dialog
       final now = DateTime.now();
       const maxDuration = Duration(seconds: 2);
-      final isWarning =
+      final isFirstPress =
           _lastBackPressed == null ||
           now.difference(_lastBackPressed!) > maxDuration;
 
-      if (isWarning) {
+      if (isFirstPress) {
+        // First back press - record the time
         _lastBackPressed = now;
-
-        // Show snackbar
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('برای خروج دوباره back بزنید'),
-            duration: Duration(seconds: 2),
-            backgroundColor: Colors.orange,
-            behavior: SnackBarBehavior.floating,
-          ),
+        return false; // Don't exit yet
+      } else {
+        // Double back pressed within 2 seconds - show exit dialog
+        _lastBackPressed = null; // Reset for next time
+        
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('خروج از برنامه'),
+              content: const Text('آیا می‌خواهید از برنامه خارج شوید؟'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('خیر'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('بله'),
+                ),
+              ],
+            );
+          },
         );
 
-        return false; // Don't exit
-      } else {
-        // Double back pressed, exit app
-        SystemNavigator.pop();
+        if (shouldExit == true) {
+          SystemNavigator.pop();
+        }
+        
         return false;
       }
     } catch (e) {

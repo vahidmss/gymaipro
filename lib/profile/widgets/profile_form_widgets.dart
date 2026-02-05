@@ -1,39 +1,99 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class ProfileFormWidgets {
+  static String _getDisplayName(String value) {
+    switch (value) {
+      case 'male':
+        return 'مرد';
+      case 'female':
+        return 'زن';
+      case 'other':
+        return 'سایر';
+      case 'sedentary':
+        return 'بی‌تحرک';
+      case 'light':
+        return 'کم';
+      case 'moderate':
+        return 'متوسط';
+      case 'active':
+        return 'فعال';
+      case 'very_active':
+        return 'خیلی فعال';
+      default:
+        return value;
+    }
+  }
+
   static Widget buildFormSection(String title, List<Widget> children) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppTheme.goldColor.withAlpha(30)),
-      ),
-      child: ExpansionTile(
-        backgroundColor: Colors.transparent,
-        collapsedBackgroundColor: Colors.transparent,
-        iconColor: AppTheme.goldColor,
-        collapsedIconColor: AppTheme.goldColor,
-        title: Text(
-          title,
-          style: GoogleFonts.vazirmatn(
-            color: AppTheme.goldColor,
-            fontSize: 16.sp,
-            fontWeight: FontWeight.bold,
+    return Builder(
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Container(
+          margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [context.backgroundColor, context.backgroundColor]
+                  : [
+                      context.goldGradientColors[0].withValues(alpha: 0.15),
+                      context.cardColor,
+                      context.goldGradientColors[1].withValues(alpha: 0.1),
+                    ],
+            ),
+            borderRadius: BorderRadius.circular(24.r),
+            border: Border.all(
+              color: AppTheme.goldColor.withValues(
+                alpha: isDark ? 0.4 : 0.5,
+              ),
+              width: 1.5.w,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.goldColor.withValues(
+                  alpha: isDark ? 0.15 : 0.35,
+                ),
+                blurRadius: 16.r,
+                offset: Offset(0.w, 6.h),
+                spreadRadius: 1.r,
+              ),
+              BoxShadow(
+                color: isDark
+                    ? context.backgroundColor.withValues(alpha: 0.3)
+                    : AppTheme.lightTextColor.withValues(alpha: 0.08),
+                blurRadius: 8.r,
+                offset: Offset(0.w, 2.h),
+              ),
+            ],
           ),
-          textAlign: TextAlign.right,
-        ),
-        children: [
-          Padding(
-            padding: EdgeInsets.all(16.w),
-            child: Column(children: children),
+          child: ExpansionTile(
+            backgroundColor: Colors.transparent,
+            collapsedBackgroundColor: Colors.transparent,
+            iconColor: AppTheme.goldColor,
+            collapsedIconColor: AppTheme.goldColor,
+            title: Text(
+              title,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: AppTheme.goldColor,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.right,
+            ),
+            children: [
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+                child: Column(children: children),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -42,30 +102,55 @@ class ProfileFormWidgets {
     String label,
     IconData icon,
     Map<String, dynamic> profileData,
-    Function(String) onChanged,
+    void Function(String) onChanged,
   ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: TextFormField(
-        initialValue: profileData[key]?.toString() ?? '',
-        onChanged: onChanged,
-        style: GoogleFonts.vazirmatn(color: Colors.white),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: GoogleFonts.vazirmatn(color: Colors.grey),
-          prefixIcon: Icon(icon, color: AppTheme.goldColor),
-          filled: true,
-          fillColor: const Color(0xFF1A1A1A),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            borderSide: BorderSide.none,
+    return Builder(
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: 16.h),
+          child: TextFormField(
+            initialValue: profileData[key]?.toString() ?? '',
+            onChanged: onChanged,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textColor,
+              fontSize: 14.sp,
+            ),
+            decoration: InputDecoration(
+              labelText: label,
+              labelStyle: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textSecondary,
+                fontSize: 12.sp,
+              ),
+              prefixIcon: Icon(icon, color: AppTheme.goldColor),
+              filled: true,
+              fillColor: context.veryDarkBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: BorderSide(
+                  color: context.separatorColor,
+                  width: 1,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: BorderSide(
+                  color: context.separatorColor,
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: const BorderSide(
+                  color: AppTheme.goldColor,
+                  width: 2,
+                ),
+              ),
+            ),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -74,31 +159,56 @@ class ProfileFormWidgets {
     String label,
     IconData icon,
     Map<String, dynamic> profileData,
-    Function(String) onChanged,
+    void Function(String) onChanged,
   ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: TextFormField(
-        initialValue: profileData[key]?.toString() ?? '',
-        onChanged: onChanged,
-        maxLines: 3,
-        style: GoogleFonts.vazirmatn(color: Colors.white),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: GoogleFonts.vazirmatn(color: Colors.grey),
-          prefixIcon: Icon(icon, color: AppTheme.goldColor),
-          filled: true,
-          fillColor: const Color(0xFF1A1A1A),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            borderSide: BorderSide.none,
+    return Builder(
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: 16.h),
+          child: TextFormField(
+            initialValue: profileData[key]?.toString() ?? '',
+            onChanged: onChanged,
+            maxLines: 3,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textColor,
+              fontSize: 14.sp,
+            ),
+            decoration: InputDecoration(
+              labelText: label,
+              labelStyle: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textSecondary,
+                fontSize: 12.sp,
+              ),
+              prefixIcon: Icon(icon, color: AppTheme.goldColor),
+              filled: true,
+              fillColor: context.veryDarkBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: BorderSide(
+                  color: context.separatorColor,
+                  width: 1,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: BorderSide(
+                  color: context.separatorColor,
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: const BorderSide(
+                  color: AppTheme.goldColor,
+                  width: 2,
+                ),
+              ),
+            ),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -107,35 +217,60 @@ class ProfileFormWidgets {
     String label,
     IconData icon,
     Map<String, dynamic> profileData,
-    Function(String) onChanged,
+    void Function(String) onChanged,
   ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: TextFormField(
-        initialValue: profileData[key]?.toString() ?? '',
-        onChanged: (value) {
-          // فقط اعداد و نقطه مجاز
-          final cleanValue = value.replaceAll(RegExp('[^0-9.]'), '');
-          onChanged(cleanValue);
-        },
-        keyboardType: TextInputType.number,
-        style: GoogleFonts.vazirmatn(color: Colors.white),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: GoogleFonts.vazirmatn(color: Colors.grey),
-          prefixIcon: Icon(icon, color: AppTheme.goldColor),
-          filled: true,
-          fillColor: const Color(0xFF1A1A1A),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            borderSide: BorderSide.none,
+    return Builder(
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: 16.h),
+          child: TextFormField(
+            initialValue: profileData[key]?.toString() ?? '',
+            onChanged: (value) {
+              // فقط اعداد و نقطه مجاز
+              final cleanValue = value.replaceAll(RegExp('[^0-9.]'), '');
+              onChanged(cleanValue);
+            },
+            keyboardType: TextInputType.number,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textColor,
+              fontSize: 14.sp,
+            ),
+            decoration: InputDecoration(
+              labelText: label,
+              labelStyle: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textSecondary,
+                fontSize: 12.sp,
+              ),
+              prefixIcon: Icon(icon, color: AppTheme.goldColor),
+              filled: true,
+              fillColor: context.veryDarkBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: BorderSide(
+                  color: context.separatorColor,
+                  width: 1,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: BorderSide(
+                  color: context.separatorColor,
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: const BorderSide(
+                  color: AppTheme.goldColor,
+                  width: 2,
+                ),
+              ),
+            ),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -145,43 +280,73 @@ class ProfileFormWidgets {
     IconData icon,
     List<String> options,
     Map<String, dynamic> profileData,
-    Function(String?) onChanged,
+    void Function(String?) onChanged,
   ) {
     final currentValue = profileData[key]?.toString() ?? '';
     final validOptions = options.where((option) => option.isNotEmpty).toList();
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: DropdownButtonFormField<String>(
-        initialValue: validOptions.contains(currentValue) ? currentValue : null,
-        onChanged: onChanged,
-        style: GoogleFonts.vazirmatn(color: Colors.white),
-        dropdownColor: const Color(0xFF2A2A2A),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: GoogleFonts.vazirmatn(color: Colors.grey),
-          prefixIcon: Icon(icon, color: AppTheme.goldColor),
-          filled: true,
-          fillColor: const Color(0xFF1A1A1A),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
-          ),
-        ),
-        items: validOptions.map((String option) {
-          return DropdownMenuItem<String>(
-            value: option,
-            child: Text(
-              option,
-              style: GoogleFonts.vazirmatn(color: Colors.white),
+    return Builder(
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: 16.h),
+          child: DropdownButtonFormField<String>(
+            initialValue:
+                validOptions.contains(currentValue) ? currentValue : null,
+            onChanged: onChanged,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textColor,
+              fontSize: 14.sp,
             ),
-          );
-        }).toList(),
-      ),
+            dropdownColor: context.cardColor,
+            decoration: InputDecoration(
+              labelText: label,
+              labelStyle: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textSecondary,
+                fontSize: 12.sp,
+              ),
+              prefixIcon: Icon(icon, color: AppTheme.goldColor),
+              filled: true,
+              fillColor: context.veryDarkBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: BorderSide(
+                  color: context.separatorColor,
+                  width: 1,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: BorderSide(
+                  color: context.separatorColor,
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                borderSide: const BorderSide(
+                  color: AppTheme.goldColor,
+                  width: 2,
+                ),
+              ),
+            ),
+            items: validOptions.map((String option) {
+              return DropdownMenuItem<String>(
+                value: option,
+                child: Text(
+                  _getDisplayName(option),
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                    fontSize: 14.sp,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        );
+      },
     );
   }
 
@@ -209,52 +374,68 @@ class ProfileFormWidgets {
         ? '${weightValue.toStringAsFixed(1)} کیلوگرم'
         : 'ثبت نشده';
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12.r),
-        child: Container(
-          padding: EdgeInsets.all(16.w),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A),
+    return Builder(
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: 16.h),
+          child: InkWell(
+            onTap: onTap,
             borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(color: AppTheme.goldColor.withAlpha(50)),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: AppTheme.goldColor),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: GoogleFonts.vazirmatn(
-                        color: Colors.grey,
-                        fontSize: 12.sp,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      displayValue,
-                      style: GoogleFonts.vazirmatn(
-                        color: weightValue != null ? Colors.white : Colors.grey,
-                        fontSize: 16.sp,
-                        fontWeight: weightValue != null
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                  ],
+            child: Container(
+              padding: EdgeInsets.all(16.w),
+              decoration: BoxDecoration(
+                color: context.cardColor,
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(
+                  color: AppTheme.goldColor.withValues(alpha: 0.3),
+                  width: 1,
                 ),
               ),
-              Icon(LucideIcons.edit3, color: AppTheme.goldColor, size: 20.sp),
-            ],
+              child: Row(
+                textDirection: TextDirection.rtl,
+                children: [
+                  Icon(icon, color: AppTheme.goldColor),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            color: context.textSecondary,
+                            fontSize: 12.sp,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          displayValue,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            color: weightValue != null
+                                ? context.textColor
+                                : context.textSecondary,
+                            fontSize: 16.sp,
+                            fontWeight: weightValue != null
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    LucideIcons.edit3,
+                    color: AppTheme.goldColor,
+                    size: 20.sp,
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -264,7 +445,7 @@ class ProfileFormWidgets {
     IconData icon,
     List<String> options,
     Map<String, dynamic> profileData,
-    Function(List<String>) onChanged,
+    void Function(List<String>) onChanged,
   ) {
     return _MultiSelectField(
       fieldKey: key,
@@ -291,7 +472,7 @@ class _MultiSelectField extends StatefulWidget {
   final IconData icon;
   final List<String> options;
   final Map<String, dynamic> profileData;
-  final Function(List<String>) onChanged;
+  final void Function(List<String>) onChanged;
 
   @override
   State<_MultiSelectField> createState() => _MultiSelectFieldState();
@@ -332,15 +513,22 @@ class _MultiSelectFieldState extends State<_MultiSelectField> {
         children: [
           Text(
             widget.label,
-            style: GoogleFonts.vazirmatn(color: Colors.grey, fontSize: 14),
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textSecondary,
+              fontSize: 14.sp,
+            ),
           ),
           const SizedBox(height: 8),
           Container(
             padding: EdgeInsets.all(12.w),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A1A),
+              color: context.cardColor,
               borderRadius: BorderRadius.circular(12.r),
-              border: Border.all(color: AppTheme.goldColor.withAlpha(30)),
+              border: Border.all(
+                color: AppTheme.goldColor.withValues(alpha: 0.3),
+                width: 1,
+              ),
             ),
             child: Column(
               children: validOptions.map((option) {
@@ -348,7 +536,11 @@ class _MultiSelectFieldState extends State<_MultiSelectField> {
                 return CheckboxListTile(
                   title: Text(
                     option,
-                    style: GoogleFonts.vazirmatn(color: Colors.white),
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textColor,
+                      fontSize: 14.sp,
+                    ),
                   ),
                   value: isSelected,
                   onChanged: (bool? value) {

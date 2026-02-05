@@ -1,14 +1,19 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:gymaipro/auth/services/auth_state_service.dart';
+import 'package:gymaipro/auth/screens/profile_completion_screen.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
 import 'package:gymaipro/debug/database_debug_service.dart';
 import 'package:gymaipro/services/otp_service.dart';
+import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/safe_set_state.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
+import 'package:gymaipro/utils/text_controller_utils.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:responsive_framework/responsive_framework.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:sms_autofill/sms_autofill.dart' as sms;
 
 class OTPVerificationScreen extends StatefulWidget {
   const OTPVerificationScreen({
@@ -23,26 +28,79 @@ class OTPVerificationScreen extends StatefulWidget {
   State<OTPVerificationScreen> createState() => _OTPVerificationScreenState();
 }
 
-class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
+class _OTPVerificationScreenState extends State<OTPVerificationScreen>
+    with sms.CodeAutoFill {
   final TextEditingController _otpController = TextEditingController();
   String? _errorMessage;
   bool _isLoading = false;
   bool _isActive = true;
+  bool _isDisposed = false;
   Timer? _resendTimer;
   int _remainingTime = 60;
   bool _canResend = false;
+  String? _appSignature;
 
   @override
   void initState() {
     super.initState();
     _startResendTimer();
+    _initSmsAutofill();
+  }
+
+  Future<void> _initSmsAutofill() async {
+    try {
+      // دریافت app signature برای Android SMS Retriever API
+      _appSignature = await sms.SmsAutoFill().getAppSignature;
+      if (_appSignature != null && mounted) {
+        debugPrint('📱 App Signature: $_appSignature');
+      }
+
+      // گوش دادن به SMS های دریافتی
+      listenForCode();
+    } catch (e) {
+      debugPrint('⚠️ SMS Autofill initialization error: $e');
+      // اگر خطا داشت، ادامه می‌دهیم بدون autofill
+    }
+  }
+
+  @override
+  void codeUpdated() {
+    // زمانی که کد OTP از SMS دریافت شد
+    if (code != null &&
+        code!.length == 6 &&
+        mounted &&
+        _isActive &&
+        !_isDisposed) {
+      if (_otpController.isSafe) {
+        _otpController.safeSetText(code!);
+        // خودکار تایید می‌کنیم
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && _isActive && !_isDisposed) {
+            _verifyAndNavigate();
+          }
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     _isActive = false;
     _cancelTimer();
-    _otpController.dispose();
+
+    // TextEditingController را dispose نمی‌کنیم چون PinCodeTextField ممکن است
+    // هنوز در حال استفاده از آن باشد و این باعث خطا می‌شود
+    // آن توسط garbage collector پاک می‌شود
+
+    // متوقف کردن گوش دادن به SMS
+    try {
+      sms.SmsAutoFill().unregisterListener();
+      cancel();
+    } catch (e) {
+      debugPrint('Error unregistering SMS listener: $e');
+    }
+
     super.dispose();
   }
 
@@ -57,8 +115,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     _remainingTime = 60;
     _canResend = false;
 
-    if (!mounted) return;
-    setState(() {});
+    SafeSetState.call(this, () {});
 
     _cancelTimer();
 
@@ -68,7 +125,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         return;
       }
 
-      setState(() {
+      WidgetSafetyUtils.safeSetState(this, () {
         if (_remainingTime > 0) {
           _remainingTime--;
         } else {
@@ -80,33 +137,39 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   }
 
   Future<void> _resendOTP() async {
-    if (!_isActive || !mounted || _isLoading || !_canResend) return;
+    if (!_isActive || !mounted || _isLoading || !_canResend || _isDisposed)
+      return;
 
-    setState(() {
+    WidgetSafetyUtils.safeSetState(this, () {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
       // پاک کردن کد قبلی
-      _otpController.clear();
+      if (_otpController.isSafe) {
+        _otpController.safeClear();
+      }
 
       final otpCode = OTPService.generateOTP();
       await OTPService.sendOTP(widget.phoneNumber, otpCode);
 
-      if (!_isActive || !mounted) return;
+      if (!_isActive || !mounted || _isDisposed) return;
 
       _startResendTimer();
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('کد جدید ارسال شد')));
+      if (mounted && !_isDisposed) {
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          'کد جدید ارسال شد',
+        );
+      }
     } catch (e) {
-      if (!_isActive || !mounted) return;
+      if (!_isActive || !mounted || _isDisposed) return;
       _showError('خطا در ارسال مجدد کد');
     } finally {
-      if (_isActive && mounted) {
-        setState(() {
+      if (_isActive && mounted && !_isDisposed) {
+        WidgetSafetyUtils.safeSetState(this, () {
           _isLoading = false;
         });
       }
@@ -114,10 +177,12 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   }
 
   Future<void> _verifyAndNavigate() async {
-    if (!_isActive || !mounted || _isLoading) return;
+    if (!_isActive || !mounted || _isLoading || _isDisposed) return;
 
     FocusScope.of(context).unfocus();
-    final otpCode = _otpController.text.trim();
+
+    if (!_otpController.isSafe) return;
+    final otpCode = _otpController.safeText.trim();
     if (otpCode.isEmpty) {
       _showError('لطفاً کد تایید را وارد کنید');
       return;
@@ -126,7 +191,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       _showError('کد تایید باید ۶ رقم باشد');
       return;
     }
-    setState(() {
+    WidgetSafetyUtils.safeSetState(this, () {
       _isLoading = true;
       _errorMessage = null;
     });
@@ -136,7 +201,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         widget.phoneNumber,
       );
       final isValid = await OTPService.verifyOTP(normalizedPhone, otpCode);
-      if (!_isActive || !mounted) return;
+      if (!_isActive || !mounted || _isDisposed) return;
       if (!isValid) {
         _showError('کد وارد شده صحیح نیست');
         return;
@@ -153,82 +218,50 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         );
       }
 
-      // ثبت نام مستقیم کاربر در Supabase
-      print('=== OTP VERIFICATION: Starting user registration ===');
+      // فقط تایید OTP - ثبت‌نام در صفحه تکمیل پروفایل انجام می‌شود
+      print('=== OTP VERIFICATION: OTP verified successfully ===');
       print('=== OTP VERIFICATION: normalizedPhone=$normalizedPhone ===');
       print('=== OTP VERIFICATION: username=${widget.username} ===');
 
-      final session = await supabaseService.signUpWithPhone(
-        normalizedPhone,
-        widget.username,
-      );
-
-      print('=== OTP VERIFICATION: signUpWithPhone completed ===');
-      print('=== OTP VERIFICATION: session result: ${session != null} ===');
-
-      if (session == null) {
-        print('=== OTP VERIFICATION: session is null, registration failed ===');
-        _showError('خطا در ثبت نام. لطفاً دوباره تلاش کنید');
-        return;
-      }
-
-      print(
-        '=== OTP VERIFICATION: User registered successfully, saving session... ===',
-      );
-      print(
-        '=== OTP VERIFICATION: Session details: ${session.accessToken.substring(0, 10)}... ===',
-      );
-      print('=== OTP VERIFICATION: User ID: ${session.user.id} ===');
-
-      try {
-        await AuthStateService().saveAuthState(session);
-        print('=== OTP VERIFICATION: Session saved after registration ===');
-
-        // بررسی مجدد وضعیت لاگین برای اطمینان
-        final isLoggedIn = await AuthStateService().isLoggedIn();
-        print(
-          '=== OTP VERIFICATION: Login status after registration and session save: $isLoggedIn ===',
-        );
-
-        // بررسی session در Supabase client
-        final currentSession = Supabase.instance.client.auth.currentSession;
-        print(
-          '=== OTP VERIFICATION: Current Supabase session: ${currentSession != null ? "exists" : "null"} ===',
-        );
-        if (currentSession != null) {
-          print(
-            '=== OTP VERIFICATION: Supabase session user ID: ${currentSession.user.id} ===',
-          );
-        }
-      } catch (e) {
-        print(
-          '=== OTP VERIFICATION: Error saving session after registration: $e ===',
-        );
-      }
-
       // ابتدا انیمیشن‌ها و تایمرها را متوقف می‌کنیم
       _isActive = false;
+      _isDisposed = true;
       _cancelTimer();
 
       if (mounted) {
-        // مطمئن می‌شویم که ابتدا صفحه Dashboard بارگذاری شود و سپس انیمیشن‌ها شروع شوند
-        try {
-          Navigator.of(
-            context,
-          ).pushNamedAndRemoveUntil('/main', (route) => false);
-        } catch (e) {
-          debugPrint('Error in OTP navigation: $e');
-        }
+        // ابتدا PinCodeTextField را از درخت UI حذف می‌کنیم
+        WidgetSafetyUtils.safeSetState(this, () {});
+
+        // صبر می‌کنیم تا UI به‌روزرسانی شود
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            // هدایت به صفحه تکمیل پروفایل با اطلاعات phoneNumber و username
+            try {
+              WidgetSafetyUtils.safeNavigateReplacement(
+                context,
+                () => ProfileCompletionScreen(
+                  phoneNumber: normalizedPhone,
+                  username: widget.username,
+                ),
+              );
+            } catch (e) {
+              debugPrint('Error in OTP navigation: $e');
+            }
+          }
+        });
       }
     } catch (e) {
-      if (!_isActive || !mounted) return;
+      if (!_isActive || !mounted || _isDisposed) return;
       _showError('خطا در فرآیند تایید یا ایجاد پروفایل: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('خطا در فرآیند تایید: $e')));
+      if (mounted && !_isDisposed) {
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          'خطا در فرآیند تایید: $e',
+        );
+      }
     } finally {
-      if (_isActive && mounted) {
-        setState(() {
+      if (_isActive && mounted && !_isDisposed) {
+        WidgetSafetyUtils.safeSetState(this, () {
           _isLoading = false;
         });
       }
@@ -236,8 +269,8 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   }
 
   void _showError(String message) {
-    if (!_isActive || !mounted) return;
-    setState(() {
+    if (!_isActive || !mounted || _isDisposed) return;
+    WidgetSafetyUtils.safeSetState(this, () {
       _errorMessage = message;
       _isLoading = false;
     });
@@ -245,10 +278,15 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isActive) return const SizedBox.shrink();
+    if (!_isActive || _isDisposed || !_otpController.isSafe) {
+      return const SizedBox.shrink();
+    }
 
     return Scaffold(
+      backgroundColor: context.backgroundColor,
       appBar: AppBar(
+        backgroundColor: context.cardColor,
+        elevation: 0,
         title: Text(
           'تایید کد پیامک',
           style: TextStyle(
@@ -260,9 +298,12 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                 Condition.largerThan(name: TABLET, value: 20.sp),
               ],
             ).value,
+            color: context.textColor,
+            fontWeight: FontWeight.bold,
           ),
         ),
         centerTitle: true,
+        iconTheme: IconThemeData(color: AppTheme.goldColor),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -284,6 +325,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                     ],
                   ).value,
                   fontWeight: FontWeight.bold,
+                  color: context.textColor,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -299,73 +341,100 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                       Condition.largerThan(name: TABLET, value: 18.sp),
                     ],
                   ).value,
-                  color: Colors.grey,
+                  color: context.textSecondary,
                 ),
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 32.h),
               Directionality(
                 textDirection: TextDirection.ltr, // اجبار LTR برای اعداد
-                child: PinCodeTextField(
-                  appContext: context,
-                  length: 6,
-                  controller: _otpController,
-                  keyboardType: TextInputType.number,
-                  animationType: AnimationType.fade,
-                  enabled: !_isLoading,
-                  pinTheme: PinTheme(
-                    shape: PinCodeFieldShape.box,
-                    borderRadius: BorderRadius.circular(12.r),
-                    fieldHeight: ResponsiveValue(
-                      context,
-                      defaultValue: 55.h,
-                      conditionalValues: [
-                        Condition.smallerThan(name: MOBILE, value: 50.h),
-                        Condition.largerThan(name: TABLET, value: 60.h),
-                      ],
-                    ).value,
-                    fieldWidth: ResponsiveValue(
-                      context,
-                      defaultValue: 45.w,
-                      conditionalValues: [
-                        Condition.smallerThan(name: MOBILE, value: 40.w),
-                        Condition.largerThan(name: TABLET, value: 50.w),
-                      ],
-                    ).value,
-                    activeFillColor: Colors.white,
-                    selectedFillColor: Colors.blue.shade50,
-                    inactiveFillColor: Colors.grey.shade100,
-                    activeColor: Colors.blue,
-                    selectedColor: Colors.blue,
-                    inactiveColor: Colors.grey,
-                    borderWidth: 2,
-                  ),
-                  enableActiveFill: true,
-                  textStyle: TextStyle(
-                    fontSize: ResponsiveValue(
-                      context,
-                      defaultValue: 20.sp,
-                      conditionalValues: [
-                        Condition.smallerThan(name: MOBILE, value: 18.sp),
-                        Condition.largerThan(name: TABLET, value: 22.sp),
-                      ],
-                    ).value,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                  onChanged: (value) {
-                    if (_errorMessage != null) {
-                      setState(() {
-                        _errorMessage = null;
-                      });
-                    }
-                  },
-                  beforeTextPaste: (text) =>
-                      text?.length == 6 && text!.contains(RegExp(r'^\d+$')),
-                  autoDisposeControllers: false,
-                  animationDuration: const Duration(milliseconds: 200),
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                ),
+                child: _isDisposed || !_otpController.isSafe
+                    ? const SizedBox.shrink()
+                    : PinCodeTextField(
+                        appContext: context,
+                        length: 6,
+                        controller: _otpController,
+                        keyboardType: TextInputType.number,
+                        animationType: AnimationType.fade,
+                        enabled: !_isLoading,
+                        pinTheme: PinTheme(
+                          shape: PinCodeFieldShape.box,
+                          borderRadius: BorderRadius.circular(12.r),
+                          fieldHeight: ResponsiveValue(
+                            context,
+                            defaultValue: 55.h,
+                            conditionalValues: [
+                              Condition.smallerThan(name: MOBILE, value: 50.h),
+                              Condition.largerThan(name: TABLET, value: 60.h),
+                            ],
+                          ).value,
+                          fieldWidth: ResponsiveValue(
+                            context,
+                            defaultValue: 45.w,
+                            conditionalValues: [
+                              Condition.smallerThan(name: MOBILE, value: 40.w),
+                              Condition.largerThan(name: TABLET, value: 50.w),
+                            ],
+                          ).value,
+                          activeFillColor: Theme.of(context).brightness == Brightness.dark
+                              ? context.cardColor
+                              : Colors.white.withValues(alpha: 0.95),
+                          selectedFillColor: Theme.of(context).brightness == Brightness.dark
+                              ? AppTheme.goldColor.withValues(alpha: 0.2)
+                              : AppTheme.goldColor.withValues(alpha: 0.1),
+                          inactiveFillColor: Theme.of(context).brightness == Brightness.dark
+                              ? context.cardColor.withValues(alpha: 0.5)
+                              : Colors.grey.shade50,
+                          activeColor: AppTheme.goldColor,
+                          selectedColor: AppTheme.goldColor,
+                          inactiveColor: Theme.of(context).brightness == Brightness.dark
+                              ? AppTheme.goldColor.withValues(alpha: 0.3)
+                              : Colors.grey.shade400,
+                          borderWidth: 2,
+                        ),
+                        enableActiveFill: true,
+                        textStyle: TextStyle(
+                          fontSize: ResponsiveValue(
+                            context,
+                            defaultValue: 20.sp,
+                            conditionalValues: [
+                              Condition.smallerThan(name: MOBILE, value: 18.sp),
+                              Condition.largerThan(name: TABLET, value: 22.sp),
+                            ],
+                          ).value,
+                          fontWeight: FontWeight.bold,
+                          color: context.textColor,
+                        ),
+                        onChanged: (value) {
+                          if (_isDisposed || !mounted || !_otpController.isSafe)
+                            return;
+
+                          if (_errorMessage != null) {
+                            WidgetSafetyUtils.safeSetState(this, () {
+                              _errorMessage = null;
+                            });
+                          }
+                          // اگر کد کامل شد، خودکار تایید می‌کنیم
+                          if (value.length == 6 &&
+                              _isActive &&
+                              !_isLoading &&
+                              !_isDisposed) {
+                            Future.delayed(
+                              const Duration(milliseconds: 300),
+                              () {
+                                if (mounted && _isActive && !_isDisposed) {
+                                  _verifyAndNavigate();
+                                }
+                              },
+                            );
+                          }
+                        },
+                        beforeTextPaste: (text) =>
+                            text?.length == 6 &&
+                            text!.contains(RegExp(r'^\d+$')),
+                        animationDuration: const Duration(milliseconds: 200),
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      ),
               ),
               if (_errorMessage != null) ...[
                 SizedBox(height: 16.h),
@@ -399,11 +468,15 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                   onPressed: _isLoading ? null : _verifyAndNavigate,
                   style: ElevatedButton.styleFrom(
                     padding: EdgeInsets.symmetric(vertical: 16.h),
-                    backgroundColor: Theme.of(context).primaryColor,
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppTheme.goldColor,
+                    foregroundColor: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white
+                        : const Color(0xFF2C2416),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.r),
+                      borderRadius: BorderRadius.circular(12.r),
                     ),
+                    elevation: 4,
+                    shadowColor: AppTheme.goldColor.withValues(alpha: 0.3),
                   ),
                   child: _isLoading
                       ? SizedBox(
@@ -449,8 +522,8 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                           : 'ارسال مجدد کد (${_remainingTime}s)',
                       style: TextStyle(
                         color: (_canResend && !_isLoading)
-                            ? Theme.of(context).primaryColor
-                            : Colors.grey,
+                            ? AppTheme.goldColor
+                            : context.textSecondary,
                         fontSize: ResponsiveValue(
                           context,
                           defaultValue: 14.sp,
@@ -466,7 +539,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                     onPressed: _isLoading
                         ? null
                         : () {
-                            Navigator.of(context).pop();
+                            WidgetSafetyUtils.safePop(context);
                           },
                     child: Text(
                       'بازگشت',
@@ -479,6 +552,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                             Condition.largerThan(name: TABLET, value: 16.sp),
                           ],
                         ).value,
+                        color: context.textSecondary,
                       ),
                     ),
                   ),

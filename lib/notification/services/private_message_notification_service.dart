@@ -109,15 +109,12 @@ class PrivateMessageNotificationService {
       // فقط پیام‌هایی که برای کاربر فعلی ارسال شده‌اند
       if (message.receiverId != user.id) return;
 
-      // بررسی تنظیمات نوتیفیکیشن
-      if (!_shouldSendNotification(message)) return;
-
-      // دریافت اطلاعات فرستنده
-      final senderInfo = await _getSenderInfo(message.senderId);
-      if (senderInfo == null) return;
-
-      // ایجاد نوتیفیکیشن
-      await _createNotification(message, senderInfo);
+      // ⚠️ غیرفعال کردن نوتیفیکیشن محلی برای پیام‌های چت
+      // چون edge function خودش نوتیفیکیشن را ارسال می‌کند و بررسی حضور کاربر را انجام می‌دهد
+      // این از تکرار نوتیفیکیشن جلوگیری می‌کند
+      debugPrint('⚠️ Skipping local notification for chat message (handled by edge function)');
+      // تمام نوتیفیکیشن‌های چت توسط edge function مدیریت می‌شوند
+      return;
     } catch (e) {
       debugPrint('Error handling new message: $e');
     }

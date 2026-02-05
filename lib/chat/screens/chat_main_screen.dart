@@ -9,7 +9,12 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ChatMainScreen extends StatefulWidget {
-  const ChatMainScreen({super.key});
+  const ChatMainScreen({
+    super.key,
+    this.initialTabIndex = 0,
+  });
+
+  final int initialTabIndex;
 
   @override
   State<ChatMainScreen> createState() => _ChatMainScreenState();
@@ -26,7 +31,12 @@ class _ChatMainScreenState extends State<ChatMainScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
+    );
+    _currentIndex = widget.initialTabIndex.clamp(0, 2);
     _loadCachedRole();
     _loadUserInfo();
 
@@ -81,17 +91,99 @@ class _ChatMainScreenState extends State<ChatMainScreen>
   Widget build(BuildContext context) {
     if (!_roleResolved) {
       // نمایش یک حالت سبک تا نقش آماده شود تا از فلیکر جلوگیری شود
-      return Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
+      return Theme(
+        data: Theme.of(context).copyWith(
+          scaffoldBackgroundColor: context.backgroundColor,
+          appBarTheme: AppBarTheme(
+            backgroundColor: context.cardColor,
+            elevation: 0,
+            foregroundColor: context.textColor,
+          ),
+        ),
+        child: Scaffold(
+          backgroundColor: context.backgroundColor,
+          appBar: AppBar(
+            backgroundColor: context.cardColor,
+            elevation: 0,
+            title: Row(
+              textDirection: TextDirection.rtl,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(8.w),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: context.goldGradientColors.map((c) => c.withValues(alpha: 0.2)).toList(),
+                    ),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Icon(
+                    LucideIcons.messageCircle,
+                    color: AppTheme.goldColor,
+                    size: 20.sp,
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'گفتگو',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18.sp,
+                        color: context.textColor,
+                      ),
+                    ),
+                    Text(
+                      'با مربیان و کاربران چت کنید',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 12.sp,
+                        color: context.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              IconButton(
+                icon: Icon(LucideIcons.settings, color: context.textColor),
+                onPressed: _showChatSettings,
+              ),
+            ],
+          ),
+          body: Center(
+            child: CircularProgressIndicator(color: AppTheme.goldColor),
+          ),
+        ),
+      );
+    }
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        scaffoldBackgroundColor: context.backgroundColor,
+        appBarTheme: AppBarTheme(
+          backgroundColor: context.cardColor,
+          elevation: 0,
+          foregroundColor: context.textColor,
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: context.backgroundColor,
         appBar: AppBar(
-          backgroundColor: AppTheme.cardColor,
+          backgroundColor: context.cardColor,
           elevation: 0,
           title: Row(
+            textDirection: TextDirection.rtl,
             children: [
               Container(
                 padding: EdgeInsets.all(8.w),
                 decoration: BoxDecoration(
-                  color: AppTheme.goldColor.withValues(alpha: 0.2),
+                  gradient: LinearGradient(
+                    colors: context.goldGradientColors.map((c) => c.withValues(alpha: 0.2)).toList(),
+                  ),
                   borderRadius: BorderRadius.circular(12.r),
                 ),
                 child: Icon(
@@ -100,17 +192,26 @@ class _ChatMainScreenState extends State<ChatMainScreen>
                   size: 20.sp,
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12.w),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'گفتگو',
-                    style: AppTheme.headingStyle.copyWith(fontSize: 18.sp),
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18.sp,
+                      color: context.textColor,
+                    ),
                   ),
                   Text(
                     'با مربیان و کاربران چت کنید',
-                    style: AppTheme.bodyStyle.copyWith(fontSize: 12.sp),
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 12.sp,
+                      color: context.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -118,59 +219,11 @@ class _ChatMainScreenState extends State<ChatMainScreen>
           ),
           actions: [
             IconButton(
-              icon: const Icon(LucideIcons.settings, color: AppTheme.textColor),
+              icon: Icon(LucideIcons.settings, color: context.textColor),
               onPressed: _showChatSettings,
             ),
           ],
         ),
-        body: const Center(
-          child: CircularProgressIndicator(color: AppTheme.goldColor),
-        ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: AppTheme.cardColor,
-        elevation: 0,
-        title: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(8.w),
-              decoration: BoxDecoration(
-                color: AppTheme.goldColor.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12.r),
-              ),
-              child: Icon(
-                LucideIcons.messageCircle,
-                color: AppTheme.goldColor,
-                size: 20.sp,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'گفتگو',
-                  style: AppTheme.headingStyle.copyWith(fontSize: 18.sp),
-                ),
-                Text(
-                  'با مربیان و کاربران چت کنید',
-                  style: AppTheme.bodyStyle.copyWith(fontSize: 12.sp),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.settings, color: AppTheme.textColor),
-            onPressed: _showChatSettings,
-          ),
-        ],
-      ),
       body: Column(
         children: [
           _buildTabBar(),
@@ -181,10 +234,7 @@ class _ChatMainScreenState extends State<ChatMainScreen>
                 // تب گفتگوها
                 const ChatConversationsScreen(),
                 // تب چت عمومی - مستقیماً PublicChatWidget
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  child: const PublicChatWidget(),
-                ),
+                const PublicChatWidget(),
                 // تب انتخاب مربی
                 const ChatTrainerSelectionScreen(),
               ],
@@ -193,59 +243,80 @@ class _ChatMainScreenState extends State<ChatMainScreen>
         ],
       ),
       floatingActionButton: _buildFloatingActionButton(),
+      ),
     );
   }
 
   Widget _buildTabBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.symmetric(horizontal: 16.w),
       decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.4),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.05 : 0.1),
+            blurRadius: 8,
+            offset: Offset(0, 2.h),
+          ),
+        ],
       ),
       child: TabBar(
         controller: _tabController,
         indicator: BoxDecoration(
-          color: AppTheme.goldColor,
+          gradient: LinearGradient(
+            colors: context.goldGradientColors,
+          ),
           borderRadius: BorderRadius.circular(10.r),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
-        labelColor: AppTheme.textColor,
-        unselectedLabelColor: AppTheme.bodyStyle.color,
-        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        labelColor: AppTheme.onGoldColor,
+        unselectedLabelColor: context.textSecondary,
+        labelStyle: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontWeight: FontWeight.bold,
+          fontSize: 14.sp,
+        ),
         unselectedLabelStyle: TextStyle(
+          fontFamily: AppTheme.fontFamily,
           fontWeight: FontWeight.normal,
           fontSize: 14.sp,
         ),
-        dividerColor: AppTheme.backgroundColor,
+        dividerColor: Colors.transparent,
         tabs: [
-          const Tab(
+          Tab(
             child: Row(
+              textDirection: TextDirection.rtl,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(LucideIcons.messageSquare, size: 16),
-                SizedBox(width: 6),
+                Icon(LucideIcons.messageSquare, size: 16.sp),
+                SizedBox(width: 6.w),
                 Text('گفتگوها'),
               ],
             ),
           ),
-          const Tab(
+          Tab(
             child: Row(
+              textDirection: TextDirection.rtl,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(LucideIcons.users, size: 16),
-                SizedBox(width: 6),
+                Icon(LucideIcons.users, size: 16.sp),
+                SizedBox(width: 6.w),
                 Text('همگانی'),
               ],
             ),
           ),
           Tab(
             child: Row(
+              textDirection: TextDirection.rtl,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(LucideIcons.userPlus, size: 16),
-                const SizedBox(width: 6),
+                Icon(LucideIcons.userPlus, size: 16.sp),
+                SizedBox(width: 6.w),
                 Text(_userRole == 'trainer' ? 'شاگردها' : 'مربی‌ها'),
               ],
             ),
@@ -261,10 +332,26 @@ class _ChatMainScreenState extends State<ChatMainScreen>
       return const SizedBox.shrink();
     } else if (_currentIndex == 2) {
       // برای تب مربی‌ها - جستجوی مربی
-      return FloatingActionButton(
-        onPressed: _showTrainerSearch,
-        backgroundColor: AppTheme.goldColor,
-        child: const Icon(LucideIcons.search, color: AppTheme.textColor),
+      return Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: context.goldGradientColors,
+          ),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.goldColor.withValues(alpha: 0.4),
+              blurRadius: 12,
+              offset: Offset(0, 4.h),
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+          onPressed: _showTrainerSearch,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Icon(LucideIcons.search, color: AppTheme.onGoldColor),
+        ),
       );
     }
 
@@ -274,7 +361,7 @@ class _ChatMainScreenState extends State<ChatMainScreen>
   void _showChatSettings() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppTheme.cardColor,
+      backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
       ),
@@ -283,49 +370,81 @@ class _ChatMainScreenState extends State<ChatMainScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              width: 40.w,
+              height: 4.h,
+              decoration: BoxDecoration(
+                color: context.separatorColor,
+                borderRadius: BorderRadius.circular(2.r),
+              ),
+            ),
+            SizedBox(height: 16.h),
             Text(
               'تنظیمات چت',
-              style: AppTheme.headingStyle.copyWith(fontSize: 18.sp),
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontWeight: FontWeight.bold,
+                fontSize: 18.sp,
+                color: context.textColor,
+              ),
             ),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: const Icon(LucideIcons.bell, color: AppTheme.goldColor),
-              title: const Text(
-                'اعلان‌ها',
-                style: TextStyle(color: AppTheme.textColor),
+            SizedBox(height: 20.h),
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(LucideIcons.bell, color: AppTheme.goldColor),
+                title: Text(
+                  'اعلان‌ها',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Notification settings not implemented yet
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                // Notification settings not implemented yet
-              },
             ),
-            ListTile(
-              leading: const Icon(
-                LucideIcons.shield,
-                color: AppTheme.goldColor,
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(
+                  LucideIcons.shield,
+                  color: AppTheme.goldColor,
+                ),
+                title: Text(
+                  'حریم خصوصی',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Privacy settings not implemented yet
+                },
               ),
-              title: const Text(
-                'حریم خصوصی',
-                style: TextStyle(color: AppTheme.textColor),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // Privacy settings not implemented yet
-              },
             ),
-            ListTile(
-              leading: const Icon(
-                LucideIcons.download,
-                color: AppTheme.goldColor,
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(
+                  LucideIcons.download,
+                  color: AppTheme.goldColor,
+                ),
+                title: Text(
+                  'پشتیبان‌گیری',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Backup feature not implemented yet
+                },
               ),
-              title: const Text(
-                'پشتیبان‌گیری',
-                style: TextStyle(color: AppTheme.textColor),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // Backup feature not implemented yet
-              },
             ),
           ],
         ),
@@ -336,7 +455,13 @@ class _ChatMainScreenState extends State<ChatMainScreen>
   void _showTrainerSearch() {
     // Trainer search not implemented yet
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('جستجوی مربی به زودی اضافه می‌شود')),
+      SnackBar(
+        content: Text(
+          'جستجوی مربی به زودی اضافه می‌شود',
+          style: TextStyle(fontFamily: AppTheme.fontFamily),
+        ),
+        backgroundColor: context.cardColor,
+      ),
     );
   }
 }

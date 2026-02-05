@@ -447,7 +447,7 @@ class _PrivateMessageNotificationSettingsScreenState
   }
 
   void _showInfoDialog() {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('راهنمای تنظیمات'),

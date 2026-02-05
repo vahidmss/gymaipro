@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/text_controller_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-class MessageInputWidget extends StatelessWidget {
+class MessageInputWidget extends StatefulWidget {
   const MessageInputWidget({
     required this.controller,
     required this.onSendPressed,
@@ -20,98 +21,135 @@ class MessageInputWidget extends StatelessWidget {
   final VoidCallback? onEmojiPressed;
 
   @override
+  State<MessageInputWidget> createState() => _MessageInputWidgetState();
+}
+
+class _MessageInputWidgetState extends State<MessageInputWidget> {
+  @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: EdgeInsets.all(12.w),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         boxShadow: [
           BoxShadow(
-            color: AppTheme.backgroundColor.withValues(alpha: 0.08),
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.05 : 0.08),
             blurRadius: 8.r,
-            offset: const Offset(0, -2),
+            offset: Offset(0, -2.h),
           ),
         ],
       ),
       child: SafeArea(
         child: Row(
+          textDirection: TextDirection.rtl,
           children: [
             // Attachments
             DecoratedBox(
               decoration: BoxDecoration(
-                color: AppTheme.backgroundColor,
+                color: context.backgroundColor,
                 borderRadius: BorderRadius.circular(20.r),
+                border: Border.all(
+                  color: AppTheme.goldColor.withValues(
+                    alpha: isDark ? 0.2 : 0.3,
+                  ),
+                ),
               ),
               child: IconButton(
-                icon: const Icon(LucideIcons.plus, color: AppTheme.goldColor),
-                onPressed: onAttachmentPressed,
+                icon: Icon(LucideIcons.plus, color: AppTheme.goldColor),
+                onPressed: widget.onAttachmentPressed,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.w),
             // Input
             Expanded(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
+                  color: context.backgroundColor,
                   borderRadius: BorderRadius.circular(24.r),
                   border: Border.all(
-                    color: AppTheme.textColor.withValues(alpha: 0.06),
+                    color: AppTheme.goldColor.withValues(
+                      alpha: isDark ? 0.2 : 0.3,
+                    ),
                   ),
                 ),
                 child: Row(
+                  textDirection: TextDirection.rtl,
                   children: [
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12.w),
                     Expanded(
-                      child: TextField(
-                        controller: controller,
-                        style: const TextStyle(color: AppTheme.textColor),
-                        decoration: InputDecoration(
-                          hintText: 'پیام خود را بنویسید...',
-                          hintStyle: TextStyle(color: AppTheme.bodyStyle.color),
-                          border: InputBorder.none,
-                        ),
-                        maxLines: null,
-                        textInputAction: TextInputAction.newline,
-                        onSubmitted: (_) => onSendPressed(),
-                      ),
+                      child: widget.controller.isSafe
+                          ? TextField(
+                              controller: widget.controller,
+                              textDirection: TextDirection.rtl,
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                color: context.textColor,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'پیام خود را بنویسید...',
+                                hintStyle: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  color: context.textSecondary,
+                                ),
+                                border: InputBorder.none,
+                              ),
+                              maxLines: null,
+                              textInputAction: TextInputAction.newline,
+                              onSubmitted: (_) {
+                                if (widget.controller.isSafe) {
+                                  widget.onSendPressed();
+                                }
+                              },
+                            )
+                          : const SizedBox.shrink(),
                     ),
                     // Quick actions
-                    if (onEmojiPressed != null)
+                    if (widget.onEmojiPressed != null)
                       IconButton(
                         icon: Icon(
                           LucideIcons.smile,
-                          color: AppTheme.bodyStyle.color,
+                          color: context.textSecondary,
                           size: 20.sp,
                         ),
-                        onPressed: onEmojiPressed,
+                        onPressed: widget.onEmojiPressed,
                       ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.w),
             // Send button
             DecoratedBox(
               decoration: BoxDecoration(
-                color: AppTheme.goldColor,
+                gradient: LinearGradient(colors: context.goldGradientColors),
                 borderRadius: BorderRadius.circular(24.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.goldColor.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: Offset(0, 2.h),
+                  ),
+                ],
               ),
               child: IconButton(
-                icon: isSending
+                icon: widget.isSending
                     ? SizedBox(
                         width: 20.w,
                         height: 20.h,
-                        child: const CircularProgressIndicator(
-                          color: AppTheme.textColor,
+                        child: CircularProgressIndicator(
+                          color: AppTheme.onGoldColor,
                           strokeWidth: 2,
                         ),
                       )
                     : Icon(
                         LucideIcons.send,
-                        color: AppTheme.textColor,
+                        color: AppTheme.onGoldColor,
                         size: 20.sp,
                       ),
-                onPressed: isSending ? null : onSendPressed,
+                onPressed: widget.isSending || !widget.controller.isSafe
+                    ? null
+                    : widget.onSendPressed,
               ),
             ),
           ],

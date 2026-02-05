@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "506236985466",
+    "project_id": "gymai-9db69",
+    "storage_bucket": "gymai-9db69.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:506236985466:android:fe7676942805e60c761bc3",
+        "android_client_info": {
+          "package_name": "com.example.gymaipro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpNrpIpa1re0gCyV94dnFDOw4KfvhTHSs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -26,7 +26,8 @@ class TrainerClientService {
   }
 
   // اطمینان از فعال بودن رابطه مربی-شاگرد (ایجاد یا به‌روزرسانی به active)
-  Future<void> ensureActiveRelationship({
+  // برمی‌گرداند true اگر رابطه جدید ایجاد شد، false اگر قبلاً وجود داشت
+  Future<bool> ensureActiveRelationship({
     required String trainerId,
     required String clientId,
   }) async {
@@ -39,13 +40,16 @@ class TrainerClientService {
           .maybeSingle();
 
       if (existing == null) {
+        // رابطه جدید ایجاد می‌شود
         await _client.from('trainer_clients').insert({
           'trainer_id': trainerId,
           'client_id': clientId,
           'status': 'active',
           'created_at': DateTime.now().toIso8601String(),
         });
+        return true; // رابطه جدید است
       } else if (existing['status'] != 'active') {
+        // رابطه وجود دارد اما فعال نیست، آن را فعال می‌کنیم
         await _client
             .from('trainer_clients')
             .update({
@@ -54,7 +58,9 @@ class TrainerClientService {
             })
             .eq('trainer_id', trainerId)
             .eq('client_id', clientId);
+        return false; // رابطه قبلاً وجود داشت
       }
+      return false; // رابطه قبلاً فعال بود
     } catch (e) {
       throw Exception('خطا در فعال‌سازی رابطه مربی-شاگرد: $e');
     }
@@ -101,7 +107,7 @@ class TrainerClientService {
             *,
             trainer:profiles!trainer_clients_trainer_id_fkey(
               id, username, first_name, last_name, email, bio, experience_years, 
-              specializations, rating, review_count, avatar_url
+              specializations, rating, review_count, avatar_url, auth_user_id
             )
           ''')
           .eq('client_id', clientId)

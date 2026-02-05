@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/exercise_comment.dart';
 import 'package:gymaipro/services/exercise_comment_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/safe_set_state.dart';
 
 class CommentCardWidget extends StatefulWidget {
   const CommentCardWidget({
@@ -17,7 +18,7 @@ class CommentCardWidget extends StatefulWidget {
   final ExerciseComment comment;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
-  final Function(String)? onReply;
+  final void Function(String)? onReply;
 
   @override
   State<CommentCardWidget> createState() => _CommentCardWidgetState();
@@ -342,9 +343,7 @@ class _CommentCardWidgetState extends State<CommentCardWidget> {
       }
 
       // Refresh the comment
-      if (mounted) {
-        setState(() {});
-      }
+      SafeSetState.call(this, () {});
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -362,7 +361,7 @@ class _CommentCardWidgetState extends State<CommentCardWidget> {
   }
 
   void _showDeleteDialog() {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.cardColor,

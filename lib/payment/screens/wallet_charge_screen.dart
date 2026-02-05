@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,6 +6,8 @@ import 'package:gymaipro/payment/services/payment_session_service.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/text_controller_utils.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -42,7 +44,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
   }
 
   void _onAmountChanged() {
-    final text = _amountController.text;
+    if (!_amountController.isSafe) return;
+    final text = _amountController.safeText;
     // حذف تمام کاراکترهای غیرعددی به جز کاما
     final cleanText = text.replaceAll(RegExp(r'[^\d]'), '');
     final amount = int.tryParse(cleanText) ?? 0;
@@ -58,7 +61,7 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
 
     // فقط اگر مقدار تغییر کرده باشد، state را به‌روزرسانی کن
     if (amount != _selectedAmount) {
-      setState(() {
+      WidgetSafetyUtils.safeSetState(this, () {
         _selectedAmount = amount;
         _errorMessage = null;
       });
@@ -77,9 +80,11 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
     // ابتدا listener را حذف کن تا تداخل نداشته باشد
     _amountController.removeListener(_onAmountChanged);
 
-    setState(() {
+    WidgetSafetyUtils.safeSetState(this, () {
       _selectedAmount = amount;
-      _amountController.text = PaymentConstants.formatAmount(amount);
+      if (_amountController.isSafe) {
+        _amountController.safeSetText(PaymentConstants.formatAmount(amount));
+      }
       _errorMessage = null;
     });
 
@@ -108,7 +113,7 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
   Future<void> _processCharge() async {
     if (!_isValidAmount() || _isProcessing) return;
 
-    setState(() {
+    WidgetSafetyUtils.safeSetState(this, () {
       _isProcessing = true;
       _errorMessage = null;
     });
@@ -178,7 +183,7 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
         }
       }
     } catch (e) {
-      setState(() {
+      WidgetSafetyUtils.safeSetState(this, () {
         _errorMessage = e.toString();
       });
 
@@ -186,27 +191,33 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
         _showErrorDialog(e.toString());
       }
     } finally {
-      setState(() {
+      WidgetSafetyUtils.safeSetState(this, () {
         _isProcessing = false;
       });
     }
   }
 
   void _showSuccessDialog() {
-    showDialog(
+    WidgetSafetyUtils.safeShowDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('هدایت به پرداخت'),
-        content: const Text(
+        title: Text(
+          'هدایت به پرداخت',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        content: Text(
           'صفحه پرداخت در مرورگر باز شد. پس از تکمیل پرداخت، به اپلیکیشن بازگردید.',
+          maxLines: 4,
+          overflow: TextOverflow.ellipsis,
         ),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).pop(); // بازگشت به صفحه قبلی
+              WidgetSafetyUtils.safePop(context);
+              WidgetSafetyUtils.safePop(context); // بازگشت به صفحه قبلی
             },
-            child: const Text('باشه'),
+            child: Text('باشه', maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -214,15 +225,15 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
   }
 
   void _showErrorDialog(String error) {
-    showDialog(
+    WidgetSafetyUtils.safeShowDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('خطا'),
-        content: Text(error),
+        title: Text('خطا', maxLines: 1, overflow: TextOverflow.ellipsis),
+        content: Text(error, maxLines: 5, overflow: TextOverflow.ellipsis),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('باشه'),
+            onPressed: () => WidgetSafetyUtils.safePop(context),
+            child: Text('باشه', maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -308,7 +319,7 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.pop(context),
+            onTap: () => WidgetSafetyUtils.safePop(context),
             child: Container(
               padding: EdgeInsets.all(8.w),
               decoration: BoxDecoration(

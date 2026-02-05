@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
 import 'package:gymaipro/chat/widgets/online_status_widget.dart';
+import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -32,13 +32,14 @@ class ChatAppBarWidget extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: AppTheme.cardColor,
+      backgroundColor: context.cardColor,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(LucideIcons.arrowRight, color: AppTheme.textColor),
+        icon: Icon(LucideIcons.arrowRight, color: context.textColor),
         onPressed: onBackPressed,
       ),
       title: Row(
+        textDirection: TextDirection.rtl,
         children: [
           UserAvatarWidget(
             avatarUrl: otherUserAvatar,
@@ -46,39 +47,52 @@ class ChatAppBarWidget extends StatelessWidget implements PreferredSizeWidget {
             role: otherUserRole ?? 'athlete',
             showOnlineStatus: false,
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  textDirection: TextDirection.rtl,
                   children: [
                     Expanded(
                       child: Text(
                         otherUserName,
                         style: TextStyle(
-                          color: AppTheme.textColor,
+                          fontFamily: AppTheme.fontFamily,
+                          color: context.textColor,
                           fontSize: 16.sp,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                     if (otherUserRole != null) ...[
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8.w),
                       Container(
                         padding: EdgeInsets.symmetric(
                           horizontal: 6.w,
                           vertical: 2.h,
                         ),
                         decoration: BoxDecoration(
+                          // Use a gradient only for trainers (where we expect multiple colors),
+                          // and fall back to a solid color for other roles to avoid
+                          // the "colors list must have at least two colors" assertion.
+                          gradient: otherUserRole == 'trainer'
+                              ? LinearGradient(
+                                  colors: context.goldGradientColors
+                                      .map((c) => c.withValues(alpha: 0.2))
+                                      .toList(),
+                                )
+                              : null,
                           color: otherUserRole == 'trainer'
-                              ? AppTheme.goldColor.withValues(alpha: 0.2)
+                              ? null
                               : AppTheme.primaryColor.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8.r),
                         ),
                         child: Text(
                           otherUserRole == 'trainer' ? 'مربی' : 'کاربر',
                           style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
                             color: otherUserRole == 'trainer'
                                 ? AppTheme.goldColor
                                 : AppTheme.primaryColor,
@@ -91,6 +105,7 @@ class ChatAppBarWidget extends StatelessWidget implements PreferredSizeWidget {
                   ],
                 ),
                 Row(
+                  textDirection: TextDirection.rtl,
                   children: [
                     Container(
                       width: 8.w,
@@ -98,11 +113,11 @@ class ChatAppBarWidget extends StatelessWidget implements PreferredSizeWidget {
                       decoration: BoxDecoration(
                         color: isOtherUserOnline
                             ? AppTheme.goldColor
-                            : AppTheme.bodyStyle.color,
+                            : context.textSecondary,
                         shape: BoxShape.circle,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6.w),
                     OnlineStatusWidget(
                       isOnline: isOtherUserOnline,
                       lastSeen: otherUserLastSeen,
@@ -117,20 +132,17 @@ class ChatAppBarWidget extends StatelessWidget implements PreferredSizeWidget {
       actions: [
         if (onPhonePressed != null)
           IconButton(
-            icon: const Icon(LucideIcons.phone, color: AppTheme.textColor),
+            icon: Icon(LucideIcons.phone, color: context.textColor),
             onPressed: onPhonePressed,
           ),
         if (onVideoPressed != null)
           IconButton(
-            icon: const Icon(LucideIcons.video, color: AppTheme.textColor),
+            icon: Icon(LucideIcons.video, color: context.textColor),
             onPressed: onVideoPressed,
           ),
         if (onMorePressed != null)
           IconButton(
-            icon: const Icon(
-              LucideIcons.moreVertical,
-              color: AppTheme.textColor,
-            ),
+            icon: Icon(LucideIcons.moreVertical, color: context.textColor),
             onPressed: onMorePressed,
           ),
       ],

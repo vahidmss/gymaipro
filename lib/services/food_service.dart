@@ -42,7 +42,10 @@ class FoodService {
     clearCache();
 
     // Create food tables if they don't exist
-    await _createFoodTables();
+    final isOnline = await ConnectivityService.instance.checkNow();
+    if (isOnline) {
+      await _createFoodTables();
+    }
   }
 
   Future<void> _createFoodTables() async {

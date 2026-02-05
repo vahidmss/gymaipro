@@ -1,8 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:gymaipro/academy/models/article.dart';
 import 'package:gymaipro/academy/screens/article_detail_screen.dart';
-import 'package:gymaipro/academy/screens/articles_list_screen.dart';
-import 'package:gymaipro/admin/broadcast_center_screen.dart';
 import 'package:gymaipro/ai/screens/ai_programs_screen.dart';
 import 'package:gymaipro/auth/screens/login_screen.dart';
 import 'package:gymaipro/auth/screens/register_screen.dart';
@@ -11,13 +9,17 @@ import 'package:gymaipro/chat/screens/chat_conversations_screen.dart';
 import 'package:gymaipro/chat/screens/chat_main_screen.dart';
 import 'package:gymaipro/chat/screens/chat_screen.dart';
 import 'package:gymaipro/dashboard/screens/dashboard_screen.dart';
-import 'package:gymaipro/meal_plan/meal_log/screens/meal_log_screen.dart';
-import 'package:gymaipro/meal_plan/meal_plan_builder/screens/meal_plan_builder_screen.dart';
+import 'package:gymaipro/dashboard/screens/program_type_selection_screen.dart';
+import 'package:gymaipro/guide/screens/welcome_with_onboarding.dart';
+import 'package:gymaipro/meal_log/screens/meal_log_screen.dart';
+import 'package:gymaipro/meal_plan_builder/screens/meal_plan_builder_screen.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/my_club/index.dart';
+import 'package:gymaipro/navigation/constants/navigation_constants.dart';
 import 'package:gymaipro/navigation/navigation.dart';
 import 'package:gymaipro/navigation/navigation_guard.dart';
+import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
 import 'package:gymaipro/notification/screens/notification_settings_screen.dart';
 import 'package:gymaipro/notification/screens/notifications_screen.dart';
 import 'package:gymaipro/notification/screens/private_message_notification_settings_screen.dart';
@@ -26,22 +28,47 @@ import 'package:gymaipro/payment/screens/wallet_charge_screen.dart';
 import 'package:gymaipro/profile/screens/profile_screen.dart';
 import 'package:gymaipro/screens/exercise_detail_screen.dart';
 import 'package:gymaipro/screens/exercise_list_screen.dart';
+import 'package:gymaipro/academy/screens/music_favorites_screen.dart';
 import 'package:gymaipro/screens/favorite_foods_screen.dart';
 import 'package:gymaipro/screens/food_detail_screen.dart';
 import 'package:gymaipro/screens/food_list_screen.dart';
+import 'package:gymaipro/referral/screens/referral_guide_screen.dart';
 import 'package:gymaipro/screens/help_screen.dart';
 import 'package:gymaipro/screens/offline_screen.dart';
 import 'package:gymaipro/screens/settings_screen.dart';
-import 'package:gymaipro/screens/trainers_list_screen.dart';
 import 'package:gymaipro/screens/welcome_screen.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/trainer_dashboard/screens/client_management/client_management_screen.dart';
+import 'package:gymaipro/profile/models/user_profile.dart';
+import 'package:gymaipro/ranking/screens/leaderboard_screen.dart';
+import 'package:gymaipro/trainer_ranking/screens/trainer_detail_screen.dart';
+import 'package:gymaipro/trainer_ranking/screens/trainer_ranking_screen.dart';
+import 'package:gymaipro/trainer_ranking/services/trainer_ranking_service.dart';
 import 'package:gymaipro/user_profile/screens/user_profile_screen.dart';
-import 'package:gymaipro/workout_plan/workout_log/screens/workout_log_screen.dart';
-import 'package:gymaipro/workout_plan/workout_plan_builder/screens/workout_program_builder_screen.dart';
+import 'package:gymaipro/workout_log/screens/workout_log_screen.dart';
+import 'package:gymaipro/workout_plan_builder/screens/workout_program_builder_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class RouteService {
+  static bool _isProfileUsernameValid(String? username) {
+    if (username == null) return false;
+    if (username.isEmpty) return false;
+    if (username.startsWith('user_')) return false;
+    return true;
+  }
+
+  static Future<bool> _isProfileCompleteForCurrentUser() async {
+    try {
+      final profile = await SimpleProfileService.getCurrentProfile();
+      if (profile == null) return false;
+      final username = profile['username'] as String?;
+      return _isProfileUsernameValid(username);
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Route<dynamic> generateRoute(RouteSettings settings) {
     final originalName = settings.name ?? '';
     print('=== ROUTE SERVICE: Generating route for: $originalName ===');
@@ -81,7 +108,8 @@ class RouteService {
     switch (settings.name) {
       case '/':
         return MaterialPageRoute(
-          builder: (_) => _buildProtectedRoute(const WelcomeScreen(), '/'),
+          builder: (_) =>
+              _buildProtectedRoute(const WelcomeWithOnboarding(), '/'),
         );
       case '/login':
         return MaterialPageRoute(
@@ -99,9 +127,16 @@ class RouteService {
       case '/profile':
         return MaterialPageRoute(builder: (_) => const ProfileScreen());
       case '/welcome':
+        // بررسی arguments برای jumpToLastPage
+        final args = settings.arguments;
+        final jumpToLastPage = args is Map<String, dynamic>
+            ? args['jumpToLastPage'] as bool? ?? false
+            : false;
         return MaterialPageRoute(
-          builder: (_) =>
-              _buildProtectedRoute(const WelcomeScreen(), '/welcome'),
+          builder: (_) => _buildProtectedRoute(
+            WelcomeScreen(jumpToLastPage: jumpToLastPage),
+            '/welcome',
+          ),
         );
       case '/offline':
         return MaterialPageRoute(builder: (_) => const OfflineScreen());
@@ -130,6 +165,8 @@ class RouteService {
         String? planId;
         String? targetUserIdMp;
         String? targetUserNameMp;
+        String? subscriptionIdMp;
+        String? paymentTransactionIdMp;
         final mpArgs = settings.arguments;
         if (mpArgs is String?) {
           planId = mpArgs;
@@ -137,19 +174,31 @@ class RouteService {
           planId = mpArgs['planId'] as String?;
           targetUserIdMp = mpArgs['targetUserId'] as String?;
           targetUserNameMp = mpArgs['targetUserName'] as String?;
+          subscriptionIdMp = mpArgs['subscriptionId'] as String?;
+          paymentTransactionIdMp = mpArgs['paymentTransactionId'] as String?;
         }
         return MaterialPageRoute(
           builder: (_) => MealPlanBuilderScreen(
             planId: planId,
             targetUserId: targetUserIdMp,
             targetUserName: targetUserNameMp,
+            subscriptionId: subscriptionIdMp,
+            paymentTransactionId: paymentTransactionIdMp,
           ),
         );
       case '/meal-log':
-        return MaterialPageRoute(builder: (_) => const FoodLogScreen());
-      case '/trainers':
-        return MaterialPageRoute(builder: (_) => const TrainersListScreen());
+        final mealPlanId = settings.arguments as String?;
+        // اگر mealPlanId از arguments نیامده، از active meal plan service بگیر
+        return MaterialPageRoute(
+          builder: (_) => FoodLogScreen(mealPlanId: mealPlanId),
+        );
+
       case '/trainer-profile':
+        final String userId = settings.arguments! as String;
+        return MaterialPageRoute(
+          builder: (_) => UserProfileScreen(userId: userId),
+        );
+      case '/user-profile':
         final String userId = settings.arguments! as String;
         return MaterialPageRoute(
           builder: (_) => UserProfileScreen(userId: userId),
@@ -165,19 +214,51 @@ class RouteService {
         );
       case '/ai-programs':
         return MaterialPageRoute(builder: (_) => const AIProgramsScreen());
+      case '/program-type-selection':
+        return MaterialPageRoute(
+          builder: (_) => const ProgramTypeSelectionScreen(),
+        );
       case '/my-programs':
         return MaterialPageRoute(builder: (_) => const MyProgramsScreen());
       case '/my-club':
-        return MaterialPageRoute(builder: (_) => const MyClubMainScreen());
+        final args = settings.arguments as Map<String, dynamic>?;
+        return MaterialPageRoute(
+          builder: (_) => const MyClubMainScreen(),
+          settings: RouteSettings(arguments: args),
+        );
       case '/food-list':
         return MaterialPageRoute(builder: (_) => const FoodListScreen());
       case '/favorite-foods':
         return MaterialPageRoute(builder: (_) => const FavoriteFoodsScreen());
+      case '/music-favorites':
+        return MaterialPageRoute(builder: (_) => const MusicFavoritesScreen());
       case '/food-detail':
         final Food food = settings.arguments! as Food;
         return MaterialPageRoute(builder: (_) => FoodDetailScreen(food: food));
       case '/articles':
-        return MaterialPageRoute(builder: (_) => const ArticlesListScreen());
+        // Navigate to academy tab in main navigation
+        // Pop back to main navigation first
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          MainNavigationScreen.navigateToTab(NavigationConstants.academyIndex);
+        });
+        // Return empty container as placeholder (will navigate to tab instead)
+        return MaterialPageRoute(builder: (_) => const SizedBox.shrink());
+      case '/trainer-ranking':
+        return MaterialPageRoute(builder: (_) => const TrainerRankingScreen());
+      case '/leaderboard':
+      case '/ranking':
+        return MaterialPageRoute(builder: (_) => const LeaderboardScreen());
+      case '/trainer-detail':
+        final args = settings.arguments as Map<String, dynamic>?;
+        final trainerId = args?['trainerId'] as String?;
+        if (trainerId == null) {
+          // اگر trainerId نبود، به صفحه لیست مربیان برگرد
+          return MaterialPageRoute(builder: (_) => const TrainerRankingScreen());
+        }
+        // لود کردن trainer و نمایش صفحه
+        return MaterialPageRoute(
+          builder: (_) => _TrainerDetailRouteBuilder(trainerId: trainerId),
+        );
       case '/article-detail':
         final Article article = settings.arguments! as Article;
         return MaterialPageRoute(
@@ -188,10 +269,19 @@ class RouteService {
           builder: (_) => const ChatConversationsScreen(),
         );
       case '/chat-main':
-        return MaterialPageRoute(builder: (_) => const ChatMainScreen());
+        final initialTabIndex = settings.arguments is int
+            ? settings.arguments as int
+            : (settings.arguments is Map<String, dynamic>
+                      ? (settings.arguments
+                                as Map<String, dynamic>)['initialTabIndex']
+                            as int?
+                      : null) ??
+                  0;
+        return MaterialPageRoute(
+          builder: (_) =>
+              ChatMainScreen(initialTabIndex: initialTabIndex.clamp(0, 2)),
+        );
 
-      case '/admin-broadcast-center':
-        return MaterialPageRoute(builder: (_) => const BroadcastCenterScreen());
       case '/chat':
         try {
           final Map<String, dynamic> args =
@@ -237,6 +327,9 @@ class RouteService {
         );
       case '/settings':
         return MaterialPageRoute(builder: (_) => const SettingsScreen());
+      case '/referral':
+      case '/invite-friends':
+        return MaterialPageRoute(builder: (_) => const ReferralGuideScreen());
       case '/help':
         return MaterialPageRoute(builder: (_) => const HelpScreen());
 
@@ -285,11 +378,18 @@ class RouteService {
         );
 
         if (currentUser != null) {
+          // Professional behavior:
+          // If session exists, never sign out just because profile lookup failed.
+          // Decide route based on "profile complete" (supports phone fallback).
+          final complete = await _isProfileCompleteForCurrentUser();
+          if (complete) {
+            print('=== ROUTE SERVICE: Profile complete. Returning /main ===');
+            return '/main';
+          }
           print(
-            '=== ROUTE SERVICE: User is logged in with ID: ${currentUser.id} ===',
+            '=== ROUTE SERVICE: Profile incomplete/missing. Keeping session and returning /register ===',
           );
-          print('=== ROUTE SERVICE: Returning /main ===');
-          return '/main'; // تغییر به صفحه اصلی جدید
+          return '/register';
         } else {
           print(
             '=== ROUTE SERVICE: Warning: isLoggedIn is true but currentUser is null. Defaulting to welcome screen. ===',
@@ -308,40 +408,9 @@ class RouteService {
   }
 
   /// Build protected route that redirects logged in users
+  /// Uses a StatefulWidget to cache the auth check result and prevent rebuilds
   static Widget _buildProtectedRoute(Widget child, String routeName) {
-    return FutureBuilder<bool>(
-      future: _checkIfUserIsLoggedIn(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        final isLoggedIn = snapshot.data ?? false;
-
-        if (isLoggedIn &&
-            !NavigationGuard.isRouteAllowedForLoggedInUser(routeName)) {
-          // Redirect to main screen
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            try {
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                NavigationGuard.getRedirectRouteForLoggedInUser(),
-                (route) => false,
-              );
-            } catch (e) {
-              debugPrint('Error in route redirect: $e');
-            }
-          });
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        return child;
-      },
-    );
+    return _ProtectedRouteWrapper(child: child, routeName: routeName);
   }
 
   /// Check if user is logged in
@@ -353,5 +422,210 @@ class RouteService {
       print('=== ROUTE SERVICE: Error checking login status: $e ===');
       return false;
     }
+  }
+}
+
+/// Wrapper widget that caches the auth check result to prevent rebuild loops
+class _ProtectedRouteWrapper extends StatefulWidget {
+  const _ProtectedRouteWrapper({required this.child, required this.routeName});
+
+  final Widget child;
+  final String routeName;
+
+  @override
+  State<_ProtectedRouteWrapper> createState() => _ProtectedRouteWrapperState();
+}
+
+class _ProtectedRouteWrapperState extends State<_ProtectedRouteWrapper> {
+  Future<bool>? _authCheckFuture;
+  bool? _cachedAuthResult;
+  Future<bool>? _profileCompleteFuture;
+  bool? _cachedProfileComplete;
+  bool _hasRedirected = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Cache the future on first build only
+    _authCheckFuture = RouteService._checkIfUserIsLoggedIn();
+    _authCheckFuture!.then((result) {
+      if (mounted) {
+        setState(() {
+          _cachedAuthResult = result;
+        });
+      }
+    });
+
+    // Also cache profile completeness for professional routing behavior
+    _profileCompleteFuture = RouteService._isProfileCompleteForCurrentUser();
+    _profileCompleteFuture!.then((result) {
+      if (mounted) {
+        setState(() {
+          _cachedProfileComplete = result;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // If we have a cached result, use it immediately
+    if (_cachedAuthResult != null) {
+      final isLoggedIn = _cachedAuthResult!;
+
+      // If user is logged in and on a restricted route, only redirect if profile is complete.
+      // If profile is incomplete, allow user to stay on /register to finish setup.
+      if (isLoggedIn &&
+          !NavigationGuard.isRouteAllowedForLoggedInUser(widget.routeName) &&
+          !_hasRedirected) {
+        if (_cachedProfileComplete == null) {
+          return FutureBuilder<bool>(
+            future: _profileCompleteFuture,
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              final complete = snap.data ?? false;
+              // cache
+              _cachedProfileComplete = complete;
+              if (complete) {
+                _hasRedirected = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      NavigationGuard.getRedirectRouteForLoggedInUser(),
+                      (route) => false,
+                    );
+                  }
+                });
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              return widget.child;
+            },
+          );
+        } else {
+          final complete = _cachedProfileComplete!;
+          if (complete) {
+            _hasRedirected = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  NavigationGuard.getRedirectRouteForLoggedInUser(),
+                  (route) => false,
+                );
+              }
+            });
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+        }
+      }
+
+      return widget.child;
+    }
+
+    // While waiting for auth check, show loading
+    return FutureBuilder<bool>(
+      future: _authCheckFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final isLoggedIn = snapshot.data ?? false;
+
+        if (isLoggedIn &&
+            !NavigationGuard.isRouteAllowedForLoggedInUser(widget.routeName) &&
+            !_hasRedirected) {
+          // Redirect only once
+          _hasRedirected = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              try {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  NavigationGuard.getRedirectRouteForLoggedInUser(),
+                  (route) => false,
+                );
+              } catch (e) {
+                debugPrint('Error in route redirect: $e');
+              }
+            }
+          });
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        return widget.child;
+      },
+    );
+  }
+}
+
+/// Widget builder برای صفحه trainer detail که trainer را از ID لود می‌کند
+class _TrainerDetailRouteBuilder extends StatefulWidget {
+  const _TrainerDetailRouteBuilder({required this.trainerId});
+  final String trainerId;
+
+  @override
+  State<_TrainerDetailRouteBuilder> createState() => _TrainerDetailRouteBuilderState();
+}
+
+class _TrainerDetailRouteBuilderState extends State<_TrainerDetailRouteBuilder> {
+  final TrainerRankingService _service = TrainerRankingService();
+  bool _isLoading = true;
+  UserProfile? _trainer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTrainer();
+  }
+
+  Future<void> _loadTrainer() async {
+    try {
+      final trainer = await _service.getTrainerDetails(widget.trainerId);
+      if (mounted) {
+        setState(() {
+          _trainer = trainer;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading trainer: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_trainer == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('مربی یافت نشد')),
+        body: const Center(child: Text('مربی یافت نشد')),
+      );
+    }
+
+    return TrainerDetailScreen(trainer: _trainer!);
   }
 }

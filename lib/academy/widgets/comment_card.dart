@@ -55,11 +55,15 @@ class CommentCard extends StatelessWidget {
                   Text(
                     displayName,
                     style: AppTheme.headingStyle.copyWith(fontSize: 14.sp),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     content.replaceAll(RegExp('<[^>]*>'), ''),
                     style: AppTheme.bodyStyle.copyWith(height: 1.5.h),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),

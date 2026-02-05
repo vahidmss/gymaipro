@@ -1,13 +1,16 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/services/notification_data_service.dart';
 import 'package:gymaipro/payment/models/payment_transaction.dart';
 import 'package:gymaipro/payment/models/trainer_subscription.dart';
+import 'package:gymaipro/payment/services/commission_service.dart';
 import 'package:gymaipro/payment/services/discount_service.dart';
 // removed unused import
 import 'package:gymaipro/payment/services/payment_gateway_service.dart';
 import 'package:gymaipro/payment/services/trainer_subscription_service.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/trainer_dashboard/services/trainer_client_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -23,12 +26,13 @@ class TrainerPaymentService {
   final DiscountService _discountService = DiscountService();
   final TrainerSubscriptionService _subscriptionService =
       TrainerSubscriptionService();
+  final CommissionService _commissionService = CommissionService();
   final SupabaseClient _client = Supabase.instance.client;
   final TrainerClientService _trainerClientService = TrainerClientService();
 
   /// پردازش خرید اشتراک مربی
   Future<Map<String, dynamic>> processTrainerSubscriptionPurchase({
-    required String userId,
+    required String userId, // این باید auth.users.id باشد
     required String trainerId,
     required TrainerServiceType serviceType,
     required int originalAmount,
@@ -45,9 +49,90 @@ class TrainerPaymentService {
         );
       }
 
+      // دریافت profileId برای استفاده در تراکنش
+      // constraint در دیتابیس به profiles reference می‌کند، پس باید از profileId استفاده کنیم
+      // اگر پروفایل پیدا نشد، retry می‌کنیم (ممکن است مشکل connection باشد)
+      String? effectiveUserId;
+      int retryCount = 0;
+      const maxRetries = 3;
+
+      while (effectiveUserId == null && retryCount < maxRetries) {
+        try {
+          final profile = await SimpleProfileService.getCurrentProfile();
+          if (profile != null) {
+            final profileId = profile['id'] as String?;
+            if (profileId != null && profileId.isNotEmpty) {
+              effectiveUserId =
+                  profileId; // استفاده از profileId چون constraint به profiles reference می‌کند
+              if (kDebugMode) {
+                print(
+                  'TRAINER_PAY: Using profileId=$profileId (instead of authUserId=$userId)',
+                );
+              }
+              break;
+            }
+          }
+
+          // اگر پروفایل پیدا نشد و retry باقی مانده، دوباره تلاش می‌کنیم
+          if (retryCount < maxRetries - 1) {
+            if (kDebugMode) {
+              print(
+                'TRAINER_PAY: Profile not found, retrying... (attempt ${retryCount + 1}/$maxRetries)',
+              );
+            }
+            await Future<void>.delayed(
+              Duration(milliseconds: 500 * (retryCount + 1)),
+            );
+            retryCount++;
+          } else {
+            if (kDebugMode) {
+              print(
+                'TRAINER_PAY: Profile not found after $maxRetries attempts',
+              );
+            }
+            break;
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print(
+              'TRAINER_PAY: Error getting profile (attempt ${retryCount + 1}/$maxRetries): $e',
+            );
+          }
+
+          // اگر retry باقی مانده، دوباره تلاش می‌کنیم
+          if (retryCount < maxRetries - 1) {
+            await Future<void>.delayed(
+              Duration(milliseconds: 500 * (retryCount + 1)),
+            );
+            retryCount++;
+          } else {
+            if (kDebugMode) {
+              print(
+                'TRAINER_PAY: Failed to get profile after $maxRetries attempts',
+              );
+            }
+            break;
+          }
+        }
+      }
+
+      // اگر بعد از retry هم پروفایل پیدا نشد، خطا throw می‌کنیم
+      if (effectiveUserId == null) {
+        final errorMsg = 'پروفایل کاربر پیدا نشد. لطفاً دوباره تلاش کنید.';
+        if (kDebugMode) {
+          print('TRAINER_PAY: ERROR - Cannot proceed without profileId');
+        }
+        return {
+          'success': false,
+          'error': errorMsg,
+          'code': 'PROFILE_NOT_FOUND',
+        };
+      }
+
       // بررسی وجود اشتراک فعال
+      // استفاده از effectiveUserId (profileId) چون constraint به profiles reference می‌کند
       final hasActive = await _subscriptionService.hasActiveSubscription(
-        userId,
+        effectiveUserId,
         trainerId,
         serviceType,
       );
@@ -61,22 +146,21 @@ class TrainerPaymentService {
       }
 
       // محاسبه نام خریدار برای اعلان‌ها
+      // استفاده از SimpleProfileService برای دریافت پروفایل (مثل سایر بخش‌های برنامه)
       String buyerName = '';
       try {
-        final p = await _client
-            .from('profiles')
-            .select('first_name, last_name, username, phone_number')
-            .eq('id', userId)
-            .maybeSingle();
+        final profile = await SimpleProfileService.getCurrentProfile();
         if (kDebugMode) {
-          print('TRAINER_PAY: buyer profile for $userId => $p');
+          print(
+            'TRAINER_PAY: buyer profile for $userId => ${profile != null ? "found" : "null"}',
+          );
         }
-        if (p != null) {
-          final firstName = (p['first_name'] as String?)?.trim() ?? '';
-          final lastName = (p['last_name'] as String?)?.trim() ?? '';
+        if (profile != null) {
+          final firstName = (profile['first_name'] as String?)?.trim() ?? '';
+          final lastName = (profile['last_name'] as String?)?.trim() ?? '';
           final combined = '$firstName $lastName'.trim();
-          final username = (p['username'] as String?)?.trim() ?? '';
-          final phone = (p['phone_number'] as String?)?.trim() ?? '';
+          final username = (profile['username'] as String?)?.trim() ?? '';
+          final phone = (profile['phone_number'] as String?)?.trim() ?? '';
           if (combined.isNotEmpty) {
             buyerName = combined;
           } else if (username.isNotEmpty) {
@@ -105,7 +189,7 @@ class TrainerPaymentService {
         final validate = await _discountService.validateDiscountCode(
           code: discountCode,
           originalAmount: originalAmount,
-          userId: userId,
+          userId: effectiveUserId, // استفاده از profileId
         );
 
         if (validate['valid'] == true) {
@@ -118,10 +202,18 @@ class TrainerPaymentService {
         }
       }
 
+      // بررسی معتبر بودن effectiveUserId
+      if (kDebugMode) {
+        print(
+          'TRAINER_PAY: Creating transaction with effectiveUserId: $effectiveUserId (original authUserId: $userId)',
+        );
+      }
+
       // ایجاد تراکنش پرداخت
+      // استفاده از effectiveUserId (که profileId است چون constraint به profiles reference می‌کند)
       final transaction = PaymentTransaction(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        userId: userId,
+        userId: effectiveUserId,
         amount: originalAmount,
         finalAmount: finalAmount,
         discountAmount: discountAmount,
@@ -165,10 +257,11 @@ class TrainerPaymentService {
       await _client.from('payment_transactions').insert(transaction.toJson());
 
       // پردازش بر اساس روش پرداخت
+      // استفاده از effectiveUserId (profileId) برای subscription
       if (paymentMethod == 'wallet') {
         return await _processWalletPayment(
           transaction,
-          userId,
+          effectiveUserId, // استفاده از profileId
           trainerId,
           serviceType,
           buyerNameOverride: buyerName,
@@ -176,7 +269,7 @@ class TrainerPaymentService {
       } else {
         return await _processDirectPayment(
           transaction,
-          userId,
+          effectiveUserId, // استفاده از profileId
           trainerId,
           serviceType,
         );
@@ -216,18 +309,26 @@ class TrainerPaymentService {
       }
 
       // کسر از کیف پول
-      final paid = await _walletService.payFromWallet(
-        amount: transaction.finalAmount,
-        description: 'خرید اشتراک مربی',
-        referenceId: transaction.id,
-        metadata: transaction.metadata,
-      );
-
-      if (!paid) {
+      try {
+        await _walletService.payFromWallet(
+          amount: transaction.finalAmount,
+          description: 'خرید اشتراک مربی',
+          referenceId: transaction.id,
+          metadata: transaction.metadata,
+        );
+      } catch (e) {
+        final msg = e.toString().toLowerCase();
+        final isInsufficient =
+            msg.contains('موجودی') &&
+            (msg.contains('کافی نیست') || msg.contains('منفی'));
         return {
           'success': false,
-          'error': 'خطا در کسر از کیف پول',
-          'code': 'WALLET_DEDUCTION_FAILED',
+          'error': isInsufficient
+              ? 'موجودی کیف پول کافی نیست'
+              : 'خطا در کسر از کیف پول. لطفاً دوباره تلاش کنید.',
+          'code': isInsufficient
+              ? 'INSUFFICIENT_BALANCE'
+              : 'WALLET_DEDUCTION_FAILED',
         };
       }
 
@@ -242,32 +343,94 @@ class TrainerPaymentService {
           })
           .eq('id', transaction.id);
 
-      // ایجاد اشتراک
-      final subscription = await _subscriptionService.createSubscription(
-        userId: userId,
-        trainerId: trainerId,
-        serviceType: serviceType,
-        originalAmount: transaction.amount,
-        finalAmount: transaction.finalAmount,
-        discountCode: transaction.discountCode,
-        discountPercentage: transaction.discountPercentage,
-        paymentTransactionId: transaction.id,
-        metadata: transaction.metadata,
-      );
-
-      if (subscription == null) {
+      // ایجاد اشتراک؛ در صورت شکست موجودی را برمی‌گردانیم
+      TrainerSubscription? subscription;
+      try {
+        subscription = await _subscriptionService.createSubscription(
+          userId: userId,
+          trainerId: trainerId,
+          serviceType: serviceType,
+          originalAmount: transaction.amount,
+          finalAmount: transaction.finalAmount,
+          discountCode: transaction.discountCode,
+          discountPercentage: transaction.discountPercentage,
+          paymentTransactionId: transaction.id,
+          metadata: transaction.metadata,
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print('خطا در ایجاد اشتراک، در حال بازگرداندن وجه: $e');
+        }
+        await _walletService.refundToWallet(
+          amount: transaction.finalAmount,
+          transactionId: 'refund-${transaction.id}',
+          description: 'بازگشت وجه به‌دلیل خطا در ثبت اشتراک',
+          metadata: transaction.metadata,
+        );
+        await _client
+            .from('payment_transactions')
+            .update({
+              'status': TransactionStatus.cancelled.toString().split('.').last,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', transaction.id);
         return {
           'success': false,
-          'error': 'خطا در ایجاد اشتراک',
+          'error': 'خطا در ایجاد اشتراک. مبلغ به کیف پول بازگردانده شد.',
           'code': 'SUBSCRIPTION_CREATION_FAILED',
         };
       }
 
-      // فعال کردن اشتراک
-      await _subscriptionService.updateSubscriptionStatus(
-        subscription.id,
-        TrainerSubscriptionStatus.active,
-      );
+      if (subscription == null) {
+        await _walletService.refundToWallet(
+          amount: transaction.finalAmount,
+          transactionId: 'refund-${transaction.id}',
+          description: 'بازگشت وجه به‌دلیل خطا در ثبت اشتراک',
+          metadata: transaction.metadata,
+        );
+        await _client
+            .from('payment_transactions')
+            .update({
+              'status': TransactionStatus.cancelled.toString().split('.').last,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', transaction.id);
+        return {
+          'success': false,
+          'error': 'خطا در ایجاد اشتراک. مبلغ به کیف پول بازگردانده شد.',
+          'code': 'SUBSCRIPTION_CREATION_FAILED',
+        };
+      }
+
+      // فعال کردن اشتراک؛ در صورت شکست بازگشت وجه
+      try {
+        await _subscriptionService.updateSubscriptionStatus(
+          subscription.id,
+          TrainerSubscriptionStatus.active,
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print('خطا در فعال‌سازی اشتراک، در حال بازگرداندن وجه: $e');
+        }
+        await _walletService.refundToWallet(
+          amount: transaction.finalAmount,
+          transactionId: 'refund-${transaction.id}',
+          description: 'بازگشت وجه به‌دلیل خطا در فعال‌سازی اشتراک',
+          metadata: transaction.metadata,
+        );
+        await _client
+            .from('payment_transactions')
+            .update({
+              'status': TransactionStatus.cancelled.toString().split('.').last,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', transaction.id);
+        return {
+          'success': false,
+          'error': 'خطا در فعال‌سازی اشتراک. مبلغ به کیف پول بازگردانده شد.',
+          'code': 'SUBSCRIPTION_ACTIVATION_FAILED',
+        };
+      }
 
       // ارسال اعلان به مربی
       await _notifyTrainerNewRequest(
@@ -278,12 +441,15 @@ class TrainerPaymentService {
       );
 
       // افزودن کاربر به شاگردان مربی (active)
-      await _trainerClientService.ensureActiveRelationship(
-        trainerId: trainerId,
-        clientId: userId,
-      );
-      // اعلان پیوستن شاگرد جدید
-      await _notifyTrainerNewStudent(trainerId: trainerId, buyerUserId: userId);
+      final isNewRelationship = await _trainerClientService
+          .ensureActiveRelationship(trainerId: trainerId, clientId: userId);
+      // اعلان پیوستن شاگرد جدید - فقط اگر رابطه جدید باشد
+      if (isNewRelationship) {
+        await _notifyTrainerNewStudent(
+          trainerId: trainerId,
+          buyerUserId: userId,
+        );
+      }
 
       return {
         'success': true,
@@ -314,10 +480,13 @@ class TrainerPaymentService {
   ) async {
     try {
       // درخواست پرداخت از درگاه
+      // اضافه کردن trainer_id به callback URL برای بازگشت به صفحه مربی
+      final callbackUrl =
+          '${AppConfig.zibalCallbackUrl}?orderId=${transaction.id}&trainerId=$trainerId&type=trainer';
       final paymentResult = await _paymentGateway.processPayment(
         transaction: transaction,
         gateway: PaymentGateway.zibal,
-        callbackUrl: '${AppConfig.zibalCallbackUrl}?orderId=${transaction.id}',
+        callbackUrl: callbackUrl,
       );
 
       if (paymentResult?['success'] != true) {
@@ -423,6 +592,14 @@ class TrainerPaymentService {
         TrainerSubscriptionStatus.active,
       );
 
+      // محاسبه و ثبت کمیسیون
+      await _processCommission(
+        transactionId: transaction.id,
+        subscriptionId: subscription.id,
+        trainerId: transaction.metadata?['trainer_id'] as String? ?? '',
+        finalAmount: transaction.finalAmount,
+      );
+
       // ارسال اعلان به مربی
       await _notifyTrainerNewRequest(
         trainerId: transaction.metadata?['trainer_id'] as String? ?? '',
@@ -440,14 +617,18 @@ class TrainerPaymentService {
       // افزودن کاربر به شاگردان مربی و ارسال اعلان
       final trId = transaction.metadata?['trainer_id'] as String? ?? '';
       if (trId.isNotEmpty) {
-        await _trainerClientService.ensureActiveRelationship(
-          trainerId: trId,
-          clientId: transaction.userId,
-        );
-        await _notifyTrainerNewStudent(
-          trainerId: trId,
-          buyerUserId: transaction.userId,
-        );
+        final isNewRelationship = await _trainerClientService
+            .ensureActiveRelationship(
+              trainerId: trId,
+              clientId: transaction.userId,
+            );
+        // اعلان پیوستن شاگرد جدید - فقط اگر رابطه جدید باشد
+        if (isNewRelationship) {
+          await _notifyTrainerNewStudent(
+            trainerId: trId,
+            buyerUserId: transaction.userId,
+          );
+        }
       }
 
       return {
@@ -470,6 +651,21 @@ class TrainerPaymentService {
     }
   }
 
+  /// بر اساس profile id، auth user id را برمی‌گرداند (برای اعلان و device_tokens که با auth.uid کار می‌کنند)
+  Future<String> _getAuthUserIdForProfileId(String profileId) async {
+    try {
+      final row = await _client
+          .from('profiles')
+          .select('auth_user_id')
+          .eq('id', profileId)
+          .maybeSingle();
+      final authId = row?['auth_user_id'] as String?;
+      return (authId != null && authId.isNotEmpty) ? authId : profileId;
+    } catch (_) {
+      return profileId;
+    }
+  }
+
   /// ارسال اعلان به مربی پس از خرید اشتراک
   Future<void> _notifyTrainerNewRequest({
     required String trainerId,
@@ -478,6 +674,9 @@ class TrainerPaymentService {
     String? buyerNameOverride,
   }) async {
     try {
+      // اعلان و device_tokens با auth.uid کار می‌کنند؛ trainerId ممکن است profile id باشد
+      final trainerAuthId = await _getAuthUserIdForProfileId(trainerId);
+
       // دریافت نام/یوزرنیم خریدار (از override یا metadata یا پروفایل)
       String buyerName = (buyerNameOverride ?? '').trim();
       // اگر override مقدار پیش‌فرض باشد، نادیده بگیر تا از پروفایل بخوانیم
@@ -533,15 +732,56 @@ class TrainerPaymentService {
       final message =
           'درخواست $serviceName از $buyerName$usernameSuffix رسیده است.';
 
+      // ایجاد نوتیفیکیشن داخل برنامه (user_id باید auth.uid باشد)
       await NotificationDataService.createNotification(
-        userId: trainerId,
+        userId: trainerAuthId,
         title: title,
         message: message,
         type: NotificationType.payment,
         priority: 2,
         data: {'buyer_user_id': buyerUserId, 'service': serviceName},
       );
-    } catch (_) {
+
+      // ارسال پوش نوتیفیکیشن مستقیم به device tokens (user_id در جدول = auth.uid)
+      try {
+        final List<dynamic> tokensRes = await _client
+            .from('device_tokens')
+            .select('token')
+            .eq('user_id', trainerAuthId)
+            .eq('is_push_enabled', true);
+        final List<String> tokens = tokensRes
+            .map((e) => (e as Map)['token']?.toString() ?? '')
+            .whereType<String>()
+            .where((t) => t.isNotEmpty)
+            .toList();
+
+        if (tokens.isNotEmpty) {
+          await _client.functions.invoke(
+            'send-notifications',
+            body: {
+              'mode': 'direct',
+              'target_type': 'device_tokens',
+              'tokens': tokens,
+              'title': title,
+              'body': message,
+              'data': {
+                'type': 'payment',
+                'route': '/trainer-dashboard',
+                'buyer_user_id': buyerUserId,
+                'service': serviceName,
+              },
+            },
+          );
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('⚠️ خطا در ارسال پوش نوتیفیکیشن: $e');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ خطا در ایجاد اعلان: $e');
+      }
       // خطا در اعلان را نادیده می‌گیریم تا جریان اصلی متوقف نشود
     }
   }
@@ -552,6 +792,8 @@ class TrainerPaymentService {
     required String buyerUserId,
   }) async {
     try {
+      final trainerAuthId = await _getAuthUserIdForProfileId(trainerId);
+
       // نام خریدار
       String buyerName = '';
       try {
@@ -576,15 +818,60 @@ class TrainerPaymentService {
       } catch (_) {}
       if (buyerName.isEmpty) buyerName = 'یک کاربر';
 
+      const title = 'شاگرد جدید';
+      final message = '$buyerName به شاگردان شما اضافه شد.';
+
+      // ایجاد نوتیفیکیشن داخل برنامه (user_id باید auth.uid باشد)
       await NotificationDataService.createNotification(
-        userId: trainerId,
-        title: 'شاگرد جدید',
-        message: '$buyerName به شاگردان شما اضافه شد.',
+        userId: trainerAuthId,
+        title: title,
+        message: message,
         type: NotificationType.payment,
         priority: 2,
         data: {'buyer_user_id': buyerUserId, 'event': 'student_added'},
       );
-    } catch (_) {}
+
+      // ارسال پوش نوتیفیکیشن مستقیم به device tokens (user_id در جدول = auth.uid)
+      try {
+        final List<dynamic> tokensRes = await _client
+            .from('device_tokens')
+            .select('token')
+            .eq('user_id', trainerAuthId)
+            .eq('is_push_enabled', true);
+        final List<String> tokens = tokensRes
+            .map((e) => (e as Map)['token']?.toString() ?? '')
+            .whereType<String>()
+            .where((t) => t.isNotEmpty)
+            .toList();
+
+        if (tokens.isNotEmpty) {
+          await _client.functions.invoke(
+            'send-notifications',
+            body: {
+              'mode': 'direct',
+              'target_type': 'device_tokens',
+              'tokens': tokens,
+              'title': title,
+              'body': message,
+              'data': {
+                'type': 'payment',
+                'route': '/trainer-dashboard',
+                'buyer_user_id': buyerUserId,
+                'event': 'student_added',
+              },
+            },
+          );
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('⚠️ خطا در ارسال پوش نوتیفیکیشن: $e');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ خطا در ایجاد اعلان: $e');
+      }
+    }
   }
 
   /// لغو تراکنش
@@ -708,6 +995,74 @@ class TrainerPaymentService {
         print('خطا در دریافت آمار پرداخت مربی: $e');
       }
       return {};
+    }
+  }
+
+  /// پردازش کمیسیون و به‌روزرسانی درآمد مربی
+  Future<void> _processCommission({
+    required String transactionId,
+    required String subscriptionId,
+    required String trainerId,
+    required int finalAmount,
+  }) async {
+    try {
+      // محاسبه کمیسیون
+      final commission = await _commissionService.calculateCommission(
+        finalAmount,
+      );
+      final platformRevenue = commission['platform_revenue'] ?? 0;
+      final trainerEarnings = commission['trainer_earnings'] ?? finalAmount;
+
+      // دریافت تنظیمات برای ثبت درصد کمیسیون
+      final settings = await _commissionService.getActiveSettings();
+      final commissionPercentage = settings?.commissionPercentage ?? 0.0;
+
+      // ثبت درآمد پلتفرم
+      await _commissionService.recordPlatformRevenue(
+        transactionId: transactionId,
+        subscriptionId: subscriptionId,
+        trainerId: trainerId,
+        amount: platformRevenue,
+        commissionPercentage: commissionPercentage,
+      );
+
+      // به‌روزرسانی trainer_earnings در کیف پول مربی
+      final walletResponse = await _client
+          .from('wallets')
+          .select()
+          .eq('user_id', trainerId)
+          .maybeSingle();
+
+      if (walletResponse != null) {
+        final currentEarnings =
+            (walletResponse['trainer_earnings'] as int?) ?? 0;
+        final newEarnings = currentEarnings + trainerEarnings;
+
+        await _client
+            .from('wallets')
+            .update({
+              'trainer_earnings': newEarnings,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('user_id', trainerId);
+      } else {
+        // اگر کیف پول وجود نداشت، ایجاد می‌کنیم
+        await _client.from('wallets').insert({
+          'user_id': trainerId,
+          'trainer_earnings': trainerEarnings,
+        });
+      }
+
+      if (kDebugMode) {
+        print(
+          'کمیسیون پردازش شد - پلتفرم: ${platformRevenue / 10} تومان، مربی: ${trainerEarnings / 10} تومان',
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('خطا در پردازش کمیسیون: $e');
+      }
+      // خطا در کمیسیون نباید جریان اصلی را متوقف کند
     }
   }
 

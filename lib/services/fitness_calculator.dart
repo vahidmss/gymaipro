@@ -11,13 +11,13 @@ class FitnessCalculator {
 
   static String getBMICategory(double bmi) {
     if (bmi < 18.5) {
-      return 'کمبود وزن';
+      return 'Underweight';
     } else if (bmi < 25) {
-      return 'نرمال';
+      return 'Normal';
     } else if (bmi < 30) {
-      return 'اضافه وزن';
+      return 'Overweight';
     } else {
-      return 'چاقی';
+      return 'Obese';
     }
   }
 
@@ -118,6 +118,26 @@ extension ActivityLevelExtension on ActivityLevel {
         return 'خیلی فعال (ورزش سنگین 6-7 روز در هفته)';
       case ActivityLevel.extraActive:
         return 'فوق فعال (ورزش خیلی سنگین و کار فیزیکی)';
+    }
+  }
+}
+
+extension ActivityLevelConverter on String {
+  /// تبدیل activity_level string از دیتابیس به ActivityLevel enum
+  ActivityLevel toActivityLevel() {
+    switch (this) {
+      case 'sedentary':
+        return ActivityLevel.sedentary;
+      case 'light':
+        return ActivityLevel.lightlyActive;
+      case 'moderate':
+        return ActivityLevel.moderatelyActive;
+      case 'active':
+        return ActivityLevel.veryActive;
+      case 'very_active':
+        return ActivityLevel.extraActive;
+      default:
+        return ActivityLevel.moderatelyActive; // پیش‌فرض
     }
   }
 }

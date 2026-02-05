@@ -1,4 +1,4 @@
-﻿// صفحه چت - نسخه بهبود یافته
+// صفحه چت - نسخه بهبود یافته
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -14,6 +14,7 @@ import 'package:gymaipro/chat/widgets/message_input_widget.dart';
 import 'package:gymaipro/services/supabase_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
+import 'package:gymaipro/utils/text_controller_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -355,7 +356,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _sendMessage() async {
-    final message = _messageController.text.trim();
+    if (!mounted || !_messageController.isSafe) return;
+    final message = _messageController.safeText.trim();
     if (message.isEmpty || _isSending) return;
 
     // Create optimistic message
@@ -373,7 +375,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _messages.add(tempMessage);
     });
 
-    _messageController.clear();
+    if (_messageController.isSafe) {
+      _messageController.safeClear();
+    }
     _scrollToBottom();
 
     try {
@@ -391,6 +395,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           // اگر پیام موقت پیدا نشد، پیام واقعی را اضافه کن
           _messages.add(sentMessage);
         }
+        // مرتب‌سازی بر اساس زمان ایجاد (قدیمی‌ترین اول)
+        _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       });
     } catch (e) {
       // Remove temp message on error
@@ -398,15 +404,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _messages.removeWhere((m) => m.id == tempMessage.id);
       });
 
+      debugPrint('=== CHAT SCREEN: Error sending message: $e ===');
+
       if (mounted) {
+        final errorMessage = e.toString().replaceAll('Exception: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطا در ارسال پیام: $e'),
-            backgroundColor: AppTheme.goldColor,
+            content: Text(
+              errorMessage.isNotEmpty ? errorMessage : 'خطا در ارسال پیام',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 14.sp,
+              ),
+            ),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'تلاش مجدد',
-              textColor: AppTheme.textColor,
-              onPressed: _sendMessage,
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                _sendMessage();
+              },
             ),
           ),
         );
@@ -430,20 +449,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     });
   }
 
-  // اضافه کردن پیام بدون تکرار
+  // اضافه کردن پیام بدون تکرار و حفظ ترتیب زمانی
   void _addMessageIfNotExists(ChatMessage message) {
-    // بررسی وجود پیام بر اساس ID و محتوا
-    final exists = _messages.any(
-      (m) =>
-          m.id == message.id ||
-          (m.senderId == message.senderId &&
-              m.message == message.message &&
-              m.createdAt.difference(message.createdAt).abs().inSeconds < 5),
-    );
+    // بررسی وجود پیام بر اساس ID
+    final exists = _messages.any((m) => m.id == message.id);
 
     if (!exists) {
       SafeSetState.call(this, () {
         _messages.add(message);
+        // مرتب‌سازی بر اساس زمان ایجاد (قدیمی‌ترین اول)
+        _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       });
     }
   }
@@ -494,39 +509,44 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: ChatAppBarWidget(
-        otherUserName: widget.otherUserName,
-        otherUserRole: _otherUserRole,
-        otherUserAvatar: _otherUserAvatar,
-        isOtherUserOnline: _isOtherUserOnline,
-        otherUserLastSeen: _otherUserLastSeen,
-        onBackPressed: () => Navigator.of(context).pop(),
-        onMorePressed: _showChatOptions,
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ErrorBoundaryWidget(
-              child: _buildMessagesList(),
-              onRetry: () {
-                setState(() {
-                  _isLoading = true;
-                  _errorMessage = null;
-                });
-                _initializeChat();
-              },
+    return Theme(
+      data: Theme.of(
+        context,
+      ).copyWith(scaffoldBackgroundColor: context.backgroundColor),
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        backgroundColor: context.backgroundColor,
+        appBar: ChatAppBarWidget(
+          otherUserName: widget.otherUserName,
+          otherUserRole: _otherUserRole,
+          otherUserAvatar: _otherUserAvatar,
+          isOtherUserOnline: _isOtherUserOnline,
+          otherUserLastSeen: _otherUserLastSeen,
+          onBackPressed: () => Navigator.of(context).pop(),
+          onMorePressed: _showChatOptions,
+        ),
+        body: Column(
+          children: [
+            Expanded(
+              child: ErrorBoundaryWidget(
+                child: _buildMessagesList(),
+                onRetry: () {
+                  setState(() {
+                    _isLoading = true;
+                    _errorMessage = null;
+                  });
+                  _initializeChat();
+                },
+              ),
             ),
-          ),
-          MessageInputWidget(
-            controller: _messageController,
-            onSendPressed: _sendMessage,
-            onAttachmentPressed: _showAttachmentOptions,
-            isSending: _isSending,
-          ),
-        ],
+            MessageInputWidget(
+              controller: _messageController,
+              onSendPressed: _sendMessage,
+              onAttachmentPressed: _showAttachmentOptions,
+              isSending: _isSending,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -541,11 +561,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(color: AppTheme.goldColor),
-            const SizedBox(height: 16),
+            CircularProgressIndicator(color: AppTheme.goldColor),
+            SizedBox(height: 16.h),
             Text(
               'در حال بارگذاری پیام‌ها...',
-              style: TextStyle(color: AppTheme.bodyStyle.color),
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textSecondary,
+              ),
             ),
           ],
         ),
@@ -562,20 +585,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               color: AppTheme.goldColor.withValues(alpha: 0.5),
               size: 64.sp,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
             Text(
               _errorMessage!,
-              style: AppTheme.headingStyle.copyWith(fontSize: 16.sp),
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontWeight: FontWeight.bold,
+                fontSize: 16.sp,
+                color: context.textColor,
+              ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
             ElevatedButton.icon(
               onPressed: _loadMessages,
-              icon: const Icon(LucideIcons.refreshCw),
-              label: const Text('تلاش مجدد'),
+              icon: Icon(LucideIcons.refreshCw),
+              label: Text('تلاش مجدد'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.goldColor,
-                foregroundColor: AppTheme.textColor,
+                foregroundColor: AppTheme.onGoldColor,
               ),
             ),
           ],
@@ -591,8 +619,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Container(
               padding: EdgeInsets.all(20.w),
               decoration: BoxDecoration(
-                color: AppTheme.cardColor,
+                color: context.cardColor,
                 borderRadius: BorderRadius.circular(20.r),
+                border: Border.all(
+                  color: AppTheme.goldColor.withValues(alpha: 0.2),
+                ),
               ),
               child: Icon(
                 LucideIcons.messageCircle,
@@ -600,15 +631,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 size: 64.sp,
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24.h),
             Text(
               'هنوز پیامی ارسال نشده',
-              style: AppTheme.headingStyle.copyWith(fontSize: 18.sp),
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontWeight: FontWeight.bold,
+                fontSize: 18.sp,
+                color: context.textColor,
+              ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8.h),
             Text(
               'شروع به گفتگو کنید',
-              style: AppTheme.bodyStyle.copyWith(fontSize: 14.sp),
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 14.sp,
+                color: context.textSecondary,
+              ),
             ),
           ],
         ),
@@ -626,15 +666,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         itemCount: _messages.length + (_hasMoreMessages ? 1 : 0),
         itemBuilder: (context, index) {
           // در حالت reverse، اندیس 0 یعنی آخرین پیام
+          // پیام‌ها به ترتیب صعودی (قدیمی‌ترین اول) هستند
+          // با reverse: true، جدیدترین پیام در index 0 نمایش داده می‌شود
           final bool showLoadMore =
               _hasMoreMessages && index == (_messages.length);
           if (showLoadMore) {
             return _buildLoadMoreIndicator();
           }
 
-          final int listCount = _messages.length;
-          final int logicalIndex = index;
-          final int messageIndex = (listCount - 1) - logicalIndex;
+          // در reverse ListView، index 0 = آخرین پیام (جدیدترین)
+          // پس باید از انتهای لیست شروع کنیم
+          final int messageIndex = (_messages.length - 1) - index;
           final message = _messages[messageIndex];
           final isMe = message.senderId == _currentUserId;
 
@@ -656,13 +698,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ? const CircularProgressIndicator(color: AppTheme.goldColor)
             : TextButton.icon(
                 onPressed: _loadMoreMessages,
-                icon: const Icon(
+                icon: Icon(
                   LucideIcons.chevronUp,
-                  color: AppTheme.goldColor,
+                  color: context.textColor,
                 ),
-                label: const Text(
+                label: Text(
                   'بارگذاری پیام‌های بیشتر',
-                  style: TextStyle(color: AppTheme.goldColor),
+                  style: TextStyle(color: context.textColor),
                 ),
               ),
       ),
@@ -672,7 +714,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _showChatOptions() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppTheme.cardColor,
+      backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
       ),
@@ -681,47 +723,66 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(
-                LucideIcons.search,
-                color: AppTheme.primaryColor,
+            Container(
+              width: 40.w,
+              height: 4.h,
+              decoration: BoxDecoration(
+                color: context.separatorColor,
+                borderRadius: BorderRadius.circular(2.r),
               ),
-              title: const Text(
-                'جستجو در گفتگو',
-                style: TextStyle(color: AppTheme.textColor),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // Search feature not implemented yet
-              },
             ),
-            ListTile(
-              leading: const Icon(
-                LucideIcons.bell,
-                color: AppTheme.primaryColor,
+            SizedBox(height: 16.h),
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(LucideIcons.search, color: AppTheme.goldColor),
+                title: Text(
+                  'جستجو در گفتگو',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Search feature not implemented yet
+                },
               ),
-              title: const Text(
-                'تنظیمات اعلان',
-                style: TextStyle(color: AppTheme.textColor),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // Notification settings not implemented yet
-              },
             ),
-            ListTile(
-              leading: const Icon(
-                LucideIcons.trash2,
-                color: AppTheme.goldColor,
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(LucideIcons.bell, color: AppTheme.goldColor),
+                title: Text(
+                  'تنظیمات اعلان',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Notification settings not implemented yet
+                },
               ),
-              title: const Text(
-                'حذف گفتگو',
-                style: TextStyle(color: AppTheme.goldColor),
+            ),
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(LucideIcons.trash2, color: AppTheme.goldColor),
+                title: Text(
+                  'حذف گفتگو',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: AppTheme.goldColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deleteConversation();
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _deleteConversation();
-              },
             ),
           ],
         ),
@@ -734,7 +795,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppTheme.cardColor,
+      backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
       ),
@@ -743,47 +804,66 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(
-                LucideIcons.edit,
-                color: AppTheme.primaryColor,
+            Container(
+              width: 40.w,
+              height: 4.h,
+              decoration: BoxDecoration(
+                color: context.separatorColor,
+                borderRadius: BorderRadius.circular(2.r),
               ),
-              title: const Text(
-                'ویرایش',
-                style: TextStyle(color: AppTheme.textColor),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _editMessageDialog(message);
-              },
             ),
-            ListTile(
-              leading: const Icon(
-                LucideIcons.copy,
-                color: AppTheme.primaryColor,
+            SizedBox(height: 16.h),
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(LucideIcons.edit, color: AppTheme.goldColor),
+                title: Text(
+                  'ویرایش',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _editMessageDialog(message);
+                },
               ),
-              title: const Text(
-                'کپی',
-                style: TextStyle(color: AppTheme.textColor),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // Copy feature not implemented yet
-              },
             ),
-            ListTile(
-              leading: const Icon(
-                LucideIcons.trash2,
-                color: AppTheme.goldColor,
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(LucideIcons.copy, color: AppTheme.goldColor),
+                title: Text(
+                  'کپی',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Copy feature not implemented yet
+                },
               ),
-              title: const Text(
-                'حذف',
-                style: TextStyle(color: AppTheme.goldColor),
+            ),
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(LucideIcons.trash2, color: AppTheme.goldColor),
+                title: Text(
+                  'حذف',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: AppTheme.goldColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deleteMessage(message);
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _deleteMessage(message);
-              },
             ),
           ],
         ),
@@ -796,41 +876,99 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.cardColor,
-        title: const Text(
-          'ویرایش پیام',
-          style: TextStyle(color: AppTheme.textColor),
-        ),
-        content: TextField(
-          controller: editController,
-          style: const TextStyle(color: AppTheme.textColor),
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('لغو'),
+      builder: (context) {
+        // Dispose controller when dialog is closed
+        return WillPopScope(
+          onWillPop: () async {
+            editController.dispose();
+            return true;
+          },
+          child: AlertDialog(
+            backgroundColor: context.cardColor,
+            title: Text(
+              'ویرایش پیام',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontWeight: FontWeight.bold,
+                color: context.textColor,
+              ),
+            ),
+            content: TextField(
+              controller: editController,
+              textDirection: TextDirection.rtl,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textColor,
+              ),
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(
+                    color: AppTheme.goldColor.withValues(alpha: 0.3),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(color: context.separatorColor),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(color: AppTheme.goldColor, width: 2),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  editController.dispose();
+                  Navigator.pop(context);
+                },
+                child: Text(
+                  'لغو',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textSecondary,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () async {
+                  if (!editController.isSafe) {
+                    editController.dispose();
+                    return;
+                  }
+                  final newText = editController.safeText.trim();
+                  if (newText.isNotEmpty && newText != message.message) {
+                    Navigator.pop(context);
+                    await _editMessage(message, newText);
+                  }
+                  editController.dispose();
+                },
+                child: Text(
+                  'ذخیره',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: AppTheme.goldColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () async {
-              final newText = editController.text.trim();
-              if (newText.isNotEmpty && newText != message.message) {
-                Navigator.pop(context);
-                await _editMessage(message, newText);
-              }
-            },
-            child: const Text('ذخیره'),
-          ),
-        ],
-      ),
-    );
+        );
+      },
+    ).then((_) {
+      // Ensure controller is disposed even if dialog is dismissed
+      if (editController.isSafe) {
+        editController.dispose();
+      }
+    });
   }
 
   void _showAttachmentOptions() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppTheme.cardColor,
+      backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
       ),
@@ -839,47 +977,65 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(
-                LucideIcons.image,
-                color: AppTheme.primaryColor,
+            Container(
+              width: 40.w,
+              height: 4.h,
+              decoration: BoxDecoration(
+                color: context.separatorColor,
+                borderRadius: BorderRadius.circular(2.r),
               ),
-              title: const Text(
-                'عکس',
-                style: TextStyle(color: AppTheme.textColor),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // Image picker not implemented yet
-              },
             ),
-            ListTile(
-              leading: const Icon(
-                LucideIcons.file,
-                color: AppTheme.primaryColor,
+            SizedBox(height: 16.h),
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(LucideIcons.image, color: AppTheme.goldColor),
+                title: Text(
+                  'عکس',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Image picker not implemented yet
+                },
               ),
-              title: const Text(
-                'فایل',
-                style: TextStyle(color: AppTheme.textColor),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // File picker not implemented yet
-              },
             ),
-            ListTile(
-              leading: const Icon(
-                LucideIcons.mic,
-                color: AppTheme.primaryColor,
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(LucideIcons.file, color: AppTheme.goldColor),
+                title: Text(
+                  'فایل',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // File picker not implemented yet
+                },
               ),
-              title: const Text(
-                'صوت',
-                style: TextStyle(color: AppTheme.textColor),
+            ),
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(LucideIcons.mic, color: AppTheme.goldColor),
+                title: Text(
+                  'صوت',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Voice recording not implemented yet
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                // Voice recording not implemented yet
-              },
             ),
           ],
         ),
@@ -891,19 +1047,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.cardColor,
-        title: const Text(
+        backgroundColor: context.cardColor,
+        title: Text(
           'حذف گفتگو',
-          style: TextStyle(color: AppTheme.textColor),
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontWeight: FontWeight.bold,
+            color: context.textColor,
+          ),
         ),
-        content: const Text(
+        content: Text(
           'آیا مطمئن هستید که می‌خواهید این گفتگو را حذف کنید؟',
-          style: TextStyle(color: AppTheme.textColor),
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            color: context.textColor,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('لغو'),
+            child: Text(
+              'لغو',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textSecondary,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () async {
@@ -918,16 +1087,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('خطا در حذف گفتگو: $e')),
+                    SnackBar(
+                      content: Text(
+                        'خطا در حذف گفتگو: $e',
+                        style: TextStyle(fontFamily: AppTheme.fontFamily),
+                      ),
+                      backgroundColor: context.cardColor,
+                    ),
                   );
                 }
               } finally {
                 if (mounted) Navigator.of(context).pop();
               }
             },
-            child: const Text(
+            child: Text(
               'حذف',
-              style: TextStyle(color: AppTheme.goldColor),
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: AppTheme.goldColor,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],

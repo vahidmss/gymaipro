@@ -37,28 +37,27 @@ class PaymentGatewayService {
         throw Exception(PaymentConstants.invalidAmount);
       }
 
-      final url = Uri.parse(
-        '${PaymentConstants.zibalBaseUrl}${PaymentConstants.zibalRequestEndpoint}',
+      // استفاده از WordPress proxy برای جلوگیری از مشکل IP whitelisting
+      final proxyUrl = Uri.parse(
+        'https://gymaipro.ir/wp-json/gymaipro/v1/zibal/request',
       );
 
       final requestBody = {
-        'merchant': AppConfig.zibalMerchantId,
         'amount': amount,
         'description': description,
         'callbackUrl': callbackUrl,
-        'apiKey': AppConfig.zibalApiKey, // اضافه کردن API Key
         if (orderId != null) 'orderId': orderId,
         if (mobile != null) 'mobile': mobile,
         if (metadata != null) 'metadata': metadata,
       };
 
       if (kDebugMode) {
-        print('ارسال درخواست به زیبال: ${jsonEncode(requestBody)}');
+        print('ارسال درخواست به WordPress proxy: ${jsonEncode(requestBody)}');
       }
 
       final response = await _client
           .post(
-            url,
+            proxyUrl,
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
@@ -68,7 +67,7 @@ class PaymentGatewayService {
           .timeout(PaymentConstants.connectionTimeout);
 
       if (kDebugMode) {
-        print('پاسخ زیبال: ${response.statusCode} - ${response.body}');
+        print('پاسخ WordPress proxy: ${response.statusCode} - ${response.body}');
       }
 
       if (response.statusCode == 200) {
@@ -112,18 +111,18 @@ class PaymentGatewayService {
         print('تایید پرداخت زیبال - trackId: $trackId');
       }
 
-      final url = Uri.parse(
-        '${PaymentConstants.zibalBaseUrl}${PaymentConstants.zibalVerifyEndpoint}',
+      // استفاده از WordPress proxy برای جلوگیری از مشکل IP whitelisting
+      final proxyUrl = Uri.parse(
+        'https://gymaipro.ir/wp-json/gymaipro/v1/zibal/verify',
       );
 
       final requestBody = {
-        'merchant': AppConfig.zibalMerchantId,
         'trackId': trackId,
       };
 
       final response = await _client
           .post(
-            url,
+            proxyUrl,
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
@@ -133,7 +132,7 @@ class PaymentGatewayService {
           .timeout(PaymentConstants.connectionTimeout);
 
       if (kDebugMode) {
-        print('پاسخ تایید زیبال: ${response.statusCode} - ${response.body}');
+        print('پاسخ تایید WordPress proxy: ${response.statusCode} - ${response.body}');
       }
 
       if (response.statusCode == 200) {

@@ -1,14 +1,17 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:gymaipro/models/exercise.dart';
+import 'package:gymaipro/screens/exercise_detail_screen.dart';
 import 'package:gymaipro/services/ai_trainer_service.dart';
+import 'package:gymaipro/services/exercise_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/workout_plan/screens/workout_questionnaire_screen.dart';
-import 'package:gymaipro/workout_plan/workout_log/screens/workout_log_screen.dart';
-import 'package:gymaipro/workout_plan/workout_plan_builder/models/workout_program.dart';
-import 'package:gymaipro/workout_plan/workout_plan_builder/services/workout_program_service.dart';
+import 'package:gymaipro/workout_log/screens/workout_log_screen.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
+import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
+import 'package:gymaipro/workout_plan_builder/services/workout_program_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shamsi_date/shamsi_date.dart';
 
 class AIProgramsScreen extends StatefulWidget {
   const AIProgramsScreen({super.key});
@@ -29,79 +32,178 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
     _loadAIPrograms();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // بارگذاری مجدد برنامه‌ها وقتی صفحه دوباره نمایش داده می‌شود
+    // فقط اگر در حال بارگذاری نیستیم
+    if (!_isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadAIPrograms();
+        }
+      });
+    }
+  }
+
   Future<void> _loadAIPrograms() async {
     try {
+      debugPrint('\n=== بارگذاری برنامه‌های AI ===');
       if (mounted) {
-        setState(() => _isLoading = true);
+        WidgetSafetyUtils.safeSetState(this, () => _isLoading = true);
       }
 
       // دریافت شناسه AI Trainer
       _aiTrainerId = await AITrainerService.ensureAITrainerExists();
+      debugPrint('AI Trainer ID: $_aiTrainerId');
 
       if (_aiTrainerId != null && mounted) {
         // دریافت برنامه‌های AI
+        debugPrint('دریافت برنامه‌های AI از دیتابیس...');
         final programs = await _programService.getProgramsByTrainer(
           _aiTrainerId!,
         );
+        debugPrint('تعداد برنامه‌های دریافت شده: ${programs.length}');
+        if (programs.isNotEmpty) {
+          debugPrint('برنامه‌ها:');
+          for (final program in programs) {
+            debugPrint('  - ${program.name} (ID: ${program.id})');
+          }
+        }
         if (mounted) {
-          setState(() {
+          WidgetSafetyUtils.safeSetState(this, () {
             _aiPrograms = programs;
           });
+          debugPrint('برنامه‌ها در state به‌روزرسانی شدند');
         }
+      } else {
+        debugPrint('⚠️ AI Trainer ID null است یا صفحه unmount شده');
       }
-    } catch (e) {
-      print('خطا در بارگذاری برنامه‌های AI: $e');
+    } catch (e, stackTrace) {
+      debugPrint('❌ خطا در بارگذاری برنامه‌های AI: $e');
+      debugPrint('Stack trace: $stackTrace');
     } finally {
       if (mounted) {
-        setState(() => _isLoading = false);
+        WidgetSafetyUtils.safeSetState(this, () => _isLoading = false);
+        debugPrint('بارگذاری کامل شد. تعداد برنامه‌ها: ${_aiPrograms.length}');
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: Text(
-          'برنامه‌های جیم‌آی',
-          style: GoogleFonts.vazirmatn(
-            fontSize: 20.sp,
-            fontWeight: FontWeight.bold,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          scaffoldBackgroundColor: context.backgroundColor,
+          appBarTheme: AppBarTheme(
+            backgroundColor: isDark
+                ? context.backgroundColor
+                : Colors.transparent,
+            elevation: 0,
           ),
         ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.refreshCw),
-            onPressed: _loadAIPrograms,
+        child: Container(
+          decoration: isDark
+              ? null
+              : BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppTheme.lightGradientStart.withValues(alpha: 0.15),
+                      AppTheme.lightCardColor,
+                      AppTheme.lightGradientEnd.withValues(alpha: 0.1),
+                    ],
+                  ),
+                ),
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: AppBar(
+              backgroundColor: isDark
+                  ? context.backgroundColor
+                  : Colors.transparent,
+              foregroundColor: isDark ? AppTheme.goldColor : context.textColor,
+              elevation: 0,
+              title: Text(
+                'برنامه‌های جیم‌آی',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppTheme.goldColor : context.textColor,
+                ),
+              ),
+              centerTitle: true,
+              actions: [
+                IconButton(
+                  icon: Icon(
+                    LucideIcons.refreshCw,
+                    size: 20.sp,
+                    color: isDark ? AppTheme.goldColor : context.textColor,
+                  ),
+                  onPressed: _loadAIPrograms,
+                  tooltip: 'بروزرسانی',
+                ),
+              ],
+            ),
+            body: _isLoading
+                ? Center(
+                    child: CircularProgressIndicator(color: AppTheme.goldColor),
+                  )
+                : _aiPrograms.isEmpty
+                ? _buildEmptyState(context, isDark)
+                : _buildProgramsList(context, isDark),
+            floatingActionButton: _aiPrograms.isEmpty
+                ? null
+                : Container(
+                    margin: EdgeInsets.only(bottom: 60.h),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [AppTheme.goldColor, AppTheme.darkGold],
+                        ),
+                        borderRadius: BorderRadius.circular(12.r),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.goldColor.withValues(alpha: 0.3),
+                            blurRadius: 8.r,
+                            offset: Offset(0, 4.h),
+                          ),
+                        ],
+                      ),
+                      child: FloatingActionButton.extended(
+                        onPressed: _requestNewProgram,
+                        backgroundColor: Colors.transparent,
+                        elevation: 0,
+                        icon: Icon(
+                          LucideIcons.sparkles,
+                          color: Colors.white,
+                          size: 18.sp,
+                        ),
+                        label: Text(
+                          'برنامه جدید',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
           ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.goldColor),
-            )
-          : _aiPrograms.isEmpty
-          ? _buildEmptyState()
-          : _buildProgramsList(),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _requestNewProgram,
-        backgroundColor: AppTheme.goldColor,
-        foregroundColor: Colors.white,
-        icon: const Icon(LucideIcons.sparkles),
-        label: Text(
-          'درخواست برنامه جدید',
-          style: GoogleFonts.vazirmatn(fontWeight: FontWeight.bold),
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context, bool isDark) {
     return Center(
       child: Padding(
         padding: EdgeInsets.all(24.w),
@@ -110,60 +212,84 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
           children: [
             // آیکون جیم‌آی
             Container(
-              width: 120.w,
-              height: 120.h,
+              width: 80.w,
+              height: 80.h,
               decoration: BoxDecoration(
                 color: AppTheme.goldColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(60.r),
+                borderRadius: BorderRadius.circular(20.r),
               ),
               child: Icon(
                 LucideIcons.bot,
-                size: 60.sp,
+                size: 40.sp,
                 color: AppTheme.goldColor,
               ),
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: 24.h),
 
             // عنوان
             Text(
               'هنوز برنامه‌ای دریافت نکرده‌اید',
-              style: GoogleFonts.vazirmatn(
-                fontSize: 24.sp,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 18.sp,
                 fontWeight: FontWeight.bold,
-                color: AppTheme.textColor,
+                color: context.textColor,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 8.h),
 
             // توضیحات
             Text(
-              'جیم‌آی آماده است تا اولین برنامه تمرینی شخصی‌سازی شده شما را طراحی کند!',
-              style: GoogleFonts.vazirmatn(
-                fontSize: 16.sp,
-                color: AppTheme.textColor.withValues(alpha: 0.7),
+              'جیم‌آی آماده است تا اولین برنامه تمرینی شخصی‌سازی شده شما را طراحی کند',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 13.sp,
+                color: context.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: 24.h),
 
             // دکمه درخواست برنامه
-            ElevatedButton.icon(
-              onPressed: _requestNewProgram,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.goldColor,
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 16.h),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppTheme.goldColor, AppTheme.darkGold],
                 ),
+                borderRadius: BorderRadius.circular(10.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.goldColor.withValues(alpha: 0.3),
+                    blurRadius: 8.r,
+                    offset: Offset(0, 4.h),
+                  ),
+                ],
               ),
-              icon: const Icon(LucideIcons.sparkles),
-              label: Text(
-                'درخواست اولین برنامه',
-                style: GoogleFonts.vazirmatn(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.bold,
+              child: ElevatedButton.icon(
+                onPressed: _requestNewProgram,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 24.w,
+                    vertical: 12.h,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                ),
+                icon: Icon(LucideIcons.sparkles, size: 16.sp),
+                label: Text(
+                  'درخواست برنامه',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -173,119 +299,72 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
     );
   }
 
-  Widget _buildProgramsList() {
-    return Column(
-      children: [
-        // هدر اطلاعات
-        Container(
-          width: double.infinity,
-          padding: EdgeInsets.all(20.w),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryColor,
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(24.r),
-              bottomRight: Radius.circular(24.r),
-            ),
-          ),
-          child: Column(
-            children: [
-              // آیکون جیم‌آی
-              Container(
-                width: 60.w,
-                height: 60.h,
-                decoration: BoxDecoration(
-                  color: AppTheme.goldColor,
-                  borderRadius: BorderRadius.circular(30.r),
-                ),
-                child: Icon(LucideIcons.bot, color: Colors.white, size: 30.sp),
-              ),
-              const SizedBox(height: 16),
-
-              // عنوان
-              Text(
-                'برنامه‌های جیم‌آی',
-                style: GoogleFonts.vazirmatn(
-                  fontSize: 20.sp,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // آمار
-              Text(
-                '${_aiPrograms.length} برنامه دریافت شده',
-                style: GoogleFonts.vazirmatn(
-                  fontSize: 14.sp,
-                  color: Colors.white.withValues(alpha: 0.8),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // لیست برنامه‌ها
-        Expanded(
-          child: ListView.builder(
-            padding: EdgeInsets.all(16.w),
-            itemCount: _aiPrograms.length,
-            itemBuilder: (context, index) {
-              final program = _aiPrograms[index];
-              return _buildProgramCard(program, index);
-            },
-          ),
-        ),
-      ],
+  Widget _buildProgramsList(BuildContext context, bool isDark) {
+    return ListView.builder(
+      padding: EdgeInsets.all(16.w),
+      itemCount: _aiPrograms.length,
+      itemBuilder: (context, index) {
+        final program = _aiPrograms[index];
+        return _buildProgramCard(context, isDark, program, index);
+      },
     );
   }
 
-  Widget _buildProgramCard(WorkoutProgram program, int index) {
+  Widget _buildProgramCard(
+    BuildContext context,
+    bool isDark,
+    WorkoutProgram program,
+    int index,
+  ) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.only(bottom: 12.h),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(16.r),
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: isDark
+              ? Colors.grey[700]!.withValues(alpha: 0.5)
+              : AppTheme.lightDividerColor.withValues(alpha: 0.5),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10.r,
-            offset: Offset(0.w, 2.h),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.25)
+                : AppTheme.goldColor.withValues(alpha: 0.08),
+            blurRadius: 8.r,
+            offset: Offset(0.w, 4.h),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16.r),
+          borderRadius: BorderRadius.circular(12.r),
           onTap: () => _viewProgram(program),
           child: Padding(
-            padding: EdgeInsets.all(20.w),
+            padding: EdgeInsets.all(14.w),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // هدر کارت
                 Row(
                   children: [
-                    // شماره برنامه
+                    // آیکون جیم‌آی کوچک
                     Container(
-                      width: 40.w,
-                      height: 40.h,
+                      width: 28.w,
+                      height: 28.h,
                       decoration: BoxDecoration(
-                        color: AppTheme.goldColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20.r),
+                        color: AppTheme.goldColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8.r),
                       ),
-                      child: Center(
-                        child: Text(
-                          '${index + 1}',
-                          style: GoogleFonts.vazirmatn(
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.goldColor,
-                          ),
-                        ),
+                      child: Icon(
+                        LucideIcons.bot,
+                        color: AppTheme.goldColor,
+                        size: 14.sp,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 12.w),
 
                     // اطلاعات برنامه
                     Expanded(
@@ -294,106 +373,122 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
                         children: [
                           Text(
                             program.name,
-                            style: GoogleFonts.vazirmatn(
-                              fontSize: 18.sp,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 15.sp,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.textColor,
+                              color: context.textColor,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 2.h),
                           Text(
-                            'تاریخ ایجاد: ${_formatDate(program.createdAt)}',
-                            style: GoogleFonts.vazirmatn(
-                              fontSize: 12.sp,
-                              color: AppTheme.textColor.withValues(alpha: 0.6),
+                            _formatDate(program.createdAt),
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 11.sp,
+                              color: context.textSecondary,
                             ),
                           ),
                         ],
                       ),
                     ),
-
-                    // آیکون جیم‌آی
-                    Container(
-                      width: 32.w,
-                      height: 32.h,
-                      decoration: BoxDecoration(
-                        color: AppTheme.goldColor,
-                        borderRadius: BorderRadius.circular(16.r),
-                      ),
-                      child: Icon(
-                        LucideIcons.bot,
-                        color: Colors.white,
-                        size: 16.sp,
-                      ),
-                    ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 12.h),
 
-                // آمار برنامه
+                // آمار برنامه (کوچک‌تر)
                 Row(
                   children: [
                     _buildStatItem(
+                      context,
                       LucideIcons.calendar,
-                      '${program.sessions.length} روز',
-                      'تعداد جلسات',
+                      '${program.sessions.length}',
+                      'جلسه',
                     ),
-                    const SizedBox(width: 24),
+                    SizedBox(width: 16.w),
                     _buildStatItem(
+                      context,
                       LucideIcons.dumbbell,
-                      '${_getTotalExercises(program)} حرکت',
-                      'کل تمرینات',
+                      '${_getTotalExercises(program)}',
+                      'تمرین',
                     ),
-                    const SizedBox(width: 24),
+                    SizedBox(width: 16.w),
                     _buildStatItem(
+                      context,
                       LucideIcons.clock,
-                      '${_getEstimatedDuration(program)} دقیقه',
-                      'مدت زمان',
+                      '${_getEstimatedDuration(program)}',
+                      'دقیقه',
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 12.h),
 
-                // دکمه‌های عملیات
+                // دکمه‌های عملیات (کوچک‌تر)
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () => _viewProgram(program),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.primaryColor,
-                          side: const BorderSide(color: AppTheme.primaryColor),
+                          foregroundColor: AppTheme.goldColor,
+                          side: BorderSide(
+                            color: AppTheme.goldColor.withValues(alpha: 0.5),
+                            width: 1,
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12.w,
+                            vertical: 8.h,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8.r),
                           ),
                         ),
-                        icon: const Icon(LucideIcons.eye, size: 16),
+                        icon: Icon(LucideIcons.eye, size: 14.sp),
                         label: Text(
                           'مشاهده',
-                          style: GoogleFonts.vazirmatn(
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.bold,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 8.w),
                     Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _startWorkout(program),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.goldColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.r),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [AppTheme.goldColor, AppTheme.darkGold],
                           ),
+                          borderRadius: BorderRadius.circular(8.r),
                         ),
-                        icon: const Icon(LucideIcons.play, size: 16),
-                        label: Text(
-                          'شروع تمرین',
-                          style: GoogleFonts.vazirmatn(
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.bold,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _startWorkout(program),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12.w,
+                              vertical: 8.h,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8.r),
+                            ),
+                          ),
+                          icon: Icon(LucideIcons.play, size: 14.sp),
+                          label: Text(
+                            'شروع',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -408,34 +503,60 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
     );
   }
 
-  Widget _buildStatItem(IconData icon, String value, String label) {
+  Widget _buildStatItem(
+    BuildContext context,
+    IconData icon,
+    String value,
+    String label,
+  ) {
     return Expanded(
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 20.sp, color: AppTheme.goldColor),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: GoogleFonts.vazirmatn(
-              fontSize: 14.sp,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textColor,
-            ),
-          ),
-          Text(
-            label,
-            style: GoogleFonts.vazirmatn(
-              fontSize: 10.sp,
-              color: AppTheme.textColor.withValues(alpha: 0.6),
-            ),
+          Icon(icon, size: 14.sp, color: AppTheme.goldColor),
+          SizedBox(width: 4.w),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.bold,
+                  color: context.textColor,
+                ),
+              ),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 9.sp,
+                  color: context.textSecondary,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
+  String _toPersianDigits(String input) {
+    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    var output = input;
+    for (var i = 0; i < english.length; i++) {
+      output = output.replaceAll(english[i], persian[i]);
+    }
+    return output;
+  }
+
   String _formatDate(DateTime date) {
+    final j = Jalali.fromDateTime(date);
     final persianMonths = [
+      '',
       'فروردین',
       'اردیبهشت',
       'خرداد',
@@ -450,7 +571,7 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
       'اسفند',
     ];
 
-    return '${date.day} ${persianMonths[date.month - 1]} ${date.year}';
+    return '${_toPersianDigits(j.day.toString())} ${persianMonths[j.month]} ${_toPersianDigits(j.year.toString())}';
   }
 
   int _getTotalExercises(WorkoutProgram program) {
@@ -468,14 +589,9 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
   }
 
   void _requestNewProgram() {
-    print('=== شروع navigation به WorkoutQuestionnaireScreen ===');
-    Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-        builder: (context) => const WorkoutQuestionnaireScreen(),
-      ),
-    ).then((_) {
-      print('=== بازگشت از WorkoutQuestionnaireScreen ===');
+    print('=== شروع navigation به ProgramTypeSelectionScreen ===');
+    Navigator.pushNamed(context, '/program-type-selection').then((_) {
+      print('=== بازگشت از ProgramTypeSelectionScreen ===');
       // بعد از بازگشت، برنامه‌ها را دوباره بارگذاری کن
       if (mounted) {
         _loadAIPrograms();
@@ -500,169 +616,448 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
   }
 }
 
-class _ProgramDetailsDialog extends StatelessWidget {
+class _ProgramDetailsDialog extends StatefulWidget {
   const _ProgramDetailsDialog({required this.program});
   final WorkoutProgram program;
 
   @override
+  State<_ProgramDetailsDialog> createState() => _ProgramDetailsDialogState();
+}
+
+class _ProgramDetailsDialogState extends State<_ProgramDetailsDialog> {
+  final ExerciseService _exerciseService = ExerciseService();
+  final Map<int, Exercise> _exerciseDetails = {};
+  // نگهداری mapping بین tag و exercise برای تمریناتی که exerciseId ندارند
+  final Map<String, Exercise> _tagToExerciseMap = {};
+
+  @override
+  void initState() {
+    super.initState();
+    // استفاده از addPostFrameCallback برای اطمینان از اینکه widget mount شده است
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadExerciseDetails();
+      }
+    });
+  }
+
+  Future<void> _loadExerciseDetails() async {
+    if (!mounted) return;
+
+    try {
+      debugPrint('=== شروع بارگذاری جزئیات تمرین‌ها ===');
+      debugPrint('برنامه: ${widget.program.name}');
+      debugPrint('تعداد سشن‌ها: ${widget.program.sessions.length}');
+
+      // جمع‌آوری تمام exerciseId های منحصر به فرد و tag ها
+      final exerciseIds = <int>{};
+      final exercisesToSearch = <String>{}; // استفاده از Set برای حذف تکراری‌ها
+      final allExerciseTags = <String>[]; // برای لاگ
+      int totalExercises = 0;
+
+      for (final session in widget.program.sessions) {
+        debugPrint(
+          'بررسی سشن: ${session.day} با ${session.exercises.length} تمرین',
+        );
+        totalExercises += session.exercises.length;
+        for (final exercise in session.exercises) {
+          if (exercise is NormalExercise) {
+            debugPrint(
+              '  تمرین: exerciseId=${exercise.exerciseId}, tag="${exercise.tag}"',
+            );
+            allExerciseTags.add(
+              'ID:${exercise.exerciseId}, Tag:"${exercise.tag}"',
+            );
+
+            if (exercise.exerciseId > 0) {
+              exerciseIds.add(exercise.exerciseId);
+            }
+
+            // همیشه tag را اضافه کن (حتی اگر exerciseId > 0 باشد) برای fallback
+            if (exercise.tag.isNotEmpty) {
+              exercisesToSearch.add(exercise.tag);
+            } else {
+              debugPrint(
+                '  ⚠️ تمرین بدون tag! exerciseId=${exercise.exerciseId}',
+              );
+            }
+          }
+        }
+      }
+
+      debugPrint(
+        'جمع‌بندی: ${totalExercises} تمرین کل، ${exerciseIds.length} با ID، ${exercisesToSearch.length} tag منحصر به فرد',
+      );
+      debugPrint('تمام tag ها: ${exercisesToSearch.join(", ")}');
+
+      // بارگذاری جزئیات هر تمرین با exerciseId
+      for (final exerciseId in exerciseIds) {
+        try {
+          final exercise = await _exerciseService.getExerciseById(exerciseId);
+          if (exercise != null && mounted) {
+            setState(() {
+              _exerciseDetails[exerciseId] = exercise;
+            });
+            debugPrint(
+              'تمرین بارگذاری شد: ID=$exerciseId, Name=${exercise.name}',
+            );
+          }
+        } catch (e) {
+          debugPrint('خطا در بارگذاری تمرین $exerciseId: $e');
+        }
+      }
+
+      // جستجوی تمرینات با tag برای تمریناتی که exerciseId ندارند
+      if (exercisesToSearch.isNotEmpty) {
+        try {
+          final allExercises = await _exerciseService.getExercises();
+          if (allExercises.isEmpty) {
+            debugPrint('هیچ تمرینی برای جستجو یافت نشد');
+            return;
+          }
+
+          debugPrint(
+            'جستجوی ${exercisesToSearch.length} تمرین با tag از ${allExercises.length} تمرین موجود',
+          );
+          debugPrint('Tag های منحصر به فرد: ${exercisesToSearch.join(", ")}');
+
+          for (final tag in exercisesToSearch) {
+            if (tag.isEmpty) {
+              debugPrint('⚠️ Tag خالی نادیده گرفته شد');
+              continue;
+            }
+
+            // اگر قبلاً این tag را پیدا کرده‌ایم، از آن استفاده کن
+            if (_tagToExerciseMap.containsKey(tag)) {
+              debugPrint(
+                'Tag "$tag" قبلاً پیدا شده بود: ${_tagToExerciseMap[tag]?.name}',
+              );
+              continue;
+            }
+
+            debugPrint('جستجوی تمرین برای tag: "$tag"');
+
+            // جستجوی تمرین بر اساس نام
+            Exercise? foundExercise;
+            final tagLower = tag.toLowerCase().trim();
+
+            // جستجوی دقیق
+            try {
+              foundExercise = allExercises.firstWhere(
+                (e) =>
+                    e.name.toLowerCase().trim() == tagLower ||
+                    e.name.toLowerCase().contains(tagLower) ||
+                    e.otherNames.any(
+                      (n) =>
+                          n.toLowerCase().trim() == tagLower ||
+                          n.toLowerCase().contains(tagLower),
+                    ),
+              );
+              debugPrint(
+                '✅ تمرین پیدا شد (دقیق) برای tag "$tag": ${foundExercise.name}',
+              );
+            } catch (e) {
+              debugPrint('⚠️ جستجوی دقیق ناموفق برای tag "$tag": $e');
+              // اگر پیدا نشد، جستجوی تقریبی با کلمات کلیدی
+              try {
+                // تقسیم tag به کلمات (با _ یا space)
+                final keywords = tagLower
+                    .split(RegExp(r'[_\s]+'))
+                    .where((w) => w.length > 2)
+                    .toList();
+
+                if (keywords.isNotEmpty) {
+                  // Mapping کلمات کلیدی انگلیسی به فارسی
+                  final keywordMapping = {
+                    'bench': ['پرس', 'سینه'],
+                    'press': ['پرس'],
+                    'incline': ['شیب', 'بالا'],
+                    'decline': ['شیب', 'پایین'],
+                    'dumbbell': ['دمبل'],
+                    'barbell': ['هالتر'],
+                    'curl': ['جلو بازو', 'بازو'],
+                    'row': ['زیر بغل', 'لت', 'پشت'],
+                    'squat': ['اسکوات', 'اسکات'],
+                    'deadlift': ['ددلیفت'],
+                    'pull': ['زیر بغل', 'لت'],
+                    'push': ['پرس'],
+                    'raise': ['نشر', 'بالا'],
+                    'dip': ['دیپ'],
+                    'extension': ['باز', 'کشش'],
+                    'tricep': ['پشت بازو'],
+                    'bicep': ['جلو بازو'],
+                    'chest': ['سینه'],
+                    'back': ['پشت', 'زیر بغل'],
+                    'shoulder': ['شانه'],
+                    'leg': ['پا', 'ران'],
+                    'calf': ['ساق'],
+                    'lateral': ['جانب'],
+                    'cable': ['کابل'],
+                    'cross': ['متقاطع'],
+                    'over': ['بالا'],
+                    'pulldown': ['زیر بغل', 'لت'],
+                    'bent': ['خم'],
+                    'seated': ['نشسته'],
+                    'hammer': ['چکشی'],
+                  };
+
+                  int bestScore = 0;
+                  Exercise? bestMatch;
+
+                  for (final exercise in allExercises) {
+                    int score = 0;
+                    final exerciseNameLower = exercise.name.toLowerCase();
+                    final exerciseMainMuscleLower = exercise.mainMuscle
+                        .toLowerCase();
+
+                    // امتیازدهی بر اساس تطبیق کلمات
+                    for (final keyword in keywords) {
+                      // جستجو در نام تمرین
+                      if (exerciseNameLower.contains(keyword)) {
+                        score += 10;
+                      }
+
+                      // جستجو در otherNames
+                      for (final otherName in exercise.otherNames) {
+                        if (otherName.toLowerCase().contains(keyword)) {
+                          score += 8;
+                        }
+                      }
+
+                      // جستجو با mapping
+                      if (keywordMapping.containsKey(keyword)) {
+                        for (final persianWord in keywordMapping[keyword]!) {
+                          if (exerciseNameLower.contains(persianWord)) {
+                            score += 15;
+                          }
+                          if (exerciseMainMuscleLower.contains(persianWord)) {
+                            score += 10;
+                          }
+                        }
+                      }
+                    }
+
+                    if (score > bestScore) {
+                      bestScore = score;
+                      bestMatch = exercise;
+                    }
+                  }
+
+                  if (bestMatch != null && bestScore > 0) {
+                    foundExercise = bestMatch;
+                    debugPrint(
+                      'تمرین پیدا شد (تقریبی) برای tag "$tag": ${bestMatch.name} (Score: $bestScore)',
+                    );
+                  } else {
+                    debugPrint('هیچ تمرینی برای tag "$tag" پیدا نشد');
+                  }
+                }
+              } catch (e) {
+                debugPrint('خطا در جستجوی تقریبی برای tag "$tag": $e');
+              }
+            }
+
+            // ذخیره تمرین پیدا شده در mapping
+            if (foundExercise != null) {
+              if (mounted) {
+                setState(() {
+                  _tagToExerciseMap[tag] = foundExercise!;
+                });
+                debugPrint('✅ Tag "$tag" به ${foundExercise.name} map شد');
+              } else {
+                debugPrint(
+                  '⚠️ Widget unmount شده - نمی‌توان state را به‌روزرسانی کرد',
+                );
+              }
+            } else {
+              debugPrint('⚠️ تمرین پیدا نشد برای tag "$tag"');
+            }
+          }
+
+          debugPrint('=== پایان جستجوی تمرینات با tag ===');
+          debugPrint(
+            'تعداد تمرینات پیدا شده در mapping: ${_tagToExerciseMap.length}',
+          );
+        } catch (e) {
+          debugPrint('خطا در جستجوی تمرینات با tag: $e');
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          // به‌روزرسانی state برای رندر مجدد UI
+        });
+        debugPrint('=== پایان بارگذاری جزئیات تمرین‌ها ===');
+        debugPrint('تمرینات با ID: ${_exerciseDetails.length}');
+        debugPrint('تمرینات با tag: ${_tagToExerciseMap.length}');
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ خطا در بارگذاری جزئیات تمرین‌ها: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
+  }
+
+  String _getExerciseName(int exerciseId, {String? fallbackTag}) {
+    // اول سعی کن از exerciseId پیدا کنی
+    if (exerciseId > 0) {
+      final exercise = _exerciseDetails[exerciseId];
+      if (exercise != null) {
+        return exercise.name;
+      }
+    }
+
+    // اگر پیدا نشد و tag وجود دارد، از tag mapping استفاده کن
+    if (fallbackTag != null && fallbackTag.isNotEmpty) {
+      final exerciseFromTag = _tagToExerciseMap[fallbackTag];
+      if (exerciseFromTag != null) {
+        return exerciseFromTag.name;
+      }
+      // اگر در mapping هم پیدا نشد، خود tag را برگردان
+      // این مهم است چون ممکن است هنوز جستجو کامل نشده باشد
+      return fallbackTag;
+    }
+
+    // اگر هیچ کدام پیدا نشد
+    return 'تمرین';
+  }
+
+  void _navigateToExerciseDetail(int exerciseId, {String? tag}) {
+    Exercise? exercise;
+
+    if (exerciseId > 0) {
+      exercise = _exerciseDetails[exerciseId];
+    } else if (tag != null && tag.isNotEmpty) {
+      exercise = _tagToExerciseMap[tag];
+    }
+
+    if (exercise != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (context) => ExerciseDetailScreen(exercise: exercise!),
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: EdgeInsets.all(16.w),
       child: Container(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.85,
-          maxWidth: MediaQuery.of(context).size.width * 0.9,
+          maxWidth: MediaQuery.of(context).size.width * 0.95,
         ),
         decoration: BoxDecoration(
-          color: const Color(0xFFF5F5F5), // رنگ پس‌زمینه دفترچه
+          color: context.cardColor,
           borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(
+            color: isDark
+                ? Colors.grey[700]!.withValues(alpha: 0.5)
+                : AppTheme.lightDividerColor.withValues(alpha: 0.5),
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 25.r,
-              offset: Offset(0.w, 15.h),
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 10.r,
-              offset: Offset(0.w, 5.h),
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.4)
+                  : Colors.black.withValues(alpha: 0.1),
+              blurRadius: 20.r,
+              offset: Offset(0.w, 8.h),
             ),
           ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // هدر شبیه جلد دفترچه
+            // هدر ساده
             Container(
-              padding: EdgeInsets.all(20.w),
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF2C2C2C), Color(0xFF1A1A1A)],
-                ),
+                color: isDark
+                    ? AppTheme.darkCardColor
+                    : AppTheme.goldColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(16.r),
                   topRight: Radius.circular(16.r),
                 ),
-                border: Border.all(color: const Color(0xFFD4AF37), width: 2),
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 50.w,
-                    height: 50.h,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFFD4AF37), Color(0xFFB8941F)],
-                      ),
-                      borderRadius: BorderRadius.circular(25.r),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFD4AF37).withValues(alpha: 0.3),
-                          blurRadius: 8.r,
-                          offset: Offset(0.w, 2.h),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      LucideIcons.bookOpen,
-                      color: Colors.white,
-                      size: 24.sp,
-                    ),
+                  Icon(
+                    LucideIcons.dumbbell,
+                    color: AppTheme.goldColor,
+                    size: 20.sp,
                   ),
-                  const SizedBox(width: 16),
+                  SizedBox(width: 12.w),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'دفترچه برنامه تمرینی',
-                          style: GoogleFonts.vazirmatn(
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFFD4AF37),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          program.name,
-                          style: GoogleFonts.vazirmatn(
-                            fontSize: 18.sp,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      widget.program.name,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 17.sp,
+                        fontWeight: FontWeight.bold,
+                        color: context.textColor,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Row(
-                    children: [
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8.r),
-                        ),
-                        child: IconButton(
-                          tooltip: 'کپی برنامه',
-                          onPressed: () {
-                            final text = _buildPlainTextProgram();
-                            Clipboard.setData(ClipboardData(text: text));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(
-                                  children: [
-                                    Icon(
-                                      LucideIcons.check,
-                                      color: Colors.white,
-                                      size: 16.sp,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Text('برنامه کپی شد'),
-                                  ],
-                                ),
-                                backgroundColor: const Color(0xFF4CAF50),
-                                behavior: SnackBarBehavior.floating,
-                                duration: const Duration(seconds: 2),
+                  IconButton(
+                    icon: Icon(
+                      LucideIcons.copy,
+                      size: 18.sp,
+                      color: context.textSecondary,
+                    ),
+                    tooltip: 'کپی برنامه',
+                    onPressed: () {
+                      final text = _buildPlainTextProgram();
+                      Clipboard.setData(ClipboardData(text: text));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              Icon(
+                                LucideIcons.check,
+                                color: Colors.white,
+                                size: 16.sp,
                               ),
-                            );
-                          },
-                          icon: Icon(
-                            LucideIcons.copy,
-                            color: Colors.white,
-                            size: 18.sp,
+                              SizedBox(width: 8.w),
+                              Text(
+                                'برنامه کپی شد',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                ),
+                              ),
+                            ],
                           ),
+                          backgroundColor: const Color(0xFF4CAF50),
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8.r),
-                        ),
-                        child: IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: Icon(
-                            LucideIcons.x,
-                            color: Colors.white,
-                            size: 18.sp,
-                          ),
-                        ),
-                      ),
-                    ],
+                      );
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      LucideIcons.x,
+                      size: 18.sp,
+                      color: context.textSecondary,
+                    ),
+                    onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
             ),
 
-            // محتوا - نمای دفترچه
+            // محتوا
             Flexible(
               child: Container(
-                padding: EdgeInsets.all(20.w),
-                child: _buildPaperView(),
+                padding: EdgeInsets.all(16.w),
+                child: _buildContentView(context, isDark),
               ),
             ),
           ],
@@ -671,334 +1066,527 @@ class _ProgramDetailsDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildPaperView() {
-    // دفترچه شبیه‌سازی شده با خطوط کاغذ
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFFFEFEFE), // رنگ کاغذ طبیعی
-        borderRadius: BorderRadius.circular(12.r),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 30.r,
-            offset: Offset(0.w, 15.h),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10.r,
-            offset: Offset(0.w, 5.h),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 3.r,
-            offset: Offset(0.w, 1.h),
-          ),
-        ],
-        border: Border.all(color: const Color(0xFFD0D0D0), width: 1.5),
-      ),
-      child: Stack(
+  Widget _buildContentView(BuildContext context, bool isDark) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // بافت کاغذ
+          // اطلاعات کلی برنامه
           Container(
+            margin: EdgeInsets.only(bottom: 16.h),
+            padding: EdgeInsets.all(12.w),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12.r),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFFFEFEFE),
-                  Color(0xFFF8F8F8),
-                  Color(0xFFFEFEFE),
-                ],
-                stops: [0.0, 0.5, 1.0],
+              color: isDark
+                  ? Colors.grey[800]!.withValues(alpha: 0.3)
+                  : AppTheme.goldColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10.r),
+              border: Border.all(
+                color: AppTheme.goldColor.withValues(alpha: 0.3),
+                width: 1,
               ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.calendar,
+                  size: 16.sp,
+                  color: AppTheme.goldColor,
+                ),
+                SizedBox(width: 8.w),
+                Text(
+                  '${widget.program.sessions.length} جلسه تمرینی',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                    color: context.textColor,
+                  ),
+                ),
+                Spacer(),
+                Icon(
+                  LucideIcons.dumbbell,
+                  size: 16.sp,
+                  color: AppTheme.goldColor,
+                ),
+                SizedBox(width: 8.w),
+                Text(
+                  '${_getTotalExercises(widget.program)} تمرین',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                    color: context.textColor,
+                  ),
+                ),
+              ],
             ),
           ),
 
-          // خطوط کاغذ دفترچه
-          _buildNotebookLines(),
-
-          // سوراخ‌های دفترچه
-          _buildNotebookHoles(),
-
-          // محتوای برنامه
-          Container(
-            padding: EdgeInsets.fromLTRB(20.w, 20.h, 40.w, 20.h),
-            child: SingleChildScrollView(
+          // لیست جلسات - هر جلسه در یک کارت جداگانه
+          ...widget.program.sessions.asMap().entries.map<Widget>((entry) {
+            final index = entry.key;
+            final session = entry.value;
+            return Container(
+              margin: EdgeInsets.only(bottom: 16.h),
+              decoration: BoxDecoration(
+                color: context.cardColor,
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(
+                  color: AppTheme.goldColor.withValues(alpha: 0.2),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isDark
+                        ? Colors.black.withValues(alpha: 0.3)
+                        : AppTheme.goldColor.withValues(alpha: 0.08),
+                    blurRadius: 8.r,
+                    offset: Offset(0.w, 2.h),
+                  ),
+                ],
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // عنوان برنامه با خط زیر
+                  // هدر جلسه
                   Container(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: EdgeInsets.all(14.w),
                     decoration: BoxDecoration(
-                      border: const Border(
-                        bottom: BorderSide(color: Color(0xFFD4AF37), width: 3),
+                      gradient: LinearGradient(
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
+                        colors: [
+                          AppTheme.goldColor.withValues(alpha: 0.15),
+                          AppTheme.goldColor.withValues(alpha: 0.05),
+                        ],
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFD4AF37).withValues(alpha: 0.2),
-                          blurRadius: 4.r,
-                          offset: Offset(0.w, 2.h),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(12.r),
+                        topRight: Radius.circular(12.r),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        // شماره جلسه
+                        Container(
+                          width: 36.w,
+                          height: 36.h,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [AppTheme.goldColor, AppTheme.darkGold],
+                            ),
+                            borderRadius: BorderRadius.circular(10.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.goldColor.withValues(
+                                  alpha: 0.3,
+                                ),
+                                blurRadius: 4.r,
+                                offset: Offset(0.w, 2.h),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${index + 1}',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'جلسه ${index + 1}',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 11.sp,
+                                  fontWeight: FontWeight.w500,
+                                  color: context.textSecondary,
+                                ),
+                              ),
+                              SizedBox(height: 2.h),
+                              Text(
+                                session.day.replaceFirst(
+                                  RegExp(r'^روز\s*\d+\s*-\s*'),
+                                  '',
+                                ),
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: context.textColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          LucideIcons.calendar,
+                          size: 20.sp,
+                          color: AppTheme.goldColor,
                         ),
                       ],
                     ),
-                    child: Text(
-                      program.name,
-                      style: GoogleFonts.vazirmatn(
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF1A1A1A),
-                        letterSpacing: 0.8,
-                        shadows: [
-                          Shadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 2.r,
-                            offset: Offset(0.w, 1.h),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
-                  const SizedBox(height: 20),
 
-                  // بدنه: هر جلسه با عنوان و لیست تمرین‌ها
-                  ...program.sessions.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final session = entry.value;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // عنوان روز
+                  // محتوای جلسه
+                  Padding(
+                    padding: EdgeInsets.all(14.w),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // یادداشت جلسه
+                        if (session.notes != null &&
+                            session.notes!.trim().isNotEmpty) ...[
                           Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 12.w,
-                              vertical: 6.h,
-                            ),
+                            margin: EdgeInsets.only(bottom: 14.h),
+                            padding: EdgeInsets.all(12.w),
                             decoration: BoxDecoration(
-                              color: const Color(
-                                0xFFD4AF37,
-                              ).withValues(alpha: 0.1),
+                              color: isDark
+                                  ? Colors.grey[800]!.withValues(alpha: 0.3)
+                                  : AppTheme.goldColor.withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(8.r),
                               border: Border.all(
-                                color: const Color(
-                                  0xFFD4AF37,
-                                ).withValues(alpha: 0.3),
+                                color: AppTheme.goldColor.withValues(
+                                  alpha: 0.2,
+                                ),
+                                width: 1,
                               ),
                             ),
                             child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Icon(
-                                  LucideIcons.calendar,
+                                  LucideIcons.info,
                                   size: 16.sp,
-                                  color: const Color(0xFFD4AF37),
+                                  color: AppTheme.goldColor,
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'روز ${index + 1}: ',
-                                  style: GoogleFonts.vazirmatn(
-                                    fontSize: 16.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF2C2C2C),
-                                  ),
-                                ),
+                                SizedBox(width: 10.w),
                                 Expanded(
                                   child: Text(
-                                    session.day.replaceFirst(
-                                      RegExp(r'^روز\s*\d+\s*-\s*'),
-                                      '',
-                                    ),
-                                    style: GoogleFonts.vazirmatn(
-                                      fontSize: 16.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF2C2C2C),
+                                    session.notes!,
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      fontSize: 12.sp,
+                                      height: 1.5.h,
+                                      color: context.textSecondary,
                                     ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
+                        ],
 
-                          // یادداشت جلسه
-                          if (session.notes != null &&
-                              session.notes!.trim().isNotEmpty) ...[
-                            const SizedBox(height: 12),
+                        // عنوان بخش تمرین‌ها
+                        Row(
+                          children: [
                             Container(
-                              padding: EdgeInsets.all(12.w),
+                              width: 3.w,
+                              height: 16.h,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF8F9FA),
-                                borderRadius: BorderRadius.circular(8.r),
-                                border: Border.all(
-                                  color: const Color(0xFFE9ECEF),
+                                color: AppTheme.goldColor,
+                                borderRadius: BorderRadius.circular(2.r),
+                              ),
+                            ),
+                            SizedBox(width: 8.w),
+                            Text(
+                              'تمرین‌های این جلسه',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 13.sp,
+                                fontWeight: FontWeight.w600,
+                                color: context.textSecondary,
+                              ),
+                            ),
+                            Spacer(),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8.w,
+                                vertical: 4.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.goldColor.withValues(
+                                  alpha: 0.1,
                                 ),
+                                borderRadius: BorderRadius.circular(6.r),
                               ),
                               child: Text(
-                                session.notes!,
-                                style: GoogleFonts.vazirmatn(
-                                  fontSize: 13.sp,
-                                  height: 1.6.h,
-                                  color: const Color(0xFF495057),
-                                  fontStyle: FontStyle.italic,
+                                '${session.exercises.length} تمرین',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 11.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.goldColor,
                                 ),
                               ),
                             ),
                           ],
-                          const SizedBox(height: 12),
+                        ),
+                        SizedBox(height: 12.h),
 
-                          // لیست تمرین‌ها
-                          ...session.exercises.map((ex) {
-                            if (ex is NormalExercise) {
-                              final repsList = ex.sets
-                                  .map((s) => s.reps?.toString() ?? '-')
-                                  .toList();
-                              final tag = ex.tag;
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 8),
+                        // لیست تمرین‌ها
+                        ...session.exercises.asMap().entries.map<Widget>((
+                          exEntry,
+                        ) {
+                          final exIndex = exEntry.key;
+                          final ex = exEntry.value;
+                          if (ex is NormalExercise) {
+                            final repsList = ex.sets
+                                .map((s) => s.reps?.toString() ?? '-')
+                                .toList();
+
+                            // دریافت نام تمرین - همیشه از tag استفاده کن اگر موجود باشد
+                            String exerciseName;
+                            if (ex.exerciseId > 0 &&
+                                _exerciseDetails.containsKey(ex.exerciseId)) {
+                              exerciseName =
+                                  _exerciseDetails[ex.exerciseId]!.name;
+                            } else if (ex.tag.isNotEmpty) {
+                              // اول از mapping استفاده کن
+                              if (_tagToExerciseMap.containsKey(ex.tag)) {
+                                exerciseName = _tagToExerciseMap[ex.tag]!.name;
+                              } else {
+                                // اگر در mapping نیست، خود tag را نمایش بده
+                                // این مهم است چون ممکن است هنوز جستجو کامل نشده باشد
+                                exerciseName = ex.tag;
+                              }
+                            } else {
+                              exerciseName = 'تمرین';
+                            }
+
+                            // بررسی اینکه آیا تمرین در دیتابیس پیدا شده یا نه
+                            final exerciseDetail = ex.exerciseId > 0
+                                ? _exerciseDetails[ex.exerciseId]
+                                : (ex.tag.isNotEmpty
+                                      ? _tagToExerciseMap[ex.tag]
+                                      : null);
+                            final canNavigate = exerciseDetail != null;
+
+                            return InkWell(
+                              onTap: canNavigate
+                                  ? () => _navigateToExerciseDetail(
+                                      ex.exerciseId,
+                                      tag: ex.tag,
+                                    )
+                                  : null,
+                              borderRadius: BorderRadius.circular(10.r),
+                              child: Container(
+                                margin: EdgeInsets.only(bottom: 10.h),
                                 padding: EdgeInsets.all(12.w),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8.r),
+                                  color: isDark
+                                      ? Colors.grey[900]!.withValues(alpha: 0.3)
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(10.r),
                                   border: Border.all(
-                                    color: const Color(0xFFE9ECEF),
+                                    color: isDark
+                                        ? Colors.grey[700]!.withValues(
+                                            alpha: 0.3,
+                                          )
+                                        : AppTheme.lightDividerColor.withValues(
+                                            alpha: 0.3,
+                                          ),
+                                    width: 1,
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.02,
-                                      ),
-                                      blurRadius: 2.r,
-                                      offset: Offset(0.w, 1.h),
-                                    ),
-                                  ],
                                 ),
-                                child: Column(
+                                child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 6.w,
-                                          height: 6.h,
-                                          decoration: const BoxDecoration(
-                                            color: Color(0xFFD4AF37),
-                                            shape: BoxShape.circle,
+                                    // شماره تمرین
+                                    Container(
+                                      width: 24.w,
+                                      height: 24.h,
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.goldColor.withValues(
+                                          alpha: 0.15,
+                                        ),
+                                        borderRadius: BorderRadius.circular(
+                                          6.r,
+                                        ),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '${exIndex + 1}',
+                                          style: TextStyle(
+                                            fontFamily: AppTheme.fontFamily,
+                                            fontSize: 11.sp,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.goldColor,
                                           ),
                                         ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: RichText(
-                                            text: TextSpan(
-                                              style: GoogleFonts.vazirmatn(
-                                                fontSize: 14.sp,
-                                                color: const Color(0xFF2C2C2C),
-                                              ),
-                                              children: [
-                                                TextSpan(
-                                                  text: tag,
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    SizedBox(width: 12.w),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  exerciseName,
+                                                  style: TextStyle(
+                                                    fontFamily:
+                                                        AppTheme.fontFamily,
+                                                    fontSize: 14.sp,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: context.textColor,
                                                   ),
                                                 ),
-                                                const TextSpan(text: ': '),
-                                                TextSpan(
-                                                  text:
-                                                      '${ex.sets.length} ست (${repsList.join('، ')})',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.w500,
-                                                    color: Color(0xFF6C757D),
+                                              ),
+                                              if (canNavigate) ...[
+                                                SizedBox(width: 8.w),
+                                                Icon(
+                                                  LucideIcons.chevronLeft,
+                                                  size: 16.sp,
+                                                  color: AppTheme.goldColor,
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                          SizedBox(height: 6.h),
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding: EdgeInsets.symmetric(
+                                                  horizontal: 8.w,
+                                                  vertical: 4.h,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.goldColor
+                                                      .withValues(alpha: 0.1),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        6.r,
+                                                      ),
+                                                ),
+                                                child: Text(
+                                                  '${ex.sets.length} ست',
+                                                  style: TextStyle(
+                                                    fontFamily:
+                                                        AppTheme.fontFamily,
+                                                    fontSize: 11.sp,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: AppTheme.goldColor,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (repsList.isNotEmpty) ...[
+                                                SizedBox(width: 8.w),
+                                                Text(
+                                                  '•',
+                                                  style: TextStyle(
+                                                    color:
+                                                        context.textSecondary,
+                                                  ),
+                                                ),
+                                                SizedBox(width: 8.w),
+                                                Text(
+                                                  repsList.join('، '),
+                                                  style: TextStyle(
+                                                    fontFamily:
+                                                        AppTheme.fontFamily,
+                                                    fontSize: 11.sp,
+                                                    color:
+                                                        context.textSecondary,
                                                   ),
                                                 ),
                                               ],
+                                            ],
+                                          ),
+                                          if (ex.note != null &&
+                                              ex.note!.trim().isNotEmpty) ...[
+                                            SizedBox(height: 8.h),
+                                            Container(
+                                              padding: EdgeInsets.all(8.w),
+                                              decoration: BoxDecoration(
+                                                color: isDark
+                                                    ? Colors.grey[800]!
+                                                          .withValues(
+                                                            alpha: 0.3,
+                                                          )
+                                                    : AppTheme.goldColor
+                                                          .withValues(
+                                                            alpha: 0.05,
+                                                          ),
+                                                borderRadius:
+                                                    BorderRadius.circular(6.r),
+                                              ),
+                                              child: Text(
+                                                ex.note!,
+                                                style: TextStyle(
+                                                  fontFamily:
+                                                      AppTheme.fontFamily,
+                                                  fontSize: 11.sp,
+                                                  height: 1.4.h,
+                                                  color: context.textSecondary,
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                              ),
                                             ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    if (ex.note != null &&
-                                        ex.note!.trim().isNotEmpty) ...[
-                                      const SizedBox(height: 8),
-                                      Container(
-                                        padding: EdgeInsets.all(8.w),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFF8F9FA),
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                          border: Border.all(
-                                            color: const Color(0xFFE9ECEF),
-                                            width: 0.5.w,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          ex.note!,
-                                          style: GoogleFonts.vazirmatn(
-                                            fontSize: 12.sp,
-                                            color: const Color(0xFF495057),
-                                            height: 1.4.h,
-                                          ),
-                                        ),
+                                          ],
+                                        ],
                                       ),
-                                    ],
+                                    ),
                                   ],
                                 ),
-                              );
-                            }
-                            return const SizedBox.shrink();
-                          }),
-                        ],
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 20),
-
-                  // امضا مربی
-                  Container(
-                    padding: EdgeInsets.all(12.w),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8F9FA),
-                      borderRadius: BorderRadius.circular(8.r),
-                      border: Border.all(color: const Color(0xFFE9ECEF)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              LucideIcons.user,
-                              size: 16.sp,
-                              color: const Color(0xFF6C757D),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'مربی: جیم‌آی (ساخت خودکار)',
-                                style: GoogleFonts.vazirmatn(
-                                  fontSize: 12.sp,
-                                  color: const Color(0xFF6C757D),
-                                  fontWeight: FontWeight.w500,
-                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'تاریخ: ${DateTime.now().toLocal().toString().split(' ').first}',
-                          style: GoogleFonts.vazirmatn(
-                            fontSize: 11.sp,
-                            color: const Color(0xFF6C757D),
-                          ),
-                        ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        }),
                       ],
                     ),
                   ),
                 ],
               ),
+            );
+          }),
+          SizedBox(height: 8.h),
+
+          // اطلاعات پایین
+          Container(
+            padding: EdgeInsets.all(12.w),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.grey[800]!.withValues(alpha: 0.3)
+                  : AppTheme.goldColor.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(
+                color: isDark
+                    ? Colors.grey[700]!.withValues(alpha: 0.3)
+                    : AppTheme.goldColor.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(LucideIcons.bot, size: 14.sp, color: AppTheme.goldColor),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Text(
+                    'برنامه تولید شده توسط جیم‌آی',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 11.sp,
+                      color: context.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1006,52 +1594,21 @@ class _ProgramDetailsDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildNotebookLines() {
-    return Positioned.fill(child: CustomPaint(painter: NotebookLinesPainter()));
-  }
-
-  Widget _buildNotebookHoles() {
-    return Positioned(
-      right: 15.w, // کاهش فاصله از لبه
-      top: 0.h,
-      bottom: 0.h,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: List.generate(
-          8,
-          (index) => Container(
-            width: 8.w,
-            height: 8.h,
-            decoration: BoxDecoration(
-              color: const Color(0xFFD0D0D0),
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFB0B0B0), width: 0.5),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 3.r,
-                  offset: Offset(0.w, 1.h),
-                ),
-                BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  blurRadius: 1.r,
-                  offset: const Offset(0, -0.5),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+  int _getTotalExercises(WorkoutProgram program) {
+    int total = 0;
+    for (final session in program.sessions) {
+      total += session.exercises.length;
+    }
+    return total;
   }
 
   String _buildPlainTextProgram() {
     final buffer = StringBuffer();
-    buffer.writeln(program.name);
+    buffer.writeln(widget.program.name);
     buffer.writeln();
 
-    for (int i = 0; i < program.sessions.length; i++) {
-      final session = program.sessions[i];
+    for (int i = 0; i < widget.program.sessions.length; i++) {
+      final session = widget.program.sessions[i];
       final title = session.day.isNotEmpty ? session.day : 'روز ${i + 1}';
       buffer.writeln(title);
       if (session.notes != null && session.notes!.trim().isNotEmpty) {
@@ -1063,8 +1620,12 @@ class _ProgramDetailsDialog extends StatelessWidget {
           final repsList = ex.sets
               .map((s) => s.reps?.toString() ?? '-')
               .toList();
+          final exerciseName = _getExerciseName(
+            ex.exerciseId,
+            fallbackTag: ex.tag,
+          );
           buffer.writeln(
-            '- ${ex.tag}: ${ex.sets.length} ست (${repsList.join(', ')})',
+            '- $exerciseName: ${ex.sets.length} ست (${repsList.join(', ')})',
           );
           if (ex.note != null && ex.note!.trim().isNotEmpty) {
             buffer.writeln('  نکته: ${ex.note!.trim()}');
@@ -1077,42 +1638,4 @@ class _ProgramDetailsDialog extends StatelessWidget {
 
     return buffer.toString().trim();
   }
-}
-
-/// کلاس برای رسم خطوط کاغذ دفترچه
-class NotebookLinesPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color =
-          const Color(0xFFE0E0E0) // کمی تیره‌تر
-      ..strokeWidth = 0.7
-      ..style = PaintingStyle.stroke;
-
-    // خط قرمز برای حاشیه
-    final redPaint = Paint()
-      ..color =
-          const Color(0xFFE53E3E) // قرمز تیره‌تر و طبیعی‌تر
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    // خط قرمز حاشیه سمت راست (برای فارسی)
-    canvas.drawLine(
-      Offset(size.width - 40, 0),
-      Offset(size.width - 40, size.height),
-      redPaint,
-    );
-
-    // خطوط افقی کاغذ
-    for (double y = 50; y < size.height; y += 24) {
-      canvas.drawLine(
-        Offset(20, y),
-        Offset(size.width - 50, y), // فاصله از حاشیه راست
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

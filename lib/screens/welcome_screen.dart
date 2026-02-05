@@ -1,17 +1,19 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 
 class WelcomeScreen extends StatefulWidget {
-  const WelcomeScreen({super.key});
+  const WelcomeScreen({super.key, this.jumpToLastPage = false});
+
+  final bool jumpToLastPage;
 
   @override
   State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
 class _WelcomeScreenState extends State<WelcomeScreen> {
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
+  late final PageController _pageController;
+  late int _currentPage;
 
   final List<_WelcomePageData> _pages = [
     _WelcomePageData(
@@ -43,6 +45,20 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       icon: Icons.people_alt,
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // اگر jumpToLastPage true باشد، مستقیماً از آخرین صفحه شروع کن
+    final lastPageIndex = _pages.length - 1;
+    if (widget.jumpToLastPage) {
+      _currentPage = lastPageIndex;
+      _pageController = PageController(initialPage: lastPageIndex);
+    } else {
+      _currentPage = 0;
+      _pageController = PageController();
+    }
+  }
 
   @override
   void dispose() {
@@ -153,7 +169,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                                   '/login',
                                 );
                               },
-                              child: const Text('قبلاً ثبت‌نام کرده‌ام'),
+                              child: Text(
+                                'قبلاً ثبت‌نام کرده‌ام',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
@@ -189,6 +209,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ],
                 ),
                 textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 12),
               Container(
@@ -216,6 +238,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       ),
                     ],
                   ),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -297,12 +321,16 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             page.title,
             style: AppTheme.headingStyle,
             textAlign: TextAlign.center,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 16),
           Text(
             page.description,
             style: AppTheme.bodyStyle,
             textAlign: TextAlign.center,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

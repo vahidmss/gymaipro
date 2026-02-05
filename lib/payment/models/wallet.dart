@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 // مدل کیف پول
 
@@ -13,6 +13,13 @@ enum WalletTransactionType {
   transferOut, // انتقال وجه از کیف پول
 }
 
+int _intFromDynamic(dynamic v) {
+  if (v == null) return 0;
+  if (v is num) return v.toInt();
+  if (v is String) return int.tryParse(v) ?? 0;
+  return 0;
+}
+
 class Wallet {
   const Wallet({
     required this.id,
@@ -24,6 +31,8 @@ class Wallet {
     this.blockedBalance = 0,
     this.totalCharged = 0,
     this.totalSpent = 0,
+    this.trainerEarnings = 0,
+    this.trainerWithdrawable = 0,
     this.isActive = true,
     this.isVerified = false,
     this.minimumBalance = 0,
@@ -41,6 +50,8 @@ class Wallet {
       blockedBalance: json['blocked_balance'] as int? ?? 0,
       totalCharged: json['total_charged'] as int? ?? 0,
       totalSpent: json['total_spent'] as int? ?? 0,
+      trainerEarnings: json['trainer_earnings'] as int? ?? 0,
+      trainerWithdrawable: json['trainer_withdrawable'] as int? ?? 0,
       isActive: json['is_active'] as bool? ?? true,
       isVerified: json['is_verified'] as bool? ?? false,
       minimumBalance: json['minimum_balance'] as int? ?? 0,
@@ -75,6 +86,12 @@ class Wallet {
   /// کل مبلغ خرج شده (ریال)
   final int totalSpent;
 
+  /// درآمد مربی (ریال) - بعد از کسر کمیسیون
+  final int trainerEarnings;
+
+  /// موجودی قابل برداشت مربی (ریال) - بعد از 3 روز انتظار
+  final int trainerWithdrawable;
+
   /// آیا کیف پول فعال است؟
   final bool isActive;
 
@@ -108,6 +125,8 @@ class Wallet {
       'blocked_balance': blockedBalance,
       'total_charged': totalCharged,
       'total_spent': totalSpent,
+      'trainer_earnings': trainerEarnings,
+      'trainer_withdrawable': trainerWithdrawable,
       'is_active': isActive,
       'is_verified': isVerified,
       'minimum_balance': minimumBalance,
@@ -128,6 +147,8 @@ class Wallet {
     int? blockedBalance,
     int? totalCharged,
     int? totalSpent,
+    int? trainerEarnings,
+    int? trainerWithdrawable,
     bool? isActive,
     bool? isVerified,
     int? minimumBalance,
@@ -145,6 +166,8 @@ class Wallet {
       blockedBalance: blockedBalance ?? this.blockedBalance,
       totalCharged: totalCharged ?? this.totalCharged,
       totalSpent: totalSpent ?? this.totalSpent,
+      trainerEarnings: trainerEarnings ?? this.trainerEarnings,
+      trainerWithdrawable: trainerWithdrawable ?? this.trainerWithdrawable,
       isActive: isActive ?? this.isActive,
       isVerified: isVerified ?? this.isVerified,
       minimumBalance: minimumBalance ?? this.minimumBalance,
@@ -187,6 +210,14 @@ class Wallet {
   /// فرمت کل خرج شده به تومان
   String get formattedTotalSpent =>
       '${(totalSpent / 10).toStringAsFixed(0)} تومان';
+
+  /// فرمت درآمد مربی به تومان
+  String get formattedTrainerEarnings =>
+      '${(trainerEarnings / 10).toStringAsFixed(0)} تومان';
+
+  /// فرمت موجودی قابل برداشت مربی به تومان
+  String get formattedTrainerWithdrawable =>
+      '${(trainerWithdrawable / 10).toStringAsFixed(0)} تومان';
 
   /// وضعیت کیف پول
   String get statusText {
@@ -249,21 +280,29 @@ class WalletTransaction {
       parsedMetadata = rawMetadata;
     }
 
+    final id = json['id']?.toString();
+    final walletId = json['wallet_id']?.toString();
+    final userId = json['user_id']?.toString();
+    final description = json['description']?.toString();
+    final createdAtRaw = json['created_at']?.toString();
+
     return WalletTransaction(
-      id: json['id'] as String,
-      walletId: json['wallet_id'] as String,
-      userId: json['user_id'] as String,
+      id: id ?? '',
+      walletId: walletId ?? '',
+      userId: userId ?? '',
       type: WalletTransactionType.values.firstWhere(
-        (e) => e.toString().split('.').last == json['type'],
+        (e) => e.toString().split('.').last == (json['type']?.toString() ?? ''),
         orElse: () => WalletTransactionType.payment,
       ),
-      amount: (json['amount'] as num).toInt(),
-      balanceBefore: (json['balance_before'] as num).toInt(),
-      balanceAfter: (json['balance_after'] as num).toInt(),
-      description: json['description'] as String,
-      referenceId: json['reference_id'] as String?,
+      amount: _intFromDynamic(json['amount']),
+      balanceBefore: _intFromDynamic(json['balance_before']),
+      balanceAfter: _intFromDynamic(json['balance_after']),
+      description: description ?? '',
+      referenceId: json['reference_id']?.toString(),
       metadata: parsedMetadata,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: createdAtRaw != null && createdAtRaw.isNotEmpty
+          ? DateTime.parse(createdAtRaw)
+          : DateTime.now(),
     );
   }
 

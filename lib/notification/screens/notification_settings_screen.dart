@@ -1,11 +1,12 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:gymaipro/notification/notification_model.dart';
+import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/services/notification_sync_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -90,7 +91,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         setState(() {
           _isLoading = false;
         });
-        _animationController.forward();
+        _animationController.safeForward();
       }
     }
   }

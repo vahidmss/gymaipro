@@ -1,10 +1,11 @@
-﻿import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/services/navigation_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -50,7 +51,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _animationController.forward();
+        _animationController.safeForward();
       }
     });
   }
@@ -81,7 +82,14 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطا: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(
+            'خطا: $e',
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -97,7 +105,11 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
       if (_isLiked) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('خوراکی را پسندیدید'),
+            content: Text(
+              'خوراکی را پسندیدید',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 1),
           ),
@@ -105,7 +117,14 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطا: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(
+            'خطا: $e',
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -410,29 +429,34 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min, // برای جلوگیری از overflow
               children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  display,
-                  textDirection: TextDirection.rtl,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2.h,
+                SizedBox(height: 6.h), // کاهش فاصله از 10 به 6
+                Flexible(
+                  child: Text(
+                    display,
+                    textDirection: TextDirection.rtl,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2.h,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -671,7 +695,11 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('خطا در باز کردن لینک'),
+                    content: Text(
+                      'خطا در باز کردن لینک',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     backgroundColor: Colors.red,
                   ),
                 );
@@ -679,7 +707,11 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
             } catch (e) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('خطا در باز کردن لینک: $e'),
+                  content: Text(
+                    'خطا در باز کردن لینک: $e',
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   backgroundColor: Colors.red,
                 ),
               );
@@ -687,7 +719,11 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
           }
         },
         icon: const Icon(LucideIcons.externalLink),
-        label: const Text('مشاهده در وب'),
+        label: Text(
+          'مشاهده در وب',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.goldColor,
           side: const BorderSide(color: AppTheme.goldColor),

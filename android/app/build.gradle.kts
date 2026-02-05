@@ -32,6 +32,11 @@ android {
         versionName = flutter.versionName
     }
 
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.

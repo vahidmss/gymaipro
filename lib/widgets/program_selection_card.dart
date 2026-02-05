@@ -1,7 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/workout_plan/workout_plan_builder/models/workout_program.dart';
+import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 
 class ProgramSelectionCard extends StatelessWidget {
   const ProgramSelectionCard({
@@ -15,8 +15,8 @@ class ProgramSelectionCard extends StatelessWidget {
   final List<WorkoutProgram> programs;
   final WorkoutProgram? selectedProgram;
   final WorkoutSession? selectedSession;
-  final Function(WorkoutProgram?) onProgramChanged;
-  final Function(WorkoutSession?) onSessionChanged;
+  final void Function(WorkoutProgram?) onProgramChanged;
+  final void Function(WorkoutSession?) onSessionChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -30,20 +30,20 @@ class ProgramSelectionCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _buildProgramDropdown(),
+          _buildProgramDropdown(context),
           const SizedBox(height: 12),
-          _buildSessionDropdown(),
+          _buildSessionDropdown(context),
         ],
       ),
     );
   }
 
-  Widget _buildProgramDropdown() {
+  Widget _buildProgramDropdown(BuildContext context) {
     return DropdownButtonFormField<WorkoutProgram>(
       initialValue: selectedProgram,
-      decoration: _buildDropdownDecoration('برنامه تمرینی'),
-      dropdownColor: AppTheme.cardColor,
-      style: const TextStyle(color: Colors.white),
+      decoration: _buildDropdownDecoration(context, 'برنامه تمرینی'),
+      dropdownColor: context.cardColor,
+      style: TextStyle(color: context.textColor),
       items: programs
           .map(
             (p) => DropdownMenuItem(
@@ -56,12 +56,12 @@ class ProgramSelectionCard extends StatelessWidget {
     );
   }
 
-  Widget _buildSessionDropdown() {
+  Widget _buildSessionDropdown(BuildContext context) {
     return DropdownButtonFormField<WorkoutSession>(
       initialValue: selectedSession,
-      decoration: _buildDropdownDecoration('جلسه'),
-      dropdownColor: AppTheme.cardColor,
-      style: const TextStyle(color: Colors.white),
+      decoration: _buildDropdownDecoration(context, 'جلسه'),
+      dropdownColor: context.cardColor,
+      style: TextStyle(color: context.textColor),
       items:
           selectedProgram?.sessions
               .map(
@@ -76,10 +76,10 @@ class ProgramSelectionCard extends StatelessWidget {
     );
   }
 
-  InputDecoration _buildDropdownDecoration(String label) {
+  InputDecoration _buildDropdownDecoration(BuildContext context, String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: AppTheme.goldColor),
+      labelStyle: TextStyle(color: context.textColor),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12.r),
         borderSide: BorderSide(

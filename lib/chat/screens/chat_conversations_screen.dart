@@ -2,13 +2,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:gymaipro/chat/screens/chat_screen.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
+import 'package:gymaipro/chat/screens/chat_screen.dart';
 import 'package:gymaipro/chat/services/chat_service.dart';
+import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
-import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
 import 'package:gymaipro/widgets/user_role_badge.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
@@ -104,7 +104,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
           _avatarCache[otherUserId] = cached;
         }
       }
-      if (mounted) setState(() {});
+      SafeSetState.call(this, () {});
 
       // Refresh latest avatar URLs from server in background
       for (int i = 0; i < limit; i++) {
@@ -139,9 +139,8 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
     if (_avatarSetStatePending || !mounted) return;
     _avatarSetStatePending = true;
     Future.delayed(const Duration(milliseconds: 120), () {
-      if (!mounted) return;
       _avatarSetStatePending = false;
-      setState(() {});
+      SafeSetState.call(this, () {});
     });
   }
 
@@ -261,8 +260,11 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
           Container(
             padding: EdgeInsets.all(20.w),
             decoration: BoxDecoration(
-              color: AppTheme.cardColor,
+              color: context.cardColor,
               borderRadius: BorderRadius.circular(20.r),
+              border: Border.all(
+                color: AppTheme.goldColor.withValues(alpha: 0.2),
+              ),
             ),
             child: Icon(
               icon,
@@ -270,16 +272,25 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
               color: AppTheme.goldColor.withValues(alpha: 0.5),
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24.h),
           Text(
             message,
-            style: AppTheme.headingStyle.copyWith(fontSize: 18.sp),
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontWeight: FontWeight.bold,
+              fontSize: 18.sp,
+              color: context.textColor,
+            ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.h),
           Text(
             subtitle,
-            style: AppTheme.bodyStyle.copyWith(fontSize: 14.sp),
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 14.sp,
+              color: context.textSecondary,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -320,33 +331,36 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
 
     return Column(
       key: ValueKey(conversation.id),
+      mainAxisSize: MainAxisSize.min,
       children: [
         DecoratedBox(
           decoration: BoxDecoration(
-            color: AppTheme.cardColor,
+            color: context.cardColor,
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: hasUnread
                   ? AppTheme.goldColor.withValues(alpha: 0.3)
-                  : AppTheme.backgroundColor,
+                  : context.separatorColor.withValues(alpha: 0.5),
             ),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.backgroundColor.withValues(alpha: 0.06),
+                color: AppTheme.goldColor.withValues(alpha: 0.05),
                 blurRadius: 8.r,
                 offset: Offset(0.w, 2.h),
               ),
             ],
           ),
           child: Material(
-            color: AppTheme.backgroundColor,
+            color: Colors.transparent,
             child: InkWell(
               onTap: () => _navigateToChatScreen(conversation, otherUserId),
               onLongPress: () => _showConversationActions(conversation),
               borderRadius: BorderRadius.circular(16.r),
               child: Padding(
-                padding: EdgeInsets.all(16.w),
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                 child: Row(
+                  textDirection: TextDirection.rtl,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // آواتار
                     Stack(
@@ -375,12 +389,13 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
                           ),
                       ],
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: 16.w),
 
                     // محتوا به سبک تلگرام: ردیف بالا نام + تاریخ، ردیف پایین نقش + آخرین پیام، نشان نخوانده کنار پیام
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Row(
                             children: [
@@ -388,9 +403,10 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
                                 child: Text(
                                   otherUserName,
                                   style: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
                                     color: hasUnread
-                                        ? AppTheme.textColor
-                                        : AppTheme.textColor.withValues(
+                                        ? context.textColor
+                                        : context.textColor.withValues(
                                             alpha: 0.9,
                                           ),
                                     fontSize: 16.sp,
@@ -402,33 +418,39 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                timeString,
-                                style: TextStyle(
-                                  color: AppTheme.bodyStyle.color,
-                                  fontSize: 11.sp,
+                              SizedBox(width: 8.w),
+                              Flexible(
+                                child: Text(
+                                  timeString,
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
+                                    color: context.textSecondary,
+                                    fontSize: 11.sp,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 4.h),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               FutureBuilder<String?>(
                                 future: _loadUserRole(otherUserId),
                                 builder: (context, snapshot) {
                                   final role = snapshot.data ?? 'athlete';
                                   return Padding(
-                                    padding: const EdgeInsetsDirectional.only(
-                                      end: 8,
+                                    padding: EdgeInsetsDirectional.only(
+                                      end: 6.w,
                                     ),
                                     child: UserRoleBadge(
                                       role: role,
                                       fontSize: 10.sp,
                                       padding: EdgeInsets.symmetric(
-                                        horizontal: 6.w,
-                                        vertical: 2.h,
+                                        horizontal: 5.w,
+                                        vertical: 1.h,
                                       ),
                                     ),
                                   );
@@ -438,13 +460,12 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
                                 child: Text(
                                   conversation.lastMessageText ?? 'بدون پیام',
                                   style: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
                                     color: hasUnread
-                                        ? AppTheme.textColor.withValues(
+                                        ? context.textColor.withValues(
                                             alpha: 0.95,
                                           )
-                                        : AppTheme.textColor.withValues(
-                                            alpha: 0.65,
-                                          ),
+                                        : context.textSecondary,
                                     fontSize: 13.sp,
                                     fontWeight: hasUnread
                                         ? FontWeight.w600
@@ -454,24 +475,31 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: 6.w),
                               if (hasUnread)
                                 Container(
+                                  constraints: BoxConstraints(
+                                    minWidth: 20.w,
+                                  ),
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: 8.w,
-                                    vertical: 3.h,
+                                    horizontal: 6.w,
+                                    vertical: 2.h,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.goldColor,
-                                    borderRadius: BorderRadius.circular(12.r),
+                                    gradient: LinearGradient(
+                                      colors: context.goldGradientColors,
+                                    ),
+                                    borderRadius: BorderRadius.circular(10.r),
                                   ),
                                   child: Text(
                                     '$unreadCount',
                                     style: TextStyle(
-                                      color: AppTheme.textColor,
-                                      fontSize: 11.sp,
+                                      fontFamily: AppTheme.fontFamily,
+                                      color: AppTheme.onGoldColor,
+                                      fontSize: 10.sp,
                                       fontWeight: FontWeight.bold,
                                     ),
+                                    textAlign: TextAlign.center,
                                   ),
                                 ),
                             ],
@@ -493,7 +521,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
   void _showConversationActions(ChatConversation conversation) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppTheme.cardColor,
+      backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
       ),
@@ -502,44 +530,72 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: Icon(LucideIcons.pin, color: AppTheme.bodyStyle.color),
-              title: const Text(
-                'پین کردن گفتگو',
-                style: TextStyle(color: AppTheme.textColor),
+            Container(
+              width: 40.w,
+              height: 4.h,
+              decoration: BoxDecoration(
+                color: context.separatorColor,
+                borderRadius: BorderRadius.circular(2.r),
               ),
-              onTap: () {
-                Navigator.pop(context);
-                // Pin feature not implemented yet
-              },
             ),
-            ListTile(
-              leading: Icon(
-                LucideIcons.bellOff,
-                color: AppTheme.bodyStyle.color,
+            SizedBox(height: 16.h),
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(LucideIcons.pin, color: AppTheme.goldColor),
+                title: Text(
+                  'پین کردن گفتگو',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Pin feature not implemented yet
+                },
               ),
-              title: const Text(
-                'بی‌صدا کردن',
-                style: TextStyle(color: AppTheme.textColor),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                // Mute feature not implemented yet
-              },
             ),
-            ListTile(
-              leading: const Icon(
-                LucideIcons.trash2,
-                color: AppTheme.goldColor,
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(
+                  LucideIcons.bellOff,
+                  color: AppTheme.goldColor,
+                ),
+                title: Text(
+                  'بی‌صدا کردن',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Mute feature not implemented yet
+                },
               ),
-              title: const Text(
-                'حذف گفتگو',
-                style: TextStyle(color: AppTheme.goldColor),
+            ),
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(
+                  LucideIcons.trash2,
+                  color: AppTheme.goldColor,
+                ),
+                title: Text(
+                  'حذف گفتگو',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: AppTheme.goldColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmAndDeleteConversation(conversation);
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _confirmAndDeleteConversation(conversation);
-              },
             ),
           ],
         ),
@@ -553,25 +609,42 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.cardColor,
-        title: const Text(
+        backgroundColor: context.cardColor,
+        title: Text(
           'حذف گفتگو',
-          style: TextStyle(color: AppTheme.textColor),
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontWeight: FontWeight.bold,
+            color: context.textColor,
+          ),
         ),
         content: Text(
           'آیا مطمئن هستید که می‌خواهید این گفتگو را حذف کنید؟',
-          style: TextStyle(color: AppTheme.bodyStyle.color),
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            color: context.textColor,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('انصراف'),
+            child: Text(
+              'انصراف',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textSecondary,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
+            child: Text(
               'حذف',
-              style: TextStyle(color: AppTheme.goldColor),
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: AppTheme.goldColor,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],

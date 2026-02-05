@@ -1,0 +1,285 @@
+[
+  {
+    "id": "bb_goal_primary",
+    "question_text": "هدف اصلی شما از «بدنسازی» در 8 تا 12 هفته آینده چیست؟",
+    "question_type": "single_choice",
+    "category": "goals",
+    "is_required": true,
+    "order_index": 1,
+    "options": [
+      "افزایش حجم (Bulk)",
+      "کات / کاهش چربی (Cut)",
+      "ریکامپ (هم عضله، هم چربی کمتر)",
+      "بهبود فرم و تناسب (بدون هدف وزن مشخص)",
+      "آماده‌سازی مسابقه/فیزیک (هدف خیلی جدی)"
+    ],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_experience_level",
+    "question_text": "سطح تجربه بدنسازی شما کدام است؟",
+    "question_type": "single_choice",
+    "category": "experience",
+    "is_required": true,
+    "order_index": 2,
+    "options": [
+      "مبتدی (0 تا 6 ماه)",
+      "نیمه‌مبتدی (6 ماه تا 1.5 سال)",
+      "متوسط (1.5 تا 3 سال)",
+      "پیشرفته (3+ سال با پیشرفت منظم)"
+    ],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_training_consistency",
+    "question_text": "در 3 ماه اخیر به‌طور متوسط چند روز در هفته تمرین کرده‌اید؟",
+    "question_type": "single_choice",
+    "category": "experience",
+    "is_required": true,
+    "order_index": 3,
+    "options": ["0 روز", "1-2 روز", "3 روز", "4 روز", "5 روز", "6 روز"],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_days_per_week",
+    "question_text": "می‌خواهید برنامه‌ی بدنسازی شما چند روز در هفته باشد؟",
+    "question_type": "single_choice",
+    "category": "schedule",
+    "is_required": true,
+    "order_index": 4,
+    "options": ["2 روز", "3 روز", "4 روز", "5 روز", "6 روز"],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_session_minutes",
+    "question_text": "برای هر جلسه تمرین چقدر زمان دارید؟ (دقیقه)",
+    "question_type": "slider",
+    "category": "schedule",
+    "is_required": true,
+    "order_index": 5,
+    "options": { "min": 30, "max": 120 },
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_equipment_access",
+    "question_text": "به چه نوع تجهیزات/محیطی دسترسی دارید؟",
+    "question_type": "single_choice",
+    "category": "equipment",
+    "is_required": true,
+    "order_index": 6,
+    "options": [
+      "باشگاه کامل (دمبل، هالتر، دستگاه، کابل، اسمیت)",
+      "باشگاه معمولی (دمبل + چند دستگاه/کابل محدود)",
+      "خانه (دمبل/کش/بارفیکس) - بدون دستگاه",
+      "خانه خیلی محدود (فقط وزن بدن/کش)"
+    ],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_style_preference",
+    "question_text": "ترجیح سبک تمرین شما چیست؟",
+    "question_type": "single_choice",
+    "category": "preferences",
+    "is_required": true,
+    "order_index": 7,
+    "options": ["ترکیبی (وزنه آزاد + دستگاه)", "بیشتر وزنه آزاد", "بیشتر دستگاه", "فرقی ندارد"],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_split_preference",
+    "question_text": "کدام نوع تقسیم‌بندی تمرین برایتان راحت‌تر است؟",
+    "question_type": "single_choice",
+    "category": "preferences",
+    "is_required": true,
+    "order_index": 8,
+    "options": [
+      "فول‌بادی",
+      "بالا/پایین (Upper/Lower)",
+      "پوش/پول/پا (PPL)",
+      "اسپلیت عضله‌ای (مثلاً سینه/پشت/پا/...)",
+      "فرقی ندارد (بهترین را انتخاب کن)"
+    ],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_priority_muscles",
+    "question_text": "کدام عضلات برای شما اولویت رشد دارند؟ (می‌توانید چند مورد انتخاب کنید)",
+    "question_type": "multiple_choice",
+    "category": "focus",
+    "is_required": true,
+    "order_index": 9,
+    "options": [
+      "سینه",
+      "پشت (لت/میانی پشت)",
+      "سرشانه",
+      "جلو بازو",
+      "پشت بازو",
+      "چهارسر ران",
+      "همسترینگ/گلوت",
+      "ساق پا",
+      "شکم",
+      "بدون اولویت خاص"
+    ],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_compound_comfort",
+    "question_text": "با کدام حرکات پایه «بدون درد و با فرم قابل قبول» راحت هستید؟ (چند مورد)",
+    "question_type": "multiple_choice",
+    "category": "experience",
+    "is_required": true,
+    "order_index": 10,
+    "options": [
+      "اسکوات",
+      "ددلیفت",
+      "پرس سینه",
+      "پرس سرشانه",
+      "بارفیکس/لت",
+      "دیپ پارالل",
+      "هیچکدام/مطمئن نیستم"
+    ],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_injury_areas",
+    "question_text": "آیا درد/آسیب یا محدودیت دارید؟ (اگر ندارید «ندارم» را انتخاب کنید)",
+    "question_type": "multiple_choice",
+    "category": "health",
+    "is_required": true,
+    "order_index": 11,
+    "options": [
+      "ندارم",
+      "شانه",
+      "آرنج",
+      "مچ دست",
+      "گردن",
+      "کمر",
+      "لگن",
+      "زانو",
+      "مچ پا"
+    ],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_injury_details",
+    "question_text": "اگر محدودیت دارید: دقیقاً چه حرکاتی درد ایجاد می‌کند یا ممنوع است؟ (اختیاری)",
+    "question_type": "text",
+    "category": "health",
+    "is_required": false,
+    "order_index": 12,
+    "options": null,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_sex",
+    "question_text": "جنسیت شما چیست؟",
+    "question_type": "single_choice",
+    "category": "physical",
+    "is_required": true,
+    "order_index": 13,
+    "options": ["مرد", "زن"],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_age",
+    "question_text": "سن شما چند سال است؟",
+    "question_type": "number",
+    "category": "physical",
+    "is_required": true,
+    "order_index": 14,
+    "options": { "min": 13, "max": 80 },
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_height_cm",
+    "question_text": "قد شما چند سانتی‌متر است؟",
+    "question_type": "number",
+    "category": "physical",
+    "is_required": true,
+    "order_index": 15,
+    "options": { "min": 120, "max": 220 },
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_weight_kg",
+    "question_text": "وزن فعلی شما چند کیلوگرم است؟",
+    "question_type": "number",
+    "category": "physical",
+    "is_required": true,
+    "order_index": 16,
+    "options": { "min": 35, "max": 200 },
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_bodyfat_estimate",
+    "question_text": "درصد چربی بدن‌تان را (تقریبی) در کدام بازه می‌بینید؟",
+    "question_type": "single_choice",
+    "category": "physical",
+    "is_required": true,
+    "order_index": 17,
+    "options": [
+      "خیلی کم (10-12%)",
+      "کم (13-15%)",
+      "متوسط (16-20%)",
+      "بالا (21-25%)",
+      "خیلی بالا (26%+)",
+      "مطمئن نیستم"
+    ],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_sleep_hours",
+    "question_text": "به‌طور متوسط چند ساعت در شب می‌خوابید؟",
+    "question_type": "slider",
+    "category": "recovery",
+    "is_required": true,
+    "order_index": 18,
+    "options": { "min": 4, "max": 10 },
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_effort_level",
+    "question_text": "در ست‌های اصلی معمولاً چقدر به ناتوانی نزدیک می‌شوید؟",
+    "question_type": "single_choice",
+    "category": "preferences",
+    "is_required": true,
+    "order_index": 19,
+    "options": [
+      "تقریباً تا ناتوانی (0-1 تکرار در ذخیره)",
+      "نزدیک ناتوانی (1-2 تکرار در ذخیره)",
+      "با فاصله (3+ تکرار در ذخیره)",
+      "نمی‌دانم / نیاز به راهنمایی دارم"
+    ],
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  },
+  {
+    "id": "bb_extra_notes",
+    "question_text": "اگر نکته مهمی هست که باید در برنامه بدنسازی لحاظ شود (مثلاً هدف دقیق، محدودیت زمان، حرکات مورد علاقه/تنفر)، اینجا بنویسید. (اختیاری)",
+    "question_type": "text",
+    "category": "notes",
+    "is_required": false,
+    "order_index": 20,
+    "options": null,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z"
+  }
+]

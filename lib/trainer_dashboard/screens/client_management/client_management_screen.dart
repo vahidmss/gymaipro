@@ -74,9 +74,30 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطا در بارگذاری اطلاعات: $e')));
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'خطا در بارگذاری اطلاعات: $e',
+              style: TextStyle(
+                color: context.textColor,
+                fontWeight: FontWeight.w600,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            backgroundColor: isDark
+                ? AppTheme.errorColor.withValues(alpha: 0.2)
+                : AppTheme.errorColor.withValues(alpha: 0.15),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.r),
+              side: BorderSide(
+                color: AppTheme.errorColor.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
+          ),
+        );
       }
     }
   }
@@ -109,10 +130,33 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
         }
 
         if (mounted) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(message),
-              backgroundColor: status == 'pending' ? Colors.orange : Colors.red,
+              content: Text(
+                message,
+                style: TextStyle(
+                  color: context.textColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              backgroundColor: status == 'pending'
+                  ? (isDark
+                        ? Colors.orange.withValues(alpha: 0.2)
+                        : Colors.orange.withValues(alpha: 0.15))
+                  : (isDark
+                        ? AppTheme.errorColor.withValues(alpha: 0.2)
+                        : AppTheme.errorColor.withValues(alpha: 0.15)),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                side: BorderSide(
+                  color: status == 'pending'
+                      ? Colors.orange.withValues(alpha: 0.5)
+                      : AppTheme.errorColor.withValues(alpha: 0.5),
+                  width: 1,
+                ),
+              ),
             ),
           );
         }
@@ -126,18 +170,58 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
       );
 
       if (mounted) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('درخواست برای شاگرد ارسال شد - در انتظار تایید'),
+          SnackBar(
+            content: Text(
+              'درخواست برای شاگرد ارسال شد - در انتظار تایید',
+              style: TextStyle(
+                color: context.textColor,
+                fontWeight: FontWeight.w600,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            backgroundColor: isDark
+                ? AppTheme.successColor.withValues(alpha: 0.2)
+                : AppTheme.successColor.withValues(alpha: 0.15),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.r),
+              side: BorderSide(
+                color: AppTheme.successColor.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
           ),
         );
         _loadData(); // بارگذاری مجدد اطلاعات
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطا در اضافه کردن شاگرد: $e')));
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'خطا در اضافه کردن شاگرد: $e',
+              style: TextStyle(
+                color: context.textColor,
+                fontWeight: FontWeight.w600,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            backgroundColor: isDark
+                ? AppTheme.errorColor.withValues(alpha: 0.2)
+                : AppTheme.errorColor.withValues(alpha: 0.15),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.r),
+              side: BorderSide(
+                color: AppTheme.errorColor.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
+          ),
+        );
       }
     }
   }
@@ -158,16 +242,58 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('شاگرد با موفقیت حذف شد')));
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'شاگرد با موفقیت حذف شد',
+              style: TextStyle(
+                color: context.textColor,
+                fontWeight: FontWeight.w600,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            backgroundColor: isDark
+                ? AppTheme.successColor.withValues(alpha: 0.2)
+                : AppTheme.successColor.withValues(alpha: 0.15),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.r),
+              side: BorderSide(
+                color: AppTheme.successColor.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
+          ),
+        );
         _loadData(); // بارگذاری مجدد اطلاعات
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطا در حذف شاگرد: $e')));
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'خطا در حذف شاگرد: $e',
+              style: TextStyle(
+                color: context.textColor,
+                fontWeight: FontWeight.w600,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            backgroundColor: isDark
+                ? AppTheme.errorColor.withValues(alpha: 0.2)
+                : AppTheme.errorColor.withValues(alpha: 0.15),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.r),
+              side: BorderSide(
+                color: AppTheme.errorColor.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
+          ),
+        );
       }
     }
   }
@@ -183,19 +309,58 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
       );
 
       if (mounted) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('شاگرد مسدود شد'),
-            backgroundColor: Colors.red,
+          SnackBar(
+            content: Text(
+              'شاگرد مسدود شد',
+              style: TextStyle(
+                color: context.textColor,
+                fontWeight: FontWeight.w600,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            backgroundColor: isDark
+                ? AppTheme.errorColor.withValues(alpha: 0.2)
+                : AppTheme.errorColor.withValues(alpha: 0.15),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.r),
+              side: BorderSide(
+                color: AppTheme.errorColor.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
           ),
         );
         _loadData(); // بارگذاری مجدد اطلاعات
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطا در مسدود کردن شاگرد: $e')));
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'خطا در مسدود کردن شاگرد: $e',
+              style: TextStyle(
+                color: context.textColor,
+                fontWeight: FontWeight.w600,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            backgroundColor: isDark
+                ? AppTheme.errorColor.withValues(alpha: 0.2)
+                : AppTheme.errorColor.withValues(alpha: 0.15),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.r),
+              side: BorderSide(
+                color: AppTheme.errorColor.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
+          ),
+        );
       }
     }
   }
@@ -211,19 +376,58 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
       );
 
       if (mounted) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('مسدودیت شاگرد رفع شد'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: Text(
+              'مسدودیت شاگرد رفع شد',
+              style: TextStyle(
+                color: context.textColor,
+                fontWeight: FontWeight.w600,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            backgroundColor: isDark
+                ? AppTheme.successColor.withValues(alpha: 0.2)
+                : AppTheme.successColor.withValues(alpha: 0.15),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.r),
+              side: BorderSide(
+                color: AppTheme.successColor.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
           ),
         );
         _loadData(); // بارگذاری مجدد اطلاعات
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطا در رفع مسدودیت شاگرد: $e')));
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'خطا در رفع مسدودیت شاگرد: $e',
+              style: TextStyle(
+                color: context.textColor,
+                fontWeight: FontWeight.w600,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            backgroundColor: isDark
+                ? AppTheme.errorColor.withValues(alpha: 0.2)
+                : AppTheme.errorColor.withValues(alpha: 0.15),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.r),
+              side: BorderSide(
+                color: AppTheme.errorColor.withValues(alpha: 0.5),
+                width: 1,
+              ),
+            ),
+          ),
+        );
       }
     }
   }
@@ -231,9 +435,29 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
   void _onClientTap(Map<String, dynamic> clientProfile) {
     final String? userId = clientProfile['id'] as String?;
     if (userId == null || userId.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('شناسه کاربر نامعتبر است')));
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'شناسه کاربر نامعتبر است',
+            style: TextStyle(
+              color: context.textColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          backgroundColor: isDark
+              ? AppTheme.errorColor.withValues(alpha: 0.2)
+              : AppTheme.errorColor.withValues(alpha: 0.15),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.r),
+            side: BorderSide(
+              color: AppTheme.errorColor.withValues(alpha: 0.5),
+              width: 1,
+            ),
+          ),
+        ),
+      );
       return;
     }
     Navigator.pushNamed(context, '/trainer-profile', arguments: userId);
@@ -242,96 +466,68 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.goldColor),
+      return Center(
+        child: CircularProgressIndicator(
+          color: AppTheme.goldColor,
+          strokeWidth: 3,
+        ),
       );
     }
 
-    return Stack(
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8),
-          child: Column(
-            children: [
-              ClientSearchWidget(
-                allClients: _clients,
-                onSearchResultsChanged: _onSearchResultsChanged,
-              ),
-              const SizedBox(height: 8),
-              RelationshipStatsWidget(stats: _relationshipStats),
-              const SizedBox(height: 12),
-              Expanded(child: _buildClientsTab()),
-            ],
+    return SingleChildScrollView(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClientSearchWidget(
+            allClients: _clients,
+            onSearchResultsChanged: _onSearchResultsChanged,
           ),
-        ),
-      ],
+          SizedBox(height: 16.h),
+          RelationshipStatsWidget(stats: _relationshipStats),
+          SizedBox(height: 20.h),
+          _buildClientsTab(),
+        ],
+      ),
     );
   }
 
   Widget _buildStatusChip(String status) {
     Color baseColor;
     String statusText;
-    IconData statusIcon;
 
     switch (status) {
       case 'active':
-        baseColor = Colors.green;
+        baseColor = AppTheme.successColor;
         statusText = 'فعال';
-        statusIcon = LucideIcons.checkCircle2;
       case 'pending':
         baseColor = Colors.amber;
         statusText = 'در انتظار';
-        statusIcon = LucideIcons.clock4;
       case 'inactive':
         baseColor = Colors.grey;
         statusText = 'غیرفعال';
-        statusIcon = LucideIcons.userX;
       case 'blocked':
-        baseColor = Colors.red;
+        baseColor = AppTheme.errorColor;
         statusText = 'مسدود';
-        statusIcon = LucideIcons.shieldAlert;
       default:
         baseColor = Colors.grey;
         statusText = 'نامشخص';
-        statusIcon = LucideIcons.helpCircle;
     }
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            baseColor.withValues(alpha: 0.1),
-            baseColor.withValues(alpha: 0.1),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(999.r),
-        border: Border.all(color: baseColor.withValues(alpha: 0.1)),
+        color: baseColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8.r),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 16.w,
-            height: 16.h,
-            decoration: BoxDecoration(
-              color: baseColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(statusIcon, size: 12.sp, color: Colors.white),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            statusText,
-            style: TextStyle(
-              color: baseColor,
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+      child: Text(
+        statusText,
+        style: TextStyle(
+          color: baseColor,
+          fontSize: 10.sp,
+          fontWeight: FontWeight.w600,
+          fontFamily: AppTheme.fontFamily,
+        ),
       ),
     );
   }
@@ -350,43 +546,68 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
     return profile['username'] as String;
   }
 
-  // removed: replaced by _ClientAvatar initials logic
-
   Widget _buildClientsTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     if (_displayedClients.isEmpty) {
-      return Center(
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 40.h),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              LucideIcons.users,
-              size: 64.sp,
-              color: AppTheme.goldColor.withValues(alpha: 0.1),
+            Container(
+              padding: EdgeInsets.all(20.w),
+              decoration: BoxDecoration(
+                color: AppTheme.goldColor.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                LucideIcons.users,
+                size: 48.sp,
+                color: AppTheme.goldColor.withValues(alpha: 0.5),
+              ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16.h),
             Text(
               'هنوز شاگردی ندارید',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.1),
-                fontSize: 18.sp,
+                color: context.textColor,
+                fontSize: 16.sp,
                 fontWeight: FontWeight.w600,
+                fontFamily: AppTheme.fontFamily,
               ),
             ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: 220.w,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.goldColor,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
+            SizedBox(height: 6.h),
+            Text(
+              'برای شروع، اولین شاگرد خود را اضافه کنید',
+              style: TextStyle(
+                color: context.textSecondary,
+                fontSize: 12.sp,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            SizedBox(height: 20.h),
+            OutlinedButton.icon(
+              onPressed: _openAddClientSheet,
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(
+                  color: AppTheme.goldColor.withValues(alpha: 0.5),
+                  width: 1.5,
                 ),
-                icon: const Icon(LucideIcons.userPlus, size: 18),
-                label: const Text('افزودن شاگرد جدید'),
-                onPressed: _openAddClientSheet,
+                foregroundColor: AppTheme.goldColor,
+                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+              ),
+              icon: Icon(LucideIcons.userPlus, size: 16.sp),
+              label: Text(
+                'افزودن شاگرد جدید',
+                style: TextStyle(
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: AppTheme.fontFamily,
+                ),
               ),
             ),
           ],
@@ -394,204 +615,307 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: _displayedClients.length + 1,
-      itemBuilder: (context, index) {
-        if (index == _displayedClients.length) {
-          // Minimal add button as the last item
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: OutlinedButton.icon(
-              onPressed: _openAddClientSheet,
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(
-                  color: AppTheme.goldColor.withValues(alpha: 0.1),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ...List.generate(
+          _displayedClients.length,
+          (index) {
+            final client = _displayedClients[index];
+            final clientProfile = client['client'] as Map<String, dynamic>?;
+
+            if (clientProfile == null) return const SizedBox.shrink();
+
+            final status = client['status'] as String? ?? 'pending';
+            final isActive = status == 'active';
+
+            return Container(
+              margin: EdgeInsets.only(bottom: 10.h),
+              decoration: BoxDecoration(
+                color: context.cardColor,
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(
+                  color: isActive
+                      ? AppTheme.successColor.withValues(alpha: isDark ? 0.25 : 0.15)
+                      : AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.1),
+                  width: 1,
                 ),
-                foregroundColor: AppTheme.goldColor,
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-              ),
-              icon: const Icon(LucideIcons.userPlus, size: 18),
-              label: const Text('افزودن شاگرد جدید'),
-            ),
-          );
-        }
-
-        final client = _displayedClients[index];
-        final clientProfile = client['client'] as Map<String, dynamic>?;
-
-        if (clientProfile == null) return const SizedBox.shrink();
-
-        final status = client['status'] as String? ?? 'pending';
-        final isActive = status == 'active';
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16.r),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isActive
-                  ? const [
-                      Color(0xFF143D26),
-                      Color(0xFF112F1E),
-                      Color(0xFF0F2719),
-                    ]
-                  : [
-                      const Color(0xFF262A33),
-                      const Color(0xFF20252E),
-                      const Color(0xFF1B2028),
-                    ],
-            ),
-            border: Border.all(
-              color: isActive
-                  ? Colors.green.withValues(alpha: 0.1)
-                  : Colors.white10,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0x44000000),
-                blurRadius: 12.r,
-                offset: Offset(0.w, 6.h),
-              ),
-            ],
-          ),
-          child: ListTile(
-            onTap: isActive ? () => _onClientTap(clientProfile) : null,
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: 14.w,
-              vertical: 12.h,
-            ),
-            leading: _ClientAvatar(profile: clientProfile),
-            title: Text(
-              _getDisplayName(clientProfile),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '@${clientProfile['username']}',
-                  style: TextStyle(color: AppTheme.goldColor, fontSize: 12.sp),
-                ),
-                const SizedBox(height: 4),
-                _buildStatusChip(client['status'] as String? ?? 'pending'),
-                if (clientProfile['bio'] != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    clientProfile['bio'] as String,
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                boxShadow: [
+                  BoxShadow(
+                    color: isDark
+                        ? Colors.black.withValues(alpha: 0.2)
+                        : AppTheme.goldColor.withValues(alpha: 0.05),
+                    blurRadius: 8.r,
+                    offset: Offset(0, 2.h),
+                    spreadRadius: 0,
                   ),
                 ],
-                if (clientProfile['height'] != null ||
-                    clientProfile['weight'] != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    '${clientProfile['height'] ?? 'نامشخص'}cm - ${clientProfile['weight'] ?? 'نامشخص'}kg',
-                    style: const TextStyle(color: Colors.green, fontSize: 12),
-                  ),
-                ],
-              ],
-            ),
-            trailing: PopupMenuButton<String>(
-              icon: const Icon(
-                LucideIcons.moreVertical,
-                color: AppTheme.goldColor,
               ),
-              onSelected: (value) {
-                switch (value) {
-                  case 'remove':
-                    _removeClient(clientProfile['id'] as String);
-                  case 'block':
-                    _blockClient(clientProfile['id'] as String);
-                  case 'unblock':
-                    _unblockClient(clientProfile['id'] as String);
-                }
-              },
-              itemBuilder: (context) {
-                final status = client['status'] as String? ?? 'pending';
-                final items = <PopupMenuItem<String>>[];
-
-                if (status == 'blocked') {
-                  items.add(
-                    const PopupMenuItem(
-                      value: 'unblock',
-                      child: Row(
-                        children: [
-                          Icon(LucideIcons.userCheck, color: Colors.green),
-                          SizedBox(width: 8),
-                          Text('رفع مسدودیت'),
-                        ],
-                      ),
-                    ),
-                  );
-                } else {
-                  items.add(
-                    const PopupMenuItem(
-                      value: 'block',
-                      child: Row(
-                        children: [
-                          Icon(LucideIcons.userMinus, color: Colors.red),
-                          SizedBox(width: 8),
-                          Text('مسدود کردن'),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                items.add(
-                  const PopupMenuItem(
-                    value: 'remove',
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: isActive ? () => _onClientTap(clientProfile) : null,
+                  borderRadius: BorderRadius.circular(16.r),
+                  child: Padding(
+                    padding: EdgeInsets.all(14.w),
                     child: Row(
                       children: [
-                        Icon(LucideIcons.trash2, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('حذف شاگرد'),
+                        _ClientAvatar(profile: clientProfile),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _getDisplayName(clientProfile),
+                                      style: TextStyle(
+                                        color: context.textColor,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 15.sp,
+                                        fontFamily: AppTheme.fontFamily,
+                                      ),
+                                    ),
+                                  ),
+                                  _buildStatusChip(status),
+                                ],
+                              ),
+                              SizedBox(height: 4.h),
+                              Text(
+                                '@${clientProfile['username']}',
+                                style: TextStyle(
+                                  color: context.textSecondary,
+                                  fontSize: 12.sp,
+                                  fontFamily: AppTheme.fontFamily,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(width: 8.w),
+                        PopupMenuButton<String>(
+                          icon: Icon(
+                            LucideIcons.moreVertical,
+                            color: context.textSecondary,
+                            size: 18.sp,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.r),
+                          ),
+                          onSelected: (value) {
+                            switch (value) {
+                              case 'remove':
+                                _removeClient(clientProfile['id'] as String);
+                              case 'block':
+                                _blockClient(clientProfile['id'] as String);
+                              case 'unblock':
+                                _unblockClient(clientProfile['id'] as String);
+                            }
+                          },
+                          itemBuilder: (context) {
+                            final status = client['status'] as String? ?? 'pending';
+                            final items = <PopupMenuItem<String>>[];
+
+                            if (status == 'blocked') {
+                              items.add(
+                                PopupMenuItem(
+                                  value: 'unblock',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        LucideIcons.userCheck,
+                                        color: AppTheme.successColor,
+                                        size: 16.sp,
+                                      ),
+                                      SizedBox(width: 10.w),
+                                      Text(
+                                        'رفع مسدودیت',
+                                        style: TextStyle(
+                                          color: context.textColor,
+                                          fontSize: 13.sp,
+                                          fontFamily: AppTheme.fontFamily,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            } else {
+                              items.add(
+                                PopupMenuItem(
+                                  value: 'block',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        LucideIcons.userMinus,
+                                        color: AppTheme.errorColor,
+                                        size: 16.sp,
+                                      ),
+                                      SizedBox(width: 10.w),
+                                      Text(
+                                        'مسدود کردن',
+                                        style: TextStyle(
+                                          color: context.textColor,
+                                          fontSize: 13.sp,
+                                          fontFamily: AppTheme.fontFamily,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+
+                            items.add(
+                              PopupMenuItem(
+                                value: 'remove',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      LucideIcons.trash2,
+                                      color: AppTheme.errorColor,
+                                      size: 16.sp,
+                                    ),
+                                    SizedBox(width: 10.w),
+                                    Text(
+                                      'حذف شاگرد',
+                                      style: TextStyle(
+                                        color: context.textColor,
+                                        fontSize: 13.sp,
+                                        fontFamily: AppTheme.fontFamily,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+
+                            return items;
+                          },
+                        ),
                       ],
                     ),
                   ),
-                );
-
-                return items;
-              },
+                ),
+              ),
+            );
+          },
+        ),
+        SizedBox(height: 12.h),
+        OutlinedButton.icon(
+          onPressed: _openAddClientSheet,
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(
+              color: AppTheme.goldColor.withValues(alpha: 0.4),
+              width: 1.5,
+            ),
+            foregroundColor: AppTheme.goldColor,
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.r),
             ),
           ),
-        );
-      },
+          icon: Icon(LucideIcons.userPlus, size: 16.sp),
+          label: Text(
+            'افزودن شاگرد جدید',
+            style: TextStyle(
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
+              fontFamily: AppTheme.fontFamily,
+            ),
+          ),
+        ),
+        SizedBox(height: 16.h),
+      ],
     );
   }
 
   void _openAddClientSheet() {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppTheme.cardColor,
+      backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
       ),
       isScrollControlled: true,
       builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
+        return Container(
+          decoration: BoxDecoration(
+            color: context.cardColor,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+            border: Border(
+              top: BorderSide(
+                color: AppTheme.goldColor.withValues(alpha: 0.2),
+                width: 1.5,
+              ),
+            ),
           ),
-          child: SafeArea(
-            child: SizedBox(
-              height: MediaQuery.of(context).size.height * 0.8,
-              child: AthleteRequestWidget(
-                onAthleteSelected: (athlete) {
-                  Navigator.pop(context);
-                  _addNewClient(athlete);
-                },
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: SafeArea(
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.85,
+                child: Column(
+                  children: [
+                    Container(
+                      margin: EdgeInsets.only(top: 12.h, bottom: 8.h),
+                      width: 40.w,
+                      height: 4.h,
+                      decoration: BoxDecoration(
+                        color: context.textSecondary.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(2.r),
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20.w),
+                      child: Row(
+                        children: [
+                          Icon(
+                            LucideIcons.userPlus,
+                            color: AppTheme.goldColor,
+                            size: 22.sp,
+                          ),
+                          SizedBox(width: 12.w),
+                          Text(
+                            'افزودن شاگرد جدید',
+                            style: TextStyle(
+                              color: context.textColor,
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.2,
+                              fontFamily: AppTheme.fontFamily,
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: Icon(
+                              LucideIcons.x,
+                              color: context.textSecondary,
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(
+                      color: context.separatorColor,
+                      height: 1,
+                      thickness: 1,
+                    ),
+                    Expanded(
+                      child: AthleteRequestWidget(
+                        onAthleteSelected: (athlete) {
+                          Navigator.pop(context);
+                          _addNewClient(athlete);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -619,7 +943,10 @@ class _ClientAvatar extends StatelessWidget {
       height: 48.h,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white24),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: 0.2),
+          width: 1.5,
+        ),
       ),
       child: ClipOval(
         child: (avatarUrl != null && avatarUrl.isNotEmpty)
@@ -629,12 +956,16 @@ class _ClientAvatar extends StatelessWidget {
                 errorBuilder: (_, __, ___) => _Initials(initials: initials),
                 loadingBuilder: (ctx, child, progress) => progress == null
                     ? child
-                    : Center(
-                        child: SizedBox(
-                          width: 16.w,
-                          height: 16.h,
-                          child: const CircularProgressIndicator(
-                            strokeWidth: 2,
+                    : Container(
+                        color: context.cardColor,
+                        child: Center(
+                          child: SizedBox(
+                            width: 18.w,
+                            height: 18.h,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.goldColor,
+                            ),
                           ),
                         ),
                       ),
@@ -659,16 +990,24 @@ class _ClientAvatar extends StatelessWidget {
 
 class _Initials extends StatelessWidget {
   const _Initials({required this.initials});
+
   final String initials;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        initials,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.goldColor.withValues(alpha: 0.15),
+      ),
+      child: Center(
+        child: Text(
+          initials.toUpperCase(),
+          style: TextStyle(
+            color: AppTheme.goldColor,
+            fontWeight: FontWeight.w600,
+            fontSize: 18.sp,
+            fontFamily: AppTheme.fontFamily,
+          ),
         ),
       ),
     );

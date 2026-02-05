@@ -221,28 +221,41 @@ serve(async (req) => {
       });
     }
 
-    // بررسی حضور کاربر در چت
-    const { data: presenceData, error: presenceErr } = await supabase
-      .from('chat_presence')
-      .select('user_id')
-      .eq('conversation_id', conversation_id)
-      .eq('user_id', receiver_id)
-      .eq('is_active', true);
+    // بررسی حضور کاربر در چت (با threshold 45 ثانیه)
+    // اگر کاربر در 45 ثانیه گذشته در چت فعال بوده، نوتیفیکیشن ارسال نمی‌کنیم
+    if (conversation_id) {
+      try {
+        const cutoffTime = new Date(Date.now() - 45 * 1000).toISOString();
+        const { data: presenceData, error: presenceErr } = await supabase
+          .from('chat_presence')
+          .select('id')
+          .eq('conversation_id', conversation_id)
+          .eq('user_id', receiver_id)
+          .eq('is_active', true)
+          .gt('last_seen', cutoffTime)
+          .maybeSingle();
 
-    if (presenceErr) {
-      console.error('Error checking chat presence:', presenceErr);
-    }
+        if (presenceErr) {
+          console.error('Error checking chat presence:', presenceErr);
+        }
 
-    // اگر کاربر در چت فعال است، نوتیفیکیشن ارسال نکن
-    if (presenceData && presenceData.length > 0) {
-      console.log(`User ${receiver_id} is active in chat, skipping notification`);
-      return new Response(JSON.stringify({ 
-        ok: true, 
-        message: 'User is active in chat, notification skipped',
-        tokens_sent: 0 
-      }), {
-        headers: { 'Content-Type': 'application/json' }
-      });
+        // اگر کاربر در چت فعال است، نوتیفیکیشن ارسال نکن
+        if (presenceData) {
+          console.log(`✅ User ${receiver_id} is active in chat (last_seen: ${presenceData}), skipping notification`);
+          return new Response(JSON.stringify({ 
+            ok: true, 
+            message: 'User is active in chat, notification skipped',
+            tokens_sent: 0 
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } else {
+          console.log(`ℹ️ User ${receiver_id} is not active in chat, proceeding with notification`);
+        }
+      } catch (presenceCheckError) {
+        console.error('Error in presence check:', presenceCheckError);
+        // در صورت خطا، ادامه می‌دهیم و نوتیفیکیشن را ارسال می‌کنیم
+      }
     }
 
     // بررسی تنظیمات اعلان‌های کاربر گیرنده

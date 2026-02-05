@@ -1,10 +1,19 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/models/exercise_comment.dart';
+import 'package:gymaipro/services/custom_exercise_service.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/user_preferences_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+// Decode heavy JSON off the UI thread (returns sendable types only).
+List<dynamic> _decodeJsonList(String jsonStr) {
+  return jsonDecode(jsonStr) as List<dynamic>;
+}
 
 class ExerciseService {
   factory ExerciseService() {
@@ -17,14 +26,35 @@ class ExerciseService {
   final String apiUrl = 'https://gymaipro.ir/wp-json/wp/v2/exercises';
   final SupabaseClient _client = Supabase.instance.client;
   final UserPreferencesService _preferencesService = UserPreferencesService();
+  final CustomExerciseService _customExerciseService = CustomExerciseService();
   List<Exercise>? _cachedExercises;
   DateTime? _lastCacheTime;
-  static const Duration _cacheValidity = Duration(minutes: 5);
+  static const Duration _cacheValidity = Duration(
+    hours: 24,
+  ); // افزایش مدت اعتبار cache
+  static const String _exercisesListCacheKey = 'exercises_list_cache';
+  static const String _exercisesListCacheTimeKey = 'exercises_list_cache_time';
+  static const String _exercisesListCacheVersionKey =
+      'exercises_list_cache_version';
+  static const int _cacheVersion = 3; // افزایش برای invalidate کردن cache قدیمی (افزودن createdBy به Exercise)
 
   // Clear all cached data
   void clearCache() {
     _cachedExercises = null;
     _lastCacheTime = null;
+    _clearPersistentCache();
+  }
+
+  /// پاک کردن cache پایدار
+  Future<void> _clearPersistentCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_exercisesListCacheKey);
+      await prefs.remove(_exercisesListCacheTimeKey);
+      await prefs.remove(_exercisesListCacheVersionKey);
+    } catch (e) {
+      debugPrint('Error clearing persistent cache: $e');
+    }
   }
 
   // اولیه‌سازی کل سرویس
@@ -37,63 +67,312 @@ class ExerciseService {
     // Load will be done when needed
   }
 
-  // Get all exercises with caching
-  Future<List<Exercise>> getExercises() async {
-    // Return cached exercises if still valid
+  /// دریافت فوری از cache (بدون await)
+  Future<List<Exercise>?> getExercisesFromCache() async {
+    // اول از memory cache
     if (_cachedExercises != null && _lastCacheTime != null) {
       final timeSinceLastCache = DateTime.now().difference(_lastCacheTime!);
       if (timeSinceLastCache < _cacheValidity) {
-        return _applyUserDataToExercises(_cachedExercises!);
+        return _cachedExercises;
+      }
+    }
+
+    // سپس از persistent cache
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cacheTimeStr = prefs.getString(_exercisesListCacheTimeKey);
+      final cacheVersion = prefs.getInt(_exercisesListCacheVersionKey) ?? 0;
+
+      if (cacheTimeStr != null && cacheVersion == _cacheVersion) {
+        final cacheTime = DateTime.parse(cacheTimeStr);
+        final timeSinceCache = DateTime.now().difference(cacheTime);
+
+        if (timeSinceCache < _cacheValidity) {
+          final exercisesJson = prefs.getString(_exercisesListCacheKey);
+          if (exercisesJson != null) {
+            final List<dynamic> exercisesData =
+                await compute(_decodeJsonList, exercisesJson);
+            final exercises = exercisesData
+                .map(
+                  (e) => Exercise.fromJson(
+                    Map<String, dynamic>.from(e as Map),
+                  ),
+                )
+                .toList();
+
+            // Update memory cache
+            _cachedExercises = exercises;
+            _lastCacheTime = cacheTime;
+
+            return exercises;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading from persistent cache: $e');
+    }
+
+    return null;
+  }
+
+  // Get all exercises with caching - از Supabase استفاده می‌کند
+  Future<List<Exercise>> getExercises({bool forceRefresh = false}) async {
+    // Return cached exercises if still valid (unless force refresh)
+    if (!forceRefresh) {
+      if (_cachedExercises != null && _lastCacheTime != null) {
+        final timeSinceLastCache = DateTime.now().difference(_lastCacheTime!);
+        if (timeSinceLastCache < _cacheValidity) {
+          return await _applyUserDataToExercises(_cachedExercises!);
+        }
+      }
+
+      // Try persistent cache
+      try {
+        final cachedExercises = await getExercisesFromCache();
+        if (cachedExercises != null) {
+          return await _applyUserDataToExercises(cachedExercises);
+        }
+      } catch (e) {
+        debugPrint('Error loading from cache: $e');
       }
     }
 
     try {
-      // Fetch all pages from WP REST (per_page max 100)
-      int page = 1;
-      final List<Exercise> exercises = [];
-      while (true) {
-        final url =
-            '$apiUrl?_embed=true&per_page=100&page=$page&_fields=id,title,content,modified,meta,_embedded,featured_image';
-        final response = await http
-            .get(Uri.parse(url), headers: {'Content-Type': 'application/json'})
-            .timeout(const Duration(seconds: 15));
+      // اول از Supabase تلاش می‌کنیم (سریع‌تر)
+      try {
+        debugPrint('=== ExerciseService: Loading from Supabase (ai_exercises table) ===');
+        final supabaseExercises = await _getExercisesFromSupabase();
+        debugPrint('=== ExerciseService: Loaded ${supabaseExercises.length} exercises from ai_exercises ===');
 
-        if (response.statusCode == 200) {
-          final List<dynamic> exercisesData =
-              jsonDecode(response.body) as List<dynamic>;
-          if (exercisesData.isEmpty) break;
+        // اضافه کردن تمرینات اختصاصی مربی (اگر کاربر مربی باشد)
+        final allExercises = <Exercise>[...supabaseExercises];
+        final trainerCustomExercises = await _getTrainerCustomExercises();
+        if (trainerCustomExercises.isNotEmpty) {
+          debugPrint('=== ExerciseService: Adding ${trainerCustomExercises.length} trainer custom exercises ===');
+          allExercises.addAll(trainerCustomExercises);
+        }
 
-          if (page == 1 && exercisesData.isNotEmpty) {}
+        if (allExercises.isNotEmpty) {
+          await _saveExercisesToCache(allExercises);
+          _cachedExercises = allExercises;
+          _lastCacheTime = DateTime.now();
+          return await _applyUserDataToExercises(allExercises);
+        }
+        
+        // اگر Supabase خالی بود، لیست خالی برمی‌گردونیم
+        return [];
+      } catch (e) {
+        debugPrint('Error loading from Supabase: $e');
+        rethrow;
+      }
+    } catch (e) {
+      debugPrint('Error loading exercises: $e');
+      // در صورت خطا، cache قبلی را برمی‌گردانیم
+      if (_cachedExercises != null) {
+        return _applyUserDataToExercises(_cachedExercises!);
+      }
 
-          for (final exerciseData in exercisesData) {
-            try {
-              // استفاده از متد fromJson مدل Exercise
-              final exercise = Exercise.fromJson(
-                exerciseData as Map<String, dynamic>,
-              );
-              exercises.add(exercise);
-            } catch (e) {
-              continue;
-            }
-          }
+      // Try persistent cache as fallback
+      try {
+        final cachedExercises = await getExercisesFromCache();
+        if (cachedExercises != null && cachedExercises.isNotEmpty) {
+          return await _applyUserDataToExercises(cachedExercises);
+        }
+      } catch (_) {
+        // Ignore cache errors
+      }
 
-          // next page
-          page++;
-        } else if (response.statusCode == 400 || response.statusCode == 404) {
-          // probably page out of range
-          break;
-        } else {
-          break;
+      return [];
+    }
+  }
+
+  /// ذخیره لیست تمرین‌ها در cache پایدار
+  Future<void> _saveExercisesToCache(List<Exercise> exercises) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final exercisesJson = jsonEncode(
+        exercises.map((e) => e.toJson()).toList(),
+      );
+      await prefs.setString(_exercisesListCacheKey, exercisesJson);
+      await prefs.setString(
+        _exercisesListCacheTimeKey,
+        DateTime.now().toIso8601String(),
+      );
+      await prefs.setInt(_exercisesListCacheVersionKey, _cacheVersion);
+    } catch (e) {
+      debugPrint('Error saving exercises to cache: $e');
+    }
+  }
+
+  /// دریافت تمرینات اختصاصی مربی (اگر کاربر مربی باشد)
+  Future<List<Exercise>> _getTrainerCustomExercises() async {
+    try {
+      // IMPORTANT:
+      // In this project, `profiles.id` may not equal `auth.users.id` for legacy data,
+      // so we must use SimpleProfileService (which has a phone fallback).
+      final profileResponse = await SimpleProfileService.getCurrentProfile();
+      if (profileResponse == null) return [];
+
+      final role = profileResponse['role'] as String?;
+      if (role != 'trainer') return [];
+
+      // دریافت تمرینات اختصاصی مربی
+      final customExercises = await _customExerciseService.getMyExercises();
+      
+      // تبدیل CustomExercise به Exercise با author
+      return await _customExerciseService.customExercisesToExercises(customExercises);
+    } catch (e) {
+      debugPrint('Error fetching trainer custom exercises: $e');
+      return [];
+    }
+  }
+
+  /// دریافت تمرینات از Supabase (سریع‌تر)
+  Future<List<Exercise>> _getExercisesFromSupabase() async {
+    try {
+      debugPrint('=== _getExercisesFromSupabase: Starting query ===');
+      debugPrint('=== Table: ai_exercises ===');
+      
+      final response = await _client
+          .from('ai_exercises')
+          .select()
+          .order('name')
+          .limit(1000); // محدود کردن برای سرعت بیشتر
+
+      debugPrint('=== _getExercisesFromSupabase: Query executed, response type: ${response.runtimeType} ===');
+      debugPrint('=== _getExercisesFromSupabase: Response length: ${(response as List).length} ===');
+
+      final exercises = <Exercise>[];
+      for (final row in response) {
+        try {
+          final exercise = _mapSupabaseRowToExercise(row);
+          exercises.add(exercise);
+        } catch (e, stackTrace) {
+          debugPrint('Error mapping exercise: $e');
+          debugPrint('Stack trace: $stackTrace');
+          continue;
         }
       }
 
-      // Update cache
-      _cachedExercises = exercises;
-      _lastCacheTime = DateTime.now();
-      return await _applyUserDataToExercises(exercises);
-    } catch (e) {
-      return [];
+      debugPrint('=== _getExercisesFromSupabase: Mapped ${exercises.length} exercises ===');
+      return exercises;
+    } catch (e, stackTrace) {
+      debugPrint('=== Error fetching from Supabase: $e ===');
+      debugPrint('=== Stack trace: $stackTrace ===');
+      rethrow;
     }
+  }
+
+  /// استخراج detailed_description از source یا ستون مستقیم
+  String _extractDetailedDescription(Map<String, dynamic> row) {
+    // اول بررسی می‌کنیم که آیا ستون detailed_description وجود داره
+    if (row['detailed_description'] != null && 
+        (row['detailed_description'] as String).isNotEmpty) {
+      return row['detailed_description'] as String;
+    }
+    
+    // اگر نبود، از source استخراج می‌کنیم
+    if (row['source'] != null) {
+      try {
+        Map<String, dynamic>? sourceJson;
+        
+        // بررسی نوع source: می‌تونه String (JSON) یا Map باشه
+        if (row['source'] is Map) {
+          sourceJson = row['source'] as Map<String, dynamic>;
+        } else if (row['source'] is String) {
+          final sourceStr = row['source'] as String;
+          if (sourceStr.isNotEmpty) {
+            sourceJson = jsonDecode(sourceStr) as Map<String, dynamic>;
+          }
+        }
+        
+        if (sourceJson != null) {
+          final detailedDesc = sourceJson['detailedDescription'] as String?;
+          if (detailedDesc != null && detailedDesc.isNotEmpty) {
+            return detailedDesc;
+          }
+        }
+      } catch (e) {
+        debugPrint('Error parsing source JSON: $e');
+      }
+    }
+    
+    return '';
+  }
+
+  /// تبدیل ردیف Supabase به Exercise
+  Exercise _mapSupabaseRowToExercise(Map<String, dynamic> row) {
+    // تبدیل tips از array یا string
+    List<String> tipsList = [];
+    if (row['tips'] != null) {
+      if (row['tips'] is List) {
+        tipsList = (row['tips'] as List).whereType<String>().toList();
+      } else if (row['tips'] is String) {
+        final tipsStr = row['tips'] as String;
+        if (tipsStr.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(tipsStr);
+            if (decoded is List) {
+              tipsList = decoded.whereType<String>().toList();
+            }
+          } catch (_) {
+            // اگر JSON نیست، به عنوان string استفاده می‌کنیم
+            tipsList = [tipsStr];
+          }
+        }
+      }
+    }
+
+    // تبدیل other_names
+    List<String> otherNamesList = [];
+    if (row['other_names'] != null) {
+      if (row['other_names'] is List) {
+        otherNamesList = (row['other_names'] as List)
+            .whereType<String>()
+            .toList();
+      } else if (row['other_names'] is String) {
+        final otherNamesStr = row['other_names'] as String;
+        if (otherNamesStr.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(otherNamesStr);
+            if (decoded is List) {
+              otherNamesList = decoded.whereType<String>().toList();
+            }
+          } catch (_) {
+            otherNamesList = otherNamesStr
+                .split(',')
+                .map((e) => e.trim())
+                .where((e) => e.isNotEmpty)
+                .toList();
+          }
+        }
+      }
+    }
+
+    return Exercise(
+      id: (row['id'] as int?) ?? 0,
+      title: (row['name'] as String?) ?? '',
+      name: (row['name'] as String?) ?? '',
+      mainMuscle: (row['main_muscle'] as String?) ?? '',
+      secondaryMuscles: (row['secondary_muscles'] as String?) ?? '',
+      tips: tipsList,
+      videoUrl: (row['video_url'] as String?) ?? '',
+      imageUrl: (row['image_url'] as String?) ?? '',
+      otherNames: otherNamesList,
+      content:
+          (row['content'] as String?) ?? (row['description'] as String?) ?? '',
+      difficulty: (row['difficulty'] as String?) ?? 'متوسط',
+      equipment: (row['equipment'] as String?) ?? 'بدون تجهیزات',
+      exerciseType: (row['exercise_type'] as String?) ?? 'قدرتی',
+      estimatedDuration: (row['estimated_duration'] as int?) ?? 0,
+      targetArea:
+          (row['target_area'] as String?) ??
+          (row['main_muscle'] as String?) ??
+          '',
+      tags: [],
+      detailedDescription: _extractDetailedDescription(row),
+      author: 'جیم اِی آی', // تمرینات عمومی از جیم اِی آی هستند
+    );
   }
 
   /// فیلتر پیشرفته تمرینات
@@ -384,11 +663,83 @@ class ExerciseService {
 
   // Get exercise by ID
   Future<Exercise?> getExerciseById(int id) async {
+    // First, try to load from SharedPreferences cache (instant)
+    final cachedExercise = await _loadExerciseFromCache(id);
+    if (cachedExercise != null) {
+      // Update from API in background (non-blocking)
+      _updateExerciseFromApiInBackground(id, cachedExercise);
+      return cachedExercise;
+    }
+
+    // If not in cache, load from exercises list
     final exercises = await getExercises();
     try {
-      return exercises.firstWhere((exercise) => exercise.id == id);
+      final exercise = exercises.firstWhere((exercise) => exercise.id == id);
+      // Save to cache
+      await _saveExerciseToCache(exercise);
+      return exercise;
     } catch (e) {
       return null;
+    }
+  }
+
+  /// Load exercise from SharedPreferences cache
+  Future<Exercise?> _loadExerciseFromCache(int id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'exercise_$id';
+      final jsonStr = prefs.getString(key);
+      if (jsonStr == null) return null;
+      final jsonMap = jsonDecode(jsonStr) as Map<String, dynamic>;
+      return Exercise.fromJson(jsonMap);
+    } catch (e) {
+      debugPrint('Error loading exercise from cache: $e');
+      return null;
+    }
+  }
+
+  /// Save exercise to SharedPreferences cache
+  Future<void> _saveExerciseToCache(Exercise exercise) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'exercise_${exercise.id}';
+      await prefs.setString(key, jsonEncode(exercise.toJson()));
+    } catch (e) {
+      debugPrint('Error saving exercise to cache: $e');
+    }
+  }
+
+  /// Update exercise from API in background (non-blocking)
+  void _updateExerciseFromApiInBackground(
+    int id,
+    Exercise cachedExercise,
+  ) async {
+    try {
+      final url =
+          '$apiUrl/$id?_embed=true&_fields=id,title,content,modified,meta,_embedded,featured_image';
+      final response = await http
+          .get(Uri.parse(url), headers: {'Content-Type': 'application/json'})
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final exerciseData = jsonDecode(response.body) as Map<String, dynamic>;
+        final exercise = Exercise.fromJson(exerciseData);
+
+        // Always update cache (exercises don't change often)
+        await _saveExerciseToCache(exercise);
+        // Update in-memory cache if exists
+        if (_cachedExercises != null) {
+          final index = _cachedExercises!.indexWhere((e) => e.id == id);
+          if (index != -1) {
+            _cachedExercises![index] = exercise;
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Error updating exercise from API in background: $e');
+      }
+      // Silently fail - cache is still valid
     }
   }
 
@@ -542,13 +893,18 @@ class ExerciseService {
       // Get all exercises
       final allExercises = await getExercises();
 
-      // Sort by likes
-      final sortedExercises = List<Exercise>.from(allExercises);
-      sortedExercises.sort((a, b) => b.likes.compareTo(a.likes));
+      // Filter exercises with likes > 0 (only show exercises that have been liked)
+      final exercisesWithLikes = allExercises
+          .where((e) => e.likes > 0)
+          .toList();
 
-      // Return top 10 or less
-      return sortedExercises.take(10).toList();
+      // Sort by likes (descending)
+      exercisesWithLikes.sort((a, b) => b.likes.compareTo(a.likes));
+
+      // Return top 20 (increased from 10 for better UX)
+      return exercisesWithLikes.take(20).toList();
     } catch (e) {
+      debugPrint('Error getting popular exercises: $e');
       return [];
     }
   }

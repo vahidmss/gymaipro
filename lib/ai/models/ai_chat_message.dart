@@ -57,14 +57,30 @@ class ChatMessage {
 
   /// ایجاد از Map دیتابیس
   factory ChatMessage.fromDatabaseMap(Map<String, dynamic> map) {
+    final messageTypeStr = map['message_type'] as String?;
+    ChatMessageType messageType;
+    
+    if (messageTypeStr == 'user') {
+      messageType = ChatMessageType.user;
+    } else if (messageTypeStr == 'ai' || messageTypeStr == 'assistant') {
+      messageType = ChatMessageType.ai;
+    } else {
+      // Fallback: اگر message_type مشخص نبود، از type استفاده کن
+      final typeStr = map['type'] as String?;
+      if (typeStr == 'user') {
+        messageType = ChatMessageType.user;
+      } else if (typeStr == 'ai' || typeStr == 'assistant') {
+        messageType = ChatMessageType.ai;
+      } else {
+        messageType = ChatMessageType.user; // Default fallback
+      }
+    }
+    
     return ChatMessage(
-      id: (map['id'] as String?) ?? '',
+      id: (map['id'] as String?) ?? DateTime.now().millisecondsSinceEpoch.toString(),
       content: (map['content'] as String?) ?? '',
       timestamp: DateTime.parse(map['timestamp'] as String),
-      type: ChatMessageType.values.firstWhere(
-        (e) => e.name == (map['message_type'] as String?),
-        orElse: () => ChatMessageType.user,
-      ),
+      type: messageType,
     );
   }
   final String id;

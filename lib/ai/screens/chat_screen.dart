@@ -1,18 +1,24 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/ai/models/ai_chat_message.dart';
 import 'package:gymaipro/ai/services/ai_chat_service.dart';
+import 'package:gymaipro/ai/services/message_rate_limiter_service.dart';
 import 'package:gymaipro/ai/widgets/chat_bubble.dart';
 import 'package:gymaipro/ai/widgets/typing_indicator.dart';
 import 'package:gymaipro/services/ai_trainer_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/workout_plan/workout_plan_builder/models/workout_program.dart';
-import 'package:gymaipro/workout_plan/workout_plan_builder/services/workout_program_service.dart';
+import 'package:gymaipro/utils/animation_utils.dart';
+import 'package:gymaipro/utils/safe_set_state.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
+import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
+import 'package:gymaipro/workout_plan_builder/services/workout_program_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shamsi_date/shamsi_date.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -31,6 +37,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool _isConnected = false;
   String? _currentSessionId;
   late AnimationController _typingAnimationController;
+  DateTime? _lastBackupDate;
+  double _lastKeyboardHeight = 0;
+  RateLimitStats? _rateLimitStats;
+  bool _welcomeMessageAdded = false; // جلوگیری از اضافه کردن چندباره پیام خوش‌آمدگویی
 
   @override
   void initState() {
@@ -40,6 +50,60 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       vsync: this,
     );
     _initializeChat();
+    _loadLastBackupDate();
+    _loadRateLimitStats();
+
+    // اضافه کردن listener برای اسکرول خودکار هنگام باز شدن کیبورد
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupKeyboardListener();
+    });
+  }
+
+  /// تنظیم listener برای کیبورد
+  void _setupKeyboardListener() {
+    // استفاده از MediaQuery برای تشخیص تغییرات کیبورد
+    // این در build method انجام می‌شود
+  }
+
+  /// بارگذاری تاریخ آخرین بک‌آپ
+  Future<void> _loadLastBackupDate() async {
+    try {
+      final lastBackup = await _chatService.getLastBackupDate();
+      if (mounted) {
+        setState(() {
+          _lastBackupDate = lastBackup;
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading last backup date: $e');
+      }
+    }
+  }
+
+  /// بارگذاری آمار محدودیت پیام
+  Future<void> _loadRateLimitStats() async {
+    try {
+      final stats = await _chatService.getRateLimitStats();
+      if (mounted) {
+        setState(() {
+          _rateLimitStats = stats;
+        });
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading rate limit stats: $e');
+      }
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // بارگذاری مجدد تاریخچه وقتی صفحه دوباره باز می‌شود
+    if (_currentSessionId != null && _messages.isEmpty) {
+      _loadChatHistory();
+    }
   }
 
   @override
@@ -59,6 +123,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
       // ایجاد یا دریافت session فعلی
       _currentSessionId = await _getOrCreateCurrentSession();
+      
+      // Reset flag برای پیام خوش‌آمدگویی
+      _welcomeMessageAdded = false;
 
       // بارگذاری پیام‌های قبلی
       await _loadChatHistory();
@@ -96,7 +163,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     try {
       final messages = await _chatService.getChatMessages(_currentSessionId!);
-      setState(() {
+      SafeSetState.call(this, () {
         _messages.clear();
         _messages.addAll(messages);
       });
@@ -104,8 +171,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       // پس از بارگذاری تاریخچه، روی جدیدترین پیام (انتهای لیست) اسکرول کن
       _scrollToBottom();
 
-      // اگر پیامی وجود ندارد، پیام خوش‌آمدگویی اضافه کن
-      if (_messages.isEmpty) {
+      // اگر پیامی وجود ندارد و هنوز پیام خوش‌آمدگویی اضافه نشده، اضافه کن
+      if (_messages.isEmpty && !_welcomeMessageAdded) {
+        _welcomeMessageAdded = true;
         _addWelcomeMessage();
         _scrollToBottom();
       }
@@ -115,12 +183,41 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   /// اضافه کردن پیام خوش‌آمدگویی
-  void _addWelcomeMessage() {
-    final welcomeMessage = ChatMessage.ai(
-      content:
-          'سلام! 👋 من مربی ورزشی و متخصص تغذیه هوش مصنوعی شما هستم. چطور می‌تونم کمکتون کنم؟',
-    );
-    setState(() {
+  Future<void> _addWelcomeMessage() async {
+    // دریافت نام کاربر برای شخصی‌سازی پیام
+    String userName = '';
+    try {
+      userName = await _chatService.getUserFirstName();
+    } catch (_) {
+      // در صورت خطا، بدون نام ادامه بده
+    }
+
+    // ساخت پیام خوش‌آمدگویی شخصی‌سازی شده
+    final hour = DateTime.now().hour;
+    String greeting = '';
+    String emoji = '👋';
+
+    if (hour >= 5 && hour < 12) {
+      greeting = 'صبح بخیر';
+      emoji = '🌅';
+    } else if (hour >= 12 && hour < 17) {
+      greeting = 'ظهر بخیر';
+      emoji = '☀️';
+    } else if (hour >= 17 && hour < 20) {
+      greeting = 'عصر بخیر';
+      emoji = '🌆';
+    } else {
+      greeting = 'شب بخیر';
+      emoji = '🌙';
+    }
+
+    final friendlyName = userName.isNotEmpty ? userName : 'عزیزم';
+    final welcomeContent = userName.isNotEmpty
+        ? '$greeting $friendlyName! $emoji\n\nخوش اومدی! من جیم‌آی هستم، مربی ورزشی و متخصص تغذیه هوش مصنوعی‌ت. خیلی خوشحالم که اینجایی و آماده‌ام تا کمکت کنم به اهداف فیتنست برسی! 💪\n\nچیزی هست که می‌خوای ازم بپرسی یا راهنمایی می‌خوای؟'
+        : '$greeting! $emoji\n\nخوش اومدی! من جیم‌آی هستم، مربی ورزشی و متخصص تغذیه هوش مصنوعی‌ت. خیلی خوشحالم که اینجایی و آماده‌ام تا کمکت کنم به اهداف فیتنست برسی! 💪\n\nچیزی هست که می‌خوای ازم بپرسی یا راهنمایی می‌خوای؟';
+
+    final welcomeMessage = ChatMessage.ai(content: welcomeContent);
+    SafeSetState.call(this, () {
       _messages.add(welcomeMessage);
     });
   }
@@ -131,7 +228,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       content:
           'متأسفانه در حال حاضر نمی‌تونم پاسخ بدم. لطفاً دوباره تلاش کنید. ❌',
     );
-    setState(() {
+    SafeSetState.call(this, () {
       _messages.add(errorMessage);
     });
   }
@@ -155,9 +252,33 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     if (_currentSessionId == null) return;
 
+    // بررسی محدودیت قبل از ارسال
+    try {
+      final limitCheck = await _chatService.checkMessageLimit(
+        _currentSessionId!,
+      );
+      if (!limitCheck.canSend) {
+        // نمایش پیام خطای محدودیت
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          limitCheck.message ?? 'شما به محدودیت پیام رسیده‌اید',
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+        );
+        // به‌روزرسانی آمار
+        await _loadRateLimitStats();
+        return;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error checking rate limit: $e');
+      }
+      // در صورت خطا، ادامه بده
+    }
+
     // اضافه کردن پیام کاربر به UI
     final userMessage = ChatMessage.user(content: text);
-    setState(() {
+    SafeSetState.call(this, () {
       _messages.add(userMessage);
       _isLoading = true;
     });
@@ -168,11 +289,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     try {
       // اضافه کردن نشانگر تایپ
       final typingMessage = ChatMessage.typing();
-      setState(() {
+      SafeSetState.call(this, () {
         _messages.add(typingMessage);
       });
       _scrollToBottom();
-      _typingAnimationController.repeat();
+      _typingAnimationController.safeRepeat();
 
       // ارسال پیام و دریافت پاسخ از سرویس
       final aiResponse = await _chatService.sendMessage(
@@ -180,16 +301,33 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         content: text,
       );
 
-      // حذف نشانگر تایپ و اضافه کردن پاسخ
-      setState(() {
-        _messages.removeWhere((m) => m.isTyping);
-        String cleanedContent = _cleanAIResponseForDisplay(aiResponse.content);
-        final String programJson = _extractProgramJson(aiResponse.content);
+      // بارگذاری مجدد تاریخچه کامل از حافظه داخلی
+      final updatedMessages = await _chatService.getChatMessages(
+        _currentSessionId!,
+      );
 
+      // حذف نشانگر تایپ و به‌روزرسانی لیست پیام‌ها از حافظه داخلی
+      SafeSetState.call(this, () {
+        _messages.removeWhere((m) => m.isTyping);
+
+        // استفاده از پیام‌های بارگذاری شده از حافظه داخلی (شامل همه پیام‌ها)
+        _messages.clear();
+        _messages.addAll(updatedMessages);
+
+        // اگر برنامه تمرینی در پاسخ بود، محتوای آخرین پیام را تغییر بده
+        final String programJson = _extractProgramJson(aiResponse.content);
         if (programJson.isNotEmpty) {
-          // For programs, show success message immediately
-          cleanedContent =
-              'برنامه تمرینی شما ساخته و ذخیره شد. می‌توانید آن را از بخش "برنامه‌ساز تمرینی" انتخاب کنید.';
+          // پیدا کردن آخرین پیام AI و تغییر محتوای آن
+          for (int i = _messages.length - 1; i >= 0; i--) {
+            if (_messages[i].type == ChatMessageType.ai) {
+              _messages[i] = ChatMessage.ai(
+                content:
+                    'برنامه تمرینی شما ساخته و ذخیره شد. می‌توانید آن را از بخش برنامه‌های من مشاهده کنید.',
+                id: _messages[i].id,
+              );
+              break;
+            }
+          }
 
           // Save program in background
           _saveAIProgram(programJson)
@@ -204,52 +342,714 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 }
                 if (mounted) {
                   setState(() {
-                    // Update the last message with error content only if save fails
-                    final lastMessageIndex = _messages.length - 1;
-                    if (lastMessageIndex >= 0) {
-                      _messages[lastMessageIndex] = ChatMessage.ai(
-                        content:
-                            'متأسفانه در ذخیره برنامه تمرینی خطایی رخ داد. لطفاً دوباره تلاش کنید.',
-                      );
+                    // Update the last AI message with error content if save fails
+                    for (int i = _messages.length - 1; i >= 0; i--) {
+                      if (_messages[i].type == ChatMessageType.ai) {
+                        _messages[i] = ChatMessage.ai(
+                          content:
+                              'متأسفانه در ذخیره برنامه تمرینی خطایی رخ داد. لطفاً دوباره تلاش کنید.',
+                          id: _messages[i].id,
+                        );
+                        break;
+                      }
                     }
                   });
                 }
               });
         }
-        _messages.add(ChatMessage.ai(content: cleanedContent));
+
         _isLoading = false;
       });
 
-      _typingAnimationController.stop();
+      // به‌روزرسانی آمار محدودیت (با تاخیر کوتاه برای اطمینان از ذخیره در دیتابیس)
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      await _loadRateLimitStats();
+
+      _typingAnimationController.safeStop();
       _scrollToBottom();
     } catch (e) {
       // حذف نشانگر تایپ و اضافه کردن پیام خطا
-      setState(() {
+      String errorMessage = 'متأسفانه خطایی رخ داد. لطفاً دوباره تلاش کنید. 😔';
+
+      if (e.toString().contains('RateLimitException')) {
+        errorMessage = e.toString().replaceAll('RateLimitException: ', '');
+        // به‌روزرسانی آمار
+        await _loadRateLimitStats();
+      } else if (e.toString().contains('OPENAI_API_KEY')) {
+        errorMessage =
+            'کلید API هوش مصنوعی تنظیم نشده است. لطفاً با پشتیبانی تماس بگیرید.';
+      } else if (e.toString().contains('اتصال به اینترنت')) {
+        errorMessage =
+            'خطا در اتصال به اینترنت. لطفاً اتصال خود را بررسی کنید.';
+      }
+
+      SafeSetState.call(this, () {
         _messages.removeWhere((m) => m.isTyping);
-        _messages.add(
-          ChatMessage.ai(
-            content: 'متأسفانه خطایی رخ داد. لطفاً دوباره تلاش کنید. 😔',
-          ),
-        );
+        _messages.add(ChatMessage.ai(content: errorMessage));
         _isLoading = false;
       });
 
-      _typingAnimationController.stop();
+      _typingAnimationController.safeStop();
       _scrollToBottom();
     }
   }
 
   /// اسکرول به پایین
-  void _scrollToBottom() {
+  void _scrollToBottom({bool smooth = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+      if (mounted && _scrollController.hasClients) {
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        if (smooth) {
+          _scrollController.animateTo(
+            maxScroll,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        } else {
+          _scrollController.jumpTo(maxScroll);
+        }
       }
     });
+  }
+
+  /// نمایش بنر آمار محدودیت پیام
+  Widget _buildRateLimitBanner() {
+    if (_rateLimitStats == null) return const SizedBox.shrink();
+
+    final stats = _rateLimitStats!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dailyPercent = stats.dailyUsagePercent;
+    final isNearLimit = dailyPercent >= 80;
+
+    return Container(
+      margin: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 0),
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+      decoration: BoxDecoration(
+        color: isNearLimit
+            ? Colors.orange.withValues(alpha: isDark ? 0.2 : 0.15)
+            : AppTheme.goldColor.withValues(alpha: isDark ? 0.1 : 0.08),
+        borderRadius: BorderRadius.circular(10.r),
+        border: Border.all(
+          color: isNearLimit
+              ? Colors.orange.withValues(alpha: 0.4)
+              : AppTheme.goldColor.withValues(alpha: 0.3),
+          width: 1.w,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isNearLimit ? LucideIcons.alertCircle : LucideIcons.messageSquare,
+            color: isNearLimit ? Colors.orange : AppTheme.goldColor,
+            size: 18.sp,
+          ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: _buildLimitProgress(
+              'محدودیت روزانه',
+              stats.dailyUsed,
+              stats.dailyLimit,
+              dailyPercent,
+              isNearLimit,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLimitProgress(
+    String label,
+    int used,
+    int limit,
+    double percent,
+    bool isWarning,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.vazirmatn(
+                fontSize: 11.sp,
+                color: context.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Text(
+              '$used / $limit',
+              style: GoogleFonts.vazirmatn(
+                fontSize: 11.sp,
+                color: isWarning ? Colors.orange : context.textColor,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 6.h),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4.r),
+          child: LinearProgressIndicator(
+            value: percent / 100,
+            minHeight: 5.h,
+            backgroundColor: isDark
+                ? Colors.white.withValues(alpha: 0.1)
+                : Colors.black.withValues(alpha: 0.1),
+            valueColor: AlwaysStoppedAnimation<Color>(
+              isWarning ? Colors.orange : AppTheme.goldColor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// نمایش بنر راهنمای ذخیره و بارگذاری از دیتابیس
+  Widget _buildBackupBanner() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: EdgeInsets.all(12.w),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppTheme.goldColor.withValues(alpha: 0.15)
+            : AppTheme.goldColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: 0.3),
+          width: 1.w,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.info, color: AppTheme.goldColor, size: 20.sp),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '💾 ذخیره و بارگذاری از دیتابیس',
+                      style: GoogleFonts.vazirmatn(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppTheme.goldColor : context.textColor,
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    if (_lastBackupDate != null)
+                      Row(
+                        children: [
+                          Icon(
+                            LucideIcons.calendar,
+                            size: 12.sp,
+                            color: context.textSecondary,
+                          ),
+                          SizedBox(width: 4.w),
+                          Text(
+                            'آخرین بک‌آپ: ${_formatBackupDate(_lastBackupDate!)}',
+                            style: GoogleFonts.vazirmatn(
+                              fontSize: 11.sp,
+                              color: context.textSecondary,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      Text(
+                        'هنوز بک‌آپی ذخیره نشده است',
+                        style: GoogleFonts.vazirmatn(
+                          fontSize: 11.sp,
+                          color: context.textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12.h),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _showBackupDialog,
+                  icon: Icon(LucideIcons.cloud, size: 16.sp),
+                  label: Text(
+                    'ذخیره',
+                    style: GoogleFonts.vazirmatn(
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.goldColor,
+                    side: BorderSide(color: AppTheme.goldColor),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12.w,
+                      vertical: 8.h,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _lastBackupDate != null
+                      ? _showLoadConfirmationDialog
+                      : null,
+                  icon: Icon(LucideIcons.download, size: 16.sp),
+                  label: Text(
+                    'بارگذاری',
+                    style: GoogleFonts.vazirmatn(
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _lastBackupDate != null
+                        ? AppTheme.goldColor
+                        : Colors.grey,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12.w,
+                      vertical: 8.h,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// فرمت تاریخ بک‌آپ برای نمایش (شمسی)
+  String _formatBackupDate(DateTime date) {
+    final jalali = Jalali.fromDateTime(date);
+    final monthNames = [
+      '',
+      'فروردین',
+      'اردیبهشت',
+      'خرداد',
+      'تیر',
+      'مرداد',
+      'شهریور',
+      'مهر',
+      'آبان',
+      'آذر',
+      'دی',
+      'بهمن',
+      'اسفند',
+    ];
+
+    return '${jalali.day} ${monthNames[jalali.month]} ${jalali.year}';
+  }
+
+  /// نمایش دیالوگ ذخیره در دیتابیس
+  Future<void> _showBackupDialog() async {
+    if (_currentSessionId == null) return;
+
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: context.cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        title: Row(
+          children: [
+            Icon(LucideIcons.cloud, color: AppTheme.goldColor, size: 24.sp),
+            SizedBox(width: 12.w),
+            Text(
+              'ذخیره در دیتابیس',
+              style: GoogleFonts.vazirmatn(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+                color: context.textColor,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'با ذخیره چت در دیتابیس:',
+              style: GoogleFonts.vazirmatn(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.bold,
+                color: context.textColor,
+              ),
+            ),
+            SizedBox(height: 12.h),
+            _buildFeatureItem('✅ چت‌های شما در ابر ذخیره می‌شوند'),
+            _buildFeatureItem(
+              '✅ می‌توانید در دستگاه‌های دیگر هم به آن‌ها دسترسی داشته باشید',
+            ),
+            _buildFeatureItem('✅ در صورت حذف اپلیکیشن، چت‌های شما حفظ می‌شوند'),
+            SizedBox(height: 16.h),
+            Container(
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: AppTheme.goldColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8.r),
+                border: Border.all(
+                  color: AppTheme.goldColor.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    LucideIcons.info,
+                    color: AppTheme.goldColor,
+                    size: 16.sp,
+                  ),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      'نکته: چت‌های شما همیشه در حافظه داخلی دستگاه ذخیره می‌شوند. ذخیره در دیتابیس فقط برای بک‌آپ و دسترسی از دستگاه‌های دیگر است.',
+                      style: GoogleFonts.vazirmatn(
+                        fontSize: 11.sp,
+                        color: context.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              'انصراف',
+              style: GoogleFonts.vazirmatn(color: context.textSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await _backupChat();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.goldColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+            ),
+            child: Text(
+              'ذخیره',
+              style: GoogleFonts.vazirmatn(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(String text) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8.h),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.vazirmatn(
+                fontSize: 13.sp,
+                color: context.textColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ذخیره چت در دیتابیس
+  Future<void> _backupChat() async {
+    if (_currentSessionId == null) return;
+
+    try {
+      SafeSetState.call(this, () {
+        _isLoading = true;
+      });
+
+      await _chatService.backupChatToDatabase(_currentSessionId!);
+
+      // به‌روزرسانی تاریخ آخرین بک‌آپ
+      await _loadLastBackupDate();
+
+      if (mounted) {
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          '✅ چت با موفقیت در دیتابیس ذخیره شد',
+          backgroundColor: Colors.green,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          '❌ خطا در ذخیره چت: ${e.toString()}',
+          backgroundColor: Colors.red,
+        );
+      }
+    } finally {
+      if (mounted) {
+        WidgetSafetyUtils.safeSetState(this, () {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// نمایش دیالوگ تایید بارگذاری
+  Future<void> _showLoadConfirmationDialog() async {
+    try {
+      SafeSetState.call(this, () {
+        _isLoading = true;
+      });
+
+      final backupInfo = await _chatService.getBackupInfo();
+
+      if (!mounted) return;
+      SafeSetState.call(this, () {
+        _isLoading = false;
+      });
+
+      if (backupInfo == null) {
+        if (mounted) {
+          WidgetSafetyUtils.safeShowSnackBar(
+            context,
+            'چت ذخیره شده‌ای در دیتابیس یافت نشد',
+            backgroundColor: Colors.orange,
+          );
+        }
+        return;
+      }
+
+      final backupDate = backupInfo['backup_date'] as DateTime;
+      final totalMessages = backupInfo['total_messages'] as int;
+
+      WidgetSafetyUtils.safeShowDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: context.cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.r),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                LucideIcons.download,
+                color: AppTheme.goldColor,
+                size: 24.sp,
+              ),
+              SizedBox(width: 12.w),
+              Text(
+                'تایید بارگذاری',
+                style: GoogleFonts.vazirmatn(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: context.textColor,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'اطلاعات زیر از دیتابیس بارگذاری می‌شود:',
+                style: GoogleFonts.vazirmatn(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.bold,
+                  color: context.textColor,
+                ),
+              ),
+              SizedBox(height: 16.h),
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: AppTheme.goldColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8.r),
+                  border: Border.all(
+                    color: AppTheme.goldColor.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    _buildInfoRow(
+                      LucideIcons.messageSquare,
+                      'تعداد پیام‌ها',
+                      '$totalMessages پیام',
+                    ),
+                    SizedBox(height: 8.h),
+                    _buildInfoRow(
+                      LucideIcons.calendar,
+                      'تاریخ بک‌آپ',
+                      _formatBackupDate(backupDate),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16.h),
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8.r),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      LucideIcons.alertTriangle,
+                      color: Colors.orange,
+                      size: 16.sp,
+                    ),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: Text(
+                        'توجه: چت‌های فعلی شما با اطلاعات دیتابیس جایگزین می‌شوند',
+                        style: GoogleFonts.vazirmatn(
+                          fontSize: 11.sp,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'انصراف',
+                style: GoogleFonts.vazirmatn(color: context.textSecondary),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _loadAllChatsFromDatabase();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.goldColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+              ),
+              child: Text(
+                'بارگذاری',
+                style: GoogleFonts.vazirmatn(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        WidgetSafetyUtils.safeSetState(this, () {
+          _isLoading = false;
+        });
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          '❌ خطا در دریافت اطلاعات: ${e.toString()}',
+          backgroundColor: Colors.red,
+        );
+      }
+    }
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 16.sp, color: AppTheme.goldColor),
+        SizedBox(width: 8.w),
+        Text(
+          label,
+          style: GoogleFonts.vazirmatn(
+            fontSize: 12.sp,
+            color: context.textSecondary,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          value,
+          style: GoogleFonts.vazirmatn(
+            fontSize: 12.sp,
+            fontWeight: FontWeight.bold,
+            color: context.textColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// بارگذاری تمام چت‌ها از دیتابیس
+  Future<void> _loadAllChatsFromDatabase() async {
+    try {
+      SafeSetState.call(this, () {
+        _isLoading = true;
+      });
+
+      final loadedCount = await _chatService.loadAllChatsFromDatabase();
+
+      if (mounted) {
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          '✅ $loadedCount چت با موفقیت از دیتابیس بارگذاری شد',
+          backgroundColor: Colors.green,
+        );
+
+        // بارگذاری مجدد لیست session ها
+        final sessions = await _chatService.getChatSessions();
+        if (sessions.isNotEmpty) {
+          _currentSessionId = sessions.first.id;
+          await _loadChatHistory();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          '❌ خطا در بارگذاری چت‌ها: ${e.toString()}',
+          backgroundColor: Colors.red,
+        );
+      }
+    } finally {
+      if (mounted) {
+        WidgetSafetyUtils.safeSetState(this, () {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   /// پاک کردن چت
@@ -257,7 +1057,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     if (_currentSessionId == null) return;
 
     try {
-      setState(() {
+      SafeSetState.call(this, () {
         _isLoading = true;
       });
 
@@ -275,12 +1075,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         print('New session created: $_currentSessionId');
       }
 
-      setState(() {
+      SafeSetState.call(this, () {
         _messages.clear();
         _isLoading = false;
+        _welcomeMessageAdded = false; // Reset flag
       });
 
-      _addWelcomeMessage();
+      if (!_welcomeMessageAdded) {
+        _welcomeMessageAdded = true;
+        _addWelcomeMessage();
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Error in _clearChat: $e');
@@ -295,22 +1099,57 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         }
       }
 
-      setState(() {
+      SafeSetState.call(this, () {
         _messages.clear();
         _isLoading = false;
+        _welcomeMessageAdded = false; // Reset flag
       });
-      _addWelcomeMessage();
+      if (!_welcomeMessageAdded) {
+        _welcomeMessageAdded = true;
+        _addWelcomeMessage();
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+
+    // اسکرول خودکار هنگام باز شدن کیبورد (فقط اگر تغییر کرده باشد)
+    if (keyboardHeight > 0 && keyboardHeight != _lastKeyboardHeight) {
+      _lastKeyboardHeight = keyboardHeight;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _scrollToBottom(smooth: false);
+        }
+      });
+    } else if (keyboardHeight == 0) {
+      _lastKeyboardHeight = 0;
+    }
+
+    // بارگذاری مجدد تاریخچه وقتی صفحه دوباره build می‌شود
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted &&
+          _currentSessionId != null &&
+          _messages.isEmpty &&
+          !_isLoading &&
+          _isConnected) {
+        _loadChatHistory();
+      }
+    });
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: context.backgroundColor,
+        resizeToAvoidBottomInset: true,
         appBar: AppBar(
+          backgroundColor: isDark
+              ? context.backgroundColor
+              : Colors.transparent,
+          elevation: 0,
           automaticallyImplyLeading: false,
           title: Row(
             children: [
@@ -322,24 +1161,34 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     colors: [AppTheme.goldColor, AppTheme.darkGold],
                   ),
                   borderRadius: BorderRadius.circular(20.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.goldColor.withValues(alpha: 0.3),
+                      blurRadius: 8.r,
+                      offset: Offset(0.w, 2.h),
+                    ),
+                  ],
                 ),
                 child: Icon(LucideIcons.bot, color: Colors.white, size: 20.sp),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12.w),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'مربی هوش مصنوعی',
-                    style: TextStyle(
+                    style: GoogleFonts.vazirmatn(
                       fontSize: 16.sp,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: isDark ? AppTheme.goldColor : context.textColor,
                     ),
                   ),
                   Text(
                     _isConnected ? 'آنلاین' : 'آفلاین',
-                    style: TextStyle(fontSize: 12.sp, color: Colors.grey),
+                    style: GoogleFonts.vazirmatn(
+                      fontSize: 12.sp,
+                      color: context.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -348,20 +1197,35 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           actions: [
             IconButton(
               onPressed: _clearChat,
-              icon: const Icon(LucideIcons.trash2),
+              icon: Icon(
+                LucideIcons.trash2,
+                color: isDark ? AppTheme.goldColor : context.textColor,
+              ),
               tooltip: 'پاک کردن چت',
             ),
           ],
         ),
         body: Column(
           children: [
+            // نمایش آمار محدودیت پیام
+            if (_rateLimitStats != null) _buildRateLimitBanner(),
+            // بنر راهنمای ذخیره در دیتابیس
+            if (_messages.isNotEmpty) _buildBackupBanner(),
             // لیست پیام‌ها
             Expanded(
               child: _messages.isEmpty
                   ? _buildEmptyState()
                   : ListView.builder(
                       controller: _scrollController,
-                      padding: EdgeInsets.all(16.w),
+                      reverse: false,
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: EdgeInsets.only(
+                        left: 16.w,
+                        right: 16.w,
+                        top: 16.h,
+                        bottom: 16.h,
+                      ),
                       itemCount: _messages.length,
                       itemBuilder: (context, index) {
                         final message = _messages[index];
@@ -399,6 +1263,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 colors: [AppTheme.goldColor, AppTheme.darkGold],
               ),
               borderRadius: BorderRadius.circular(40.r),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.goldColor.withValues(alpha: 0.3),
+                  blurRadius: 16.r,
+                  spreadRadius: 2.r,
+                ),
+              ],
             ),
             child: Icon(
               LucideIcons.messageCircle,
@@ -406,21 +1277,21 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               size: 40.sp,
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24.h),
           Text(
             'مربی هوش مصنوعی شما',
-            style: TextStyle(
+            style: GoogleFonts.vazirmatn(
               fontSize: 20.sp,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: context.textColor,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8.h),
           Text(
             'سوالات خود را در مورد ورزش و تغذیه بپرسید',
-            style: TextStyle(
+            style: GoogleFonts.vazirmatn(
               fontSize: 14.sp,
-              color: Colors.white.withValues(alpha: 0.7),
+              color: context.textSecondary,
             ),
             textAlign: TextAlign.center,
           ),
@@ -431,34 +1302,56 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// نوار ورودی پیام
   Widget _buildMessageInput() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          top: BorderSide(
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.3),
+            width: 1.w,
+          ),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.goldColor.withValues(alpha: 0.05),
+            blurRadius: 8.r,
+            offset: Offset(0.w, -2.h),
+          ),
+        ],
       ),
       child: SafeArea(
+        top: false,
         child: Row(
           children: [
             Expanded(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
+                  color: isDark ? context.backgroundColor : context.cardColor,
                   borderRadius: BorderRadius.circular(24.r),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.2),
+                    color: AppTheme.goldColor.withValues(
+                      alpha: isDark ? 0.3 : 0.5,
+                    ),
+                    width: 1.5.w,
                   ),
                 ),
                 child: TextField(
                   controller: _messageController,
                   maxLines: null,
                   textDirection: TextDirection.rtl,
-                  style: const TextStyle(color: Colors.white),
+                  style: GoogleFonts.vazirmatn(
+                    color: context.textColor,
+                    fontSize: 14.sp,
+                  ),
                   decoration: InputDecoration(
                     hintText: 'پیام خود را بنویسید...',
-                    hintStyle: const TextStyle(color: Colors.grey),
+                    hintStyle: GoogleFonts.vazirmatn(
+                      color: context.textSecondary,
+                      fontSize: 14.sp,
+                    ),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(
                       horizontal: 16.w,
@@ -470,7 +1363,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12.w),
             GestureDetector(
               onTap: _isLoading ? null : _sendMessage,
               child: Container(
@@ -484,6 +1377,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         ),
                   color: _isLoading ? Colors.grey : null,
                   borderRadius: BorderRadius.circular(24.r),
+                  boxShadow: _isLoading
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: AppTheme.goldColor.withValues(alpha: 0.3),
+                            blurRadius: 8.r,
+                            offset: Offset(0.w, 2.h),
+                          ),
+                        ],
                 ),
                 child: _isLoading
                     ? SizedBox(
@@ -545,37 +1447,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
 
     return '';
-  }
-
-  String _cleanAIResponseForDisplay(String text) {
-    // Remove <program_json>...</program_json> tags (case-insensitive, flexible)
-    final programJsonRegex = RegExp(
-      r'<\s*program_json\s*>[\s\S]*?<\s*/\s*program_json\s*>',
-      caseSensitive: false,
-      dotAll: true,
-    );
-    var cleanedText = text.replaceAll(programJsonRegex, '').trim();
-
-    // Remove Markdown code fences ``` ... ```
-    final codeFenceRegex = RegExp(
-      r'```[\s\S]*?```',
-      caseSensitive: false,
-      multiLine: true,
-    );
-    cleanedText = cleanedText.replaceAll(codeFenceRegex, '').trim();
-
-    // Remove bare JSON that likely contains a plan (has "sessions" key)
-    final sessionsJsonRegex = RegExp(
-      r'\{[\s\S]*?"sessions"[\s\S]*?\}',
-      multiLine: true,
-    );
-    cleanedText = cleanedText.replaceAll(sessionsJsonRegex, '').trim();
-
-    if (cleanedText.isEmpty) {
-      cleanedText =
-          'برنامه ساخته شد و ذخیره شد. از بخش ثبت تمرین/رژیم می‌توانید انتخاب کنید.';
-    }
-    return cleanedText;
   }
 
   String _fixIncompleteJson(String jsonText) {
@@ -834,6 +1705,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       final saved = await WorkoutProgramService().createProgram(
         program,
         trainerId: aiTrainerId,
+        autoSend: true, // برنامه‌های AI بلافاصله ارسال می‌شوند
       );
 
       if (kDebugMode) {

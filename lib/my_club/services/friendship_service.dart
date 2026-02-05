@@ -1,4 +1,5 @@
-﻿import 'package:gymaipro/models/friendship_models.dart';
+import 'package:flutter/foundation.dart';
+import 'package:gymaipro/models/friendship_models.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FriendshipService {
@@ -137,11 +138,47 @@ class FriendshipService {
   /// تایید درخواست دوستی
   static Future<void> acceptFriendRequest(String requestId) async {
     try {
-      await _supabase
+      // تایید درخواست - trigger باید دوستی را ایجاد کند
+      final response = await _supabase
           .from('friendship_requests')
           .update({'status': 'accepted'})
-          .eq('id', requestId);
+          .eq('id', requestId)
+          .select()
+          .single();
+
+      // بررسی اینکه آیا درخواست تایید شد
+      if (response['status'] != 'accepted') {
+        throw Exception('درخواست تایید نشد');
+      }
+
+      // کمی صبر می‌کنیم تا trigger اجرا شود
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+
+      // بررسی اینکه دوستی ایجاد شده است (برای debug)
+      final currentUserId = _supabase.auth.currentUser?.id;
+      if (currentUserId != null) {
+        final requesterId = response['requester_id'] as String;
+        final requestedId = response['requested_id'] as String;
+        final friendId = currentUserId == requestedId
+            ? requesterId
+            : requestedId;
+
+        // بررسی وجود دوستی
+        final friendship = await _supabase
+            .from('user_friends')
+            .select('id')
+            .eq('user_id', currentUserId)
+            .eq('friend_id', friendId)
+            .maybeSingle();
+
+        if (friendship == null) {
+          debugPrint(
+            '⚠️ Warning: Friendship not created by trigger. Requester: $requesterId, Requested: $requestedId, Current: $currentUserId',
+          );
+        }
+      }
     } catch (e) {
+      debugPrint('❌ Error accepting friend request: $e');
       throw Exception('خطا در تایید درخواست دوستی: $e');
     }
   }
@@ -426,29 +463,48 @@ class FriendshipService {
     final currentUserId = _supabase.auth.currentUser?.id;
     if (currentUserId == null) throw Exception('کاربر وارد نشده است');
 
+    // استفاده از جدول اصلی user_friends برای real-time بهتر (view ها real-time نیستند)
     return _supabase
-        .from('user_friends_with_info')
+        .from('user_friends')
         .stream(primaryKey: ['id'])
-        .map(
-          (data) => data
-              .where((friend) => friend['user_id'] == currentUserId)
-              .map(
-                (friend) => UserProfile.fromJson({
-                  'id': friend['friend_id'],
-                  'username': friend['friend_username'],
-                  'first_name':
-                      friend['friend_full_name']?.split(' ').first ?? '',
-                  'last_name':
-                      friend['friend_full_name']
-                          ?.split(' ')
-                          .skip(1)
-                          .join(' ') ??
-                      '',
-                  'avatar_url': friend['friend_avatar'],
-                  'is_online': friend['friend_is_online'],
-                }),
-              )
-              .toList(),
-        );
+        .eq('user_id', currentUserId)
+        .asyncMap((data) async {
+          // اگر داده‌ای نبود، لیست خالی برگردان
+          if (data.isEmpty) return <UserProfile>[];
+
+          // برای هر دوست، اطلاعات کامل را از profiles بگیر
+          final friendIds = data
+              .map((f) => f['friend_id'] as String)
+              .where((id) => id.isNotEmpty)
+              .toSet()
+              .toList();
+
+          if (friendIds.isEmpty) return <UserProfile>[];
+
+          try {
+            final profiles = await _supabase
+                .from('profiles')
+                .select(
+                  'id, username, first_name, last_name, avatar_url, is_online',
+                )
+                .inFilter('id', friendIds);
+
+            return (profiles as List<dynamic>)
+                .map(
+                  (profile) => UserProfile.fromJson({
+                    'id': profile['id'],
+                    'username': profile['username'] ?? '',
+                    'first_name': profile['first_name'] ?? '',
+                    'last_name': profile['last_name'] ?? '',
+                    'avatar_url': profile['avatar_url'],
+                    'is_online': profile['is_online'] ?? false,
+                  }),
+                )
+                .toList();
+          } catch (e) {
+            // در صورت خطا، لیست خالی برگردان
+            return <UserProfile>[];
+          }
+        });
   }
 }
