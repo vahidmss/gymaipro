@@ -5,7 +5,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/ranking/models/ranking_score_breakdown.dart';
 import 'package:gymaipro/ranking/models/user_ranking.dart';
 import 'package:gymaipro/ranking/models/league.dart';
+import 'package:gymaipro/trainer_ranking/services/trainer_kpi_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/format_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class ModernProfileHeader extends StatelessWidget {
@@ -34,9 +36,13 @@ class ModernProfileHeader extends StatelessWidget {
             .trim();
     final String username = (profileData['username'] ?? 'کاربر').toString();
     final String? avatarUrl = profileData['avatar_url']?.toString();
-    final league = ranking != null
-        ? League.getLeagueByScore(ranking!.totalScore)
-        : League.bronze; // Default
+    final role = (profileData['role'] ?? 'athlete').toString();
+    final isAthlete = role == 'athlete';
+
+    // لیگ فقط برای ورزشکاران
+    final totalScore = isAthlete ? (ranking?.totalScore ?? 0) : 0;
+    final league = isAthlete ? League.getLeagueByScore(totalScore) : null;
+    final accentColor = isAthlete ? Color(league!.color) : AppTheme.goldColor;
 
     return Container(
       padding: EdgeInsets.fromLTRB(20.w, 50.h, 20.w, 20.h),
@@ -107,10 +113,10 @@ class ModernProfileHeader extends StatelessWidget {
                   height: 80.w,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: Color(league.color), width: 2.w),
+                    border: Border.all(color: accentColor, width: 2.w),
                     boxShadow: [
                       BoxShadow(
-                        color: Color(league.color).withValues(alpha: 0.3),
+                        color: accentColor.withValues(alpha: 0.3),
                         blurRadius: 10,
                         spreadRadius: 2,
                       ),
@@ -162,33 +168,39 @@ class ModernProfileHeader extends StatelessWidget {
                         vertical: 4.h,
                       ),
                       decoration: BoxDecoration(
-                        color: Color(league.color).withValues(alpha: 0.1),
+                        color: accentColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(20.r),
                         border: Border.all(
-                          color: Color(league.color).withValues(alpha: 0.3),
+                          color: accentColor.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            LucideIcons.trophy,
+                            isAthlete
+                                ? LucideIcons.trophy
+                                : LucideIcons.badgeCheck,
                             size: 14.sp,
-                            color: Color(league.color),
+                            color: accentColor,
                           ),
                           SizedBox(width: 4.w),
                           Text(
-                            league.nameFa,
+                            isAthlete ? league!.nameFa : 'مربی',
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
                               fontSize: 12.sp,
                               fontWeight: FontWeight.w600,
-                              color: Color(league.color),
+                              color: accentColor,
                             ),
                           ),
                         ],
                       ),
                     ),
+                    if (!isAthlete) ...[
+                      SizedBox(height: 8.h),
+                      _buildTrainerMeta(context, accentColor),
+                    ],
                   ],
                 ),
               ),
@@ -196,6 +208,70 @@ class ModernProfileHeader extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTrainerMeta(BuildContext context, Color accentColor) {
+    final rating = (profileData['rating'] as num?)?.toDouble() ?? 0.0;
+    final reviewCount = (profileData['review_count'] as num?)?.toInt() ?? 0;
+    final rankingValue = (profileData['ranking'] as num?)?.toInt();
+
+    if (rating <= 0 &&
+        reviewCount <= 0 &&
+        (rankingValue == null || rankingValue <= 0)) {
+      return const SizedBox.shrink();
+    }
+
+    return Wrap(
+      spacing: 10.w,
+      runSpacing: 6.h,
+      children: [
+        if (rating > 0)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(LucideIcons.star, size: 14.sp, color: Colors.amber),
+              SizedBox(width: 4.w),
+              Text(
+                rating.toStringAsFixed(1),
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w700,
+                  color: context.textColor,
+                ),
+              ),
+              if (reviewCount > 0) ...[
+                SizedBox(width: 4.w),
+                Text(
+                  '($reviewCount)',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 11.sp,
+                    color: context.textSecondary,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        if (rankingValue != null && rankingValue > 0)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(LucideIcons.trophy, size: 14.sp, color: accentColor),
+              SizedBox(width: 4.w),
+              Text(
+                '#$rankingValue',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w700,
+                  color: accentColor,
+                ),
+              ),
+            ],
+          ),
+      ],
     );
   }
 
@@ -312,13 +388,15 @@ class ModernGamificationStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // فقط برای ورزشکاران (athletes) نمایش داده می‌شود - مربیان حذف می‌شوند
+    // این widget فقط باید برای athletes صدا زده بشه، اما برای اطمینان چک می‌کنیم
     if (breakdown == null) return const SizedBox.shrink();
 
-    final totalScore = breakdown!.totalScore;
+    final totalScore = ranking?.totalScore ?? breakdown!.totalScore;
     final league = League.getLeagueByScore(totalScore);
 
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16.w),
+      margin: EdgeInsets.only(bottom: 16.h),
       padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
         color: context.cardColor,
@@ -643,6 +721,293 @@ class ModernPhysicalStats extends StatelessWidget {
                   ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// داشبورد KPI برای نقش مربی (شبیه ModernGamificationStats ولی برای مربی)
+class ModernTrainerKpiDashboard extends StatelessWidget {
+  const ModernTrainerKpiDashboard({
+    required this.profileData,
+    required this.kpis,
+    this.onOpenTrainerRanking,
+    this.onOpenTrainerDashboard,
+    this.isSelfView = true,
+    super.key,
+  });
+
+  final Map<String, dynamic> profileData;
+  final TrainerKpis? kpis;
+  final VoidCallback? onOpenTrainerRanking;
+  final VoidCallback? onOpenTrainerDashboard;
+
+  /// اگر true باشد یعنی این داشبورد در «پروفایل خودم» نمایش داده می‌شود.
+  /// اگر false باشد یعنی در صفحه پروفایل عمومی یک مربی نمایش داده می‌شود.
+  final bool isSelfView;
+
+  @override
+  Widget build(BuildContext context) {
+    final role = (profileData['role'] ?? 'athlete').toString();
+    if (role != 'trainer') return const SizedBox.shrink();
+
+    final rankingValue = (profileData['ranking'] as num?)?.toInt();
+    final rating = (profileData['rating'] as num?)?.toDouble() ?? 0.0;
+    final reviewCount = (profileData['review_count'] as num?)?.toInt() ?? 0;
+    final experienceYears =
+        (profileData['experience_years'] as num?)?.toInt() ?? 0;
+    final certificates =
+        (profileData['certificates'] as List<dynamic>?)?.cast<String>() ??
+        <String>[];
+
+    // عنوان را بسته به اینکه پروفایل خود کاربر است یا پروفایل یک مربی دیگر تنظیم می‌کنیم
+    final firstName = (profileData['first_name'] ?? '').toString();
+    final lastName = (profileData['last_name'] ?? '').toString();
+    final fullName = '$firstName $lastName'.trim();
+    final hasName = fullName.isNotEmpty;
+    final titleText = isSelfView
+        ? 'عملکرد من'
+        : (hasName ? 'عملکرد $fullName' : 'عملکرد مربی');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // عنوان بخش
+        Padding(
+          padding: EdgeInsets.only(bottom: 16.h),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    LucideIcons.trophy,
+                    size: 20.sp,
+                    color: AppTheme.goldColor,
+                  ),
+                  SizedBox(width: 8.w),
+                  Text(
+                    titleText,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.bold,
+                      color: context.textColor,
+                    ),
+                  ),
+                ],
+              ),
+              if (onOpenTrainerRanking != null)
+                InkWell(
+                  onTap: onOpenTrainerRanking,
+                  borderRadius: BorderRadius.circular(8.r),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 4.h,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'رنکینگ مربیان',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 12.sp,
+                            color: AppTheme.goldColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Icon(
+                          LucideIcons.chevronRight,
+                          size: 16.sp,
+                          color: AppTheme.goldColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+
+        // کارت امتیاز کلی حذف شد - رتبه حالا در هدر نمایش داده می‌شود
+
+        // آمارهای عملکرد (شبیه ورزشکار با Wrap)
+        Center(
+          child: Container(
+            padding: EdgeInsets.all(20.w),
+            margin: EdgeInsets.only(bottom: 16.h),
+            decoration: BoxDecoration(
+              color: context.cardColor,
+              borderRadius: BorderRadius.circular(20.r),
+              border: Border.all(color: context.separatorColor),
+            ),
+            child: Wrap(
+              spacing: 12.w,
+              runSpacing: 20.h,
+              alignment: WrapAlignment.spaceBetween,
+              children: [
+                // کل شاگردان
+                _buildStatItem(
+                  context,
+                  LucideIcons.users,
+                  kpis == null
+                      ? '—'
+                      : FormatUtils.formatNumber(kpis!.totalStudents),
+                  'کل شاگردان',
+                  const Color(0xFF4CAF50),
+                  width: 80.w,
+                ),
+                // شاگردان فعال
+                _buildStatItem(
+                  context,
+                  LucideIcons.userCheck,
+                  kpis == null
+                      ? '—'
+                      : FormatUtils.formatNumber(kpis!.activeStudents),
+                  'شاگرد فعال',
+                  const Color(0xFF4CAF50),
+                  width: 80.w,
+                ),
+                // کل برنامه‌های ارائه شده
+                _buildStatItem(
+                  context,
+                  LucideIcons.clipboardList,
+                  kpis == null
+                      ? '—'
+                      : FormatUtils.formatNumber(kpis!.totalWorkoutPrograms),
+                  'کل برنامه‌ها',
+                  const Color(0xFF2196F3),
+                  width: 80.w,
+                ),
+                // برنامه‌های فعال
+                _buildStatItem(
+                  context,
+                  LucideIcons.dumbbell,
+                  kpis == null
+                      ? '—'
+                      : FormatUtils.formatNumber(kpis!.activeWorkoutPrograms),
+                  'برنامه فعال',
+                  const Color(0xFF2196F3),
+                  width: 80.w,
+                ),
+                _buildStatItem(
+                  context,
+                  LucideIcons.music,
+                  kpis == null
+                      ? '—'
+                      : FormatUtils.formatNumber(kpis!.totalCustomMusics),
+                  'موزیک‌ها',
+                  const Color(0xFF9C27B0),
+                  width: 80.w,
+                ),
+                _buildStatItem(
+                  context,
+                  LucideIcons.thumbsUp,
+                  kpis == null ? '—' : '${kpis!.satisfactionPercent}%',
+                  'رضایت',
+                  const Color(0xFFFF9800),
+                  width: 80.w,
+                ),
+                if (experienceYears > 0)
+                  _buildStatItem(
+                    context,
+                    LucideIcons.calendar,
+                    '$experienceYears',
+                    'سال تجربه',
+                    const Color(0xFF00BCD4),
+                    width: 80.w,
+                  ),
+                if (certificates.isNotEmpty)
+                  _buildStatItem(
+                    context,
+                    LucideIcons.award,
+                    '${certificates.length}',
+                    'گواهینامه',
+                    const Color(0xFFFF9800),
+                    width: 80.w,
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        // دکمه میز کار (فقط برای خود مربی)
+        if (onOpenTrainerDashboard != null) ...[
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onOpenTrainerDashboard,
+              icon: Icon(LucideIcons.layoutDashboard, size: 18.sp),
+              label: Text(
+                'رفتن به میز کار مربی',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13.sp,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.goldColor,
+                side: BorderSide(
+                  color: AppTheme.goldColor.withValues(alpha: 0.7),
+                ),
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildStatItem(
+    BuildContext context,
+    IconData icon,
+    String value,
+    String label,
+    Color color, {
+    double? width,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(10.w),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 20.sp),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.bold,
+              color: context.textColor,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 10.sp,
+              color: context.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

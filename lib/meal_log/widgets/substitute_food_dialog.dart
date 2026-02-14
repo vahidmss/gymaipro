@@ -68,22 +68,21 @@ class SubstituteFoodDialog extends StatelessWidget {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8.r),
-                          child: altFood.imageUrl.isNotEmpty
-                              ? Image.network(
-                                  altFood.imageUrl,
-                                  width: 44.w,
-                                  height: 44.h,
-                                  fit: BoxFit.cover,
-                                )
-                              : Container(
-                                  width: 44.w,
-                                  height: 44.h,
-                                  color: Colors.grey.withValues(alpha: 0.3),
-                                  child: const Icon(
-                                    Icons.fastfood,
-                                    color: Colors.grey,
-                                  ),
-                                ),
+                          child: Image.asset(
+                            'images/gymaifoodplaceholder.png',
+                            width: 44.w,
+                            height: 44.h,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 44.w,
+                              height: 44.h,
+                              color: Colors.grey.withValues(alpha: 0.3),
+                              child: const Icon(
+                                Icons.fastfood,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ),
                         ),
                         SizedBox(width: 12.w),
                         Expanded(

@@ -5,6 +5,7 @@ import 'package:gymaipro/achievements/services/achievement_database_service.dart
 import 'package:gymaipro/achievements/widgets/achievement_notification.dart';
 import 'package:gymaipro/main.dart';
 import 'package:gymaipro/services/score_service.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 
 class AchievementService extends ChangeNotifier {
   AchievementService._internal() {
@@ -429,12 +430,43 @@ class AchievementService extends ChangeNotifier {
         }
       }
 
+      // سینک دستاوردهای invite با تعداد واقعی رفرال از پروفایل (معرف = کاربر فعلی)
+      await _syncInviteAchievementsFromProfile();
+
       notifyListeners();
     } catch (e) {
       debugPrint('❌ Error loading user progress: $e');
     } finally {
       _isLoading = false;
     }
+  }
+
+  /// پیشرفت دستاوردهای دعوت را از total_referrals پروفایل کاربر فعلی به‌روز می‌کند
+  Future<void> _syncInviteAchievementsFromProfile() async {
+    try {
+      final profile = await SimpleProfileService.getCurrentProfile();
+      if (profile == null) return;
+
+      final totalReferrals = (profile['total_referrals'] as int?) ?? 0;
+
+      const inviteIds = ['invite_1', 'invite_3', 'invite_10', 'invite_30'];
+      for (final id in inviteIds) {
+        final index = _achievements.indexWhere((a) => a.id == id);
+        if (index != -1 && _achievements[index].currentValue != totalReferrals) {
+          await updateProgress(id, totalReferrals);
+        }
+      }
+
+      debugPrint('✅ Invite achievements synced from profile: $totalReferrals referrals');
+    } catch (e) {
+      debugPrint('❌ Error syncing invite achievements from profile: $e');
+    }
+  }
+
+  /// سینک دستاوردهای دعوت از پروفایل (برای فراخوانی از صفحه دستاوردها)
+  Future<void> syncInviteAchievementsFromProfile() async {
+    await _syncInviteAchievementsFromProfile();
+    notifyListeners();
   }
 
   /// بارگذاری مجدد از دیتابیس (پاک کردن cache و لود مجدد)
@@ -449,6 +481,13 @@ class AchievementService extends ChangeNotifier {
     } catch (e) {
       debugPrint('❌ Error refreshing achievements: $e');
     }
+  }
+
+  /// ریست حالت در حافظه برای خروج از حساب (تا کاربر بعدی داده قبلی نبیند)
+  void resetForLogout() {
+    _initializeAchievements();
+    notifyListeners();
+    debugPrint('✅ Achievements reset for logout');
   }
 
   /// سینک cache محلی به دیتابیس

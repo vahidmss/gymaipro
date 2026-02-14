@@ -54,113 +54,39 @@ class _AchievementCardState extends State<AchievementCard>
         scale: _scaleAnimation,
         child: Container(
           decoration: BoxDecoration(
-            gradient: isUnlocked
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(
-                        widget.achievement.tier.colorValue,
-                      ).withValues(alpha: 0.15),
-                      context.cardColor,
-                      Color(
-                        widget.achievement.tier.colorValue,
-                      ).withValues(alpha: 0.05),
-                    ],
-                    stops: const [0.0, 0.6, 1.0],
-                  )
-                : isDark
-                ? null
-                : LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      context.goldGradientColors[0].withValues(alpha: 0.08),
-                      context.cardColor,
-                      context.goldGradientColors[1].withValues(alpha: 0.05),
-                    ],
-                    stops: const [0.0, 0.6, 1.0],
-                  ),
-            color: isUnlocked ? null : (isDark ? context.cardColor : null),
-            borderRadius: BorderRadius.circular(18.r),
+            color: context.cardColor,
+            borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: isUnlocked
-                  ? Color(
-                      widget.achievement.tier.colorValue,
-                    ).withValues(alpha: 0.35)
-                  : AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.4),
-              width: 1.5.w,
+                  ? Color(widget.achievement.tier.colorValue)
+                      .withValues(alpha: 0.35)
+                  : AppTheme.lightDividerColor.withValues(
+                      alpha: isDark ? 0.7 : 0.5,
+                    ),
+              width: 1.w,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: isUnlocked
-                    ? Color(
-                        widget.achievement.tier.colorValue,
-                      ).withValues(alpha: isDark ? 0.18 : 0.22)
-                    : AppTheme.goldColor.withValues(
-                        alpha: isDark ? 0.12 : 0.25,
-                      ),
-                blurRadius: 24.r,
-                offset: Offset(0.w, 6.h),
-                spreadRadius: 0.r,
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
-                blurRadius: 16.r,
-                offset: Offset(0.w, 3.h),
-                spreadRadius: 0,
-              ),
-            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(18.r),
             child: Stack(
               children: [
-                // نوار پیشرفت در پس‌زمینه
+                // نوار پیشرفت مینیمال در پایین کارت
                 if (!isUnlocked)
                   Positioned(
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(18.r),
-                        bottomRight: Radius.circular(18.r),
+                    child: LinearProgressIndicator(
+                      value: widget.achievement.progress,
+                      minHeight: 3.h,
+                      backgroundColor: AppTheme.lightDividerColor.withValues(
+                        alpha: isDark ? 0.4 : 0.3,
                       ),
-                      child: Container(
-                        height: 5.h,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Color(
-                                widget.achievement.tier.colorValue,
-                              ).withValues(alpha: 0.5),
-                              Color(
-                                widget.achievement.tier.colorValue,
-                              ).withValues(alpha: 0.3),
-                            ],
-                          ),
-                        ),
-                        child: FractionallySizedBox(
-                          widthFactor: widget.achievement.progress,
-                          alignment: Alignment.centerRight,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Color(widget.achievement.tier.colorValue),
-                                  Color(
-                                    widget.achievement.tier.colorValue,
-                                  ).withValues(alpha: 0.8),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
+                      valueColor: AlwaysStoppedAnimation(
+                        Color(widget.achievement.tier.colorValue),
                       ),
                     ),
                   ),
-
                 Padding(
                   padding: EdgeInsets.all(16.w),
                   child: Row(
@@ -184,15 +110,7 @@ class _AchievementCardState extends State<AchievementCard>
                                 letterSpacing: 0.2,
                                 height: 1.35,
                                 fontFamily: AppTheme.fontFamily,
-                                color: isUnlocked
-                                    ? (isDark
-                                          ? AppTheme.darkTextColor
-                                          : AppTheme.lightTextColor)
-                                    : (isDark
-                                          ? AppTheme.darkTextColor.withValues(
-                                              alpha: 0.7,
-                                            )
-                                          : AppTheme.lightTextSecondary),
+                                color: context.textColor,
                               ),
                               textAlign: TextAlign.right,
                               maxLines: 2,
@@ -215,8 +133,7 @@ class _AchievementCardState extends State<AchievementCard>
                   ),
                 ),
 
-                // افکت درخشش برای دستاوردهای unlock شده
-                if (isUnlocked) _buildShineEffect(),
+                // بدون افکت شاین برای سادگی و کارایی بهتر
               ],
             ),
           ),
@@ -231,34 +148,11 @@ class _AchievementCardState extends State<AchievementCard>
       height: 48.w,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: isUnlocked
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(widget.achievement.tier.colorValue),
-                  Color(
-                    widget.achievement.tier.colorValue,
-                  ).withValues(alpha: 0.8),
-                  Color(
-                    widget.achievement.tier.colorValue,
-                  ).withValues(alpha: 0.65),
-                ],
-                stops: const [0.0, 0.5, 1.0],
-              )
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: isDark
-                    ? [
-                        AppTheme.darkGreySeparator,
-                        AppTheme.darkGreySeparator.withValues(alpha: 0.75),
-                      ]
-                    : [
-                        AppTheme.lightDividerColor,
-                        AppTheme.lightDividerColor.withValues(alpha: 0.65),
-                      ],
-              ),
+        color: isUnlocked
+            ? Color(widget.achievement.tier.colorValue).withValues(alpha: 0.2)
+            : (isDark
+                ? AppTheme.darkGreySeparator.withValues(alpha: 0.7)
+                : AppTheme.lightDividerColor.withValues(alpha: 0.7)),
         border: isUnlocked
             ? Border.all(
                 color: Color(
@@ -267,24 +161,6 @@ class _AchievementCardState extends State<AchievementCard>
                 width: 1.5.w,
               )
             : null,
-        boxShadow: [
-          BoxShadow(
-            color: isUnlocked
-                ? Color(
-                    widget.achievement.tier.colorValue,
-                  ).withValues(alpha: 0.35)
-                : AppTheme.goldColor.withValues(alpha: isDark ? 0.12 : 0.18),
-            blurRadius: 14.r,
-            offset: Offset(0.w, 3.h),
-            spreadRadius: 0,
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.08),
-            blurRadius: 10.r,
-            offset: Offset(0.w, 2.h),
-            spreadRadius: -1.r,
-          ),
-        ],
       ),
       child: Center(
         child: Text(
@@ -308,46 +184,21 @@ class _AchievementCardState extends State<AchievementCard>
 
   Widget _buildTierBadge(bool isUnlocked, bool isDark) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 5.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
       decoration: BoxDecoration(
-        gradient: isUnlocked
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(
-                    widget.achievement.tier.colorValue,
-                  ).withValues(alpha: 0.22),
-                  Color(
-                    widget.achievement.tier.colorValue,
-                  ).withValues(alpha: 0.12),
-                ],
-              )
-            : null,
         color: isUnlocked
-            ? null
+            ? Color(widget.achievement.tier.colorValue)
+                .withValues(alpha: 0.15)
             : (isDark
-                  ? AppTheme.darkGreySeparator
-                  : AppTheme.lightDividerColor),
+                ? AppTheme.darkGreySeparator
+                : AppTheme.lightDividerColor),
         borderRadius: BorderRadius.circular(9.r),
         border: isUnlocked
             ? Border.all(
-                color: Color(
-                  widget.achievement.tier.colorValue,
-                ).withValues(alpha: 0.25),
-                width: 1.w,
+                color:
+                    Color(widget.achievement.tier.colorValue).withValues(alpha: 0.3),
+                width: 0.8.w,
               )
-            : null,
-        boxShadow: isUnlocked
-            ? [
-                BoxShadow(
-                  color: Color(
-                    widget.achievement.tier.colorValue,
-                  ).withValues(alpha: 0.15),
-                  blurRadius: 8.r,
-                  offset: Offset(0.w, 2.h),
-                ),
-              ]
             : null,
       ),
       child: Text(
@@ -360,7 +211,7 @@ class _AchievementCardState extends State<AchievementCard>
           color: isUnlocked
               ? Color(widget.achievement.tier.colorValue)
               : (isDark
-                    ? AppTheme.darkTextColor.withValues(alpha: 0.6)
+                    ? AppTheme.darkTextColor.withValues(alpha: 0.9)
                     : AppTheme.lightTextSecondary),
         ),
       ),
@@ -461,9 +312,7 @@ class _AchievementCardState extends State<AchievementCard>
                   fontSize: 11.5.sp,
                   fontWeight: FontWeight.w500,
                   fontFamily: AppTheme.fontFamily,
-                  color: isDark
-                      ? AppTheme.darkTextColor.withValues(alpha: 0.7)
-                      : AppTheme.lightTextSecondary,
+                  color: context.textSecondary,
                 ),
                 textDirection: TextDirection.rtl,
                 maxLines: 1,
@@ -541,30 +390,10 @@ class _AchievementCardState extends State<AchievementCard>
               fontSize: 11.sp,
               fontWeight: FontWeight.w400,
               fontFamily: AppTheme.fontFamily,
-              color: isDark
-                  ? AppTheme.darkTextColor.withValues(alpha: 0.55)
-                  : AppTheme.lightTextSecondary.withValues(alpha: 0.75),
+              color: context.textSecondary,
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildShineEffect() {
-    return Positioned.fill(
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: 1),
-        duration: const Duration(milliseconds: 2000),
-        curve: Curves.easeInOut,
-        builder: (context, value, child) {
-          return CustomPaint(
-            painter: ShinePainter(
-              progress: value,
-              color: Color(widget.achievement.tier.colorValue),
-            ),
-          );
-        },
-      ),
     );
   }
 
@@ -586,45 +415,5 @@ class _AchievementCardState extends State<AchievementCard>
     } else {
       return 'همین الان';
     }
-  }
-}
-
-class ShinePainter extends CustomPainter {
-  ShinePainter({required this.progress, required this.color});
-  final double progress;
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (progress < 0.3 || progress > 0.7) return;
-
-    final paint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          color.withValues(alpha: 0),
-          color.withValues(alpha: 0.08),
-          color.withValues(alpha: 0),
-        ],
-        stops: const [0.0, 0.5, 1.0],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
-      ..style = PaintingStyle.fill;
-
-    final path = Path();
-    final offset = size.width * (progress - 0.3) * 2.5;
-
-    path.moveTo(offset - 50, 0);
-    path.lineTo(offset, 0);
-    path.lineTo(offset - 50, size.height);
-    path.lineTo(offset - 100, size.height);
-    path.close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(ShinePainter oldDelegate) {
-    return oldDelegate.progress != progress;
   }
 }

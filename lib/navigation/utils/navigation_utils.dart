@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
 
@@ -78,7 +78,7 @@ class NavigationUtils {
       NavigationConstants.mealLogRoute,
       NavigationConstants.foodListRoute,
       NavigationConstants.favoriteFoodsRoute,
-      NavigationConstants.profileRoute,
+      NavigationConstants.socialRoute,
     ];
     return validRoutes.contains(route);
   }
@@ -90,8 +90,8 @@ class NavigationUtils {
         return NavigationConstants.chatIndex;
       case NavigationConstants.dashboardRoute:
         return NavigationConstants.dashboardIndex;
-      case NavigationConstants.profileRoute:
-        return NavigationConstants.profileIndex;
+      case NavigationConstants.socialRoute:
+        return NavigationConstants.socialIndex;
       default:
         return null;
     }
@@ -104,8 +104,8 @@ class NavigationUtils {
         return NavigationConstants.chatRoute;
       case NavigationConstants.dashboardIndex:
         return NavigationConstants.dashboardRoute;
-      case NavigationConstants.profileIndex:
-        return NavigationConstants.profileRoute;
+      case NavigationConstants.socialIndex:
+        return NavigationConstants.socialRoute;
       default:
         return null;
     }

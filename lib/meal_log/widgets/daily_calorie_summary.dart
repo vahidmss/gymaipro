@@ -59,207 +59,213 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
         // استفاده از MediaQuery برای اندازه واقعی صفحه
         final mediaQuery = MediaQuery.of(context);
         final screenWidth = mediaQuery.size.width;
-        
+
         // محاسبه responsive padding بر اساس اندازه واقعی
         final containerPadding = screenWidth > 600
             ? (screenWidth * 0.03).clamp(16.0, 24.0)
             : (screenWidth * 0.032).clamp(12.0, 16.0);
-        
+
         // محاسبه responsive margin بر اساس اندازه واقعی
         final verticalMargin = screenWidth > 600 ? 12.0 : 8.0;
         final containerMargin = EdgeInsets.symmetric(
           horizontal: 0,
           vertical: verticalMargin,
         );
-        
+
         // محاسبه responsive border radius بر اساس اندازه واقعی
         final borderRadius = screenWidth > 600 ? 20.0 : 16.0;
-        
+
         return Container(
           margin: containerMargin,
           padding: EdgeInsets.all(containerPadding),
-      decoration: BoxDecoration(
-        gradient: isDark
-            ? null
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  context.goldGradientColors[0].withValues(alpha: 0.15),
-                  context.cardColor,
-                  context.goldGradientColors[1].withValues(alpha: 0.1),
-                ],
+          decoration: BoxDecoration(
+            gradient: isDark
+                ? null
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      context.goldGradientColors[0].withValues(alpha: 0.15),
+                      context.cardColor,
+                      context.goldGradientColors[1].withValues(alpha: 0.1),
+                    ],
+                  ),
+            color: isDark ? context.backgroundColor : null,
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: Border.all(
+              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.5),
+              width: 1.5.w,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.goldColor.withValues(
+                  alpha: isDark ? 0.15 : 0.35,
+                ),
+                blurRadius: 16.r,
+                offset: Offset(0.w, 6.h),
+                spreadRadius: 1.r,
               ),
-        color: isDark ? context.backgroundColor : null,
-        borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(
-          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.5),
-          width: 1.5.w,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.35),
-            blurRadius: 16.r,
-            offset: Offset(0.w, 6.h),
-            spreadRadius: 1.r,
+              BoxShadow(
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.5)
+                    : AppTheme.lightTextColor.withValues(alpha: 0.08),
+                blurRadius: 8.r,
+                offset: Offset(0.w, 2.h),
+              ),
+            ],
           ),
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.5)
-                : AppTheme.lightTextColor.withValues(alpha: 0.08),
-            blurRadius: 8.r,
-            offset: Offset(0.w, 2.h),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ردیف اول: کالری مجاز و باقیمانده در یک خط + دکمه تغییر نمایش
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        'کالری مجاز روزانه: ',
+              // ردیف اول: کالری مجاز و باقیمانده در یک خط + دکمه تغییر نمایش
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'کالری مجاز روزانه: ',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              color: context.textColor.withValues(alpha: 0.7),
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          dailyCalorieTarget.toStringAsFixed(0),
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            color: context.textColor,
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Text(
+                        'کالری باقیمانده: ',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           color: context.textColor.withValues(alpha: 0.7),
                           fontSize: 12.sp,
                           fontWeight: FontWeight.w500,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    Text(
-                      dailyCalorieTarget.toStringAsFixed(0),
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        color: context.textColor,
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.1,
+                      Text(
+                        remainingCalories.toStringAsFixed(0),
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: context.textColor,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.1,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              Row(
-                children: [
-                  Text(
-                    'کالری باقیمانده: ',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      color: context.textColor.withValues(alpha: 0.7),
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    ],
                   ),
-                  Text(
-                    remainingCalories.toStringAsFixed(0),
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      color: context.textColor,
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.1,
+                  SizedBox(width: 8.w),
+                  // دکمه تغییر نمایش
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _showChart = !_showChart;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8.r),
+                      child: Container(
+                        padding: EdgeInsets.all(6.w),
+                        decoration: BoxDecoration(
+                          color: AppTheme.goldColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8.r),
+                          border: Border.all(
+                            color: AppTheme.goldColor.withValues(alpha: 0.3),
+                            width: 1.w,
+                          ),
+                        ),
+                        child: Icon(
+                          _showChart
+                              ? LucideIcons.barChart3
+                              : LucideIcons.pieChart,
+                          color: AppTheme.goldColor,
+                          size: 18.sp,
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
-              SizedBox(width: 8.w),
-              // دکمه تغییر نمایش
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      _showChart = !_showChart;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(8.r),
-                  child: Container(
-                    padding: EdgeInsets.all(6.w),
-                    decoration: BoxDecoration(
-                      color: AppTheme.goldColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8.r),
-                      border: Border.all(
-                        color: AppTheme.goldColor.withValues(alpha: 0.3),
-                        width: 1.w,
-                      ),
-                    ),
-                    child: Icon(
-                      _showChart ? LucideIcons.barChart3 : LucideIcons.pieChart,
-                      color: AppTheme.goldColor,
+
+              SizedBox(height: 12.h),
+
+              // نمایش نمودار یا progress bar
+              if (_showChart)
+                _buildNutritionChart(
+                  consumedCalories,
+                  consumedProtein,
+                  consumedCarbs,
+                  consumedFat,
+                  isDark,
+                )
+              else
+                // Progress Bar با نشانگر
+                _buildProgressBar(
+                  progressPercentage,
+                  consumedCalories,
+                  dailyCalorieTarget,
+                  isDark,
+                ),
+
+              SizedBox(height: 8.h),
+
+              // فلش و بخش ماکرو
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isExpanded = !_isExpanded;
+                  });
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _isExpanded
+                          ? LucideIcons.chevronUp
+                          : LucideIcons.chevronDown,
+                      color: isDark ? AppTheme.goldColor : context.textColor,
                       size: 18.sp,
                     ),
-                  ),
+                  ],
                 ),
               ),
+
+              // بخش ماکرو و تیپس (قابل باز شدن)
+              if (_isExpanded) ...[
+                SizedBox(height: 8.h),
+                Divider(color: context.separatorColor, thickness: 1),
+                SizedBox(height: 8.h),
+                _buildMacroSection(
+                  context,
+                  consumedProtein,
+                  consumedCarbs,
+                  consumedFat,
+                  isDark,
+                ),
+                SizedBox(height: 8.h),
+                _buildTip(context, isDark),
+              ],
             ],
           ),
-
-          SizedBox(height: 12.h),
-
-          // نمایش نمودار یا progress bar
-          if (_showChart)
-            _buildNutritionChart(
-              consumedCalories,
-              consumedProtein,
-              consumedCarbs,
-              consumedFat,
-              isDark,
-            )
-          else
-            // Progress Bar با نشانگر
-            _buildProgressBar(
-              progressPercentage,
-              consumedCalories,
-              dailyCalorieTarget,
-              isDark,
-            ),
-
-          SizedBox(height: 8.h),
-
-          // فلش و بخش ماکرو
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _isExpanded = !_isExpanded;
-              });
-            },
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  _isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
-                  color: isDark ? AppTheme.goldColor : context.textColor,
-                  size: 18.sp,
-                ),
-              ],
-            ),
-          ),
-
-          // بخش ماکرو و تیپس (قابل باز شدن)
-          if (_isExpanded) ...[
-            SizedBox(height: 8.h),
-            Divider(color: context.separatorColor, thickness: 1),
-            SizedBox(height: 8.h),
-            _buildMacroSection(
-              context,
-              consumedProtein,
-              consumedCarbs,
-              consumedFat,
-              isDark,
-            ),
-            SizedBox(height: 8.h),
-            _buildTip(context, isDark),
-          ],
-        ],
-      ),
         );
       },
     );
@@ -613,24 +619,24 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
                     borderRadius: BorderRadius.circular(8.r),
                   ),
                 ),
-                // Progress fill (از راست)
+                // Progress fill (از چپ به راست)
                 Positioned(
                   top: 0,
-                  right: 0,
+                  left: 0,
                   child: Container(
                     height: 8.h,
                     width: progressWidth,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [AppTheme.goldColor, AppTheme.darkGold],
+                        colors: [AppTheme.darkGold, AppTheme.goldColor],
                       ),
                       borderRadius: BorderRadius.only(
-                        topRight: Radius.circular(8.r),
-                        bottomRight: Radius.circular(8.r),
-                        topLeft: clampedProgress < 1.0
+                        topLeft: Radius.circular(8.r),
+                        bottomLeft: Radius.circular(8.r),
+                        topRight: clampedProgress < 1.0
                             ? Radius.zero
                             : Radius.circular(8.r),
-                        bottomLeft: clampedProgress < 1.0
+                        bottomRight: clampedProgress < 1.0
                             ? Radius.zero
                             : Radius.circular(8.r),
                       ),
@@ -912,6 +918,7 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
                   MealLogUtils.convertToPersianNumbers(
                     '${consumed.toStringAsFixed(0)}/${target.toStringAsFixed(0)}',
                   ),
+                  textDirection: TextDirection.rtl,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     color: context.textColor,

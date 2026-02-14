@@ -167,6 +167,75 @@ class AdminService {
     }
   }
 
+  // ==================== مدیریت بلاک چت عمومی ====================
+
+  /// مسدود کردن کاربر در چت عمومی برای مدت مشخص (مثلاً 3 روز)
+  Future<bool> blockUserInPublicChat({
+    required String userId,
+    required Duration duration,
+    required String reason,
+  }) async {
+    try {
+      final admin = _supabase.auth.currentUser;
+      if (admin == null) return false;
+
+       // برای رعایت FK، باید id پروفایل ادمین را ذخیره کنیم، نه auth.uid
+       final adminProfile = await SimpleProfileService.getCurrentProfile();
+       final adminProfileId = adminProfile?['id'] as String?;
+
+      final blockedUntil = DateTime.now().toUtc().add(duration).toIso8601String();
+
+      await _supabase.from('profiles').update({
+        'public_chat_blocked_until': blockedUntil,
+        'public_chat_block_reason': reason,
+        'public_chat_block_created_at': DateTime.now().toUtc().toIso8601String(),
+        // اگر پروفایل پیدا نشد، مقدار را null می‌گذاریم تا FK نقض نشود
+        'public_chat_block_created_by': adminProfileId,
+      }).eq('id', userId);
+
+      return true;
+    } catch (e) {
+      debugPrint('AdminService.blockUserInPublicChat error: $e');
+      return false;
+    }
+  }
+
+  /// رفع بلاک چت عمومی
+  Future<bool> unblockUserInPublicChat(String userId) async {
+    try {
+      await _supabase.from('profiles').update({
+        'public_chat_blocked_until': null,
+        'public_chat_block_reason': null,
+        'public_chat_block_created_at': null,
+        'public_chat_block_created_by': null,
+      }).eq('id', userId);
+
+      return true;
+    } catch (e) {
+      debugPrint('AdminService.unblockUserInPublicChat error: $e');
+      return false;
+    }
+  }
+
+  /// دریافت لیست کاربران مسدود در چت عمومی
+  Future<List<Map<String, dynamic>>> getPublicChatBlockedUsers() async {
+    try {
+      final now = DateTime.now().toUtc().toIso8601String();
+      final response = await _supabase
+          .from('profiles')
+          .select(
+            'id, username, first_name, last_name, phone_number, role, public_chat_blocked_until, public_chat_block_reason, public_chat_block_created_at, public_chat_block_created_by',
+          )
+          .gt('public_chat_blocked_until', now)
+          .order('public_chat_blocked_until');
+
+      return response.cast<Map<String, dynamic>>();
+    } catch (e) {
+      debugPrint('AdminService.getPublicChatBlockedUsers error: $e');
+      return [];
+    }
+  }
+
   // ==================== مدیریت چت‌های خصوصی ====================
 
   /// دریافت تمام مکالمات خصوصی

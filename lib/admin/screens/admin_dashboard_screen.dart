@@ -16,6 +16,7 @@ import 'package:gymaipro/admin/screens/admin_commission_settings_screen.dart';
 import 'package:gymaipro/admin/screens/admin_payout_requests_screen.dart';
 import 'package:gymaipro/admin/screens/admin_broadcast_screen.dart';
 import 'package:gymaipro/admin/screens/admin_exercise_sync_screen.dart';
+import 'package:gymaipro/admin/screens/admin_public_chat_screen.dart';
 import 'package:gymaipro/admin/services/admin_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -39,7 +40,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 16, vsync: this);
+    // 17 تب: آمار، کاربران، برنامه‌ها، مربی-شاگرد، پرداخت‌ها،
+    // کیف پول، کد تخفیف، چت خصوصی، چت عمومی، عکس‌ها، گزارش مالی،
+    // تاریخچه کیف پول، مدارک مربی، تنظیمات کمیسیون، درخواست‌های برداشت،
+    // نوتیفیکیشن همگانی، Sync تمرین‌ها
+    _tabController = TabController(length: 17, vsync: this);
     _checkAdminStatus();
   }
 
@@ -159,6 +164,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             Tab(icon: Icon(LucideIcons.wallet), text: 'کیف پول'),
             Tab(icon: Icon(LucideIcons.ticket), text: 'کد تخفیف'),
             Tab(icon: Icon(LucideIcons.messageSquare), text: 'چت خصوصی'),
+            Tab(icon: Icon(LucideIcons.messageCircle), text: 'چت عمومی'),
             Tab(icon: Icon(LucideIcons.image), text: 'عکس‌ها'),
             Tab(icon: Icon(LucideIcons.trendingUp), text: 'گزارش مالی'),
             Tab(icon: Icon(LucideIcons.history), text: 'تاریخچه کیف پول'),
@@ -181,6 +187,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           AdminWalletsScreen(),
           AdminDiscountCodesScreen(),
           AdminChatManagementScreen(),
+          AdminPublicChatScreen(),
           AdminImagesScreen(),
           AdminFinancialScreen(),
           AdminWalletActionsScreen(),

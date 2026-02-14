@@ -7,10 +7,20 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 
 class ArticleCard extends StatelessWidget {
-  const ArticleCard({required this.article, this.stats, super.key});
+  const ArticleCard({
+    required this.article,
+    this.stats,
+    this.isRead = false,
+    this.readCount = 0,
+    this.onTap,
+    super.key,
+  });
 
   final Article article;
   final ArticleStats? stats;
+  final bool isRead;
+  final int readCount;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -20,8 +30,14 @@ class ArticleCard extends StatelessWidget {
     final ratingCount = stats?.ratingCount ?? 0;
 
     return InkWell(
-      onTap: () =>
-          Navigator.pushNamed(context, '/article-detail', arguments: article),
+      onTap:
+          onTap ??
+          () => Navigator.pushNamed(
+            context,
+            '/article-detail',
+            arguments: article,
+          ),
+      borderRadius: BorderRadius.circular(20.r),
       child: Container(
         margin: EdgeInsets.only(bottom: 12.h),
         decoration: BoxDecoration(
@@ -123,6 +139,90 @@ class ArticleCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                    // Badge for read status
+                    if (isRead)
+                      Positioned(
+                        top: 8.h,
+                        right: 8.w,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8.w,
+                            vertical: 5.h,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppTheme.goldColor.withValues(alpha: 0.9),
+                                AppTheme.goldColor,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.goldColor.withValues(
+                                  alpha: 0.4,
+                                ),
+                                blurRadius: 6.r,
+                                offset: Offset(0, 2.h),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                LucideIcons.checkCircle2,
+                                size: 14.sp,
+                                color: Colors.black,
+                              ),
+                              SizedBox(width: 4.w),
+                              Text(
+                                'مطالعه شده',
+                                style: AppTheme.bodyStyle.copyWith(
+                                  fontSize: 10.sp,
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    // Read count badge
+                    if (readCount > 0)
+                      Positioned(
+                        bottom: 8.h,
+                        left: 8.w,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8.w,
+                            vertical: 5.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(10.r),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                LucideIcons.eye,
+                                size: 12.sp,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: 4.w),
+                              Text(
+                                _formatCount(readCount),
+                                style: AppTheme.bodyStyle.copyWith(
+                                  fontSize: 10.sp,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -180,89 +280,150 @@ class ArticleCard extends StatelessWidget {
     required DateTime date,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return DecoratedBox(
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
       decoration: BoxDecoration(
-        color: isDark
-            ? context.cardColor.withValues(alpha: 0.8)
-            : Colors.white.withValues(alpha: 0.9),
+        gradient: isDark
+            ? null
+            : LinearGradient(
+                colors: [
+                  AppTheme.goldColor.withValues(alpha: 0.08),
+                  Colors.transparent,
+                ],
+              ),
+        color: isDark ? context.cardColor.withValues(alpha: 0.6) : null,
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: isDark
-              ? context.separatorColor
-              : AppTheme.goldColor.withValues(alpha: 0.2),
-          width: 1.w,
+          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.25 : 0.3),
+          width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.2)
-                : AppTheme.goldColor.withValues(alpha: 0.1),
-            blurRadius: 4.r,
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.1 : 0.12),
+            blurRadius: 6.r,
             offset: Offset(0, 2.h),
           ),
         ],
       ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-        child: Row(
-          children: [
-            Icon(LucideIcons.calendar, size: 14.sp, color: AppTheme.goldColor),
-            SizedBox(width: 6.w),
-            Flexible(
-              child: Text(
-                _formatJalali(date),
-                style: AppTheme.bodyStyle.copyWith(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w600,
-                  color: context.textColor,
-                  fontFamily: AppTheme.fontFamily,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+      child: Row(
+        children: [
+          // Date - always shown
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppTheme.goldColor.withValues(alpha: 0.2)
+                  : AppTheme.goldColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(
+                color: AppTheme.goldColor.withValues(alpha: 0.4),
+                width: 1,
               ),
             ),
-            SizedBox(width: 8.w),
-            Icon(LucideIcons.heart, size: 14.sp, color: Colors.pinkAccent),
-            SizedBox(width: 4.w),
-            Flexible(
-              child: Text(
-                '$likeCount',
-                style: AppTheme.bodyStyle.copyWith(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w600,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  LucideIcons.calendar,
+                  size: 13.sp,
                   color: context.textColor,
-                  fontFamily: AppTheme.fontFamily,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                SizedBox(width: 5.w),
+                Text(
+                  _formatJalali(date),
+                  style: AppTheme.bodyStyle.copyWith(
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w800,
+                    color: context.textColor,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 8.w),
+          // Like count
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.pinkAccent.withValues(alpha: 0.2)
+                  : Colors.pinkAccent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(
+                color: Colors.pinkAccent.withValues(alpha: 0.4),
+                width: 1,
               ),
             ),
-            SizedBox(width: 8.w),
-            Icon(LucideIcons.star, size: 14.sp, color: AppTheme.goldColor),
-            SizedBox(width: 4.w),
-            Flexible(
-              child: Text(
-                '${avgRating.toStringAsFixed(1)} ($ratingCount)',
-                style: AppTheme.bodyStyle.copyWith(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w600,
-                  color: context.textColor,
-                  fontFamily: AppTheme.fontFamily,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(LucideIcons.heart, size: 13.sp, color: context.textColor),
+                SizedBox(width: 5.w),
+                Text(
+                  _formatCount(likeCount),
+                  style: AppTheme.bodyStyle.copyWith(
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w800,
+                    color: context.textColor,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              ],
+            ),
+          ),
+          SizedBox(width: 8.w),
+          // Rating
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppTheme.goldColor.withValues(alpha: 0.2)
+                  : AppTheme.goldColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8.r),
+              border: Border.all(
+                color: AppTheme.goldColor.withValues(alpha: 0.4),
+                width: 1,
               ),
             ),
-            SizedBox(width: 4.w),
-            Icon(
-              LucideIcons.chevronLeft,
-              size: 18.sp,
-              color: context.textSecondary,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(LucideIcons.star, size: 13.sp, color: context.textColor),
+                SizedBox(width: 5.w),
+                Text(
+                  ratingCount > 0
+                      ? '${avgRating.toStringAsFixed(1)} (${_formatCount(ratingCount)})'
+                      : '0',
+                  style: AppTheme.bodyStyle.copyWith(
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w800,
+                    color: context.textColor,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const Spacer(),
+          Icon(
+            LucideIcons.chevronLeft,
+            size: 16.sp,
+            color: context.textSecondary,
+          ),
+        ],
       ),
     );
+  }
+
+  String _formatCount(int count) {
+    if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}K';
+    }
+    return count.toString();
   }
 
   String _formatJalali(DateTime dt) {

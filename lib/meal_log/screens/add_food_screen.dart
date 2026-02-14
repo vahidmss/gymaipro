@@ -136,12 +136,8 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
       barrierColor: isDark
           ? Colors.black.withValues(alpha: 0.7)
           : AppTheme.lightTextColor.withValues(alpha: 0.5),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: _AmountInputDialog(food: food, mealTitle: _selectedMealTitle),
-      ),
+      builder: (context) =>
+          _AmountInputDialog(food: food, mealTitle: _selectedMealTitle),
     );
     if (result != null && mounted) {
       Navigator.of(context).pop(result);
@@ -194,7 +190,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
 
   Widget _buildHeader(bool isDark) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
@@ -207,24 +203,24 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
       ),
       child: Row(
         children: [
-          // Close button
           IconButton(
             icon: Icon(
               LucideIcons.chevronDown,
               color: isDark ? AppTheme.goldColor : context.textColor,
-              size: 24.sp,
+              size: 20.sp,
             ),
             onPressed: () => Navigator.of(context).pop(),
+            padding: EdgeInsets.zero,
+            constraints: BoxConstraints(minWidth: 36.w, minHeight: 36.h),
           ),
-          SizedBox(width: 12.w),
-          // Title
+          SizedBox(width: 8.w),
           Expanded(
             child: Text(
               'افزودن ${_selectedMealTitle}',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: isDark ? AppTheme.goldColor : context.textColor,
-                fontSize: 16.sp,
+                fontSize: 14.sp,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -236,7 +232,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
 
   Widget _buildSearchBar(bool isDark) {
     return Container(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
       child: TextField(
         onChanged: (value) {
           setState(() {
@@ -251,18 +247,19 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                 ? AppTheme.goldColor.withValues(alpha: 0.5)
                 : context.textColor.withValues(alpha: 0.5),
             fontFamily: AppTheme.fontFamily,
+            fontSize: 12.sp,
           ),
           prefixIcon: Icon(
             LucideIcons.search,
             color: AppTheme.goldColor,
-            size: 20.sp,
+            size: 18.sp,
           ),
           filled: true,
           fillColor: isDark
               ? AppTheme.darkCardColor
               : context.cardColor.withValues(alpha: 0.5),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
+            borderRadius: BorderRadius.circular(10.r),
             borderSide: BorderSide(
               color: isDark
                   ? AppTheme.darkGreySeparator
@@ -270,7 +267,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
             ),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
+            borderRadius: BorderRadius.circular(10.r),
             borderSide: BorderSide(
               color: isDark
                   ? AppTheme.darkGreySeparator
@@ -278,18 +275,15 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
             ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            borderSide: BorderSide(color: AppTheme.goldColor, width: 1.5.w),
+            borderRadius: BorderRadius.circular(10.r),
+            borderSide: BorderSide(color: AppTheme.goldColor, width: 1.2.w),
           ),
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: 12.w,
-            vertical: 12.h,
-          ),
+          contentPadding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
         ),
         style: TextStyle(
           color: isDark ? AppTheme.goldColor : context.textColor,
           fontFamily: AppTheme.fontFamily,
-          fontSize: 14.sp,
+          fontSize: 12.sp,
         ),
       ),
     );
@@ -297,11 +291,11 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
 
   Widget _buildFilterTabs(bool isDark) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      padding: EdgeInsets.symmetric(horizontal: 12.w),
       child: Row(
         children: [
           _buildFilterTab('همه', isDark),
-          SizedBox(width: 12.w),
+          SizedBox(width: 8.w),
           _buildFilterTab('مورد علاقه', isDark),
         ],
       ),
@@ -319,19 +313,19 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
           _filterFoods();
         },
         child: Container(
-          padding: EdgeInsets.symmetric(vertical: 10.h),
+          padding: EdgeInsets.symmetric(vertical: 8.h),
           decoration: BoxDecoration(
             color: isSelected
                 ? AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.15)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(12.r),
+            borderRadius: BorderRadius.circular(10.r),
             border: Border.all(
               color: isSelected
                   ? AppTheme.goldColor
                   : (isDark
                         ? AppTheme.darkGreySeparator
                         : AppTheme.lightDividerColor),
-              width: isSelected ? 1.5.w : 1.w,
+              width: isSelected ? 1.2.w : 1.w,
             ),
           ),
           child: Text(
@@ -344,7 +338,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                   : (isDark
                         ? AppTheme.goldColor.withValues(alpha: 0.7)
                         : context.textColor.withValues(alpha: 0.7)),
-              fontSize: 14.sp,
+              fontSize: 12.sp,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
             ),
           ),
@@ -363,14 +357,14 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
             color: isDark
                 ? AppTheme.goldColor.withValues(alpha: 0.7)
                 : context.textColor.withValues(alpha: 0.7),
-            fontSize: 14.sp,
+            fontSize: 12.sp,
           ),
         ),
       );
     }
 
     return ListView.builder(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.fromLTRB(10.w, 4.h, 10.w, 12.h),
       itemCount: _filteredFoods.length,
       itemBuilder: (context, index) {
         final food = _filteredFoods[index];
@@ -396,7 +390,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
               color: isDark
                   ? AppTheme.goldColor.withValues(alpha: 0.7)
                   : context.textColor.withValues(alpha: 0.7),
-              fontSize: 14.sp,
+              fontSize: 12.sp,
             ),
           ),
         ),
@@ -404,7 +398,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
     }
 
     return SliverPadding(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.fromLTRB(10.w, 2.h, 10.w, 12.h),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate((context, index) {
           final food = _filteredFoods[index];
@@ -422,10 +416,10 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
   Widget _buildFoodItem(Food food, bool isFavorite, bool isDark, {Key? key}) {
     return Container(
       key: key,
-      margin: EdgeInsets.only(bottom: 12.h),
+      margin: EdgeInsets.only(bottom: 8.h),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCardColor : context.cardColor,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(10.r),
         border: Border.all(
           color: isDark
               ? AppTheme.darkGreySeparator
@@ -437,62 +431,42 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () => _showAmountDialog(food),
-          borderRadius: BorderRadius.circular(12.r),
+          borderRadius: BorderRadius.circular(10.r),
           child: Padding(
-            padding: EdgeInsets.all(12.w),
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
             child: Row(
               children: [
-                // Food image
-                if (food.imageUrl.isNotEmpty)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8.r),
-                    child: Image.network(
-                      food.imageUrl,
-                      width: 50.w,
-                      height: 50.h,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 50.w,
-                        height: 50.h,
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? AppTheme.darkGreySeparator
-                              : AppTheme.lightDividerColor,
-                          borderRadius: BorderRadius.circular(8.r),
-                        ),
-                        child: Icon(
-                          LucideIcons.imageOff,
-                          color: isDark
-                              ? AppTheme.goldColor.withValues(alpha: 0.5)
-                              : context.textColor.withValues(alpha: 0.5),
-                          size: 24.sp,
-                        ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6.r),
+                  child: Image.asset(
+                    'images/gymaifoodplaceholder.png',
+                    width: 40.w,
+                    height: 40.h,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 40.w,
+                      height: 40.h,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? AppTheme.darkGreySeparator
+                            : AppTheme.lightDividerColor,
+                        borderRadius: BorderRadius.circular(6.r),
+                      ),
+                      child: Icon(
+                        LucideIcons.imageOff,
+                        color: isDark
+                            ? AppTheme.goldColor.withValues(alpha: 0.5)
+                            : context.textColor.withValues(alpha: 0.5),
+                        size: 18.sp,
                       ),
                     ),
-                  )
-                else
-                  Container(
-                    width: 50.w,
-                    height: 50.h,
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? AppTheme.darkGreySeparator
-                          : AppTheme.lightDividerColor,
-                      borderRadius: BorderRadius.circular(8.r),
-                    ),
-                    child: Icon(
-                      LucideIcons.imageOff,
-                      color: isDark
-                          ? AppTheme.goldColor.withValues(alpha: 0.5)
-                          : context.textColor.withValues(alpha: 0.5),
-                      size: 24.sp,
-                    ),
                   ),
-                SizedBox(width: 12.w),
-                // Food title
+                ),
+                SizedBox(width: 10.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         food.title,
@@ -501,13 +475,13 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                           color: isDark
                               ? AppTheme.goldColor
                               : context.textColor,
-                          fontSize: 14.sp,
+                          fontSize: 12.sp,
                           fontWeight: FontWeight.w600,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: 4.h),
+                      SizedBox(height: 2.h),
                       Text(
                         '${food.nutrition.calories} کالری',
                         style: TextStyle(
@@ -515,14 +489,13 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                           color: isDark
                               ? AppTheme.goldColor.withValues(alpha: 0.7)
                               : context.textColor.withValues(alpha: 0.7),
-                          fontSize: 12.sp,
+                          fontSize: 10.sp,
                         ),
                       ),
                     ],
                   ),
                 ),
-                SizedBox(width: 8.w),
-                // Favorite button
+                SizedBox(width: 4.w),
                 IconButton(
                   icon: Icon(
                     isFavorite ? LucideIcons.heart : LucideIcons.heartOff,
@@ -531,11 +504,11 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                         : (isDark
                               ? AppTheme.goldColor.withValues(alpha: 0.5)
                               : context.textColor.withValues(alpha: 0.5)),
-                    size: 22.sp,
+                    size: 18.sp,
                   ),
                   onPressed: () => _toggleFavorite(food),
                   padding: EdgeInsets.zero,
-                  constraints: BoxConstraints(),
+                  constraints: BoxConstraints(minWidth: 32.w, minHeight: 32.h),
                 ),
               ],
             ),
@@ -557,24 +530,55 @@ class _AmountInputDialog extends StatefulWidget {
 }
 
 class _AmountInputDialogState extends State<_AmountInputDialog> {
-  String? _selectedUnit = 'گرم';
-  double? _amount;
-  final TextEditingController _amountController = TextEditingController();
+  String _selectedUnit = 'گرم';
+  String _amountStr = '';
+  final FocusNode _focusNode = FocusNode();
 
-  double _parse(String s) =>
-      double.tryParse(s.trim().replaceAll(',', '.')) ?? 0;
+  double? get _parsed {
+    final v = _amountStr.trim().replaceAll(',', '.');
+    if (v.isEmpty) return null;
+    return double.tryParse(v);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      FocusManager.instance.primaryFocus?.unfocus();
+      FocusScope.of(context).requestFocus(_focusNode);
+    });
+  }
 
   @override
   void dispose() {
-    _amountController.dispose();
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  void _onKey(String key) {
+    setState(() {
+      if (key == '⌫') {
+        if (_amountStr.isNotEmpty)
+          _amountStr = _amountStr.substring(0, _amountStr.length - 1);
+        return;
+      }
+      if (key == '.') {
+        if (!_amountStr.contains('.')) _amountStr += '.';
+        return;
+      }
+      if (_amountStr == '0' && key != '.')
+        _amountStr = key;
+      else
+        _amountStr += key;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenHeight = MediaQuery.of(context).size.height;
-    final dialogHeight = screenHeight * 0.5;
+    final dialogHeight = screenHeight * 0.70;
 
     final nutrition = widget.food.nutrition;
 
@@ -585,18 +589,17 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
         decoration: BoxDecoration(
           color: isDark ? context.backgroundColor : context.cardColor,
           borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(24.r),
-            topRight: Radius.circular(24.r),
+            topLeft: Radius.circular(18.r),
+            topRight: Radius.circular(18.r),
           ),
         ),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.all(12.w),
+        child: Padding(
+          padding: EdgeInsets.all(8.w),
+          child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 Row(
                   children: [
                     Expanded(
@@ -607,7 +610,7 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
                           color: isDark
                               ? AppTheme.goldColor
                               : context.textColor,
-                          fontSize: 15.sp,
+                          fontSize: 12.sp,
                           fontWeight: FontWeight.w700,
                         ),
                         maxLines: 1,
@@ -618,54 +621,54 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
                       icon: Icon(
                         LucideIcons.x,
                         color: isDark ? AppTheme.goldColor : context.textColor,
-                        size: 20.sp,
+                        size: 16.sp,
                       ),
                       padding: EdgeInsets.zero,
-                      constraints: BoxConstraints(),
+                      constraints: BoxConstraints(
+                        minWidth: 28.w,
+                        minHeight: 28.h,
+                      ),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
                 ),
-                SizedBox(height: 8.h),
-                // Food image
-                if (widget.food.imageUrl.isNotEmpty)
-                  Center(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12.r),
-                      child: Image.network(
-                        widget.food.imageUrl,
-                        width: 80.w,
-                        height: 80.h,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          width: 80.w,
-                          height: 80.h,
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppTheme.darkGreySeparator
-                                : AppTheme.lightDividerColor,
-                            borderRadius: BorderRadius.circular(12.r),
-                          ),
-                          child: Icon(
-                            LucideIcons.imageOff,
-                            color: isDark
-                                ? AppTheme.goldColor.withValues(alpha: 0.5)
-                                : context.textColor.withValues(alpha: 0.5),
-                            size: 30.sp,
-                          ),
+                SizedBox(height: 4.h),
+                Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6.r),
+                    child: Image.asset(
+                      'images/gymaifoodplaceholder.png',
+                      width: 40.w,
+                      height: 40.h,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 40.w,
+                        height: 40.h,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppTheme.darkGreySeparator
+                              : AppTheme.lightDividerColor,
+                          borderRadius: BorderRadius.circular(6.r),
+                        ),
+                        child: Icon(
+                          LucideIcons.imageOff,
+                          color: isDark
+                              ? AppTheme.goldColor.withValues(alpha: 0.5)
+                              : context.textColor.withValues(alpha: 0.5),
+                          size: 18.sp,
                         ),
                       ),
                     ),
                   ),
-                if (widget.food.imageUrl.isNotEmpty) SizedBox(height: 8.h),
-                // Nutrition info (per 100g)
+                ),
+                SizedBox(height: 4.h),
                 Container(
-                  padding: EdgeInsets.all(8.w),
+                  padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 4.h),
                   decoration: BoxDecoration(
                     color: isDark
                         ? AppTheme.darkCardColor
                         : context.cardColor.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(10.r),
+                    borderRadius: BorderRadius.circular(6.r),
                     border: Border.all(
                       color: isDark
                           ? AppTheme.darkGreySeparator
@@ -674,6 +677,7 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'اطلاعات تغذیه‌ای (۱۰۰ گرم)',
@@ -682,11 +686,11 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
                           color: isDark
                               ? AppTheme.goldColor
                               : context.textColor,
-                          fontSize: 11.sp,
+                          fontSize: 9.sp,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      SizedBox(height: 6.h),
+                      SizedBox(height: 3.h),
                       Row(
                         children: [
                           Expanded(
@@ -698,7 +702,7 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
                               isDark,
                             ),
                           ),
-                          SizedBox(width: 6.w),
+                          SizedBox(width: 4.w),
                           Expanded(
                             child: _buildNutritionItem(
                               context,
@@ -710,7 +714,7 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 6.h),
+                      SizedBox(height: 3.h),
                       Row(
                         children: [
                           Expanded(
@@ -722,7 +726,7 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
                               isDark,
                             ),
                           ),
-                          SizedBox(width: 6.w),
+                          SizedBox(width: 4.w),
                           Expanded(
                             child: _buildNutritionItem(
                               context,
@@ -737,149 +741,82 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
                     ],
                   ),
                 ),
-                SizedBox(height: 10.h),
-                // Unit and amount inputs
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedUnit,
-                        decoration: InputDecoration(
-                          labelText: 'واحد',
-                          labelStyle: TextStyle(
-                            color: isDark
-                                ? AppTheme.goldColor.withValues(alpha: 0.7)
-                                : context.textColor.withValues(alpha: 0.7),
-                            fontFamily: AppTheme.fontFamily,
-                            fontSize: 12.sp,
-                          ),
-                          filled: true,
-                          fillColor: isDark
-                              ? AppTheme.darkCardColor
-                              : context.cardColor.withValues(alpha: 0.5),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.r),
-                            borderSide: BorderSide(
-                              color: isDark
-                                  ? AppTheme.darkGreySeparator
-                                  : AppTheme.lightDividerColor,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.r),
-                            borderSide: BorderSide(
-                              color: isDark
-                                  ? AppTheme.darkGreySeparator
-                                  : AppTheme.lightDividerColor,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.r),
-                            borderSide: BorderSide(
-                              color: AppTheme.goldColor,
-                              width: 1.5.w,
-                            ),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 10.w,
-                            vertical: 10.h,
-                          ),
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'گرم', child: Text('گرم')),
-                          DropdownMenuItem(value: 'عدد', child: Text('عدد')),
+                SizedBox(height: 6.h),
+                Focus(
+                  focusNode: _focusNode,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _unitChip(context, isDark, 'گرم'),
+                          SizedBox(width: 10.w),
+                          _unitChip(context, isDark, 'عدد'),
                         ],
-                        onChanged: (v) => setState(() => _selectedUnit = v),
-                        dropdownColor: isDark
-                            ? AppTheme.darkCardColor
-                            : context.cardColor,
-                        style: TextStyle(
-                          color: isDark
-                              ? AppTheme.goldColor
-                              : context.textColor,
-                          fontFamily: AppTheme.fontFamily,
-                          fontSize: 13.sp,
-                        ),
                       ),
-                    ),
-                    SizedBox(width: 8.w),
-                    Expanded(
-                      child: TextField(
-                        controller: _amountController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'مقدار',
-                          labelStyle: TextStyle(
-                            color: isDark
-                                ? AppTheme.goldColor.withValues(alpha: 0.7)
-                                : context.textColor.withValues(alpha: 0.7),
-                            fontFamily: AppTheme.fontFamily,
-                            fontSize: 12.sp,
-                          ),
-                          prefixIcon: Icon(
-                            LucideIcons.scale,
-                            color: AppTheme.goldColor,
-                            size: 16.sp,
-                          ),
-                          filled: true,
-                          fillColor: isDark
+                      SizedBox(height: 6.h),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10.w,
+                          vertical: 8.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
                               ? AppTheme.darkCardColor
                               : context.cardColor.withValues(alpha: 0.5),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.r),
-                            borderSide: BorderSide(
-                              color: isDark
-                                  ? AppTheme.darkGreySeparator
-                                  : AppTheme.lightDividerColor,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.r),
-                            borderSide: BorderSide(
-                              color: isDark
-                                  ? AppTheme.darkGreySeparator
-                                  : AppTheme.lightDividerColor,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.r),
-                            borderSide: BorderSide(
-                              color: AppTheme.goldColor,
-                              width: 1.5.w,
-                            ),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 10.w,
-                            vertical: 10.h,
+                          borderRadius: BorderRadius.circular(8.r),
+                          border: Border.all(
+                            color: isDark
+                                ? AppTheme.darkGreySeparator
+                                : AppTheme.lightDividerColor,
                           ),
                         ),
-                        style: TextStyle(
-                          color: isDark
-                              ? AppTheme.goldColor
-                              : context.textColor,
-                          fontFamily: AppTheme.fontFamily,
-                          fontSize: 13.sp,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _amountStr.isEmpty ? '0' : _amountStr,
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                color: isDark
+                                    ? AppTheme.goldColor
+                                    : context.textColor,
+                                fontSize: 18.sp,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(width: 6.w),
+                            Text(
+                              _selectedUnit,
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                color:
+                                    (isDark
+                                            ? AppTheme.goldColor
+                                            : context.textColor)
+                                        .withValues(alpha: 0.8),
+                                fontSize: 12.sp,
+                              ),
+                            ),
+                          ],
                         ),
-                        onChanged: (v) {
-                          setState(() {
-                            _amount = _parse(v);
-                          });
-                        },
                       ),
-                    ),
-                  ],
+                      SizedBox(height: 8.h),
+                      _buildInlineKeypad(context, isDark),
+                    ],
+                  ),
                 ),
-                SizedBox(height: 16.h),
-                // Add button
+                SizedBox(height: 8.h),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: (_selectedUnit != null && (_amount ?? 0) > 0)
+                    onPressed: (_parsed != null && _parsed! > 0)
                         ? () {
                             Navigator.of(context).pop({
                               'food': widget.food,
-                              'amount': _amount!,
-                              'unit': _selectedUnit!,
+                              'amount': _parsed!,
+                              'unit': _selectedUnit,
                               'mealTitle': widget.mealTitle,
                             });
                           }
@@ -887,16 +824,17 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.goldColor,
                       foregroundColor: Colors.black,
-                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                      padding: EdgeInsets.symmetric(vertical: 8.h),
+                      minimumSize: Size(0, 40.h),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10.r),
+                        borderRadius: BorderRadius.circular(8.r),
                       ),
                     ),
                     child: Text(
                       'افزودن',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 14.sp,
+                        fontSize: 11.sp,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -910,6 +848,99 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
     );
   }
 
+  Widget _unitChip(BuildContext context, bool isDark, String unit) {
+    final selected = _selectedUnit == unit;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedUnit = unit),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppTheme.goldColor.withValues(alpha: isDark ? 0.25 : 0.2)
+              : (isDark ? AppTheme.darkCardColor : context.cardColor),
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(
+            color: selected
+                ? AppTheme.goldColor
+                : (isDark
+                      ? AppTheme.darkGreySeparator
+                      : AppTheme.lightDividerColor),
+          ),
+        ),
+        child: Text(
+          unit,
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            color: selected
+                ? AppTheme.goldColor
+                : context.textColor.withValues(alpha: 0.8),
+            fontSize: 12.sp,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  static const List<List<String>> _keypadRows = [
+    ['1', '2', '3'],
+    ['4', '5', '6'],
+    ['7', '8', '9'],
+    ['.', '0', '⌫'],
+  ];
+
+  Widget _buildInlineKeypad(BuildContext context, bool isDark) {
+    final textColor = isDark ? AppTheme.goldColor : context.textColor;
+    final surface = isDark ? AppTheme.darkCardColor : context.cardColor;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ..._keypadRows.map(
+          (row) => Padding(
+            padding: EdgeInsets.only(bottom: 6.h),
+            child: Row(
+              children: row.map((key) {
+                final isBack = key == '⌫';
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 3.w),
+                    child: Material(
+                      color: surface,
+                      borderRadius: BorderRadius.circular(8.r),
+                      child: InkWell(
+                        onTap: () => _onKey(key),
+                        borderRadius: BorderRadius.circular(8.r),
+                        child: Container(
+                          height: 40.h,
+                          alignment: Alignment.center,
+                          child: isBack
+                              ? Icon(
+                                  Icons.backspace_outlined,
+                                  size: 18.sp,
+                                  color: textColor.withValues(alpha: 0.8),
+                                )
+                              : Text(
+                                  key,
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
+                                    color: textColor,
+                                    fontSize: 16.sp,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildNutritionItem(
     BuildContext context,
     String label,
@@ -918,13 +949,14 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
     bool isDark,
   ) {
     return Container(
-      padding: EdgeInsets.all(6.w),
+      padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 4.h),
       decoration: BoxDecoration(
         color: color.withValues(alpha: isDark ? 0.1 : 0.08),
-        borderRadius: BorderRadius.circular(6.r),
+        borderRadius: BorderRadius.circular(5.r),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
@@ -933,17 +965,17 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
               color: isDark
                   ? color.withValues(alpha: 0.8)
                   : context.textColor.withValues(alpha: 0.7),
-              fontSize: 9.sp,
+              fontSize: 8.sp,
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: 2.h),
+          SizedBox(height: 1.h),
           Text(
             value,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               color: isDark ? color : context.textColor,
-              fontSize: 11.sp,
+              fontSize: 10.sp,
               fontWeight: FontWeight.w700,
             ),
           ),

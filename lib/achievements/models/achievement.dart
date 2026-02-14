@@ -194,7 +194,8 @@ extension AchievementTierExtension on AchievementTier {
       case AchievementTier.gold:
         return 0xFFFFD700;
       case AchievementTier.platinum:
-        return 0xFFE5E4E2;
+        // کمی تیره‌تر برای خوانایی بهتر متن روی پس‌زمینه‌های روشن
+        return 0xFFB0B0B5;
       case AchievementTier.diamond:
         return 0xFFB9F2FF;
     }

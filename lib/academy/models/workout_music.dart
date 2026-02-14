@@ -1,3 +1,5 @@
+import 'package:gymaipro/utils/json_parse_utils.dart';
+
 class WorkoutMusic {
   WorkoutMusic({
     required this.id,
@@ -39,27 +41,23 @@ class WorkoutMusic {
 
   static WorkoutMusic fromJson(Map<String, dynamic> json) {
     return WorkoutMusic(
-      id: json['id'] as int,
-      title: json['title'] as String,
-      artist: json['artist'] as String,
-      audioUrl: json['audio_url'] as String,
-      coverImageUrl: json['cover_image_url'] as String,
-      duration: json['duration'] as int,
-      category: json['category'] as String?,
-      description: json['description'] as String?,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
-          : null,
-      createdBy: json['created_by'] as String?,
-      author: json['author'] as String?,
-      visibility: json['visibility'] as String? ?? 'public',
-      tags: json['tags'] != null
-          ? List<String>.from(json['tags'] as List)
-          : [],
-      approved: json['approved'] as bool? ?? true,
-      isCustom: json['is_custom'] as bool? ?? true,
-      likes: json['likes'] as int? ?? 0,
-      isLikedByUser: json['is_liked_by_user'] as bool? ?? false,
+      id: JsonParse.integer(json, 'id'),
+      title: JsonParse.string(json, 'title'),
+      artist: JsonParse.string(json, 'artist'),
+      audioUrl: JsonParse.string(json, 'audio_url'),
+      coverImageUrl: JsonParse.string(json, 'cover_image_url'),
+      duration: JsonParse.integer(json, 'duration'),
+      category: JsonParse.stringOrNull(json, 'category'),
+      description: JsonParse.stringOrNull(json, 'description'),
+      createdAt: JsonParse.dateTimeOrNull(json, 'created_at'),
+      createdBy: JsonParse.stringOrNull(json, 'created_by'),
+      author: JsonParse.stringOrNull(json, 'author'),
+      visibility: JsonParse.string(json, 'visibility', 'public'),
+      tags: JsonParse.listOfStrings(json, 'tags'),
+      approved: JsonParse.boolean(json, 'approved', true),
+      isCustom: JsonParse.boolean(json, 'is_custom', true),
+      likes: JsonParse.integer(json, 'likes'),
+      isLikedByUser: JsonParse.boolean(json, 'is_liked_by_user', false),
     );
   }
 

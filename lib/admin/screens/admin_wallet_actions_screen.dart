@@ -95,17 +95,27 @@ class _AdminWalletActionsScreenState extends State<AdminWalletActionsScreen> {
           child: Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: DropdownButtonFormField<String?>(
                   value: _selectedActionType,
                   decoration: InputDecoration(
                     labelText: 'نوع عملیات',
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                   ),
-                  items: [
-                    DropdownMenuItem(value: null, child: Text('همه')),
-                    DropdownMenuItem(value: 'charge', child: Text('شارژ')),
-                    DropdownMenuItem(value: 'adjustment', child: Text('اصلاح')),
+                  items: const [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('همه'),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'charge',
+                      child: Text('شارژ'),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'adjustment',
+                      child: Text('اصلاح'),
+                    ),
                   ],
                   onChanged: (value) {
                     setState(() => _selectedActionType = value);

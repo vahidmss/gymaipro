@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/auth/screens/login_otp_verification_screen.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
+import 'package:gymaipro/auth/utils/phone_utils.dart';
+import 'package:gymaipro/auth/widgets/auth_gradient_background.dart';
 import 'package:gymaipro/services/otp_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
@@ -113,24 +115,6 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  // Normalize phone number format
-  String _normalizePhoneNumber(String phoneNumber) {
-    String normalized = phoneNumber.replaceAll(RegExp(r'\s+'), '');
-    normalized = normalized.replaceAll(RegExp(r'[^\d]'), '');
-    if (normalized.startsWith('+98')) {
-      normalized = '0${normalized.substring(3)}';
-    } else if (normalized.startsWith('98')) {
-      normalized = '0${normalized.substring(2)}';
-    } else if (!normalized.startsWith('0')) {
-      normalized = '0$normalized';
-    }
-    return normalized;
-  }
-
-  bool _isValidIranianPhoneNumber(String phone) {
-    final RegExp phoneRegex = RegExp(r'^09[0-9]{9}$');
-    return phoneRegex.hasMatch(phone);
-  }
 
   Future<void> _sendOTP() async {
     if (!_formKey.currentState!.validate()) return;
@@ -152,7 +136,7 @@ class _LoginScreenState extends State<LoginScreen>
         return;
       }
       // Normalize phone number
-      final normalizedPhone = _normalizePhoneNumber(_phoneController.safeText);
+      final normalizedPhone = PhoneUtils.normalize(_phoneController.safeText);
       if (!_isDisposed && _phoneController.isSafe && mounted) {
         _phoneController.safeSetText(normalizedPhone);
       }
@@ -259,32 +243,7 @@ class _LoginScreenState extends State<LoginScreen>
         body: RepaintBoundary(
           child: Stack(
             children: [
-              // بهینه‌سازی: کاهش لایه‌های gradient برای عملکرد بهتر
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: _buildElegantGradient(context),
-                ),
-              ),
-              // بهینه‌سازی: استفاده از RepaintBoundary برای overlay
-              if (Theme.of(context).brightness == Brightness.light)
-                Positioned.fill(
-                  child: RepaintBoundary(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          center: Alignment.topRight,
-                          radius: 1.5,
-                          colors: [
-                            AppTheme.lightGradientStart.withValues(alpha: 0.12),
-                            Colors.transparent,
-                            AppTheme.lightGoldGradient.withValues(alpha: 0.08),
-                          ],
-                          stops: const [0.0, 0.5, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              const AuthGradientBackground(),
               // Content
               SafeArea(
                 child: FadeTransition(
@@ -596,9 +555,7 @@ class _LoginScreenState extends State<LoginScreen>
                       if (value == null || value.isEmpty) {
                         return 'لطفاً شماره موبایل را وارد کنید';
                       }
-                      if (!_isValidIranianPhoneNumber(
-                        _normalizePhoneNumber(value),
-                      )) {
+                      if (!PhoneUtils.isValid(PhoneUtils.normalize(value))) {
                         return 'شماره موبایل معتبر نیست';
                       }
                       return null;
@@ -686,44 +643,5 @@ class _LoginScreenState extends State<LoginScreen>
         ],
       ),
     );
-  }
-
-
-  // Elegant gradient matching the app's fitness theme with richer, more vibrant colors
-  LinearGradient _buildElegantGradient(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    if (isDark) {
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          context.backgroundColor,
-          AppTheme.darkGold.withValues(alpha: 0.25),
-          context.backgroundColor.withValues(alpha: 0.98),
-          AppTheme.goldColor.withValues(alpha: 0.18),
-          AppTheme.darkGold.withValues(alpha: 0.15),
-          context.backgroundColor,
-          AppTheme.goldColor.withValues(alpha: 0.08),
-        ],
-        stops: const [0.0, 0.2, 0.4, 0.55, 0.7, 0.85, 1.0],
-      );
-    } else {
-      // Rich, warm gradient with golden accents
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          AppTheme.lightGradientStart.withValues(alpha: 0.35),
-          AppTheme.lightCardColor.withValues(alpha: 0.98),
-          AppTheme.lightGoldGradient.withValues(alpha: 0.28),
-          Colors.white.withValues(alpha: 0.95),
-          AppTheme.lightGradientEnd.withValues(alpha: 0.25),
-          AppTheme.lightCardColor.withValues(alpha: 0.97),
-          AppTheme.lightGoldGradient.withValues(alpha: 0.15),
-        ],
-        stops: const [0.0, 0.2, 0.4, 0.55, 0.7, 0.85, 1.0],
-      );
-    }
   }
 }

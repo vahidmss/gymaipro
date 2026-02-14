@@ -196,22 +196,24 @@ class MusicPlayerWidget extends StatelessWidget {
                   padding: EdgeInsets.symmetric(horizontal: 12.w),
                   child: Column(
                     children: [
-                      Directionality(
-                        textDirection: TextDirection.ltr,
-                        child: SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            activeTrackColor: AppTheme.goldColor,
-                            inactiveTrackColor: context.separatorColor,
-                            thumbColor: AppTheme.goldColor,
-                            thumbShape: const RoundSliderThumbShape(
-                              enabledThumbRadius: 5,
+                      Material(
+                        color: Colors.transparent,
+                        child: Directionality(
+                          textDirection: TextDirection.ltr,
+                          child: SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              activeTrackColor: AppTheme.goldColor,
+                              inactiveTrackColor: context.separatorColor,
+                              thumbColor: AppTheme.goldColor,
+                              thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 5,
+                              ),
+                              trackHeight: 2.5,
+                              overlayShape: const RoundSliderOverlayShape(
+                                overlayRadius: 10,
+                              ),
                             ),
-                            trackHeight: 2.5,
-                            overlayShape: const RoundSliderOverlayShape(
-                              overlayRadius: 10,
-                            ),
-                          ),
-                          child: Slider(
+                            child: Slider(
                             value: player.duration.inSeconds > 0
                                 ? player.position.inSeconds.toDouble()
                                 : 0.0,
@@ -224,6 +226,7 @@ class MusicPlayerWidget extends StatelessWidget {
                           ),
                         ),
                       ),
+                    ),
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: 4.w),
                         child: Row(
@@ -477,22 +480,24 @@ class MusicPlayerWidget extends StatelessWidget {
                 padding: EdgeInsets.symmetric(horizontal: 16.w),
                 child: Column(
                   children: [
-                    Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          activeTrackColor: AppTheme.goldColor,
-                          inactiveTrackColor: context.separatorColor,
-                          thumbColor: AppTheme.goldColor,
-                          thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 6,
+                    Material(
+                      color: Colors.transparent,
+                      child: Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            activeTrackColor: AppTheme.goldColor,
+                            inactiveTrackColor: context.separatorColor,
+                            thumbColor: AppTheme.goldColor,
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 6,
+                            ),
+                            trackHeight: 3,
+                            overlayShape: const RoundSliderOverlayShape(
+                              overlayRadius: 12,
+                            ),
                           ),
-                          trackHeight: 3,
-                          overlayShape: const RoundSliderOverlayShape(
-                            overlayRadius: 12,
-                          ),
-                        ),
-                        child: Slider(
+                          child: Slider(
                           value: player.duration.inSeconds > 0
                               ? player.position.inSeconds.toDouble()
                               : 0.0,
@@ -504,6 +509,7 @@ class MusicPlayerWidget extends StatelessWidget {
                           },
                         ),
                       ),
+                    ),
                     ),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 4.w),

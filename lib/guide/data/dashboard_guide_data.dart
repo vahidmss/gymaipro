@@ -13,8 +13,6 @@ class DashboardGuideData {
     'quick_actions': GlobalKey(),
     'todays_program': GlobalKey(),
     'exercises_tabs': GlobalKey(),
-    'chat_section': GlobalKey(),
-    'academy_section': GlobalKey(),
     'drawer_menu': GlobalKey(),
   };
 
@@ -116,38 +114,12 @@ class DashboardGuideData {
           usePulseAnimation: true,
         ),
 
-        // مرحله ۸: بخش چت
-        GuideStep(
-          id: 'chat_section',
-          title: '💬 گفتگو و ارتباط',
-          description:
-              'چت عمومی با دیگر کاربران و چت خصوصی با مربیان.\nسوالات خود را بپرسید و تجربیات را به اشتراک بگذارید!',
-          icon: Icons.chat_bubble,
-          primaryColor: const Color(0xFF6C63FF),
-          targetKey: keys['chat_section'],
-          tooltipPosition: TooltipPosition.top,
-          usePulseAnimation: true,
-        ),
-
-        // مرحله ۹: آکادمی
-        GuideStep(
-          id: 'academy_section',
-          title: '🎓 آکادمی آموزشی',
-          description:
-              'دسترسی به ویدیوهای آموزشی تکنیک تمرینات.\nیاد بگیرید که چطور تمریناتتون رو درست انجام بدید!',
-          icon: Icons.school,
-          primaryColor: const Color(0xFF26C281),
-          targetKey: keys['academy_section'],
-          tooltipPosition: TooltipPosition.top,
-          usePulseAnimation: true,
-        ),
-
-        // مرحله ۱۰: منوی کشویی
+        // مرحله ۸: منوی کشویی
         GuideStep(
           id: 'drawer_menu',
           title: '📱 منوی اصلی',
           description:
-              'با کلیک روی این دکمه (یا کشیدن از سمت راست صفحه)، منوی اصلی باز می‌شود.\nاز اونجا به تمام بخش‌های اپ دسترسی دارید:\n• پروفایل\n• برنامه‌های من\n• کیف پول\n• تنظیمات\nو...',
+              'با کلیک روی این دکمه (یا کشیدن از سمت راست صفحه)، منوی اصلی باز می‌شود.\nاز اونجا به تمام بخش‌های اپ دسترسی دارید:\n• پروفایل\n• برنامه‌های من\n• کیف پول\n• چت و اجتماعی\n• تنظیمات\nو...',
           icon: Icons.menu,
           primaryColor: AppTheme.goldColor,
           targetKey: keys['drawer_menu'], // Key به دکمه menu در AppBar

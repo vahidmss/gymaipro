@@ -23,6 +23,20 @@ class AppErrorHandler {
       // Handle overflow errors - log them in debug mode but don't crash
       if (_isOverflowError(errorString)) {
         if (kDebugMode) {
+          // اگر overflow خیلی کوچک بود (مثلاً 0.05 تا چند پیکسل)،
+          // لاگ پر سر و صدا نزنیم و فقط لاگ پیش‌فرض Flutter رو نشان بدهیم.
+          final match = RegExp(
+            r'overflowed by ([0-9.]+) pixels',
+          ).firstMatch(errorString);
+          if (match != null) {
+            final value = double.tryParse(match.group(1) ?? '');
+            if (value != null && value < 4.0) {
+              // Overflow خیلی ریز → فقط لاگ معمولی Flutter
+              FlutterError.presentError(details);
+              return;
+            }
+          }
+
           // نمایش واضح overflow error
           debugPrint('');
           debugPrint(

@@ -96,16 +96,22 @@ class PublicChatWidgetState extends State<PublicChatWidget>
       if (mounted) {
         WidgetSafetyUtils.safeSetState(this, () => _isAdmin = isAdmin);
       }
-    } catch (e) {
-      debugPrint('Error checking admin status: $e');
-    }
+    } catch (_) {}
   }
 
   void _setupSubscription() {
     _subscription = _service.subscribeMessages();
     _subscription.listen(
       (msg) {
-        debugPrint('=== CHAT WIDGET: Received new message: ${msg.message} ===');
+        // اگر پیام به‌روزرسانی شده و حذف شده باشد، آن را از لیست همه کاربران حذف کن (real-time delete)
+        if (msg.isDeleted) {
+          SafeSetState.call(this, () {
+            _messages.removeWhere((m) => m.id == msg.id);
+            _messageStatuses.remove(msg.id);
+          });
+          return;
+        }
+
         bool isNewMessage = false;
         final isCurrentUser =
             msg.senderId == Supabase.instance.client.auth.currentUser?.id;
@@ -149,9 +155,6 @@ class PublicChatWidgetState extends State<PublicChatWidget>
               });
             }
 
-            debugPrint('=== CHAT WIDGET: Added new message to list ===');
-          } else {
-            debugPrint('=== CHAT WIDGET: Message already exists, skipping ===');
           }
         });
         // اسکرول به پایین فقط برای پیام‌های جدید
@@ -159,9 +162,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
           _scrollToBottom(delay: const Duration(milliseconds: 100));
         }
       },
-      onError: (Object error) {
-        debugPrint('=== CHAT WIDGET: Subscription error: $error ===');
-      },
+      onError: (_) {},
     );
   }
 
@@ -178,11 +179,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
         return;
       }
 
-      // اضافه کردن debug برای بررسی مشکل
-      await _service.debugMessages();
-
       final msgs = await _service.getMessages();
-      debugPrint('Loaded ${msgs.length} messages');
 
       SafeSetState.call(this, () {
         _messages = msgs;
@@ -190,8 +187,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
       });
       // اسکرول به پایین بعد از بارگذاری پیام‌ها
       _scrollToBottom(delay: const Duration(milliseconds: 200));
-    } catch (e) {
-      debugPrint('Error loading messages: $e');
+    } catch (_) {
       SafeSetState.call(this, () => _isLoading = false);
     }
   }
@@ -231,9 +227,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
               curve: Curves.easeOut,
             );
           }
-        } catch (e) {
-          debugPrint('Error scrolling to bottom: $e');
-        }
+        } catch (_) {}
       });
     }
 
@@ -274,11 +268,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
     _scrollToBottom(delay: const Duration(milliseconds: 100));
 
     try {
-      debugPrint('=== CHAT WIDGET: Sending message: $txt ===');
       final sentMessage = await _service.sendMessage(message: txt);
-      debugPrint(
-        '=== CHAT WIDGET: Message sent successfully: ${sentMessage.id} ===',
-      );
 
       // به‌روزرسانی لیست: حذف پیام موقت و اضافه کردن پیام واقعی
       SafeSetState.call(this, () {
@@ -290,7 +280,6 @@ class PublicChatWidgetState extends State<PublicChatWidget>
         if (!_messages.any((m) => m.id == sentMessage.id)) {
           _messages.add(sentMessage);
           _messageStatuses[sentMessage.id] = MessageSendStatus.sent;
-          debugPrint('=== CHAT WIDGET: Added sent message to local list ===');
         }
       });
 
@@ -306,36 +295,65 @@ class PublicChatWidgetState extends State<PublicChatWidget>
         }
       });
     } catch (e) {
-      debugPrint('=== CHAT WIDGET: Error sending message: $e ===');
+      // استخراج متن تمیز بدون پیشوند Exception:
+      var errorText = e.toString();
+      const prefix = 'Exception: ';
+      if (errorText.startsWith(prefix)) {
+        errorText = errorText.substring(prefix.length).trim();
+      }
 
-      // تغییر وضعیت به failed
-      SafeSetState.call(this, () {
-        _messageStatuses[tempId] = MessageSendStatus.failed;
-      });
+      // تشخیص بلاک بودن کاربر در چت عمومی با تگ اختصاصی
+      const blockTag = '[PUBLIC_CHAT_BLOCK]';
+      final isBlockedError = errorText.startsWith(blockTag);
+      if (isBlockedError) {
+        // تگ را حذف کنیم تا فقط متن دلیل به کاربر نمایش داده شود
+        errorText = errorText.substring(blockTag.length).trim();
+      }
+
+      if (isBlockedError) {
+        // برای بلاک، پیام موقت را کاملاً حذف می‌کنیم و وضعیت failed نشان نمی‌دهیم
+        SafeSetState.call(this, () {
+          _messages.removeWhere((m) => m.id == tempId);
+          _messageStatuses.remove(tempId);
+        });
+      } else {
+        // برای سایر خطاها، پیام را failed می‌کنیم
+        SafeSetState.call(this, () {
+          _messageStatuses[tempId] = MessageSendStatus.failed;
+        });
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'خطا در ارسال پیام: $e',
+              // فقط متن خطا، بدون "Exception:"
+              errorText.isEmpty ? 'خطا در ارسال پیام' : errorText,
               style: TextStyle(fontFamily: AppTheme.fontFamily),
             ),
             backgroundColor: context.cardColor,
-            action: SnackBarAction(
-              label: 'تلاش مجدد',
-              textColor: AppTheme.goldColor,
-              onPressed: () {
-                // حذف پیام failed و تلاش مجدد
-                SafeSetState.call(this, () {
-                  _messages.removeWhere((m) => m.id == tempId);
-                  _messageStatuses.remove(tempId);
-                });
-                if (_controller.isSafe && mounted) {
-                  _controller.safeSetText(txt);
-                  _send();
-                }
-              },
-            ),
+            // برای خطای بلاک، فقط دکمه بستن (بدون تلاش مجدد)
+            action: isBlockedError
+                ? SnackBarAction(
+                    label: 'بستن',
+                    textColor: AppTheme.goldColor,
+                    onPressed: () {},
+                  )
+                : SnackBarAction(
+                    label: 'تلاش مجدد',
+                    textColor: AppTheme.goldColor,
+                    onPressed: () {
+                      // حذف پیام failed و تلاش مجدد
+                      SafeSetState.call(this, () {
+                        _messages.removeWhere((m) => m.id == tempId);
+                        _messageStatuses.remove(tempId);
+                      });
+                      if (_controller.isSafe && mounted) {
+                        _controller.safeSetText(txt);
+                        _send();
+                      }
+                    },
+                  ),
           ),
         );
       }
@@ -1055,6 +1073,50 @@ class PublicChatWidgetState extends State<PublicChatWidget>
                 height: 1,
                 color: AppTheme.goldColor.withValues(alpha: 0.2),
               ),
+              // Block in public chat
+              ListTile(
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 24.w,
+                  vertical: 10.h,
+                ),
+                leading: Container(
+                  padding: EdgeInsets.all(8.w),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                  child: Icon(
+                    LucideIcons.userX,
+                    color: Colors.orange,
+                    size: 20.sp,
+                  ),
+                ),
+                title: Text(
+                  'بلاک در چت عمومی',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: Colors.orange,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  'کاربر نمی‌تواند در چت همگانی پیام بفرستد',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textSecondary,
+                    fontSize: 12.sp,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _blockSenderInPublicChat(msg);
+                },
+              ),
+              Divider(
+                height: 1,
+                color: AppTheme.goldColor.withValues(alpha: 0.15),
+              ),
               // Delete button
               ListTile(
                 contentPadding: EdgeInsets.symmetric(
@@ -1095,8 +1157,178 @@ class PublicChatWidgetState extends State<PublicChatWidget>
     );
   }
 
+  Future<void> _blockSenderInPublicChat(PublicChatMessage msg) async {
+    if (!mounted) return;
+    final senderId = msg.senderId;
+    if (senderId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('شناسه فرستنده برای بلاک کردن پیدا نشد'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final TextEditingController reasonController = TextEditingController(
+      text:
+          'به علت تخلف در چت عمومی، تا ۳ روز از ارسال پیام در چت همگانی مسدود شده‌اید. پس از سه روز در صورت نیاز به پشتیبانی پیام دهید.',
+    );
+    Duration selectedDuration = const Duration(days: 3);
+
+    final confirmed = await WidgetSafetyUtils.safeShowDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        backgroundColor: dialogContext.cardColor,
+        title: Row(
+          textDirection: TextDirection.rtl,
+          children: [
+            Icon(
+              LucideIcons.userX,
+              color: Colors.orange,
+              size: 24.sp,
+            ),
+            SizedBox(width: 12.w),
+            Text(
+              'مسدود کردن در چت عمومی',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: dialogContext.textColor,
+                fontSize: 18.sp,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: StatefulBuilder(
+          builder: (context, setState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'مدت مسدودیت را انتخاب کنید:',
+                textDirection: TextDirection.rtl,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textColor,
+                  fontSize: 14.sp,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Directionality(
+                textDirection: TextDirection.rtl,
+                child: DropdownButton<Duration>(
+                  value: selectedDuration,
+                  isExpanded: true,
+                  items: const [
+                    DropdownMenuItem(
+                      value: Duration(days: 1),
+                      child: Text('۱ روز'),
+                    ),
+                    DropdownMenuItem(
+                      value: Duration(days: 3),
+                      child: Text('۳ روز'),
+                    ),
+                    DropdownMenuItem(
+                      value: Duration(days: 7),
+                      child: Text('۷ روز'),
+                    ),
+                    DropdownMenuItem(
+                      value: Duration(days: 30),
+                      child: Text('۳۰ روز'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        selectedDuration = value;
+                      });
+                    }
+                  },
+                ),
+              ),
+              SizedBox(height: 12.h),
+              TextField(
+                controller: reasonController,
+                maxLines: 4,
+                textDirection: TextDirection.rtl,
+                decoration: InputDecoration(
+                  labelText: 'متن پیام / دلیل بلاک',
+                  alignLabelWithHint: true,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'انصراف',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: dialogContext.textSecondary,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+            ),
+            child: Text(
+              'مسدود کن',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final success = await _adminService.blockUserInPublicChat(
+      userId: senderId,
+      duration: selectedDuration,
+      reason: reasonController.text.trim(),
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('کاربر در چت عمومی مسدود شد'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('خطا در مسدود کردن کاربر'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   Future<void> _deleteMessageAsAdmin(PublicChatMessage msg) async {
-    final confirmed = await showDialog<bool>(
+    if (!mounted) return;
+
+    final confirmed = await WidgetSafetyUtils.safeShowDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(
@@ -1163,39 +1395,16 @@ class PublicChatWidgetState extends State<PublicChatWidget>
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     try {
       // نمایش loading
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              textDirection: TextDirection.rtl,
-              children: [
-                SizedBox(
-                  width: 16.w,
-                  height: 16.w,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Text(
-                  'در حال حذف پیام...',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: AppTheme.goldColor,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'در حال حذف پیام...',
+        backgroundColor: AppTheme.goldColor,
+        duration: const Duration(seconds: 2),
+      );
 
       // حذف پیام از طریق AdminService
       await _adminService.deletePublicChatMessage(msg.id);
@@ -1206,8 +1415,9 @@ class PublicChatWidgetState extends State<PublicChatWidget>
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = WidgetSafetyUtils.safeGetScaffoldMessenger(context);
+        messenger?.hideCurrentSnackBar();
+        messenger?.showSnackBar(
           SnackBar(
             content: Row(
               textDirection: TextDirection.rtl,
@@ -1233,10 +1443,10 @@ class PublicChatWidgetState extends State<PublicChatWidget>
         );
       }
     } catch (e) {
-      debugPrint('Error deleting message: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = WidgetSafetyUtils.safeGetScaffoldMessenger(context);
+        messenger?.hideCurrentSnackBar();
+        messenger?.showSnackBar(
           SnackBar(
             content: Row(
               textDirection: TextDirection.rtl,

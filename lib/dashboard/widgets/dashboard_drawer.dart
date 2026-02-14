@@ -157,66 +157,80 @@ class _DashboardDrawerState extends State<DashboardDrawer>
   }
 
   Widget _buildAvatar(BuildContext context) {
-    if (_isLoadingAvatar) {
-      return CircleAvatar(
-        radius: 40.r,
-        backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
-        child: CircularProgressIndicator(
-          color: AppTheme.goldColor,
-          strokeWidth: 2,
-        ),
-      );
-    }
-
-    if (_avatarUrl != null && _avatarUrl!.isNotEmpty) {
-      final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
-      return ClipOval(
-        child: CachedNetworkImage(
-          imageUrl: _avatarUrl!,
-          cacheKey: 'avatar_$userId',
-          width: 80.r,
-          height: 80.r,
-          fit: BoxFit.cover,
-          memCacheWidth: 160,
-          memCacheHeight: 160,
-          maxWidthDiskCache: 320,
-          maxHeightDiskCache: 320,
-          fadeInDuration: Duration.zero,
-          placeholderFadeInDuration: Duration.zero,
-          placeholder: (context, url) => CircleAvatar(
-            radius: 40.r,
-            backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
-            child: CircularProgressIndicator(
-              color: AppTheme.goldColor,
-              strokeWidth: 2,
-            ),
-          ),
-          errorWidget: (context, url, error) => CircleAvatar(
-            radius: 40.r,
-            backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
-            child: Text(
-              _getSafeInitial(),
-              style: TextStyle(
-                color: AppTheme.goldColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 24.sp,
-              ),
-            ),
+    return GestureDetector(
+      onTap: () {
+        Navigator.pop(context);
+        final currentUserId =
+            Supabase.instance.client.auth.currentUser?.id;
+        if (currentUserId != null && currentUserId.isNotEmpty) {
+          Navigator.pushNamed(context, '/profile');
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: AppTheme.goldColor.withValues(alpha: 0.3),
+            width: 2.w,
           ),
         ),
-      );
-    }
-
-    return CircleAvatar(
-      radius: 40.r,
-      backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
-      child: Text(
-        _getSafeInitial(),
-        style: TextStyle(
-          color: AppTheme.goldColor,
-          fontWeight: FontWeight.bold,
-          fontSize: 24.sp,
-        ),
+        child: _isLoadingAvatar
+            ? CircleAvatar(
+                radius: 40.r,
+                backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
+                child: CircularProgressIndicator(
+                  color: AppTheme.goldColor,
+                  strokeWidth: 2,
+                ),
+              )
+            : (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+                ? ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: _avatarUrl!,
+                      cacheKey: 'avatar_${Supabase.instance.client.auth.currentUser?.id ?? ''}',
+                      width: 80.r,
+                      height: 80.r,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 160,
+                      memCacheHeight: 160,
+                      maxWidthDiskCache: 320,
+                      maxHeightDiskCache: 320,
+                      fadeInDuration: Duration.zero,
+                      placeholderFadeInDuration: Duration.zero,
+                      placeholder: (context, url) => CircleAvatar(
+                        radius: 40.r,
+                        backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
+                        child: CircularProgressIndicator(
+                          color: AppTheme.goldColor,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => CircleAvatar(
+                        radius: 40.r,
+                        backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
+                        child: Text(
+                          _getSafeInitial(),
+                          style: TextStyle(
+                            color: AppTheme.goldColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24.sp,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                : CircleAvatar(
+                    radius: 40.r,
+                    backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
+                    child: Text(
+                      _getSafeInitial(),
+                      style: TextStyle(
+                        color: AppTheme.goldColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24.sp,
+                      ),
+                    ),
+                  ),
       ),
     );
   }
@@ -338,6 +352,35 @@ class _DashboardDrawerState extends State<DashboardDrawer>
                 navigator.pop();
               }
             });
+          },
+        ),
+        Divider(
+          height: 1,
+          thickness: 1,
+          color: isDark
+              ? AppTheme.darkGreySeparator.withValues(alpha: 0.3)
+              : AppTheme.lightDividerColor.withValues(alpha: 0.5),
+        ),
+        _buildMenuItem(
+          context,
+          icon: LucideIcons.user,
+          title: 'پروفایل من',
+          onTap: () {
+            final guideService = Provider.of<GuideService>(
+              context,
+              listen: false,
+            );
+            if (guideService.hasActiveGuide &&
+                guideService.activeGuide?.id == 'drawer_guide') {
+              return;
+            }
+
+            Navigator.pop(context);
+            final currentUserId =
+                Supabase.instance.client.auth.currentUser?.id;
+            if (currentUserId != null && currentUserId.isNotEmpty) {
+              Navigator.pushNamed(context, '/profile');
+            }
           },
         ),
         Divider(

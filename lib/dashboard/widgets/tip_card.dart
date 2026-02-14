@@ -1,9 +1,12 @@
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+/// کارت انگیزشی روزانه - نکته فیتنس با طراحی جذاب
 class TipCard extends StatefulWidget {
   const TipCard({super.key});
 
@@ -15,7 +18,7 @@ class _TipCardState extends State<TipCard> {
   late String _currentTip;
   final Random _random = Random();
 
-  final List<String> _tips = [
+  static const List<String> _tips = [
     'نذار تشنگی سرعتتو کم کنه - یه لیوان آب قبل از تمرین فراموش نشه.',
     'گرم کردن قبل از تمرین از آسیب دیدگی جلوگیری می‌کنه.',
     'خواب کافی برای ریکاوری عضلات ضروریه.',
@@ -56,62 +59,102 @@ class _TipCardState extends State<TipCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
-      width: double.infinity,
-      height: 48.h,
-      margin: EdgeInsets.symmetric(horizontal: 4.w),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: Theme.of(context).brightness == Brightness.dark
-              ? [context.veryDarkBackground, context.veryDarkBackground]
-              : [
-                  context.goldGradientColors[0].withValues(alpha: 0.3),
-                  context.goldGradientColors[1].withValues(alpha: 0.2),
-                ],
-        ),
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: AppTheme.goldColor.withValues(
-            alpha: Theme.of(context).brightness == Brightness.dark ? 0.4 : 0.5,
+          width: double.infinity,
+          margin: EdgeInsets.symmetric(horizontal: 4.w),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [
+                      context.veryDarkBackground,
+                      AppTheme.darkGold.withValues(alpha: 0.15),
+                    ]
+                  : [
+                      context.goldGradientColors[0].withValues(alpha: 0.35),
+                      context.goldGradientColors[1].withValues(alpha: 0.2),
+                      context.cardColor,
+                    ],
+            ),
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(
+              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.4 : 0.5),
+              width: 1.w,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.goldColor.withValues(alpha: 0.1),
+                blurRadius: 8.r,
+                offset: Offset(0.w, 2.h),
+              ),
+            ],
           ),
-          width: 1.w,
-        ),
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-        child: Row(
-          textDirection: TextDirection.ltr,
-          mainAxisAlignment: MainAxisAlignment.end,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: Text(
+          child: Padding(
+            padding: EdgeInsets.all(14.w),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  textDirection: TextDirection.rtl,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 8.w,
+                        vertical: 3.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.goldColor.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        textDirection: TextDirection.rtl,
+                        children: [
+                          Icon(
+                            LucideIcons.lightbulb,
+                            color: context.textColor,
+                            size: 14.sp,
+                          ),
+                          SizedBox(width: 6.w),
+                          Text(
+                            'نکته روز',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 10.sp,
+                              color: context.textColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 10.h),
+                Text(
                   _currentTip,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11.sp,
-                    height: 1.4,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12.sp,
+                    height: 1.5,
                     color: context.textColor,
                   ),
-                  textAlign: TextAlign.center,
+                  textAlign: TextAlign.right,
+                  textDirection: TextDirection.rtl,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
+              ],
             ),
-            SizedBox(width: 8.w),
-            Icon(
-              LucideIcons.lightbulb,
-              color: context.textColor,
-              size: 20.sp,
-            ),
-          ],
-        ),
-      ),
-    );
+          ),
+        )
+        .animate()
+        .fadeIn(duration: 350.ms, delay: 100.ms)
+        .slideX(begin: 0.03, end: 0, duration: 350.ms, delay: 100.ms);
   }
 }

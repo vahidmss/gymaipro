@@ -28,32 +28,19 @@ class _MessageInputWidgetState extends State<MessageInputWidget> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: EdgeInsets.all(12.w),
-      decoration: BoxDecoration(
+    return SafeArea(
+      child: Container(
+        padding: EdgeInsets.all(12.w),
         color: context.cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.05 : 0.08),
-            blurRadius: 8.r,
-            offset: Offset(0, -2.h),
-          ),
-        ],
-      ),
-      child: SafeArea(
         child: Row(
           textDirection: TextDirection.rtl,
           children: [
             // Attachments
             DecoratedBox(
               decoration: BoxDecoration(
+                // فقط پس‌زمینه‌ی ملایم؛ بدون Border تا کنار کادر ورودی دوتا خط دیده نشود
                 color: context.backgroundColor,
                 borderRadius: BorderRadius.circular(20.r),
-                border: Border.all(
-                  color: AppTheme.goldColor.withValues(
-                    alpha: isDark ? 0.2 : 0.3,
-                  ),
-                ),
               ),
               child: IconButton(
                 icon: Icon(LucideIcons.plus, color: AppTheme.goldColor),
@@ -63,7 +50,7 @@ class _MessageInputWidgetState extends State<MessageInputWidget> {
             SizedBox(width: 8.w),
             // Input
             Expanded(
-              child: DecoratedBox(
+              child: Container(
                 decoration: BoxDecoration(
                   color: context.backgroundColor,
                   borderRadius: BorderRadius.circular(24.r),
@@ -76,7 +63,6 @@ class _MessageInputWidgetState extends State<MessageInputWidget> {
                 child: Row(
                   textDirection: TextDirection.rtl,
                   children: [
-                    SizedBox(width: 12.w),
                     Expanded(
                       child: widget.controller.isSafe
                           ? TextField(

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_log/models/food_log_item.dart';
 import 'package:gymaipro/meal_log/utils/meal_log_utils.dart';
@@ -24,267 +24,348 @@ class FoodItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // Check if this food is from a meal plan
     final isFromPlan = foodItem.mealPlanId != null;
     final isManuallyAdded = !isFromPlan;
 
     final consumedAmount = foodItem.amount;
-
-    // Calculate calories
     final ratio = consumedAmount / 100.0;
     final calories = (double.tryParse(food.nutrition.calories) ?? 0) * ratio;
+    final protein = (double.tryParse(food.nutrition.protein) ?? 0) * ratio;
+    final carbs = (double.tryParse(food.nutrition.carbohydrates) ?? 0) * ratio;
+    final fat = (double.tryParse(food.nutrition.fat) ?? 0) * ratio;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // استفاده از MediaQuery برای اندازه واقعی صفحه
-        final mediaQuery = MediaQuery.of(context);
-        final screenWidth = mediaQuery.size.width;
-        
-        // محاسبه responsive margin و padding بر اساس اندازه واقعی
-        final horizontalMargin = screenWidth > 600
-            ? (screenWidth * 0.04).clamp(16.0, 24.0)
-            : (screenWidth * 0.043).clamp(12.0, 20.0);
-        final verticalMargin = screenWidth > 600 ? 4.0 : 2.0;
-        final containerMargin = EdgeInsets.symmetric(
-          horizontal: horizontalMargin,
-          vertical: verticalMargin,
-        );
-        
-        final horizontalPadding = screenWidth > 600 ? 16.0 : 12.0;
-        final verticalPadding = screenWidth > 600 ? 12.0 : 8.0;
-        final containerPadding = EdgeInsets.symmetric(
-          horizontal: horizontalPadding,
-          vertical: verticalPadding,
-        );
-        
-        return Container(
-          margin: containerMargin,
-          padding: containerPadding,
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Row 1: Food name | Calories
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        food.title,
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: context.textColor,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Text(
-                      MealLogUtils.convertToPersianNumbers(
-                        '${calories.toStringAsFixed(0)} کالری',
-                      ),
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        color: context.textColor.withValues(alpha: 0.7),
-                        fontSize: 12.sp,
-                      ),
-                    ),
-                  ],
+    // Macro total for proportional bars
+    final macroTotal = protein + carbs + fat;
+    final proteinFrac = macroTotal > 0 ? protein / macroTotal : 0.33;
+    final carbsFrac = macroTotal > 0 ? carbs / macroTotal : 0.33;
+    final fatFrac = macroTotal > 0 ? fat / macroTotal : 0.34;
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 10.w, vertical: 2.h),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Left accent bar ──
+            Container(
+              width: 3.w,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: isFromPlan
+                      ? [
+                          Colors.blue.withValues(alpha: 0.7),
+                          Colors.blue.withValues(alpha: 0.3),
+                        ]
+                      : [
+                          AppTheme.goldColor.withValues(alpha: 0.7),
+                          AppTheme.goldColor.withValues(alpha: 0.2),
+                        ],
                 ),
-                SizedBox(height: 4.h),
-                // Row 2: آزاد/برنامه | Amount + Unit (editable)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                borderRadius: BorderRadius.circular(2.r),
+              ),
+            ),
+            SizedBox(width: 8.w),
+            // ── Content ──
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 6.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // آزاد/برنامه تگ
-                    isManuallyAdded
-                        ? Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 6.w,
-                              vertical: 2.h,
+                    // Row 1: food name + calorie badge
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            food.title,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              color: isDark ? Colors.white : context.textColor,
+                              fontSize: 11.sp,
+                              fontWeight: FontWeight.w600,
                             ),
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                color: isDark
-                                    ? AppTheme.goldColor.withValues(alpha: 0.5)
-                                    : Colors.black.withValues(alpha: 0.3),
-                                width: 1,
-                              ),
-                              borderRadius: BorderRadius.circular(4.r),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(width: 6.w),
+                        // Calorie badge
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 6.w,
+                            vertical: 2.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppTheme.goldColor.withValues(alpha: 0.12)
+                                : AppTheme.goldColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4.r),
+                          ),
+                          child: Text(
+                            MealLogUtils.convertToPersianNumbers(
+                              '${calories.toStringAsFixed(0)} kcal',
                             ),
-                            child: Text(
-                              'آزاد',
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                color: isDark
-                                    ? AppTheme.goldColor.withValues(alpha: 0.8)
-                                    : Colors.black,
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w500,
-                              ),
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              color: isDark
+                                  ? AppTheme.goldColor
+                                  : AppTheme.darkGold,
+                              fontSize: 9.sp,
+                              fontWeight: FontWeight.w700,
                             ),
-                          )
-                        : Row(
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 4.h),
+                    // Row 2: tag + amount + macro bar
+                    Row(
+                      children: [
+                        // Plan/Free tag
+                        _buildTag(isDark, isManuallyAdded, context),
+                        SizedBox(width: 6.w),
+                        // Amount (editable)
+                        GestureDetector(
+                          onTap: onEditAmount,
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              ColorFiltered(
-                                colorFilter: isDark
-                                    ? ColorFilter.mode(
-                                        Colors.blue[400]!,
-                                        BlendMode.srcIn,
-                                      )
-                                    : const ColorFilter.mode(
-                                        Colors.transparent,
-                                        BlendMode.dst,
-                                      ),
-                                child: Image.asset(
-                                  'images/program.png',
-                                  width: 14.w,
-                                  height: 14.h,
-                                  fit: BoxFit.contain,
-                                ),
-                              ),
-                              SizedBox(width: 4.w),
                               Text(
-                                'برنامه',
+                                MealLogUtils.convertToPersianNumbers(
+                                  foodItem.plannedAmount != null
+                                      ? '${foodItem.plannedAmount!.toStringAsFixed(0)}/${consumedAmount.toStringAsFixed(0)} ${foodItem.unit}'
+                                      : '${consumedAmount.toStringAsFixed(0)} ${foodItem.unit}',
+                                ),
+                                textDirection: TextDirection.rtl,
                                 style: TextStyle(
                                   fontFamily: AppTheme.fontFamily,
                                   color: isDark
-                                      ? Colors.blue[400]
-                                      : Colors.blue[600],
-                                  fontSize: 11.sp,
+                                      ? Colors.white.withValues(alpha: 0.5)
+                                      : context.textColor.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                  fontSize: 9.sp,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
+                              SizedBox(width: 2.w),
+                              Icon(
+                                LucideIcons.edit2,
+                                size: 9.sp,
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.3)
+                                    : context.textColor.withValues(alpha: 0.3),
+                              ),
                             ],
                           ),
-                    // Amount + Unit (editable)
-                    GestureDetector(
-                      onTap: onEditAmount,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            MealLogUtils.convertToPersianNumbers(
-                              foodItem.plannedAmount != null
-                                  ? '${consumedAmount.toStringAsFixed(0)}/${foodItem.plannedAmount!.toStringAsFixed(0)} ${foodItem.unit}'
-                                  : '${consumedAmount.toStringAsFixed(0)} ${foodItem.unit}',
-                            ),
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: isDark ? AppTheme.goldColor : Colors.black,
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(width: 4.w),
-                          Icon(
-                            foodItem.plannedAmount != null
-                                ? LucideIcons.plus
-                                : LucideIcons.edit2,
-                            size: 11.sp,
-                            color: isDark
-                                ? AppTheme.goldColor.withValues(alpha: 0.7)
-                                : Colors.black.withValues(alpha: 0.5),
-                          ),
-                        ],
+                        ),
+                        const Spacer(),
+                        // Macro proportion bar
+                        _buildMacroBar(
+                          isDark,
+                          proteinFrac,
+                          carbsFrac,
+                          fatFrac,
+                          context,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // ── Actions menu ──
+            _buildActionMenu(isDark, isFromPlan, context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Tag widget ──
+  Widget _buildTag(bool isDark, bool isManual, BuildContext context) {
+    if (isManual) {
+      return Container(
+        padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
+        decoration: BoxDecoration(
+          color: isDark
+              ? AppTheme.goldColor.withValues(alpha: 0.1)
+              : AppTheme.goldColor.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(3.r),
+        ),
+        child: Text(
+          'آزاد',
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            color: isDark
+                ? AppTheme.goldColor.withValues(alpha: 0.7)
+                : AppTheme.darkGold.withValues(alpha: 0.6),
+            fontSize: 8.sp,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ColorFiltered(
+          colorFilter: isDark
+              ? ColorFilter.mode(Colors.blue[400]!, BlendMode.srcIn)
+              : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
+          child: Image.asset(
+            'images/program.png',
+            width: 10.w,
+            height: 10.h,
+            fit: BoxFit.contain,
+          ),
+        ),
+        SizedBox(width: 2.w),
+        Text(
+          'برنامه',
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            color: isDark ? Colors.blue[400] : Colors.blue[600],
+            fontSize: 8.sp,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Macro proportion bar ──
+  Widget _buildMacroBar(
+    bool isDark,
+    double proteinFrac,
+    double carbsFrac,
+    double fatFrac,
+    BuildContext context,
+  ) {
+    final barWidth = 50.w;
+    final barHeight = 3.h;
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: SizedBox(
+        width: barWidth,
+        height: barHeight,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(2.r),
+          child: Row(
+            children: [
+              Expanded(
+                flex: (proteinFrac * 100).round().clamp(1, 100),
+                child: Container(
+                  color: AppTheme.proteinColor.withValues(
+                    alpha: isDark ? 0.7 : 0.6,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: (carbsFrac * 100).round().clamp(1, 100),
+                child: Container(
+                  color: AppTheme.carbsColor.withValues(
+                    alpha: isDark ? 0.7 : 0.6,
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: (fatFrac * 100).round().clamp(1, 100),
+                child: Container(
+                  color: AppTheme.fatColor.withValues(
+                    alpha: isDark ? 0.7 : 0.6,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Actions menu ──
+  Widget _buildActionMenu(bool isDark, bool isFromPlan, BuildContext context) {
+    return PopupMenuButton<String>(
+      icon: Icon(
+        Icons.more_vert,
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.25)
+            : context.textColor.withValues(alpha: 0.25),
+        size: 14.sp,
+      ),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(),
+      color: isDark ? context.backgroundColor : context.cardColor,
+      itemBuilder: (context) => isFromPlan
+          ? [
+              PopupMenuItem(
+                value: 'complete',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      color: Colors.green[400],
+                      size: 12.sp,
+                    ),
+                    SizedBox(width: 5.w),
+                    Text(
+                      'تکمیل شده',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: Colors.green[400],
+                        fontSize: 11.sp,
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          // Actions menu
-          PopupMenuButton<String>(
-            icon: Icon(
-              Icons.more_vert,
-              color: context.textColor.withValues(alpha: 0.4),
-              size: 16.sp,
-            ),
-            padding: EdgeInsets.zero,
-            constraints: BoxConstraints(),
-            color: isDark ? context.backgroundColor : context.cardColor,
-            itemBuilder: (context) => isFromPlan
-                ? [
-                    PopupMenuItem(
-                      value: 'complete',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.check_circle,
-                            color: Colors.green[400],
-                            size: 14.sp,
-                          ),
-                          SizedBox(width: 6.w),
-                          Text(
-                            'تکمیل شده',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: Colors.green[400],
-                              fontSize: 12.sp,
-                            ),
-                          ),
-                        ],
+              ),
+              if (foodItem.alternatives != null &&
+                  foodItem.alternatives!.isNotEmpty)
+                PopupMenuItem(
+                  value: 'substitute',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.swap_horiz,
+                        color: Colors.blue[400],
+                        size: 12.sp,
                       ),
-                    ),
-                    if (foodItem.alternatives != null &&
-                        foodItem.alternatives!.isNotEmpty)
-                      PopupMenuItem(
-                        value: 'substitute',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.swap_horiz,
-                              color: Colors.blue[400],
-                              size: 14.sp,
-                            ),
-                            SizedBox(width: 6.w),
-                            Text(
-                              'جایگزین کردن',
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                color: Colors.blue[400],
-                                fontSize: 12.sp,
-                              ),
-                            ),
-                          ],
+                      SizedBox(width: 5.w),
+                      Text(
+                        'جایگزین کردن',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: Colors.blue[400],
+                          fontSize: 11.sp,
                         ),
                       ),
-                  ]
-                : [
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete,
-                            color: Colors.red[400],
-                            size: 14.sp,
-                          ),
-                          SizedBox(width: 6.w),
-                          Text(
-                            'حذف',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: Colors.red[400],
-                              fontSize: 12.sp,
-                            ),
-                          ),
-                        ],
+                    ],
+                  ),
+                ),
+            ]
+          : [
+              PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: Colors.red[400], size: 12.sp),
+                    SizedBox(width: 5.w),
+                    Text(
+                      'حذف',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: Colors.red[400],
+                        fontSize: 11.sp,
                       ),
                     ),
                   ],
-            onSelected: (value) => onAction(value, foodItem, mealTitle),
-          ),
-        ],
-      ),
-        );
-      },
+                ),
+              ),
+            ],
+      onSelected: (value) => onAction(value, foodItem, mealTitle),
     );
   }
 }

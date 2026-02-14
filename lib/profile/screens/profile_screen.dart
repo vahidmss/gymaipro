@@ -21,6 +21,8 @@ import 'package:gymaipro/ranking/models/ranking_score_breakdown.dart';
 import 'package:gymaipro/ranking/models/user_ranking.dart';
 import 'package:gymaipro/ranking/services/ranking_score_service.dart';
 import 'package:gymaipro/ranking/services/ranking_service.dart';
+import 'package:gymaipro/trainer_dashboard/screens/trainer_dashboard_screen.dart';
+import 'package:gymaipro/trainer_ranking/services/trainer_kpi_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -49,6 +51,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   Timer? _autoSaveDebounce;
   UserRanking? _userRanking;
   RankingScoreBreakdown? _scoreBreakdown;
+  TrainerKpis? _trainerKpis;
 
   @override
   void initState() {
@@ -137,12 +140,28 @@ class _ProfileScreenState extends State<ProfileScreen>
           try {
             final rankingService = RankingService();
             final scoreService = RankingScoreService();
+            
+            // فقط ranking و breakdown رو بگیریم - بدون به‌روزرسانی سنگین
+            // به‌روزرسانی امتیاز در background انجام میشه
             final ranking = await rankingService.getUserRanking(profileId);
             final breakdown = await scoreService.getScoreBreakdown(profileId);
             if (mounted) {
               SafeSetState.call(this, () {
                 _userRanking = ranking;
                 _scoreBreakdown = breakdown;
+                _trainerKpis = null;
+              });
+            }
+          } catch (_) {}
+        } else if (role == 'trainer' && userId != null) {
+          final trainerId = userId as String;
+          try {
+            final kpis = await TrainerKpiService().getTrainerKpis(trainerId);
+            if (mounted) {
+              SafeSetState.call(this, () {
+                _trainerKpis = kpis;
+                _userRanking = null;
+                _scoreBreakdown = null;
               });
             }
           } catch (_) {}
@@ -579,6 +598,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final role = (_profileData['role'] ?? 'athlete').toString();
     return Container(
       decoration: isDark
           ? null
@@ -614,26 +634,47 @@ class _ProfileScreenState extends State<ProfileScreen>
                             onSettingsTap: () =>
                                 Navigator.pushNamed(context, '/settings'),
                           ),
-                          ModernProfileActions(
-                            onFriendsTap: () => Navigator.pushNamed(
-                              context,
-                              '/my-club',
-                              arguments: {'initialTab': 2},
+                          // فقط برای ورزشکاران (athletes) نمایش داده می‌شود
+                          if (role == 'athlete')
+                            ModernProfileActions(
+                              onFriendsTap: () => Navigator.pushNamed(
+                                context,
+                                '/my-club',
+                                arguments: {'initialTab': 2},
+                              ),
+                              onMessagesTap: () =>
+                                  Navigator.pushNamed(context, '/conversations'),
+                              onRequestsTap: () => Navigator.pushNamed(
+                                context,
+                                '/my-club',
+                                arguments: {'initialTab': 2},
+                              ),
                             ),
-                            onMessagesTap: () =>
-                                Navigator.pushNamed(context, '/conversations'),
-                            onRequestsTap: () => Navigator.pushNamed(
-                              context,
-                              '/my-club',
-                              arguments: {'initialTab': 2},
+                          // داشبورد مربی (بدون لیگ) - شبیه ModernGamificationStats
+                          if (role == 'trainer') ...[
+                            SizedBox(height: 20.h),
+                            ModernTrainerKpiDashboard(
+                              profileData: _profileData,
+                              kpis: _trainerKpis,
+                              onOpenTrainerRanking: () =>
+                                  Navigator.pushNamed(context, '/trainer-ranking'),
+                              onOpenTrainerDashboard: () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const TrainerDashboardScreen(),
+                                ),
+                              ),
                             ),
-                          ),
-                          ModernGamificationStats(
-                            ranking: _userRanking,
-                            breakdown: _scoreBreakdown,
-                            onViewLeaderboard: () =>
-                                Navigator.pushNamed(context, '/ranking'),
-                          ),
+                          ],
+
+                          // فقط برای ورزشکاران (athletes) نمایش داده می‌شود
+                          if (role == 'athlete')
+                            ModernGamificationStats(
+                              ranking: _userRanking,
+                              breakdown: _scoreBreakdown,
+                              onViewLeaderboard: () =>
+                                  Navigator.pushNamed(context, '/ranking'),
+                            ),
                           ModernPhysicalStats(profileData: _profileData),
                           SizedBox(height: 80.h), // Bottom padding
                         ],

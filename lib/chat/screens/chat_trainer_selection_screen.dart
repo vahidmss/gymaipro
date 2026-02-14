@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/screens/chat_screen.dart';
 import 'package:gymaipro/chat/widgets/search_bar_widget.dart';
@@ -8,6 +8,7 @@ import 'package:gymaipro/services/trainer_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/widgets/user_role_badge.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -23,13 +24,10 @@ class ChatTrainerSelectionScreen extends StatefulWidget {
 class _ChatTrainerSelectionScreenState
     extends State<ChatTrainerSelectionScreen> {
   late TrainerService _trainerService;
-  // SupabaseService usage removed
-  // Profile via SimpleProfileService adapter
+  final TextEditingController _searchController = TextEditingController();
   List<Map<String, dynamic>> _trainers = [];
   List<Map<String, dynamic>> _filteredTrainers = [];
   bool _isLoading = true;
-  // bool _isRefreshing = false;
-  String _searchQuery = '';
   String? _currentUserId;
   String? _userRole;
   String? _errorMessage;
@@ -38,9 +36,14 @@ class _ChatTrainerSelectionScreenState
   void initState() {
     super.initState();
     _trainerService = TrainerService();
-    // SimpleProfileService is static; no instance needed
     _loadCachedRoleAndId();
     _loadUserInfo();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCachedRoleAndId() async {
@@ -160,15 +163,10 @@ class _ChatTrainerSelectionScreenState
         _errorMessage =
             'خطا در بارگذاری ${_userRole == 'trainer' ? 'شاگردان' : 'مربیان'}';
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'خطا در بارگذاری ${_userRole == 'trainer' ? 'شاگردان' : 'مربیان'}: $e',
-            ),
-          ),
-        );
-      }
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'خطا در بارگذاری ${_userRole == 'trainer' ? 'شاگردان' : 'مربیان'}: $e',
+      );
     }
   }
 
@@ -178,7 +176,6 @@ class _ChatTrainerSelectionScreenState
 
   void _filterTrainers(String query) {
     SafeSetState.call(this, () {
-      _searchQuery = query;
       if (query.isEmpty) {
         _filteredTrainers = _trainers;
       } else {
@@ -219,13 +216,8 @@ class _ChatTrainerSelectionScreenState
       children: [
         _buildHeader(),
         SearchBarWidget(
-          controller: TextEditingController(text: _searchQuery),
-          onChanged: (value) {
-            setState(() {
-              _searchQuery = value;
-              _filterTrainers(value);
-            });
-          },
+          controller: _searchController,
+          onChanged: _filterTrainers,
           hintText: _userRole == 'trainer' ? 'جستجوی شاگرد...' : 'جستجوی مربی...',
         ),
         Expanded(child: _buildContent()),
@@ -417,13 +409,14 @@ class _ChatTrainerSelectionScreenState
   }
 
   Widget _buildEmptyState() {
-    final message = _searchQuery.isNotEmpty
+    final query = _searchController.text;
+    final message = query.isNotEmpty
         ? 'نتیجه‌ای یافت نشد'
         : _userRole == 'trainer'
         ? 'هنوز شاگردی ندارید'
         : 'مربی‌ای یافت نشد';
 
-    final subtitle = _searchQuery.isNotEmpty
+    final subtitle = query.isNotEmpty
         ? 'جستجوی خود را تغییر دهید'
         : _userRole == 'trainer'
         ? 'شاگردان شما اینجا نمایش داده می‌شوند'
@@ -446,7 +439,7 @@ class _ChatTrainerSelectionScreenState
                   ),
                 ),
                 child: Icon(
-                  _searchQuery.isNotEmpty
+                  query.isNotEmpty
                       ? LucideIcons.search
                       : LucideIcons.userX,
                   size: 64.sp,

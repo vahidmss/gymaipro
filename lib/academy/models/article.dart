@@ -1,4 +1,6 @@
-﻿class Article {
+import 'package:gymaipro/utils/json_parse_utils.dart';
+
+class Article {
   Article({
     required this.id,
     required this.title,
@@ -17,33 +19,64 @@
   final String? featuredImageUrl;
 
   static Article fromWordPressJson(Map<String, dynamic> json) {
-    final titleRendered = (json['title']?['rendered'] ?? '').toString();
-    final contentRendered = (json['content']?['rendered'] ?? '').toString();
-    final excerptRendered = (json['excerpt']?['rendered'] ?? '').toString();
+    final rawTitle = json['title'];
+    final rawContent = json['content'];
+    final rawExcerpt = json['excerpt'];
+
+    final titleRendered = rawTitle is Map<String, dynamic>
+        ? (rawTitle['rendered'] ?? '').toString()
+        : (rawTitle ?? '').toString();
+    final contentRendered = rawContent is Map<String, dynamic>
+        ? (rawContent['rendered'] ?? '').toString()
+        : (rawContent ?? '').toString();
+    final excerptRendered = rawExcerpt is Map<String, dynamic>
+        ? (rawExcerpt['rendered'] ?? '').toString()
+        : (rawExcerpt ?? '').toString();
 
     String? imageUrl;
     try {
       final embedded = json['_embedded'];
-      if (embedded is Map && embedded['wp:featuredmedia'] is List) {
-        final media = embedded['wp:featuredmedia'] as List;
-        if (media.isNotEmpty) {
-          final mediaItem = media.first as Map<String, dynamic>;
-          final mediaSource = mediaItem['source_url']?.toString();
-          if (mediaSource != null && mediaSource.isNotEmpty) {
-            imageUrl = mediaSource;
+      if (embedded is Map<String, dynamic>) {
+        final media = embedded['wp:featuredmedia'];
+        if (media is List && media.isNotEmpty) {
+          final first = media.first;
+          if (first is Map<String, dynamic>) {
+            final mediaSource = first['source_url']?.toString();
+            if (mediaSource != null && mediaSource.isNotEmpty) {
+              imageUrl = mediaSource;
+            }
           }
         }
       }
     } catch (_) {}
 
+    int id = 0;
+    try {
+      final rawId = json['id'];
+      if (rawId is int) {
+        id = rawId;
+      } else if (rawId != null) {
+        id = int.tryParse(rawId.toString()) ?? 0;
+      }
+    } catch (_) {
+      id = 0;
+    }
+
+    DateTime date;
+    try {
+      final rawDate = (json['date'] ?? '').toString();
+      date = DateTime.tryParse(rawDate) ?? DateTime.now();
+    } catch (_) {
+      date = DateTime.now();
+    }
+
     return Article(
-      id: json['id'] as int,
+      id: id,
       title: _stripHtml(titleRendered).trim(),
       excerpt: _stripHtml(excerptRendered).trim(),
       contentHtml: contentRendered,
       link: (json['link'] ?? '').toString(),
-      date:
-          DateTime.tryParse((json['date'] ?? '').toString()) ?? DateTime.now(),
+      date: date,
       featuredImageUrl: imageUrl,
     );
   }
@@ -73,13 +106,13 @@
 
   static Article fromJson(Map<String, dynamic> json) {
     return Article(
-      id: json['id'] as int,
-      title: json['title'] as String,
-      excerpt: json['excerpt'] as String,
-      contentHtml: json['contentHtml'] as String,
-      link: json['link'] as String,
-      date: DateTime.parse(json['date'] as String),
-      featuredImageUrl: json['featuredImageUrl'] as String?,
+      id: JsonParse.integer(json, 'id'),
+      title: JsonParse.string(json, 'title'),
+      excerpt: JsonParse.string(json, 'excerpt'),
+      contentHtml: JsonParse.string(json, 'contentHtml'),
+      link: JsonParse.string(json, 'link'),
+      date: JsonParse.dateTime(json, 'date'),
+      featuredImageUrl: JsonParse.stringOrNull(json, 'featuredImageUrl'),
     );
   }
 }

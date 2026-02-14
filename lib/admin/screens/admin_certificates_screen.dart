@@ -348,18 +348,31 @@ class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
           child: Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: DropdownButtonFormField<String?>(
                   value: _selectedStatus,
                   decoration: InputDecoration(
                     labelText: 'وضعیت',
                     border: const OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                   ),
                   items: const [
-                    DropdownMenuItem(value: null, child: Text('همه')),
-                    DropdownMenuItem(value: 'pending', child: Text('در انتظار')),
-                    DropdownMenuItem(value: 'approved', child: Text('تایید شده')),
-                    DropdownMenuItem(value: 'rejected', child: Text('رد شده')),
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('همه'),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'pending',
+                      child: Text('در انتظار'),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'approved',
+                      child: Text('تایید شده'),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'rejected',
+                      child: Text('رد شده'),
+                    ),
                   ],
                   onChanged: (value) {
                     setState(() {
@@ -371,21 +384,43 @@ class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
               ),
               SizedBox(width: 8.w),
               Expanded(
-                child: DropdownButtonFormField<String>(
+                child: DropdownButtonFormField<String?>(
                   value: _selectedType,
                   decoration: InputDecoration(
                     labelText: 'نوع مدرک',
                     border: const OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                   ),
                   items: const [
-                    DropdownMenuItem(value: null, child: Text('همه')),
-                    DropdownMenuItem(value: 'coaching', child: Text('مربیگری')),
-                    DropdownMenuItem(value: 'championship', child: Text('قهرمانی')),
-                    DropdownMenuItem(value: 'education', child: Text('تحصیلات')),
-                    DropdownMenuItem(value: 'specialization', child: Text('تخصص')),
-                    DropdownMenuItem(value: 'achievement', child: Text('دستاورد')),
-                    DropdownMenuItem(value: 'other', child: Text('سایر')),
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('همه'),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'coaching',
+                      child: Text('مربیگری'),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'championship',
+                      child: Text('قهرمانی'),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'education',
+                      child: Text('تحصیلات'),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'specialization',
+                      child: Text('تخصص'),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'achievement',
+                      child: Text('دستاورد'),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'other',
+                      child: Text('سایر'),
+                    ),
                   ],
                   onChanged: (value) {
                     setState(() {

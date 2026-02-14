@@ -1,11 +1,14 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/guide/data/dashboard_guide_data.dart';
 import 'package:gymaipro/services/score_service.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:responsive_framework/responsive_framework.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DashboardAppBar extends StatelessWidget implements PreferredSizeWidget {
   const DashboardAppBar({super.key});
@@ -23,6 +26,8 @@ class DashboardAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: true,
       leading: Builder(builder: _buildMenuButton),
       actions: [
+        _buildProfileButton(context),
+        SizedBox(width: 8.w),
         _buildScoreWidget(context),
         SizedBox(width: 8.w),
       ],
@@ -162,6 +167,103 @@ class DashboardAppBar extends StatelessWidget implements PreferredSizeWidget {
           Scaffold.of(context).openDrawer();
         },
       ),
+    );
+  }
+
+  Widget _buildProfileButton(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: SimpleProfileService.queryCurrentUserProfile(
+        select: 'avatar_url',
+      ),
+      builder: (context, snapshot) {
+        final avatarUrl = snapshot.data?['avatar_url'] as String?;
+        final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
+
+        return GestureDetector(
+          onTap: () {
+            if (userId.isNotEmpty) {
+              Navigator.pushNamed(context, '/profile');
+            }
+          },
+          child: Container(
+            margin: EdgeInsets.symmetric(vertical: 8.h),
+            width: ResponsiveValue(
+              context,
+              defaultValue: 40.w,
+              conditionalValues: [
+                Condition.smallerThan(name: MOBILE, value: 36.w),
+                Condition.largerThan(name: TABLET, value: 44.w),
+              ],
+            ).value,
+            height: ResponsiveValue(
+              context,
+              defaultValue: 40.h,
+              conditionalValues: [
+                Condition.smallerThan(name: MOBILE, value: 36.h),
+                Condition.largerThan(name: TABLET, value: 44.h),
+              ],
+            ).value,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppTheme.goldColor.withValues(alpha: 0.4),
+                width: 2.w,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.goldColor.withValues(alpha: 0.15),
+                  blurRadius: 6.r,
+                  offset: Offset(0.w, 2.h),
+                ),
+              ],
+            ),
+            child: avatarUrl != null && avatarUrl.isNotEmpty
+                ? ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: avatarUrl,
+                      cacheKey: 'avatar_appbar_$userId',
+                      fit: BoxFit.cover,
+                      memCacheWidth: 80,
+                      memCacheHeight: 80,
+                      placeholder: (context, url) => Container(
+                        color: AppTheme.goldColor.withValues(alpha: 0.1),
+                        child: Icon(
+                          LucideIcons.user,
+                          color: AppTheme.goldColor,
+                          size: 20.sp,
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: AppTheme.goldColor.withValues(alpha: 0.1),
+                        child: Icon(
+                          LucideIcons.user,
+                          color: AppTheme.goldColor,
+                          size: 20.sp,
+                        ),
+                      ),
+                    ),
+                  )
+                : Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppTheme.goldColor.withValues(alpha: 0.1),
+                    ),
+                    child: Icon(
+                      LucideIcons.user,
+                      color: context.textColor,
+                      size: ResponsiveValue(
+                        context,
+                        defaultValue: 20.sp,
+                        conditionalValues: [
+                          Condition.smallerThan(name: MOBILE, value: 18.sp),
+                          Condition.largerThan(name: TABLET, value: 22.sp),
+                        ],
+                      ).value,
+                    ),
+                  ),
+          ),
+        );
+      },
     );
   }
 }

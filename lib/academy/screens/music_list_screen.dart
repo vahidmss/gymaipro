@@ -14,7 +14,10 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 class MusicListScreen extends StatefulWidget {
-  const MusicListScreen({super.key});
+  const MusicListScreen({super.key, this.initialMusicToPlay});
+
+  /// وقتی از کاروسل یا جاهای دیگر باز می‌شود، این موزیک را بعد از لود لیست پخش کن
+  final WorkoutMusic? initialMusicToPlay;
 
   @override
   State<MusicListScreen> createState() => _MusicListScreenState();
@@ -25,7 +28,8 @@ class _MusicListScreenState extends State<MusicListScreen>
   List<WorkoutMusic> _musicList = [];
   List<WorkoutMusic> _allMusics = [];
   bool _isLoading = true;
-  int _selectedTab = 0; // 0: همه, 1: مورد علاقه, 2: مربی, 3: دانلود شده
+  int _selectedTab = 0;
+  bool _didPlayInitial = false;
   final _cacheService = MusicCacheService();
   final ScrollController _scrollController = ScrollController();
   final _trainerClientService = TrainerClientService();
@@ -249,8 +253,24 @@ class _MusicListScreenState extends State<MusicListScreen>
           _allMusics = music;
           _isLoading = false;
         });
-        _updateFilteredList();
-        // Note: setPlaylist is now called in _updateFilteredList with filtered list
+        await _updateFilteredList();
+        // اگر از کاروسل با موزیک خاصی باز شده، فقط بار اول بعد از لود پخش کن
+        if (!_didPlayInitial &&
+            widget.initialMusicToPlay != null &&
+            mounted) {
+          _didPlayInitial = true;
+          final initial = widget.initialMusicToPlay!;
+          final idx = _musicList.indexWhere(
+            (m) =>
+                WorkoutMusic.normalizeAudioUrl(m.audioUrl) ==
+                    WorkoutMusic.normalizeAudioUrl(initial.audioUrl) ||
+                m.id == initial.id,
+          );
+          if (idx >= 0) {
+            final player = MusicPlayerService();
+            await player.playMusic(initial, index: idx);
+          }
+        }
       }
     } catch (e) {
       if (mounted) {

@@ -20,49 +20,67 @@ class CommentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(10.r),
       child: Container(
+        padding: EdgeInsets.all(12.w),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: Colors.white10),
+          color: context.backgroundColor,
+          borderRadius: BorderRadius.circular(10.r),
+          border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.1)),
         ),
-        padding: EdgeInsets.all(10.w),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: AppTheme.goldColor,
-              backgroundImage:
-                  (avatarUrl.isNotEmpty && avatarUrl.startsWith('http'))
-                  ? NetworkImage(avatarUrl)
-                  : null,
-              child: (avatarUrl.isEmpty)
-                  ? Text(
-                      (displayName.isNotEmpty ? displayName[0] : 'ک'),
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : null,
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppTheme.goldColor.withValues(alpha: 0.3),
+                  width: 2,
+                ),
+              ),
+              child: CircleAvatar(
+                radius: 20.r,
+                backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
+                backgroundImage:
+                    (avatarUrl.isNotEmpty && avatarUrl.startsWith('http'))
+                    ? NetworkImage(avatarUrl)
+                    : null,
+                child: (avatarUrl.isEmpty)
+                    ? Text(
+                        (displayName.isNotEmpty ? displayName[0] : 'ک'),
+                        style: TextStyle(
+                          color: AppTheme.goldColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16.sp,
+                        ),
+                      )
+                    : null,
+              ),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: 12.w),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     displayName,
-                    style: AppTheme.headingStyle.copyWith(fontSize: 14.sp),
+                    style: AppTheme.headingStyle.copyWith(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w700,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 6.h),
                   Text(
                     content.replaceAll(RegExp('<[^>]*>'), ''),
-                    style: AppTheme.bodyStyle.copyWith(height: 1.5.h),
-                    maxLines: 3,
+                    style: AppTheme.bodyStyle.copyWith(
+                      fontSize: 13.sp,
+                      height: 1.6,
+                      color: context.textColor,
+                    ),
+                    maxLines: 10,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],

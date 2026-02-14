@@ -4,6 +4,7 @@ import 'package:gymaipro/achievements/models/achievement.dart';
 import 'package:gymaipro/achievements/services/achievement_service.dart';
 import 'package:gymaipro/achievements/widgets/achievement_card.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/services/score_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:shamsi_date/shamsi_date.dart';
@@ -19,6 +20,15 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     with TickerProviderStateMixin {
   bool _isStatsExpanded = false;
   TabController? _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    // سینک دستاوردهای دعوت با تعداد رفرال از پروفایل (هر بار باز شدن صفحه)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AchievementService.instance.syncInviteAchievementsFromProfile();
+    });
+  }
 
   @override
   void dispose() {
@@ -170,49 +180,52 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     TabController tabController,
   ) {
     return Container(
-      decoration: BoxDecoration(
-        color: isDark ? context.backgroundColor : Colors.transparent,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
-            blurRadius: 10.r,
-            offset: Offset(0.w, 2.h),
-          ),
-        ],
-      ),
+      color: context.backgroundColor,
       child: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            // Header
+            // Header مشابه سایر صفحات (آیکون + عنوان وسط‌چین)
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
               child: Row(
                 textDirection: TextDirection.rtl,
                 children: [
-                  Container(
-                    padding: EdgeInsets.all(10.w),
-                    decoration: BoxDecoration(
-                      color: AppTheme.goldColor.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      LucideIcons.trophy,
-                      color: AppTheme.goldColor,
-                      size: 24.sp,
+                  // دکمه برگشت
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: Icon(
+                      LucideIcons.arrowRight,
+                      size: 20.sp,
+                      color: context.textColor,
                     ),
                   ),
-                  SizedBox(width: 12.w),
+                  // عنوان وسط‌چین
                   Expanded(
-                    child: Text(
-                      'دستاوردها',
-                      style: TextStyle(
-                        fontSize: 20.sp,
-                        fontWeight: FontWeight.bold,
-                        color: context.textColor,
-                      ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.max,
+                      children: [
+                        Icon(
+                          LucideIcons.trophy,
+                          color: AppTheme.goldColor,
+                          size: 20.sp,
+                        ),
+                        SizedBox(width: 6.w),
+                        Text(
+                          'دستاوردها',
+                          style: TextStyle(
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: AppTheme.fontFamily,
+                            color: context.textColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  // فضای خالی برای بالانس با دکمه برگشت
+                  SizedBox(width: 48.w),
                 ],
               ),
             ),
@@ -224,34 +237,14 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                 decoration: BoxDecoration(
                   color: context.cardColor,
                   borderRadius: BorderRadius.circular(14.r),
-                  border: Border.all(
-                    color: AppTheme.goldColor.withValues(
-                      alpha: isDark ? 0.3 : 0.4,
-                    ),
-                    width: 1.5.w,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.goldColor.withValues(
-                        alpha: isDark ? 0.05 : 0.1,
-                      ),
-                      blurRadius: 8.r,
-                      offset: Offset(0.w, 2.h),
-                    ),
-                  ],
                 ),
                 child: TabBar(
                   tabAlignment: TabAlignment.start,
                   controller: tabController,
                   isScrollable: categories.length > 3,
-                  indicator: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: context.goldGradientColors,
-                    ),
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
+                  indicatorColor: AppTheme.goldColor,
                   indicatorSize: TabBarIndicatorSize.tab,
-                  labelColor: AppTheme.onGoldColor,
+                  labelColor: AppTheme.goldColor,
                   unselectedLabelColor: context.textSecondary,
                   labelStyle: TextStyle(
                     fontFamily: AppTheme.fontFamily,
@@ -293,21 +286,12 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                             ),
                           ),
                           SizedBox(width: 4.w),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 6.w,
-                              vertical: 2.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.goldColor.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(8.r),
-                            ),
-                            child: Text(
-                              '$unlockedCount/${achievements.length}',
-                              style: TextStyle(
-                                fontSize: 10.sp,
-                                fontWeight: FontWeight.bold,
-                              ),
+                          Text(
+                            '$unlockedCount/${achievements.length}',
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              fontWeight: FontWeight.w500,
+                              color: context.textSecondary,
                             ),
                           ),
                         ],
@@ -334,7 +318,10 @@ class _AchievementsScreenState extends State<AchievementsScreen>
 
     if (achievements.isEmpty) {
       return RefreshIndicator(
-        onRefresh: () => service.refreshFromDatabase(),
+        onRefresh: () async {
+          await service.refreshFromDatabase();
+          await ScoreService().loadFromDatabase();
+        },
         color: AppTheme.goldColor,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -352,29 +339,24 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     }
 
     return RefreshIndicator(
-      onRefresh: () => service.refreshFromDatabase(),
+      onRefresh: () async {
+        await service.refreshFromDatabase();
+        await ScoreService().loadFromDatabase();
+      },
       color: AppTheme.goldColor,
-      child: CustomScrollView(
+      child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          SliverPadding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                return Padding(
-                  padding: EdgeInsets.only(bottom: 12.h),
-                  child: AchievementCard(
-                    achievement: achievements[index],
-                    onTap: () =>
-                        _showAchievementDetail(context, achievements[index]),
-                  ),
-                );
-              }, childCount: achievements.length),
+        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 120.h),
+        itemCount: achievements.length,
+        itemBuilder: (context, index) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: 12.h),
+            child: AchievementCard(
+              achievement: achievements[index],
+              onTap: () => _showAchievementDetail(context, achievements[index]),
             ),
-          ),
-          // فضای خالی برای فوتر
-          SliverToBoxAdapter(child: SizedBox(height: 120.h)),
-        ],
+          );
+        },
       ),
     );
   }
@@ -398,43 +380,14 @@ class _AchievementsScreenState extends State<AchievementsScreen>
       top: false,
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: isDark
-                ? [
-                    context.cardColor,
-                    context.cardColor.withValues(alpha: 0.98),
-                    context.cardColor.withValues(alpha: 0.95),
-                  ]
-                : [
-                    AppTheme.lightCardColor,
-                    AppTheme.lightCardColor.withValues(alpha: 0.99),
-                    AppTheme.lightCardColor.withValues(alpha: 0.97),
-                  ],
-            stops: const [0.0, 0.5, 1.0],
-          ),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28.r)),
+          color: context.cardColor,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
           border: Border(
             top: BorderSide(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.4 : 0.5),
-              width: 2.5.w,
+              color: AppTheme.lightDividerColor.withValues(alpha: 0.6),
+              width: 1.w,
             ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
-              blurRadius: 35.r,
-              offset: Offset(0.w, -10.h),
-              spreadRadius: 0,
-            ),
-            BoxShadow(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.25 : 0.4),
-              blurRadius: 25.r,
-              offset: Offset(0.w, -5.h),
-              spreadRadius: 3.r,
-            ),
-          ],
         ),
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -445,8 +398,8 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                 _isStatsExpanded = expanded;
               });
             },
-            tilePadding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 16.h),
-            childrenPadding: EdgeInsets.fromLTRB(22.w, 0, 22.w, 24.h),
+            tilePadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+            childrenPadding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 16.h),
             iconColor: Colors.transparent,
             collapsedIconColor: Colors.transparent,
             trailing: AnimatedRotation(
@@ -467,37 +420,10 @@ class _AchievementsScreenState extends State<AchievementsScreen>
             title: Row(
               textDirection: TextDirection.rtl,
               children: [
-                Container(
-                  padding: EdgeInsets.all(12.w),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppTheme.goldColor.withValues(alpha: 0.35),
-                        AppTheme.goldColor.withValues(alpha: 0.25),
-                        AppTheme.goldColor.withValues(alpha: 0.2),
-                      ],
-                      stops: const [0.0, 0.5, 1.0],
-                    ),
-                    borderRadius: BorderRadius.circular(16.r),
-                    border: Border.all(
-                      color: AppTheme.goldColor.withValues(alpha: 0.3),
-                      width: 1.2.w,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.goldColor.withValues(alpha: 0.25),
-                        blurRadius: 10.r,
-                        offset: Offset(0.w, 3.h),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    LucideIcons.trophy,
-                    size: 22.sp,
-                    color: AppTheme.goldColor,
-                  ),
+                Icon(
+                  LucideIcons.trophy,
+                  size: 22.sp,
+                  color: AppTheme.goldColor,
                 ),
                 SizedBox(width: 16.w),
                 Expanded(
@@ -505,7 +431,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'پیشرفت کلی',
+                        'پیشرفت کلی دستاوردها',
                         style: TextStyle(
                           fontSize: 18.sp,
                           fontWeight: FontWeight.w700,
@@ -570,55 +496,17 @@ class _AchievementsScreenState extends State<AchievementsScreen>
             children: [
               Column(
                 children: [
-                  SizedBox(height: 16.h),
-                  // نوار پیشرفت با استایل بهتر
-                  Container(
-                    height: 16.h,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14.r),
-                      color: isDark
-                          ? AppTheme.darkGreySeparator
-                          : AppTheme.lightDividerColor.withValues(alpha: 0.5),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 4.r,
-                          offset: Offset(0.w, 2.h),
-                        ),
-                      ],
+                  SizedBox(height: 12.h),
+                  LinearProgressIndicator(
+                    value: progressValue,
+                    minHeight: 8.h,
+                    backgroundColor: AppTheme.lightDividerColor.withValues(
+                      alpha: isDark ? 0.4 : 0.3,
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(14.r),
-                      child: Stack(
-                        children: [
-                          LinearProgressIndicator(
-                            value: progressValue,
-                            minHeight: 16.h,
-                            backgroundColor: Colors.transparent,
-                            valueColor: AlwaysStoppedAnimation(
-                              AppTheme.goldColor,
-                            ),
-                          ),
-                          if (progressValue > 0)
-                            Positioned.fill(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      AppTheme.goldColor,
-                                      AppTheme.darkGold,
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(14.r),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
+                    valueColor: AlwaysStoppedAnimation(AppTheme.goldColor),
                   ),
-                  SizedBox(height: 24.h),
-                  // آمار با استایل بهتر
+                  SizedBox(height: 20.h),
+                  // آمار جمع‌بندی
                   Row(
                     textDirection: TextDirection.rtl,
                     children: [
@@ -632,21 +520,6 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                           label: 'دستاوردها',
                         ),
                       ),
-                      Container(
-                        width: 1.5.w,
-                        height: 50.h,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              AppTheme.goldColor.withValues(alpha: 0.3),
-                              Colors.transparent,
-                            ],
-                          ),
-                        ),
-                      ),
                       Expanded(
                         child: _buildCompactStatItem(
                           context,
@@ -654,21 +527,6 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                           icon: LucideIcons.star,
                           value: '${service.totalPoints}',
                           label: 'امتیاز',
-                        ),
-                      ),
-                      Container(
-                        width: 1.5.w,
-                        height: 50.h,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              AppTheme.goldColor.withValues(alpha: 0.3),
-                              Colors.transparent,
-                            ],
-                          ),
                         ),
                       ),
                       Expanded(
@@ -702,25 +560,14 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     return Column(
       children: [
         Container(
-          padding: EdgeInsets.all(10.w),
+          padding: EdgeInsets.all(8.w),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppTheme.goldColor.withValues(alpha: 0.2),
-                AppTheme.goldColor.withValues(alpha: 0.15),
-              ],
-            ),
             shape: BoxShape.circle,
-            border: Border.all(
-              color: AppTheme.goldColor.withValues(alpha: 0.3),
-              width: 1.w,
-            ),
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.25 : 0.18),
           ),
-          child: Icon(icon, size: 20.sp, color: AppTheme.goldColor),
+          child: Icon(icon, size: 18.sp, color: AppTheme.goldColor),
         ),
-        SizedBox(height: 10.h),
+        SizedBox(height: 8.h),
         Text(
           value,
           style: TextStyle(
@@ -767,124 +614,50 @@ class _AchievementDetailSheet extends StatelessWidget {
     return Container(
       margin: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        gradient: isDark
-            ? null
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppTheme.lightCardColor,
-                  AppTheme.lightCardColor.withValues(alpha: 0.95),
-                ],
-              ),
-        color: isDark ? AppTheme.darkCardColor : null,
-        borderRadius: BorderRadius.circular(28.r),
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(20.r),
         border: Border.all(
           color: isUnlocked
               ? Color(achievement.tier.colorValue).withValues(alpha: 0.3)
-              : AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.3),
-          width: 1.5.w,
+              : AppTheme.lightDividerColor.withValues(alpha: 0.8),
+          width: 1.w,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.1),
-            blurRadius: 30.r,
-            offset: Offset(0.w, 10.h),
-            spreadRadius: 0,
-          ),
-          if (isUnlocked)
-            BoxShadow(
-              color: Color(
-                achievement.tier.colorValue,
-              ).withValues(alpha: isDark ? 0.2 : 0.15),
-              blurRadius: 20.r,
-              offset: Offset(0.w, 5.h),
-              spreadRadius: 2.r,
-            ),
-        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // دسته کشویی
           Container(
-            margin: EdgeInsets.only(top: 12.h),
-            width: 50.w,
-            height: 5.h,
+            margin: EdgeInsets.only(top: 10.h),
+            width: 40.w,
+            height: 4.h,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.goldColor.withValues(alpha: 0.5),
-                  AppTheme.goldColor.withValues(alpha: 0.3),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(3.r),
+              color: AppTheme.lightDividerColor.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(2.r),
             ),
           ),
 
           Padding(
-            padding: EdgeInsets.fromLTRB(28.w, 20.h, 28.w, 28.h),
+            padding: EdgeInsets.fromLTRB(24.w, 18.h, 24.w, 20.h),
             child: Column(
               children: [
-                // آیکون بزرگ با افکت
+                // آیکون بزرگ
                 Container(
                   width: 80.w,
                   height: 80.w,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: isUnlocked
-                        ? LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(achievement.tier.colorValue),
-                              Color(
-                                achievement.tier.colorValue,
-                              ).withValues(alpha: 0.8),
-                              Color(
-                                achievement.tier.colorValue,
-                              ).withValues(alpha: 0.6),
-                            ],
-                            stops: const [0.0, 0.5, 1.0],
-                          )
-                        : LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: isDark
-                                ? [
-                                    AppTheme.darkGreySeparator,
-                                    AppTheme.darkGreySeparator.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                  ]
-                                : [
-                                    AppTheme.lightDividerColor,
-                                    AppTheme.lightDividerColor.withValues(
-                                      alpha: 0.8,
-                                    ),
-                                  ],
-                          ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isUnlocked
-                            ? Color(
-                                achievement.tier.colorValue,
-                              ).withValues(alpha: 0.5)
-                            : AppTheme.goldColor.withValues(
-                                alpha: isDark ? 0.2 : 0.25,
-                              ),
-                        blurRadius: 25.r,
-                        offset: Offset(0.w, 12.h),
-                        spreadRadius: 2.r,
-                      ),
-                      BoxShadow(
-                        color: Colors.black.withValues(
-                          alpha: isDark ? 0.4 : 0.1,
-                        ),
-                        blurRadius: 15.r,
-                        offset: Offset(0.w, 6.h),
-                      ),
-                    ],
+                    color: isUnlocked
+                        ? Color(
+                            achievement.tier.colorValue,
+                          ).withValues(alpha: 0.2)
+                        : (isDark
+                              ? AppTheme.darkGreySeparator.withValues(
+                                  alpha: 0.7,
+                                )
+                              : AppTheme.lightDividerColor.withValues(
+                                  alpha: 0.7,
+                                )),
                   ),
                   child: Center(
                     child: Text(
@@ -904,13 +677,7 @@ class _AchievementDetailSheet extends StatelessWidget {
                     fontFamily: AppTheme.fontFamily,
                     letterSpacing: 0.5,
                     height: 1.3,
-                    color: isUnlocked
-                        ? (isDark
-                              ? AppTheme.darkTextColor
-                              : AppTheme.lightTextColor)
-                        : (isDark
-                              ? AppTheme.darkTextColor.withValues(alpha: 0.8)
-                              : AppTheme.lightTextColor.withValues(alpha: 0.9)),
+                    color: context.textColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -972,9 +739,7 @@ class _AchievementDetailSheet extends StatelessWidget {
                     fontFamily: AppTheme.fontFamily,
                     height: 1.6,
                     letterSpacing: 0.2,
-                    color: isDark
-                        ? AppTheme.darkTextColor.withValues(alpha: 0.75)
-                        : AppTheme.lightTextSecondary,
+                    color: context.textSecondary,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -1023,9 +788,17 @@ class _AchievementDetailSheet extends StatelessWidget {
   }
 
   Widget _buildUnlockedInfo(BuildContext context, bool isDark) {
-    final jDate = Jalali.fromDateTime(achievement.unlockedAt!);
-    final dateStr =
-        '${jDate.year}/${jDate.month.toString().padLeft(2, '0')}/${jDate.day.toString().padLeft(2, '0')}';
+    // ممکن است دستاورد در دیتابیس unlock شده باشد ولی تاریخ ثبت نشده باشد
+    // در این صورت برای جلوگیری از کرش، یک متن ساده نمایش می‌دهیم
+    final unlockedAt = achievement.unlockedAt;
+    final String dateStr;
+    if (unlockedAt != null) {
+      final jDate = Jalali.fromDateTime(unlockedAt);
+      dateStr =
+          '${jDate.year}/${jDate.month.toString().padLeft(2, '0')}/${jDate.day.toString().padLeft(2, '0')}';
+    } else {
+      dateStr = 'تاریخ نامشخص';
+    }
 
     return Container(
       padding: EdgeInsets.all(20.w),
@@ -1091,9 +864,7 @@ class _AchievementDetailSheet extends StatelessWidget {
                   fontSize: 12.sp,
                   fontWeight: FontWeight.w500,
                   fontFamily: AppTheme.fontFamily,
-                  color: isDark
-                      ? AppTheme.darkTextColor.withValues(alpha: 0.65)
-                      : AppTheme.lightTextSecondary,
+                  color: context.textSecondary,
                 ),
               ),
             ],
@@ -1139,9 +910,7 @@ class _AchievementDetailSheet extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   fontFamily: AppTheme.fontFamily,
                   letterSpacing: 0.3,
-                  color: isDark
-                      ? AppTheme.darkTextColor
-                      : AppTheme.lightTextColor,
+                  color: context.textColor,
                 ),
                 textDirection: TextDirection.rtl,
               ),
@@ -1152,9 +921,7 @@ class _AchievementDetailSheet extends StatelessWidget {
                   fontSize: 12.sp,
                   fontWeight: FontWeight.w500,
                   fontFamily: AppTheme.fontFamily,
-                  color: isDark
-                      ? AppTheme.darkTextColor.withValues(alpha: 0.65)
-                      : AppTheme.lightTextSecondary,
+                  color: context.textSecondary,
                 ),
               ),
             ],
@@ -1165,7 +932,9 @@ class _AchievementDetailSheet extends StatelessWidget {
   }
 
   Widget _buildProgressInfo(BuildContext context, bool isDark) {
-    final remaining = achievement.targetValue - achievement.currentValue;
+    // جلوگیری از منفی شدن مقدار باقی‌مانده در صورت عبور از target
+    final remainingRaw = achievement.targetValue - achievement.currentValue;
+    final remaining = remainingRaw > 0 ? remainingRaw : 0;
     final tierColor = Color(achievement.tier.colorValue);
 
     return Container(
@@ -1216,9 +985,7 @@ class _AchievementDetailSheet extends StatelessWidget {
                       fontSize: 15.sp,
                       fontWeight: FontWeight.w600,
                       fontFamily: AppTheme.fontFamily,
-                      color: isDark
-                          ? AppTheme.darkTextColor.withValues(alpha: 0.8)
-                          : AppTheme.lightTextSecondary,
+                      color: context.textSecondary,
                     ),
                   ),
                 ],
@@ -1287,9 +1054,7 @@ class _AchievementDetailSheet extends StatelessWidget {
                   fontSize: 14.sp,
                   fontWeight: FontWeight.w500,
                   fontFamily: AppTheme.fontFamily,
-                  color: isDark
-                      ? AppTheme.darkTextColor.withValues(alpha: 0.75)
-                      : AppTheme.lightTextSecondary,
+                  color: context.textSecondary,
                 ),
                 textDirection: TextDirection.rtl,
               ),

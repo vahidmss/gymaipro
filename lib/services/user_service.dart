@@ -1,19 +1,28 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UserService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  // دریافت پروفایل کاربر بر اساس ID
+  // دریافت پروفایل کاربر بر اساس ID یا auth_user_id (برای سازگاری با داده‌های قدیمی)
   Future<UserProfile?> getUserProfile(String userId) async {
     try {
-      final response = await _supabase
+      // ابتدا بر اساس id
+      var response = await _supabase
           .from('profiles')
           .select()
           .eq('id', userId)
-          .single();
+          .maybeSingle();
 
+      // اگر پیدا نشد، بر اساس auth_user_id
+      response ??= await _supabase
+          .from('profiles')
+          .select()
+          .eq('auth_user_id', userId)
+          .maybeSingle();
+
+      if (response == null) return null;
       return UserProfile.fromJson(response);
     } catch (e) {
       debugPrint('⚠️ Error getting user profile for $userId: $e');

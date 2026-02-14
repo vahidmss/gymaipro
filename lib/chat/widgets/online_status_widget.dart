@@ -16,16 +16,9 @@ class OnlineStatusWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!showText) {
-      return Container(
-        width: 8.w,
-        height: 8.h,
-        decoration: BoxDecoration(
-          color: isOnline ? AppTheme.goldColor : AppTheme.bodyStyle.color,
-          shape: BoxShape.circle,
-        ),
-      );
-    }
+    final onlineColor = Colors.greenAccent.shade400;
+    final offlineColor =
+        AppTheme.bodyStyle.color ?? Colors.grey;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -34,14 +27,14 @@ class OnlineStatusWidget extends StatelessWidget {
           width: 8.w,
           height: 8.h,
           decoration: BoxDecoration(
-            color: isOnline ? AppTheme.goldColor : AppTheme.bodyStyle.color,
+            color: isOnline ? onlineColor : offlineColor,
             shape: BoxShape.circle,
           ),
         ),
         const SizedBox(width: 6),
         Text(
           _getStatusText(),
-          style: TextStyle(color: AppTheme.bodyStyle.color, fontSize: 12.sp),
+          style: TextStyle(color: offlineColor, fontSize: 12.sp),
         ),
       ],
     );

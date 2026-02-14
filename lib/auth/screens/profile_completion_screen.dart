@@ -44,6 +44,12 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
   final _referralCodeFocusNode = FocusNode();
   String? _firstNameError;
   String? _lastNameError;
+  
+  // Referral code validation
+  bool _isCheckingReferral = false;
+  String? _referrerFirstName;
+  String? _referrerLastName;
+  String? _referralCodeError;
 
   // Step 2: Gender
   String? _selectedGender;
@@ -77,7 +83,6 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
     super.initState();
     _initializeYears();
     _updateDays();
-
     _progressAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -89,6 +94,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
     _lastNameController.addListener(_clearLastNameError);
     _heightController.addListener(_clearHeightError);
     _weightController.addListener(_clearWeightError);
+    _referralCodeController.addListener(_clearReferralCodeInfo);
   }
 
   void _clearFirstNameError() {
@@ -112,6 +118,16 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
   void _clearWeightError() {
     if (_weightError != null) {
       setState(() => _weightError = null);
+    }
+  }
+
+  void _clearReferralCodeInfo() {
+    if (_referrerFirstName != null || _referrerLastName != null || _referralCodeError != null) {
+      setState(() {
+        _referrerFirstName = null;
+        _referrerLastName = null;
+        _referralCodeError = null;
+      });
     }
   }
 
@@ -164,7 +180,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
       // بررسی فیلدها و انتقال فوکوس به فیلد بعدی به جای نمایش ارور
       final firstName = _firstNameController.text.trim();
       final lastName = _lastNameController.text.trim();
-      
+
       if (firstName.isEmpty) {
         // اگر نام خالی است، فوکوس به فیلد نام
         _firstNameFocusNode.requestFocus();
@@ -248,6 +264,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
     );
     _progressAnimationController.safeForward();
 
+    // در مراحل بدون ورودی متنی کیبورد را ببند؛ در مراحل متنی فوکوس خودکار نگذار، کاربر خودش تپ می‌کند
     if (!nextStepNeedsKeyboard) {
       Future.delayed(const Duration(milliseconds: 280), () {
         if (mounted && _currentStep == step) {
@@ -277,7 +294,9 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
             height: _heightController.text.trim(),
             weight: _weightController.text.trim(),
             activityLevel: _selectedActivityLevel!,
-            referralCode: _referralCodeController.text.trim(),
+            referralCode: _referrerFirstName != null
+                ? _referralCodeController.text.trim()
+                : '',
           ),
         ),
       );
@@ -288,7 +307,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.lightBackgroundColor,
-      resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -328,47 +347,51 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: RepaintBoundary(
-        child: Stack(
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                    AppTheme.lightCardColor,
-                    AppTheme.lightGradientEnd.withValues(alpha: 0.1),
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.translucent,
+        child: RepaintBoundary(
+          child: Stack(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppTheme.lightGradientStart.withValues(alpha: 0.15),
+                      AppTheme.lightCardColor,
+                      AppTheme.lightGradientEnd.withValues(alpha: 0.1),
+                    ],
+                  ),
+                ),
+              ),
+              SafeArea(
+                child: Column(
+                  children: [
+                    _buildProgressIndicator(),
+                    Expanded(
+                      child: RepaintBoundary(
+                        child: PageView(
+                          controller: _pageController,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _buildNameStep(),
+                            _buildGenderStep(),
+                            _buildBirthDateStep(),
+                            _buildHeightStep(),
+                            _buildWeightStep(),
+                            _buildActivityLevelStep(),
+                          ],
+                        ),
+                      ),
+                    ),
+                    _buildNavigationButtons(),
                   ],
                 ),
               ),
-            ),
-            SafeArea(
-              child: Column(
-                children: [
-                  _buildProgressIndicator(),
-                  Expanded(
-                    child: RepaintBoundary(
-                      child: PageView(
-                        controller: _pageController,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: [
-                          _buildNameStep(),
-                          _buildGenderStep(),
-                          _buildBirthDateStep(),
-                          _buildHeightStep(),
-                          _buildWeightStep(),
-                          _buildActivityLevelStep(),
-                        ],
-                      ),
-                    ),
-                  ),
-                  _buildNavigationButtons(),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -376,7 +399,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
 
   Widget _buildProgressIndicator() {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 20.h),
+      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 6.h),
       child: Column(
         children: [
           Row(
@@ -423,7 +446,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
 
   Widget _buildNavigationButtons() {
     return Padding(
-      padding: EdgeInsets.all(24.w),
+      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 12.h),
       child: Row(
         children: [
           if (_currentStep > 0)
@@ -435,7 +458,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
                         _goToStep(_currentStep - 1);
                       },
                 style: OutlinedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 18.h),
+                  padding: EdgeInsets.symmetric(vertical: 14.h),
                   side: BorderSide(color: AppTheme.goldColor, width: 1.5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16.r),
@@ -480,7 +503,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
                   ? _completeRegistration
                   : _nextStep,
               style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(vertical: 18.h),
+                padding: EdgeInsets.symmetric(vertical: 14.h),
                 backgroundColor: AppTheme.goldColor,
                 foregroundColor: Colors.black,
                 elevation: 4,
@@ -591,15 +614,42 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
               },
             ),
             SizedBox(height: 16.h),
-            _buildTextField(
-              controller: _referralCodeController,
-              focusNode: _referralCodeFocusNode,
-              label: 'کد معرف (اختیاری)',
-              hint: 'در صورت داشتن کد معرف وارد کنید',
-              icon: Icons.card_giftcard,
-              textInputAction: TextInputAction.done,
-              isOptional: true,
-            ),
+            _buildReferralCodeField(),
+            if (_referrerFirstName != null && _referrerLastName != null)
+              Padding(
+                padding: EdgeInsets.only(top: 8.h),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      color: AppTheme.successColor,
+                      size: 16.sp,
+                    ),
+                    SizedBox(width: 6.w),
+                    Text(
+                      'معرف شما: $_referrerFirstName $_referrerLastName',
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: AppTheme.successColor,
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (_referralCodeError != null)
+              Padding(
+                padding: EdgeInsets.only(top: 4.h),
+                child: Text(
+                  _referralCodeError!,
+                  style: TextStyle(
+                    fontSize: 11.sp,
+                    color: AppTheme.errorColor,
+                    fontFamily: AppTheme.fontFamily,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -872,41 +922,41 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
     return Column(
       children: [
         Container(
-          padding: EdgeInsets.all(16.w),
+          padding: EdgeInsets.all(10.w),
           decoration: BoxDecoration(
             color: AppTheme.goldColor.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
-          child: Icon(icon, size: 36.sp, color: AppTheme.goldColor),
+          child: Icon(icon, size: 22.sp, color: AppTheme.goldColor),
         ),
-        SizedBox(height: 16.h),
+        SizedBox(height: 10.h),
         Text(
           title,
           style: TextStyle(
             fontSize: ResponsiveValue(
               context,
-              defaultValue: 22.sp,
+              defaultValue: 17.sp,
               conditionalValues: [
-                Condition.smallerThan(name: MOBILE, value: 20.sp),
-                Condition.largerThan(name: TABLET, value: 26.sp),
+                Condition.smallerThan(name: MOBILE, value: 16.sp),
+                Condition.largerThan(name: TABLET, value: 19.sp),
               ],
             ).value,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             color: AppTheme.lightTextColor,
             fontFamily: AppTheme.fontFamily,
           ),
           textAlign: TextAlign.center,
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 4.h),
         Text(
           subtitle,
           style: TextStyle(
             fontSize: ResponsiveValue(
               context,
-              defaultValue: 14.sp,
+              defaultValue: 12.sp,
               conditionalValues: [
-                Condition.smallerThan(name: MOBILE, value: 12.sp),
-                Condition.largerThan(name: TABLET, value: 16.sp),
+                Condition.smallerThan(name: MOBILE, value: 11.sp),
+                Condition.largerThan(name: TABLET, value: 13.sp),
               ],
             ).value,
             color: AppTheme.lightTextSecondary,
@@ -1016,6 +1066,125 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
       ),
     );
   }
+
+  Widget _buildReferralCodeField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildTextField(
+                controller: _referralCodeController,
+                focusNode: _referralCodeFocusNode,
+                label: 'کد معرف (اختیاری)',
+                hint: 'در صورت داشتن کد معرف وارد کنید',
+                icon: Icons.card_giftcard,
+                textInputAction: TextInputAction.done,
+                isOptional: true,
+              ),
+            ),
+            SizedBox(width: 8.w),
+            SizedBox(
+              width: 100.w,
+              child: ElevatedButton(
+                onPressed: _isCheckingReferral ||
+                        _referralCodeController.text.trim().isEmpty
+                    ? null
+                    : _checkReferralCode,
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 16.h),
+                  backgroundColor: AppTheme.goldColor,
+                  foregroundColor: Colors.black,
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                ),
+                child: _isCheckingReferral
+                    ? SizedBox(
+                        width: 18.w,
+                        height: 18.h,
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                        ),
+                      )
+                    : Text(
+                        'بررسی',
+                        style: TextStyle(
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: AppTheme.fontFamily,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _checkReferralCode() async {
+    final code = _referralCodeController.text.trim();
+    if (code.isEmpty) {
+      setState(() {
+        _referralCodeError = 'لطفاً کد معرف را وارد کنید';
+        _referrerFirstName = null;
+        _referrerLastName = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _isCheckingReferral = true;
+      _referralCodeError = null;
+      _referrerFirstName = null;
+      _referrerLastName = null;
+    });
+
+    try {
+      final client = Supabase.instance.client;
+      final response = await client
+          .from('profiles')
+          .select('first_name, last_name, username')
+          .eq('username', code)
+          .maybeSingle();
+
+      if (response == null) {
+        setState(() {
+          _referralCodeError = 'کد معرف معتبر نیست';
+          _isCheckingReferral = false;
+        });
+        return;
+      }
+
+      final firstName = response['first_name'] as String?;
+      final lastName = response['last_name'] as String?;
+
+      if (firstName == null || firstName.isEmpty ||
+          lastName == null || lastName.isEmpty) {
+        setState(() {
+          _referralCodeError = 'اطلاعات معرف کامل نیست';
+          _isCheckingReferral = false;
+        });
+        return;
+      }
+
+      setState(() {
+        _referrerFirstName = firstName;
+        _referrerLastName = lastName;
+        _referralCodeError = null;
+        _isCheckingReferral = false;
+      });
+    } catch (e) {
+      setState(() {
+        _referralCodeError = 'خطا در بررسی کد معرف';
+        _isCheckingReferral = false;
+      });
+    }
+  }
 }
 
 // صفحه لودینگ بعد از تکمیل ثبت نام
@@ -1117,7 +1286,10 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
       debugPrint('=== REGISTRATION LOADING: Registration successful ===');
 
       // Save auth state + phone for consistent profile fallback (login/signup behave the same)
-      await AuthStateService().saveAuthState(session, phoneNumber: normalizedPhone);
+      await AuthStateService().saveAuthState(
+        session,
+        phoneNumber: normalizedPhone,
+      );
 
       final jalali = Jalali(
         widget.birthYear,

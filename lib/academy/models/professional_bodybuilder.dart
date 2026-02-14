@@ -1,3 +1,5 @@
+import 'package:gymaipro/utils/json_parse_utils.dart';
+
 class ProfessionalBodybuilder {
   ProfessionalBodybuilder({
     required this.id,
@@ -37,32 +39,33 @@ class ProfessionalBodybuilder {
 
   static ProfessionalBodybuilder fromJson(Map<String, dynamic> json) {
     return ProfessionalBodybuilder(
-      id: json['id'] as int,
-      name: json['name'] as String,
-      nationality: json['nationality'] as String,
-      birthDate: DateTime.parse(json['birth_date'] as String),
-      biography: json['biography'] as String,
-      achievements: (json['achievements'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
-      profileImageUrl: json['profile_image_url'] as String,
-      category: json['category'] as String,
-      height: json['height'] as double?,
-      weight: json['weight'] as double?,
-      instagramHandle: json['instagram_handle'] as String?,
-      youtubeChannel: json['youtube_channel'] as String?,
-      website: json['website'] as String?,
-      photos: (json['photos'] as List<dynamic>?)
-          ?.map((e) => e.toString())
-          .toList(),
-      videos: (json['videos'] as List<dynamic>?)
-          ?.map((e) => e.toString())
-          .toList(),
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
-          : null,
+      id: JsonParse.integer(json, 'id'),
+      name: JsonParse.string(json, 'name'),
+      nationality: JsonParse.string(json, 'nationality'),
+      birthDate: JsonParse.dateTime(json, 'birth_date', DateTime(1900, 1, 1)),
+      biography: JsonParse.string(json, 'biography'),
+      achievements: JsonParse.listOfStrings(json, 'achievements'),
+      profileImageUrl: JsonParse.string(json, 'profile_image_url'),
+      category: JsonParse.string(json, 'category'),
+      height: JsonParse.doubleOrNull(json, 'height'),
+      weight: JsonParse.doubleOrNull(json, 'weight'),
+      instagramHandle: JsonParse.stringOrNull(json, 'instagram_handle'),
+      youtubeChannel: JsonParse.stringOrNull(json, 'youtube_channel'),
+      website: JsonParse.stringOrNull(json, 'website'),
+      photos: _stringListOrNull(json['photos']),
+      videos: _stringListOrNull(json['videos']),
+      createdAt: JsonParse.dateTimeOrNull(json, 'created_at'),
     );
+  }
+
+  static List<String>? _stringListOrNull(dynamic v) {
+    if (v is! List) return null;
+    final out = <String>[];
+    for (final e in v) {
+      final s = e?.toString().trim();
+      if (s != null && s.isNotEmpty) out.add(s);
+    }
+    return out.isEmpty ? null : out;
   }
 
   Map<String, dynamic> toJson() {

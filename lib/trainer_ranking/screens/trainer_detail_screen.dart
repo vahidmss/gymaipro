@@ -15,6 +15,7 @@ import 'package:gymaipro/trainer_ranking/models/certificate.dart';
 import 'package:gymaipro/trainer_ranking/models/trainer_ranking_model.dart'
     show TrainerReview;
 import 'package:gymaipro/trainer_ranking/services/certificate_service.dart';
+import 'package:gymaipro/trainer_ranking/services/trainer_kpi_service.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_ranking_service.dart';
 import 'package:gymaipro/trainer_ranking/utils/dialog_helpers.dart';
 import 'package:gymaipro/trainer_ranking/utils/format_utils.dart';
@@ -40,6 +41,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TrainerRankingService _service = TrainerRankingService();
+  final TrainerKpiService _kpiService = TrainerKpiService();
 
   List<TrainerReview> _reviews = [];
   bool _isLoadingReviews = true;
@@ -51,6 +53,9 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
   int _currentActiveStudentCount = 0;
   Map<String, int> _programStats = {};
   bool _isLoadingStats = true;
+
+  TrainerKpis? _kpis;
+  bool _isLoadingKpis = true;
 
   // Pricing/Services state
   bool _isLoadingServices = true;
@@ -90,6 +95,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     _loadServicesPricing();
     _loadWalletBalance();
     _refreshTrainerInfo(); // به‌روزرسانی اطلاعات مربی
+    _loadKpis();
   }
 
   @override
@@ -208,6 +214,30 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         SafeSetState.call(this, () {
           _isLoadingStats = false;
         });
+      }
+    }
+  }
+
+  Future<void> _loadKpis() async {
+    try {
+      final hasConnection = await _checkConnectivity();
+      if (!hasConnection) {
+        if (mounted) {
+          SafeSetState.call(this, () => _isLoadingKpis = false);
+        }
+        return;
+      }
+
+      final kpis = await _kpiService.getTrainerKpis(widget.trainer.id!);
+      if (mounted) {
+        SafeSetState.call(this, () {
+          _kpis = kpis;
+          _isLoadingKpis = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        SafeSetState.call(this, () => _isLoadingKpis = false);
       }
     }
   }
@@ -839,31 +869,17 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
-            expandedHeight: 280.h,
+            expandedHeight: 240.h,
             floating: false,
             pinned: true,
             backgroundColor: context.backgroundColor,
             elevation: 0,
-            leading: Container(
-              margin: EdgeInsets.all(8.w),
-              decoration: BoxDecoration(
-                color: context.cardColor.withValues(alpha: 0.9),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8.r,
-                    offset: Offset(0, 2.h),
-                  ),
-                ],
-              ),
-              child: IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: Icon(
-                  LucideIcons.arrowRight,
-                  color: context.textColor,
-                  size: 20.sp,
-                ),
+            leading: IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: Icon(
+                LucideIcons.arrowRight,
+                color: context.textColor,
+                size: 22.sp,
               ),
             ),
             flexibleSpace: FlexibleSpaceBar(
@@ -874,33 +890,32 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         ],
         body: Column(
           children: [
+            SizedBox(height: 16.h),
             _buildActionButtons(),
             Container(
               decoration: BoxDecoration(
                 color: context.cardColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 4.r,
-                    offset: Offset(0, 2.h),
+                border: Border(
+                  bottom: BorderSide(
+                    color: context.separatorColor.withValues(alpha: 0.5),
                   ),
-                ],
+                ),
               ),
               child: TabBar(
                 controller: _tabController,
                 indicatorColor: AppTheme.goldColor,
-                indicatorWeight: 3,
+                indicatorWeight: 2,
                 indicatorSize: TabBarIndicatorSize.tab,
                 labelColor: AppTheme.goldColor,
                 unselectedLabelColor: context.textSecondary,
                 labelStyle: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w600,
                 ),
                 unselectedLabelStyle: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 14.sp,
+                  fontSize: 12.sp,
                   fontWeight: FontWeight.w500,
                 ),
                 tabs: [
@@ -959,59 +974,27 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? [
-                  AppTheme.goldColor.withValues(alpha: 0.12),
-                  AppTheme.goldColor.withValues(alpha: 0.05),
-                  context.backgroundColor,
-                ]
-              : [
-                  AppTheme.lightGradientStart.withValues(alpha: 0.3),
-                  AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                  context.backgroundColor,
-                ],
-        ),
+        color: isDark
+            ? context.backgroundColor
+            : AppTheme.lightGradientStart.withValues(alpha: 0.12),
       ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: EdgeInsets.only(top: 8.h, bottom: 16.h),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // آواتار مربی با طراحی مدرن
-              Hero(
-                tag: 'trainer_${widget.trainer.id}_${widget.trainer.username}',
-                child: Container(
-                  width: 110.w,
-                  height: 110.h,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppTheme.goldColor,
-                        AppTheme.goldColor.withValues(alpha: 0.7),
-                      ],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.goldColor.withValues(alpha: 0.4),
-                        blurRadius: 24.r,
-                        spreadRadius: 0,
-                        offset: Offset(0, 8.h),
-                      ),
-                    ],
-                  ),
-                  padding: EdgeInsets.all(4.w),
+          padding: EdgeInsets.only(top: 6.h, bottom: 12.h),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Hero(
+                  tag:
+                      'trainer_${widget.trainer.id}_${widget.trainer.username}',
                   child: Container(
+                    width: 72.w,
+                    height: 72.w,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.goldColor, width: 2.w),
                       color: context.cardColor,
                     ),
                     child: ClipOval(
@@ -1019,153 +1002,224 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                           ? Image.network(
                               widget.trainer.avatarUrl!,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return _buildDefaultAvatar();
-                              },
+                              errorBuilder: (_, __, ___) =>
+                                  _buildDefaultAvatar(),
                             )
                           : _buildDefaultAvatar(),
                     ),
                   ),
                 ),
-              ),
-              SizedBox(height: 16.h),
-
-              // نام مربی
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.w),
-                child: Text(
-                  widget.trainer.fullName.isNotEmpty
-                      ? widget.trainer.fullName
-                      : widget.trainer.username,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: isDark ? Colors.white : context.textColor,
-                    fontSize: 22.sp,
-                    fontWeight: FontWeight.bold,
-                    height: 1.2,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-
-              SizedBox(height: 10.h),
-
-              // رتبه و آمار در یک ردیف
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.w),
-                child: Row(
+                SizedBox(height: 10.h),
+                Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // رتبه
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 14.w,
-                        vertical: 6.h,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppTheme.goldColor,
-                            AppTheme.goldColor.withValues(alpha: 0.9),
-                          ],
+                    Flexible(
+                      child: Text(
+                        widget.trainer.fullName.isNotEmpty
+                            ? widget.trainer.fullName
+                            : widget.trainer.username,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: context.textColor,
+                          fontSize: 17.sp,
+                          fontWeight: FontWeight.bold,
                         ),
-                        borderRadius: BorderRadius.circular(20.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.goldColor.withValues(alpha: 0.3),
-                            blurRadius: 8.r,
-                            offset: Offset(0, 3.h),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            LucideIcons.trophy,
-                            color: isDark ? AppTheme.onGoldColor : Colors.white,
-                            size: 14.sp,
-                          ),
-                          SizedBox(width: 5.w),
-                          Text(
-                            '#${widget.trainer.ranking ?? 999}',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: isDark
-                                  ? AppTheme.onGoldColor
-                                  : Colors.white,
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    if (widget.trainer.ranking != null &&
+                        widget.trainer.ranking! > 0) ...[
+                      SizedBox(width: 8.w),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8.w,
+                          vertical: 3.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.goldColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              LucideIcons.trophy,
+                              size: 14.sp,
+                              color: AppTheme.onGoldColor,
+                            ),
+                            SizedBox(width: 4.w),
+                            Text(
+                              '${widget.trainer.ranking}',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.onGoldColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-              ),
-            ],
+                SizedBox(height: 12.h),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20.w),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _miniKpiChip(
+                          context,
+                          icon: LucideIcons.userCheck,
+                          label: 'شاگرد',
+                          value: _currentActiveStudentCount.toString(),
+                          color: const Color(0xFF4CAF50),
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: _miniKpiChip(
+                          context,
+                          icon: LucideIcons.dumbbell,
+                          label: 'برنامه',
+                          value: (_programStats['workout_programs'] ?? 0)
+                              .toString(),
+                          color: const Color(0xFF2196F3),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 6.h),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20.w),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _miniKpiChip(
+                          context,
+                          icon: LucideIcons.music,
+                          label: 'موزیک',
+                          value: _isLoadingKpis
+                              ? '—'
+                              : (_kpis?.totalCustomMusics ?? 0).toString(),
+                          color: const Color(0xFF9C27B0),
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: _miniKpiChip(
+                          context,
+                          icon: LucideIcons.thumbsUp,
+                          label: 'رضایت',
+                          value: _isLoadingKpis
+                              ? '—'
+                              : '${_kpis?.satisfactionPercent ?? 0}%',
+                          color: const Color(0xFFFF9800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildActionButtons() {
+  Widget _miniKpiChip(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
       decoration: BoxDecoration(
         color: context.cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8.r,
-            offset: Offset(0, -2.h),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: context.separatorColor.withValues(alpha: 0.4),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 14.sp, color: color),
+          SizedBox(width: 6.w),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.bold,
+                    color: context.textColor,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 10.sp,
+                    color: context.textSecondary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ],
       ),
-      child: SizedBox(
-        width: double.infinity,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppTheme.goldColor, AppTheme.darkGold],
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _messageTrainer,
+          borderRadius: BorderRadius.circular(14.r),
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
+            decoration: BoxDecoration(
+              color: AppTheme.goldColor,
+              borderRadius: BorderRadius.circular(14.r),
             ),
-            borderRadius: BorderRadius.circular(16.r),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.goldColor.withValues(alpha: 0.4),
-                blurRadius: 12.r,
-                offset: Offset(0, 4.h),
-                spreadRadius: 0,
-              ),
-            ],
-          ),
-          child: ElevatedButton.icon(
-            onPressed: _messageTrainer,
-            icon: Icon(LucideIcons.messageCircle, size: 20.sp),
-            label: Text(
-              'پیام خصوصی',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 15.sp,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              foregroundColor: AppTheme.onGoldColor,
-              shadowColor: Colors.transparent,
-              padding: EdgeInsets.symmetric(horizontal: 28.w, vertical: 14.h),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.r),
-              ),
-              elevation: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  LucideIcons.messageCircle,
+                  size: 18.sp,
+                  color: AppTheme.onGoldColor,
+                ),
+                SizedBox(width: 8.w),
+                Text(
+                  'پیام',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.onGoldColor,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1175,74 +1229,77 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
 
   Widget _buildInfoTab() {
     return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // بیوگرافی
           if (widget.trainer.bio != null && widget.trainer.bio!.isNotEmpty) ...[
             _buildSectionTitle('خود نوشته'),
-            SizedBox(height: 8.h),
+            SizedBox(height: 6.h),
             Container(
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
               decoration: BoxDecoration(
                 color: context.cardColor,
-                borderRadius: BorderRadius.circular(16.r),
-                border: Border.all(color: context.separatorColor, width: 1),
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(
+                  color: context.separatorColor.withValues(alpha: 0.5),
+                  width: 1,
+                ),
               ),
               child: Text(
                 widget.trainer.bio!,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   color: context.textColor,
-                  fontSize: 14.sp,
-                  height: 1.6,
+                  fontSize: 13.sp,
+                  height: 1.5,
                 ),
                 textAlign: TextAlign.justify,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            SizedBox(height: 20.h),
+            SizedBox(height: 16.h),
           ],
 
-          // تخصص‌ها
           _buildSectionTitle('تخصص‌ها'),
-          SizedBox(height: 8.h),
+          SizedBox(height: 6.h),
           if ((widget.trainer.specializations ?? []).isEmpty)
             Container(
-              padding: EdgeInsets.all(20.w),
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
               decoration: BoxDecoration(
                 color: context.cardColor,
-                borderRadius: BorderRadius.circular(16.r),
-                border: Border.all(color: context.separatorColor),
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(
+                  color: context.separatorColor.withValues(alpha: 0.5),
+                ),
               ),
               child: Text(
                 'تخصصی ثبت نشده',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   color: context.textSecondary,
-                  fontSize: 14.sp,
+                  fontSize: 12.sp,
                 ),
                 textAlign: TextAlign.center,
               ),
             )
           else
             Wrap(
-              spacing: 8.w,
-              runSpacing: 8.h,
+              spacing: 6.w,
+              runSpacing: 6.h,
               children: (widget.trainer.specializations ?? []).map((spec) {
                 return Container(
                   padding: EdgeInsets.symmetric(
-                    horizontal: 14.w,
-                    vertical: 8.h,
+                    horizontal: 10.w,
+                    vertical: 5.h,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.goldColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20.r),
+                    color: AppTheme.goldColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10.r),
                     border: Border.all(
-                      color: AppTheme.goldColor.withValues(alpha: 0.4),
-                      width: 1.5,
+                      color: AppTheme.goldColor.withValues(alpha: 0.3),
+                      width: 1,
                     ),
                   ),
                   child: Text(
@@ -1250,16 +1307,15 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       color: AppTheme.goldColor,
-                      fontSize: 12.sp,
+                      fontSize: 11.sp,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 );
               }).toList(),
             ),
-          SizedBox(height: 24.h),
+          SizedBox(height: 16.h),
 
-          // آمار
           _buildSectionTitle('آمار'),
           Row(
             children: [
@@ -1271,18 +1327,18 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                   color: Colors.green,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.w),
               Expanded(
                 child: _buildInfoCard(
                   icon: LucideIcons.userCheck,
-                  title: 'شاگردان فعال',
+                  title: 'شاگرد فعال',
                   value: _currentActiveStudentCount.toString(),
                   color: Colors.blue,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 8.h),
           Row(
             children: [
               Expanded(
@@ -1293,7 +1349,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                   color: Colors.orange,
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8.w),
               Expanded(
                 child: _buildInfoCard(
                   icon: LucideIcons.star,
@@ -1304,13 +1360,21 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
               ),
             ],
           ),
-          const SizedBox(height: 12),
-
-          // آمار برنامه‌ها
+          SizedBox(height: 16.h),
           _buildSectionTitle('برنامه‌های ارائه شده'),
           if (_isLoadingStats)
-            const Center(
-              child: CircularProgressIndicator(color: AppTheme.goldColor),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 16.h),
+              child: Center(
+                child: SizedBox(
+                  width: 24.w,
+                  height: 24.w,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppTheme.goldColor,
+                  ),
+                ),
+              ),
             )
           else
             Row(
@@ -1318,16 +1382,16 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                 Expanded(
                   child: _buildInfoCard(
                     icon: LucideIcons.dumbbell,
-                    title: 'برنامه ورزشی',
+                    title: 'ورزشی',
                     value: (_programStats['workout_programs'] ?? 0).toString(),
                     color: Colors.orange,
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.w),
                 Expanded(
                   child: _buildInfoCard(
                     icon: LucideIcons.apple,
-                    title: 'برنامه تغذیه',
+                    title: 'تغذیه',
                     value: (_programStats['nutrition_programs'] ?? 0)
                         .toString(),
                     color: Colors.purple,
@@ -1343,30 +1407,41 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
   Widget _buildReviewsTab() {
     return Column(
       children: [
-        // دکمه افزودن نظر
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _showReviewDialog,
-              icon: const Icon(LucideIcons.star),
-              label: Text(
-                'نظر خود را ثبت کنید',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.bold,
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+          child: InkWell(
+            onTap: _showReviewDialog,
+            borderRadius: BorderRadius.circular(12.r),
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(vertical: 10.h),
+              decoration: BoxDecoration(
+                color: AppTheme.goldColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(
+                  color: AppTheme.goldColor.withValues(alpha: 0.4),
+                  width: 1,
                 ),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.goldColor,
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(vertical: 12.h),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-                elevation: 4,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    LucideIcons.star,
+                    size: 16.sp,
+                    color: AppTheme.goldColor,
+                  ),
+                  SizedBox(width: 8.w),
+                  Text(
+                    'ثبت نظر',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.goldColor,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1488,32 +1563,33 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         if (approvedCertificates.isEmpty) {
           return Center(
             child: Padding(
-              padding: EdgeInsets.all(48.w),
+              padding: EdgeInsets.all(32.w),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     LucideIcons.award,
-                    size: 80.sp,
+                    size: 48.sp,
                     color: context.textSecondary,
                   ),
-                  SizedBox(height: 24.h),
+                  SizedBox(height: 12.h),
                   Text(
                     'مدرکی ثبت نشده',
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       color: context.textColor,
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 6.h),
                   Text(
-                    'مربی هنوز مدرکی ثبت نکرده یا مدارک در انتظار تایید هستند',
+                    'مربی هنوز مدرکی ثبت نکرده است',
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       color: context.textSecondary,
-                      fontSize: 14.sp,
+                      fontSize: 12.sp,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -1524,7 +1600,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         }
 
         return ListView(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12),
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
           children: [
             // Coaching Certificates
             CertificateCarousel(
@@ -1583,14 +1659,14 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.only(bottom: 6.h),
       child: Text(
         title,
         style: TextStyle(
           fontFamily: AppTheme.fontFamily,
           color: context.textColor,
-          fontSize: 16.sp,
-          fontWeight: FontWeight.bold,
+          fontSize: 13.sp,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -1603,51 +1679,37 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     required Color color,
   }) {
     return Container(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
       decoration: BoxDecoration(
         color: context.cardColor,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.1),
-            blurRadius: 8.r,
-            offset: Offset(0.w, 2.h),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: context.separatorColor.withValues(alpha: 0.4),
+          width: 1,
+        ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: EdgeInsets.all(10.w),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 26.sp),
-          ),
-          SizedBox(height: 12.h),
+          Icon(icon, color: color, size: 20.sp),
+          SizedBox(height: 6.h),
           Text(
             value,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              color: color,
-              fontSize: 20.sp,
+              color: context.textColor,
+              fontSize: 15.sp,
               fontWeight: FontWeight.bold,
             ),
-            textAlign: TextAlign.center,
           ),
-          SizedBox(height: 6.h),
           Text(
             title,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               color: context.textSecondary,
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w500,
+              fontSize: 10.sp,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -1777,7 +1839,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
       color: isDark
           ? context.veryDarkBackground
           : AppTheme.lightButtonBackground,
-      child: Icon(LucideIcons.user, color: context.textSecondary, size: 60.sp),
+      child: Icon(LucideIcons.user, color: context.textSecondary, size: 36.sp),
     );
   }
 

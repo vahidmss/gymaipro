@@ -34,7 +34,7 @@ class QuickActionButtons extends StatelessWidget {
   }
 
   Widget _buildQuickProgramButton(BuildContext context) {
-    return GestureDetector(
+    return _TapScaleButton(
       onTap: () {
         Navigator.pushNamed(context, '/program-type-selection');
       },
@@ -119,7 +119,7 @@ class QuickActionButtons extends StatelessWidget {
   }
 
   Widget _buildTrainersButton(BuildContext context) {
-    return GestureDetector(
+    return _TapScaleButton(
       onTap: () {
         Navigator.push<void>(
           context,
@@ -239,7 +239,7 @@ class QuickActionButtons extends StatelessWidget {
   }
 
   Widget _buildLeaderboardButton(BuildContext context) {
-    return GestureDetector(
+    return _TapScaleButton(
       onTap: () {
         Navigator.push<void>(
           context,
@@ -326,7 +326,7 @@ class QuickActionButtons extends StatelessWidget {
   }
 
   Widget _buildAchievementsButton(BuildContext context) {
-    return GestureDetector(
+    return _TapScaleButton(
       onTap: () {
         Navigator.push<void>(
           context,
@@ -412,6 +412,64 @@ class QuickActionButtons extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// ویجت دکمه با افکت فشار (scale) برای بازخورد لمسی
+class _TapScaleButton extends StatefulWidget {
+  const _TapScaleButton({
+    required this.onTap,
+    required this.child,
+  });
+
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  State<_TapScaleButton> createState() => _TapScaleButtonState();
+}
+
+class _TapScaleButtonState extends State<_TapScaleButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.96).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) => _controller.reverse(),
+      onTapCancel: () => _controller.reverse(),
+      onTap: widget.onTap,
+      child: AnimatedBuilder(
+        animation: _scale,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scale.value,
+            child: child,
+          );
+        },
+        child: widget.child,
       ),
     );
   }

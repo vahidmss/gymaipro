@@ -18,8 +18,9 @@ import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 // Widgets
 import 'package:gymaipro/meal_log/widgets/daily_calorie_summary.dart';
+import 'package:gymaipro/meal_log/dialogs/persian_food_log_date_picker_dialog.dart';
 import 'package:gymaipro/meal_log/widgets/date_separator_widget.dart';
-import 'package:gymaipro/meal_log/widgets/edit_amount_dialog.dart';
+import 'package:gymaipro/meal_log/widgets/amount_keypad_sheet.dart';
 import 'package:gymaipro/meal_log/widgets/meal_log_app_bar.dart';
 import 'package:gymaipro/meal_log/widgets/meals_list_widget.dart';
 import 'package:gymaipro/meal_log/data/meal_log_guide_data.dart';
@@ -542,6 +543,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                                     maxWidth: maxContentWidth,
                                   ),
                                   child: Column(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       // بخش کالری شماری یا کادر مربی
                                       if (!_isLoading)
@@ -617,6 +619,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                                         SizedBox(height: 24.h),
                                         DateSeparatorWidget(
                                           selectedDate: _selectedDate,
+                                          onTap: _openDatePicker,
                                         ),
                                         SizedBox(height: 24.h),
                                       ],
@@ -672,6 +675,35 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     );
   }
 
+  Future<void> _openDatePicker() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: isDark
+          ? Colors.black.withValues(alpha: 0.7)
+          : AppTheme.lightTextColor.withValues(alpha: 0.5),
+      builder: (context) => PersianFoodLogDatePickerDialog(
+        selectedDate: _selectedDate,
+        onDateSelected: (date) async {
+          await _foodLogService.syncAllLocalLogsToDatabase();
+          SafeSetState.call(this, () {
+            _selectedDate = date;
+            if (widget.mealPlanId == null) {
+              _selectedPlan = null;
+              _selectedSession = null;
+            } else {
+              _loadMealPlanIfNeeded();
+            }
+          });
+          await _loadCurrentLog();
+        },
+        preloadedFoodLogDates: _preloadedFoodLogDates,
+        preloadedCaloriesByDate: _preloadedCaloriesByDate,
+      ),
+    );
+  }
+
   Future<void> _addFoodToMeal(String mealTitle) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final result =
@@ -687,12 +719,10 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
               AddFoodScreen(foods: _allFoods, initialMealTitle: mealTitle),
         );
     if (result != null) {
-      // Initialize log if it doesn't exist
+      // Initialize log if it doesn't exist (سریع: اول auth، بعد در پس‌زمینه sync)
       if (_currentLog == null) {
-        final profile = await SimpleProfileService.getCurrentProfile();
-        final userId =
-            (profile?['id'] as String?) ??
-            Supabase.instance.client.auth.currentUser?.id ??
+        final userId = Supabase.instance.client.auth.currentUser?.id ??
+            (await SimpleProfileService.getCurrentProfile())?['id'] as String? ??
             '';
         final newLog = FoodLog(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -706,13 +736,8 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
         WidgetSafetyUtils.safeSetState(this, () {
           _currentLog = newLog;
         });
-        await _foodLogService.saveLogLocal(newLog);
-        // سعی در sync به دیتابیس (اگر آنلاین باشیم)
-        try {
-          await _foodLogService.saveLog(newLog);
-        } catch (e) {
-          // اگر آنلاین نبودیم، فقط local ذخیره شده
-        }
+        _foodLogService.saveLogLocal(newLog);
+        _foodLogService.saveLog(newLog).catchError((_) {});
       }
 
       // Get meal title from result or use the original
@@ -768,11 +793,16 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     FoodLogItem foodItem,
     String mealTitle,
   ) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final result = await WidgetSafetyUtils.safeShowDialog<Map<String, dynamic>>(
+    // جلوگیری از باز شدن کیبورد سیستم — فوکوس را بردار تا فقط کیبورد عددی خودمان دیده شود
+    FocusManager.instance.primaryFocus?.unfocus();
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
-      barrierDismissible: true,
-      builder: (context) => EditAmountDialog(foodItem: foodItem),
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (context) => AmountKeypadSheet(foodItem: foodItem),
     );
 
     if (result != null && _currentLog != null) {

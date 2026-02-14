@@ -1,4 +1,5 @@
 import 'package:gymaipro/academy/models/workout_music.dart';
+import 'package:gymaipro/utils/json_parse_utils.dart';
 
 /// مدل موزیک اختصاصی مربی
 class CustomMusic {
@@ -36,20 +37,20 @@ class CustomMusic {
 
   factory CustomMusic.fromJson(Map<String, dynamic> json) {
     return CustomMusic(
-      id: json['id'] as String,
-      createdBy: json['created_by'] as String,
-      title: json['title'] as String,
-      artist: json['artist'] as String,
-      audioUrl: json['audio_url'] as String,
-      coverImageUrl: json['cover_image_url'] as String,
-      duration: json['duration'] as int,
-      category: json['category'] as String?,
-      description: json['description'] as String?,
-      visibility: json['visibility'] as String? ?? 'private',
-      viewsCount: json['views_count'] as int? ?? 0,
-      likesCount: json['likes_count'] as int? ?? 0,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      id: JsonParse.string(json, 'id'),
+      createdBy: JsonParse.string(json, 'created_by'),
+      title: JsonParse.string(json, 'title'),
+      artist: JsonParse.string(json, 'artist'),
+      audioUrl: JsonParse.string(json, 'audio_url'),
+      coverImageUrl: JsonParse.string(json, 'cover_image_url'),
+      duration: JsonParse.integer(json, 'duration'),
+      category: JsonParse.stringOrNull(json, 'category'),
+      description: JsonParse.stringOrNull(json, 'description'),
+      visibility: JsonParse.string(json, 'visibility', 'private'),
+      viewsCount: JsonParse.integer(json, 'views_count'),
+      likesCount: JsonParse.integer(json, 'likes_count'),
+      createdAt: JsonParse.dateTime(json, 'created_at'),
+      updatedAt: JsonParse.dateTime(json, 'updated_at'),
     );
   }
 

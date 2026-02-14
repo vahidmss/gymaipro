@@ -107,17 +107,6 @@ class ChatAppBarWidget extends StatelessWidget implements PreferredSizeWidget {
                 Row(
                   textDirection: TextDirection.rtl,
                   children: [
-                    Container(
-                      width: 8.w,
-                      height: 8.h,
-                      decoration: BoxDecoration(
-                        color: isOtherUserOnline
-                            ? AppTheme.goldColor
-                            : context.textSecondary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    SizedBox(width: 6.w),
                     OnlineStatusWidget(
                       isOnline: isOtherUserOnline,
                       lastSeen: otherUserLastSeen,

@@ -87,12 +87,10 @@ class MealLogController {
     meal.foods.add(newFoodItem);
 
     _foodLogService.saveLogLocal(currentLog);
-    // سعی در sync به دیتابیس (اگر آنلاین باشیم)
-    try {
-      await _foodLogService.saveLog(currentLog);
-    } catch (e) {
-      // اگر آنلاین نبودیم، فقط local ذخیره شده
-    }
+    // ذخیره در سرور در پس‌زمینه تا UI فوراً به‌روز شود
+    _foodLogService.saveLog(currentLog).catchError((e) {
+      // خطا فقط local ذخیره شده؛ در لاگ بی‌صدا نگه می‌داریم
+    });
     return currentLog;
   }
 

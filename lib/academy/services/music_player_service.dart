@@ -248,7 +248,8 @@ class MusicPlayerService extends ChangeNotifier {
       int? foundIndex;
       for (int i = 0; i < _playlist.length; i++) {
         final music = _playlist[i];
-        if (currentUrl != null && music.audioUrl == currentUrl) {
+        final norm = WorkoutMusic.normalizeAudioUrl(music.audioUrl);
+        if (currentUrl != null && norm == currentUrl) {
           foundIndex = i;
           break;
         } else if (currentId != null && music.id == currentId) {

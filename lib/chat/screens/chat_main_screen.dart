@@ -1,10 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/screens/chat_conversations_screen.dart';
 import 'package:gymaipro/chat/screens/chat_trainer_selection_screen.dart';
 import 'package:gymaipro/chat/widgets/public_chat_widget.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -63,6 +64,7 @@ class _ChatMainScreenState extends State<ChatMainScreen>
   Future<void> _loadUserInfo() async {
     try {
       final profileMap = await SimpleProfileService.getCurrentProfile();
+      if (!mounted) return;
       if (profileMap != null) {
         setState(() {
           _userRole = profileMap['role'] as String?;
@@ -454,14 +456,9 @@ class _ChatMainScreenState extends State<ChatMainScreen>
 
   void _showTrainerSearch() {
     // Trainer search not implemented yet
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'جستجوی مربی به زودی اضافه می‌شود',
-          style: TextStyle(fontFamily: AppTheme.fontFamily),
-        ),
-        backgroundColor: context.cardColor,
-      ),
+    WidgetSafetyUtils.safeShowSnackBar(
+      context,
+      'جستجوی مربی به زودی اضافه می‌شود',
     );
   }
 }

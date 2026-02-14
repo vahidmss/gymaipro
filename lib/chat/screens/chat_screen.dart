@@ -15,6 +15,7 @@ import 'package:gymaipro/services/supabase_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/utils/text_controller_utils.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -63,9 +64,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    debugPrint('=== CHAT SCREEN: initState called ===');
     WidgetsBinding.instance.addObserver(this);
-    _initializeChat();
+    // برای جلوگیری از قفل شدن انیمیشن‌های ورودی/کیبورد،
+    // مقداردهی اولیه‌ی سنگین را به بعد از اولین فریم موکول می‌کنیم.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _initializeChat();
+      }
+    });
   }
 
   @override
@@ -76,7 +82,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _messageSubscription?.cancel();
 
     // حذف حضور کاربر از چت
-    _markUserAsInactiveInChat();
+    if (_currentUserId != null && _conversationId != null) {
+      unawaited(
+        _presenceService.markUserAsInactiveInChat(
+          userId: _currentUserId!,
+          conversationId: _conversationId!,
+        ),
+      );
+    }
 
     // توقف heartbeat
     if (_conversationId != null) {
@@ -104,7 +117,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (_conversationId != null) {
         _presenceService.stopHeartbeat(conversationId: _conversationId!);
       }
-      _markUserAsInactiveInChat();
+      if (_currentUserId != null && _conversationId != null) {
+        unawaited(
+          _presenceService.markUserAsInactiveInChat(
+            userId: _currentUserId!,
+            conversationId: _conversationId!,
+          ),
+        );
+      }
     }
   }
 
@@ -127,14 +147,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Load data sequentially to ensure proper error handling
       try {
         await _loadOtherUserInfo();
-      } catch (e) {
-        debugPrint('Error loading other user info: $e');
-      }
+      } catch (_) {}
 
       try {
         await _loadMessages();
-      } catch (e) {
-        debugPrint('Error loading messages: $e');
+      } catch (_) {
         SafeSetState.call(this, () {
           _isLoading = false;
           _errorMessage = 'خطا در بارگیری پیام‌ها';
@@ -144,15 +161,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       try {
         await _setupPresence();
-      } catch (e) {
-        debugPrint('Error setting up presence: $e');
-      }
+      } catch (_) {}
 
       _subscribeToMessages();
       _markConversationAsRead();
 
       // ثبت حضور کاربر در چت
-      await _markUserAsActiveInChat();
+      if (_currentUserId != null && _conversationId != null) {
+        await _presenceService.markUserAsActiveInChat(
+          userId: _currentUserId!,
+          conversationId: _conversationId!,
+        );
+      }
       // شروع heartbeat برای آپدیت دوره‌ای last_seen
       if (_currentUserId != null && _conversationId != null) {
         _presenceService.startHeartbeat(
@@ -161,7 +181,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         );
       }
     } catch (e) {
-      debugPrint('Error in _initializeChat: $e');
       SafeSetState.call(this, () {
         _isLoading = false;
         _errorMessage = 'خطا در راه‌اندازی چت: $e';
@@ -175,8 +194,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       final otherUserResponse = await Supabase.instance.client
           .from('profiles')
           .select('role, last_seen_at, avatar_url')
-          .eq('id', widget.otherUserId)
-          .single();
+          // در این پروژه ممکن است profiles.id با auth.users.id برابر نباشد،
+          // پس هم بر اساس id و هم auth_user_id جستجو می‌کنیم.
+          .or(
+            'id.eq.${widget.otherUserId},auth_user_id.eq.${widget.otherUserId}',
+          )
+          .maybeSingle();
+
+      if (otherUserResponse == null) return;
 
       // بارگذاری آواتار کاربر فعلی (در حال حاضر استفاده نمی‌شود)
       // Current user avatar loading not needed for now
@@ -189,9 +214,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             : null;
         _updateOnlineStatus();
       });
-    } catch (e) {
-      debugPrint('Error loading other user info: $e');
-    }
+    } catch (_) {}
   }
 
   void _updateOnlineStatus() {
@@ -213,9 +236,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       // پاک کردن حضورهای قدیمی
       await _presenceService.cleanupOldPresence();
-    } catch (e) {
-      debugPrint('Error setting up presence: $e');
-    }
+    } catch (_) {}
   }
 
   Future<void> _updateUserPresence(bool isOnline) async {
@@ -229,24 +250,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             })
             .eq('id', _currentUserId!);
       }
-    } catch (e) {
-      debugPrint('Error updating presence: $e');
-    }
+    } catch (_) {}
   }
 
   Future<void> _loadMessages() async {
     try {
-      debugPrint('=== CHAT SCREEN: Starting to load messages ===');
       SafeSetState.call(this, () {
         _isLoading = true;
         _errorMessage = null;
       });
 
-      // اطمینان از وجود مکالمه
       await _chatService.ensureConversationExists(widget.otherUserId);
-
       final messages = await _chatService.getMessages(widget.otherUserId);
-      debugPrint('=== CHAT SCREEN: Loaded ${messages.length} messages ===');
 
       // دریافت conversation ID
       final conversation = await _chatService.getConversationByUserId(
@@ -261,13 +276,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _isLoading = false;
         _hasMoreMessages = messages.length >= _messagesPerPage;
       });
-
-      debugPrint(
-        '=== CHAT SCREEN: Messages loaded successfully, _isLoading: false ===',
-      );
       _scrollToBottom();
-    } catch (e) {
-      debugPrint('=== CHAT SCREEN: Error loading messages: $e ===');
+    } catch (_) {
       SafeSetState.call(this, () {
         _isLoading = false;
         _errorMessage = 'خطا در بارگیری پیام‌ها';
@@ -293,8 +303,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _hasMoreMessages = false;
         });
       }
-    } catch (e) {
-      debugPrint('Error loading more messages: $e');
+    } catch (_) {
+      // ignore load-more errors; user can pull-to-refresh
     } finally {
       SafeSetState.call(this, () => _isLoadingMore = false);
     }
@@ -303,27 +313,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _subscribeToMessages() {
     _messageSubscription = _chatService
         .subscribeToMessages(widget.otherUserId)
-        .listen(
-          (message) {
-            // فقط پیام‌های دیگران را اضافه کن، نه پیام‌های خود کاربر
-            if (message.senderId != _currentUserId) {
-              _addMessageIfNotExists(message);
-              _scrollToBottom();
-              _markConversationAsRead();
-            } else {
-              // برای پیام‌های خود کاربر، فقط آپدیت کن
-              SafeSetState.call(this, () {
-                final index = _messages.indexWhere((m) => m.id == message.id);
-                if (index != -1) {
-                  _messages[index] = message;
-                }
-              });
-            }
-          },
-          onError: (Object error) {
-            debugPrint('Message subscription error: $error');
-          },
-        );
+        .listen((message) {
+          // فقط پیام‌های دیگران را اضافه کن، نه پیام‌های خود کاربر
+          if (message.senderId != _currentUserId) {
+            _addMessageIfNotExists(message);
+            _scrollToBottom();
+            _markConversationAsRead();
+          } else {
+            // برای پیام‌های خود کاربر، فقط آپدیت کن
+            SafeSetState.call(this, () {
+              final index = _messages.indexWhere((m) => m.id == message.id);
+              if (index != -1) {
+                _messages[index] = message;
+              }
+            });
+          }
+        }, onError: (_) {});
   }
 
   Future<void> _markConversationAsRead() async {
@@ -345,14 +350,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             // initialize with an instance; notifier ignores it internally
             await notifier.ensureInitialized(SupabaseService());
             await notifier.refreshUnreadCount();
-          } catch (e) {
-            debugPrint('=== CHAT SCREEN: Provider not available: $e ===');
-          }
+          } catch (_) {}
         }
       }
-    } catch (e) {
-      debugPrint('Error marking conversation as read: $e');
-    }
+    } catch (_) {}
   }
 
   Future<void> _sendMessage() async {
@@ -403,8 +404,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       SafeSetState.call(this, () {
         _messages.removeWhere((m) => m.id == tempMessage.id);
       });
-
-      debugPrint('=== CHAT SCREEN: Error sending message: $e ===');
 
       if (mounted) {
         final errorMessage = e.toString().replaceAll('Exception: ', '');
@@ -476,11 +475,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _messages.removeWhere((m) => m.id == message.id);
       });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطا در حذف پیام: $e')));
-      }
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'خطا در حذف پیام: $e',
+      );
     }
   }
 
@@ -499,11 +497,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطا در ویرایش پیام: $e')));
-      }
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'خطا در ویرایش پیام: $e',
+      );
     }
   }
 
@@ -552,10 +549,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildMessagesList() {
-    debugPrint(
-      '=== CHAT SCREEN: Building messages list, _isLoading: $_isLoading, _messages.length: ${_messages.length} ===',
-    );
-
     if (_isLoading) {
       return Center(
         child: Column(
@@ -698,10 +691,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ? const CircularProgressIndicator(color: AppTheme.goldColor)
             : TextButton.icon(
                 onPressed: _loadMoreMessages,
-                icon: Icon(
-                  LucideIcons.chevronUp,
-                  color: context.textColor,
-                ),
+                icon: Icon(LucideIcons.chevronUp, color: context.textColor),
                 label: Text(
                   'بارگذاری پیام‌های بیشتر',
                   style: TextStyle(color: context.textColor),
@@ -877,10 +867,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     showDialog<void>(
       context: context,
       builder: (context) {
-        // Dispose controller when dialog is closed
+        // کنترل امن دیالوگ و dispose کردن TextEditingController
         return WillPopScope(
           onWillPop: () async {
-            editController.dispose();
+            if (editController.isSafe) {
+              editController.dispose();
+            }
             return true;
           },
           child: AlertDialog(
@@ -920,7 +912,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             actions: [
               TextButton(
                 onPressed: () {
-                  editController.dispose();
+                  if (editController.isSafe) {
+                    editController.dispose();
+                  }
                   Navigator.pop(context);
                 },
                 child: Text(
@@ -934,7 +928,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               TextButton(
                 onPressed: () async {
                   if (!editController.isSafe) {
-                    editController.dispose();
                     return;
                   }
                   final newText = editController.safeText.trim();
@@ -942,7 +935,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     Navigator.pop(context);
                     await _editMessage(message, newText);
                   }
-                  editController.dispose();
+                  if (editController.isSafe) {
+                    editController.dispose();
+                  }
                 },
                 child: Text(
                   'ذخیره',
@@ -957,12 +952,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ),
         );
       },
-    ).then((_) {
-      // Ensure controller is disposed even if dialog is dismissed
-      if (editController.isSafe) {
-        editController.dispose();
-      }
-    });
+    );
   }
 
   void _showAttachmentOptions() {
@@ -1104,7 +1094,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               'حذف',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                color: AppTheme.goldColor,
+                color: const Color.fromRGBO(212, 175, 55, 1),
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -1112,25 +1102,5 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ],
       ),
     );
-  }
-
-  /// ثبت حضور کاربر در چت
-  Future<void> _markUserAsActiveInChat() async {
-    if (_currentUserId != null && _conversationId != null) {
-      await _presenceService.markUserAsActiveInChat(
-        userId: _currentUserId!,
-        conversationId: _conversationId!,
-      );
-    }
-  }
-
-  /// حذف حضور کاربر از چت
-  Future<void> _markUserAsInactiveInChat() async {
-    if (_currentUserId != null && _conversationId != null) {
-      await _presenceService.markUserAsInactiveInChat(
-        userId: _currentUserId!,
-        conversationId: _conversationId!,
-      );
-    }
   }
 }

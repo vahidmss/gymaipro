@@ -1,10 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
 import 'package:gymaipro/chat/services/chat_service.dart';
-import 'package:gymaipro/debug/global_key_debugger.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -19,21 +17,12 @@ class ChatUnreadNotifier extends ChangeNotifier {
   Timer? _refreshTimer;
   bool _disposed = false;
 
-  void _log(String msg) {
-    if (kDebugMode) debugPrint(msg);
-  }
 
   int get unreadCount => _unreadCount;
   bool get isInitialized => _chatService != null && _supabaseService != null;
 
   void initialize(SupabaseService supabaseService) {
-    // جلوگیری از مقداردهی مجدد
-    if (_isInitialized) {
-      _log('=== CHAT UNREAD NOTIFIER: Already initialized, skipping ===');
-      return;
-    }
-
-    _log('=== CHAT UNREAD NOTIFIER: Initializing ===');
+    if (_isInitialized) return;
     _supabaseService = supabaseService;
     _chatService = ChatService();
     _isInitialized = true;
@@ -61,17 +50,11 @@ class ChatUnreadNotifier extends ChangeNotifier {
       // جلوگیری از فراخوانی مکرر در مدت زمان کوتاه
       final now = DateTime.now();
       if (_lastLoadTime != null &&
-          now.difference(_lastLoadTime!).inSeconds < 5) {
-        _log(
-          '=== CHAT UNREAD NOTIFIER: Skipping load - too frequent ===',
-        );
-        return;
-      }
+          now.difference(_lastLoadTime!).inSeconds < 5) return;
 
       // اگر آفلاین هستیم، از فراخوانی شبکه صرف‌نظر کنیم
       final isOnline = await ConnectivityService.instance.checkNow();
       if (!isOnline) {
-        _log('=== CHAT UNREAD NOTIFIER: Offline, skipping fetch ===');
         _unreadCount = 0;
         _safeNotifyListeners();
         return;
@@ -80,47 +63,28 @@ class ChatUnreadNotifier extends ChangeNotifier {
       _isLoading = true;
       _lastLoadTime = now;
 
-      GlobalKeyDebugger.logChatUnreadNotifierCall('_loadUnreadCount');
-      _log('=== CHAT UNREAD NOTIFIER: Loading unread count ===');
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null || _chatService == null) {
-        _log('=== CHAT UNREAD NOTIFIER: User or chatService is null ===');
         _unreadCount = 0;
         _isLoading = false;
         _safeNotifyListeners();
         return;
       }
 
-      _log(
-        '=== CHAT UNREAD NOTIFIER: Getting conversations for user: ${user.id} ===',
-      );
-      // اضافه کردن timeout برای جلوگیری از انتظار بی‌نهایت
       final conversations = await _chatService!
           .getConversations()
           .timeout(
             const Duration(seconds: 10),
-            onTimeout: () {
-              _log(
-                '=== CHAT UNREAD NOTIFIER: Timeout loading conversations ===',
-              );
-              return <ChatConversation>[];
-            },
+            onTimeout: () => <ChatConversation>[],
           );
-      _log(
-        '=== CHAT UNREAD NOTIFIER: Found ${conversations.length} conversations ===',
-      );
 
       _unreadCount = conversations
           .where((conv) => conv.hasUnreadForUser(user.id))
           .length;
 
-      _log('=== CHAT UNREAD NOTIFIER: Unread count: $_unreadCount ===');
       _isLoading = false;
       _safeNotifyListeners();
-    } catch (e) {
-      _log(
-        '=== CHAT UNREAD NOTIFIER: Error loading unread count: $e ===',
-      );
+    } catch (_) {
       _unreadCount = 0;
       _isLoading = false;
       _safeNotifyListeners();
@@ -129,10 +93,7 @@ class ChatUnreadNotifier extends ChangeNotifier {
 
   // متد برای به‌روزرسانی تعداد پیام‌های نخوانده
   Future<void> refreshUnreadCount() async {
-    if (!isInitialized) {
-      _log('ChatUnreadNotifier not initialized, skipping refresh');
-      return;
-    }
+    if (!isInitialized) return;
     await _loadUnreadCount();
   }
 
@@ -162,11 +123,7 @@ class ChatUnreadNotifier extends ChangeNotifier {
     if (_disposed) return;
     try {
       notifyListeners();
-    } catch (e) {
-      debugPrint(
-        '=== CHAT UNREAD NOTIFIER: Error notifying listeners: $e ===',
-      );
-    }
+    } catch (_) {}
   }
 
   // شروع تایمر برای به‌روزرسانی خودکار
@@ -181,7 +138,6 @@ class ChatUnreadNotifier extends ChangeNotifier {
       if (!_isInitialized || _isLoading) return;
       // اگر کاربر لاگین نیست، هیچ نیازی به poll نیست.
       if (Supabase.instance.client.auth.currentUser == null) return;
-      _log('=== CHAT UNREAD NOTIFIER: Auto-refresh triggered ===');
       _loadUnreadCount();
     });
   }

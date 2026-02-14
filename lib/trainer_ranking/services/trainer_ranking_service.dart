@@ -1,4 +1,4 @@
-﻿import 'package:gymaipro/profile/models/user_profile.dart';
+import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/trainer_ranking/models/trainer_ranking_model.dart';
 import 'package:gymaipro/utils/cache_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -330,6 +330,12 @@ class TrainerRankingService {
 
       if (trainersResponse.isEmpty) return;
 
+      final trainerIds = (trainersResponse as List)
+          .map((t) => (t as Map)['id']?.toString() ?? '')
+          .where((id) => id.isNotEmpty)
+          .toList();
+      if (trainerIds.isEmpty) return;
+
       // دریافت همه شاگردان فعال یکبار (بهینه‌سازی)
       final trainerClients = await _supabase
           .from('trainer_clients')
@@ -345,14 +351,74 @@ class TrainerRankingService {
         }
       }
 
+      // --- KPIهای سراسری برای رنکینگ مربیان (بدون کوئری per-trainer) ---
+      // 1) تعداد برنامه‌های ساخته‌شده توسط مربی
+      final workoutPrograms = await _supabase
+          .from('workout_programs')
+          .select('trainer_id')
+          .eq('is_deleted', false)
+          .inFilter('trainer_id', trainerIds);
+      final Map<String, int> workoutProgramsCount = {};
+      for (final row in (workoutPrograms as List)) {
+        final m = Map<String, dynamic>.from(row as Map);
+        final tid = m['trainer_id'] as String?;
+        if (tid == null) continue;
+        workoutProgramsCount[tid] = (workoutProgramsCount[tid] ?? 0) + 1;
+      }
+
+      // 2) تعداد موزیک‌های اضافه شده
+      final customMusics = await _supabase
+          .from('custom_music')
+          .select('created_by, visibility')
+          .inFilter('created_by', trainerIds);
+      final Map<String, int> customMusicCount = {};
+      final Map<String, int> publicCustomMusicCount = {};
+      for (final row in (customMusics as List)) {
+        final m = Map<String, dynamic>.from(row as Map);
+        final tid = m['created_by'] as String?;
+        if (tid == null) continue;
+        customMusicCount[tid] = (customMusicCount[tid] ?? 0) + 1;
+        if ((m['visibility'] ?? '').toString() == 'public') {
+          publicCustomMusicCount[tid] = (publicCustomMusicCount[tid] ?? 0) + 1;
+        }
+      }
+
+      // 3) رضایت‌ها (نظرات 4 و 5 ستاره)
+      final trainerReviews = await _supabase
+          .from('trainer_reviews')
+          .select('trainer_id, rating')
+          .inFilter('trainer_id', trainerIds);
+      final Map<String, int> totalReviewsByTrainer = {};
+      final Map<String, int> positiveReviewsByTrainer = {};
+      for (final row in (trainerReviews as List)) {
+        final m = Map<String, dynamic>.from(row as Map);
+        final tid = m['trainer_id'] as String?;
+        if (tid == null) continue;
+        totalReviewsByTrainer[tid] = (totalReviewsByTrainer[tid] ?? 0) + 1;
+        final rating = (m['rating'] as num?)?.toInt() ?? 0;
+        if (rating >= 4) {
+          positiveReviewsByTrainer[tid] = (positiveReviewsByTrainer[tid] ?? 0) + 1;
+        }
+      }
+
       // محاسبه ranking برای هر مربی
       final List<Map<String, dynamic>> trainersWithScores = [];
 
       for (final trainer in trainersResponse) {
         final trainerId = trainer['id'] as String;
+        final totalReviews = totalReviewsByTrainer[trainerId] ?? 0;
+        final positiveReviews = positiveReviewsByTrainer[trainerId] ?? 0;
+        final satisfactionRate = totalReviews > 0
+            ? (positiveReviews / totalReviews).clamp(0.0, 1.0)
+            : 0.0;
+
         final score = await _calculateTrainerScore(
           trainer,
-          activeStudentCounts[trainerId] ?? 0,
+          activeStudentCount: activeStudentCounts[trainerId] ?? 0,
+          workoutProgramCount: workoutProgramsCount[trainerId] ?? 0,
+          customMusicCount: customMusicCount[trainerId] ?? 0,
+          publicCustomMusicCount: publicCustomMusicCount[trainerId] ?? 0,
+          satisfactionRate: satisfactionRate,
         );
         trainersWithScores.add({'id': trainerId, 'score': score});
       }
@@ -362,15 +428,17 @@ class TrainerRankingService {
         (a, b) => (b['score'] as double).compareTo(a['score'] as double),
       );
 
-      // به‌روزرسانی ranking
+      // به‌روزرسانی ranking و trainer_score
       for (int i = 0; i < trainersWithScores.length; i++) {
         final trainerId = trainersWithScores[i]['id'];
         final ranking = i + 1; // ranking از 1 شروع می‌شود
+        final score = trainersWithScores[i]['score'] as double;
 
         await _supabase
             .from('profiles')
             .update({
               'ranking': ranking,
+              'trainer_score': score,
               'updated_at': DateTime.now().toIso8601String(),
             })
             .eq('id', trainerId as Object)
@@ -495,39 +563,59 @@ class TrainerRankingService {
 
   // محاسبه امتیاز مربی
   Future<double> _calculateTrainerScore(
-    Map<String, dynamic> trainer, [
+    Map<String, dynamic> trainer, {
     int activeStudentCount = 0,
-  ]) async {
+    int workoutProgramCount = 0,
+    int customMusicCount = 0,
+    int publicCustomMusicCount = 0,
+    double satisfactionRate = 0.0,
+  }) async {
+    // امتیازدهی «مربی» باید جدا از لیگ ورزشکاران باشد.
+    // این نمره صرفاً برای مرتب‌سازی رنکینگ مربیان استفاده می‌شود (هرچه بیشتر بهتر).
     double score = 0;
 
-    // امتیاز rating (40% وزن)
-    final rating = (trainer['rating'] as num?)?.toDouble() ?? 0.0;
-    score += rating * 0.4;
-
-    // امتیاز تعداد نظرات (20% وزن)
+    // 1) امتیاز و تعداد نظرات
+    final rating = (trainer['rating'] as num?)?.toDouble() ?? 0.0; // 0..5
     final reviewCount = (trainer['review_count'] as num?)?.toInt() ?? 0;
-    score += (reviewCount * 0.1).clamp(0.0, 2.0); // حداکثر 2 امتیاز
 
-    // امتیاز تعداد شاگردان فعال (15% وزن) - از پارامتر استفاده می‌کنیم
-    score += (activeStudentCount * 0.05).clamp(0.0, 1.5); // حداکثر 1.5 امتیاز
+    // rating: max ~3.0
+    score += ((rating / 5.0).clamp(0.0, 1.0)) * 3.0;
+    // review volume: max ~1.5 (تا 50 نظر)
+    score += (reviewCount.clamp(0, 50) / 50.0) * 1.5;
 
-    // امتیاز سال‌های تجربه (15% وزن)
+    // 2) شاگردان فعال
+    score += (activeStudentCount.clamp(0, 30) / 30.0) * 1.5;
+
+    // 3) تجربه
     final experienceYears = (trainer['experience_years'] as num?)?.toInt() ?? 0;
-    score += (experienceYears * 0.1).clamp(0.0, 1.5); // حداکثر 1.5 امتیاز
+    score += (experienceYears.clamp(0, 10) / 10.0) * 1.0;
 
-    // امتیاز آنلاین بودن (5% وزن)
+    // 4) خروجی مربی (تمرین اختصاصی)
+    score += (workoutProgramCount.clamp(0, 50) / 50.0) * 1.0;
+
+    // 5) محتوای افزوده شده (موزیک)
+    // public وزن بیشتری دارد (قابل استفاده عمومی/شاگردان)
+    final publicBoost = publicCustomMusicCount.clamp(0, 20) / 20.0;
+    final totalBoost = customMusicCount.clamp(0, 30) / 30.0;
+    score += (0.35 * totalBoost) + (0.15 * publicBoost); // max ~0.5
+
+    // 6) رضایت (نسبت 4 و 5 ستاره)
+    score += satisfactionRate.clamp(0.0, 1.0) * 1.0;
+
+    // 7) آنلاین و فعالیت اخیر
     final isOnline = trainer['is_online'] as bool? ?? false;
-    if (isOnline) score += 0.5;
+    if (isOnline) score += 0.2;
 
-    // امتیاز فعالیت اخیر (5% وزن)
     final lastActiveAt = trainer['last_active_at'];
     if (lastActiveAt != null) {
-      final lastActive = DateTime.parse(lastActiveAt as String);
-      final daysSinceLastActive = DateTime.now().difference(lastActive).inDays;
-      if (daysSinceLastActive <= 7) score += 0.5; // فعال در هفته گذشته
+      final lastActive = DateTime.tryParse(lastActiveAt.toString());
+      if (lastActive != null) {
+        final daysSinceLastActive = DateTime.now().difference(lastActive).inDays;
+        if (daysSinceLastActive <= 7) score += 0.3;
+      }
     }
 
-    return score;
+    return double.parse(score.toStringAsFixed(4));
   }
 
   // جستجوی مربیان

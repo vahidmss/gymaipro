@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:gymaipro/meal_log/models/food_meal_log.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/services/fitness_calculator.dart';
@@ -23,7 +23,7 @@ class MealLogUtils {
     if (title.contains('ناهار')) return 'images/lunch.png';
     if (title.contains('شام')) return 'images/dinner.png';
     if (title.contains('میان‌وعده')) return 'images/snack.png';
-    return 'images/food_placeholder.png';
+    return 'images/gymaifoodplaceholder.png';
   }
 
   /// Returns recommended calorie range for a meal type

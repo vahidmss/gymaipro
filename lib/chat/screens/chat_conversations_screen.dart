@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -6,9 +6,11 @@ import 'package:gymaipro/chat/models/user_chat_message.dart';
 import 'package:gymaipro/chat/screens/chat_screen.dart';
 import 'package:gymaipro/chat/services/chat_service.dart';
 import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
+import 'package:gymaipro/my_club/services/friendship_service.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/widgets/user_role_badge.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
@@ -31,6 +33,8 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
   final String _searchQuery = '';
   StreamSubscription<dynamic>? _conversationsSubscription;
   final Map<String, String?> _avatarCache = {};
+  final Map<String, String> _nameCache = {};
+  final Map<String, String> _roleCache = {};
   bool _avatarSetStatePending = false;
 
   @override
@@ -59,11 +63,14 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
         });
         return;
       }
-      debugPrint('=== CHAT CONVERSATIONS: Loading conversations... ===');
       // جلوگیری از لودینگ بی‌نهایت در صورت مشکل شبکه/دسترسی
       final conversations = await _chatService.getConversations().timeout(
         const Duration(seconds: 15),
       );
+
+      // قبل از نمایش، نام و نقش تمام کاربران طرف مکالمه را پیش‌لود می‌کنیم
+      await _preloadUserMeta(conversations);
+
       SafeSetState.call(this, () {
         _conversations = conversations;
         _filterConversations();
@@ -71,21 +78,14 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
       });
       // Warm up avatar cache and refresh in background (no UI blocking)
       unawaited(_warmUpAvatarCache(conversations));
-      debugPrint(
-        '=== CHAT CONVERSATIONS: Loaded ${conversations.length} conversations ===',
-      );
     } catch (e) {
       SafeSetState.call(this, () => _isLoading = false);
       // هنگام آفلاین بودن یا خطاهای شبکه، پیام کاربرپسند نشان بده
-      if (mounted) {
-        final isOffline = !ConnectivityService.instance.isConnected;
-        final msg = isOffline
-            ? 'اتصال اینترنت برقرار نیست. لطفاً اینترنت را بررسی کنید.'
-            : 'خطا در بارگذاری گفتگوها. لطفاً دوباره تلاش کنید.';
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(msg)));
-      }
+      final isOffline = !ConnectivityService.instance.isConnected;
+      final msg = isOffline
+          ? 'اتصال اینترنت برقرار نیست. لطفاً اینترنت را بررسی کنید.'
+          : 'خطا در بارگذاری گفتگوها. لطفاً دوباره تلاش کنید.';
+      WidgetSafetyUtils.safeShowSnackBar(context, msg);
     }
   }
 
@@ -114,9 +114,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
         final otherUserId = conv.getOtherUserId(currentUserId);
         unawaited(_refreshAvatar(otherUserId));
       }
-    } catch (e) {
-      debugPrint('Error warming up avatar cache: $e');
-    }
+    } catch (_) {}
   }
 
   Future<void> _refreshAvatar(String userId) async {
@@ -130,9 +128,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
         }
         _scheduleAvatarSetState();
       }
-    } catch (e) {
-      debugPrint('Error refreshing avatar: $e');
-    }
+    } catch (_) {}
   }
 
   void _scheduleAvatarSetState() {
@@ -148,9 +144,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
     try {
       final stream = _chatService.subscribeToConversations();
       _conversationsSubscription = stream.listen(_updateConversation);
-    } catch (e) {
-      debugPrint('Error subscribing to conversations: $e');
-    }
+    } catch (_) {}
   }
 
   void _updateConversation(ChatConversation newConversation) {
@@ -325,7 +319,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
 
     // تشخیص کاربر دیگر
     final otherUserId = conversation.getOtherUserId(currentUserId);
-    final otherUserName = conversation.getOtherUserName(currentUserId);
+    final initialOtherUserName = conversation.getOtherUserName(currentUserId);
     final unreadCount = conversation.getUnreadCount(currentUserId);
     final hasUnread = conversation.hasUnreadForUser(currentUserId);
 
@@ -401,7 +395,8 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  otherUserName,
+                                  _nameCache[otherUserId] ??
+                                      initialOtherUserName,
                                   style: TextStyle(
                                     fontFamily: AppTheme.fontFamily,
                                     color: hasUnread
@@ -437,24 +432,18 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              FutureBuilder<String?>(
-                                future: _loadUserRole(otherUserId),
-                                builder: (context, snapshot) {
-                                  final role = snapshot.data ?? 'athlete';
-                                  return Padding(
-                                    padding: EdgeInsetsDirectional.only(
-                                      end: 6.w,
-                                    ),
-                                    child: UserRoleBadge(
-                                      role: role,
-                                      fontSize: 10.sp,
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 5.w,
-                                        vertical: 1.h,
-                                      ),
-                                    ),
-                                  );
-                                },
+                              Padding(
+                                padding: EdgeInsetsDirectional.only(
+                                  end: 6.w,
+                                ),
+                                child: UserRoleBadge(
+                                  role: _roleCache[otherUserId] ?? 'athlete',
+                                  fontSize: 10.sp,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 5.w,
+                                    vertical: 1.h,
+                                  ),
+                                ),
                               ),
                               Expanded(
                                 child: Text(
@@ -580,6 +569,27 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
               textDirection: TextDirection.rtl,
               child: ListTile(
                 leading: Icon(
+                  LucideIcons.userX,
+                  color: Colors.redAccent,
+                ),
+                title: Text(
+                  'بلاک کردن کاربر',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmAndBlockUser(conversation);
+                },
+              ),
+            ),
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: ListTile(
+                leading: Icon(
                   LucideIcons.trash2,
                   color: AppTheme.goldColor,
                 ),
@@ -601,6 +611,87 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmAndBlockUser(ChatConversation conversation) async {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    if (currentUserId == null) {
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'برای بلاک کردن کاربر باید وارد شوید',
+      );
+      return;
+    }
+
+    final otherUserId = conversation.getOtherUserId(currentUserId);
+    final otherUserName = conversation.getOtherUserName(currentUserId);
+
+    final confirmed = await WidgetSafetyUtils.safeShowDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: dialogContext.cardColor,
+        title: Text(
+          'بلاک کردن کاربر',
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontWeight: FontWeight.bold,
+            color: dialogContext.textColor,
+          ),
+        ),
+        content: Text(
+          'آیا مطمئن هستید که می‌خواهید کاربر "$otherUserName" را بلاک کنید؟\n\n'
+          'پس از بلاک، دیگر پیامی از این کاربر دریافت نخواهید کرد و مکالمه فعلی نیز حذف می‌شود.',
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            color: dialogContext.textColor,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'انصراف',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: dialogContext.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              'بلاک کن',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await FriendshipService.blockUser(otherUserId);
+
+      SafeSetState.call(this, () {
+        _conversations.removeWhere((c) => c.id == conversation.id);
+        _filterConversations();
+      });
+
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'کاربر "$otherUserName" بلاک شد و گفتگو حذف شد',
+      );
+    } catch (e) {
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'خطا در بلاک کردن کاربر: $e',
+      );
+    }
   }
 
   Future<void> _confirmAndDeleteConversation(
@@ -661,17 +752,15 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
         _filterConversations();
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('گفتگو با موفقیت حذف شد')));
-      }
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'گفتگو با موفقیت حذف شد',
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطا در حذف گفتگو: $e')));
-      }
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'خطا در حذف گفتگو: $e',
+      );
     }
   }
 
@@ -690,14 +779,17 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     if (currentUserId == null) return;
 
-    // تشخیص نام کاربر دیگر
-    final otherUserName = conversation.getOtherUserName(currentUserId);
+    // تشخیص نام کاربر دیگر؛ از کش پیش‌لودشده استفاده می‌کنیم
+    final initialOtherUserName = conversation.getOtherUserName(currentUserId);
+    final otherUserName = _nameCache[otherUserId] ?? initialOtherUserName;
 
     Navigator.push(
       context,
       MaterialPageRoute<void>(
-        builder: (context) =>
-            ChatScreen(otherUserId: otherUserId, otherUserName: otherUserName),
+        builder: (context) => ChatScreen(
+          otherUserId: otherUserId,
+          otherUserName: otherUserName,
+        ),
       ),
     );
   }
@@ -708,28 +800,65 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
       final response = await Supabase.instance.client
           .from('profiles')
           .select('avatar_url')
-          .eq('id', userId)
+          .or('id.eq.$userId,auth_user_id.eq.$userId')
           .maybeSingle();
 
       return response?['avatar_url'] as String?;
-    } catch (e) {
-      debugPrint('Error loading user avatar: $e');
+    } catch (_) {
       return null;
     }
   }
 
-  // بارگذاری نقش کاربر (trainer/athlete/...)
-  Future<String?> _loadUserRole(String userId) async {
+  // پیش‌لود نام و نقش کاربرانِ طرف مکالمه‌ها تا بدون فلیکر نمایش داده شوند
+  Future<void> _preloadUserMeta(List<ChatConversation> conversations) async {
     try {
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+      if (currentUserId == null) return;
+
+      final Set<String> userIds = {};
+      for (final conv in conversations) {
+        userIds.add(conv.getOtherUserId(currentUserId));
+      }
+      if (userIds.isEmpty) return;
+
       final response = await Supabase.instance.client
           .from('profiles')
-          .select('role')
-          .eq('id', userId)
-          .maybeSingle();
-      return response?['role'] as String?;
-    } catch (e) {
-      debugPrint('Error loading user role: $e');
-      return null;
-    }
+          .select(
+            'auth_user_id, first_name, last_name, username, phone_number, role',
+          )
+          .inFilter('auth_user_id', userIds.toList());
+
+      for (final row in response) {
+        final authUserId = (row['auth_user_id'] as String?)?.trim();
+        if (authUserId == null || authUserId.isEmpty) continue;
+
+        final firstName = (row['first_name'] as String? ?? '').trim();
+        final lastName = (row['last_name'] as String? ?? '').trim();
+        final username = (row['username'] as String? ?? '').trim();
+        final phone = (row['phone_number'] as String? ?? '').trim();
+
+        String name;
+        if (firstName.isNotEmpty && lastName.isNotEmpty) {
+          name = '$firstName $lastName';
+        } else if (firstName.isNotEmpty) {
+          name = firstName;
+        } else if (lastName.isNotEmpty) {
+          name = lastName;
+        } else if (username.isNotEmpty) {
+          name = username;
+        } else if (phone.isNotEmpty) {
+          name = phone.length > 7 ? phone.replaceRange(0, 7, '***') : phone;
+        } else {
+          name = 'کاربر';
+        }
+
+        _nameCache[authUserId] = name;
+
+        final role = (row['role'] as String?)?.trim();
+        if (role != null && role.isNotEmpty) {
+          _roleCache[authUserId] = role;
+        }
+      }
+    } catch (_) {}
   }
 }

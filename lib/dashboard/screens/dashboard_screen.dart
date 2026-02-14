@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
-import 'package:gymaipro/dashboard/widgets/exercises_tabs_section.dart';
+import 'package:gymaipro/dashboard/widgets/discover_section.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
 import 'package:gymaipro/chat/services/chat_unread_notifier.dart';
-import 'package:gymaipro/dashboard/widgets/chat_section.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_app_bar.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_drawer.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_loading_screen.dart';
@@ -15,7 +14,10 @@ import 'package:gymaipro/dashboard/widgets/quick_action_buttons.dart';
 import 'package:gymaipro/dashboard/widgets/todays_program_section.dart';
 import 'package:gymaipro/dashboard/widgets/tip_card.dart';
 import 'package:gymaipro/dashboard/widgets/weight_chart.dart';
-import 'package:gymaipro/dashboard/widgets/academy_section.dart';
+import 'package:gymaipro/dashboard/widgets/dashboard_hero_carousel.dart';
+import 'package:gymaipro/dashboard/widgets/dashboard_stories_section.dart';
+import 'package:gymaipro/dashboard/widgets/dashboard_animated_section.dart';
+import 'package:gymaipro/dashboard/widgets/top_rankings_section.dart';
 import 'package:gymaipro/guide/data/dashboard_guide_data.dart';
 import 'package:gymaipro/guide/guide.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
@@ -26,6 +28,7 @@ import 'package:gymaipro/services/app_state.dart';
 import 'package:gymaipro/services/exercise_service.dart';
 import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/services/logout_cache_clear_service.dart';
+import 'package:gymaipro/services/score_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/streak_service.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
@@ -315,8 +318,9 @@ class _DashboardScreenState extends State<DashboardScreen>
       'username': profileData['username'] ?? '',
       'phone_number': profileData['phone_number'] ?? '',
       'avatar_url': profileData['avatar_url'] ?? '',
-      'role': profileData['role'] ?? 'athlete', // اضافه کردن نقش به profileData
+      'role': profileData['role'] ?? 'athlete',
       'latest_weight': latestWeight,
+      'login_streak': (profileData['login_streak'] as num?)?.toInt() ?? 0,
     };
   }
 
@@ -343,7 +347,8 @@ class _DashboardScreenState extends State<DashboardScreen>
       'username': '',
       'phone_number': '',
       'avatar_url': '',
-      'role': 'athlete', // اضافه کردن نقش پیش‌فرض
+      'role': 'athlete',
+      'login_streak': 0,
     };
   }
 
@@ -391,6 +396,11 @@ class _DashboardScreenState extends State<DashboardScreen>
       await chatUnread.refreshUnreadCount();
     } catch (_) {}
 
+    // بارگذاری امتیاز از دیتابیس تا ستاره‌های اپ‌بار با منبع واقعی همگام باشند
+    try {
+      await ScoreService().loadFromDatabase();
+    } catch (_) {}
+
     // Reload dashboard user data and rebuild
     setState(() {
       _isLoading = true;
@@ -432,13 +442,13 @@ class _DashboardScreenState extends State<DashboardScreen>
       await AuthStateService().clearAuthState();
       // User signed out successfully
 
-      // Use post frame callback to ensure widget is still mounted
+      // Navigate to welcome screen after logout
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           try {
             Navigator.of(
               context,
-            ).pushNamedAndRemoveUntil('/', (route) => false);
+            ).pushNamedAndRemoveUntil('/welcome', (route) => false);
           } catch (e) {
             debugPrint('Error in dashboard navigation: $e');
           }
@@ -571,84 +581,101 @@ class _DashboardScreenState extends State<DashboardScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // کارت خوشامدگویی بهبود یافته
-                  WelcomeCard(
-                    key: DashboardGuideData.keys['welcome_card'],
-                    username: _username ?? 'کاربر عزیز',
-                    welcomeMessage: DashboardWelcomeHelpers.getWelcomeMessage(),
-                    welcomeIcon: DashboardWelcomeHelpers.getWelcomeIcon(),
-                    profileData: _profileData,
-                  ),
-                  SizedBox(height: 24.h),
-
-                  // کارت‌های BMI و معیارهای فیزیکی
-                  FitnessMetrics(
-                    key: DashboardGuideData.keys['fitness_metrics'],
-                    profileData: _profileData,
-                  ),
-                  SizedBox(height: 24.h),
-
-                  // نمودار وزن (گروه‌بندی با معیارهای فیتنس)
-                  if (_profileData['id'] != null)
-                    WeightChart(
-                      key: DashboardGuideData.keys['weight_chart'],
-                      userId: _profileData['id'] as String,
-                      currentWeight: double.tryParse(
-                        (_profileData['weight'] as String?) ?? '',
-                      ),
-                    ),
-                  if (_profileData['id'] != null) SizedBox(height: 24.h),
-
-                  // حائل شیک (جداکننده بصری)
-                  Container(
-                    margin: EdgeInsets.symmetric(vertical: 12.h),
-                    height: 1.h,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.transparent,
-                          AppTheme.goldColor.withValues(alpha: 0.3),
-                          AppTheme.goldColor.withValues(alpha: 0.5),
-                          AppTheme.goldColor.withValues(alpha: 0.3),
-                          Colors.transparent,
-                        ],
-                        stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
-                      ),
+                  // ── ۰. کارت خوش‌آمدگویی (با Streak داخلش) ──
+                  DashboardAnimatedSection(
+                    index: 0,
+                    child: WelcomeCard(
+                      key: DashboardGuideData.keys['welcome_card'],
+                      username: _username ?? 'کاربر عزیز',
+                      welcomeMessage:
+                          DashboardWelcomeHelpers.getWelcomeMessage(),
+                      welcomeIcon: DashboardWelcomeHelpers.getWelcomeIcon(),
+                      profileData: _profileData,
+                      streak:
+                          (_profileData['login_streak'] as num?)?.toInt() ?? 0,
                     ),
                   ),
                   SizedBox(height: 16.h),
 
-                  // دکمه‌های سریع: ساخت برنامه، مربیان، دستاوردها
-                  QuickActionButtons(
-                    key: DashboardGuideData.keys['quick_actions'],
+                  // ── ۱. داستان‌های امروز - زیر کارت خوش‌آمدگویی ──
+                  DashboardAnimatedSection(
+                    index: 1,
+                    child: const DashboardStoriesSection(),
+                  ),
+                  SizedBox(height: 20.h),
+
+                  // ── ۲. نکته روز ──
+                  DashboardAnimatedSection(
+                    index: 2,
+                    child: TipCard(),
+                  ),
+                  SizedBox(height: 20.h),
+
+                  // ── ۳. برنامه امروز - اولویت اصلی کاربر ──
+                  DashboardAnimatedSection(
+                    index: 3,
+                    child: TodaysProgramSection(
+                      key: DashboardGuideData.keys['todays_program'],
+                    ),
                   ),
                   SizedBox(height: 24.h),
 
-                  // کارت نکته (محتوای آموزشی - break point)
-                  TipCard(),
+                  // ── ۴. اقدامات سریع ──
+                  DashboardAnimatedSection(
+                    index: 4,
+                    child: QuickActionButtons(
+                      key: DashboardGuideData.keys['quick_actions'],
+                    ),
+                  ),
                   SizedBox(height: 24.h),
 
-                  // بخش برنامه امروز من
-                  TodaysProgramSection(
-                    key: DashboardGuideData.keys['todays_program'],
+                  // ── ۵. متریک‌های فیتنس ──
+                  DashboardAnimatedSection(
+                    index: 5,
+                    child: FitnessMetrics(
+                      key: DashboardGuideData.keys['fitness_metrics'],
+                      profileData: _profileData,
+                    ),
+                  ),
+                  SizedBox(height: 24.h),
+
+                  // ── ۶. نمودار وزن ──
+                  DashboardAnimatedSection(
+                    index: 6,
+                    child: _profileData['id'] != null
+                        ? WeightChart(
+                            key: DashboardGuideData.keys['weight_chart'],
+                            userId: _profileData['id'] as String,
+                            currentWeight: double.tryParse(
+                              (_profileData['weight'] as String?) ?? '',
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  ...(_profileData['id'] != null
+                      ? [SizedBox(height: 24.h)]
+                      : []),
+
+                  // ── ۷. محتوای پیشنهادی - ویدیو، مقاله، موزیک ──
+                  DashboardAnimatedSection(
+                    index: 7,
+                    child: const DashboardHeroCarousel(),
+                  ),
+                  SizedBox(height: 24.h),
+
+                  // ── ۸. کشف جدیدها - تمرینات و تغذیه ──
+                  DashboardAnimatedSection(
+                    index: 8,
+                    child: const DiscoverSection(),
+                  ),
+                  SizedBox(height: 24.h),
+
+                  // ── ۹. رتبه‌بندی ──
+                  DashboardAnimatedSection(
+                    index: 9,
+                    child: const TopRankingsSection(),
                   ),
                   SizedBox(height: 32.h),
-
-                  // بخش تب‌های تمرینات و تغذیه
-                  ExercisesTabsSection(
-                    key: DashboardGuideData.keys['exercises_tabs'],
-                  ),
-                  SizedBox(height: 24.h),
-
-                  // بخش چت با خط طلایی و دایره
-                  ChatSection(key: DashboardGuideData.keys['chat_section']),
-                  SizedBox(height: 24.h),
-
-                  // بخش آکادمی
-                  AcademySection(
-                    key: DashboardGuideData.keys['academy_section'],
-                  ),
-                  SizedBox(height: 24.h),
                 ],
               ),
             ),

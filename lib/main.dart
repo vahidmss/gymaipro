@@ -1,7 +1,6 @@
 ﻿import 'package:device_preview/device_preview.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/achievements/services/achievement_service.dart';
@@ -350,18 +349,21 @@ class _MyAppState extends State<MyApp> {
                       decoration: isDark
                           ? null
                           : BoxDecoration(
+                              // گرادیانت عمودی: بالا پررنگ‌تر (نوار ساعت خوانا) → پایین روشن
                               gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
                                 colors: [
-                                  AppTheme.lightGradientStart.withValues(
-                                    alpha: 0.15,
-                                  ),
+                                  const Color(
+                                    0xFFDDD0B8,
+                                  ), // نوار بالا: کرم طلایی پررنگ
+                                  const Color(0xFFEDE4D4), // نرم
                                   AppTheme.lightCardColor,
                                   AppTheme.lightGradientEnd.withValues(
-                                    alpha: 0.1,
+                                    alpha: 0.12,
                                   ),
                                 ],
+                                stops: const [0.0, 0.08, 0.22, 1.0],
                               ),
                             ),
                       child: Stack(

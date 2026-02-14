@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class CustomBottomNavigation extends StatelessWidget {
   const CustomBottomNavigation({
     required this.currentIndex,
     required this.onTap,
     this.navKeys,
+    this.userRole,
     super.key,
   });
   final int currentIndex;
   final void Function(int) onTap;
   final Map<int, GlobalKey>? navKeys;
+  final String? userRole; // 'athlete' یا 'trainer'
 
   @override
   Widget build(BuildContext context) {
@@ -102,32 +105,36 @@ class CustomBottomNavigation extends StatelessWidget {
                     ),
                     // فضای خالی برای دکمه مرکزی
                     SizedBox(width: centralButtonSpace),
-                    // نقش‌-محور (رتبه‌بندی مربیان/میز کار مربی)
+                    // باشگاه من / داشبورد مربی
                     Container(
-                      key: navKeys?[NavigationConstants.roleIndex],
+                      key: navKeys?[NavigationConstants.myClubIndex],
                       width: itemWidth,
                       height: NavigationConstants.bottomNavHeight,
                       alignment: Alignment.center,
                       child: _buildNavItem(
-                        icon: NavigationConstants.roleIcon,
-                        label: NavigationConstants.roleLabel,
-                        index: NavigationConstants.roleIndex,
+                        icon: userRole == 'trainer'
+                            ? LucideIcons.barChart3
+                            : NavigationConstants.myClubIcon,
+                        label: userRole == 'trainer'
+                            ? 'میز کار'
+                            : NavigationConstants.myClubLabel,
+                        index: NavigationConstants.myClubIndex,
                         isSelected:
-                            currentIndex == NavigationConstants.roleIndex,
+                            currentIndex == NavigationConstants.myClubIndex,
                       ),
                     ),
-                    // پروفایل
+                    // اجتماعی
                     Container(
-                      key: navKeys?[NavigationConstants.profileIndex],
+                      key: navKeys?[NavigationConstants.socialIndex],
                       width: itemWidth,
                       height: NavigationConstants.bottomNavHeight,
                       alignment: Alignment.center,
                       child: _buildNavItem(
-                        icon: NavigationConstants.profileIcon,
-                        label: NavigationConstants.profileLabel,
-                        index: NavigationConstants.profileIndex,
+                        icon: NavigationConstants.socialIcon,
+                        label: NavigationConstants.socialLabel,
+                        index: NavigationConstants.socialIndex,
                         isSelected:
-                            currentIndex == NavigationConstants.profileIndex,
+                            currentIndex == NavigationConstants.socialIndex,
                       ),
                     ),
                   ],

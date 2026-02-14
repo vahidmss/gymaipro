@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:gymaipro/achievements/services/achievement_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -63,11 +62,10 @@ class ReferralService {
           })
           .eq('id', newUserId);
 
-      // افزایش تعداد referrals کاربر دعوت‌کننده
+      // افزایش تعداد referrals کاربر دعوت‌کننده (در پروفایل او در DB ذخیره می‌شود)
       await _incrementReferralCount(referrerId);
 
-      // به‌روزرسانی دستاوردهای invite
-      await _updateInviteAchievements(referrerId);
+      // دستاوردهای invite برای معرف وقتی اپ را باز کند از total_referrals پروفایلش سینک می‌شود (در AchievementService)
 
       debugPrint('✅ Referral registered: $referrerUsername -> $newUserId');
       return true;
@@ -109,28 +107,6 @@ class ReferralService {
       } catch (e2) {
         debugPrint('❌ Error incrementing referral count: $e2');
       }
-    }
-  }
-
-  /// به‌روزرسانی دستاوردهای invite
-  Future<void> _updateInviteAchievements(String userId) async {
-    try {
-      final profile = await SimpleProfileService.getCurrentProfile();
-      if (profile == null) return;
-
-      final totalReferrals = (profile['total_referrals'] as int?) ?? 0;
-
-      final achievementService = AchievementService.instance;
-
-      // به‌روزرسانی دستاوردهای invite
-      await achievementService.updateProgress('invite_1', totalReferrals);
-      await achievementService.updateProgress('invite_3', totalReferrals);
-      await achievementService.updateProgress('invite_10', totalReferrals);
-      await achievementService.updateProgress('invite_30', totalReferrals);
-
-      debugPrint('✅ Invite achievements updated: $totalReferrals referrals');
-    } catch (e) {
-      debugPrint('❌ Error updating invite achievements: $e');
     }
   }
 

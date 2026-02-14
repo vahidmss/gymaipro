@@ -39,17 +39,19 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       final profile = await SimpleProfileService.getCurrentProfile();
       _currentUserId = profile?['id'] as String?;
 
+      // فقط رنکینگ کاربر رو بگیریم - بدون به‌روزرسانی سنگین
       if (_currentUserId != null) {
         _currentUserRanking = await _rankingService.getUserRanking(
           _currentUserId!,
         );
       }
 
+      // Leaderboard رو موازی با getUserRanking لود کنیم
       await _loadLeaderboard();
     } catch (e) {
       debugPrint('❌ Error loading leaderboard: $e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -183,13 +185,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                         ranking: ranking,
                         position: ranking.leagueRank ?? (index + 1),
                         isCurrentUser: isCurrentUser,
-                        onTap: () {
-                          // رفتن به پروفایل همان کاربر
-                          Navigator.pushNamed(
+                        onTap: () async {
+                          await Navigator.pushNamed(
                             context,
                             '/user-profile',
                             arguments: ranking.userId,
                           );
+                          if (!mounted) return;
+                          await _loadData();
                         },
                       );
                     }, childCount: _leaderboard.length),

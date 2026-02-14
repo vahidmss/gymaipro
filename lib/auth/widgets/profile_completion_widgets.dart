@@ -16,16 +16,26 @@ class ProfileCardWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    return Align(
+      alignment: Alignment.topCenter,
       child: SingleChildScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         physics: const BouncingScrollPhysics(),
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 24.h),
+        padding: EdgeInsets.only(
+          left: 20.w,
+          right: 20.w,
+          top: 10.h,
+          bottom: 4.h + keyboardHeight,
+        ),
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: 360.w),
           child: RepaintBoundary(
-            child: Container(
-              padding: padding ?? EdgeInsets.all(24.w),
+            child: GestureDetector(
+              onTap: () => FocusScope.of(context).unfocus(),
+              behavior: HitTestBehavior.translucent,
+              child: Container(
+                padding: padding ?? EdgeInsets.all(20.w),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -57,7 +67,8 @@ class ProfileCardWrapper extends StatelessWidget {
                   ),
                 ],
               ),
-              child: child,
+                child: child,
+              ),
             ),
           ),
         ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gymaipro/chat/models/public_chat_message.dart';
 import 'package:gymaipro/services/user_service.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PublicChatService {
@@ -73,20 +74,41 @@ class PublicChatService {
         throw Exception('User not authenticated');
       }
 
-      print(
-        '=== PUBLIC CHAT SERVICE: Sending message for user: ${user.id} ===',
-      );
+      // دریافت profile ID (نه auth user ID) چون foreign key به profiles.id است
+      final profile = await SimpleProfileService.getCurrentProfile();
+      if (profile == null) {
+        throw Exception('Profile not found');
+      }
 
-      // ابتدا فقط پیام را ارسال کن (بدون اطلاعات اضافی)
-      final data = {'sender_id': user.id, 'message': message};
+      // بررسی بلاک بودن کاربر در چت عمومی
+      final raw = profile['public_chat_blocked_until'];
+      final blockedUntilStr = raw is String ? raw : raw?.toString();
+      if (blockedUntilStr != null) {
+        final blockedUntil = DateTime.tryParse(blockedUntilStr);
+        if (blockedUntil != null &&
+            blockedUntil.isAfter(DateTime.now().toUtc())) {
+          final reason =
+              profile['public_chat_block_reason'] as String? ?? '';
+          final formattedUntil =
+              '${blockedUntil.toLocal().year}/${blockedUntil.toLocal().month.toString().padLeft(2, '0')}/${blockedUntil.toLocal().day.toString().padLeft(2, '0')}';
+          // از یک پیشوند اختصاصی استفاده می‌کنیم تا در UI راحت تشخیص دهیم
+          final baseMessage = reason.isNotEmpty
+              ? reason
+              : 'شما تا تاریخ $formattedUntil از ارسال پیام در چت عمومی مسدود هستید.';
+          throw Exception('[PUBLIC_CHAT_BLOCK] $baseMessage');
+        }
+      }
+
+      final profileId = profile['id'] as String;
+
+      // استفاده از profile.id به جای user.id برای foreign key constraint
+      final data = {'sender_id': profileId, 'message': message};
 
       final response = await _supabase
           .from('public_chat_messages')
           .insert(data)
           .select()
           .single();
-
-      print('=== PUBLIC CHAT SERVICE: Message inserted successfully ===');
 
       // حالا اطلاعات کاربر را از view دریافت کن
       try {
@@ -97,8 +119,6 @@ class PublicChatService {
             )
             .eq('id', response['id'] as Object)
             .single();
-
-        print('=== PUBLIC CHAT SERVICE: User info from view: $userInfo ===');
 
         final firstName = userInfo['sender_first_name'] as String?;
         final lastName = userInfo['sender_last_name'] as String?;
@@ -119,8 +139,6 @@ class PublicChatService {
           senderName = 'کاربر ناشناس';
         }
 
-        print('=== PUBLIC CHAT SERVICE: Sender name: $senderName ===');
-
         // پیام را با اطلاعات کامل برگردان
         return PublicChatMessage.fromJson({
           ...response,
@@ -128,10 +146,7 @@ class PublicChatService {
           'sender_avatar': avatarUrl,
           'sender_role': role ?? 'athlete',
         });
-      } catch (e) {
-        print(
-          '=== PUBLIC CHAT SERVICE: Error getting user info from view: $e ===',
-        );
+      } catch (_) {
         // اگر نتوانستیم از view اطلاعات بگیریم، از UserService استفاده کن
         final displayName = await _userService.getDisplayName(user.id);
         final avatar = await _userService.getUserAvatar(user.id);
@@ -145,7 +160,6 @@ class PublicChatService {
         });
       }
     } catch (e) {
-      print('=== PUBLIC CHAT SERVICE: Error in sendMessage: $e ===');
       rethrow;
     }
   }
@@ -154,35 +168,63 @@ class PublicChatService {
   Stream<PublicChatMessage> subscribeMessages() {
     final controller = StreamController<PublicChatMessage>();
     final channel = _supabase.channel('public_chat_messages');
-    channel
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'public_chat_messages',
-          callback: (payload) async {
-            final msg = PublicChatMessage.fromJson(payload.newRecord);
-            if (!msg.isDeleted) {
-              // اگر اطلاعات کاربر موجود نباشد، آن را دریافت کن
-              if (msg.senderName == null) {
-                final displayName = await _userService.getDisplayName(
-                  msg.senderId,
-                );
-                final avatar = await _userService.getUserAvatar(msg.senderId);
-                final role = await _userService.getUserRole(msg.senderId);
+    // رویدادهای INSERT (پیام جدید)
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'public_chat_messages',
+      callback: (payload) async {
+        final msg = PublicChatMessage.fromJson(payload.newRecord);
 
-                final updatedMsg = msg.copyWith(
-                  senderName: displayName,
-                  senderAvatar: avatar,
-                  senderRole: role,
-                );
-                controller.add(updatedMsg);
-              } else {
-                controller.add(msg);
-              }
-            }
-          },
-        )
-        .subscribe();
+        // اگر اطلاعات کاربر موجود نباشد، آن را دریافت کن
+        if (msg.senderName == null) {
+          final displayName = await _userService.getDisplayName(
+            msg.senderId,
+          );
+          final avatar = await _userService.getUserAvatar(msg.senderId);
+          final role = await _userService.getUserRole(msg.senderId);
+
+          final updatedMsg = msg.copyWith(
+            senderName: displayName,
+            senderAvatar: avatar,
+            senderRole: role,
+          );
+          controller.add(updatedMsg);
+        } else {
+          controller.add(msg);
+        }
+      },
+    );
+
+    // رویدادهای UPDATE (مثل حذف توسط ادمین: is_deleted = true)
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.update,
+      schema: 'public',
+      table: 'public_chat_messages',
+      callback: (payload) async {
+        final msg = PublicChatMessage.fromJson(payload.newRecord);
+
+        // برای آپدیت هم همان منطق تکمیل اطلاعات کاربر را حفظ می‌کنیم
+        if (msg.senderName == null) {
+          final displayName = await _userService.getDisplayName(
+            msg.senderId,
+          );
+          final avatar = await _userService.getUserAvatar(msg.senderId);
+          final role = await _userService.getUserRole(msg.senderId);
+
+          final updatedMsg = msg.copyWith(
+            senderName: displayName,
+            senderAvatar: avatar,
+            senderRole: role,
+          );
+          controller.add(updatedMsg);
+        } else {
+          controller.add(msg);
+        }
+      },
+    );
+
+    channel.subscribe();
     controller.onCancel = channel.unsubscribe;
     return controller.stream;
   }
@@ -214,23 +256,4 @@ class PublicChatService {
     }
   }
 
-  // متد تست برای بررسی پیام‌ها
-  Future<void> debugMessages() async {
-    try {
-      debugPrint('=== Debug: Loading public chat messages ===');
-      final response = await _supabase
-          .from('public_chat_with_senders')
-          .select()
-          .limit(5);
-
-      debugPrint('Found ${response.length} messages');
-      for (final item in response) {
-        debugPrint(
-          'Message: ${item['message']} from ${item['sender_first_name']} ${item['sender_last_name']}',
-        );
-      }
-    } catch (e) {
-      debugPrint('Debug error: $e');
-    }
-  }
 }

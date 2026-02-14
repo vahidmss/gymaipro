@@ -7,10 +7,13 @@ import 'package:lucide_icons/lucide_icons.dart';
 class DateSeparatorWidget extends StatelessWidget {
   const DateSeparatorWidget({
     required this.selectedDate,
+    this.onTap,
     super.key,
   });
 
   final DateTime selectedDate;
+  /// اگر مقدار داشته باشد، با کلیک روی تاریخ همان تقویم (دیالوگ انتخاب تاریخ) باز می‌شود.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -52,46 +55,52 @@ class DateSeparatorWidget extends StatelessWidget {
         ),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-          child: Container(
-            padding: containerPadding,
-            decoration: BoxDecoration(
-              gradient: isDark
-                  ? null
-                  : LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppTheme.goldColor.withValues(alpha: 0.1),
-                        AppTheme.goldColor.withValues(alpha: 0.05),
-                      ],
-                    ),
-              color: isDark ? AppTheme.darkCardColor : null,
-              borderRadius: BorderRadius.circular(borderRadius),
-              border: Border.all(
-                color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.4),
-                width: 1.2,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  LucideIcons.calendar,
-                  size: 14.sp,
-                  color: AppTheme.goldColor,
-                ),
-                SizedBox(width: 8.w),
-                Text(
-                  dateText,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: isDark ? AppTheme.goldColor : context.textColor,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
+          child: GestureDetector(
+            onTap: onTap,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                padding: containerPadding,
+                decoration: BoxDecoration(
+                  gradient: isDark
+                      ? null
+                      : LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppTheme.goldColor.withValues(alpha: 0.1),
+                            AppTheme.goldColor.withValues(alpha: 0.05),
+                          ],
+                        ),
+                  color: isDark ? AppTheme.darkCardColor : null,
+                  borderRadius: BorderRadius.circular(borderRadius),
+                  border: Border.all(
+                    color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.4),
+                    width: 1.2,
                   ),
                 ),
-              ],
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LucideIcons.calendar,
+                      size: 14.sp,
+                      color: AppTheme.goldColor,
+                    ),
+                    SizedBox(width: 8.w),
+                    Text(
+                      dateText,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: isDark ? AppTheme.goldColor : context.textColor,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

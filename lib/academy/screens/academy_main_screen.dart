@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/academy/models/workout_music.dart';
 import 'package:gymaipro/academy/screens/articles_list_screen.dart';
 import 'package:gymaipro/academy/screens/legends_list_screen.dart';
 import 'package:gymaipro/academy/screens/music_list_screen.dart';
@@ -8,7 +9,16 @@ import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class AcademyMainScreen extends StatefulWidget {
-  const AcademyMainScreen({super.key});
+  const AcademyMainScreen({
+    super.key,
+    this.initialTabIndex,
+    this.initialMusicToPlay,
+  });
+
+  /// تب اولیه (۰=مقالات، ۱=موزیک، ۲=ویدیو، ۳=اساطیر) - برای ناوبری از کاروسل
+  final int? initialTabIndex;
+  /// موزیکی که باید بعد از ورود پخش شود
+  final WorkoutMusic? initialMusicToPlay;
 
   @override
   State<AcademyMainScreen> createState() => _AcademyMainScreenState();
@@ -17,11 +27,33 @@ class AcademyMainScreen extends StatefulWidget {
 class _AcademyMainScreenState extends State<AcademyMainScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  WorkoutMusic? _initialMusicToPlay;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _applyInitialParams(widget.initialTabIndex, widget.initialMusicToPlay);
+  }
+
+  @override
+  void didUpdateWidget(covariant AcademyMainScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTabIndex != oldWidget.initialTabIndex ||
+        widget.initialMusicToPlay != oldWidget.initialMusicToPlay) {
+      _applyInitialParams(widget.initialTabIndex, widget.initialMusicToPlay);
+    }
+  }
+
+  void _applyInitialParams(int? tabIndex, WorkoutMusic? music) {
+    if (music != null) _initialMusicToPlay = music;
+    if (tabIndex != null && tabIndex >= 0 && tabIndex < 4) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _tabController.index != tabIndex) {
+          _tabController.animateTo(tabIndex);
+        }
+      });
+    }
   }
 
   @override
@@ -188,11 +220,11 @@ class _AcademyMainScreenState extends State<AcademyMainScreen>
           ),
           body: TabBarView(
             controller: _tabController,
-            children: const [
-              ArticlesListScreen(),
-              MusicListScreen(),
-              MotivationalVideosScreen(),
-              LegendsListScreen(),
+            children: [
+              const ArticlesListScreen(),
+              MusicListScreen(initialMusicToPlay: _initialMusicToPlay),
+              const MotivationalVideosScreen(),
+              const LegendsListScreen(),
             ],
           ),
         ),

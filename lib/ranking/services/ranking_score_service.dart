@@ -50,13 +50,18 @@ class RankingScoreService {
       final totalMeals = await _getTotalMealCount(userId);
       final totalMealsScore = ((totalMeals / 20).floor() * 10).clamp(0, 500);
 
+      final articlesReadCount = await _getArticlesReadCount(userId);
+      final articlesReadScore = (articlesReadCount * RankingScoreBreakdown.pointsPerArticle)
+          .clamp(0, RankingScoreBreakdown.maxArticlesReadScore);
+
       final totalScore =
           dailyActivitiesScore +
           currentStreakScore +
           longestStreakScore +
           activeDaysScore +
           totalWorkoutsScore +
-          totalMealsScore;
+          totalMealsScore +
+          articlesReadScore;
 
       return RankingScoreBreakdown(
         totalScore: totalScore,
@@ -71,6 +76,8 @@ class RankingScoreService {
         totalWorkoutsScore: totalWorkoutsScore,
         totalMeals: totalMeals,
         totalMealsScore: totalMealsScore,
+        articlesReadCount: articlesReadCount,
+        articlesReadScore: articlesReadScore,
       );
     } catch (e) {
       debugPrint('❌ Error getting score breakdown: $e');
@@ -122,9 +129,97 @@ class RankingScoreService {
     }
   }
 
+  /// شناسهٔ مورد استفاده در article_reads همیشه auth.uid() است (در آکادمی ذخیره می‌شود).
+  /// اگر userId برابر profiles.id باشد، از profiles.auth_user_id استفاده می‌کنیم؛
+  /// اگر پروفایل مربوط به کاربر لاگین‌شده باشد و auth_user_id خالی باشد از auth.uid() استفاده می‌کنیم.
+  Future<String?> _resolveAuthUserIdForArticleReads(String userIdOrProfileId) async {
+    if (userIdOrProfileId.isEmpty) return null;
+    final currentAuthId = _client.auth.currentUser?.id;
+    try {
+      final profile = await _client
+          .from('profiles')
+          .select('id, auth_user_id')
+          .eq('id', userIdOrProfileId)
+          .maybeSingle();
+      if (profile != null) {
+        final authUserId = profile['auth_user_id'];
+        final authStr = authUserId != null ? authUserId.toString().trim() : '';
+        if (authStr.isNotEmpty) return authStr;
+        final profileId = profile['id']?.toString() ?? '';
+        if (profileId.isEmpty) return userIdOrProfileId;
+        if (currentAuthId != null) {
+          final currentProfile = await _client
+              .from('profiles')
+              .select('id')
+              .or('id.eq.$currentAuthId,auth_user_id.eq.$currentAuthId')
+              .maybeSingle();
+          final currentProfileId = currentProfile?['id']?.toString();
+          if (currentProfileId == profileId) return currentAuthId;
+        }
+        return profileId;
+      }
+      if (currentAuthId != null && userIdOrProfileId == currentAuthId) return currentAuthId;
+      final byAuth = await _client
+          .from('profiles')
+          .select('id')
+          .eq('auth_user_id', userIdOrProfileId)
+          .maybeSingle();
+      if (byAuth != null) return userIdOrProfileId;
+      return userIdOrProfileId;
+    } catch (_) {
+      if (currentAuthId != null && userIdOrProfileId == currentAuthId) return currentAuthId;
+      return userIdOrProfileId;
+    }
+  }
+
+  /// تعداد مقالات یکتای خوانده‌شده توسط کاربر (از جدول article_reads).
+  /// هر article_id فقط یک بار شمرده می‌شود. جدول با auth.uid() پر می‌شود، پس profile.id را به auth_user_id تبدیل می‌کنیم.
+  Future<int> _getArticlesReadCount(String userId) async {
+    try {
+      final authUserId = await _resolveAuthUserIdForArticleReads(userId);
+      if (authUserId == null || authUserId.isEmpty) return 0;
+
+      final rows = await _client
+          .from('article_reads')
+          .select('article_id')
+          .eq('user_id', authUserId);
+      final seen = <int>{};
+      for (final row in rows as List) {
+        final m = row as Map<String, dynamic>;
+        final raw = m['article_id'];
+        if (raw is int) {
+          seen.add(raw);
+        } else if (raw != null) {
+          final p = int.tryParse(raw.toString());
+          if (p != null) seen.add(p);
+        }
+      }
+      return seen.length;
+    } catch (e) {
+      debugPrint('❌ Error getting articles read count: $e');
+      return 0;
+    }
+  }
+
   /// به‌روزرسانی امتیاز کاربر
+  /// فقط برای ورزشکاران (athletes) اجرا می‌شود - مربیان حذف می‌شوند
   Future<void> updateUserScore(String userId) async {
     try {
+      // چک کن که کاربر athlete باشه
+      final profile = await _client
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (profile == null) return;
+
+      final role = (profile['role'] ?? 'athlete').toString();
+      if (role != 'athlete') {
+        debugPrint('⚠️ Skipping score update for non-athlete user: $userId (role: $role)');
+        return; // فقط برای athletes
+      }
+
       final totalScore = await calculateTotalScore(userId);
       final league = _getLeagueByScore(totalScore);
 

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
+import 'package:gymaipro/auth/utils/phone_utils.dart';
+import 'package:gymaipro/auth/widgets/auth_gradient_background.dart';
 import 'package:gymaipro/screens/otp_verification_screen.dart';
 import 'package:gymaipro/services/otp_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -109,20 +111,6 @@ class _RegisterScreenState extends State<RegisterScreen>
     }
 
     super.dispose();
-  }
-
-  // Normalize phone number format
-  String _normalizePhoneNumber(String phoneNumber) {
-    String normalized = phoneNumber.replaceAll(RegExp(r'\s+'), '');
-    if (!normalized.startsWith('0')) {
-      normalized = '0$normalized';
-    }
-    return normalized;
-  }
-
-  bool _isValidIranianPhoneNumber(String phone) {
-    final RegExp phoneRegex = RegExp(r'^09[0-9]{9}$');
-    return phoneRegex.hasMatch(phone);
   }
 
   Future<void> _checkUsername() async {
@@ -245,7 +233,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         }
         return;
       }
-      final normalizedPhone = _normalizePhoneNumber(_phoneController.safeText);
+      final normalizedPhone = PhoneUtils.normalize(_phoneController.safeText);
       final username = _usernameController.safeText;
 
       // بررسی اولیه وجود کاربر با این شماره موبایل
@@ -298,10 +286,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     } catch (e) {
       if (!mounted) return;
       debugPrint('RegisterScreen: Error in _sendOTP: $e');
-      WidgetSafetyUtils.safeShowSnackBar(
-        context,
-        'خطا در ارسال کد تایید: $e',
-      );
+      WidgetSafetyUtils.safeShowSnackBar(context, 'خطا در ارسال کد تایید: $e');
     } finally {
       if (mounted) {
         WidgetSafetyUtils.safeSetState(this, () => _isLoading = false);
@@ -389,32 +374,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         body: RepaintBoundary(
           child: Stack(
             children: [
-              // بهینه‌سازی: کاهش لایه‌های gradient برای عملکرد بهتر
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: _buildElegantGradient(context),
-                ),
-              ),
-              // بهینه‌سازی: استفاده از RepaintBoundary برای overlay
-              if (Theme.of(context).brightness == Brightness.light)
-                Positioned.fill(
-                  child: RepaintBoundary(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          center: Alignment.topRight,
-                          radius: 1.5,
-                          colors: [
-                            AppTheme.lightGradientStart.withValues(alpha: 0.12),
-                            Colors.transparent,
-                            AppTheme.lightGoldGradient.withValues(alpha: 0.08),
-                          ],
-                          stops: const [0.0, 0.5, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              const AuthGradientBackground(),
               // Content
               SafeArea(
                 child: FadeTransition(
@@ -857,8 +817,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                           value.isEmpty) {
                                                         return 'لطفاً شماره موبایل را وارد کنید';
                                                       }
-                                                      if (!_isValidIranianPhoneNumber(
-                                                        _normalizePhoneNumber(
+                                                      if (!PhoneUtils.isValid(
+                                                        PhoneUtils.normalize(
                                                           value,
                                                         ),
                                                       )) {
@@ -997,7 +957,10 @@ class _RegisterScreenState extends State<RegisterScreen>
 
                                       // ابتدا TextField را از درخت UI حذف می‌کنیم
                                       _isDisposed = true;
-                                      WidgetSafetyUtils.safeSetState(this, () {});
+                                      WidgetSafetyUtils.safeSetState(
+                                        this,
+                                        () {},
+                                      );
 
                                       // صبر می‌کنیم تا UI به‌روزرسانی شود
                                       WidgetsBinding.instance.addPostFrameCallback((
@@ -1041,43 +1004,5 @@ class _RegisterScreenState extends State<RegisterScreen>
         ), // بستن RepaintBoundary
       ),
     );
-  }
-
-  // Elegant gradient matching the app's fitness theme with richer, more vibrant colors
-  LinearGradient _buildElegantGradient(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    if (isDark) {
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          context.backgroundColor,
-          AppTheme.darkGold.withValues(alpha: 0.25),
-          context.backgroundColor.withValues(alpha: 0.98),
-          AppTheme.goldColor.withValues(alpha: 0.18),
-          AppTheme.darkGold.withValues(alpha: 0.15),
-          context.backgroundColor,
-          AppTheme.goldColor.withValues(alpha: 0.08),
-        ],
-        stops: const [0.0, 0.2, 0.4, 0.55, 0.7, 0.85, 1.0],
-      );
-    } else {
-      // Rich, warm gradient with golden accents
-      return LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          AppTheme.lightGradientStart.withValues(alpha: 0.35),
-          AppTheme.lightCardColor.withValues(alpha: 0.98),
-          AppTheme.lightGoldGradient.withValues(alpha: 0.28),
-          Colors.white.withValues(alpha: 0.95),
-          AppTheme.lightGradientEnd.withValues(alpha: 0.25),
-          AppTheme.lightCardColor.withValues(alpha: 0.97),
-          AppTheme.lightGoldGradient.withValues(alpha: 0.15),
-        ],
-        stops: const [0.0, 0.2, 0.4, 0.55, 0.7, 0.85, 1.0],
-      );
-    }
   }
 }

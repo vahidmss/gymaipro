@@ -10,7 +10,6 @@ import 'package:gymaipro/chat/screens/chat_main_screen.dart';
 import 'package:gymaipro/chat/screens/chat_screen.dart';
 import 'package:gymaipro/dashboard/screens/dashboard_screen.dart';
 import 'package:gymaipro/dashboard/screens/program_type_selection_screen.dart';
-import 'package:gymaipro/guide/screens/welcome_with_onboarding.dart';
 import 'package:gymaipro/meal_log/screens/meal_log_screen.dart';
 import 'package:gymaipro/meal_plan_builder/screens/meal_plan_builder_screen.dart';
 import 'package:gymaipro/models/exercise.dart';
@@ -106,11 +105,6 @@ class RouteService {
 
   static Route<dynamic> _buildRoute(RouteSettings settings) {
     switch (settings.name) {
-      case '/':
-        return MaterialPageRoute(
-          builder: (_) =>
-              _buildProtectedRoute(const WelcomeWithOnboarding(), '/'),
-        );
       case '/login':
         return MaterialPageRoute(
           builder: (_) => _buildProtectedRoute(const LoginScreen(), '/login'),

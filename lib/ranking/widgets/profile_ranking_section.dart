@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/ranking/models/league.dart';
 import 'package:gymaipro/ranking/models/ranking_score_breakdown.dart';
 import 'package:gymaipro/ranking/models/user_ranking.dart';
+import 'package:gymaipro/ranking/utils/score_help_texts.dart';
 import 'package:gymaipro/ranking/widgets/league_badge.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -247,6 +248,7 @@ class ProfileRankingSection extends StatelessWidget {
                     score: breakdown!.currentStreakScore,
                     maxScore: RankingScoreBreakdown.maxCurrentStreakScore,
                     color: league.color,
+                    helpBody: ScoreHelpTexts.currentStreak,
                   ),
                   SizedBox(height: 12.h),
                   _buildProgressRow(
@@ -258,6 +260,7 @@ class ProfileRankingSection extends StatelessWidget {
                     score: breakdown!.longestStreakScore,
                     maxScore: RankingScoreBreakdown.maxLongestStreakScore,
                     color: league.color,
+                    helpBody: ScoreHelpTexts.longestStreak,
                   ),
                   SizedBox(height: 12.h),
                   _buildProgressRow(
@@ -269,6 +272,7 @@ class ProfileRankingSection extends StatelessWidget {
                     score: breakdown!.activeDaysScore,
                     maxScore: RankingScoreBreakdown.maxActiveDaysScore,
                     color: league.color,
+                    helpBody: ScoreHelpTexts.activeDays,
                   ),
                   SizedBox(height: 12.h),
                   _buildProgressRow(
@@ -280,6 +284,7 @@ class ProfileRankingSection extends StatelessWidget {
                     score: breakdown!.totalWorkoutsScore,
                     maxScore: RankingScoreBreakdown.maxTotalWorkoutsScore,
                     color: league.color,
+                    helpBody: ScoreHelpTexts.workouts,
                   ),
                   SizedBox(height: 12.h),
                   _buildProgressRow(
@@ -291,6 +296,7 @@ class ProfileRankingSection extends StatelessWidget {
                     score: breakdown!.totalMealsScore,
                     maxScore: RankingScoreBreakdown.maxTotalMealsScore,
                     color: league.color,
+                    helpBody: ScoreHelpTexts.meals,
                   ),
                   SizedBox(height: 12.h),
                   _buildProgressRow(
@@ -302,6 +308,19 @@ class ProfileRankingSection extends StatelessWidget {
                     score: breakdown!.dailyActivitiesScore,
                     maxScore: RankingScoreBreakdown.maxDailyActivitiesScore,
                     color: league.color,
+                    helpBody: ScoreHelpTexts.dailyActivities,
+                  ),
+                  SizedBox(height: 12.h),
+                  _buildProgressRow(
+                    context,
+                    icon: LucideIcons.bookOpen,
+                    label: 'مطالعه مقالات',
+                    value: breakdown!.articlesReadCount,
+                    sub: 'مقاله',
+                    score: breakdown!.articlesReadScore,
+                    maxScore: RankingScoreBreakdown.maxArticlesReadScore,
+                    color: league.color,
+                    helpBody: ScoreHelpTexts.articlesRead,
                   ),
                 ],
               ),
@@ -348,6 +367,31 @@ class ProfileRankingSection extends StatelessWidget {
     );
   }
 
+  static void _showHelp(BuildContext context, String title, String body) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title, style: TextStyle(fontFamily: AppTheme.fontFamily)),
+        content: SingleChildScrollView(
+          child: Text(
+            body,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 13.sp,
+              height: 1.5,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('متوجه شدم'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildProgressRow(
     BuildContext context, {
     required IconData icon,
@@ -357,6 +401,7 @@ class ProfileRankingSection extends StatelessWidget {
     required int score,
     required int maxScore,
     required int color,
+    String? helpBody,
   }) {
     final progress = maxScore > 0 ? (score / maxScore).clamp(0.0, 1.0) : 0.0;
     return Column(
@@ -368,14 +413,32 @@ class ProfileRankingSection extends StatelessWidget {
             Icon(icon, color: Color(color), size: 16.sp),
             SizedBox(width: 8.w),
             Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 12.sp,
-                  color: context.textSecondary,
-                ),
-                overflow: TextOverflow.ellipsis,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 12.sp,
+                        color: context.textSecondary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (helpBody != null && helpBody.isNotEmpty) ...[
+                    SizedBox(width: 4.w),
+                    GestureDetector(
+                      onTap: () => _showHelp(context, label, helpBody),
+                      child: Icon(
+                        LucideIcons.helpCircle,
+                        size: 14.sp,
+                        color: context.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             Text(

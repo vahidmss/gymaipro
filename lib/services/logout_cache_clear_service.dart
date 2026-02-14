@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/achievements/services/achievement_database_service.dart';
+import 'package:gymaipro/achievements/services/achievement_service.dart';
 import 'package:gymaipro/academy/services/article_service.dart';
+import 'package:gymaipro/services/score_service.dart';
 import 'package:gymaipro/academy/services/article_stats_cache_service.dart';
 import 'package:gymaipro/ai/services/ai_chat_service.dart';
 import 'package:gymaipro/ai/services/user_context_cache_service.dart';
@@ -55,7 +57,11 @@ class LogoutCacheClearService {
       FoodService().clearCache();
       ExerciseService().clearCache();
       SimpleProfileService.invalidateCache();
-      
+
+      // ریست حالت در حافظه دستاوردها و امتیاز تا کاربر بعدی داده قبلی نبیند
+      AchievementService.instance.resetForLogout();
+      ScoreService().resetScore();
+
       if (kDebugMode) {
         print('✅ کش‌های اصلی پاک شدند');
       }

@@ -6,6 +6,7 @@ import 'package:gymaipro/notification/providers/notification_provider.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/theme/theme_provider.dart';
 import 'package:gymaipro/widgets/notification_icon.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,11 +19,13 @@ class WelcomeCard extends StatefulWidget {
     required this.welcomeIcon,
     super.key,
     this.profileData,
+    this.streak,
   });
   final String username;
   final String welcomeMessage;
   final IconData welcomeIcon;
   final Map<String, dynamic>? profileData;
+  final int? streak;
 
   @override
   State<WelcomeCard> createState() => _WelcomeCardState();
@@ -150,6 +153,81 @@ class _WelcomeCardState extends State<WelcomeCard> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildMiniStreak(BuildContext context) {
+    if (widget.streak == null || widget.streak! < 1) {
+      return const SizedBox.shrink();
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final label = widget.streak == 1 ? '۱' : '${widget.streak}';
+
+    return Container(
+      height: 32.h,
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 0),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  const Color(0xFFFF6B35).withValues(alpha: 0.5),
+                  AppTheme.goldColor.withValues(alpha: 0.5),
+                ]
+              : [
+                  const Color(0xFFFF6B35).withValues(alpha: 0.7),
+                  AppTheme.goldColor.withValues(alpha: 0.7),
+                ],
+        ),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(
+            alpha: isDark ? 0.5 : 0.6,
+          ),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.goldColor.withValues(
+              alpha: isDark ? 0.15 : 0.2,
+            ),
+            blurRadius: 4.r,
+            offset: Offset(0.w, 2.h),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        textDirection: TextDirection.rtl,
+        children: [
+          Icon(
+            LucideIcons.flame,
+            color: isDark ? Colors.white : Colors.white,
+            size: 12.sp,
+          ),
+          SizedBox(width: 4.w),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontWeight: FontWeight.w800,
+              fontSize: 10.sp,
+              color: Colors.white,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withValues(
+                    alpha: isDark ? 0.3 : 0.2,
+                  ),
+                  blurRadius: 1,
+                  offset: const Offset(0, 0.5),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -431,7 +509,17 @@ class _WelcomeCardState extends State<WelcomeCard> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     SizedBox(height: 8.h),
-                    _buildThemeSelector(context),
+                    // Streak و Theme Selector کنار هم
+                    Row(
+                      textDirection: TextDirection.rtl,
+                      children: [
+                        _buildThemeSelector(context),
+                        if (widget.streak != null && widget.streak! > 0) ...[
+                          SizedBox(width: 8.w),
+                          _buildMiniStreak(context),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ),

@@ -18,6 +18,30 @@ class ChatService {
     return ids;
   }
 
+  // نمایش نام کاربری بر اساس پروفایل (با fallback معقول)
+  String _buildDisplayNameFromProfile(Map<String, dynamic>? profile) {
+    if (profile == null) return 'کاربر ناشناس';
+
+    final firstName = (profile['first_name'] as String? ?? '').trim();
+    final lastName = (profile['last_name'] as String? ?? '').trim();
+    final username = (profile['username'] as String? ?? '').trim();
+    final phone = (profile['phone_number'] as String? ?? '').trim();
+
+    if (firstName.isNotEmpty && lastName.isNotEmpty) {
+      return '$firstName $lastName';
+    }
+    if (firstName.isNotEmpty) return firstName;
+    if (lastName.isNotEmpty) return lastName;
+    if (username.isNotEmpty) return username;
+    if (phone.isNotEmpty) {
+      if (phone.length > 7) {
+        return phone.replaceRange(0, 7, '***');
+      }
+      return phone;
+    }
+    return 'کاربر ناشناس';
+  }
+
   // Get or create conversation
   Future<ChatConversation?> _getOrCreateConversation(
     String currentUserId,
@@ -42,37 +66,22 @@ class ChatService {
 
       // Create new conversation
       // First, get user info for names and avatars
+      // توجه: ممکن است profiles.id با auth.users.id برابر نباشد، پس
+      // هم بر اساس id و هم auth_user_id جستجو می‌کنیم.
       final currentUserInfo = await _supabase
           .from('profiles')
-          .select('first_name, last_name, username, avatar_url')
-          .eq('id', currentUserId)
+          .select('first_name, last_name, username, avatar_url, phone_number')
+          .or('id.eq.$currentUserId,auth_user_id.eq.$currentUserId')
           .maybeSingle();
 
       final otherUserInfo = await _supabase
           .from('profiles')
-          .select('first_name, last_name, username, avatar_url')
-          .eq('id', otherUserId)
+          .select('first_name, last_name, username, avatar_url, phone_number')
+          .or('id.eq.$otherUserId,auth_user_id.eq.$otherUserId')
           .maybeSingle();
 
-      String currentUserName = '';
-      if (currentUserInfo != null) {
-        final firstName = currentUserInfo['first_name'] as String? ?? '';
-        final lastName = currentUserInfo['last_name'] as String? ?? '';
-        final username = currentUserInfo['username'] as String? ?? '';
-        currentUserName = firstName.isNotEmpty && lastName.isNotEmpty
-            ? '$firstName $lastName'
-            : (username.isNotEmpty ? username : 'کاربر');
-      }
-
-      String otherUserName = '';
-      if (otherUserInfo != null) {
-        final firstName = otherUserInfo['first_name'] as String? ?? '';
-        final lastName = otherUserInfo['last_name'] as String? ?? '';
-        final username = otherUserInfo['username'] as String? ?? '';
-        otherUserName = firstName.isNotEmpty && lastName.isNotEmpty
-            ? '$firstName $lastName'
-            : (username.isNotEmpty ? username : 'کاربر');
-      }
+      final currentUserName = _buildDisplayNameFromProfile(currentUserInfo);
+      final otherUserName = _buildDisplayNameFromProfile(otherUserInfo);
 
       final newConv = {
         'user1_id': user1Id,
@@ -98,8 +107,7 @@ class ChatService {
           .single();
 
       return ChatConversation.fromJson(inserted);
-    } catch (e) {
-      debugPrint('ChatService._getOrCreateConversation error: $e');
+    } catch (_) {
       return null;
     }
   }
@@ -117,8 +125,7 @@ class ChatService {
 
     try {
       return await _getOrCreateConversation(me, otherUserId);
-    } catch (e) {
-      debugPrint('ChatService.getConversationByUserId error: $e');
+    } catch (_) {
       return null;
     }
   }
@@ -138,8 +145,7 @@ class ChatService {
           .cast<Map<String, dynamic>>()
           .map(ChatConversation.fromJson)
           .toList();
-    } catch (e) {
-      debugPrint('ChatService.getConversations error: $e');
+    } catch (_) {
       return [];
     }
   }
@@ -218,9 +224,7 @@ class ChatService {
                 jsonCopy['updated_at'] = (jsonCopy['updated_at'] as DateTime).toIso8601String();
               }
               return ChatMessage.fromJson(jsonCopy);
-            } catch (e) {
-              debugPrint('Error parsing message: $e');
-              debugPrint('Message JSON: $json');
+            } catch (_) {
               return null;
             }
           })
@@ -255,8 +259,7 @@ class ChatService {
           end < allMessages.length ? end : allMessages.length,
         );
       }
-    } catch (e) {
-      debugPrint('ChatService.getMessages error: $e');
+    } catch (_) {
       return [];
     }
   }
@@ -289,9 +292,7 @@ class ChatService {
                 final latestMsgJson = messagesJson.last as Map<String, dynamic>;
                 final message = ChatMessage.fromJson(latestMsgJson);
                 controller.add(message);
-              } catch (e) {
-                debugPrint('Error parsing message from stream: $e');
-              }
+              } catch (_) {}
             }
           },
         )
@@ -324,11 +325,6 @@ class ChatService {
     }
 
     try {
-      debugPrint('=== CHAT SERVICE: Attempting to send message ===');
-      debugPrint('Sender: $me');
-      debugPrint('Receiver: $receiverId');
-      debugPrint('Message length: ${message.length}');
-
       // Get or create conversation
       final conversation = await _getOrCreateConversation(me, receiverId);
       if (conversation == null) {
@@ -379,8 +375,7 @@ class ChatService {
               ? DateTime.parse(b['created_at'] as String)
               : (b['created_at'] as DateTime? ?? DateTime.now());
           return aTime.compareTo(bTime);
-        } catch (e) {
-          debugPrint('Error sorting messages: $e');
+        } catch (_) {
           return 0;
         }
       });
@@ -405,8 +400,6 @@ class ChatService {
           .from('chat_conversations')
           .update(updateData)
           .eq('id', conversation.id);
-
-      debugPrint('=== CHAT SERVICE: Message sent successfully ===');
 
       // ارسال نوتیفیکیشن به گیرنده
       try {
@@ -434,9 +427,7 @@ class ChatService {
               senderName = username;
             }
           }
-        } catch (e) {
-          debugPrint('⚠️ Error getting sender name for notification: $e');
-        }
+        } catch (_) {}
 
         // ارسال نوتیفیکیشن
         final notificationService = NotificationService();
@@ -449,20 +440,12 @@ class ChatService {
           messageType: messageType,
           conversationId: conversation.id,
         );
-        debugPrint('✅ Chat notification sent successfully');
-      } catch (e) {
+      } catch (_) {
         // در صورت خطا در ارسال نوتیفیکیشن، پیام همچنان ارسال شده است
-        debugPrint('⚠️ Error sending chat notification: $e');
       }
 
       return newMessage;
     } on PostgrestException catch (e) {
-      debugPrint('=== CHAT SERVICE: PostgrestException in sendMessage ===');
-      debugPrint('Code: ${e.code}');
-      debugPrint('Message: ${e.message}');
-      debugPrint('Details: ${e.details}');
-      debugPrint('Hint: ${e.hint}');
-
       // Handle specific error codes
       if (e.code == '42P01') {
         throw Exception(
@@ -483,7 +466,6 @@ class ChatService {
         throw Exception('خطا در ارسال پیام: $errorMsg');
       }
     } catch (e) {
-      debugPrint('=== CHAT SERVICE: Unexpected error in sendMessage: $e ===');
       throw Exception('خطا در ارسال پیام: $e');
     }
   }
@@ -523,9 +505,7 @@ class ChatService {
           return;
         }
       }
-    } catch (e) {
-      debugPrint('ChatService.deleteMessage error: $e');
-    }
+    } catch (_) {}
   }
 
   Future<void> editMessage(String messageId, String newText) async {
@@ -562,9 +542,7 @@ class ChatService {
           return;
         }
       }
-    } catch (e) {
-      debugPrint('ChatService.editMessage error: $e');
-    }
+    } catch (_) {}
   }
 
   Future<void> markConversationAsRead(String conversationId) async {
@@ -611,9 +589,7 @@ class ChatService {
             .update(updateData)
             .eq('id', conversationId);
       }
-    } catch (e) {
-      debugPrint('ChatService.markConversationAsRead error: $e');
-    }
+    } catch (_) {}
   }
 
   Future<void> deleteConversation(String conversationId) async {
@@ -622,8 +598,6 @@ class ChatService {
           .from('chat_conversations')
           .delete()
           .eq('id', conversationId);
-    } catch (e) {
-      debugPrint('ChatService.deleteConversation error: $e');
-    }
+    } catch (_) {}
   }
 }

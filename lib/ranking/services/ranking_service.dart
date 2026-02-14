@@ -15,14 +15,19 @@ class RankingService {
   final RankingScoreService _scoreService = RankingScoreService();
 
   /// به‌روزرسانی رتبه کاربر فعلی
-  Future<void> updateCurrentUserRanking() async {
+  /// بهینه‌سازی شده: فقط امتیاز کاربر رو به‌روزرسانی می‌کنه، بدون به‌روزرسانی همه رتبه‌ها
+  Future<void> updateCurrentUserRanking({bool updateAllRanks = false}) async {
     try {
       final profile = await SimpleProfileService.getCurrentProfile();
       final userId = profile?['id'] as String?;
       if (userId == null) return;
 
       await _scoreService.updateUserScore(userId);
-      await _updateRanks();
+      
+      // فقط اگه لازم باشه همه رتبه‌ها رو به‌روزرسانی کن (مثلاً در background job)
+      if (updateAllRanks) {
+        await _updateRanks();
+      }
     } catch (e) {
       debugPrint('❌ Error updating current user ranking: $e');
     }
@@ -88,7 +93,6 @@ class RankingService {
   /// به‌روزرسانی رتبه‌های یک لیگ خاص
   Future<void> _updateLeagueRanks(String leagueId) async {
     try {
-      final league = League.all.firstWhere((l) => l.id == leagueId);
       final rankings = await _client
           .from('user_rankings')
           .select('user_id, league_points')
@@ -123,8 +127,12 @@ class RankingService {
   }
 
   /// دریافت رتبه یک کاربر خاص
+  /// همیشه یک ranking برمی‌گرداند - اگر رکورد نداشته باشه، بر اساس امتیاز می‌سازه
+  /// بهینه‌سازی شده: فقط فیلدهای لازم رو می‌گیره و join رو ساده می‌کنه
   Future<UserRanking?> getUserRanking(String userId) async {
     try {
+      // استفاده از join برای یک کوئری واحد - خیلی سریع‌تر
+      // از left join استفاده می‌کنیم تا حتی اگه ranking نداشته باشه، profile رو بگیریم
       final response = await _client
           .from('user_rankings')
           .select('''
@@ -133,30 +141,62 @@ class RankingService {
               username,
               avatar_url,
               first_name,
-              last_name
+              last_name,
+              role
             )
           ''')
           .eq('user_id', userId)
           .maybeSingle();
 
-      if (response == null) return null;
-
-      // Parse profile data (could be Map or List)
+      // Parse profile data
       Map<String, dynamic>? profile;
-      final profilesData = response['profiles'];
-      if (profilesData is Map<String, dynamic>) {
-        profile = profilesData;
-      } else if (profilesData is List && profilesData.isNotEmpty) {
-        profile = profilesData[0] as Map<String, dynamic>?;
+      if (response != null) {
+        final profilesData = response['profiles'];
+        if (profilesData is Map<String, dynamic>) {
+          profile = profilesData;
+        } else if (profilesData is List && profilesData.isNotEmpty) {
+          profile = profilesData[0] as Map<String, dynamic>?;
+        }
       }
 
-      return UserRanking.fromJson({
-        ...response,
-        'username': profile?['username'],
-        'avatar_url': profile?['avatar_url'],
-        'first_name': profile?['first_name'],
-        'last_name': profile?['last_name'],
-      });
+      // اگر profile وجود نداشت، از دیتابیس بگیر
+      if (profile == null) {
+        final profileResponse = await _client
+            .from('profiles')
+            .select('username, avatar_url, first_name, last_name, role')
+            .eq('id', userId)
+            .maybeSingle();
+        
+        if (profileResponse == null) return null;
+        profile = profileResponse;
+      }
+
+      // چک کن که athlete باشه
+      final role = (profile['role'] ?? 'athlete').toString();
+      if (role != 'athlete') return null;
+
+      // اگر ranking وجود داشت، برگردون
+      if (response != null) {
+        return UserRanking.fromJson({
+          ...response,
+          'username': profile['username'],
+          'avatar_url': profile['avatar_url'],
+          'first_name': profile['first_name'],
+          'last_name': profile['last_name'],
+        });
+      }
+
+      // اگر ranking نداشت، یک ranking با امتیاز 0 بساز (بدون محاسبه سنگین)
+      return UserRanking(
+        userId: userId,
+        totalScore: 0,
+        currentLeague: 'bronze',
+        leaguePoints: 0,
+        username: profile['username'] as String?,
+        avatarUrl: profile['avatar_url'] as String?,
+        firstName: profile['first_name'] as String?,
+        lastName: profile['last_name'] as String?,
+      );
     } catch (e) {
       debugPrint('❌ Error getting user ranking: $e');
       return null;
@@ -164,6 +204,8 @@ class RankingService {
   }
 
   /// دریافت Leaderboard برای یک لیگ خاص
+  /// بهینه‌سازی شده: فقط فیلدهای لازم رو می‌گیره
+  /// فقط ورزشکاران (athletes) نمایش داده می‌شوند - مربیان حذف می‌شوند
   Future<List<UserRanking>> getLeagueLeaderboard(
     String leagueId, {
     int limit = 20,
@@ -172,19 +214,27 @@ class RankingService {
       final response = await _client
           .from('user_rankings')
           .select('''
-            *,
-            profiles:user_id (
+            user_id,
+            total_score,
+            current_league,
+            league_points,
+            league_rank,
+            global_rank,
+            profiles:user_id!inner (
               username,
               avatar_url,
               first_name,
-              last_name
+              last_name,
+              role
             )
           ''')
           .eq('current_league', leagueId)
+          .eq('profiles.role', 'athlete') // فقط ورزشکاران
           .order('league_points', ascending: false)
           .limit(limit);
 
-      return response.map<UserRanking>((item) {
+      final rankings = <UserRanking>[];
+      for (final item in response) {
         // Parse profile data (could be Map or List)
         Map<String, dynamic>? profile;
         final profilesData = item['profiles'];
@@ -194,14 +244,19 @@ class RankingService {
           profile = profilesData[0] as Map<String, dynamic>?;
         }
 
-        return UserRanking.fromJson({
+        // چک نهایی: فقط athletes رو اضافه کن
+        final role = (profile?['role'] ?? 'athlete').toString();
+        if (role != 'athlete') continue; // مربیان رو رد کن
+
+        rankings.add(UserRanking.fromJson({
           ...item,
           'username': profile?['username'],
           'avatar_url': profile?['avatar_url'],
           'first_name': profile?['first_name'],
           'last_name': profile?['last_name'],
-        });
-      }).toList();
+        }));
+      }
+      return rankings;
     } catch (e) {
       debugPrint('❌ Error getting league leaderboard: $e');
       return [];
@@ -209,23 +264,27 @@ class RankingService {
   }
 
   /// دریافت Global Leaderboard
+  /// فقط ورزشکاران (athletes) نمایش داده می‌شوند - مربیان حذف می‌شوند
   Future<List<UserRanking>> getGlobalLeaderboard({int limit = 100}) async {
     try {
       final response = await _client
           .from('user_rankings')
           .select('''
             *,
-            profiles:user_id (
+            profiles:user_id!inner (
               username,
               avatar_url,
               first_name,
-              last_name
+              last_name,
+              role
             )
           ''')
+          .eq('profiles.role', 'athlete') // فقط ورزشکاران
           .order('total_score', ascending: false)
           .limit(limit);
 
-      return response.map<UserRanking>((item) {
+      final rankings = <UserRanking>[];
+      for (final item in response) {
         // Parse profile data (could be Map or List)
         Map<String, dynamic>? profile;
         final profilesData = item['profiles'];
@@ -235,14 +294,19 @@ class RankingService {
           profile = profilesData[0] as Map<String, dynamic>?;
         }
 
-        return UserRanking.fromJson({
+        // چک نهایی: فقط athletes رو اضافه کن
+        final role = (profile?['role'] ?? 'athlete').toString();
+        if (role != 'athlete') continue; // مربیان رو رد کن
+
+        rankings.add(UserRanking.fromJson({
           ...item,
           'username': profile?['username'],
           'avatar_url': profile?['avatar_url'],
           'first_name': profile?['first_name'],
           'last_name': profile?['last_name'],
-        });
-      }).toList();
+        }));
+      }
+      return rankings;
     } catch (e) {
       debugPrint('❌ Error getting global leaderboard: $e');
       return [];

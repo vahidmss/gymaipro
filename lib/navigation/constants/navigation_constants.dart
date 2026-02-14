@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 /// Navigation constants and configurations for the GymAI app
@@ -10,29 +10,27 @@ class NavigationConstants {
   static const int chatIndex = 0; // AI Hub / Chat
   static const int academyIndex = 1;
   static const int dashboardIndex = 2; // central button
-  static const int roleIndex =
-      3; // role-based (athlete: ranking, trainer: dashboard)
-  static const int profileIndex = 4;
+  static const int myClubIndex = 3; // باشگاه من - برنامه‌ها، مربی‌ها، دوستان
+  static const int socialIndex = 4; // اجتماعی - گفتگوها، چت عمومی، مربیان
 
   // Navigation labels
   static const String chatLabel = 'جیم‌آی';
   static const String academyLabel = 'آکادمی';
   static const String dashboardLabel = 'داشبورد';
-  static const String roleLabel =
-      'مربیان'; // generic label (trainer view will still work)
-  static const String profileLabel = 'پروفایل';
+  static const String myClubLabel = 'باشگاه من';
+  static const String socialLabel = 'اجتماعی';
 
   // Navigation icons
   static const IconData chatIcon = LucideIcons.bot;
   static const IconData academyIcon = LucideIcons.school;
   static const IconData dashboardIcon = LucideIcons.home;
-  static const IconData roleIcon = LucideIcons.users;
-  static const IconData profileIcon = LucideIcons.user;
+  static const IconData myClubIcon = LucideIcons.users;
+  static const IconData socialIcon = LucideIcons.messageCircle;
 
   // Navigation routes
   static const String chatRoute = '/chat-main';
   static const String dashboardRoute = '/dashboard';
-  static const String profileRoute = '/profile';
+  static const String socialRoute = '/chat-main';
   // legacy routes kept for deep links within dashboard sections
   static const String workoutProgramBuilderRoute = '/workout-program-builder';
   static const String workoutLogRoute = '/workout-log';
@@ -151,16 +149,17 @@ class NavigationConstants {
       'route': dashboardRoute,
     },
     {
-      'index': roleIndex,
-      'label': roleLabel,
-      'icon': roleIcon,
-      'route': null, // role-based tab page
+      'index': myClubIndex,
+      'label': myClubLabel,
+      'icon': myClubIcon,
+      'route':
+          null, // role-based tab page (MyClub for athletes, TrainerDashboard for trainers)
     },
     {
-      'index': profileIndex,
-      'label': profileLabel,
-      'icon': profileIcon,
-      'route': profileRoute,
+      'index': socialIndex,
+      'label': socialLabel,
+      'icon': socialIcon,
+      'route': '/chat-main',
     },
   ];
 

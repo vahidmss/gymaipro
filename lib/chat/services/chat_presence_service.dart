@@ -23,10 +23,6 @@ class ChatPresenceService {
     required String conversationId,
   }) async {
     try {
-      debugPrint(
-        '=== CHAT PRESENCE: User $userId is now active in conversation $conversationId ===',
-      );
-
       // بررسی وجود حضور قبلی برای این مکالمه
       final existingPresence = await _supabase
           .from('chat_presence')
@@ -43,9 +39,6 @@ class ChatPresenceService {
           'is_active': true,
           'last_seen': DateTime.now().toIso8601String(),
         });
-        debugPrint(
-          '=== CHAT PRESENCE: New presence added for conversation $conversationId ===',
-        );
       } else {
         // بروزرسانی حضور موجود
         await _supabase
@@ -56,15 +49,8 @@ class ChatPresenceService {
             })
             .eq('user_id', userId)
             .eq('conversation_id', conversationId);
-        debugPrint(
-          '=== CHAT PRESENCE: Existing presence updated for conversation $conversationId ===',
-        );
       }
-
-      debugPrint('=== CHAT PRESENCE: User presence updated in database ===');
-    } catch (e) {
-      debugPrint('Error marking user as active in chat: $e');
-    }
+    } catch (_) {}
   }
 
   /// Start periodic heartbeat for a conversation
@@ -99,10 +85,6 @@ class ChatPresenceService {
     required String conversationId,
   }) async {
     try {
-      debugPrint(
-        '=== CHAT PRESENCE: User $userId is now inactive in conversation $conversationId ===',
-      );
-
       // به جای حذف، is_active را false کنیم
       await _supabase
           .from('chat_presence')
@@ -112,11 +94,7 @@ class ChatPresenceService {
           })
           .eq('user_id', userId)
           .eq('conversation_id', conversationId);
-
-      debugPrint('=== CHAT PRESENCE: User presence marked as inactive ===');
-    } catch (e) {
-      debugPrint('Error marking user as inactive in chat: $e');
-    }
+    } catch (_) {}
   }
 
   /// Mark all of current user's presences inactive (used on app pause/detach)
@@ -131,12 +109,7 @@ class ChatPresenceService {
             'last_seen': DateTime.now().toIso8601String(),
           })
           .eq('user_id', user.id);
-      debugPrint(
-        '=== CHAT PRESENCE: All presences marked inactive for user ===',
-      );
-    } catch (e) {
-      debugPrint('Error marking all presences inactive: $e');
-    }
+    } catch (_) {}
   }
 
   /// بررسی اینکه آیا هر دو کاربر در مکالمه فعال هستند
@@ -146,10 +119,6 @@ class ChatPresenceService {
     required String user2Id,
   }) async {
     try {
-      debugPrint('=== CHAT PRESENCE: Checking if both users are active ===');
-      debugPrint('=== CHAT PRESENCE: Conversation: $conversationId ===');
-      debugPrint('=== CHAT PRESENCE: User1: $user1Id, User2: $user2Id ===');
-
       // دریافت حضور کاربران از دیتابیس
       final cutoffIso = DateTime.now()
           .subtract(activeThreshold)
@@ -165,15 +134,8 @@ class ChatPresenceService {
           .map((row) => row['user_id'] as String)
           .toSet();
 
-      final bothActive =
-          activeUserIds.contains(user1Id) && activeUserIds.contains(user2Id);
-
-      debugPrint('=== CHAT PRESENCE: Active users: $activeUserIds ===');
-      debugPrint('=== CHAT PRESENCE: Both active: $bothActive ===');
-
-      return bothActive;
-    } catch (e) {
-      debugPrint('Error checking user presence: $e');
+      return activeUserIds.contains(user1Id) && activeUserIds.contains(user2Id);
+    } catch (_) {
       return false;
     }
   }
@@ -193,8 +155,7 @@ class ChatPresenceService {
           .maybeSingle();
 
       return response?['conversation_id'] as String?;
-    } catch (e) {
-      debugPrint('Error getting user active conversation: $e');
+    } catch (_) {
       return null;
     }
   }
@@ -215,8 +176,7 @@ class ChatPresenceService {
           .gt('last_seen', cutoffIso);
 
       return response.map((row) => row['user_id'] as String).toSet();
-    } catch (e) {
-      debugPrint('Error getting active users in conversation: $e');
+    } catch (_) {
       return <String>{};
     }
   }
@@ -229,20 +189,14 @@ class ChatPresenceService {
           .from('chat_presence')
           .delete()
           .lt('created_at', cutoffTime.toIso8601String());
-      debugPrint('=== CHAT PRESENCE: Old presence data cleaned up ===');
-    } catch (e) {
-      debugPrint('Error cleaning up old presence data: $e');
-    }
+    } catch (_) {}
   }
 
   /// پاک کردن تمام حضورهای غیرفعال
   Future<void> cleanupInactivePresence() async {
     try {
       await _supabase.from('chat_presence').delete().eq('is_active', false);
-      debugPrint('=== CHAT PRESENCE: Inactive presence data cleaned up ===');
-    } catch (e) {
-      debugPrint('Error cleaning up inactive presence data: $e');
-    }
+    } catch (_) {}
   }
 
   /// پاک کردن تمام داده‌های حضور (برای logout)
@@ -252,10 +206,7 @@ class ChatPresenceService {
       if (user != null) {
         await _supabase.from('chat_presence').delete().eq('user_id', user.id);
       }
-      debugPrint('=== CHAT PRESENCE: All presence data cleared ===');
-    } catch (e) {
-      debugPrint('Error clearing presence data: $e');
-    }
+    } catch (_) {}
   }
 
   /// دریافت وضعیت حضور کاربر
@@ -273,8 +224,7 @@ class ChatPresenceService {
           .maybeSingle();
 
       return response != null;
-    } catch (e) {
-      debugPrint('Error checking if user is active: $e');
+    } catch (_) {
       return false;
     }
   }
@@ -306,8 +256,7 @@ class ChatPresenceService {
           (key, value) => MapEntry(key, value.toList()),
         ),
       };
-    } catch (e) {
-      debugPrint('Error getting presence stats: $e');
+    } catch (_) {
       return {
         'activeConversations': 0,
         'activeUsers': 0,
