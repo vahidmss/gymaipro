@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_ranking/models/certificate.dart';
 import 'package:gymaipro/trainer_ranking/services/certificate_service.dart';
@@ -123,7 +122,8 @@ class _CertificateUploadScreenState extends State<CertificateUploadScreen> {
         elevation: 0,
         title: Text(
           'آپلود مدرک',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             color: Colors.white,
             fontSize: 18.sp,
             fontWeight: FontWeight.bold,
@@ -201,7 +201,8 @@ class _CertificateUploadScreenState extends State<CertificateUploadScreen> {
       children: [
         Text(
           'نوع مدرک',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             color: Colors.white,
             fontSize: 16.sp,
             fontWeight: FontWeight.bold,
@@ -315,7 +316,8 @@ class _CertificateUploadScreenState extends State<CertificateUploadScreen> {
       children: [
         Text(
           'تصویر مدرک',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             color: Colors.white,
             fontSize: 16.sp,
             fontWeight: FontWeight.bold,
@@ -353,7 +355,8 @@ class _CertificateUploadScreenState extends State<CertificateUploadScreen> {
                       SizedBox(height: 12.h),
                       Text(
                         'تصویر مدرک را انتخاب کنید',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: Colors.white70,
                           fontSize: 14.sp,
                         ),
@@ -361,7 +364,8 @@ class _CertificateUploadScreenState extends State<CertificateUploadScreen> {
                       SizedBox(height: 4.h),
                       Text(
                         'فرمت‌های پشتیبانی شده: JPG, PNG',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: Colors.white54,
                           fontSize: 12.sp,
                         ),
@@ -378,7 +382,8 @@ class _CertificateUploadScreenState extends State<CertificateUploadScreen> {
               SizedBox(width: 8.w),
               Text(
                 'تصویر انتخاب شده',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   color: Colors.green,
                   fontSize: 12.sp,
                 ),

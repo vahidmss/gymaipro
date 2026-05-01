@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/my_club/services/my_club_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/cache_service.dart';
@@ -81,7 +80,8 @@ class _RecentActivitiesWidgetState extends State<RecentActivitiesWidget> {
             const SizedBox(height: 12),
             Text(
               'هنوز فعالیتی ندارید',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 16.sp,
                 fontWeight: FontWeight.w600,
                 color: Colors.grey[400],
@@ -90,7 +90,8 @@ class _RecentActivitiesWidgetState extends State<RecentActivitiesWidget> {
             const SizedBox(height: 8),
             Text(
               'با مربی‌ها و دوستان خود شروع کنید',
-              style: GoogleFonts.vazirmatn(color: Colors.grey[500]),
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
           ],
@@ -119,7 +120,8 @@ class _RecentActivitiesWidgetState extends State<RecentActivitiesWidget> {
                 const SizedBox(width: 8),
                 Text(
                   'فعالیت‌های اخیر',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 16.sp,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
@@ -200,7 +202,8 @@ class _ActivityItem extends StatelessWidget {
                 children: [
                   Text(
                     (activity['title'] as String?) ?? '',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
@@ -209,7 +212,8 @@ class _ActivityItem extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     (activity['subtitle'] as String?) ?? '',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 12.sp,
                       color: Colors.grey[400],
                     ),
@@ -220,7 +224,8 @@ class _ActivityItem extends StatelessWidget {
             if (createdAt != null)
               Text(
                 _formatDate(createdAt),
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontSize: 12.sp,
                   color: Colors.grey[500],
                 ),

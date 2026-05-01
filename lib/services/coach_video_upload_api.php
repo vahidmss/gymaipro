@@ -31,11 +31,20 @@ function gymai_upload_coach_video($request) {
         );
     }
     
-    $jwt_token = $matches[1];
+    $jwt_token = $matches[1];cont
     
-    // 2. بررسی اعتبار JWT با Supabase
-    $supabase_url = 'https://oaztoennovtcfcxvnswa.supabase.co';
-    $supabase_anon_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9henRvZW5ub3Z0Y2ZjeHZuc3dhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY4NzYzNzEsImV4cCI6MjA2MjQ1MjM3MX0.UywfAvKyqUjByLQHRnRqJ85Bal6NdvAOwQQJXVaQfGk';
+    // 2. بررسی اعتبار JWT با Supabase (از upload_config.php اگر در همین پوشه باشد)
+    $upload_config_file = __DIR__ . '/upload_config.php';
+    $default_url = 'http://87.248.156.175:8000';
+    $default_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
+    if (file_exists($upload_config_file)) {
+        $cfg = require $upload_config_file;
+        $supabase_url = $cfg['supabase_url'] ?? $default_url;
+        $supabase_anon_key = $cfg['supabase_anon_key'] ?? $default_key;
+    } else {
+        $supabase_url = $default_url;
+        $supabase_anon_key = $default_key;
+    }
     
     $user_response = wp_remote_get(
         $supabase_url . '/auth/v1/user',

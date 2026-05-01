@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/ai/models/ai_chat_message.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 
@@ -86,7 +85,8 @@ class ChatBubble extends StatelessWidget {
                         // محتوای پیام
                         Text(
                           message.content,
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             color: isUser
                                 ? AppTheme.onGoldColor
                                 : context.textColor,
@@ -104,7 +104,8 @@ class ChatBubble extends StatelessWidget {
                           children: [
                             Text(
                               _formatTime(message.timestamp),
-                              style: GoogleFonts.vazirmatn(
+                              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                 color: isUser
                                     ? AppTheme.onGoldColor.withValues(alpha: 0.8)
                                     : context.textSecondary,

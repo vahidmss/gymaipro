@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/meal_plan_builder/services/meal_plan_service.dart';
 import 'package:gymaipro/workout_plan_builder/services/workout_program_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -287,7 +286,8 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
             SizedBox(height: 16.h),
             Text(
               'درخواستی یافت نشد',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: context.textColor,
                 fontSize: 15.sp,
                 fontWeight: FontWeight.w600,
@@ -296,7 +296,8 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
             SizedBox(height: 6.h),
             Text(
               'درخواست‌های جدید اینجا نمایش داده می‌شوند',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: context.textSecondary,
                 fontSize: 12.sp,
               ),
@@ -398,7 +399,8 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                                 Expanded(
                                   child: Text(
                                     displayName,
-                                    style: GoogleFonts.vazirmatn(
+                                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                       color: context.textColor,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 15.sp,
@@ -428,7 +430,8 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                                     service == 'diet'
                                         ? 'برنامه غذایی'
                                         : 'برنامه تمرینی',
-                                    style: GoogleFonts.vazirmatn(
+                                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                       color: service == 'diet'
                                           ? const Color(0xFF9CD67A)
                                           : AppTheme.goldColor,
@@ -443,7 +446,8 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                             if (subtitle.isNotEmpty)
                               Text(
                                 'در تاریخ $subtitle',
-                                style: GoogleFonts.vazirmatn(
+                                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                   color: context.textSecondary,
                                   fontSize: 11.sp,
                                 ),
@@ -453,7 +457,8 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                                 padding: EdgeInsets.only(top: 4.h),
                                 child: Text(
                                   'اتمام اشتراک تا $daysUntilExpiry روز دیگر',
-                                  style: GoogleFonts.vazirmatn(
+                                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                     color: daysUntilExpiry <= 7
                                         ? Colors.orange
                                         : context.textSecondary,
@@ -485,7 +490,8 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                           ),
                           label: Text(
                             'پروفایل',
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 11.sp,
                               fontWeight: FontWeight.w600,
                             ),
@@ -522,7 +528,8 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                           ),
                           label: Text(
                             'گفتگو',
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 11.sp,
                               fontWeight: FontWeight.w600,
                             ),
@@ -565,7 +572,8 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                                     : (_planSentStatus[uid] == true
                                           ? 'ویرایش تمرین'
                                           : 'ساخت تمرین'),
-                                style: GoogleFonts.vazirmatn(
+                                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                   fontSize: 11.sp,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -593,7 +601,8 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                                 child: Text(
                                   'اتمام مهلت ویرایش',
                                   textAlign: TextAlign.center,
-                                  style: GoogleFonts.vazirmatn(
+                                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                     color: context.textSecondary.withValues(alpha: 0.7),
                                     fontSize: 9.sp,
                                     fontWeight: FontWeight.w500,
@@ -684,7 +693,8 @@ class _Initials extends StatelessWidget {
       child: Center(
         child: Text(
           initials,
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             color: AppTheme.goldColor,
             fontWeight: FontWeight.w600,
             fontSize: 18.sp,

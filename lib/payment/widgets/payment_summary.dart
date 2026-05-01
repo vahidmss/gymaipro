@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/payment/models/discount_code.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -41,7 +40,8 @@ class PaymentSummary extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 'خلاصه پرداخت',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontSize: 18.sp,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.goldColor,
@@ -76,7 +76,8 @@ class PaymentSummary extends StatelessWidget {
                 ),
                 child: Text(
                   'کد: ${appliedDiscount!.code}',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 12.sp,
                     color: Colors.green,
                   ),
@@ -110,7 +111,8 @@ class PaymentSummary extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     'شما ${_calculateDiscountPercentage()}% صرفه‌جویی کرده‌اید',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 12.sp,
                       color: Colors.green,
                       fontWeight: FontWeight.bold,
@@ -150,7 +152,8 @@ class PaymentSummary extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             fontSize: fontSize,
             fontWeight: fontWeight,
             color: textColor,
@@ -158,7 +161,8 @@ class PaymentSummary extends StatelessWidget {
         ),
         Text(
           amount,
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             fontSize: fontSize,
             fontWeight: fontWeight,
             color: textColor,

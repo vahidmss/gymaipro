@@ -6,6 +6,7 @@ class TrainerKpis {
     required this.trainerId,
     required this.totalWorkoutPrograms,
     required this.activeWorkoutPrograms,
+    required this.totalCustomExercises,
     required this.totalCustomMusics,
     required this.publicCustomMusics,
     required this.totalStudents,
@@ -22,6 +23,9 @@ class TrainerKpis {
 
   /// تعداد برنامه‌های تمرینی فعال (ارسال شده به شاگردان - sent_at != null)
   final int activeWorkoutPrograms;
+
+  /// تعداد کل تمرین‌های ثبت‌شده توسط مربی (اختصاصی + عمومی از جدول `custom_exercises`)
+  final int totalCustomExercises;
 
   /// تعداد موزیک‌های اختصاصی اضافه‌شده توسط مربی (از جدول `custom_music`)
   final int totalCustomMusics;
@@ -56,6 +60,7 @@ class TrainerKpiService {
 
     try {
       final (totalPrograms, activePrograms) = await _countWorkoutPrograms(trainerId);
+      final totalExercises = await _countCustomExercises(trainerId);
       final (totalMusics, publicMusics) = await _countCustomMusics(trainerId);
       final (totalStudents, activeStudents) = await _countStudents(trainerId);
       final (totalReviews, positiveReviews) = await _countReviews(trainerId);
@@ -68,6 +73,7 @@ class TrainerKpiService {
         trainerId: trainerId,
         totalWorkoutPrograms: totalPrograms,
         activeWorkoutPrograms: activePrograms,
+        totalCustomExercises: totalExercises,
         totalCustomMusics: totalMusics,
         publicCustomMusics: publicMusics,
         totalStudents: totalStudents,
@@ -117,6 +123,24 @@ class TrainerKpiService {
     }
   }
 
+  /// تعداد تمرین‌های ثبت‌شده توسط مربی (اختصاصی + عمومی از custom_exercises)
+  Future<int> _countCustomExercises(String trainerId) async {
+    try {
+      final res = await _client
+          .from('custom_exercises')
+          .select('id')
+          .eq('created_by', trainerId)
+          .count();
+      // ignore: invalid_null_aware_operator — در برخی محیط‌های اجرا res.count ممکن است null باشد
+      return res.count ?? 0;
+    } catch (e) {
+      debugPrint('Error counting custom exercises: $e');
+      return 0;
+    }
+  }
+
+  /// شمارش موزیک‌های مربی. برای نمایش در پروفایل/رنکینگ بهتر است RLS روی custom_music
+  /// اجازه SELECT برای ردیف‌های visibility='public' را بدهد تا تعداد موزیک عمومی درست نمایش داده شود.
   Future<(int total, int publicCount)> _countCustomMusics(
     String trainerId,
   ) async {

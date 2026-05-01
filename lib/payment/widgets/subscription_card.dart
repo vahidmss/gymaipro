@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/payment/models/subscription.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -63,7 +62,8 @@ class SubscriptionCard extends StatelessWidget {
                         children: [
                           Text(
                             subscription.typeText,
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 16.sp,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
@@ -72,7 +72,8 @@ class SubscriptionCard extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             subscription.statusText,
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 12.sp,
                               color: _getStatusColor(),
                               fontWeight: FontWeight.w500,
@@ -92,7 +93,8 @@ class SubscriptionCard extends StatelessWidget {
                       ),
                       child: Text(
                         subscription.formattedPrice,
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           fontSize: 12.sp,
                           fontWeight: FontWeight.bold,
                           color: _getStatusColor(),
@@ -122,7 +124,8 @@ class SubscriptionCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             subscription.remainingTimeText,
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 14.sp,
                               color: Colors.blue,
                               fontWeight: FontWeight.w500,
@@ -170,7 +173,8 @@ class SubscriptionCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             'اشتراک منقضی شده - برای تمدید کلیک کنید',
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 14.sp,
                               color: Colors.orange,
                             ),
@@ -185,7 +189,8 @@ class SubscriptionCard extends StatelessWidget {
                 // ویژگی‌ها
                 Text(
                   'ویژگی‌ها:',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 14.sp,
                     fontWeight: FontWeight.bold,
                     color: Colors.white70,
@@ -208,7 +213,8 @@ class SubscriptionCard extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 feature,
-                                style: GoogleFonts.vazirmatn(
+                                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                   fontSize: 12.sp,
                                   color: Colors.white70,
                                 ),
@@ -222,7 +228,8 @@ class SubscriptionCard extends StatelessWidget {
                 if (subscription.features.length > 3) ...[
                   Text(
                     'و ${subscription.features.length - 3} ویژگی دیگر...',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 11.sp,
                       color: Colors.white54,
                       fontStyle: FontStyle.italic,
@@ -241,7 +248,8 @@ class SubscriptionCard extends StatelessWidget {
                           icon: const Icon(LucideIcons.x, size: 16),
                           label: Text(
                             'لغو اشتراک',
-                            style: GoogleFonts.vazirmatn(fontSize: 12),
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,fontSize: 12),
                           ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.red,
@@ -260,7 +268,8 @@ class SubscriptionCard extends StatelessWidget {
                           icon: const Icon(LucideIcons.refreshCw, size: 16),
                           label: Text(
                             'تمدید',
-                            style: GoogleFonts.vazirmatn(fontSize: 12),
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,fontSize: 12),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.goldColor,
@@ -284,7 +293,8 @@ class SubscriptionCard extends StatelessWidget {
                         ),
                         child: Text(
                           'نیاز به تمدید',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             fontSize: 10.sp,
                             color: Colors.orange,
                           ),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
 
@@ -98,7 +97,8 @@ class _TypingIndicatorState extends State<TypingIndicator>
                         children: [
                           Text(
                             'در حال تایپ',
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               color: context.textSecondary,
                               fontSize: 12.sp,
                             ),

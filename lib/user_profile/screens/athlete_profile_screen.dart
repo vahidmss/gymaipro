@@ -18,9 +18,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// اسکرین پروفایل ورزشکار (عمومی)
 class AthleteProfileScreen extends StatefulWidget {
-  const AthleteProfileScreen({required this.userId, super.key});
+  const AthleteProfileScreen({
+    required this.userId,
+    this.trainerOnlySection,
+    super.key,
+  });
 
   final String userId;
+  /// بخش اختیاری فقط برای مربی (بالای پروفایل، در همان اسکرول)
+  final Widget? trainerOnlySection;
 
   @override
   State<AthleteProfileScreen> createState() => _AthleteProfileScreenState();
@@ -185,7 +191,12 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
     return SingleChildScrollView(
       padding: EdgeInsets.only(bottom: 32.h),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          if (widget.trainerOnlySection != null) ...[
+            widget.trainerOnlySection!,
+            SizedBox(height: 12.h),
+          ],
           _buildModernHeader(),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.w),

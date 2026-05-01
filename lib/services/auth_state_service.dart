@@ -76,36 +76,14 @@ class AuthStateService {
           return true;
         }
 
-        // اگر نشست منقضی شده اما refresh token موجود است، تلاش برای رفرش
+        // اگر نشست منقضی شده اما refresh token موجود است،
+        // کاربر را لاگین در نظر می‌گیریم تا startup بلاک نشود.
+        // رفرش واقعی توسط autoRefreshToken در بک‌گراند انجام می‌شود.
         if (currentSession.isExpired &&
             currentSession.refreshToken != null &&
             currentSession.refreshToken!.isNotEmpty) {
-          print(
-            '=== AUTH SERVICE: Session expired, attempting automatic refresh... ===',
-          );
-          try {
-            // تلاش برای رفرش نشست
-            final response = await Supabase.instance.client.auth
-                .refreshSession();
-            if (response.session != null &&
-                response.session!.accessToken.isNotEmpty &&
-                !response.session!.isExpired) {
-              print(
-                '=== AUTH SERVICE: Session refreshed successfully, user is logged in ===',
-              );
-              return true;
-            } else {
-              print(
-                '=== AUTH SERVICE: Session refresh failed - user is not logged in ===',
-              );
-            }
-          } catch (refreshError) {
-            print(
-              '=== AUTH SERVICE: Error refreshing expired session: $refreshError ===',
-            );
-            // در صورت خطا در رفرش، کاربر لاگین نیست
-            return false;
-          }
+          print('=== AUTH SERVICE: Expired session with refresh token found ===');
+          return true;
         } else {
           print(
             '=== AUTH SERVICE: Session exists but is invalid (empty token or expired without refresh token) ===',
@@ -197,31 +175,19 @@ class AuthStateService {
             print(
               '=== AUTH SERVICE: Error refreshing session: $refreshError ===',
             );
-            // اگر رفرش با خطا مواجه شد، نشست را پاک کن
-            try {
-              await Supabase.instance.client.auth.signOut();
-              print(
-                '=== AUTH SERVICE: Cleared invalid session after refresh failure ===',
-              );
-            } catch (signOutError) {
-              print(
-                '=== AUTH SERVICE: Error clearing session: $signOutError ===',
-              );
-            }
+            // روی خطای شبکه/اختلال خارجی هرگز signOut نکن.
+            // نشست منقضی را برگردان تا اپ وارد شود و ریکاوری بک‌گراند ادامه پیدا کند.
+            print(
+              '=== AUTH SERVICE: Keeping expired session for non-blocking startup ===',
+            );
+            return currentSession;
           }
         } else {
           print(
             '=== AUTH SERVICE: Session expired but no refresh token available ===',
           );
-          // اگر refresh token موجود نیست، نشست را پاک کن
-          try {
-            await Supabase.instance.client.auth.signOut();
-            print('=== AUTH SERVICE: Cleared invalid session ===');
-          } catch (signOutError) {
-            print(
-              '=== AUTH SERVICE: Error clearing invalid session: $signOutError ===',
-            );
-          }
+          // No refresh token means truly invalid session.
+          // Don't force signOut here; just return null and let routing handle it.
         }
       } else {
         print('=== AUTH SERVICE: No session found in storage ===');

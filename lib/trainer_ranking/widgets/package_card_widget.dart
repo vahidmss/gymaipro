@@ -35,7 +35,7 @@ class PackageCardWidget extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: isProcessing ? null : onTap,
+            onTap: onTap,
             borderRadius: BorderRadius.circular(20.r),
             child: Container(
               padding: EdgeInsets.all(20.w),
@@ -102,40 +102,14 @@ class PackageCardWidget extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Text(
-                    'بسته کامل',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      color: AppTheme.goldColor,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (isSelected) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 6.w,
-                        vertical: 2.h,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(6.r),
-                      ),
-                      child: Text(
-                        'انتخاب شده',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: Colors.white,
-                          fontSize: 9.sp,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
+              Text(
+                'بسته کامل',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: AppTheme.goldColor,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               Text(
                 'همه خدمات با تخفیف ویژه',
@@ -233,7 +207,7 @@ class PackageCardWidget extends StatelessWidget {
       width: double.infinity,
       height: 44.h,
       child: ElevatedButton(
-        onPressed: isProcessing ? null : onTap,
+        onPressed: onTap,
         style: ElevatedButton.styleFrom(
           backgroundColor: isSelected
               ? AppTheme.goldColor
@@ -249,38 +223,23 @@ class PackageCardWidget extends StatelessWidget {
           ),
           padding: EdgeInsets.symmetric(horizontal: 16.w),
         ),
-        child: isProcessing
-            ? SizedBox(
-                width: 20.w,
-                height: 20.h,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
-                ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isSelected
-                        ? LucideIcons.checkCircle
-                        : LucideIcons.shoppingCart,
-                    size: 18.sp,
-                  ),
-                  SizedBox(width: 8.w),
-                  Text(
-                    isSelected ? 'در حال پردازش...' : 'خرید بسته کامل',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.crown, size: 18.sp),
+            SizedBox(width: 8.w),
+            Text(
+              'خرید بسته کامل',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 15.sp,
+                fontWeight: FontWeight.bold,
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
-

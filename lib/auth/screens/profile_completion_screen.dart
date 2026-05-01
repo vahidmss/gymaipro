@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/auth/services/auth_state_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
-import 'package:gymaipro/services/supabase_service.dart';
+import 'package:gymaipro/auth/services/supabase_service.dart' as auth_supabase;
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:shamsi_date/shamsi_date.dart';
@@ -44,7 +44,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
   final _referralCodeFocusNode = FocusNode();
   String? _firstNameError;
   String? _lastNameError;
-  
+
   // Referral code validation
   bool _isCheckingReferral = false;
   String? _referrerFirstName;
@@ -122,13 +122,15 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
   }
 
   void _clearReferralCodeInfo() {
-    if (_referrerFirstName != null || _referrerLastName != null || _referralCodeError != null) {
-      setState(() {
+    setState(() {
+      if (_referrerFirstName != null ||
+          _referrerLastName != null ||
+          _referralCodeError != null) {
         _referrerFirstName = null;
         _referrerLastName = null;
         _referralCodeError = null;
-      });
-    }
+      }
+    });
   }
 
   void _initializeYears() {
@@ -702,47 +704,18 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
             'لطفاً تاریخ تولد خود را انتخاب کنید',
           ),
           SizedBox(height: 32.h),
-          Row(
-            children: [
-              Expanded(
-                child: DateDropdown<int>(
-                  label: 'سال',
-                  value: _selectedYear,
-                  items: _years,
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedYear = value;
-                      _selectedDay = null;
-                      _updateDays();
-                    });
-                  },
-                ),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: MonthDropdown(
-                  value: _selectedMonth,
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedMonth = value;
-                      _selectedDay = null;
-                      _updateDays();
-                    });
-                  },
-                ),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: DateDropdown<int>(
-                  label: 'روز',
-                  value: _selectedDay,
-                  items: _days,
-                  onChanged: (value) {
-                    setState(() => _selectedDay = value);
-                  },
-                ),
-              ),
-            ],
+          BirthDateTapField(
+            selectedYear: _selectedYear,
+            selectedMonth: _selectedMonth,
+            selectedDay: _selectedDay,
+            onDateSelected: (year, month, day) {
+              setState(() {
+                _selectedYear = year;
+                _selectedMonth = month;
+                _selectedDay = day;
+                _updateDays();
+              });
+            },
           ),
         ],
       ),
@@ -1088,7 +1061,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
             SizedBox(
               width: 100.w,
               child: ElevatedButton(
-                onPressed: _isCheckingReferral ||
+                onPressed:
+                    _isCheckingReferral ||
                         _referralCodeController.text.trim().isEmpty
                     ? null
                     : _checkReferralCode,
@@ -1107,7 +1081,9 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
                         height: 18.h,
                         child: const CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.black,
+                          ),
                         ),
                       )
                     : Text(
@@ -1163,8 +1139,10 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
       final firstName = response['first_name'] as String?;
       final lastName = response['last_name'] as String?;
 
-      if (firstName == null || firstName.isEmpty ||
-          lastName == null || lastName.isEmpty) {
+      if (firstName == null ||
+          firstName.isEmpty ||
+          lastName == null ||
+          lastName.isEmpty) {
         setState(() {
           _referralCodeError = 'اطلاعات معرف کامل نیست';
           _isCheckingReferral = false;
@@ -1254,7 +1232,7 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
 
   Future<void> _completeRegistration() async {
     try {
-      final supabaseService = SupabaseService();
+      final supabaseService = auth_supabase.SupabaseService();
       final normalizedPhone = supabaseService.normalizePhoneNumber(
         widget.phoneNumber,
       );

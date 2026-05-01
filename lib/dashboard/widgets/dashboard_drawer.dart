@@ -9,6 +9,7 @@ import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/referral/screens/referral_guide_screen.dart';
 import 'package:gymaipro/screens/help_screen.dart';
 import 'package:gymaipro/screens/settings_screen.dart';
+import 'package:gymaipro/services/avatar_refresh_notifier.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
@@ -49,8 +50,21 @@ class _DashboardDrawerState extends State<DashboardDrawer>
   @override
   void initState() {
     super.initState();
+    AvatarRefreshNotifier.instance.addListener(_onAvatarUpdated);
     _loadAvatarUrl();
     _checkAndShowDrawerGuide();
+  }
+
+  @override
+  void dispose() {
+    AvatarRefreshNotifier.instance.removeListener(_onAvatarUpdated);
+    super.dispose();
+  }
+
+  void _onAvatarUpdated() {
+    _cachedAvatarUrl = null;
+    _cachedUserId = null;
+    _loadAvatarUrl();
   }
 
   void _checkAndShowDrawerGuide() {
@@ -187,7 +201,7 @@ class _DashboardDrawerState extends State<DashboardDrawer>
                 ? ClipOval(
                     child: CachedNetworkImage(
                       imageUrl: _avatarUrl!,
-                      cacheKey: 'avatar_${Supabase.instance.client.auth.currentUser?.id ?? ''}',
+                      cacheKey: 'avatar_drawer_${Supabase.instance.client.auth.currentUser?.id ?? ''}_${_avatarUrl.hashCode}',
                       width: 80.r,
                       height: 80.r,
                       fit: BoxFit.cover,

@@ -17,6 +17,10 @@ class ModernProfileHeader extends StatelessWidget {
   final VoidCallback onEditTap;
   final VoidCallback onSettingsTap;
   final UserRanking? ranking;
+  final bool avatarUploading;
+  final bool avatarSuccess;
+  final String? avatarError;
+  final VoidCallback? onRetryAvatar;
 
   const ModernProfileHeader({
     super.key,
@@ -26,6 +30,10 @@ class ModernProfileHeader extends StatelessWidget {
     required this.onEditTap,
     required this.onSettingsTap,
     this.ranking,
+    this.avatarUploading = false,
+    this.avatarSuccess = false,
+    this.avatarError,
+    this.onRetryAvatar,
   });
 
   @override
@@ -105,9 +113,9 @@ class ModernProfileHeader extends StatelessWidget {
           SizedBox(height: 20.h),
           Row(
             children: [
-              // Avatar
+              // Avatar با وضعیت آپلود / موفقیت / خطا
               GestureDetector(
-                onTap: onImageTap,
+                onTap: avatarUploading ? null : onImageTap,
                 child: Container(
                   width: 80.w,
                   height: 80.w,
@@ -123,16 +131,31 @@ class ModernProfileHeader extends StatelessWidget {
                     ],
                   ),
                   child: ClipOval(
-                    child: avatarFile != null
-                        ? Image.file(avatarFile!, fit: BoxFit.cover)
-                        : (avatarUrl != null && avatarUrl.isNotEmpty
-                              ? Image.network(
-                                  avatarUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      _buildPlaceholder(context),
-                                )
-                              : _buildPlaceholder(context)),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        avatarFile != null
+                            ? Image.file(avatarFile!, fit: BoxFit.cover)
+                            : (avatarUrl != null && avatarUrl.isNotEmpty
+                                  ? Image.network(
+                                      avatarUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          _buildPlaceholder(context),
+                                    )
+                                  : _buildPlaceholder(context)),
+                        if (avatarUploading) _buildAvatarOverlay(context, accentColor, loading: true),
+                        if (avatarSuccess && !avatarUploading)
+                          _buildAvatarOverlay(context, accentColor, success: true),
+                        if (avatarError != null && avatarError!.isNotEmpty && !avatarUploading)
+                          _buildAvatarOverlay(
+                            context,
+                            accentColor,
+                            error: avatarError!,
+                            onRetry: onRetryAvatar,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -281,6 +304,114 @@ class ModernProfileHeader extends StatelessWidget {
       child: Icon(LucideIcons.user, size: 40.sp, color: context.textSecondary),
     );
   }
+
+  Widget _buildAvatarOverlay(
+    BuildContext context,
+    Color accentColor, {
+    bool loading = false,
+    bool success = false,
+    String? error,
+    VoidCallback? onRetry,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark
+        ? Colors.black.withValues(alpha: 0.65)
+        : Colors.black.withValues(alpha: 0.5);
+
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        color: bg,
+        shape: BoxShape.circle,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: loading ? null : (error != null ? onRetry : null),
+          customBorder: const CircleBorder(),
+          child: Padding(
+            padding: EdgeInsets.all(8.w),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (loading) ...[
+                  SizedBox(
+                    width: 28.w,
+                    height: 28.w,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        accentColor.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 6.h),
+                  Text(
+                    'در حال آپلود...',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 10.sp,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (success && !loading) ...[
+                  Icon(
+                    LucideIcons.checkCircle,
+                    size: 36.sp,
+                    color: Colors.greenAccent,
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    'ذخیره شد',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 11.sp,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (error != null && error.isNotEmpty && !loading) ...[
+                  Icon(
+                    LucideIcons.alertCircle,
+                    size: 28.sp,
+                    color: Colors.orangeAccent,
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    'خطا',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 11.sp,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (onRetry != null) ...[
+                    SizedBox(height: 4.h),
+                    Text(
+                      'برای تلاش مجدد لمس کنید',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 9.sp,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class ModernProfileActions extends StatelessWidget {
@@ -388,11 +519,27 @@ class ModernGamificationStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // فقط برای ورزشکاران (athletes) نمایش داده می‌شود - مربیان حذف می‌شوند
-    // این widget فقط باید برای athletes صدا زده بشه، اما برای اطمینان چک می‌کنیم
-    if (breakdown == null) return const SizedBox.shrink();
+    // اگر داده هنوز نیامده باشد، کارت را با حالت لودینگ ظریف نشان می‌دهیم
+    final bool isLoading = breakdown == null;
 
-    final totalScore = ranking?.totalScore ?? breakdown!.totalScore;
+    // در حالت لودینگ، یک مدل خالی با مقادیر صفر می‌سازیم تا ساختار کارت ثابت بماند
+    final RankingScoreBreakdown effectiveBreakdown = breakdown ??
+        RankingScoreBreakdown(
+          totalScore: ranking?.totalScore ?? 0,
+          dailyActivitiesScore: 0,
+          currentStreak: 0,
+          currentStreakScore: 0,
+          longestStreak: 0,
+          longestStreakScore: 0,
+          activeDays: 0,
+          activeDaysScore: 0,
+          totalWorkouts: 0,
+          totalWorkoutsScore: 0,
+          totalMeals: 0,
+          totalMealsScore: 0,
+        );
+
+    final totalScore = ranking?.totalScore ?? effectiveBreakdown.totalScore;
     final league = League.getLeagueByScore(totalScore);
 
     return Container(
@@ -457,7 +604,7 @@ class ModernGamificationStats extends StatelessWidget {
               _buildStatItem(
                 context,
                 LucideIcons.flame,
-                '${breakdown!.currentStreak}',
+                isLoading ? '—' : '${effectiveBreakdown.currentStreak}',
                 'زنجیره فعلی',
                 Colors.orange,
                 width: 80.w,
@@ -465,7 +612,7 @@ class ModernGamificationStats extends StatelessWidget {
               _buildStatItem(
                 context,
                 LucideIcons.calendarCheck,
-                '${breakdown!.activeDays}',
+                isLoading ? '—' : '${effectiveBreakdown.activeDays}',
                 'روزهای فعال',
                 Colors.purple,
                 width: 80.w,
@@ -473,7 +620,7 @@ class ModernGamificationStats extends StatelessWidget {
               _buildStatItem(
                 context,
                 LucideIcons.dumbbell,
-                '${breakdown!.totalWorkouts}',
+                isLoading ? '—' : '${effectiveBreakdown.totalWorkouts}',
                 'تمرین‌ها',
                 Colors.blue,
                 width: 80.w,
@@ -481,7 +628,7 @@ class ModernGamificationStats extends StatelessWidget {
               _buildStatItem(
                 context,
                 LucideIcons.utensilsCrossed,
-                '${breakdown!.totalMeals}',
+                isLoading ? '—' : '${effectiveBreakdown.totalMeals}',
                 'وعده‌ها',
                 Colors.green,
                 width: 80.w,
@@ -489,7 +636,7 @@ class ModernGamificationStats extends StatelessWidget {
               _buildStatItem(
                 context,
                 LucideIcons.trophy,
-                '${breakdown!.longestStreak}',
+                isLoading ? '—' : '${effectiveBreakdown.longestStreak}',
                 'رکورد زنجیره',
                 Colors.red,
                 width: 80.w,
@@ -497,7 +644,7 @@ class ModernGamificationStats extends StatelessWidget {
               _buildStatItem(
                 context,
                 LucideIcons.star,
-                _formatNumber(totalScore),
+                isLoading ? '—' : _formatNumber(totalScore),
                 'امتیاز کل',
                 Colors.amber,
                 width: 80.w,
@@ -521,7 +668,9 @@ class ModernGamificationStats extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '${((league.getProgressToNextLeague(totalScore)) * 100).toInt()}%',
+                    isLoading
+                        ? '...'
+                        : '${((league.getProgressToNextLeague(totalScore)) * 100).toInt()}%',
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontSize: 12.sp,
@@ -535,7 +684,8 @@ class ModernGamificationStats extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(4.r),
                 child: LinearProgressIndicator(
-                  value: league.getProgressToNextLeague(totalScore),
+                  value:
+                      isLoading ? null : league.getProgressToNextLeague(totalScore),
                   backgroundColor: Theme.of(
                     context,
                   ).dividerColor.withValues(alpha: 0.3),

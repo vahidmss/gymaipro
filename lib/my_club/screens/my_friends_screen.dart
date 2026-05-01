@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/friendship_models.dart';
 import 'package:gymaipro/my_club/screens/friendship_search_screen.dart';
@@ -32,20 +31,17 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
   StreamSubscription<List<UserProfile>>? _friendsSubscription;
   StreamSubscription<List<FriendshipRequest>>? _requestsSubscription;
 
-  // Tab controller
+  /// تعداد تب‌ها: دوستان | درخواست‌ها (همیشه با tabs و TabBarView هماهنگ باشد)
+  static const int _tabCount = 2;
   TabController? _tabController;
-
-  // Auto-refresh timer (refresh every 30 seconds when visible)
-  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: _tabCount, vsync: this);
     _loadFriends(showCache: true);
     _setupRealTimeUpdates();
-    _startAutoRefresh();
   }
 
   @override
@@ -53,7 +49,6 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
     WidgetsBinding.instance.removeObserver(this);
     _friendsSubscription?.cancel();
     _requestsSubscription?.cancel();
-    _autoRefreshTimer?.cancel();
     _tabController?.dispose();
     super.dispose();
   }
@@ -104,19 +99,6 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
     } catch (e) {
       debugPrint('Error setting up real-time updates: $e');
     }
-  }
-
-  void _startAutoRefresh() {
-    // Auto-refresh every 30 seconds when screen is visible
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (mounted &&
-          SchedulerBinding.instance.schedulerPhase != SchedulerPhase.idle) {
-        // Only refresh if screen is visible and not currently refreshing
-        if (!_isRefreshing && !_isLoading) {
-          _refreshData(forceRefresh: false, silent: true);
-        }
-      }
-    });
   }
 
   Future<void> _loadFriends({bool showCache = false}) async {
@@ -376,7 +358,6 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
                             ],
                           ),
                         ),
-                        const Tab(text: 'ارسال شده'),
                       ],
                     ),
                   ),
@@ -385,8 +366,7 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
                       controller: _tabController!,
                       children: [
                         _buildFriendsList(),
-                        _buildReceivedRequests(),
-                        _buildSentRequests(),
+                        _buildRequestsTab(),
                       ],
                     ),
                   ),
@@ -428,128 +408,78 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
     );
   }
 
-  Widget _buildReceivedRequests() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  /// تب یکپارچه درخواست‌ها: ورودی + ارسال‌شده (سبک اپ‌های حرفه‌ای)
+  Widget _buildRequestsTab() {
+    final bothEmpty =
+        _receivedRequests.isEmpty && _sentRequests.isEmpty;
     return RefreshIndicator(
       onRefresh: () => _refreshData(forceRefresh: true),
       color: AppTheme.goldColor,
-      child: _receivedRequests.isEmpty
+      child: bothEmpty
           ? SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               child: SizedBox(
-                height: MediaQuery.of(context).size.height * 0.6,
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        LucideIcons.userCheck,
-                        size: 64.sp,
-                        color: isDark
-                            ? Colors.grey[600]
-                            : AppTheme.lightTextSecondary.withValues(
-                                alpha: 0.5,
-                              ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'درخواست دوستی ندارید',
-                        style: TextStyle(
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.w600,
-                          color: context.textSecondary,
-                          fontFamily: AppTheme.fontFamily,
-                        ),
-                      ),
-                    ],
-                  ),
+                height: MediaQuery.of(context).size.height * 0.75,
+                child: UnifiedEmptyState(
+                  icon: LucideIcons.userPlus,
+                  title: 'درخواست دوستی ندارید',
+                  subtitle:
+                      'وقتی کسی درخواست دوستی بفرستد یا شما درخواست بفرستید، اینجا نمایش داده می‌شود.',
                 ),
               ),
             )
-          : ListView.builder(
+          : ListView(
               padding: EdgeInsets.all(16.w),
-              itemCount: _receivedRequests.length + (_isRefreshing ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == _receivedRequests.length && _isRefreshing) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: AppTheme.goldColor,
+              children: [
+                if (_receivedRequests.isNotEmpty) ...[
+                  _sectionHeader('درخواست‌های ورودی'),
+                  SizedBox(height: 8.h),
+                  ..._receivedRequests.map(
+                    (request) => Padding(
+                      padding: EdgeInsets.only(bottom: 12.h),
+                      child: _PendingRequestCard(
+                        request: request,
+                        onAccept: () => _acceptRequest(request),
+                        onReject: () => _rejectRequest(request),
                       ),
                     ),
-                  );
-                }
-                final request = _receivedRequests[index];
-                return _PendingRequestCard(
-                  request: request,
-                  onAccept: () => _acceptRequest(request),
-                  onReject: () => _rejectRequest(request),
-                );
-              },
+                  ),
+                  SizedBox(height: 20.h),
+                ],
+                if (_sentRequests.isNotEmpty) ...[
+                  _sectionHeader('ارسال‌شده'),
+                  SizedBox(height: 8.h),
+                  ..._sentRequests.map(
+                    (request) => Padding(
+                      padding: EdgeInsets.only(bottom: 12.h),
+                      child: _SentRequestCard(
+                        request: request,
+                        onCancel: () => _cancelRequest(request),
+                      ),
+                    ),
+                  ),
+                ],
+                if (_isRefreshing)
+                  const Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Center(
+                      child: CircularProgressIndicator(color: AppTheme.goldColor),
+                    ),
+                  ),
+              ],
             ),
     );
   }
 
-  Widget _buildSentRequests() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return RefreshIndicator(
-      onRefresh: () => _refreshData(forceRefresh: true),
-      color: AppTheme.goldColor,
-      child: _sentRequests.isEmpty
-          ? SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: SizedBox(
-                height: MediaQuery.of(context).size.height * 0.6,
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        LucideIcons.userPlus,
-                        size: 64.sp,
-                        color: isDark
-                            ? Colors.grey[600]
-                            : AppTheme.lightTextSecondary.withValues(
-                                alpha: 0.5,
-                              ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'درخواست ارسال شده ندارید',
-                        style: TextStyle(
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.w600,
-                          color: context.textSecondary,
-                          fontFamily: AppTheme.fontFamily,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            )
-          : ListView.builder(
-              padding: EdgeInsets.all(16.w),
-              itemCount: _sentRequests.length + (_isRefreshing ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == _sentRequests.length && _isRefreshing) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: AppTheme.goldColor,
-                      ),
-                    ),
-                  );
-                }
-                final request = _sentRequests[index];
-                return _SentRequestCard(
-                  request: request,
-                  onCancel: () => _cancelRequest(request),
-                );
-              },
-            ),
+  Widget _sectionHeader(String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 15.sp,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.goldColor,
+        fontFamily: AppTheme.fontFamily,
+      ),
     );
   }
 
@@ -770,6 +700,7 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
   }
 }
 
+/// کارت فشرده دوست — سبک اپ‌های فیتنس: یک ردیف با پیام و منوی بیشتر
 class _FriendCard extends StatelessWidget {
   const _FriendCard({
     required this.friend,
@@ -786,238 +717,163 @@ class _FriendCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.only(bottom: 12.h),
       decoration: BoxDecoration(
         color: context.cardColor,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(14.r),
         border: Border.all(
           color: friend.isOnline
-              ? Colors.green.withValues(alpha: 0.3)
+              ? Colors.green.withValues(alpha: 0.25)
               : isDark
-              ? Colors.grey[700]!
-              : AppTheme.lightDividerColor.withValues(alpha: 0.5),
-          width: 1.5.w,
+                  ? Colors.grey[700]!
+                  : AppTheme.lightDividerColor.withValues(alpha: 0.5),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: friend.isOnline
-                ? Colors.green.withValues(alpha: 0.1)
-                : isDark
-                ? Colors.black.withValues(alpha: 0.3)
-                : AppTheme.goldColor.withValues(alpha: 0.08),
-            blurRadius: 8.r,
-            offset: Offset(0.w, 4.h),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.2)
+                : AppTheme.goldColor.withValues(alpha: 0.06),
+            blurRadius: 6.r,
+            offset: Offset(0, 2.h),
           ),
         ],
       ),
-      child: Padding(
-        padding: EdgeInsets.all(20.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header with avatar and info
-            Row(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onViewProfile,
+          borderRadius: BorderRadius.circular(14.r),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+            child: Row(
               children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [
-                        AppTheme.goldColor,
-                        AppTheme.goldColor.withValues(alpha: 0.8),
-                      ],
+                Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 26.r,
+                      backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
+                      backgroundImage: friend.avatarUrl != null
+                          ? NetworkImage(friend.avatarUrl!)
+                          : null,
+                      child: friend.avatarUrl == null
+                          ? Icon(
+                              LucideIcons.user,
+                              color: context.textSecondary,
+                              size: 22.sp,
+                            )
+                          : null,
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.goldColor.withValues(alpha: 0.3),
-                        blurRadius: 8.r,
-                        offset: Offset(0.w, 2.h),
-                      ),
-                    ],
-                  ),
-                  child: Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor: Colors.transparent,
-                        backgroundImage: friend.avatarUrl != null
-                            ? NetworkImage(friend.avatarUrl!)
-                            : null,
-                        child: friend.avatarUrl == null
-                            ? Icon(
-                                LucideIcons.user,
-                                color: Colors.black,
-                                size: 24.sp,
-                              )
-                            : null,
-                      ),
-                      if (friend.isOnline)
-                        Positioned(
-                          right: 2.w,
-                          bottom: 2.h,
-                          child: Container(
-                            width: 14.w,
-                            height: 14.h,
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xFF1F1F1F),
-                                width: 2.w,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.green.withValues(alpha: 0.5),
-                                  blurRadius: 4.r,
-                                  offset: Offset(0.w, 1.h),
-                                ),
-                              ],
+                    if (friend.isOnline)
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 12.w,
+                          height: 12.h,
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: context.cardColor,
+                              width: 2,
                             ),
                           ),
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 12.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         friend.fullName ?? friend.username,
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16.sp,
                           color: context.textColor,
                           fontFamily: AppTheme.fontFamily,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 2.h),
                       Text(
                         '@${friend.username}',
                         style: TextStyle(
                           color: context.textSecondary,
-                          fontSize: 14.sp,
+                          fontSize: 13.sp,
                           fontFamily: AppTheme.fontFamily,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 6),
-                      if (friend.isOnline)
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 8.w,
-                            vertical: 2.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(12.r),
-                            border: Border.all(
-                              color: Colors.green.withValues(alpha: 0.5),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6.w,
-                                height: 6.h,
-                                decoration: const BoxDecoration(
-                                  color: Colors.green,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'آنلاین',
-                                style: TextStyle(
-                                  color: Colors.green,
-                                  fontSize: 11.sp,
-                                  fontWeight: FontWeight.w600,
-                                  fontFamily: AppTheme.fontFamily,
-                                ),
-                              ),
-                            ],
+                      if (friend.isOnline) ...[
+                        SizedBox(height: 4.h),
+                        Text(
+                          'آنلاین',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: AppTheme.fontFamily,
                           ),
                         ),
+                      ],
                     ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            // Action buttons
-            Row(
-              children: [
-                Expanded(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppTheme.goldColor,
-                          AppTheme.goldColor.withValues(alpha: 0.8),
+                IconButton(
+                  onPressed: onChat,
+                  icon: Icon(
+                    LucideIcons.messageCircle,
+                    size: 22.sp,
+                    color: AppTheme.goldColor,
+                  ),
+                  tooltip: 'پیام',
+                ),
+                PopupMenuButton<String>(
+                  icon: Icon(
+                    LucideIcons.moreVertical,
+                    size: 20.sp,
+                    color: context.textSecondary,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  onSelected: (value) {
+                    if (value == 'profile') onViewProfile();
+                    if (value == 'remove') onRemove();
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'profile',
+                      child: Row(
+                        children: [
+                          Icon(LucideIcons.user, size: 18),
+                          SizedBox(width: 8),
+                          Text('پروفایل'),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(12.r),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.goldColor.withValues(alpha: 0.3),
-                          blurRadius: 4.r,
-                          offset: Offset(0.w, 2.h),
-                        ),
-                      ],
                     ),
-                    child: ElevatedButton.icon(
-                      onPressed: onChat,
-                      icon: const Icon(LucideIcons.messageCircle, size: 16),
-                      label: const Text('چت'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: AppTheme.onGoldColor,
-                        shadowColor: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
+                    const PopupMenuItem(
+                      value: 'remove',
+                      child: Row(
+                        children: [
+                          Icon(LucideIcons.userMinus, size: 18, color: Colors.red),
+                          SizedBox(width: 8),
+                          Text('حذف دوست', style: TextStyle(color: Colors.red)),
+                        ],
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onViewProfile,
-                    icon: const Icon(LucideIcons.user, size: 16),
-                    label: const Text('پروفایل'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.blue,
-                      side: const BorderSide(color: Colors.blue, width: 1.5),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  onPressed: onRemove,
-                  icon: const Icon(LucideIcons.userMinus, size: 16),
-                  label: const Text('حذف'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red, width: 1.5),
-                    padding: EdgeInsets.symmetric(
-                      vertical: 12.h,
-                      horizontal: 16.w,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                  ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

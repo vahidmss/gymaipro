@@ -160,7 +160,7 @@ class MusicPlayerWidget extends StatelessWidget {
                             ),
                             SizedBox(height: 4.h),
                             Text(
-                              currentMusic.artist,
+                              currentMusic.displayArtist,
                               style: AppTheme.bodyStyle.copyWith(
                                 fontSize: 11.sp,
                                 color: context.textSecondary,
@@ -168,11 +168,10 @@ class MusicPlayerWidget extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            if (currentMusic.author != null &&
-                                currentMusic.author!.trim().isNotEmpty) ...[
+                            if (currentMusic.showPublisherLine) ...[
                               SizedBox(height: 3.h),
                               Text(
-                                'ارسال: ${currentMusic.author!.trim()}',
+                                'نویسنده: ${currentMusic.author!.trim()}',
                                 style: AppTheme.bodyStyle.copyWith(
                                   fontSize: 10.sp,
                                   color: AppTheme.goldColor.withValues(
@@ -447,7 +446,7 @@ class MusicPlayerWidget extends StatelessWidget {
                     ),
                     SizedBox(height: 4.h),
                     Text(
-                      currentMusic.artist,
+                      currentMusic.displayArtist,
                       style: AppTheme.bodyStyle.copyWith(
                         fontSize: 12.sp,
                         color: context.textSecondary,
@@ -456,11 +455,10 @@ class MusicPlayerWidget extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (currentMusic.author != null &&
-                        currentMusic.author!.trim().isNotEmpty) ...[
+                    if (currentMusic.showPublisherLine) ...[
                       SizedBox(height: 6.h),
                       Text(
-                        'ارسال: ${currentMusic.author!.trim()}',
+                        'نویسنده: ${currentMusic.author!.trim()}',
                         style: AppTheme.bodyStyle.copyWith(
                           fontSize: 11.sp,
                           color: AppTheme.goldColor.withValues(alpha: 0.85),

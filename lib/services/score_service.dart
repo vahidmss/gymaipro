@@ -52,7 +52,9 @@ class ScoreService extends ChangeNotifier {
       final profileId = profile?['id'] as String?;
 
       if (profileId == null || profileId.isEmpty) {
-        debugPrint('⚠️ User not authenticated, cannot load scores');
+        if (kDebugMode) {
+          debugPrint('⚠️ No profile yet (e.g. before registration complete), skipping score load');
+        }
         return;
       }
 
@@ -185,7 +187,9 @@ class ScoreService extends ChangeNotifier {
       final profileId = profile?['id'] as String?;
 
       if (profileId == null || profileId.isEmpty) {
-        debugPrint('⚠️ User not authenticated, cannot save score');
+        if (kDebugMode) {
+          debugPrint('⚠️ No profile yet, skipping score save');
+        }
         return;
       }
 

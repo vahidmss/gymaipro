@@ -12,6 +12,7 @@ class CustomMusic {
   final int duration; // مدت زمان به ثانیه
   final String? category; // دسته‌بندی
   final String? description;
+  final String? singer; // نام خواننده (اختیاری — برای موزیک بی‌کلام خالی)
   final String visibility; // 'private' or 'public'
   final int viewsCount;
   final int likesCount;
@@ -28,6 +29,7 @@ class CustomMusic {
     required this.duration,
     this.category,
     this.description,
+    this.singer,
     this.visibility = 'private',
     this.viewsCount = 0,
     this.likesCount = 0,
@@ -46,6 +48,7 @@ class CustomMusic {
       duration: JsonParse.integer(json, 'duration'),
       category: JsonParse.stringOrNull(json, 'category'),
       description: JsonParse.stringOrNull(json, 'description'),
+      singer: JsonParse.stringOrNull(json, 'singer'),
       visibility: JsonParse.string(json, 'visibility', 'private'),
       viewsCount: JsonParse.integer(json, 'views_count'),
       likesCount: JsonParse.integer(json, 'likes_count'),
@@ -65,6 +68,7 @@ class CustomMusic {
       'duration': duration,
       'category': category,
       'description': description,
+      'singer': singer,
       'visibility': visibility,
       'views_count': viewsCount,
       'likes_count': likesCount,
@@ -82,7 +86,7 @@ class CustomMusic {
     // تبدیل به عدد مثبت و محدود به محدوده INTEGER (1,000,000 تا 1,000,000,000)
     // استفاده از modulo کوچکتر برای اطمینان از قرارگیری در محدوده
     final uniqueId = (hashValue.abs() % 999000000) + 1000000;
-    
+
     return WorkoutMusic(
       id: uniqueId,
       title: title,
@@ -95,6 +99,7 @@ class CustomMusic {
       createdAt: createdAt,
       createdBy: createdBy,
       author: authorName,
+      singer: singer,
       visibility: visibility,
       tags: const [],
       approved: true, // همیشه تایید شده (چون فقط مربی می‌تواند اضافه کند)
@@ -104,4 +109,3 @@ class CustomMusic {
     );
   }
 }
-

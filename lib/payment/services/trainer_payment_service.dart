@@ -755,7 +755,7 @@ class TrainerPaymentService {
             .where((t) => t.isNotEmpty)
             .toList();
 
-        if (tokens.isNotEmpty) {
+        if (tokens.isNotEmpty && AppConfig.supabaseEdgeFunctionsEnabled) {
           await _client.functions.invoke(
             'send-notifications',
             body: {
@@ -831,26 +831,14 @@ class TrainerPaymentService {
         data: {'buyer_user_id': buyerUserId, 'event': 'student_added'},
       );
 
-      // ارسال پوش نوتیفیکیشن مستقیم به device tokens (user_id در جدول = auth.uid)
+      // ارسال پوش: سمت سرور توکن مربی را می‌خواند (RLS اجازه خواندن به خریدار نمی‌دهد)
       try {
-        final List<dynamic> tokensRes = await _client
-            .from('device_tokens')
-            .select('token')
-            .eq('user_id', trainerAuthId)
-            .eq('is_push_enabled', true);
-        final List<String> tokens = tokensRes
-            .map((e) => (e as Map)['token']?.toString() ?? '')
-            .whereType<String>()
-            .where((t) => t.isNotEmpty)
-            .toList();
-
-        if (tokens.isNotEmpty) {
+        if (AppConfig.supabaseEdgeFunctionsEnabled) {
           await _client.functions.invoke(
             'send-notifications',
             body: {
-              'mode': 'direct',
-              'target_type': 'device_tokens',
-              'tokens': tokens,
+              'mode': 'trainer_new_student',
+              'trainer_id': trainerId,
               'title': title,
               'body': message,
               'data': {
@@ -867,7 +855,7 @@ class TrainerPaymentService {
           print('⚠️ خطا در ارسال پوش نوتیفیکیشن: $e');
         }
       }
-    } catch (e) {
+  } catch (e) {
       if (kDebugMode) {
         print('⚠️ خطا در ایجاد اعلان: $e');
       }

@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/payment/models/payment_plan.dart';
 import 'package:gymaipro/payment/models/subscription.dart';
 import 'package:gymaipro/payment/screens/payment_screen.dart';
@@ -113,28 +112,32 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       builder: (context) => AlertDialog(
         title: Text(
           'لغو اشتراک',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             fontWeight: FontWeight.bold,
             color: AppTheme.goldColor,
           ),
         ),
         content: Text(
           'آیا مطمئن هستید که می‌خواهید اشتراک خود را لغو کنید؟',
-          style: GoogleFonts.vazirmatn(),
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,),
         ),
         actions: [
           TextButton(
             onPressed: () => WidgetSafetyUtils.safePop(context, false),
             child: Text(
               'انصراف',
-              style: GoogleFonts.vazirmatn(color: Colors.white70),
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: Colors.white70),
             ),
           ),
           TextButton(
             onPressed: () => WidgetSafetyUtils.safePop(context, true),
             child: Text(
               'لغو اشتراک',
-              style: GoogleFonts.vazirmatn(color: Colors.red),
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: Colors.red),
             ),
           ),
         ],
@@ -151,7 +154,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         appBar: AppBar(
           title: Text(
             'اشتراک‌ها',
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 20.sp,
               fontWeight: FontWeight.bold,
               color: AppTheme.goldColor,
@@ -183,7 +187,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       if (_subscriptions.isNotEmpty) ...[
                         Text(
                           'اشتراک‌های شما',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             fontSize: 18.sp,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.goldColor,
@@ -209,7 +214,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       // طرح‌های موجود
                       Text(
                         'طرح‌های اشتراک',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           fontSize: 18.sp,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.goldColor,
@@ -251,7 +257,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   children: [
                     Text(
                       plan.name,
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 18.sp,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.goldColor,
@@ -260,7 +267,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     const SizedBox(height: 4),
                     Text(
                       plan.shortDescription,
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 14.sp,
                         color: Colors.white70,
                       ),
@@ -277,7 +285,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   ),
                   child: Text(
                     'محبوب',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 12.sp,
                       color: AppTheme.goldColor,
                     ),
@@ -293,7 +302,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               if (plan.hasDiscount) ...[
                 Text(
                   plan.formattedOriginalPrice,
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 16.sp,
                     color: Colors.white54,
                     decoration: TextDecoration.lineThrough,
@@ -303,7 +313,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               ],
               Text(
                 plan.formattedPrice,
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontSize: 24.sp,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.goldColor,
@@ -312,7 +323,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               const SizedBox(width: 4),
               Text(
                 '/ ماه',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontSize: 14.sp,
                   color: Colors.white70,
                 ),
@@ -332,7 +344,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                   Expanded(
                     child: Text(
                       feature,
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 14.sp,
                         color: Colors.white70,
                       ),
@@ -361,7 +374,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               ),
               child: Text(
                 'خرید اشتراک',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.bold,
                 ),

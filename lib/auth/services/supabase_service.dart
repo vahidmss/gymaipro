@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -22,65 +23,81 @@ class SupabaseService {
     return PhoneUtils.normalize(phoneNumber);
   }
 
-  // Check username uniqueness
+  /// Check username uniqueness with timeout so weak network doesn't hang the UI.
+  static const Duration _usernameCheckTimeout = Duration(seconds: 8);
+
   Future<bool> isUsernameUnique(String username) async {
     try {
-      await client.from('profiles').select('count').limit(1);
-
-      final response = await client
-          .from('profiles')
-          .select('id')
-          .eq('username', username)
-          .maybeSingle();
-
-      return response == null;
+      return await Future<bool>(() async {
+        await client.from('profiles').select('count').limit(1);
+        final response = await client
+            .from('profiles')
+            .select('id')
+            .eq('username', username)
+            .maybeSingle();
+        return response == null;
+      }).timeout(
+        _usernameCheckTimeout,
+        onTimeout: () => throw TimeoutException(
+          'Username check timed out',
+          _usernameCheckTimeout,
+        ),
+      );
+    } on TimeoutException {
+      rethrow;
     } catch (e) {
-      return true; // Allow registration to continue on error
+      if (kDebugMode) debugPrint('isUsernameUnique error: $e');
+      rethrow;
     }
   }
 
-  // Check if user exists
+  /// Check if user exists (with timeout so weak network doesn't hang).
+  static const Duration _doesUserExistTimeout = Duration(seconds: 8);
+
   // نکته: تابع دیتابیس check_user_exists(phone TEXT) پارامتر «phone» می‌گیرد، نه phone_number
   Future<bool> doesUserExist(String phoneNumber) async {
     try {
-      final normalizedPhone = normalizePhoneNumber(phoneNumber);
+      return await Future<bool>(() async {
+        final normalizedPhone = normalizePhoneNumber(phoneNumber);
 
-      // ۱) RPC با نام پارامتر درست (مطابق تابع SQL: check_user_exists(phone TEXT))
-      try {
-        final result = await client.rpc<bool>(
-          'check_user_exists',
-          params: {'phone': normalizedPhone},
-        );
-        return result == true;
-      } catch (_) {
-        // در صورت خطای RPC (مثلاً تابع وجود ندارد یا شبکه) به fallback می‌رویم
-      }
-
-      // ۲) Fallback: جستجو با چند فرمت رایج شماره در جدول profiles
-      final digits = normalizedPhone.replaceAll(RegExp(r'[^\d]'), '');
-      final noLeadingZero = digits.startsWith('0') ? digits.substring(1) : digits;
-      final candidates = [
-        normalizedPhone,
-        digits,
-        '+98$noLeadingZero',
-        '98$noLeadingZero',
-        noLeadingZero,
-      ];
-
-      for (final candidate in candidates) {
-        if (candidate.isEmpty) continue;
         try {
-          final row = await client
-              .from('profiles')
-              .select('id')
-              .eq('phone_number', candidate)
-              .maybeSingle();
-          if (row != null) return true;
-        } catch (_) {
-          continue;
+          final result = await client.rpc<bool>(
+            'check_user_exists',
+            params: {'phone': normalizedPhone},
+          );
+          return result == true;
+        } catch (_) {}
+
+        final digits =
+            normalizedPhone.replaceAll(RegExp(r'[^\d]'), '');
+        final noLeadingZero =
+            digits.startsWith('0') ? digits.substring(1) : digits;
+        final candidates = [
+          normalizedPhone,
+          digits,
+          '+98$noLeadingZero',
+          '98$noLeadingZero',
+          noLeadingZero,
+        ];
+
+        for (final candidate in candidates) {
+          if (candidate.isEmpty) continue;
+          try {
+            final row = await client
+                .from('profiles')
+                .select('id')
+                .eq('phone_number', candidate)
+                .maybeSingle();
+            if (row != null) return true;
+          } catch (_) {
+            continue;
+          }
         }
-      }
-      return false;
+        return false;
+      }).timeout(
+        _doesUserExistTimeout,
+        onTimeout: () => false,
+      );
     } catch (_) {
       return false;
     }
@@ -433,12 +450,19 @@ class SupabaseService {
           .from('profile_images')
           .getPublicUrl(filePath);
 
-      await SimpleProfileService.updateProfile({
-        'avatar_url': imageUrlResponse,
-      });
+      final updated = await SimpleProfileService.updateProfile(
+        {'avatar_url': imageUrlResponse},
+      );
+      if (!updated) {
+        throw Exception('به‌روزرسانی پروفایل در دیتابیس انجام نشد');
+      }
       return imageUrlResponse;
     } catch (e) {
-      return null;
+      if (kDebugMode) {
+        // ignore: avoid_print
+        print('Error uploading profile image: $e');
+      }
+      rethrow;
     }
   }
 }

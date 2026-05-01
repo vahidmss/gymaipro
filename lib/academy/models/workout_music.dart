@@ -13,6 +13,7 @@ class WorkoutMusic {
     this.createdAt,
     this.createdBy, // شناسه مربی که موزیک را اضافه کرده
     this.author, // نام فرستنده/مربی
+    this.singer, // نام خواننده (اختیاری)
     this.visibility = 'public', // 'public' or 'private'
     this.tags = const [], // تگ‌ها برای دسته‌بندی
     this.approved = true, // تایید شده یا نه
@@ -32,6 +33,7 @@ class WorkoutMusic {
   final DateTime? createdAt;
   final String? createdBy; // شناسه کاربری که موزیک را ایجاد کرده
   final String? author; // نام فرستنده/مربی
+  final String? singer; // نام خواننده (اختیاری — برای موزیک بی‌کلام خالی)
   final String visibility; // 'public' or 'private'
   final List<String> tags; // تگ‌ها برای دسته‌بندی
   final bool approved; // تایید شده یا نه
@@ -52,6 +54,7 @@ class WorkoutMusic {
       createdAt: JsonParse.dateTimeOrNull(json, 'created_at'),
       createdBy: JsonParse.stringOrNull(json, 'created_by'),
       author: JsonParse.stringOrNull(json, 'author'),
+      singer: JsonParse.stringOrNull(json, 'singer'),
       visibility: JsonParse.string(json, 'visibility', 'public'),
       tags: JsonParse.listOfStrings(json, 'tags'),
       approved: JsonParse.boolean(json, 'approved', true),
@@ -101,6 +104,7 @@ class WorkoutMusic {
       'created_at': createdAt?.toIso8601String(),
       'created_by': createdBy,
       'author': author,
+      'singer': singer,
       'visibility': visibility,
       'tags': tags,
       'approved': approved,
@@ -115,4 +119,16 @@ class WorkoutMusic {
     final seconds = duration % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
+
+  /// برای نمایش مثل اپ‌های موزیک: اگر خواننده مشخص است همان، وگرنه نام هنرمند/نویسنده
+  String get displayArtist =>
+      (singer != null && singer!.trim().isNotEmpty)
+          ? singer!.trim()
+          : artist;
+
+  /// آیا خط «نویسنده/منتشرکننده» را نشان دهیم (فقط وقتی با هنرمند نمایش فرق دارد تا تکرار نشود)
+  bool get showPublisherLine =>
+      author != null &&
+      author!.trim().isNotEmpty &&
+      author!.trim() != displayArtist;
 }

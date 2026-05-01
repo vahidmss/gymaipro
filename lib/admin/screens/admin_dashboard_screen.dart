@@ -17,6 +17,7 @@ import 'package:gymaipro/admin/screens/admin_payout_requests_screen.dart';
 import 'package:gymaipro/admin/screens/admin_broadcast_screen.dart';
 import 'package:gymaipro/admin/screens/admin_exercise_sync_screen.dart';
 import 'package:gymaipro/admin/screens/admin_public_chat_screen.dart';
+import 'package:gymaipro/admin/screens/admin_announcements_screen.dart';
 import 'package:gymaipro/admin/services/admin_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -40,11 +41,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   void initState() {
     super.initState();
-    // 17 تب: آمار، کاربران، برنامه‌ها، مربی-شاگرد، پرداخت‌ها،
+    // 18 تب: آمار، کاربران، برنامه‌ها، مربی-شاگرد، پرداخت‌ها،
     // کیف پول، کد تخفیف، چت خصوصی، چت عمومی، عکس‌ها، گزارش مالی،
     // تاریخچه کیف پول، مدارک مربی، تنظیمات کمیسیون، درخواست‌های برداشت،
     // نوتیفیکیشن همگانی، Sync تمرین‌ها
-    _tabController = TabController(length: 17, vsync: this);
+    _tabController = TabController(length: 18, vsync: this);
     _checkAdminStatus();
   }
 
@@ -170,8 +171,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             Tab(icon: Icon(LucideIcons.history), text: 'تاریخچه کیف پول'),
             Tab(icon: Icon(LucideIcons.award), text: 'مدارک مربی'),
             Tab(icon: Icon(LucideIcons.percent), text: 'تنظیمات کمیسیون'),
-            Tab(icon: Icon(LucideIcons.arrowUpCircle), text: 'درخواست‌های برداشت'),
+            Tab(
+              icon: Icon(LucideIcons.arrowUpCircle),
+              text: 'درخواست‌های برداشت',
+            ),
             Tab(icon: Icon(LucideIcons.send), text: 'نوتیفیکیشن همگانی'),
+            Tab(icon: Icon(LucideIcons.megaphone), text: 'اخبار داخل اپ'),
             Tab(icon: Icon(LucideIcons.refreshCw), text: 'Sync تمرین‌ها'),
           ],
         ),
@@ -195,6 +200,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           AdminCommissionSettingsScreen(),
           AdminPayoutRequestsScreen(),
           AdminBroadcastScreen(),
+          AdminAnnouncementsScreen(),
           AdminExerciseSyncScreen(),
         ],
       ),

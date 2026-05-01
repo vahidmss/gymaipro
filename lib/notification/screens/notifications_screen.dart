@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
@@ -6,7 +6,7 @@ import 'package:gymaipro/notification/providers/notification_provider.dart';
 import 'package:gymaipro/notification/widgets/notification_card.dart';
 import 'package:gymaipro/notification/widgets/notification_filter_chip.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:gymaipro/trainer_dashboard/screens/trainer_dashboard_screen.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
@@ -176,7 +176,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           Expanded(
             child: Text(
               'اعلان‌ها',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: context.textColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 22.sp,
@@ -214,7 +215,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         SizedBox(width: 12.w),
                         Text(
                           'علامت‌گذاری همه',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             color: context.textColor,
                             fontSize: 14.sp,
                           ),
@@ -235,7 +237,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         SizedBox(width: 12.w),
                         Text(
                           'حذف خوانده شده‌ها',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             color: AppTheme.errorColor,
                             fontSize: 14.sp,
                           ),
@@ -256,7 +259,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         SizedBox(width: 12.w),
                         Text(
                           'تنظیمات',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             color: context.textColor,
                             fontSize: 14.sp,
                           ),
@@ -296,13 +300,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ? TextField(
               controller: _searchController,
               textDirection: TextDirection.rtl,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: context.textColor,
                 fontSize: 14.sp,
               ),
               decoration: InputDecoration(
                 hintText: 'جستجو در اعلان‌ها...',
-                hintStyle: GoogleFonts.vazirmatn(
+                hintStyle: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   color: context.textSecondary,
                   fontSize: 14.sp,
                 ),
@@ -535,7 +541,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             padding: EdgeInsets.symmetric(horizontal: 12.w),
             child: Text(
               date,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: context.textSecondary,
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w600,
@@ -589,7 +596,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             SizedBox(height: 24.h),
             Text(
               'خطا در بارگذاری اعلان‌ها',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: context.textColor,
                 fontSize: 18.sp,
                 fontWeight: FontWeight.bold,
@@ -598,7 +606,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             SizedBox(height: 8.h),
             Text(
               provider.errorMessage ?? 'لطفاً دوباره تلاش کنید',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: context.textSecondary,
                 fontSize: 14.sp,
               ),
@@ -617,7 +626,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ),
               child: Text(
                 'تلاش مجدد',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontWeight: FontWeight.bold,
                   fontSize: 16.sp,
                 ),
@@ -649,7 +659,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               hasFilters
                   ? 'هیچ اعلانی با این فیلترها پیدا نشد'
                   : 'هیچ اعلانی وجود ندارد',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: context.textColor,
                 fontSize: 20.sp,
                 fontWeight: FontWeight.bold,
@@ -660,7 +671,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               hasFilters
                   ? 'لطفاً فیلترها را تغییر دهید یا پاک کنید'
                   : 'وقتی اعلان جدیدی دریافت کنید،\nاینجا نمایش داده می‌شود',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: context.textSecondary,
                 fontSize: 15.sp,
                 height: 1.6,
@@ -682,7 +694,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
                 child: Text(
                   'پاک کردن فیلترها',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontWeight: FontWeight.bold,
                     fontSize: 14.sp,
                   ),
@@ -745,12 +758,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           break;
 
         case NotificationType.payment:
-          // Navigation به صفحه پرداخت یا داشبورد
+          // نوتیف‌های مربوط به مربی (شاگرد جدید / درخواست برنامه) → میز کار مربی
+          final event = data['event']?.toString();
+          final service = data['service']?.toString();
           final route = data['route']?.toString();
-          if (route != null && route.isNotEmpty) {
-            _safeNavigate(route);
+
+          // اگر route مستقیماً به میز کار مربی اشاره کند یا event/service مشخص باشد
+          if (route == '/trainer-dashboard' ||
+              event == 'student_added' ||
+              service != null) {
+            // شاگرد جدید → تب شاگردان (index 0)
+            // درخواست برنامه/خدمت → تب درخواست‌ها (index 1)
+            final initialTabIndex = event == 'student_added' ? 0 : 1;
+            Navigator.push<void>(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => TrainerDashboardScreen(
+                  initialTabIndex: initialTabIndex,
+                ),
+              ),
+            );
           } else {
-            _safeNavigate('/dashboard');
+            // سایر نوتیف‌های پرداخت → استفاده از route یا داشبورد
+            final fallbackRoute = data['route']?.toString();
+            if (fallbackRoute != null && fallbackRoute.isNotEmpty) {
+              _safeNavigate(fallbackRoute);
+            } else {
+              _safeNavigate('/dashboard');
+            }
           }
           break;
 
@@ -844,7 +879,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ),
         title: Text(
           'علامت‌گذاری همه',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             color: context.textColor,
             fontSize: 18.sp,
             fontWeight: FontWeight.bold,
@@ -852,7 +888,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ),
         content: Text(
           'آیا مطمئن هستید که می‌خواهید تمام اعلان‌ها را به عنوان خوانده شده علامت‌گذاری کنید؟',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             color: context.textSecondary,
             fontSize: 14.sp,
             height: 1.6,
@@ -863,7 +900,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             onPressed: () => Navigator.pop(context, false),
             child: Text(
               'انصراف',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: context.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
@@ -873,7 +911,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             onPressed: () => Navigator.pop(context, true),
             child: Text(
               'تایید',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: AppTheme.goldColor,
                 fontWeight: FontWeight.bold,
               ),
@@ -890,7 +929,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           SnackBar(
             content: Text(
               '$count اعلان به عنوان خوانده شده علامت‌گذاری شد',
-              style: GoogleFonts.vazirmatn(fontWeight: FontWeight.w600),
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,fontWeight: FontWeight.w600),
             ),
             backgroundColor: AppTheme.goldColor,
             behavior: SnackBarBehavior.floating,
@@ -917,7 +957,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ),
         title: Text(
           'حذف اعلان‌های خوانده شده',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             color: context.textColor,
             fontSize: 18.sp,
             fontWeight: FontWeight.bold,
@@ -925,7 +966,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ),
         content: Text(
           'آیا مطمئن هستید که می‌خواهید تمام اعلان‌های خوانده شده را حذف کنید؟',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             color: context.textSecondary,
             fontSize: 14.sp,
             height: 1.6,
@@ -936,7 +978,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             onPressed: () => Navigator.pop(context, false),
             child: Text(
               'انصراف',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: context.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
@@ -946,7 +989,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             onPressed: () => Navigator.pop(context, true),
             child: Text(
               'حذف',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: AppTheme.errorColor,
                 fontWeight: FontWeight.bold,
               ),
@@ -965,7 +1009,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               count > 0
                   ? '$count اعلان خوانده شده حذف شد'
                   : 'هیچ اعلان خوانده شده‌ای برای حذف وجود ندارد',
-              style: GoogleFonts.vazirmatn(fontWeight: FontWeight.w600),
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,fontWeight: FontWeight.w600),
             ),
             backgroundColor: count > 0
                 ? AppTheme.goldColor

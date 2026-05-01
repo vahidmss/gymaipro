@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/payment/models/trainer_subscription.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -58,7 +57,8 @@ class TrainerSubscriptionCard extends StatelessWidget {
                       children: [
                         Text(
                           subscription.serviceTypeText,
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             color: Colors.white,
                             fontSize: 16.sp,
                             fontWeight: FontWeight.bold,
@@ -67,7 +67,8 @@ class TrainerSubscriptionCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           subscription.description,
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             color: Colors.grey[400],
                             fontSize: 12.sp,
                           ),
@@ -87,7 +88,8 @@ class TrainerSubscriptionCard extends StatelessWidget {
                     ),
                     child: Text(
                       subscription.statusText,
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: _getStatusColor(),
                         fontSize: 10.sp,
                         fontWeight: FontWeight.bold,
@@ -159,14 +161,16 @@ class TrainerSubscriptionCard extends StatelessWidget {
                       children: [
                         Text(
                           'زمان باقی‌مانده',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             color: Colors.grey[400],
                             fontSize: 12.sp,
                           ),
                         ),
                         Text(
                           subscription.remainingTimeText,
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             color: Colors.white,
                             fontSize: 12.sp,
                             fontWeight: FontWeight.bold,
@@ -208,7 +212,8 @@ class TrainerSubscriptionCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           'تاخیر مربی: ${subscription.trainerDelayDays} روز',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             color: Colors.orange,
                             fontSize: 12.sp,
                             fontWeight: FontWeight.bold,
@@ -242,14 +247,16 @@ class TrainerSubscriptionCard extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   color: Colors.grey[400],
                   fontSize: 10.sp,
                 ),
               ),
               Text(
                 value,
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   color: Colors.white,
                   fontSize: 12.sp,
                   fontWeight: FontWeight.bold,

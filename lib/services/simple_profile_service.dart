@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // Removed dependency on ProfileService to keep a single source if we deprecate it
 
 class SimpleProfileService {
-  static final SupabaseClient client = Supabase.instance.client;
+  static SupabaseClient get client => Supabase.instance.client;
 
   // In-memory cache to prevent repeated Supabase queries/rebuild churn
   static Map<String, dynamic>? _cachedProfile;

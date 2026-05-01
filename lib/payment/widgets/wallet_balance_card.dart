@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/payment/models/wallet.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -77,7 +76,8 @@ class WalletBalanceCard extends StatelessWidget {
                   children: [
                     Text(
                       'کیف پول',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 20.sp,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.goldColor,
@@ -99,7 +99,8 @@ class WalletBalanceCard extends StatelessWidget {
                         SizedBox(width: 6.w),
                         Text(
                           wallet.statusText,
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             fontSize: 13.sp,
                             color: context.textSecondary,
                             fontWeight: FontWeight.w500,
@@ -131,7 +132,8 @@ class WalletBalanceCard extends StatelessWidget {
                       SizedBox(width: 4.w),
                       Text(
                         'نیاز به شارژ',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           fontSize: 11.sp,
                           color: Colors.orange,
                           fontWeight: FontWeight.w600,
@@ -150,7 +152,8 @@ class WalletBalanceCard extends StatelessWidget {
               children: [
                 Text(
                   'موجودی قابل برداشت',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 14.sp,
                     color: context.textSecondary,
                     fontWeight: FontWeight.w500,
@@ -159,7 +162,8 @@ class WalletBalanceCard extends StatelessWidget {
                 SizedBox(height: 8.h),
                 Text(
                   PaymentConstants.formatAmount(wallet.availableBalance),
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 38.sp,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.goldColor,
@@ -237,7 +241,8 @@ class WalletBalanceCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       'موجودی مسدود: ${PaymentConstants.formatAmount(wallet.blockedBalance)}',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 13.sp,
                         color: Colors.orange,
                         fontWeight: FontWeight.w600,
@@ -260,7 +265,8 @@ class WalletBalanceCard extends StatelessWidget {
                     icon: Icon(LucideIcons.plus, size: 18.sp),
                     label: Text(
                       'شارژ کیف پول',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 14.sp,
                         fontWeight: FontWeight.bold,
                       ),
@@ -289,7 +295,8 @@ class WalletBalanceCard extends StatelessWidget {
                     icon: Icon(LucideIcons.history, size: 18.sp),
                     label: Text(
                       'تاریخچه',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 14.sp,
                         fontWeight: FontWeight.bold,
                       ),
@@ -340,7 +347,8 @@ class WalletBalanceCard extends StatelessWidget {
         SizedBox(height: 8.h),
         Text(
           label,
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             fontSize: 12.sp,
             color: context.textSecondary,
             fontWeight: FontWeight.w500,
@@ -349,7 +357,8 @@ class WalletBalanceCard extends StatelessWidget {
         SizedBox(height: 4.h),
         Text(
           value,
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             fontSize: 14.sp,
             fontWeight: FontWeight.bold,
             color: color,

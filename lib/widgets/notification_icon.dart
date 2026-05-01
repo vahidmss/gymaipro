@@ -3,7 +3,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/notification/providers/notification_provider.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
@@ -206,7 +205,8 @@ class _NotificationIconState extends State<NotificationIcon>
                                       unreadCount > 99
                                           ? '99+'
                                           : unreadCount.toString(),
-                                      style: GoogleFonts.vazirmatn(
+                                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                         color: Colors.white,
                                         fontSize: 11.sp,
                                         fontWeight: FontWeight.bold,

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -30,10 +30,10 @@ class OfflineBanner extends StatelessWidget {
                   ),
                   constraints: BoxConstraints(maxWidth: maxWidth),
                   decoration: BoxDecoration(
-                    color: AppTheme.cardColor.withValues(alpha: 0.1),
+                    color: AppTheme.cardColor.withValues(alpha: 0.95),
                     borderRadius: BorderRadius.circular(12.r),
                     border: Border.all(
-                      color: AppTheme.goldColor.withValues(alpha: 0.1),
+                      color: AppTheme.goldColor.withValues(alpha: 0.3),
                     ),
                     boxShadow: [
                       BoxShadow(

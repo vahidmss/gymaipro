@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
@@ -270,7 +269,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                 icon: const Icon(LucideIcons.save),
                 label: Text(
                   'ذخیره قیمت‌ها',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontWeight: FontWeight.w700,
                     fontSize: 16.sp,
                   ),
@@ -378,7 +378,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                     children: [
                       Text(
                         title,
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: context.textColor,
                           fontSize: 18.sp,
                           fontWeight: FontWeight.bold,
@@ -386,7 +387,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                       ),
                       Text(
                         hint,
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: context.textSecondary,
                           fontSize: 12.sp,
                         ),
@@ -410,7 +412,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                     enabled: enabled,
                     keyboardType: TextInputType.number,
                     textDirection: TextDirection.ltr,
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       color: context.textColor,
                       fontSize: 14.sp,
                     ),
@@ -433,7 +436,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: _toPersianDigits('0'),
-                      hintStyle: GoogleFonts.vazirmatn(
+                      hintStyle: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: context.textSecondary.withValues(alpha: 0.5),
                         fontSize: 12.sp,
                       ),
@@ -463,7 +467,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                         padding: EdgeInsets.only(right: 4.w, left: 5),
                         child: Text(
                           'تومان',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             color: context.textSecondary,
                             fontSize: 12.sp,
                           ),
@@ -475,7 +480,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                 SizedBox(width: 12.w),
                 Text(
                   'ماهانه',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     color: context.textSecondary,
                     fontSize: 12.sp,
                   ),
@@ -593,7 +599,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                 Expanded(
                   child: Text(
                     title,
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       color: context.textColor,
                       fontSize: 18.sp,
                       fontWeight: FontWeight.bold,
@@ -614,7 +621,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                       children: [
                         Text(
                           'تومان ',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             color: context.textSecondary,
                             fontSize: 12.sp,
                           ),
@@ -624,7 +632,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                           textDirection: TextDirection.ltr,
                           child: Text(
                             _formatAmountFa(value),
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               color: AppTheme.goldColor,
                               fontWeight: FontWeight.bold,
                               fontSize: 16.sp,
@@ -635,7 +644,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                     ),
                     Text(
                       'ماهانه',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: context.textSecondary,
                         fontSize: 12.sp,
                       ),
@@ -701,7 +711,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                 SizedBox(width: 8.w),
                 Text(
                   'تخفیف بسته کامل',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     color: context.textColor,
                     fontWeight: FontWeight.bold,
                     fontSize: 16.sp,
@@ -715,19 +726,22 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
               enabled: _enablePackage,
               keyboardType: TextInputType.number,
               textDirection: TextDirection.rtl,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: context.textColor,
                 fontSize: 14.sp,
               ),
               onTap: _discountPctCtr.clear,
               decoration: InputDecoration(
                 hintText: _toPersianDigits('0'),
-                hintStyle: GoogleFonts.vazirmatn(
+                hintStyle: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   color: context.textSecondary.withValues(alpha: 0.5),
                   fontSize: 12.sp,
                 ),
                 suffixText: '%',
-                suffixStyle: GoogleFonts.vazirmatn(
+                suffixStyle: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   color: context.textSecondary,
                   fontSize: 12.sp,
                 ),
@@ -796,7 +810,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                 Expanded(
                   child: Text(
                     'بسته کامل',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       color: context.textColor,
                       fontWeight: FontWeight.bold,
                       fontSize: 18.sp,
@@ -818,7 +833,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
               children: [
                 Text(
                   'قیمت قبل از تخفیف',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     color: context.textSecondary,
                     fontSize: 14.sp,
                   ),
@@ -828,7 +844,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                   children: [
                     Text(
                       'تومان ',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: context.textSecondary,
                         fontSize: 12.sp,
                       ),
@@ -838,7 +855,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                       textDirection: TextDirection.ltr,
                       child: Text(
                         _formatAmountFa(_packageBeforeDiscount),
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: context.textColor,
                           fontSize: 14.sp,
                           fontWeight: FontWeight.w600,
@@ -855,14 +873,16 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
               children: [
                 Text(
                   'تخفیف',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     color: context.textSecondary,
                     fontSize: 14.sp,
                   ),
                 ),
                 Text(
                   '% ${_toPersianDigits(_discountPct.toStringAsFixed(0))}',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     color: context.textColor,
                     fontSize: 14.sp,
                     fontWeight: FontWeight.w600,
@@ -891,7 +911,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
               children: [
                 Text(
                   'مبلغ نهایی بسته',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     color: context.textColor,
                     fontWeight: FontWeight.bold,
                     fontSize: 16.sp,
@@ -902,7 +923,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                   children: [
                     Text(
                       'تومان ',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: context.textSecondary,
                         fontSize: 12.sp,
                       ),
@@ -912,7 +934,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                       textDirection: TextDirection.ltr,
                       child: Text(
                         _formatAmountFa(_packageFinal),
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: AppTheme.goldColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 18.sp,
@@ -939,7 +962,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
           Expanded(
             child: Text(
               text,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: context.textSecondary,
                 fontSize: 12.sp,
               ),

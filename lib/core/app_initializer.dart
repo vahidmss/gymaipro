@@ -12,6 +12,7 @@ import 'package:gymaipro/ai/services/user_context_cache_service.dart';
 import 'package:gymaipro/auth/services/auth_state_service.dart';
 import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
+import 'package:gymaipro/services/backend_reachability_service.dart';
 import 'package:gymaipro/services/database_migration_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
 import 'package:gymaipro/services/food_service.dart';
@@ -28,37 +29,36 @@ import 'package:timezone/timezone.dart' as tz;
 
 /// Handles all application initialization logic
 class AppInitializer {
-  /// Initialize all app services and dependencies
+  /// Guards one-time core SDKs (Firebase, Supabase, timezone).
+  static bool _coreInitialized = false;
+
+  /// Whether Supabase.initialize() completed successfully.
+  static bool _supabaseInitialized = false;
+
+  /// Check if Supabase is ready before accessing Supabase.instance.
+  static bool get isSupabaseReady => _supabaseInitialized;
+
+  /// Maximum time the entire initialization is allowed to take.
+  static const Duration _globalTimeout = Duration(seconds: 10);
+
+  /// Initialize all app services and dependencies.
+  ///
+  /// Safe to call multiple times (idempotent for core SDKs).
+  /// Wraps the whole process in a [_globalTimeout] to prevent infinite hangs.
   static Future<AppInitResult> initialize() async {
     try {
-      // Load environment variables
-      await _loadEnvironmentVariables();
-
-      // Configure system UI
-      _configureSystemUI();
-
-      // Initialize Firebase
-      await _initializeFirebase();
-
-      // Initialize timezone
-      _initializeTimezone();
-
-      // Initialize Supabase
-      await _initializeSupabase();
-
-      // Initialize app services
-      await _initializeAppServices();
-
-      // Setup auth
-      await _setupAuth();
-
-      // Determine initial route
-      final initialRoute = await _determineInitialRoute();
-
-      return AppInitResult(
-        success: true,
-        initialRoute: initialRoute,
-        supabaseService: SupabaseService(),
+      return await _doInitialize().timeout(
+        _globalTimeout,
+        onTimeout: () {
+          if (kDebugMode) {
+            debugPrint(
+              '⚠️ App initialization timed out after ${_globalTimeout.inSeconds}s — proceeding with best-effort result',
+            );
+          }
+          // Timed out, but core SDKs might be ready.
+          // Try to determine route from whatever state we have.
+          return _buildBestEffortResult();
+        },
       );
     } catch (e, stackTrace) {
       if (kDebugMode) {
@@ -71,6 +71,67 @@ class AppInitializer {
         supabaseService: SupabaseService(),
       );
     }
+  }
+
+  /// Build the best possible result when init times out or partially fails.
+  static Future<AppInitResult> _buildBestEffortResult() async {
+    if (!_supabaseInitialized) {
+      final fallbackRoute = await _determineFallbackRouteWithoutSupabase();
+      return AppInitResult(
+        success: true,
+        initialRoute: fallbackRoute,
+        supabaseService: SupabaseService(),
+      );
+    }
+    try {
+      final route = await _determineInitialRoute().timeout(
+        const Duration(seconds: 2),
+        onTimeout: () => '/welcome',
+      );
+      return AppInitResult(
+        success: true,
+        initialRoute: route,
+        supabaseService: SupabaseService(),
+      );
+    } catch (_) {
+      return AppInitResult(
+        success: false,
+        initialRoute: '/welcome',
+        supabaseService: SupabaseService(),
+      );
+    }
+  }
+
+  static Future<AppInitResult> _doInitialize() async {
+    // ── Core SDK init (runs only once) ──
+    if (!_coreInitialized) {
+      await _loadEnvironmentVariables();
+      _configureSystemUI();
+      await _initializeFirebase();
+      _initializeTimezone();
+      await _initializeSupabase();
+      _coreInitialized = true;
+    }
+
+    // ── Retriable services (safe to call again on retry) ──
+    // Fire-and-forget for non-critical services
+    _initializeAppServices();
+
+    // Auth & routing (must complete before we can navigate)
+    // If Supabase is unreachable, we still allow app startup in offline-safe mode.
+    if (_supabaseInitialized) {
+      await _setupAuth();
+    }
+
+    final initialRoute = _supabaseInitialized
+        ? await _determineInitialRoute()
+        : await _determineFallbackRouteWithoutSupabase();
+
+    return AppInitResult(
+      success: true,
+      initialRoute: initialRoute,
+      supabaseService: SupabaseService(),
+    );
   }
 
   static Future<void> _loadEnvironmentVariables() async {
@@ -134,48 +195,53 @@ class AppInitializer {
   }
 
   static Future<void> _initializeSupabase() async {
-    try {
-      // در حالت Debug، اگر Hostname mismatch (امولاتور/پروکسی/شبکه) رخ دهد، یک کلاینت که گواهی را نادیده می‌گیرد استفاده می‌شود.
-      // فقط برای توسعه؛ در Release این کار انجام نمی‌شود.
-      final Client? httpClient = kDebugMode
-          ? () {
-              final io = HttpClient();
-              io.badCertificateCallback = (_, __, ___) => true;
-              return IOClient(io);
-            }()
-          : null;
+    final Client? httpClient = kDebugMode
+        ? () {
+            final io = HttpClient();
+            io.badCertificateCallback = (_, __, ___) => true;
+            return IOClient(io);
+          }()
+        : null;
 
-      // فعال‌سازی autoRefreshToken برای مدیریت خودکار نشست
-      // این باعث می‌شود نشست‌ها به صورت خودکار refresh شوند و کاربر نیازی به لاگین مجدد نداشته باشد
-      // persistSession به صورت پیش‌فرض فعال است در Supabase Flutter SDK
+    try {
       await Supabase.initialize(
         url: AppConfig.supabaseUrl,
         anonKey: AppConfig.supabaseAnonKey,
         httpClient: httpClient,
         authOptions: const FlutterAuthClientOptions(
-          autoRefreshToken: true, // فعال‌سازی رفرش خودکار توکن
+          autoRefreshToken: true,
         ),
-      );
-
+      ).timeout(const Duration(seconds: 6));
+      _supabaseInitialized = true;
+    } catch (e) {
+      _supabaseInitialized = false;
       if (kDebugMode) {
         debugPrint(
-          'Supabase initialized successfully with auto-refresh enabled',
+          'Supabase initialization failed/unreachable. Continuing in offline-safe mode: $e',
         );
       }
+      return;
+    }
 
-      // Setup auth state listener
+    if (kDebugMode) {
+      debugPrint('Supabase initialized successfully');
+    }
+
+    // Non-critical post-init (safe to fail)
+    try {
       _setupAuthStateListener();
+    } catch (e) {
+      if (kDebugMode) debugPrint('Auth listener setup error: $e');
+    }
 
-      // منتظر بمان تا Supabase session را از storage بازیابی کند
-      // این مهم است چون session restoration به صورت asynchronous انجام می‌شود
-      await Future<void>.delayed(const Duration(milliseconds: 300));
+    // Brief pause for Supabase to restore session from storage
+    await Future<void>.delayed(const Duration(milliseconds: 150));
 
-      // Test connection if online
+    // Non-blocking connection test
+    try {
       await _testSupabaseConnection();
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error initializing Supabase: $e');
-      }
+      if (kDebugMode) debugPrint('Connection test error: $e');
     }
   }
 
@@ -248,32 +314,25 @@ class AppInitializer {
         return;
       }
 
-      bool connectionSuccessful = false;
-      int retryCount = 0;
-      const maxRetries = 3;
-
-      while (!connectionSuccessful && retryCount < maxRetries) {
-        try {
-          await Supabase.instance.client.from('profiles').select('id').limit(1);
-          connectionSuccessful = true;
-          if (kDebugMode) {
-            debugPrint('Supabase connection test successful');
-          }
-        } catch (e) {
-          retryCount++;
-          if (kDebugMode) {
-            debugPrint(
-              'Supabase connection test failed (attempt $retryCount): $e',
-            );
-          }
-          if (retryCount < maxRetries) {
-            await Future<void>.delayed(Duration(seconds: retryCount * 2));
-          }
+      // Single attempt with a strict timeout — don't block startup.
+      try {
+        await Supabase.instance.client
+            .from('profiles')
+            .select('id')
+            .limit(1)
+            .timeout(const Duration(seconds: 5));
+        if (kDebugMode) {
+          debugPrint('Supabase connection test successful');
         }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('Supabase connection test failed (non-blocking): $e');
+        }
+        // Don't retry — auth auto-refresh will recover in the background.
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('Supabase connection test failed: $e');
+        debugPrint('Supabase connection test error: $e');
       }
     }
   }
@@ -386,14 +445,30 @@ class AppInitializer {
   static Future<void> _initNotificationService() async {
     try {
       final notificationService = NotificationService();
-      await notificationService.initialize();
+      await notificationService.initialize().timeout(
+        const Duration(seconds: 4),
+        onTimeout: () {
+          if (kDebugMode) {
+            debugPrint('NotificationService init timed out; continuing startup');
+          }
+        },
+      );
       if (kDebugMode) {
         debugPrint('Notification service initialized');
       }
 
       final privateMessageNotificationService =
           PrivateMessageNotificationService();
-      await privateMessageNotificationService.initialize();
+      await privateMessageNotificationService.initialize().timeout(
+        const Duration(seconds: 4),
+        onTimeout: () {
+          if (kDebugMode) {
+            debugPrint(
+              'PrivateMessageNotificationService init timed out; continuing startup',
+            );
+          }
+        },
+      );
       if (kDebugMode) {
         debugPrint('Private message notification service initialized');
       }
@@ -405,6 +480,12 @@ class AppInitializer {
   }
 
   static Future<void> _setupAuth() async {
+    if (!_supabaseInitialized) {
+      if (kDebugMode) {
+        debugPrint('Skipping auth setup: Supabase is not initialized');
+      }
+      return;
+    }
     try {
       final authService = AuthStateService();
       final isOnline = await ConnectivityService.instance.checkNow();
@@ -413,9 +494,8 @@ class AppInitializer {
         debugPrint('Setting up auth - Online: $isOnline');
       }
 
-      // منتظر بمان تا Supabase session را از storage بازیابی کند
-      // این اطمینان می‌دهد که session قبل از بررسی، به طور کامل بازیابی شده است
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      // Small delay to let Supabase finish session hydration from storage
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
       // تلاش برای بازیابی نشست (حتی در حالت آفلاین)
       final session = await authService.restoreSession();
@@ -427,38 +507,38 @@ class AppInitializer {
           );
         }
 
-        // Subscribe to 'all' topic after session restore to ensure broadcast notifications work
-        try {
-          await NotificationService().forceSubscribeToAll();
-          if (kDebugMode) {
-            debugPrint('✅ Subscribed to topic "all" after session restore');
-          }
-        } catch (e) {
-          if (kDebugMode) {
-            debugPrint(
-              '⚠️ Error subscribing to topic "all" after session restore: $e',
-            );
-          }
-        }
+        // Subscribe to notifications (fire-and-forget with timeout)
+        unawaited(
+          NotificationService()
+              .forceSubscribeToAll()
+              .timeout(const Duration(seconds: 3))
+              .then((_) {
+            if (kDebugMode) {
+              debugPrint('✅ Subscribed to topic "all" after session restore');
+            }
+          }).catchError((Object e) {
+            if (kDebugMode) {
+              debugPrint('⚠️ Error subscribing to topic "all": $e');
+            }
+          }),
+        );
 
-        // اگر آنلاین هستیم، پروفایل و کش را به‌روزرسانی کن
+        // Verify profile if online (with timeout to avoid hanging)
         if (isOnline) {
           try {
             final hasProfile = await _verifyUserProfile(
               session.user.id,
               session.user,
-            );
+            ).timeout(const Duration(seconds: 5), onTimeout: () => false);
             if (!hasProfile) {
               if (kDebugMode) {
                 debugPrint(
                   '⚠️ User ${session.user.id} has no complete profile. Keeping session and redirecting to registration flow.',
                 );
               }
-              // IMPORTANT: Do NOT sign out here. Professional apps keep the session and
-              // route the user to a profile completion/registration flow instead.
               return;
             }
-            await _refreshUserContextCache();
+            unawaited(_refreshUserContextCache());
             if (kDebugMode) {
               debugPrint('User profile and cache refreshed successfully');
             }
@@ -562,6 +642,18 @@ class AppInitializer {
       if (kDebugMode) {
         debugPrint('Error determining initial route: $e');
       }
+      return '/welcome';
+    }
+  }
+
+  static Future<String> _determineFallbackRouteWithoutSupabase() async {
+    try {
+      final isOnline = await ConnectivityService.instance.checkNow();
+      if (!isOnline) return '/offline';
+      final backendReachable = await BackendReachabilityService
+          .isBackendReachable(timeout: const Duration(seconds: 3));
+      return backendReachable ? '/welcome' : '/offline';
+    } catch (_) {
       return '/welcome';
     }
   }

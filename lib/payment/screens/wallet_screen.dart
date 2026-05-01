@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/payment/models/payment_transaction.dart';
 import 'package:gymaipro/payment/models/wallet.dart';
 import 'package:gymaipro/payment/services/payment_history_service.dart';
@@ -108,7 +107,8 @@ class _WalletScreenState extends State<WalletScreen> {
         appBar: AppBar(
           title: Text(
             'کیف پول',
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 20.sp,
               fontWeight: FontWeight.bold,
               color: AppTheme.goldColor,
@@ -190,7 +190,8 @@ class _WalletScreenState extends State<WalletScreen> {
           SizedBox(height: 16.h),
           Text(
             'کیف پول یافت نشد',
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 18.sp,
               fontWeight: FontWeight.bold,
               color: context.textColor,
@@ -200,7 +201,8 @@ class _WalletScreenState extends State<WalletScreen> {
           Text(
             'لطفاً وارد شوید یا دوباره تلاش کنید.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 14.sp,
               color: context.textSecondary,
               height: 1.5,
@@ -228,7 +230,8 @@ class _WalletScreenState extends State<WalletScreen> {
                 SizedBox(width: 8.w),
                 Text(
                   'تراکنش‌های اخیر',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
                     color: context.textColor,
@@ -246,7 +249,8 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
                 label: Text(
                   'مشاهده همه',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 14.sp,
                     color: AppTheme.goldColor,
                     fontWeight: FontWeight.w600,
@@ -293,7 +297,8 @@ class _WalletScreenState extends State<WalletScreen> {
                   SizedBox(height: 20.h),
                   Text(
                     'هنوز تراکنشی انجام نداده‌اید',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 16.sp,
                       color: context.textColor,
                       fontWeight: FontWeight.w600,
@@ -303,7 +308,8 @@ class _WalletScreenState extends State<WalletScreen> {
                   Text(
                     'پس از انجام اولین تراکنش، تاریخچه آن اینجا نمایش داده می‌شود',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 13.sp,
                       color: context.textSecondary,
                       height: 1.6,
@@ -389,7 +395,8 @@ class _WalletScreenState extends State<WalletScreen> {
                         children: [
                           Text(
                             transaction.typeText,
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 18.sp,
                               fontWeight: FontWeight.bold,
                               color: context.textColor,
@@ -401,7 +408,8 @@ class _WalletScreenState extends State<WalletScreen> {
                                 PaymentConstants.formatAmount(
                                   transaction.amount,
                                 ),
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 16.sp,
                               fontWeight: FontWeight.w600,
                               color: transactionColor,
@@ -443,7 +451,8 @@ class _WalletScreenState extends State<WalletScreen> {
                     onPressed: () => Navigator.of(ctx).pop(),
                     child: Text(
                       'بستن',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.goldColor,
@@ -469,7 +478,8 @@ class _WalletScreenState extends State<WalletScreen> {
             width: 100.w,
             child: Text(
               label,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 13.sp,
                 color: context.textSecondary,
                 fontWeight: FontWeight.w500,
@@ -479,7 +489,8 @@ class _WalletScreenState extends State<WalletScreen> {
           Expanded(
             child: Text(
               value,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 14.sp,
                 color: context.textColor,
                 height: 1.4,
@@ -550,7 +561,8 @@ class _WalletScreenState extends State<WalletScreen> {
                   children: [
                     Text(
                       transaction.typeText,
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 15.sp,
                         fontWeight: FontWeight.w600,
                         color: context.textColor,
@@ -559,7 +571,8 @@ class _WalletScreenState extends State<WalletScreen> {
                     SizedBox(height: 4.h),
                     Text(
                       transaction.description,
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 13.sp,
                         color: context.textSecondary,
                       ),
@@ -578,7 +591,8 @@ class _WalletScreenState extends State<WalletScreen> {
                         Flexible(
                           child: Text(
                             _formatDateTime(transaction.createdAt),
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 11.sp,
                               color: context.textSecondary,
                             ),
@@ -607,7 +621,8 @@ class _WalletScreenState extends State<WalletScreen> {
                     child: Text(
                       (transaction.isPositive ? '+' : '-') +
                           PaymentConstants.formatAmount(transaction.amount),
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 15.sp,
                         fontWeight: FontWeight.bold,
                         color: transactionColor,
@@ -627,7 +642,8 @@ class _WalletScreenState extends State<WalletScreen> {
                       Flexible(
                         child: Text(
                           'موجودی: ${PaymentConstants.formatAmount(transaction.balanceAfter)}',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             fontSize: 11.sp,
                             color: context.textSecondary,
                           ),
@@ -695,7 +711,8 @@ class _WalletScreenState extends State<WalletScreen> {
                         children: [
                           Text(
                             transaction.description,
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 18.sp,
                               fontWeight: FontWeight.bold,
                               color: context.textColor,
@@ -706,7 +723,8 @@ class _WalletScreenState extends State<WalletScreen> {
                             PaymentConstants.formatAmount(
                               transaction.finalAmount,
                             ),
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 16.sp,
                               fontWeight: FontWeight.w600,
                               color: amountColor,
@@ -760,7 +778,8 @@ class _WalletScreenState extends State<WalletScreen> {
                     onPressed: () => Navigator.of(ctx).pop(),
                     child: Text(
                       'بستن',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.goldColor,
@@ -840,7 +859,8 @@ class _WalletScreenState extends State<WalletScreen> {
                   children: [
                     Text(
                       transaction.description,
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 15.sp,
                         fontWeight: FontWeight.w600,
                         color: context.textColor,
@@ -849,7 +869,8 @@ class _WalletScreenState extends State<WalletScreen> {
                     SizedBox(height: 4.h),
                     Text(
                       transaction.statusText,
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 13.sp,
                         color: statusColor,
                       ),
@@ -866,7 +887,8 @@ class _WalletScreenState extends State<WalletScreen> {
                         Flexible(
                           child: Text(
                             _formatDateTime(transaction.createdAt),
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 11.sp,
                               color: context.textSecondary,
                             ),
@@ -897,7 +919,8 @@ class _WalletScreenState extends State<WalletScreen> {
                     ),
                     child: Text(
                       PaymentConstants.formatAmount(transaction.finalAmount),
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 16.sp,
                         fontWeight: FontWeight.bold,
                         color: amountColor,

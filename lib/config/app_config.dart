@@ -2,6 +2,24 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AppConfig {
+  /// Health endpoint used to decide if "online app backend" is reachable.
+  ///
+  /// Prefer setting BACKEND_HEALTHCHECK_URL in .env / --dart-define.
+  /// Default is compatible with Supabase-compatible self-hosted auth.
+  static String get backendHealthCheckUrl {
+    const envUrl = String.fromEnvironment('BACKEND_HEALTHCHECK_URL');
+    if (envUrl.isNotEmpty) {
+      return envUrl;
+    }
+    try {
+      final dotenvUrl = dotenv.env['BACKEND_HEALTHCHECK_URL'] ?? '';
+      if (dotenvUrl.isNotEmpty) {
+        return dotenvUrl;
+      }
+    } catch (_) {}
+    return '${supabaseUrl.replaceFirst(RegExp(r'/$'), '')}/auth/v1/health';
+  }
+
   // Supabase configuration
   // Try to get from environment variable first (--dart-define), then from .env file
   static String get supabaseUrl {
@@ -19,8 +37,8 @@ class AppConfig {
         print('AppConfig: dotenv not initialized: $e');
       }
     }
-    // Default fallback (should not be used in production)
-    return 'https://oaztoennovtcfcxvnswa.supabase.co';
+    // Default fallback: self-hosted
+    return 'http://87.248.156.175:8000';
   }
 
   static String get supabaseAnonKey {
@@ -38,8 +56,21 @@ class AppConfig {
         print('AppConfig: dotenv not initialized: $e');
       }
     }
-    // Default fallback (should not be used in production)
-    return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9henRvZW5ub3Z0Y2ZjeHZuc3dhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY4NzYzNzEsImV4cCI6MjA2MjQ1MjM3MX0.UywfAvKyqUjByLQHRnRqJ85Bal6NdvAOwQQJXVaQfGk';
+    // Default fallback: must be set in .env from server
+    return '';
+  }
+
+  /// اگر روی self-hosted هنوز Edge Functions راه نیفتاده، در .env بگذار false تا فراخوانی نشود.
+  static bool get supabaseEdgeFunctionsEnabled {
+    const env = String.fromEnvironment('SUPABASE_EDGE_FUNCTIONS_ENABLED');
+    if (env.isNotEmpty) {
+      return env.toLowerCase() == 'true' || env == '1';
+    }
+    try {
+      final v = dotenv.env['SUPABASE_EDGE_FUNCTIONS_ENABLED'] ?? '';
+      if (v.isNotEmpty) return v.toLowerCase() == 'true' || v == '1';
+    } catch (_) {}
+    return true;
   }
 
   // App configuration

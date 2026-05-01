@@ -7,6 +7,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/notification_navigation_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
@@ -89,6 +90,8 @@ class NotificationService {
       } catch (localError) {
         debugPrint('❌ Error initializing local notifications: $localError');
       }
+      // Mark initialized so startup/feature flows never loop on external dependency failures.
+      _isInitialized = true;
     }
   }
 
@@ -739,37 +742,44 @@ class NotificationService {
 
   /// Get notification settings
   Future<NotificationSettings> getNotificationSettings() async {
-    if (_firebaseMessaging == null) {
-      if (!kIsWeb && Firebase.apps.isNotEmpty) {
-        _firebaseMessaging = FirebaseMessaging.instance;
-      }
+    if (_firebaseMessaging == null && !kIsWeb && Firebase.apps.isNotEmpty) {
+      _firebaseMessaging = FirebaseMessaging.instance;
     }
-    return (_firebaseMessaging ?? FirebaseMessaging.instance)
-        .getNotificationSettings();
+    if (_firebaseMessaging == null) {
+      throw Exception(
+        'Firebase messaging is not available in current network/runtime state',
+      );
+    }
+    return _firebaseMessaging!.getNotificationSettings();
   }
 
   /// Subscribe to topic
   Future<void> subscribeToTopic(String topic) async {
-    if (_firebaseMessaging == null) {
-      if (!kIsWeb && Firebase.apps.isNotEmpty) {
-        _firebaseMessaging = FirebaseMessaging.instance;
-      }
+    if (_firebaseMessaging == null && !kIsWeb && Firebase.apps.isNotEmpty) {
+      _firebaseMessaging = FirebaseMessaging.instance;
     }
-    await (_firebaseMessaging ?? FirebaseMessaging.instance).subscribeToTopic(topic);
+    if (_firebaseMessaging == null) {
+      debugPrint('⚠️ Skipping subscribeToTopic("$topic"): Firebase unavailable');
+      return;
+    }
+    await _firebaseMessaging!.subscribeToTopic(topic);
   }
 
   /// Unsubscribe from topic
   Future<void> unsubscribeFromTopic(String topic) async {
-    if (_firebaseMessaging == null) {
-      if (!kIsWeb && Firebase.apps.isNotEmpty) {
-        _firebaseMessaging = FirebaseMessaging.instance;
-      }
+    if (_firebaseMessaging == null && !kIsWeb && Firebase.apps.isNotEmpty) {
+      _firebaseMessaging = FirebaseMessaging.instance;
     }
-    await (_firebaseMessaging ?? FirebaseMessaging.instance).unsubscribeFromTopic(topic);
+    if (_firebaseMessaging == null) {
+      debugPrint('⚠️ Skipping unsubscribeFromTopic("$topic"): Firebase unavailable');
+      return;
+    }
+    await _firebaseMessaging!.unsubscribeFromTopic(topic);
   }
 
   /// Trigger processing of broadcast queue (Edge Function)
   Future<bool> processBroadcastQueue() async {
+    if (!AppConfig.supabaseEdgeFunctionsEnabled) return false;
     try {
       final supabase = Supabase.instance.client;
       final res = await supabase.functions.invoke(
@@ -791,6 +801,7 @@ class NotificationService {
     required String body,
     Map<String, dynamic>? data,
   }) async {
+    if (!AppConfig.supabaseEdgeFunctionsEnabled) return false;
     try {
       final supabase = Supabase.instance.client;
       
@@ -960,6 +971,7 @@ class NotificationService {
     required String messageType,
     String? conversationId,
   }) async {
+    if (!AppConfig.supabaseEdgeFunctionsEnabled) return false;
     try {
       final supabase = Supabase.instance.client;
 

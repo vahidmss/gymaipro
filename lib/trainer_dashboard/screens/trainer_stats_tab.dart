@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/trainer_dashboard/services/trainer_finance_service.dart';
@@ -350,7 +349,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
   Widget _sectionTitle(String title, bool isDark) {
     return Text(
       title,
-      style: GoogleFonts.vazirmatn(
+      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
         color: context.textColor,
         fontSize: 20.sp,
         fontWeight: FontWeight.bold,
@@ -419,7 +419,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     color: context.textColor,
                     fontSize: 14.sp,
                     fontWeight: FontWeight.w600,
@@ -429,7 +430,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                   SizedBox(height: 2.h),
                   Text(
                     subtitle,
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       color: context.textSecondary,
                       fontSize: 11.sp,
                     ),
@@ -438,7 +440,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                 SizedBox(height: 4.h),
                 Text(
                   _formatToman(amount),
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     color: color,
                     fontWeight: FontWeight.w800,
                     fontSize: 18.sp,
@@ -477,7 +480,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
           SizedBox(height: 8.h),
           Text(
             value,
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               color: color,
               fontSize: 20.sp,
               fontWeight: FontWeight.bold,
@@ -486,7 +490,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
           SizedBox(height: 4.h),
           Text(
             title,
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               color: context.textSecondary,
               fontSize: 12.sp,
             ),
@@ -559,7 +564,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     color: context.textColor,
                     fontSize: 14.sp,
                     fontWeight: FontWeight.w600,
@@ -569,7 +575,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                   SizedBox(height: 2.h),
                   Text(
                     subtitle,
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       color: context.textSecondary,
                       fontSize: 11.sp,
                     ),
@@ -581,7 +588,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                   children: [
                     Text(
                       value.toStringAsFixed(value < 1 ? 2 : 1),
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: color,
                         fontWeight: FontWeight.w800,
                         fontSize: 20.sp,
@@ -592,7 +600,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                       padding: EdgeInsets.only(bottom: 2.h),
                       child: Text(
                         unit,
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: color.withValues(alpha: 0.8),
                           fontWeight: FontWeight.w600,
                           fontSize: 14.sp,
@@ -640,7 +649,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
             children: [
               Text(
                 serviceName,
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   color: context.textColor,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.bold,
@@ -654,7 +664,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                 ),
                 child: Text(
                   '$count عدد',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     color: AppTheme.goldColor,
                     fontSize: 12.sp,
                     fontWeight: FontWeight.w600,
@@ -673,7 +684,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                   children: [
                     Text(
                       'درآمد شما',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: context.textSecondary,
                         fontSize: 12.sp,
                       ),
@@ -681,7 +693,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                     SizedBox(height: 4.h),
                     Text(
                       _formatToman(earnings),
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: AppTheme.goldColor,
                         fontSize: 16.sp,
                         fontWeight: FontWeight.w700,
@@ -697,7 +710,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                   children: [
                     Text(
                       'کمیسیون',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: context.textSecondary,
                         fontSize: 12.sp,
                       ),
@@ -705,7 +719,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                     SizedBox(height: 4.h),
                     Text(
                       _formatToman(commission),
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: Colors.orange,
                         fontSize: 16.sp,
                         fontWeight: FontWeight.w700,
@@ -752,7 +767,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
             children: [
               Text(
                 monthName,
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   color: context.textColor,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.bold,
@@ -766,7 +782,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                 ),
                 child: Text(
                   '$subscriptions اشتراک',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     color: AppTheme.goldColor,
                     fontSize: 12.sp,
                     fontWeight: FontWeight.w600,
@@ -784,7 +801,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                   children: [
                     Text(
                       'کل درآمد',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: context.textSecondary,
                         fontSize: 11.sp,
                       ),
@@ -792,7 +810,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                     SizedBox(height: 2.h),
                     Text(
                       _formatToman(revenue),
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: Colors.blue,
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w700,
@@ -808,7 +827,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                   children: [
                     Text(
                       'درآمد خالص',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: context.textSecondary,
                         fontSize: 11.sp,
                       ),
@@ -816,7 +836,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                     SizedBox(height: 2.h),
                     Text(
                       _formatToman(earnings),
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: AppTheme.goldColor,
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w700,
@@ -832,7 +853,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                   children: [
                     Text(
                       'کمیسیون',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: context.textSecondary,
                         fontSize: 11.sp,
                       ),
@@ -840,7 +862,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                     SizedBox(height: 2.h),
                     Text(
                       _formatToman(commission),
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         color: Colors.orange,
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w700,
@@ -873,7 +896,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
       child: Center(
         child: Text(
           message,
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             color: context.textSecondary,
             fontSize: 14.sp,
           ),

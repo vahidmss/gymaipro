@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
@@ -902,16 +902,17 @@ class SupabaseService {
       final imageUrlResponse = client.storage
           .from('profile_images')
           .getPublicUrl(filePath);
-      // The new updateProfile function expects userId (which is auth user id)
-      // and a map of data.
-      // Ensure 'avatar_url' is a column in your 'profiles' table.
-      await SimpleProfileService.updateProfile({
+
+      final updated = await SimpleProfileService.updateProfile({
         'avatar_url': imageUrlResponse,
       });
+      if (!updated) {
+        throw Exception('به‌روزرسانی پروفایل در دیتابیس انجام نشد');
+      }
       return imageUrlResponse;
     } catch (e) {
       print('Error uploading profile image: $e');
-      return null;
+      rethrow;
     }
   }
 

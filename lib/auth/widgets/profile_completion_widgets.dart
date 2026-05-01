@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:responsive_framework/responsive_framework.dart';
+import 'package:shamsi_date/shamsi_date.dart';
 
 // کارت wrapper برای مراحل تکمیل پروفایل
 class ProfileCardWrapper extends StatelessWidget {
@@ -407,6 +409,456 @@ class MonthDropdown extends StatelessWidget {
           onChanged: onChanged,
         ),
       ),
+    );
+  }
+}
+
+// ─── انتخاب تاریخ تولد به سبک چرخ (مثل اپ‌های درجه‌یک) ───
+
+const List<String> _persianMonthNames = [
+  '',
+  'فروردین',
+  'اردیبهشت',
+  'خرداد',
+  'تیر',
+  'مرداد',
+  'شهریور',
+  'مهر',
+  'آبان',
+  'آذر',
+  'دی',
+  'بهمن',
+  'اسفند',
+];
+
+int _daysInJalaliMonth(int year, int month) {
+  if (month <= 6) return 31;
+  if (month <= 11) return 30;
+  return Jalali(year).isLeapYear() ? 30 : 29;
+}
+
+const double _kWheelItemExtent = 48.0;
+const int _kWheelVisibleCount = 5;
+
+/// فیلد قابل لمس برای انتخاب تاریخ تولد — با یک لمس، bottom sheet چرخ‌دار باز می‌شود.
+class BirthDateTapField extends StatelessWidget {
+  const BirthDateTapField({
+    required this.selectedYear,
+    required this.selectedMonth,
+    required this.selectedDay,
+    required this.onDateSelected,
+    super.key,
+  });
+
+  final int? selectedYear;
+  final int? selectedMonth;
+  final int? selectedDay;
+  final void Function(int year, int month, int day) onDateSelected;
+
+  static String _formatDate(int? y, int? m, int? d) {
+    if (y == null || m == null || d == null) return '';
+    return '$d ${_persianMonthNames[m]} $y';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasValue = selectedYear != null && selectedMonth != null && selectedDay != null;
+    final label = hasValue
+        ? _formatDate(selectedYear, selectedMonth, selectedDay)
+        : 'انتخاب تاریخ تولد';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openBirthDateSheet(context),
+        borderRadius: BorderRadius.circular(12.r),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: hasValue
+                  ? AppTheme.goldColor.withValues(alpha: 0.5)
+                  : AppTheme.lightDividerColor,
+            ),
+            borderRadius: BorderRadius.circular(12.r),
+            color: AppTheme.lightCardColor,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.calendar_today_rounded,
+                size: 22.sp,
+                color: hasValue ? AppTheme.goldColor : AppTheme.lightTextSecondary,
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w500,
+                    color: hasValue
+                        ? AppTheme.lightTextColor
+                        : AppTheme.lightTextSecondary,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 24.sp,
+                color: hasValue ? AppTheme.goldColor : AppTheme.lightTextSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openBirthDateSheet(BuildContext context) {
+    final now = Jalali.now();
+    final initialYear = selectedYear ?? now.year - 25;
+    final initialMonth = selectedMonth ?? 1;
+    final initialDay = selectedDay ?? 1;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _BirthDateWheelSheet(
+        initialYear: initialYear,
+        initialMonth: initialMonth,
+        initialDay: initialDay,
+        onConfirm: (y, m, d) {
+          Navigator.of(ctx).pop();
+          onDateSelected(y, m, d);
+        },
+        onCancel: () => Navigator.of(ctx).pop(),
+      ),
+    );
+  }
+}
+
+class _BirthDateWheelSheet extends StatefulWidget {
+  const _BirthDateWheelSheet({
+    required this.initialYear,
+    required this.initialMonth,
+    required this.initialDay,
+    required this.onConfirm,
+    required this.onCancel,
+  });
+
+  final int initialYear;
+  final int initialMonth;
+  final int initialDay;
+  final void Function(int year, int month, int day) onConfirm;
+  final VoidCallback onCancel;
+
+  @override
+  State<_BirthDateWheelSheet> createState() => _BirthDateWheelSheetState();
+}
+
+class _BirthDateWheelSheetState extends State<_BirthDateWheelSheet> {
+  late FixedExtentScrollController _yearController;
+  late FixedExtentScrollController _monthController;
+  late FixedExtentScrollController _dayController;
+
+  late List<int> _years;
+  static const List<int> _months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  late List<int> _days;
+
+  int get _selectedYear {
+    final i = _yearController.hasClients ? _yearController.selectedItem : 0;
+    return _years[i.clamp(0, _years.length - 1)];
+  }
+
+  int get _selectedMonth {
+    final i = _monthController.hasClients ? _monthController.selectedItem : 0;
+    return _months[i.clamp(0, _months.length - 1)];
+  }
+
+  int get _selectedDay {
+    final i = _dayController.hasClients ? _dayController.selectedItem : 0;
+    return _days[i.clamp(0, _days.length - 1)];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final now = Jalali.now();
+    _years = List.generate(101, (i) => now.year - 100 + i);
+    _years.sort((a, b) => b.compareTo(a));
+
+    final yearIndex = _years.indexOf(widget.initialYear);
+    final monthIndex = _months.indexOf(widget.initialMonth);
+    _yearController = FixedExtentScrollController(
+      initialItem: yearIndex >= 0 ? yearIndex : 0,
+    );
+    _monthController = FixedExtentScrollController(
+      initialItem: monthIndex >= 0 ? monthIndex : 0,
+    );
+
+    _days = _buildDays(widget.initialYear, widget.initialMonth);
+    var dayIndex = widget.initialDay.clamp(1, _days.length) - 1;
+    _dayController = FixedExtentScrollController(initialItem: dayIndex);
+  }
+
+  List<int> _buildDays(int year, int month) {
+    final n = _daysInJalaliMonth(year, month);
+    return List.generate(n, (i) => i + 1);
+  }
+
+  @override
+  void dispose() {
+    _yearController.dispose();
+    _monthController.dispose();
+    _dayController.dispose();
+    super.dispose();
+  }
+
+  void _onYearOrMonthChanged() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final year = _selectedYear;
+      final month = _selectedMonth;
+      final newDays = _buildDays(year, month);
+      final oldDayIndex = _dayController.hasClients ? _dayController.selectedItem : 0;
+      final newDayIndex = (oldDayIndex + 1).clamp(1, newDays.length) - 1;
+      setState(() => _days = newDays);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _dayController.hasClients && _dayController.positions.isNotEmpty) {
+          _dayController.jumpToItem(newDayIndex.clamp(0, _days.length - 1));
+        }
+      });
+    });
+  }
+
+  static const double _itemExtent = _kWheelItemExtent;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1C1C1E) : AppTheme.lightCardColor;
+    final textColor = isDark ? Colors.white : AppTheme.lightTextColor;
+    final secondaryColor = isDark ? Colors.white54 : AppTheme.lightTextSecondary;
+    final gold = AppTheme.goldColor;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(height: 12.h),
+            Container(
+              width: 40.w,
+              height: 4.h,
+              decoration: BoxDecoration(
+                color: secondaryColor,
+                borderRadius: BorderRadius.circular(2.r),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: widget.onCancel,
+                    child: Text(
+                      'انصراف',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: secondaryColor,
+                        fontSize: 16.sp,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'تاریخ تولد',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      widget.onConfirm(_selectedYear, _selectedMonth, _selectedDay);
+                    },
+                    child: Text(
+                      'تأیید',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: gold,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: _WheelColumn<int>(
+                      controller: _yearController,
+                      items: _years,
+                      itemExtent: _itemExtent,
+                      label: 'سال',
+                      textColor: textColor,
+                      secondaryColor: secondaryColor,
+                      gold: gold,
+                      formatItem: (v) => v.toString(),
+                      onSelected: (_) => _onYearOrMonthChanged(),
+                    ),
+                  ),
+                  Expanded(
+                    child: _WheelColumn<int>(
+                      controller: _monthController,
+                      items: _months,
+                      itemExtent: _itemExtent,
+                      label: 'ماه',
+                      textColor: textColor,
+                      secondaryColor: secondaryColor,
+                      gold: gold,
+                      formatItem: (m) => _persianMonthNames[m],
+                      onSelected: (_) => _onYearOrMonthChanged(),
+                    ),
+                  ),
+                  Expanded(
+                    child: _WheelColumn<int>(
+                      controller: _dayController,
+                      items: _days,
+                      itemExtent: _itemExtent,
+                      label: 'روز',
+                      textColor: textColor,
+                      secondaryColor: secondaryColor,
+                      gold: gold,
+                      formatItem: (d) => d.toString(),
+                      onSelected: (_) {},
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 24.h),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WheelColumn<T> extends StatelessWidget {
+  const _WheelColumn({
+    required this.controller,
+    required this.items,
+    required this.itemExtent,
+    required this.label,
+    required this.textColor,
+    required this.secondaryColor,
+    required this.gold,
+    required this.formatItem,
+    this.onSelected,
+  });
+
+  final FixedExtentScrollController controller;
+  final List<T> items;
+  final double itemExtent;
+  final String label;
+  final Color textColor;
+  final Color secondaryColor;
+  final Color gold;
+  final String Function(T) formatItem;
+  final void Function(T)? onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontSize: 12.sp,
+            color: secondaryColor,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        SizedBox(height: 8.h),
+        SizedBox(
+          height: _kWheelItemExtent * _kWheelVisibleCount,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              ListWheelScrollView.useDelegate(
+                controller: controller,
+                itemExtent: itemExtent,
+                diameterRatio: 1.4,
+                perspective: 0.003,
+                physics: const FixedExtentScrollPhysics(),
+                onSelectedItemChanged: onSelected != null
+                    ? (i) {
+                        if (i >= 0 && i < items.length) onSelected!(items[i]);
+                      }
+                    : null,
+                childDelegate: ListWheelChildBuilderDelegate(
+                  childCount: items.length,
+                  builder: (context, index) {
+                    final value = items[index];
+                    final str = formatItem(value);
+                    return Center(
+                      child: Text(
+                        str,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              IgnorePointer(
+                child: Container(
+                  height: _kWheelItemExtent,
+                  margin: EdgeInsets.symmetric(horizontal: 8.w),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8.r),
+                    border: Border(
+                      top: BorderSide(color: gold.withValues(alpha: 0.35), width: 1.5),
+                      bottom: BorderSide(color: gold.withValues(alpha: 0.35), width: 1.5),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

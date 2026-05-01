@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/payment/models/wallet.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/payment/widgets/wallet_balance_card.dart';
@@ -122,7 +121,8 @@ class _MyWalletScreenState extends State<MyWalletScreen>
                 SizedBox(width: 8.w),
                 Text(
                   'تراکنش‌های اخیر',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
                     color: context.textColor,
@@ -140,7 +140,8 @@ class _MyWalletScreenState extends State<MyWalletScreen>
                 ),
                 label: Text(
                   'مشاهده همه',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 14.sp,
                     color: AppTheme.goldColor,
                     fontWeight: FontWeight.w600,
@@ -184,7 +185,8 @@ class _MyWalletScreenState extends State<MyWalletScreen>
                   SizedBox(height: 20.h),
                   Text(
                     'هنوز تراکنشی انجام نداده‌اید',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 16.sp,
                       color: context.textColor,
                       fontWeight: FontWeight.w600,
@@ -194,7 +196,8 @@ class _MyWalletScreenState extends State<MyWalletScreen>
                   Text(
                     'پس از انجام اولین تراکنش، تاریخچه آن اینجا نمایش داده می‌شود',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 13.sp,
                       color: context.textSecondary,
                       height: 1.6,
@@ -267,7 +270,8 @@ class _MyWalletScreenState extends State<MyWalletScreen>
               children: [
                 Text(
                   transaction.typeText,
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 15.sp,
                     fontWeight: FontWeight.w600,
                     color: context.textColor,
@@ -276,7 +280,8 @@ class _MyWalletScreenState extends State<MyWalletScreen>
                 SizedBox(height: 4.h),
                 Text(
                   transaction.description,
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 13.sp,
                     color: context.textSecondary,
                   ),
@@ -294,7 +299,8 @@ class _MyWalletScreenState extends State<MyWalletScreen>
                     SizedBox(width: 4.w),
                     Text(
                       _formatDateTime(transaction.createdAt),
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 11.sp,
                         color: context.textSecondary,
                       ),
@@ -316,7 +322,8 @@ class _MyWalletScreenState extends State<MyWalletScreen>
                 ),
                 child: Text(
                   transaction.changeText,
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 15.sp,
                     fontWeight: FontWeight.bold,
                     color: transactionColor,
@@ -334,7 +341,8 @@ class _MyWalletScreenState extends State<MyWalletScreen>
                   SizedBox(width: 4.w),
                   Text(
                     transaction.formattedBalanceAfter,
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 11.sp,
                       color: context.textSecondary,
                     ),

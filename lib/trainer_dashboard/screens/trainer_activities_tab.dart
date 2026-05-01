@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/date_utils.dart' as du;
 import 'package:gymaipro/utils/widget_safety_utils.dart';
@@ -235,7 +234,8 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                   SizedBox(height: 16.h),
                   Text(
                     'فعلاً برنامه ارائه‌شده‌ای وجود ندارد',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       color: isDark
                           ? context.textColor.withValues(alpha: 0.6)
                           : context.textSecondary,
@@ -379,7 +379,8 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                                 Expanded(
                                   child: Text(
                                     displayName,
-                                    style: GoogleFonts.vazirmatn(
+                                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                       color: context.textColor,
                                       fontWeight: FontWeight.w700,
                                       fontSize: 16.sp,
@@ -433,7 +434,8 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                                       const SizedBox(width: 6),
                                       Text(
                                       fmtAmount(finalAmount),
-                                      style: GoogleFonts.vazirmatn(
+                                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                         color: AppTheme.goldColor,
                                         fontWeight: FontWeight.w800,
                                         fontSize: 15.sp,
@@ -452,7 +454,8 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                                     const SizedBox(width: 6),
                                     Text(
                                       'ثبت: ${fmtDate(registeredAt ?? purchaseAt)}',
-                                      style: GoogleFonts.vazirmatn(
+                                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                         color: context.textSecondary,
                                         fontSize: 12.sp,
                                       ),
@@ -475,7 +478,8 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                                       const SizedBox(width: 6),
                                       Text(
                                         'خرید: ${fmtDate(purchaseAt)}',
-                                        style: GoogleFonts.vazirmatn(
+                                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                           color: context.textSecondary.withValues(
                                             alpha: 0.7,
                                           ),
@@ -495,7 +499,8 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                                     const SizedBox(width: 6),
                                     Text(
                                       'انقضا: ${fmtDate(expiryAt)}',
-                                      style: GoogleFonts.vazirmatn(
+                                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                         color: context.textSecondary.withValues(
                                           alpha: 0.7,
                                         ),
@@ -543,7 +548,8 @@ class _Chip extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: GoogleFonts.vazirmatn(
+        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
           color: fg,
           fontSize: 12.sp,
           fontWeight: FontWeight.w600,
@@ -625,7 +631,8 @@ class _Initials extends StatelessWidget {
     return Center(
       child: Text(
         initials,
-        style: GoogleFonts.vazirmatn(
+        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
           color: isDark
               ? AppTheme.goldColor
               : AppTheme.lightTextColor,

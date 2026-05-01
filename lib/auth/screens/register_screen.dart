@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
+import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/auth/utils/phone_utils.dart';
 import 'package:gymaipro/auth/widgets/auth_gradient_background.dart';
 import 'package:gymaipro/screens/otp_verification_screen.dart';
@@ -43,6 +44,12 @@ class _RegisterScreenState extends State<RegisterScreen>
   // Debounce timer for username check
   Timer? _debounceTimer;
   static const _debounceDuration = Duration(milliseconds: 500);
+
+  /// Message shown when username check times out or fails (user can tap to retry).
+  static const String _kUsernameCheckRetryMessage =
+      'اتصال طول کشید یا خطا در بررسی. لمس کنید برای تلاش مجدد';
+
+  StreamSubscription<bool>? _connectivitySub;
 
   // Flag to track if controllers are disposed
   bool _isDisposed = false;
@@ -90,8 +97,19 @@ class _RegisterScreenState extends State<RegisterScreen>
       }
     });
 
-    // بهینه‌سازی: حذف listener غیرضروری که باعث rebuild می‌شود
-    // Focus handling توسط Flutter به صورت خودکار انجام می‌شود
+    // وقتی نت برمی‌گردد، اگر قبلاً خطای اتصال داشتیم خودکار دوباره بررسی می‌کنیم
+    _connectivitySub =
+        ConnectivityService.instance.isConnectedStream.listen((online) {
+      if (online &&
+          mounted &&
+          !_isDisposed &&
+          !_isCheckingUsername &&
+          _usernameError == _kUsernameCheckRetryMessage &&
+          _usernameController.isSafe &&
+          _usernameController.safeText.length >= 3) {
+        _checkUsername();
+      }
+    });
   }
 
   @override
@@ -99,6 +117,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     debugPrint('RegisterScreen: dispose called');
     _isDisposed = true;
     _debounceTimer?.cancel();
+    _connectivitySub?.cancel();
 
     // فقط AnimationController را dispose می‌کنیم
     // TextEditingController ها را dispose نمی‌کنیم چون Flutter/TextField ممکن است
@@ -137,18 +156,27 @@ class _RegisterScreenState extends State<RegisterScreen>
 
     try {
       if (_isDisposed || !mounted || !_usernameController.isSafe) return;
-      final isUnique = await SupabaseService().isUsernameUnique(
-        _usernameController.safeText,
-      );
+      final isUnique = await SupabaseService()
+          .isUsernameUnique(_usernameController.safeText)
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () => throw TimeoutException('Username check'),
+          );
       if (!isUnique && mounted && !_isDisposed) {
         WidgetSafetyUtils.safeSetState(this, () {
           _usernameError = 'این نام کاربری قبلاً استفاده شده است';
         });
       }
+    } on TimeoutException {
+      if (mounted && !_isDisposed) {
+        WidgetSafetyUtils.safeSetState(this, () {
+          _usernameError = _kUsernameCheckRetryMessage;
+        });
+      }
     } catch (e) {
       if (mounted && !_isDisposed) {
         WidgetSafetyUtils.safeSetState(this, () {
-          _usernameError = 'خطا در بررسی نام کاربری';
+          _usernameError = _kUsernameCheckRetryMessage;
         });
       }
     } finally {
@@ -642,7 +670,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                             horizontal: 14.w,
                                                             vertical: 10.h,
                                                           ),
-                                                      errorText: _usernameError,
+                                                      errorText:
+                                                          _usernameError ==
+                                                                  _kUsernameCheckRetryMessage
+                                                              ? 'اتصال طول کشید.'
+                                                              : _usernameError,
                                                       prefixIcon: Icon(
                                                         Icons.person_outline,
                                                         color:
@@ -697,6 +729,61 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                     },
                                                   ),
                                                 ),
+                                                if (_usernameError ==
+                                                    _kUsernameCheckRetryMessage)
+                                                  Padding(
+                                                    padding: EdgeInsets.only(
+                                                      top: 6.h,
+                                                      right: 4.w,
+                                                    ),
+                                                    child: InkWell(
+                                                      onTap: _isCheckingUsername
+                                                          ? null
+                                                          : _checkUsername,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8.r,
+                                                          ),
+                                                      child: Padding(
+                                                        padding:
+                                                            EdgeInsets.symmetric(
+                                                          vertical: 6.h,
+                                                          horizontal: 4.w,
+                                                        ),
+                                                        child: Row(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            Icon(
+                                                              Icons
+                                                                  .refresh_rounded,
+                                                              size: 16.sp,
+                                                              color: AppTheme
+                                                                  .goldColor,
+                                                            ),
+                                                            SizedBox(
+                                                              width: 6.w,
+                                                            ),
+                                                            Text(
+                                                              'تلاش مجدد',
+                                                              style: TextStyle(
+                                                                fontFamily:
+                                                                    AppTheme
+                                                                        .fontFamily,
+                                                                fontSize:
+                                                                    12.sp,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                color: AppTheme
+                                                                    .goldColor,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
                                                 SizedBox(height: 16.h),
                                                 GestureDetector(
                                                   onTap: _onPhoneFieldTap,

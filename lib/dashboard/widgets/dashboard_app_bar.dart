@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/guide/data/dashboard_guide_data.dart';
+import 'package:gymaipro/services/avatar_refresh_notifier.dart';
 import 'package:gymaipro/services/score_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -171,7 +172,41 @@ class DashboardAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   Widget _buildProfileButton(BuildContext context) {
+    return const _AppBarAvatarButton();
+  }
+}
+
+/// دکمه آواتار در اپ‌بار که با [AvatarRefreshNotifier] به‌روز می‌شود.
+class _AppBarAvatarButton extends StatefulWidget {
+  const _AppBarAvatarButton();
+
+  @override
+  State<_AppBarAvatarButton> createState() => _AppBarAvatarButtonState();
+}
+
+class _AppBarAvatarButtonState extends State<_AppBarAvatarButton> {
+  int _refreshKey = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    AvatarRefreshNotifier.instance.addListener(_onAvatarUpdated);
+  }
+
+  @override
+  void dispose() {
+    AvatarRefreshNotifier.instance.removeListener(_onAvatarUpdated);
+    super.dispose();
+  }
+
+  void _onAvatarUpdated() {
+    if (mounted) setState(() => _refreshKey++);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<Map<String, dynamic>?>(
+      key: ValueKey<int>(_refreshKey),
       future: SimpleProfileService.queryCurrentUserProfile(
         select: 'avatar_url',
       ),
@@ -221,7 +256,7 @@ class DashboardAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ? ClipOval(
                     child: CachedNetworkImage(
                       imageUrl: avatarUrl,
-                      cacheKey: 'avatar_appbar_$userId',
+                      cacheKey: 'avatar_appbar_${userId}_${avatarUrl.hashCode}',
                       fit: BoxFit.cover,
                       memCacheWidth: 80,
                       memCacheHeight: 80,

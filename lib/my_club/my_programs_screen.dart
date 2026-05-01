@@ -1,10 +1,13 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/my_club/widgets/unified_empty_state.dart';
+import 'package:gymaipro/payment/models/trainer_subscription.dart';
+import 'package:gymaipro/payment/services/trainer_subscription_service.dart';
 import 'package:gymaipro/services/active_program_service.dart';
 import 'package:gymaipro/services/active_meal_plan_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -20,12 +23,15 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
   final SupabaseClient _db = Supabase.instance.client;
   final ActiveProgramService _active = ActiveProgramService();
   final ActiveMealPlanService _activeMealPlan = ActiveMealPlanService();
+  final TrainerSubscriptionService _subscriptionService =
+      TrainerSubscriptionService();
 
   bool _isLoading = true;
   List<Map<String, dynamic>> _programs = [];
   String? _activeProgramId;
   String? _activeMealPlanId;
   List<Map<String, dynamic>> _items = [];
+  List<_PendingRequest> _pendingRequests = [];
 
   @override
   void initState() {
@@ -296,11 +302,14 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
           }
 
           _items = unified;
-          _isLoading =
-              false; // حالا که همه داده‌ها لود شدند و _items ساخته شد، loading را false می‌کنیم
+          _isLoading = false;
         });
       }
-      // کش حذف شد - دیگر ذخیره نمی‌کنیم
+
+      // بارگذاری درخواست‌های در انتظار (اشتراک‌ها با profile_id ذخیره می‌شوند)
+      final profile = await SimpleProfileService.getCurrentProfile();
+      final profileId = profile != null ? profile['id'] as String? : null;
+      await _loadPendingRequests(profileId ?? userId);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -319,6 +328,53 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _loadPendingRequests(String userId) async {
+    try {
+      final subscriptions = await _subscriptionService.getUserSubscriptions(userId);
+      final pending = <_PendingRequest>[];
+
+      for (final sub in subscriptions) {
+        if (sub.isCancelled || sub.isExpired) continue;
+
+        final bool isProgramNotSent = sub.programStatus == ProgramStatus.notStarted;
+        if (!isProgramNotSent) continue;
+
+        String trainerName = '';
+        try {
+          final profile = await _db
+              .from('profiles')
+              .select('first_name, last_name, username, avatar_url')
+              .eq('id', sub.trainerId)
+              .maybeSingle();
+          if (profile != null) {
+            final first = (profile['first_name'] as String?)?.trim() ?? '';
+            final last = (profile['last_name'] as String?)?.trim() ?? '';
+            final combined = '$first $last'.trim();
+            trainerName = combined.isNotEmpty
+                ? combined
+                : (profile['username'] as String?) ?? '';
+          }
+        } catch (_) {}
+
+        pending.add(_PendingRequest(
+          subscriptionId: sub.id,
+          serviceType: sub.serviceType,
+          serviceTypeText: sub.serviceTypeText,
+          trainerName: trainerName.isEmpty ? 'مربی' : trainerName,
+          purchaseDate: sub.purchaseDate,
+          status: sub.status,
+          programStatus: sub.programStatus,
+        ));
+      }
+
+      if (mounted) {
+        setState(() => _pendingRequests = pending);
+      }
+    } catch (e) {
+      debugPrint('خطا در بارگذاری درخواست‌های در انتظار: $e');
     }
   }
 
@@ -445,6 +501,10 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hasPending = _pendingRequests.isNotEmpty;
+    final hasItems = _items.isNotEmpty;
+    final hasContent = hasPending || hasItems;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -453,49 +513,399 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
             ? const Center(
                 child: CircularProgressIndicator(color: AppTheme.goldColor),
               )
-            : (_items.isEmpty)
+            : !hasContent
             ? UnifiedEmptyState(
                 icon: LucideIcons.folderSearch,
                 title: 'هیچ برنامه‌ای یافت نشد',
                 subtitle:
                     'برای شروع سفر ورزشی خود، یک برنامه تمرینی یا رژیمی تهیه کنید',
+                actionText: 'جستجوی مربی',
+                actionIcon: LucideIcons.search,
+                onAction: () => Navigator.pushNamed(context, '/trainer-ranking'),
               )
-            : ListView.builder(
+            : ListView(
                 padding: EdgeInsets.all(16.w),
-                itemCount: _items.length,
-                itemBuilder: (context, index) {
-                  final it = _items[index];
-                  if (it['type'] == 'workout') {
-                    return _ProgramCard(
-                      programName: it['title'] as String,
-                      trainerName: (it['subtitle'] as String?) ?? '—',
-                      programId: it['id'] as String,
-                      isActive: (it['isActive'] as bool?) ?? false,
-                      isExpired: (it['isExpired'] as bool?) ?? false,
-                      expiryDate: it['expiry_date'] as DateTime?,
-                      onActivate: () => _activateProgram(it['id'] as String),
-                      onDeactivate: () => _deactivateProgram(),
-                      onOpen: _goToWorkoutLog,
-                      onRenew: () => _renewProgram(it['id'] as String),
-                    );
-                  }
-                  return _DietPlanCard(
-                    planName: it['title'] as String,
-                    trainerName: (it['subtitle'] as String?) ?? '—',
-                    mealPlanId: it['id'] as String,
-                    isActive: (it['isActive'] as bool?) ?? false,
-                    expiryDate: it['expiry_date'] as DateTime?,
-                    onActivate: () => _activateMealPlan(it['id'] as String),
-                    onDeactivate: () => _deactivateMealPlan(),
-                    onOpen: () => Navigator.pushNamed(
-                      context,
-                      '/meal-log',
-                      arguments: it['id'] as String,
-                    ),
-                  );
-                },
+                children: [
+                  if (hasPending) ...[
+                    _buildPendingSection(),
+                    if (hasItems) SizedBox(height: 16.h),
+                  ],
+                  if (hasItems)
+                    ...List.generate(_items.length, (index) {
+                      final it = _items[index];
+                      if (it['type'] == 'workout') {
+                        return _ProgramCard(
+                          programName: it['title'] as String,
+                          trainerName: (it['subtitle'] as String?) ?? '—',
+                          programId: it['id'] as String,
+                          isActive: (it['isActive'] as bool?) ?? false,
+                          isExpired: (it['isExpired'] as bool?) ?? false,
+                          expiryDate: it['expiry_date'] as DateTime?,
+                          onActivate: () => _activateProgram(it['id'] as String),
+                          onDeactivate: () => _deactivateProgram(),
+                          onOpen: _goToWorkoutLog,
+                          onRenew: () => _renewProgram(it['id'] as String),
+                        );
+                      }
+                      return _DietPlanCard(
+                        planName: it['title'] as String,
+                        trainerName: (it['subtitle'] as String?) ?? '—',
+                        mealPlanId: it['id'] as String,
+                        isActive: (it['isActive'] as bool?) ?? false,
+                        expiryDate: it['expiry_date'] as DateTime?,
+                        onActivate: () => _activateMealPlan(it['id'] as String),
+                        onDeactivate: () => _deactivateMealPlan(),
+                        onOpen: () => Navigator.pushNamed(
+                          context,
+                          '/meal-log',
+                          arguments: it['id'] as String,
+                        ),
+                      );
+                    }),
+                ],
               ),
       ),
+    );
+  }
+
+  Widget _buildPendingSection() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(6.w),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Icon(
+                LucideIcons.clock,
+                color: Colors.orange,
+                size: 16.sp,
+              ),
+            ),
+            SizedBox(width: 8.w),
+            Text(
+              'درخواست‌های در انتظار',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w700,
+                color: context.textColor,
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+              child: Text(
+                '${_pendingRequests.length}',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.orange,
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 12.h),
+        ..._pendingRequests.map((req) => _PendingRequestCard(request: req)),
+      ],
+    );
+  }
+}
+
+class _PendingRequest {
+  const _PendingRequest({
+    required this.subscriptionId,
+    required this.serviceType,
+    required this.serviceTypeText,
+    required this.trainerName,
+    required this.purchaseDate,
+    required this.status,
+    required this.programStatus,
+  });
+  final String subscriptionId;
+  final TrainerServiceType serviceType;
+  final String serviceTypeText;
+  final String trainerName;
+  final DateTime purchaseDate;
+  final TrainerSubscriptionStatus status;
+  final ProgramStatus programStatus;
+}
+
+class _PendingRequestCard extends StatelessWidget {
+  const _PendingRequestCard({required this.request});
+  final _PendingRequest request;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final daysSincePurchase = DateTime.now().difference(request.purchaseDate).inDays;
+
+    IconData serviceIcon;
+    Color serviceColor;
+    switch (request.serviceType) {
+      case TrainerServiceType.training:
+        serviceIcon = LucideIcons.dumbbell;
+        serviceColor = Colors.orange;
+      case TrainerServiceType.diet:
+        serviceIcon = LucideIcons.salad;
+        serviceColor = Colors.purple;
+      case TrainerServiceType.consulting:
+        serviceIcon = LucideIcons.headphones;
+        serviceColor = Colors.blue;
+      case TrainerServiceType.package:
+        serviceIcon = LucideIcons.package2;
+        serviceColor = AppTheme.goldColor;
+    }
+
+    String statusText;
+    Color statusColor;
+    IconData statusIcon;
+    if (request.programStatus == ProgramStatus.notStarted) {
+      statusText = 'در انتظار آماده‌سازی توسط مربی';
+      statusColor = Colors.orange;
+      statusIcon = LucideIcons.clock;
+    } else if (request.programStatus == ProgramStatus.inProgress) {
+      statusText = 'مربی در حال آماده‌سازی';
+      statusColor = Colors.blue;
+      statusIcon = LucideIcons.loader;
+    } else {
+      statusText = 'در حال پردازش';
+      statusColor = Colors.grey;
+      statusIcon = LucideIcons.clock;
+    }
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 12.h),
+      decoration: BoxDecoration(
+        color: isDark ? context.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: statusColor.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: statusColor.withValues(alpha: 0.08),
+            blurRadius: 12.r,
+            offset: Offset(0, 4.h),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(16.w),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(8.w),
+                      decoration: BoxDecoration(
+                        color: serviceColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10.r),
+                      ),
+                      child: Icon(serviceIcon, color: serviceColor, size: 20.sp),
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            request.serviceTypeText,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w700,
+                              color: context.textColor,
+                            ),
+                          ),
+                          SizedBox(height: 2.h),
+                          Text(
+                            'مربی: ${request.trainerName}',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 12.sp,
+                              color: context.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _buildDaysBadge(daysSincePurchase, isDark),
+                  ],
+                ),
+                SizedBox(height: 14.h),
+                _buildProgressBar(statusColor, isDark, context),
+                SizedBox(height: 12.h),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10.r),
+                    border: Border.all(
+                      color: statusColor.withValues(alpha: 0.15),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(statusIcon, color: statusColor, size: 16.sp),
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: Text(
+                          statusText,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w600,
+                            color: statusColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDaysBadge(int days, bool isDark) {
+    String text;
+    if (days == 0) {
+      text = 'امروز';
+    } else if (days == 1) {
+      text = 'دیروز';
+    } else {
+      text = '$days روز پیش';
+    }
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.grey.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontSize: 10.sp,
+          fontWeight: FontWeight.w600,
+          color: isDark ? Colors.grey[400] : Colors.grey[600],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProgressBar(Color color, bool isDark, BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            _buildProgressStep(
+              label: 'پرداخت',
+              isCompleted: true,
+              color: const Color(0xFF4CAF50),
+              isDark: isDark,
+              context: context,
+            ),
+            Expanded(
+              child: Container(
+                height: 2,
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.5),
+              ),
+            ),
+            _buildProgressStep(
+              label: 'آماده‌سازی',
+              isCompleted: false,
+              isActive: true,
+              color: Colors.orange,
+              isDark: isDark,
+              context: context,
+            ),
+            Expanded(
+              child: Container(
+                height: 2,
+                color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+              ),
+            ),
+            _buildProgressStep(
+              label: 'ارسال',
+              isCompleted: false,
+              color: Colors.grey,
+              isDark: isDark,
+              context: context,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProgressStep({
+    required String label,
+    required bool isCompleted,
+    required Color color,
+    required bool isDark,
+    required BuildContext context,
+    bool isActive = false,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 20.w,
+          height: 20.w,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isCompleted
+                ? color
+                : isActive
+                    ? color.withValues(alpha: 0.2)
+                    : (isDark ? Colors.grey[700] : Colors.grey[300]),
+            border: isActive ? Border.all(color: color, width: 2) : null,
+          ),
+          child: isCompleted
+              ? Icon(LucideIcons.check, color: Colors.white, size: 12.sp)
+              : null,
+        ),
+        SizedBox(height: 4.h),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontSize: 9.sp,
+            fontWeight: isActive || isCompleted ? FontWeight.w700 : FontWeight.w500,
+            color: isCompleted || isActive
+                ? color
+                : (isDark ? Colors.grey[500] : Colors.grey[500]),
+          ),
+        ),
+      ],
     );
   }
 }

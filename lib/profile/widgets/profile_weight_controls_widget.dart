@@ -1,5 +1,4 @@
-﻿import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/material.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -22,7 +21,8 @@ class ProfileWeightControlsWidget extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: onAddWeightPressed,
               icon: const Icon(LucideIcons.plus),
-              label: Text('ثبت وزن جدید', style: GoogleFonts.vazirmatn()),
+              label: Text('ثبت وزن جدید', style: TextStyle(
+    fontFamily: AppTheme.fontFamily,)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.goldColor,
                 foregroundColor: Colors.white,
@@ -35,7 +35,8 @@ class ProfileWeightControlsWidget extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: onWeightHistoryPressed,
               icon: const Icon(LucideIcons.history),
-              label: Text('تاریخچه وزن', style: GoogleFonts.vazirmatn()),
+              label: Text('تاریخچه وزن', style: TextStyle(
+    fontFamily: AppTheme.fontFamily,)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2A2A2A),
                 foregroundColor: AppTheme.goldColor,

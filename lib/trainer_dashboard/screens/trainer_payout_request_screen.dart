@@ -8,7 +8,6 @@ import 'package:gymaipro/payment/utils/card_input_formatter.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -196,7 +195,8 @@ class _TrainerPayoutRequestScreenState
         appBar: AppBar(
           title: Text(
             'درخواست برداشت',
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 18.sp,
               fontWeight: FontWeight.bold,
             ),
@@ -244,7 +244,8 @@ class _TrainerPayoutRequestScreenState
                                 children: [
                                   Text(
                                     'موجودی قابل برداشت',
-                                    style: GoogleFonts.vazirmatn(
+                                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                       fontSize: 14.sp,
                                       color: isDark
                                           ? AppTheme.darkTextColor.withValues(alpha: 0.7)
@@ -254,7 +255,8 @@ class _TrainerPayoutRequestScreenState
                                   SizedBox(height: 4.h),
                                   Text(
                                     PaymentConstants.formatAmount(_withdrawable),
-                                    style: GoogleFonts.vazirmatn(
+                                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                       fontSize: 24.sp,
                                       fontWeight: FontWeight.bold,
                                       color: isDark
@@ -274,7 +276,8 @@ class _TrainerPayoutRequestScreenState
                       // فرم درخواست
                       Text(
                         'فرم درخواست برداشت',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           fontSize: 18.sp,
                           fontWeight: FontWeight.bold,
                           color: isDark
@@ -335,7 +338,8 @@ class _TrainerPayoutRequestScreenState
                               Expanded(
                                 child: Text(
                                   'موجودی شما کمتر از حداقل مبلغ برداشت است. حداقل ${PaymentConstants.formatAmount(PaymentConstants.minWithdrawalAmount)} نیاز است.',
-                                  style: GoogleFonts.vazirmatn(
+                                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                     fontSize: 12.sp,
                                     color: Colors.orange.shade700,
                                   ),
@@ -437,7 +441,8 @@ class _TrainerPayoutRequestScreenState
                                 )
                               : Text(
                                   'ارسال درخواست',
-                                  style: GoogleFonts.vazirmatn(
+                                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                     fontSize: 16.sp,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -451,7 +456,8 @@ class _TrainerPayoutRequestScreenState
                       if (_requests.isNotEmpty) ...[
                         Text(
                           'تاریخچه درخواست‌ها',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             fontSize: 18.sp,
                             fontWeight: FontWeight.bold,
                             color: isDark
@@ -501,7 +507,8 @@ class _TrainerPayoutRequestScreenState
                   children: [
                     Text(
                       PaymentConstants.formatAmount(request.amount),
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 18.sp,
                         fontWeight: FontWeight.bold,
                         color: isDark
@@ -513,7 +520,8 @@ class _TrainerPayoutRequestScreenState
                       SizedBox(height: 4.h),
                       Text(
                         'جریمه: ${request.formattedPenaltyAmount}',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           fontSize: 14.sp,
                           color: Colors.red,
                         ),
@@ -523,7 +531,8 @@ class _TrainerPayoutRequestScreenState
                       SizedBox(height: 4.h),
                       Text(
                         'مبلغ نهایی: ${request.formattedFinalAmount}',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           fontSize: 16.sp,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.goldColor,
@@ -543,7 +552,8 @@ class _TrainerPayoutRequestScreenState
                 ),
                 child: Text(
                   request.statusText,
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     color: Color(int.parse(
                         request.statusColor.replaceFirst('#', '0xFF'))),
                     fontSize: 12.sp,
@@ -562,7 +572,8 @@ class _TrainerPayoutRequestScreenState
           SizedBox(height: 12.h),
           Text(
             'شماره کارت: ${request.maskedCardNumber}',
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 14.sp,
               color: isDark
                   ? AppTheme.darkTextColor.withValues(alpha: 0.7)
@@ -572,7 +583,8 @@ class _TrainerPayoutRequestScreenState
           SizedBox(height: 4.h),
           Text(
             'تاریخ: ${_formatDate(request.createdAt)}',
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 12.sp,
               color: isDark
                   ? AppTheme.darkTextColor.withValues(alpha: 0.5)
@@ -591,7 +603,8 @@ class _TrainerPayoutRequestScreenState
               ),
               child: Text(
                 'یادداشت: ${request.adminNotes}',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontSize: 12.sp,
                   color: isDark
                       ? AppTheme.darkTextColor.withValues(alpha: 0.7)

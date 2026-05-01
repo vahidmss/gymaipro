@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/ai/screens/ai_programs_screen.dart';
 import 'package:gymaipro/ai/screens/ai_progress_analysis_screen.dart';
 import 'package:gymaipro/ai/screens/chat_screen.dart';
@@ -87,7 +86,8 @@ class _AIHubScreenState extends State<AIHubScreen>
       automaticallyImplyLeading: false,
       title: Text(
         'جیم‌آی هوشمند',
-        style: GoogleFonts.vazirmatn(
+        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
           fontWeight: FontWeight.bold,
           fontSize: 20.sp,
           color: isDark ? AppTheme.goldColor : context.textColor,
@@ -170,7 +170,8 @@ class _AIHubScreenState extends State<AIHubScreen>
                     children: [
                       Text(
                         'خوش آمدید!',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           fontSize: 20.sp,
                           fontWeight: FontWeight.bold,
                           color: context.textColor,
@@ -181,7 +182,8 @@ class _AIHubScreenState extends State<AIHubScreen>
                       SizedBox(height: 4.h),
                       Text(
                         'من جیم‌آی هستم، مربی هوشمند شما',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           fontSize: 16.sp,
                           color: context.textSecondary,
                         ),
@@ -196,7 +198,8 @@ class _AIHubScreenState extends State<AIHubScreen>
             SizedBox(height: 16.h),
             Text(
               'با استفاده از هوش مصنوعی پیشرفته، برنامه‌های شخصی‌سازی شده برای شما طراحی می‌کنم. از تمرین تا تغذیه، در کنار شما هستم!',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 15.sp,
                 color: context.textSecondary,
                 height: 1.6.h,
@@ -221,7 +224,8 @@ class _AIHubScreenState extends State<AIHubScreen>
           children: [
             Text(
               'دسترسی سریع',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 20.sp,
                 fontWeight: FontWeight.bold,
                 color: context.textColor,
@@ -337,7 +341,8 @@ class _AIHubScreenState extends State<AIHubScreen>
             SizedBox(height: 12.h),
             Text(
               title,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 16.sp,
                 fontWeight: FontWeight.bold,
                 color: context.textColor,
@@ -349,7 +354,8 @@ class _AIHubScreenState extends State<AIHubScreen>
             SizedBox(height: 4.h),
             Text(
               subtitle,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 13.sp,
                 color: context.textSecondary,
               ),
@@ -373,7 +379,8 @@ class _AIHubScreenState extends State<AIHubScreen>
           children: [
             Text(
               'قابلیت‌های هوش مصنوعی',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 20.sp,
                 fontWeight: FontWeight.bold,
                 color: context.textColor,
@@ -473,7 +480,8 @@ class _AIHubScreenState extends State<AIHubScreen>
           children: [
             Text(
               'آمار فعالیت‌های من',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 18.sp,
                 fontWeight: FontWeight.bold,
                 color: context.textColor,
@@ -538,7 +546,8 @@ class _AIHubScreenState extends State<AIHubScreen>
         SizedBox(height: 8.h),
         Text(
           value,
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             fontSize: 20.sp,
             fontWeight: FontWeight.bold,
             color: context.textColor,
@@ -550,7 +559,8 @@ class _AIHubScreenState extends State<AIHubScreen>
         Flexible(
           child: Text(
             label,
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 12.sp,
               color: context.textSecondary,
             ),

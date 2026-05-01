@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
 import 'package:gymaipro/notification/notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -326,7 +325,10 @@ class ChatService {
 
     try {
       // Get or create conversation
-      final conversation = await _getOrCreateConversation(me, receiverId);
+      final conversation = await _getOrCreateConversation(
+        me,
+        receiverId,
+      ).timeout(const Duration(seconds: 8));
       if (conversation == null) {
         throw Exception('خطا در ایجاد یا یافتن مکالمه');
       }
@@ -354,9 +356,12 @@ class ChatService {
       // Get current messages
       final response = await _supabase
           .from('chat_conversations')
-          .select('messages, user1_id, user2_id')
+          .select(
+            'messages, user1_id, user2_id, user1_unread_count, user2_unread_count',
+          )
           .eq('id', conversation.id)
-          .single();
+          .single()
+          .timeout(const Duration(seconds: 8));
 
       final currentMessages = (response['messages'] as List<dynamic>? ?? [])
           .cast<Map<String, dynamic>>()
@@ -399,52 +404,26 @@ class ChatService {
       await _supabase
           .from('chat_conversations')
           .update(updateData)
-          .eq('id', conversation.id);
+          .eq('id', conversation.id)
+          .timeout(const Duration(seconds: 8));
 
-      // ارسال نوتیفیکیشن به گیرنده
-      try {
-        // دریافت نام فرستنده از پروفایل
-        String senderName = 'کاربر';
-        try {
-          final senderProfile = await _supabase
-              .from('profiles')
-              .select('first_name, last_name, username')
-              .eq('id', me)
-              .maybeSingle();
-          
-          if (senderProfile != null) {
-            final firstName = (senderProfile['first_name'] as String?)?.trim() ?? '';
-            final lastName = (senderProfile['last_name'] as String?)?.trim() ?? '';
-            final username = (senderProfile['username'] as String?)?.trim() ?? '';
-            
-            if (firstName.isNotEmpty && lastName.isNotEmpty) {
-              senderName = '$firstName $lastName';
-            } else if (firstName.isNotEmpty) {
-              senderName = firstName;
-            } else if (lastName.isNotEmpty) {
-              senderName = lastName;
-            } else if (username.isNotEmpty) {
-              senderName = username;
-            }
-          }
-        } catch (_) {}
-
-        // ارسال نوتیفیکیشن
-        final notificationService = NotificationService();
-        await notificationService.sendChatNotification(
+      // ارسال نوتیفیکیشن نباید UX ارسال پیام را بلاک کند.
+      unawaited(
+        _sendChatNotificationInBackground(
           receiverId: receiverId,
           senderId: me,
-          senderName: senderName,
           message: message.trim(),
           messageId: messageId,
           messageType: messageType,
           conversationId: conversation.id,
-        );
-      } catch (_) {
-        // در صورت خطا در ارسال نوتیفیکیشن، پیام همچنان ارسال شده است
-      }
+        ),
+      );
 
       return newMessage;
+    } on TimeoutException {
+      throw Exception(
+        'ارسال پیام بیش از حد طول کشید. اینترنت را بررسی کنید و دوباره تلاش کنید.',
+      );
     } on PostgrestException catch (e) {
       // Handle specific error codes
       if (e.code == '42P01') {
@@ -467,6 +446,58 @@ class ChatService {
       }
     } catch (e) {
       throw Exception('خطا در ارسال پیام: $e');
+    }
+  }
+
+  Future<void> _sendChatNotificationInBackground({
+    required String receiverId,
+    required String senderId,
+    required String message,
+    required String messageId,
+    required String messageType,
+    required String conversationId,
+  }) async {
+    try {
+      // دریافت نام فرستنده با timeout کوتاه
+      String senderName = 'کاربر';
+      try {
+        final senderProfile = await _supabase
+            .from('profiles')
+            .select('first_name, last_name, username')
+            .eq('id', senderId)
+            .maybeSingle()
+            .timeout(const Duration(seconds: 3));
+
+        if (senderProfile != null) {
+          final firstName = (senderProfile['first_name'] as String?)?.trim() ?? '';
+          final lastName = (senderProfile['last_name'] as String?)?.trim() ?? '';
+          final username = (senderProfile['username'] as String?)?.trim() ?? '';
+
+          if (firstName.isNotEmpty && lastName.isNotEmpty) {
+            senderName = '$firstName $lastName';
+          } else if (firstName.isNotEmpty) {
+            senderName = firstName;
+          } else if (lastName.isNotEmpty) {
+            senderName = lastName;
+          } else if (username.isNotEmpty) {
+            senderName = username;
+          }
+        }
+      } catch (_) {}
+
+      await NotificationService()
+          .sendChatNotification(
+            receiverId: receiverId,
+            senderId: senderId,
+            senderName: senderName,
+            message: message,
+            messageId: messageId,
+            messageType: messageType,
+            conversationId: conversationId,
+          )
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // در صورت خطای نوتیفیکیشن، ارسال پیام موفق باقی می‌ماند.
     }
   }
 

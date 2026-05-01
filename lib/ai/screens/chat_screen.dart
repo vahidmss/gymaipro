@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/ai/models/ai_chat_message.dart';
 import 'package:gymaipro/ai/services/ai_chat_service.dart';
 import 'package:gymaipro/ai/services/message_rate_limiter_service.dart';
@@ -40,7 +39,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   DateTime? _lastBackupDate;
   double _lastKeyboardHeight = 0;
   RateLimitStats? _rateLimitStats;
-  bool _welcomeMessageAdded = false; // جلوگیری از اضافه کردن چندباره پیام خوش‌آمدگویی
+  bool _welcomeMessageAdded =
+      false; // جلوگیری از اضافه کردن چندباره پیام خوش‌آمدگویی
 
   @override
   void initState() {
@@ -123,7 +123,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
       // ایجاد یا دریافت session فعلی
       _currentSessionId = await _getOrCreateCurrentSession();
-      
+
       // Reset flag برای پیام خوش‌آمدگویی
       _welcomeMessageAdded = false;
 
@@ -474,7 +474,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           children: [
             Text(
               label,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 11.sp,
                 color: context.textSecondary,
                 fontWeight: FontWeight.w500,
@@ -482,7 +483,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ),
             Text(
               '$used / $limit',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 11.sp,
                 color: isWarning ? Colors.orange : context.textColor,
                 fontWeight: FontWeight.bold,
@@ -537,7 +539,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   children: [
                     Text(
                       '💾 ذخیره و بارگذاری از دیتابیس',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 13.sp,
                         fontWeight: FontWeight.bold,
                         color: isDark ? AppTheme.goldColor : context.textColor,
@@ -555,7 +558,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                           SizedBox(width: 4.w),
                           Text(
                             'آخرین بک‌آپ: ${_formatBackupDate(_lastBackupDate!)}',
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 11.sp,
                               color: context.textSecondary,
                             ),
@@ -565,7 +569,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     else
                       Text(
                         'هنوز بک‌آپی ذخیره نشده است',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           fontSize: 11.sp,
                           color: context.textSecondary,
                         ),
@@ -584,7 +589,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   icon: Icon(LucideIcons.cloud, size: 16.sp),
                   label: Text(
                     'ذخیره',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 12.sp,
                       fontWeight: FontWeight.bold,
                     ),
@@ -608,7 +614,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   icon: Icon(LucideIcons.download, size: 16.sp),
                   label: Text(
                     'بارگذاری',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 12.sp,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -671,7 +678,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             SizedBox(width: 12.w),
             Text(
               'ذخیره در دیتابیس',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 18.sp,
                 fontWeight: FontWeight.bold,
                 color: context.textColor,
@@ -685,7 +693,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           children: [
             Text(
               'با ذخیره چت در دیتابیس:',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 14.sp,
                 fontWeight: FontWeight.bold,
                 color: context.textColor,
@@ -718,7 +727,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   Expanded(
                     child: Text(
                       'نکته: چت‌های شما همیشه در حافظه داخلی دستگاه ذخیره می‌شوند. ذخیره در دیتابیس فقط برای بک‌آپ و دسترسی از دستگاه‌های دیگر است.',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 11.sp,
                         color: context.textSecondary,
                       ),
@@ -734,7 +744,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
               'انصراف',
-              style: GoogleFonts.vazirmatn(color: context.textSecondary),
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: context.textSecondary),
             ),
           ),
           ElevatedButton(
@@ -750,7 +761,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ),
             child: Text(
               'ذخیره',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
@@ -771,7 +783,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           Expanded(
             child: Text(
               text,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 13.sp,
                 color: context.textColor,
               ),
@@ -865,7 +878,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               SizedBox(width: 12.w),
               Text(
                 'تایید بارگذاری',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontSize: 18.sp,
                   fontWeight: FontWeight.bold,
                   color: context.textColor,
@@ -879,7 +893,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             children: [
               Text(
                 'اطلاعات زیر از دیتابیس بارگذاری می‌شود:',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontSize: 14.sp,
                   fontWeight: FontWeight.bold,
                   color: context.textColor,
@@ -932,7 +947,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     Expanded(
                       child: Text(
                         'توجه: چت‌های فعلی شما با اطلاعات دیتابیس جایگزین می‌شوند',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           fontSize: 11.sp,
                           color: Colors.orange.shade700,
                         ),
@@ -948,7 +964,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               onPressed: () => Navigator.of(context).pop(),
               child: Text(
                 'انصراف',
-                style: GoogleFonts.vazirmatn(color: context.textSecondary),
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: context.textSecondary),
               ),
             ),
             ElevatedButton(
@@ -964,7 +981,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               ),
               child: Text(
                 'بارگذاری',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
@@ -994,7 +1012,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         SizedBox(width: 8.w),
         Text(
           label,
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             fontSize: 12.sp,
             color: context.textSecondary,
           ),
@@ -1002,7 +1021,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         const Spacer(),
         Text(
           value,
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             fontSize: 12.sp,
             fontWeight: FontWeight.bold,
             color: context.textColor,
@@ -1177,7 +1197,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 children: [
                   Text(
                     'مربی هوش مصنوعی',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 16.sp,
                       fontWeight: FontWeight.bold,
                       color: isDark ? AppTheme.goldColor : context.textColor,
@@ -1185,7 +1206,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ),
                   Text(
                     _isConnected ? 'آنلاین' : 'آفلاین',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 12.sp,
                       color: context.textSecondary,
                     ),
@@ -1280,7 +1302,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           SizedBox(height: 24.h),
           Text(
             'مربی هوش مصنوعی شما',
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 20.sp,
               fontWeight: FontWeight.bold,
               color: context.textColor,
@@ -1289,7 +1312,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           SizedBox(height: 8.h),
           Text(
             'سوالات خود را در مورد ورزش و تغذیه بپرسید',
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 14.sp,
               color: context.textSecondary,
             ),
@@ -1342,13 +1366,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   controller: _messageController,
                   maxLines: null,
                   textDirection: TextDirection.rtl,
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     color: context.textColor,
                     fontSize: 14.sp,
                   ),
                   decoration: InputDecoration(
                     hintText: 'پیام خود را بنویسید...',
-                    hintStyle: GoogleFonts.vazirmatn(
+                    hintStyle: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       color: context.textSecondary,
                       fontSize: 14.sp,
                     ),

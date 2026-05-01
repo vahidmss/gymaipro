@@ -2,13 +2,33 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.44.2";
 
+// Get service account JSON: B64 از .env (همان‌طور که deploy-firebase-gymai تنظیم می‌کند)
+const FIREBASE_CRED_PATHS = [
+  '/home/deno/functions/.secrets/firebase-service-account.json',
+  '/secrets/firebase-service-account.json',
+];
+async function getServiceAccountJson(): Promise<string> {
+  const b64 = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_B64')?.trim();
+  if (b64) return atob(b64);
+  const key = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_KEY')?.trim();
+  if (key) return key;
+  const credPath = Deno.env.get('GOOGLE_APPLICATION_CREDENTIALS');
+  const pathsToTry = credPath ? [credPath, ...FIREBASE_CRED_PATHS] : FIREBASE_CRED_PATHS;
+  for (const p of pathsToTry) {
+    try {
+      return await Deno.readTextFile(p);
+    } catch (_) {
+      continue;
+    }
+  }
+  throw new Error(
+    'Firebase creds not found. On server: run set-firebase-in-env.sh then docker compose stop functions && docker rm -f supabase-edge-functions && docker compose up -d functions'
+  );
+}
+
 // Get OAuth2 access token for FCM V1 API using proper RSA signing
 async function getFCMAccessToken() {
-  const serviceAccountKey = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_KEY');
-  if (!serviceAccountKey) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY not set');
-  }
-  
+  const serviceAccountKey = await getServiceAccountJson();
   const serviceAccount = JSON.parse(serviceAccountKey);
   const now = Math.floor(Date.now() / 1000);
   
@@ -97,7 +117,9 @@ async function sendChatNotification(accessToken: string, projectId: string, toke
           'sender_id',
           'sender_name',
           'message_id',
-          'receiver_id'
+          'receiver_id',
+          'buyer_user_id',
+          'event'
         ];
         
         for (const key of allowedKeys) {
@@ -179,6 +201,44 @@ serve(async (req) => {
       return new Response('Invalid JSON payload', { status: 400 });
     }
 
+    const supabase = createClient(url, serviceKey);
+
+    // trainer_new_student: اگر درخواست به send-chat-notification رسید (مثلاً مسیریابی اشتباه)، همین‌جا هم هندل می‌کنیم
+    if (payload?.mode === 'trainer_new_student') {
+      const trainerId = payload.trainer_id as string;
+      const title = (payload.title || 'شاگرد جدید') as string;
+      const body = (payload.body || 'یک کاربر به شاگردان شما اضافه شد.') as string;
+      const payloadData = (payload.data && typeof payload.data === 'object') ? payload.data : {};
+      if (!trainerId) {
+        return new Response(JSON.stringify({ error: 'trainer_id required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+      let trainerAuthId = trainerId;
+      try {
+        const { data: row } = await supabase.from('profiles').select('auth_user_id').eq('id', trainerId).maybeSingle();
+        if (row?.auth_user_id) trainerAuthId = row.auth_user_id;
+      } catch (_) {}
+      const userIdsToTry = [trainerAuthId];
+      if (trainerId !== trainerAuthId) userIdsToTry.push(trainerId);
+      const { data: tokensRows, error: tokensErr } = await supabase
+        .from('device_tokens')
+        .select('token')
+        .in('user_id', userIdsToTry)
+        .eq('is_push_enabled', true);
+      if (tokensErr) {
+        console.error('trainer_new_student device_tokens error:', tokensErr);
+        return new Response(JSON.stringify({ error: tokensErr.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      }
+      const tokens = (tokensRows || []).map((t: any) => t.token as string).filter(Boolean);
+      console.log(`trainer_new_student: trainerId=${trainerId} tokens_found=${tokens.length}`);
+      if (tokens.length > 0) {
+        const accessToken = await getFCMAccessToken();
+        await sendChatNotification(accessToken, projectId, tokens, title, body, payloadData);
+      }
+      return new Response(JSON.stringify({ ok: true, mode: 'trainer_new_student', tokens_sent: tokens.length }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     const {
       receiver_id,
       sender_id,
@@ -194,13 +254,20 @@ serve(async (req) => {
       });
     }
 
-    const supabase = createClient(url, serviceKey);
+    // device_tokens.user_id = auth.uid()؛ resolve profile id به auth_user_id
+    let receiverAuthId = receiver_id;
+    try {
+      const { data: row } = await supabase.from('profiles').select('auth_user_id').eq('id', receiver_id).maybeSingle();
+      if (row?.auth_user_id) receiverAuthId = row.auth_user_id;
+    } catch (_) {}
+    const receiverIdsToTry = [receiverAuthId];
+    if (receiver_id !== receiverAuthId) receiverIdsToTry.push(receiver_id);
 
     // دریافت device tokens کاربر گیرنده
     const { data: tokensRows, error: tokensErr } = await supabase
       .from('device_tokens')
       .select('token')
-      .eq('user_id', receiver_id)
+      .in('user_id', receiverIdsToTry)
       .eq('is_push_enabled', true);
 
     if (tokensErr) {
@@ -209,7 +276,8 @@ serve(async (req) => {
     }
 
     const tokens = (tokensRows || []).map((t: any) => t.token);
-    
+    console.log(`send-chat: receiver_id=${receiver_id} receiverAuthId=${receiverAuthId} tokens_found=${tokens.length}`);
+
     if (tokens.length === 0) {
       console.log(`No device tokens found for user ${receiver_id}`);
       return new Response(JSON.stringify({ 

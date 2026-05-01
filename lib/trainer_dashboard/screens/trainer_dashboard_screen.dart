@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_dashboard/screens/client_management/client_management_screen.dart';
@@ -14,7 +14,9 @@ import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class TrainerDashboardScreen extends StatefulWidget {
-  const TrainerDashboardScreen({super.key});
+  const TrainerDashboardScreen({super.key, this.initialTabIndex = 0});
+
+  final int initialTabIndex;
 
   @override
   State<TrainerDashboardScreen> createState() => _TrainerDashboardScreenState();
@@ -27,7 +29,12 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 9, vsync: this);
+    final initialIndex = widget.initialTabIndex.clamp(0, 8);
+    _tabController = TabController(
+      length: 9,
+      vsync: this,
+      initialIndex: initialIndex,
+    );
     _tabController.addListener(() {
       SafeSetState.call(this, () {});
     });

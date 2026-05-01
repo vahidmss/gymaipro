@@ -122,53 +122,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           color: context.textColor,
         ),
       ),
-      bottom: _hasTrainerAccess ? _buildTabBar() : null,
-    );
-  }
-
-  PreferredSizeWidget _buildTabBar() {
-    return PreferredSize(
-      preferredSize: Size.fromHeight(50.h),
-      child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 16.w),
-        padding: EdgeInsets.all(4.w),
-        decoration: BoxDecoration(
-          color: context.cardColor,
-          borderRadius: BorderRadius.circular(16.r),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: TabBar(
-          indicator: BoxDecoration(
-            borderRadius: BorderRadius.circular(12.r),
-            color: AppTheme.goldColor,
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.goldColor.withValues(alpha: 0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          indicatorSize: TabBarIndicatorSize.tab,
-          labelColor: Colors.black,
-          unselectedLabelColor: context.textSecondary,
-          labelStyle: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontWeight: FontWeight.bold,
-            fontSize: 13.sp,
-          ),
-          tabs: const [
-            Tab(text: 'نمای کلی'),
-            Tab(text: 'اطلاعات مربی'),
-          ],
-        ),
-      ),
     );
   }
 
@@ -188,78 +141,115 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       );
     }
 
-    if (_hasTrainerAccess) {
-      return DefaultTabController(
-        length: 2,
-        child: TabBarView(
-          children: [
-            _buildRoleBasedScreen(),
-            _buildTrainerTab(),
-          ],
-        ),
-      );
-    }
-
-    return _buildRoleBasedScreen();
-  }
-
-  Widget _buildRoleBasedScreen() {
     if (_isTrainerProfile) {
       return TrainerProfileScreen(userId: widget.userId);
     }
-    return AthleteProfileScreen(userId: widget.userId);
+
+    return AthleteProfileScreen(
+      userId: widget.userId,
+      trainerOnlySection:
+          _hasTrainerAccess ? _buildTrainerOnlySection() : null,
+    );
   }
 
-  Widget _buildTrainerTab() {
-    if (!_hasTrainerAccess) return const SizedBox.shrink();
+  /// کارت اطلاعات محرمانه (فقط برای مربی) — بالای پروفایل، در همان اسکرول
+  Widget _buildTrainerOnlySection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16.w),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: EdgeInsets.all(16.w),
-            margin: EdgeInsets.only(top: 80.h),
-            decoration: BoxDecoration(
-              color: AppTheme.goldColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16.r),
-              border: Border.all(
-                color: AppTheme.goldColor.withValues(alpha: 0.3),
-              ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(16.w),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [
+                    AppTheme.goldColor.withValues(alpha: 0.12),
+                    AppTheme.goldColor.withValues(alpha: 0.04),
+                  ]
+                : [
+                    AppTheme.goldColor.withValues(alpha: 0.08),
+                    AppTheme.lightCardColor,
+                  ],
+          ),
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(
+            color: AppTheme.goldColor.withValues(alpha: 0.25),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.goldColor.withValues(alpha: 0.06),
+              blurRadius: 12.r,
+              offset: Offset(0, 4.h),
             ),
-            child: Row(
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Icon(LucideIcons.lock, color: AppTheme.goldColor, size: 20.sp),
+                Container(
+                  padding: EdgeInsets.all(8.w),
+                  decoration: BoxDecoration(
+                    color: AppTheme.goldColor.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                  child: Icon(
+                    LucideIcons.shieldCheck,
+                    color: AppTheme.goldColor,
+                    size: 20.sp,
+                  ),
+                ),
                 SizedBox(width: 12.w),
                 Expanded(
                   child: Text(
-                    'این بخش فقط برای شما (مربی) قابل مشاهده است.',
+                    'اطلاعات محرمانه شاگرد',
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
-                      fontSize: 12.sp,
-                      color: AppTheme.goldColor,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w700,
+                      color: context.textColor,
                     ),
                   ),
                 ),
               ],
             ),
-          ),
-          SizedBox(height: 20.h),
-          if (!_confHasConsented)
-            Center(
-              child: Text(
-                'شاگرد هنوز دسترسی به اطلاعات محرمانه را تایید نکرده است.',
-                style: TextStyle(
-                  color: context.textSecondary,
-                  fontFamily: AppTheme.fontFamily,
-                ),
+            SizedBox(height: 4.h),
+            Text(
+              'فقط برای شما (مربی) قابل مشاهده است.',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 11.sp,
+                color: AppTheme.goldColor,
+                fontWeight: FontWeight.w500,
               ),
-            )
-          else
-            _buildConfidentialContent(),
-        ],
+            ),
+            SizedBox(height: 14.h),
+            if (!_confHasConsented)
+              Center(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                  child: Text(
+                    'شاگرد هنوز دسترسی به اطلاعات محرمانه را تایید نکرده است.',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 12.sp,
+                      color: context.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              )
+            else
+              _buildConfidentialContent(),
+          ],
+        ),
       ),
     );
   }
@@ -271,6 +261,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         {};
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         _trainerCard(
           icon: LucideIcons.heart,
@@ -307,6 +298,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         border: Border.all(color: context.separatorColor),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(

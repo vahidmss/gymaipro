@@ -35,6 +35,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
   // Controllers
   final _titleController = TextEditingController();
   final _artistController = TextEditingController();
+  final _singerController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _categoryController = TextEditingController();
 
@@ -66,6 +67,18 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
   void initState() {
     super.initState();
     _initializeForm();
+    if (widget.music == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadDisplayArtist());
+    }
+  }
+
+  Future<void> _loadDisplayArtist() async {
+    try {
+      final displayArtist = await _service.resolveArtistByCurrentUser();
+      if (mounted && widget.music == null && _artistController.text.isEmpty) {
+        _artistController.text = displayArtist;
+      }
+    } catch (_) {}
   }
 
 
@@ -73,6 +86,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
   void dispose() {
     _titleController.dispose();
     _artistController.dispose();
+    _singerController.dispose();
     _descriptionController.dispose();
     _categoryController.dispose();
     super.dispose();
@@ -83,6 +97,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
       final m = widget.music!;
       _titleController.text = m.title;
       _artistController.text = m.artist;
+      _singerController.text = m.singer ?? '';
       _descriptionController.text = m.description ?? '';
       _categoryController.text = m.category ?? '';
       _visibility = m.visibility;
@@ -415,6 +430,9 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
           description: _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim(),
+          singer: _singerController.text.trim().isEmpty
+              ? null
+              : _singerController.text.trim(),
           visibility: _visibility,
         );
 
@@ -445,6 +463,9 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
           description: _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim(),
+          singer: _singerController.text.trim().isEmpty
+              ? null
+              : _singerController.text.trim(),
           visibility: _visibility,
         );
 
@@ -530,22 +551,32 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
                   ),
                   SizedBox(height: 16.h),
 
-                  // هنرمند
+                  // هنرمند (ادمین: GymAI، مربی: نام و نام‌خانوادگی — به‌صورت خودکار ذخیره می‌شود)
                   TextFormField(
                     controller: _artistController,
+                    readOnly: true,
                     decoration: InputDecoration(
-                      labelText: 'نام هنرمند',
+                      labelText: 'نام نمایشی (نویسنده)',
+                      helperText: 'ادمین: GymAI | مربی: نام شما. به‌صورت خودکار تنظیم می‌شود.',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.r),
                       ),
                       prefixIcon: const Icon(LucideIcons.user),
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'لطفاً نام هنرمند را وارد کنید';
-                      }
-                      return null;
-                    },
+                  ),
+                  SizedBox(height: 16.h),
+
+                  // نام خواننده (اختیاری — برای موزیک بی‌کلام خالی بگذارید)
+                  TextFormField(
+                    controller: _singerController,
+                    decoration: InputDecoration(
+                      labelText: 'نام خواننده (اختیاری)',
+                      helperText: 'برای موزیک بی‌کلام خالی بگذارید',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      prefixIcon: const Icon(LucideIcons.mic2),
+                    ),
                   ),
                   SizedBox(height: 16.h),
 

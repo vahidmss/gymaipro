@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_ranking/models/trainer_ranking_model.dart'
     show TrainerReview;
@@ -75,7 +74,8 @@ class TrainerReviewWidget extends StatelessWidget {
                         children: [
                           Text(
                             review.userFullName ?? review.studentName,
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               color: Colors.white,
                               fontSize: 14.sp,
                               fontWeight: FontWeight.bold,
@@ -115,7 +115,8 @@ class TrainerReviewWidget extends StatelessWidget {
                                   SizedBox(width: 3.w),
                                   Text(
                                     'شاگرد',
-                                    style: GoogleFonts.vazirmatn(
+                                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                       color: Colors.white,
                                       fontSize: 8.sp,
                                       fontWeight: FontWeight.bold,
@@ -129,7 +130,8 @@ class TrainerReviewWidget extends StatelessWidget {
                       ),
                       Text(
                         _formatDate(review.createdAt),
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: Colors.grey[400],
                           fontSize: 12.sp,
                         ),
@@ -167,7 +169,8 @@ class TrainerReviewWidget extends StatelessWidget {
                       SizedBox(width: 3.w),
                       Text(
                         review.rating.toStringAsFixed(1),
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: Colors.white,
                           fontSize: 12.sp,
                           fontWeight: FontWeight.bold,
@@ -184,7 +187,8 @@ class TrainerReviewWidget extends StatelessWidget {
             if (review.comment.isNotEmpty)
               Text(
                 review.comment,
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   color: Colors.white,
                   fontSize: 14.sp,
                   height: 1.5.h,

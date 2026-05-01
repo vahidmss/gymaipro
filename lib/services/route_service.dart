@@ -37,8 +37,10 @@ import 'package:gymaipro/screens/offline_screen.dart';
 import 'package:gymaipro/screens/settings_screen.dart';
 import 'package:gymaipro/screens/welcome_screen.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
+import 'package:gymaipro/services/backend_reachability_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/trainer_dashboard/screens/client_management/client_management_screen.dart';
+import 'package:gymaipro/trainer_dashboard/screens/trainer_dashboard_screen.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/ranking/screens/leaderboard_screen.dart';
 import 'package:gymaipro/trainer_ranking/screens/trainer_detail_screen.dart';
@@ -309,6 +311,20 @@ class RouteService {
         return MaterialPageRoute(
           builder: (_) => const ClientManagementScreen(),
         );
+      case '/trainer-dashboard':
+        final initialTabIndex = settings.arguments is int
+            ? settings.arguments as int
+            : (settings.arguments is Map<String, dynamic>
+                    ? (settings.arguments
+                            as Map<String, dynamic>)['initialTabIndex']
+                        as int?
+                    : null) ??
+                0;
+        return MaterialPageRoute(
+          builder: (_) => TrainerDashboardScreen(
+            initialTabIndex: initialTabIndex.clamp(0, 8),
+          ),
+        );
       case '/notifications':
         return MaterialPageRoute(builder: (_) => const NotificationsScreen());
       case '/notification-settings':
@@ -356,6 +372,14 @@ class RouteService {
       final isOnline = await ConnectivityService.instance.checkNow();
       if (!isOnline) {
         print('=== ROUTE SERVICE: Offline detected, returning /offline ===');
+        return '/offline';
+      }
+      final backendReachable = await BackendReachabilityService
+          .isBackendReachable(timeout: const Duration(seconds: 3));
+      if (!backendReachable) {
+        print(
+          '=== ROUTE SERVICE: Network is available but backend is unreachable. Returning /offline ===',
+        );
         return '/offline';
       }
       final authService = AuthStateService();

@@ -135,6 +135,20 @@ class FriendshipService {
     }
   }
 
+  /// تایید درخواست دوستی از طرف کاربری که درخواست فرستاده (برای استفاده در جستجو)
+  static Future<void> acceptFriendRequestFromRequester(String requesterId) async {
+    final list = await getReceivedRequests();
+    FriendshipRequest? request;
+    for (final r in list) {
+      if (r.requesterId == requesterId) {
+        request = r;
+        break;
+      }
+    }
+    if (request == null) throw Exception('درخواست دوستی یافت نشد');
+    await acceptFriendRequest(request.id);
+  }
+
   /// تایید درخواست دوستی
   static Future<void> acceptFriendRequest(String requestId) async {
     try {

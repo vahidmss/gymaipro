@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/payment/services/discount_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/text_controller_utils.dart';
@@ -115,7 +114,8 @@ class _DiscountInputState extends State<DiscountInput> {
               const SizedBox(width: 8),
               Text(
                 'کد تخفیف',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.goldColor,
@@ -131,13 +131,15 @@ class _DiscountInputState extends State<DiscountInput> {
                 Expanded(
                   child: TextFormField(
                     controller: _controller,
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 14.sp,
                       color: Colors.white,
                     ),
                     decoration: InputDecoration(
                       hintText: 'کد تخفیف را وارد کنید',
-                      hintStyle: GoogleFonts.vazirmatn(color: Colors.white54),
+                      hintStyle: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: Colors.white54),
                       filled: true,
                       fillColor: Colors.white.withValues(alpha: 0.05),
                       border: OutlineInputBorder(
@@ -180,7 +182,8 @@ class _DiscountInputState extends State<DiscountInput> {
                           )
                         : Text(
                             'اعمال',
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 12.sp,
                               fontWeight: FontWeight.bold,
                             ),
@@ -211,7 +214,8 @@ class _DiscountInputState extends State<DiscountInput> {
                       children: [
                         Text(
                           'کد "${_controller.isSafe ? _controller.safeText : ""}" اعمال شد',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             fontSize: 14.sp,
                             fontWeight: FontWeight.bold,
                             color: Colors.green,
@@ -220,7 +224,8 @@ class _DiscountInputState extends State<DiscountInput> {
                         if (_discountMessage != null)
                           Text(
                             _discountMessage!,
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 12.sp,
                               color: Colors.green.shade300,
                             ),
@@ -257,7 +262,8 @@ class _DiscountInputState extends State<DiscountInput> {
                   Expanded(
                     child: Text(
                       _errorMessage!,
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 12.sp,
                         color: Colors.red,
                       ),

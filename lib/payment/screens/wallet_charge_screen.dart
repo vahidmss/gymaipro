@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/payment/services/payment_session_service.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
@@ -161,6 +160,9 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
 
         // نمایش پیام موفقیت
         if (mounted) {
+          WidgetSafetyUtils.safeSetState(this, () {
+            _isProcessing = false;
+          });
           _showSuccessDialog();
         }
       } catch (e) {
@@ -173,6 +175,9 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
           await launchUrl(uri);
 
           if (mounted) {
+            WidgetSafetyUtils.safeSetState(this, () {
+              _isProcessing = false;
+            });
             _showSuccessDialog();
           }
         } catch (e2) {
@@ -340,7 +345,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
               children: [
                 Text(
                   'شارژ کیف پول',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 22.sp,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -349,7 +355,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'موجودی خود را افزایش دهید',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 14.sp,
                     color: Colors.white.withValues(alpha: 0.1),
                   ),
@@ -408,7 +415,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
               children: [
                 Text(
                   'موجودی فعلی',
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 16.sp,
                     color: Colors.white.withValues(alpha: 0.1),
                     fontWeight: FontWeight.w500,
@@ -422,7 +430,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
                       final wallet = snapshot.data!;
                       return Text(
                         PaymentConstants.formatAmount(wallet.availableBalance),
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           fontSize: 24.sp,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -431,7 +440,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
                     }
                     return Text(
                       'در حال بارگذاری...',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 20.sp,
                         color: Colors.white.withValues(alpha: 0.1),
                       ),
@@ -449,7 +459,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
             ),
             child: Text(
               'تومان',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 12.sp,
                 color: Colors.white,
                 fontWeight: FontWeight.w500,
@@ -499,7 +510,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
                   children: [
                     Text(
                       'مبلغ شارژ',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 18.sp,
                         fontWeight: FontWeight.bold,
                         color: Colors.grey[800],
@@ -508,7 +520,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
                     const SizedBox(height: 4),
                     Text(
                       'مبلغ مورد نظر خود را وارد کنید',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 14.sp,
                         color: Colors.grey[600],
                       ),
@@ -535,7 +548,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 hintText: 'مبلغ مورد نظر را وارد کنید',
-                hintStyle: GoogleFonts.vazirmatn(
+                hintStyle: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   color: Colors.grey[500],
                   fontSize: 16.sp,
                 ),
@@ -553,13 +567,15 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
                   ),
                 ),
                 suffixText: 'تومان',
-                suffixStyle: GoogleFonts.vazirmatn(
+                suffixStyle: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   color: AppTheme.primaryColor,
                   fontWeight: FontWeight.w600,
                   fontSize: 14.sp,
                 ),
               ),
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 18.sp,
                 fontWeight: FontWeight.w600,
                 color: Colors.grey[800],
@@ -573,7 +589,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
               const SizedBox(width: 8),
               Text(
                 'حداقل: ${PaymentConstants.formatAmount(PaymentConstants.minWalletCharge)} تومان',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontSize: 14.sp,
                   color: Colors.grey[600],
                 ),
@@ -623,7 +640,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
                   children: [
                     Text(
                       'مبالغ پیشنهادی',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 18.sp,
                         fontWeight: FontWeight.bold,
                         color: Colors.grey[800],
@@ -632,7 +650,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
                     const SizedBox(height: 4),
                     Text(
                       'یکی از مبالغ زیر را انتخاب کنید',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 14.sp,
                         color: Colors.grey[600],
                       ),
@@ -712,7 +731,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
                           children: [
                             Text(
                               PaymentConstants.formatAmount(amount),
-                              style: GoogleFonts.vazirmatn(
+                              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                 fontSize: 16.sp,
                                 color: isSelected
                                     ? Colors.white
@@ -723,7 +743,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
                             const SizedBox(height: 2),
                             Text(
                               'تومان',
-                              style: GoogleFonts.vazirmatn(
+                              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                 fontSize: 12.sp,
                                 color: isSelected
                                     ? Colors.white.withValues(alpha: 0.1)
@@ -803,8 +824,9 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
                   const SizedBox(width: 12),
                 ],
                 Text(
-                  _isProcessing ? 'در حال پردازش...' : 'ادامه پرداخت',
-                  style: GoogleFonts.vazirmatn(
+                  _isProcessing ? 'لطفا صبر کنید...' : 'ادامه پرداخت',
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
@@ -833,7 +855,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
           Expanded(
             child: Text(
               _errorMessage!,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 14.sp,
                 color: Colors.red[700],
               ),

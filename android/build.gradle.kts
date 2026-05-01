@@ -1,3 +1,14 @@
+allprojects {
+    repositories {
+        // Tencent mirror: verified accessible from Iran (Apr 2026)
+        maven { url = uri("https://mirrors.cloud.tencent.com/nexus/repository/maven-public") }
+        google()
+        mavenCentral()
+        // Flutter engine artifacts (accessible from Iran)
+        maven { url = uri("https://storage.googleapis.com/download.flutter.io") }
+    }
+}
+
 val newBuildDir: Directory =
     rootProject.layout.buildDirectory
         .dir("../../build")

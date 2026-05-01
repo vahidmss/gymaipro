@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -61,10 +60,12 @@ class _TrainerSearchFilterWidgetState extends State<TrainerSearchFilterWidget> {
           TextField(
             controller: widget.searchController,
             onChanged: widget.onSearchChanged,
-            style: GoogleFonts.vazirmatn(color: Colors.white),
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: Colors.white),
             decoration: InputDecoration(
               hintText: 'جستجوی مربی...',
-              hintStyle: GoogleFonts.vazirmatn(color: Colors.grey[400]),
+              hintStyle: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: Colors.grey[400]),
               prefixIcon: const Icon(
                 LucideIcons.search,
                 color: AppTheme.goldColor,
@@ -110,7 +111,8 @@ class _TrainerSearchFilterWidgetState extends State<TrainerSearchFilterWidget> {
                   ),
                   label: Text(
                     'فیلترها',
-                    style: GoogleFonts.vazirmatn(color: Colors.white),
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.goldColor,
@@ -126,7 +128,8 @@ class _TrainerSearchFilterWidgetState extends State<TrainerSearchFilterWidget> {
                 icon: const Icon(LucideIcons.refreshCw, color: Colors.white),
                 label: Text(
                   'پاک کردن',
-                  style: GoogleFonts.vazirmatn(color: Colors.white),
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red[700],
@@ -158,7 +161,8 @@ class _TrainerSearchFilterWidgetState extends State<TrainerSearchFilterWidget> {
                     children: [
                       Text(
                         'فیلترها',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: Colors.white,
                           fontSize: 16.sp,
                           fontWeight: FontWeight.bold,
@@ -169,7 +173,8 @@ class _TrainerSearchFilterWidgetState extends State<TrainerSearchFilterWidget> {
                       // تخصص
                       Text(
                         'تخصص',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: Colors.grey[300],
                           fontSize: 14.sp,
                         ),
@@ -184,7 +189,8 @@ class _TrainerSearchFilterWidgetState extends State<TrainerSearchFilterWidget> {
                           return FilterChip(
                             label: Text(
                               spec,
-                              style: GoogleFonts.vazirmatn(
+                              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                 color: isSelected
                                     ? Colors.white
                                     : Colors.grey[300],
@@ -207,7 +213,8 @@ class _TrainerSearchFilterWidgetState extends State<TrainerSearchFilterWidget> {
                       // امتیاز
                       Text(
                         'حداقل امتیاز',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: Colors.grey[300],
                           fontSize: 14.sp,
                         ),
@@ -225,7 +232,8 @@ class _TrainerSearchFilterWidgetState extends State<TrainerSearchFilterWidget> {
                       ),
                       Text(
                         '${(widget.minRating ?? 0.0).toStringAsFixed(1)} ستاره',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: AppTheme.goldColor,
                           fontSize: 12.sp,
                         ),
@@ -235,7 +243,8 @@ class _TrainerSearchFilterWidgetState extends State<TrainerSearchFilterWidget> {
                       // قیمت
                       Text(
                         'حداکثر قیمت ساعتی',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: Colors.grey[300],
                           fontSize: 14.sp,
                         ),
@@ -254,7 +263,8 @@ class _TrainerSearchFilterWidgetState extends State<TrainerSearchFilterWidget> {
                       ),
                       Text(
                         '${(widget.maxHourlyRate ?? 1000000.0).toStringAsFixed(0)} تومان',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           color: AppTheme.goldColor,
                           fontSize: 12.sp,
                         ),
@@ -273,7 +283,8 @@ class _TrainerSearchFilterWidgetState extends State<TrainerSearchFilterWidget> {
                           ),
                           Text(
                             'فقط آنلاین',
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               color: Colors.grey[300],
                               fontSize: 14.sp,
                             ),

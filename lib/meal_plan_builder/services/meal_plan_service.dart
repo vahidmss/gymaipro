@@ -1,4 +1,4 @@
-﻿import 'package:gymaipro/models/meal_plan.dart';
+import 'package:gymaipro/models/meal_plan.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/services/notification_data_service.dart';
 import 'package:gymaipro/payment/services/payout_service.dart';

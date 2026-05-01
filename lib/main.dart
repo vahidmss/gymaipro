@@ -1,4 +1,6 @@
-﻿import 'package:device_preview/device_preview.dart';
+﻿import 'dart:async';
+
+import 'package:device_preview/device_preview.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -19,10 +21,10 @@ import 'package:gymaipro/academy/services/music_player_service.dart';
 import 'package:gymaipro/services/score_service.dart';
 import 'package:gymaipro/services/supabase_service.dart';
 import 'package:gymaipro/services/video_download_manager.dart';
-import 'package:gymaipro/screens/offline_screen.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/theme/theme_provider.dart';
 import 'package:gymaipro/widgets/offline_banner.dart';
+import 'package:gymaipro/widgets/vpn_warning_banner.dart';
 import 'package:provider/provider.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 
@@ -32,17 +34,18 @@ void main() async {
   // Initialize global error handler
   AppErrorHandler.initialize();
 
-  // Professional startup:
-  // Don't block first frame by awaiting heavy initialization before runApp.
-  // Show a lightweight splash immediately and run initialization in background.
+  // Show a lightweight splash immediately; heavy init runs in background.
   runApp(
     DevicePreview(
-      // DevicePreview enabled in debug mode for testing different screen sizes
       enabled: kDebugMode,
       builder: (context) => const BootstrapApp(),
     ),
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bootstrap — Handles initialization with timeout, auto-retry & connectivity
+// ─────────────────────────────────────────────────────────────────────────────
 
 class BootstrapApp extends StatefulWidget {
   const BootstrapApp({super.key});
@@ -51,122 +54,303 @@ class BootstrapApp extends StatefulWidget {
   State<BootstrapApp> createState() => _BootstrapAppState();
 }
 
-class _BootstrapAppState extends State<BootstrapApp> {
-  late Future<AppInitResult> _initFuture;
-  late Future<bool> _onlineFuture;
+enum _BootPhase { loading, done, failed }
 
-  void _restartInit() {
-    setState(() {
-      _onlineFuture = ConnectivityService.instance.checkNow();
-      _initFuture = AppInitializer.initialize();
-    });
-  }
+class _BootstrapAppState extends State<BootstrapApp> {
+  _BootPhase _phase = _BootPhase.loading;
+  AppInitResult? _result;
+
+  bool _isInitializing = false;
+  bool _showSlowHint = false;
+  Timer? _slowTimer;
+  StreamSubscription<bool>? _connectivitySub;
 
   @override
   void initState() {
     super.initState();
-    _initFuture = AppInitializer.initialize();
-    // Quick connectivity check to show a proper offline UI while heavy init runs.
-    _onlineFuture = ConnectivityService.instance.checkNow();
+    _startInit();
+    _listenConnectivity();
+  }
+
+  @override
+  void dispose() {
+    _slowTimer?.cancel();
+    _connectivitySub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _startInit() async {
+    if (_phase == _BootPhase.done) return;
+    if (_isInitializing) return;
+
+    _isInitializing = true;
+    _slowTimer?.cancel();
+    setState(() {
+      _phase = _BootPhase.loading;
+      _showSlowHint = false;
+    });
+
+    // After 6s show a subtle hint — user is never left wondering
+    _slowTimer = Timer(const Duration(seconds: 6), () {
+      if (mounted && _phase == _BootPhase.loading) {
+        setState(() => _showSlowHint = true);
+      }
+    });
+
+    try {
+      final result = await AppInitializer.initialize();
+      _slowTimer?.cancel();
+      if (!mounted) return;
+
+      if (result.success) {
+        setState(() {
+          _phase = _BootPhase.done;
+          _result = result;
+        });
+      } else {
+        setState(() => _phase = _BootPhase.failed);
+      }
+    } catch (e) {
+      _slowTimer?.cancel();
+      if (kDebugMode) debugPrint('Bootstrap init error: $e');
+      if (!mounted) return;
+      setState(() => _phase = _BootPhase.failed);
+    } finally {
+      _isInitializing = false;
+    }
+  }
+
+  void _listenConnectivity() {
+    ConnectivityService.instance.ensureListening();
+    ConnectivityService.instance.checkNow();
+
+    _connectivitySub = ConnectivityService.instance.isConnectedStream.listen((
+      online,
+    ) {
+      if (online && _phase != _BootPhase.done && !_isInitializing) {
+        _startInit();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _onlineFuture,
-      builder: (context, onlineSnap) {
-        // While we're still checking connectivity, keep the splash look (avoid white screen).
-        if (onlineSnap.connectionState != ConnectionState.done) {
-          return const _BootstrapSplashApp();
-        }
+    if (_phase == _BootPhase.done && _result != null) {
+      return LifecycleObserver(
+        child: MyApp(
+          initialRoute: _result!.initialRoute,
+          supabaseService: _result!.supabaseService,
+        ),
+      );
+    }
 
-        final online = onlineSnap.data;
-
-        // If offline, show offline screen immediately instead of a "white loading".
-        if (online == false) {
-          return ScreenUtilInit(
-            designSize: const Size(375, 812),
-            minTextAdapt: true,
-            splitScreenMode: true,
-            useInheritedMediaQuery: true,
-            builder: (context, child) {
-              return MaterialApp(
-                debugShowCheckedModeBanner: false,
-                home: OfflineScreen(onReconnect: _restartInit),
-              );
-            },
-          );
-        }
-
-        return FutureBuilder<AppInitResult>(
-          future: _initFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              // Splash while initializing (match native splash to avoid a white flash)
-              return const _BootstrapSplashApp();
-            }
-
-            final initResult = snapshot.data;
-            if (initResult == null || initResult.success != true) {
-              // Fail-safe: still boot to offline UI, but don't crash.
-              return MaterialApp(
-                debugShowCheckedModeBanner: false,
-                home: OfflineScreen(onReconnect: _restartInit),
-              );
-            }
-
-            // Only start lifecycle observers after core services are initialized
-            return LifecycleObserver(
-              child: MyApp(
-                initialRoute: initResult.initialRoute,
-                supabaseService: initResult.supabaseService,
-              ),
-            );
-          },
-        );
-      },
+    return _SplashMaterialApp(
+      phase: _phase,
+      showSlowHint: _showSlowHint,
+      onRetry: _startInit,
     );
   }
 }
 
-class _BootstrapSplashApp extends StatelessWidget {
-  const _BootstrapSplashApp();
+// ─────────────────────────────────────────────────────────────────────────────
+// Splash screen — shown during initialization
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SplashMaterialApp extends StatelessWidget {
+  const _SplashMaterialApp({
+    required this.phase,
+    required this.showSlowHint,
+    required this.onRetry,
+  });
+
+  final _BootPhase phase;
+  final bool showSlowHint;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: _BootstrapSplashScreen(),
+      home: _SplashScreen(
+        phase: phase,
+        showSlowHint: showSlowHint,
+        onRetry: onRetry,
+      ),
     );
   }
 }
 
-class _BootstrapSplashScreen extends StatelessWidget {
-  const _BootstrapSplashScreen();
+class _SplashScreen extends StatefulWidget {
+  const _SplashScreen({
+    required this.phase,
+    required this.showSlowHint,
+    required this.onRetry,
+  });
 
-  static const Color _bg = Color(0xFF0A0A0A);
+  final _BootPhase phase;
+  final bool showSlowHint;
+  final VoidCallback onRetry;
+
+  @override
+  State<_SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<_SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _fadeController;
+  late final Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    // Subtle breathing opacity on the logo — not a spinner, just life
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+
+    _fadeAnimation = Tween<double>(begin: 0.7, end: 1).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: _bg,
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image(image: AssetImage('images/mainlogo_no_bg.png'), width: 160),
-            SizedBox(height: 24),
-            SizedBox(
-              height: 22,
-              width: 22,
-              child: CircularProgressIndicator(strokeWidth: 2),
+    final isFailed = widget.phase == _BootPhase.failed;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0A0A0A),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FadeTransition(
+                  opacity: isFailed
+                      ? const AlwaysStoppedAnimation(1.0)
+                      : _fadeAnimation,
+                  child: const Image(
+                    image: AssetImage('images/mainlogo_no_bg.png'),
+                    width: 130,
+                  ),
+                ),
+                const SizedBox(height: 48),
+                AnimatedOpacity(
+                  opacity: isFailed ? 0 : 1,
+                  duration: const Duration(milliseconds: 300),
+                  child: SizedBox(
+                    width: 56,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        minHeight: 2,
+                        backgroundColor: Colors.white.withValues(alpha: 0.08),
+                        color: AppTheme.goldColor.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ),
+                ),
+                if (isFailed) ...[
+                  const SizedBox(height: 20),
+                  Icon(
+                    Icons.wifi_off_rounded,
+                    size: 28,
+                    color: Colors.white.withValues(alpha: 0.4),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'اتصال نیست',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'اینترنت را چک کنید',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.white.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  TextButton(
+                    onPressed: widget.onRetry,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.goldColor,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 28,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: const Text(
+                      'تلاش مجدد',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+                if (!isFailed)
+                  AnimatedOpacity(
+                    opacity: widget.showSlowHint ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 500),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 28),
+                      child: Column(
+                        children: [
+                          Text(
+                            'در حال اتصال...',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withValues(alpha: 0.55),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'وی‌پی‌ان روشن است؟ خاموشش کنید.',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: Colors.white.withValues(alpha: 0.45),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MyApp — The real application after successful initialization
+// ─────────────────────────────────────────────────────────────────────────────
 
 class MyApp extends StatefulWidget {
   const MyApp({
@@ -194,12 +378,11 @@ class _MyAppState extends State<MyApp> {
     _chatUnreadNotifier = ChatUnreadNotifier();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // One-time initialization (avoid doing this in build, it can repeat)
       ConnectivityService.instance.initialize();
-      _initializeServices();
-      _checkPendingNavigation();
       _checkGlobalKeyStatus();
       _initializeGuideServices();
+      _initializeServices();
+      _checkPendingNavigation();
     });
   }
 
@@ -241,7 +424,6 @@ class _MyAppState extends State<MyApp> {
     Future<void>.delayed(const Duration(milliseconds: 300), () async {
       if (!mounted) return;
       final navContext = MyApp.navigatorKey.currentContext ?? context;
-      if (navContext == null) return;
 
       try {
         await NotificationNavigationService.checkPendingNavigation(navContext);
@@ -250,7 +432,6 @@ class _MyAppState extends State<MyApp> {
         Future<void>.delayed(const Duration(seconds: 1), () async {
           if (!mounted) return;
           final retryNavContext = MyApp.navigatorKey.currentContext ?? context;
-          if (retryNavContext == null) return;
           try {
             await NotificationNavigationService.checkPendingNavigation(
               retryNavContext,
@@ -293,8 +474,6 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider<MusicPlayerService>(
           create: (_) {
             final service = MusicPlayerService();
-            // Initialize asynchronously to avoid blocking UI thread
-            // The service will initialize when first accessed
             service.init().catchError((Object error) {
               debugPrint('Error initializing MusicPlayerService: $error');
             });
@@ -324,17 +503,14 @@ class _MyAppState extends State<MyApp> {
                 title: 'GymAI Pro',
                 debugShowCheckedModeBanner: false,
                 navigatorKey: MyApp.navigatorKey,
-                // Device Preview settings
                 useInheritedMediaQuery: true,
                 locale: DevicePreview.locale(context),
                 builder: (context, child) {
-                  // First apply DevicePreview builder
                   final devicePreviewChild = DevicePreview.appBuilder(
                     context,
                     child,
                   );
 
-                  // Then apply our custom builder
                   final isDark =
                       Theme.of(context).brightness == Brightness.dark;
                   return ResponsiveBreakpoints.builder(
@@ -349,15 +525,12 @@ class _MyAppState extends State<MyApp> {
                       decoration: isDark
                           ? null
                           : BoxDecoration(
-                              // گرادیانت عمودی: بالا پررنگ‌تر (نوار ساعت خوانا) → پایین روشن
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  const Color(
-                                    0xFFDDD0B8,
-                                  ), // نوار بالا: کرم طلایی پررنگ
-                                  const Color(0xFFEDE4D4), // نرم
+                                  const Color(0xFFDDD0B8),
+                                  const Color(0xFFEDE4D4),
                                   AppTheme.lightCardColor,
                                   AppTheme.lightGradientEnd.withValues(
                                     alpha: 0.12,
@@ -376,6 +549,7 @@ class _MyAppState extends State<MyApp> {
                             ),
                           ),
                           const OfflineBanner(),
+                          const VpnWarningBanner(),
                         ],
                       ),
                     ),

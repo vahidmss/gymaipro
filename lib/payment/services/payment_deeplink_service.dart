@@ -1,8 +1,9 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gymaipro/payment/services/trainer_payment_service.dart';
+import 'package:gymaipro/payment/widgets/purchase_success_dialog.dart';
 import 'package:gymaipro/widgets/responsive_dialog.dart';
 
 /// سرویس مدیریت deeplink های پرداخت
@@ -207,72 +208,77 @@ class PaymentDeeplinkService {
         );
 
         final success = result['success'] == true;
-        
-        // هدایت به صفحه مربی قبل از نمایش دیالوگ
-        if (trainerId != null && trainerId.isNotEmpty) {
+
+        if (success) {
+          // نمایش دیالوگ موفقیت خرید
+          String serviceName = 'برنامه';
+          String trainerNameStr = 'مربی';
+
+          // دریافت نام سرویس از metadata تراکنش
           try {
-            // بستن تمام صفحات قبلی و بازگشت به صفحه مربی
-            Navigator.of(ctx).pushNamedAndRemoveUntil(
-              '/trainer-detail',
-              (route) => route.isFirst,
-              arguments: {'trainerId': trainerId},
-            );
-            // کمی تأخیر برای اطمینان از لود شدن صفحه
-            await Future<void>.delayed(const Duration(milliseconds: 500));
-          } catch (e) {
-            if (kDebugMode) {
-              print('خطا در هدایت به صفحه مربی: $e');
-            }
-          }
-        }
-        
-        // نمایش دیالوگ تبریک و تایید
-        await showDialog<void>(
-          context: ctx,
-          barrierDismissible: false,
-          builder: (d) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Row(
-              children: [
-                Icon(
-                  success ? Icons.check_circle : Icons.error,
-                  color: success ? Colors.green : Colors.red,
-                  size: 28,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    success ? '🎉 پرداخت موفق!' : 'پرداخت ناموفق',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+            final txStatus = await service.getTransactionStatus(transactionId);
+            final txData = txStatus?['transaction'] as Map<String, dynamic>?;
+            final meta = txData?['metadata'] as Map<String, dynamic>?;
+            serviceName = (meta?['service_name'] as String?) ?? serviceName;
+            trainerNameStr = (meta?['trainer_name'] as String?) ?? trainerNameStr;
+          } catch (_) {}
+
+          await PurchaseSuccessDialog.show(
+            ctx,
+            serviceName: serviceName,
+            trainerName: trainerNameStr,
+            onViewPrograms: () {
+              try {
+                Navigator.of(ctx).pushNamedAndRemoveUntil(
+                  '/my-club',
+                  (route) => route.isFirst,
+                  arguments: {'initialTab': 0},
+                );
+              } catch (_) {}
+            },
+          );
+        } else {
+          await showDialog<void>(
+            context: ctx,
+            barrierDismissible: false,
+            builder: (d) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.error, color: Colors.red, size: 28),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'پرداخت ناموفق',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+                  ),
+                ],
+              ),
+              content: Text(
+                result['error']?.toString() ?? 'تایید پرداخت ناموفق بود.',
+                style: const TextStyle(fontSize: 16),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(d, rootNavigator: true).pop(),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
+                  child: const Text(
+                    'باشه',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
             ),
-            content: Text(
-              success
-                  ? 'تبریک! اشتراک شما با موفقیت فعال شد و می‌توانید از خدمات مربی استفاده کنید.'
-                  : (result['error']?.toString() ?? 'تایید پرداخت ناموفق بود.'),
-              style: const TextStyle(fontSize: 16),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(d, rootNavigator: true).pop(),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                ),
-                child: const Text(
-                  'عالی!',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-        );
+          );
+        }
       } catch (e) {
         if (kDebugMode) {
           print('خطا در تایید پرداخت مربی: $e');

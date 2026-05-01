@@ -48,7 +48,7 @@ class ServiceCardWidget extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: disabled || isProcessing ? null : onTap,
+            onTap: disabled ? null : onTap,
             borderRadius: BorderRadius.circular(16.r),
             child: Container(
               padding: EdgeInsets.all(16.w),
@@ -124,10 +124,6 @@ class ServiceCardWidget extends StatelessWidget {
                   if (isPopular) ...[
                     const SizedBox(width: 6),
                     _buildBadge('محبوب', AppTheme.goldColor),
-                  ],
-                  if (isSelected) ...[
-                    const SizedBox(width: 6),
-                    _buildBadge('انتخاب شده', Colors.green),
                   ],
                 ],
               ),
@@ -272,7 +268,7 @@ class ServiceCardWidget extends StatelessWidget {
       width: double.infinity,
       height: 44.h,
       child: ElevatedButton(
-        onPressed: disabled || isProcessing ? null : onTap,
+        onPressed: disabled ? null : onTap,
         style: ElevatedButton.styleFrom(
           backgroundColor: isSelected
               ? AppTheme.goldColor
@@ -294,40 +290,23 @@ class ServiceCardWidget extends StatelessWidget {
           ),
           padding: EdgeInsets.symmetric(horizontal: 16.w),
         ),
-        child: isProcessing
-            ? SizedBox(
-                width: 20.w,
-                height: 20.h,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    isSelected ? Colors.black : color,
-                  ),
-                ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isSelected
-                        ? LucideIcons.checkCircle
-                        : LucideIcons.shoppingCart,
-                    size: 18.sp,
-                  ),
-                  SizedBox(width: 8.w),
-                  Text(
-                    isSelected ? 'در حال پردازش...' : 'خرید برنامه',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(LucideIcons.shoppingCart, size: 18.sp),
+            SizedBox(width: 8.w),
+            Text(
+              'خرید برنامه',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 15.sp,
+                fontWeight: FontWeight.bold,
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
-

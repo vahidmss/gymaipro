@@ -4,6 +4,12 @@
 
 فایل `lib/services/coach_cover_upload_standalone.php` باید روی سرور دانلود (`dl.gymaipro.ir`) قرار بگیرد.
 
+## ⚠️ مهم: اتصال به Supabase
+
+سرور dl.gymaipro.ir معمولاً به IP:8000 دسترسی ندارد. باید:
+1. دامنه عمومی برای Supabase راه اندازی کنی (مثلاً `api.gymaipro.ir`) — راهنما: [`SUPABASE_PUBLIC_URL_SETUP.md`](./SUPABASE_PUBLIC_URL_SETUP.md)
+2. فایل `upload_config.php` را کنار `upload-cover.php` قرار بدهی و URL دامنه را در آن تنظیم کنی
+
 ## مراحل نصب
 
 ### 1. آپلود فایل

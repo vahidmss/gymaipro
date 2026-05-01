@@ -11,6 +11,7 @@ import 'package:gymaipro/profile/widgets/profile_image_widgets.dart';
 import 'package:gymaipro/profile/widgets/profile_weight_controls_widget.dart';
 import 'package:gymaipro/profile/widgets/weight_widgets.dart';
 import 'package:gymaipro/profile/widgets/profile_new_widgets.dart';
+import 'package:gymaipro/services/avatar_refresh_notifier.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -27,6 +28,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+/// وضعیت آپلود تصویر پروفایل برای UX حرفه‌ای
+enum AvatarUploadStatus { idle, uploading, success, error }
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -41,6 +45,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   File? _avatarFile;
   bool _isLoading = false;
   bool _isEditing = false;
+  AvatarUploadStatus _avatarUploadStatus = AvatarUploadStatus.idle;
+  String? _avatarUploadError;
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -198,39 +204,78 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (!mounted) return;
       SafeSetState.call(this, () {
         _avatarFile = file as File?;
-        _isLoading = true;
+        _avatarUploadStatus = AvatarUploadStatus.uploading;
+        _avatarUploadError = null;
       });
 
       try {
-        await _saveProfileData(context);
+        final avatarSaved = await _saveProfileData(context);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تصویر پروفایل ذخیره شد',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                color: context.textColor,
-              ),
-            ),
-            backgroundColor: context.cardColor,
-          ),
-        );
+        if (avatarSaved) {
+          SafeSetState.call(this, () {
+            _avatarUploadStatus = AvatarUploadStatus.success;
+            _avatarUploadError = null;
+          });
+          AvatarRefreshNotifier.instance.notifyAvatarUpdated();
+          // بعد از نمایش چک‌مارک، عکس از سرور نمایش داده شود و وضعیت به idle برگردد
+          await Future<void>.delayed(const Duration(milliseconds: 1800));
+          if (!mounted) return;
+          SafeSetState.call(this, () {
+            _avatarFile = null; // نمایش از avatar_url
+            _avatarUploadStatus = AvatarUploadStatus.idle;
+          });
+        } else {
+          SafeSetState.call(this, () {
+            _avatarUploadStatus = AvatarUploadStatus.error;
+            _avatarUploadError =
+                'ذخیره انجام نشد. اتصال اینترنت را بررسی کنید.';
+          });
+        }
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطا در ذخیره تصویر: $e'),
-            backgroundColor: context.cardColor,
-          ),
-        );
-      } finally {
-        if (!mounted) return;
         SafeSetState.call(this, () {
-          _isLoading = false;
+          _avatarUploadStatus = AvatarUploadStatus.error;
+          _avatarUploadError = e.toString().replaceFirst('Exception: ', '');
         });
       }
     });
+  }
+
+  Future<void> _retryAvatarUpload() async {
+    if (_avatarFile == null) return;
+    SafeSetState.call(this, () {
+      _avatarUploadStatus = AvatarUploadStatus.uploading;
+      _avatarUploadError = null;
+    });
+    try {
+      final avatarSaved = await _saveProfileData(context);
+      if (!mounted) return;
+      if (avatarSaved) {
+        SafeSetState.call(this, () {
+          _avatarUploadStatus = AvatarUploadStatus.success;
+          _avatarUploadError = null;
+        });
+        AvatarRefreshNotifier.instance.notifyAvatarUpdated();
+        await Future<void>.delayed(const Duration(milliseconds: 1800));
+        if (!mounted) return;
+        SafeSetState.call(this, () {
+          _avatarFile = null;
+          _avatarUploadStatus = AvatarUploadStatus.idle;
+        });
+      } else {
+        SafeSetState.call(this, () {
+          _avatarUploadStatus = AvatarUploadStatus.error;
+          _avatarUploadError =
+              'ذخیره انجام نشد. اتصال اینترنت را بررسی کنید.';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      SafeSetState.call(this, () {
+        _avatarUploadStatus = AvatarUploadStatus.error;
+        _avatarUploadError = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
   }
 
   void _removeImage() {
@@ -244,6 +289,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       try {
         await _saveProfileData(context);
         if (!mounted) return;
+        AvatarRefreshNotifier.instance.notifyAvatarUpdated();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -350,31 +396,34 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  Future<void> _saveProfileData([BuildContext? context]) async {
+  /// Returns true if a new avatar was successfully uploaded and saved.
+  Future<bool> _saveProfileData([BuildContext? context]) async {
     try {
       final profileData = await SimpleProfileService.getCurrentProfile();
-      if (profileData == null) return;
+      if (profileData == null) return false;
       final userId = profileData['id'];
-      if (userId == null) return;
+      if (userId == null) return false;
 
+      bool avatarSaved = false;
       if (_avatarFile != null) {
-        try {
-          final supabaseService = SupabaseService();
-          final imageUrl = await supabaseService.uploadProfileImage(
-            userId as String,
-            _avatarFile!,
-          );
-          if (imageUrl != null) {
-            _profileData['avatar_url'] = imageUrl;
-            if (context != null && imageUrl.isNotEmpty && mounted) {
+        final supabaseService = SupabaseService();
+        final imageUrl = await supabaseService.uploadProfileImage(
+          userId as String,
+          _avatarFile!,
+        );
+        if (imageUrl != null && imageUrl.isNotEmpty) {
+          _profileData['avatar_url'] = imageUrl;
+          avatarSaved = true;
+          if (context != null && mounted) {
+            try {
               final achievementService = Provider.of<AchievementService>(
                 context,
                 listen: false,
               );
               await achievementService.updateProgress('profile_complete', 100);
-            }
+            } catch (_) {}
           }
-        } catch (_) {}
+        }
       }
 
       final cleanData = Map<String, dynamic>.from(_profileData);
@@ -393,14 +442,22 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (_originalData['username'] == cleanData['username']) {
         cleanData.remove('username');
       }
-      await SimpleProfileService.updateProfile(cleanData);
-      if (!mounted) return;
+      final updated = await SimpleProfileService.updateProfile(cleanData);
+      if (!updated) return false;
+      if (!mounted) return avatarSaved;
       SafeSetState.call(this, () {
         _originalData
           ..clear()
           ..addAll(_profileData);
       });
-    } catch (_) {}
+      return avatarSaved;
+    } catch (e) {
+      if (kDebugMode) {
+        // ignore: avoid_print
+        print('_saveProfileData error: $e');
+      }
+      rethrow;
+    }
   }
 
   void _onFieldChanged(String key, dynamic value) {
@@ -628,11 +685,22 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ModernProfileHeader(
                             profileData: _profileData,
                             avatarFile: _avatarFile,
-                            ranking: _userRanking,
-                            onImageTap: _pickImage,
+                            avatarUploading: _avatarUploadStatus ==
+                                AvatarUploadStatus.uploading,
+                            avatarSuccess: _avatarUploadStatus ==
+                                AvatarUploadStatus.success,
+                            avatarError: _avatarUploadError,
+                            onImageTap: (_avatarUploadStatus ==
+                                        AvatarUploadStatus.uploading ||
+                                    _avatarUploadStatus ==
+                                        AvatarUploadStatus.success)
+                                ? () {}
+                                : _pickImage,
+                            onRetryAvatar: _retryAvatarUpload,
                             onEditTap: () => setState(() => _isEditing = true),
                             onSettingsTap: () =>
                                 Navigator.pushNamed(context, '/settings'),
+                            ranking: _userRanking,
                           ),
                           // فقط برای ورزشکاران (athletes) نمایش داده می‌شود
                           if (role == 'athlete')

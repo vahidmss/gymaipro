@@ -15,14 +15,15 @@ class CoverUploadService {
   static const int _maxFileSize = 5 * 1024 * 1024; // 5MB
 
   /// آپلود تصویر کاور
-  /// 
+  ///
   /// [imageFile]: فایل تصویر برای آپلود
   /// [onProgress]: تابع callback برای نمایش پیشرفت آپلود (0.0 تا 1.0)
-  /// 
+  ///
   /// Returns: URL کامل تصویر آپلود شده
   Future<String> uploadCover(
     File imageFile, {
     void Function(double progress)? onProgress,
+    String? uploadContext,
   }) async {
     try {
       // بررسی وجود فایل
@@ -33,15 +34,20 @@ class CoverUploadService {
       // بررسی حجم فایل
       final fileSize = await imageFile.length();
       if (fileSize > _maxFileSize) {
-        throw Exception(
-          'حجم فایل بیشتر از حد مجاز است (حداکثر 5MB)',
-        );
+        throw Exception('حجم فایل بیشتر از حد مجاز است (حداکثر 5MB)');
       }
 
-      // دریافت JWT token
-      final session = Supabase.instance.client.auth.currentSession;
+      // دریافت JWT token (با رفرش سشن برای جلوگیری از 401 به‌خاطر توکن منقضی)
+      Session? session = Supabase.instance.client.auth.currentSession;
       if (session == null || session.accessToken.isEmpty) {
-        throw Exception('لطفاً ابتدا وارد حساب کاربری شوید');
+        try {
+          final refreshed = await Supabase.instance.client.auth
+              .refreshSession();
+          session = refreshed.session;
+        } catch (_) {}
+        if (session == null || session.accessToken.isEmpty) {
+          throw Exception('لطفاً ابتدا وارد حساب کاربری شوید');
+        }
       }
 
       // بررسی role
@@ -56,25 +62,31 @@ class CoverUploadService {
         final profile = await SimpleProfileService.queryCurrentUserProfile(
           select: 'role',
         );
-        
+
         if (profile != null) {
           role = profile['role'] as String?;
           debugPrint('CoverUploadService: Found profile, role: $role');
         } else {
-          throw Exception('پروفایل کاربر یافت نشد. لطفاً ابتدا پروفایل خود را تکمیل کنید');
+          throw Exception(
+            'پروفایل کاربر یافت نشد. لطفاً ابتدا پروفایل خود را تکمیل کنید',
+          );
         }
-        
+
         // بررسی role
         if (role == null || role.isEmpty) {
           debugPrint('CoverUploadService: Role is null or empty');
           throw Exception('نقش کاربر مشخص نیست. لطفاً با پشتیبانی تماس بگیرید');
         }
-        
+
         if (role != 'admin' && role != 'trainer') {
-          debugPrint('CoverUploadService: User role is $role, not allowed to upload');
-          throw Exception('فقط ادمین‌ها و مربیان می‌توانند تصویر کاور آپلود کنند');
+          debugPrint(
+            'CoverUploadService: User role is $role, not allowed to upload',
+          );
+          throw Exception(
+            'فقط ادمین‌ها و مربیان می‌توانند تصویر کاور آپلود کنند',
+          );
         }
-        
+
         debugPrint('CoverUploadService: Role check passed: $role');
       } catch (e) {
         debugPrint('CoverUploadService: Error checking role: $e');
@@ -89,15 +101,17 @@ class CoverUploadService {
       final uri = Uri.parse('$_baseUrl$_endpoint');
       final request = http.MultipartRequest('POST', uri);
 
-      // اضافه کردن header احراز هویت
-      request.headers['Authorization'] = 'Bearer ${session.accessToken}';
+      // اضافه کردن header احراز هویت (برخی هاست‌ها Authorization را به PHP نمی‌دهند؛ سرور می‌تواند X-Auth-Token را به‌عنوان جایگزین بخواند)
+      final bearer = 'Bearer ${session.accessToken}';
+      request.headers['Authorization'] = bearer;
+      request.headers['X-Auth-Token'] = bearer;
 
       // اضافه کردن فایل با progress tracking واقعی
       final originalFileName = imageFile.path.split('/').last;
       final fileExtension = originalFileName.split('.').last;
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = 'cover_$timestamp.$fileExtension';
-      
+
       // ساخت stream با progress tracking
       int uploadedBytes = 0;
       final fileStream = imageFile.openRead();
@@ -111,7 +125,7 @@ class CoverUploadService {
           },
         ),
       );
-      
+
       final multipartFile = http.MultipartFile(
         'cover',
         progressStream,
@@ -119,6 +133,11 @@ class CoverUploadService {
         filename: fileName,
       );
       request.files.add(multipartFile);
+      // fallback برای هاست‌هایی که هدر Authorization/X-Auth-Token را به PHP نمی‌دهند
+      request.fields['auth_token'] = session.accessToken;
+      if (uploadContext != null && uploadContext.trim().isNotEmpty) {
+        request.fields['upload_context'] = uploadContext.trim();
+      }
 
       // ارسال درخواست با progress tracking
       debugPrint('CoverUploadService: Starting upload to $_baseUrl$_endpoint');
@@ -129,25 +148,31 @@ class CoverUploadService {
       const maxRetries = 3;
       int retryCount = 0;
       Exception? lastError;
-      
+
       while (retryCount < maxRetries) {
         try {
-          debugPrint('CoverUploadService: Attempt ${retryCount + 1}/$maxRetries');
+          debugPrint(
+            'CoverUploadService: Attempt ${retryCount + 1}/$maxRetries',
+          );
           streamedResponse = await request.send().timeout(
             const Duration(minutes: 5),
           );
-          debugPrint('CoverUploadService: Request sent successfully, waiting for response...');
+          debugPrint(
+            'CoverUploadService: Request sent successfully, waiting for response...',
+          );
           onProgress?.call(0.95);
           break; // موفق شد، از حلقه خارج شو
         } catch (e) {
           retryCount++;
           lastError = e is Exception ? e : Exception(e.toString());
-          debugPrint('CoverUploadService: Error sending request (attempt $retryCount/$maxRetries): $e');
+          debugPrint(
+            'CoverUploadService: Error sending request (attempt $retryCount/$maxRetries): $e',
+          );
           debugPrint('CoverUploadService: Error type: ${e.runtimeType}');
-          
+
           if (retryCount >= maxRetries) {
             // آخرین تلاش هم ناموفق بود
-            if (e.toString().contains('Connection reset') || 
+            if (e.toString().contains('Connection reset') ||
                 e.toString().contains('Connection refused') ||
                 e.toString().contains('SocketException')) {
               throw Exception(
@@ -156,7 +181,7 @@ class CoverUploadService {
             }
             rethrow;
           }
-          
+
           // صبر کن و دوباره تلاش کن
           debugPrint('CoverUploadService: Retrying in 2 seconds...');
           await Future<void>.delayed(const Duration(seconds: 2));
@@ -183,7 +208,7 @@ class CoverUploadService {
           request.files.add(multipartFile);
         }
       }
-      
+
       if (streamedResponse == null) {
         throw lastError ?? Exception('خطا در ارسال درخواست به سرور');
       }
@@ -196,22 +221,30 @@ class CoverUploadService {
 
       debugPrint('CoverUploadService: Response status: ${response.statusCode}');
       debugPrint('CoverUploadService: Response headers: ${response.headers}');
-      debugPrint('CoverUploadService: Response body length: ${response.body.length}');
-      
+      debugPrint(
+        'CoverUploadService: Response body length: ${response.body.length}',
+      );
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         try {
           debugPrint('CoverUploadService: Parsing response JSON...');
-          final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-          debugPrint('CoverUploadService: Response data keys: ${responseData.keys}');
-          
-          if (responseData.containsKey('cover_url') || 
+          final responseData =
+              jsonDecode(response.body) as Map<String, dynamic>;
+          debugPrint(
+            'CoverUploadService: Response data keys: ${responseData.keys}',
+          );
+
+          if (responseData.containsKey('cover_url') ||
               responseData.containsKey('image_url') ||
               responseData.containsKey('url')) {
-            final coverUrl = responseData['cover_url'] as String? ??
-                           responseData['image_url'] as String? ??
-                           responseData['url'] as String?;
+            final coverUrl =
+                responseData['cover_url'] as String? ??
+                responseData['image_url'] as String? ??
+                responseData['url'] as String?;
             if (coverUrl != null && coverUrl.isNotEmpty) {
-              debugPrint('CoverUploadService: Upload successful! URL: $coverUrl');
+              debugPrint(
+                'CoverUploadService: Upload successful! URL: $coverUrl',
+              );
               onProgress?.call(1.0);
               return coverUrl;
             }
@@ -231,19 +264,24 @@ class CoverUploadService {
         }
       } else if (response.statusCode == 401) {
         debugPrint('CoverUploadService: Authentication failed');
+        debugPrint('CoverUploadService: 401 response body: ${response.body}');
         throw Exception('احراز هویت ناموفق. لطفاً دوباره وارد شوید');
       } else if (response.statusCode == 403) {
         debugPrint('CoverUploadService: Access forbidden');
         debugPrint('CoverUploadService: Response body: ${response.body}');
         try {
           final errorData = jsonDecode(response.body) as Map<String, dynamic>;
-          final errorMessage = errorData['message'] as String? ?? 'دسترسی به آپلود تصویر کاور ندارید';
+          final errorMessage =
+              errorData['message'] as String? ??
+              'دسترسی به آپلود تصویر کاور ندارید';
           throw Exception(errorMessage);
         } catch (e) {
           if (e is Exception && e.toString().contains('دسترسی')) {
             rethrow;
           }
-          throw Exception('شما دسترسی به آپلود تصویر کاور ندارید: ${response.body}');
+          throw Exception(
+            'شما دسترسی به آپلود تصویر کاور ندارید: ${response.body}',
+          );
         }
       } else if (response.statusCode == 400) {
         debugPrint('CoverUploadService: Bad request');
@@ -251,7 +289,9 @@ class CoverUploadService {
         debugPrint('CoverUploadService: Error message: $errorMessage');
         throw Exception(errorMessage ?? 'خطا در آپلود فایل');
       } else {
-        debugPrint('CoverUploadService: Upload failed with status: ${response.statusCode}');
+        debugPrint(
+          'CoverUploadService: Upload failed with status: ${response.statusCode}',
+        );
         debugPrint('CoverUploadService: Response body: ${response.body}');
         throw Exception(
           'خطا در آپلود تصویر کاور (کد خطا: ${response.statusCode})',
@@ -269,15 +309,17 @@ class CoverUploadService {
   String? _extractErrorMessage(String responseBody) {
     try {
       // سعی می‌کنیم JSON parse کنیم
-      final jsonMatch = RegExp(r'"message"\s*:\s*"([^"]+)"')
-          .firstMatch(responseBody);
+      final jsonMatch = RegExp(
+        r'"message"\s*:\s*"([^"]+)"',
+      ).firstMatch(responseBody);
       if (jsonMatch != null) {
         return jsonMatch.group(1);
       }
 
       // یا خطای مستقیم
-      final errorMatch = RegExp(r'"error"\s*:\s*"([^"]+)"')
-          .firstMatch(responseBody);
+      final errorMatch = RegExp(
+        r'"error"\s*:\s*"([^"]+)"',
+      ).firstMatch(responseBody);
       if (errorMatch != null) {
         return errorMatch.group(1);
       }
@@ -287,4 +329,3 @@ class CoverUploadService {
     return null;
   }
 }
-

@@ -74,6 +74,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
   @override
   void initState() {
     super.initState();
+    // محتوا فقط بعد از آماده شدن داده نشون داده می‌شه (بدون کش در فریم اول)
     _syncAllLocalLogsAndLoad();
     _loadProfileData();
     _loadMealPlanIfNeeded();
@@ -238,7 +239,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
   }
 
   Future<void> _syncAllLocalLogsAndLoad() async {
-    await _foodLogService.syncAllLocalLogsToDatabase();
+    _foodLogService.syncAllLocalLogsToDatabase();
     await _loadData();
   }
 
@@ -247,22 +248,31 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       _isLoading = true;
     });
 
+    // هر دو را هم‌زمان بگیر؛ یک‌بار هر دو آماده شدند، یک‌جا یک فریم کامل نشون بده (مثل اپ‌های حرفه‌ای)
+    final localLogFuture = _foodLogService.loadLogLocal(_selectedDate);
+    final foodsFuture = _foodService.getFoods();
+
+    FoodLog? localLog;
+    List<Food> foods;
     try {
-      final foods = await _foodService.getFoods();
-
-      SafeSetState.call(this, () {
-        _allFoods = foods;
-        _isLoading = false;
-      });
-
-      await _loadCurrentLog();
-      // Preload calendar data
-      await _preloadCalendarData();
+      localLog = await localLogFuture;
+    } catch (_) {}
+    try {
+      foods = await foodsFuture;
     } catch (e) {
-      SafeSetState.call(this, () {
-        _isLoading = false;
-      });
+      foods = [];
     }
+
+    final logToShow = localLog ?? _buildEmptyLogForDate(_selectedDate);
+    SafeSetState.call(this, () {
+      _currentLog = logToShow;
+      _allFoods = foods;
+      _isLoading = false;
+    });
+
+    // در پس‌زمینه از سرور به‌روزرسانی کن
+    await _loadCurrentLog();
+    _preloadCalendarData();
   }
 
   Future<void> _preloadCalendarData() async {
@@ -334,6 +344,26 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     if (month <= 6) return 31;
     if (month <= 11) return 30;
     return Jalali(year).isLeapYear() ? 30 : 29;
+  }
+
+  FoodLog _buildEmptyLogForDate(DateTime date) {
+    final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
+    return FoodLog(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      userId: userId,
+      logDate: date,
+      meals: [
+        FoodMealLog(title: 'صبحانه', foods: []),
+        FoodMealLog(title: 'میان‌وعده 1', foods: []),
+        FoodMealLog(title: 'ناهار', foods: []),
+        FoodMealLog(title: 'میان‌وعده 2', foods: []),
+        FoodMealLog(title: 'شام', foods: []),
+        FoodMealLog(title: 'میان‌وعده 3', foods: []),
+      ],
+      supplements: [],
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
   }
 
   Future<void> _loadCurrentLog() async {

@@ -14,14 +14,15 @@ class CoachVideoUploadService {
   static const int _maxFileSize = 100 * 1024 * 1024; // 100MB
 
   /// آپلود ویدیو
-  /// 
+  ///
   /// [videoFile]: فایل ویدیو برای آپلود
   /// [onProgress]: تابع callback برای نمایش پیشرفت آپلود (0.0 تا 1.0)
-  /// 
+  ///
   /// Returns: URL کامل ویدیو آپلود شده
   Future<String> uploadVideo(
     File videoFile, {
     void Function(double progress)? onProgress,
+    String? uploadContext,
   }) async {
     try {
       // بررسی وجود فایل
@@ -32,9 +33,7 @@ class CoachVideoUploadService {
       // بررسی حجم فایل
       final fileSize = await videoFile.length();
       if (fileSize > _maxFileSize) {
-        throw Exception(
-          'حجم فایل بیشتر از حد مجاز است (حداکثر 100MB)',
-        );
+        throw Exception('حجم فایل بیشتر از حد مجاز است (حداکثر 100MB)');
       }
 
       // دریافت JWT token
@@ -54,11 +53,13 @@ class CoachVideoUploadService {
         final profile = await SimpleProfileService.queryCurrentUserProfile(
           select: 'role',
         );
-        
+
         if (profile == null) {
-          throw Exception('پروفایل کاربر یافت نشد. لطفاً ابتدا پروفایل خود را تکمیل کنید');
+          throw Exception(
+            'پروفایل کاربر یافت نشد. لطفاً ابتدا پروفایل خود را تکمیل کنید',
+          );
         }
-        
+
         final role = profile['role'] as String?;
         if (role != 'admin' && role != 'trainer') {
           throw Exception('فقط ادمین‌ها و مربیان می‌توانند ویدیو آپلود کنند');
@@ -88,6 +89,9 @@ class CoachVideoUploadService {
         filename: videoFile.path.split('/').last,
       );
       request.files.add(multipartFile);
+      if (uploadContext != null && uploadContext.trim().isNotEmpty) {
+        request.fields['upload_context'] = uploadContext.trim();
+      }
 
       // ارسال درخواست با progress tracking
       onProgress?.call(0.1);
@@ -105,8 +109,9 @@ class CoachVideoUploadService {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         try {
-          final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-          
+          final responseData =
+              jsonDecode(response.body) as Map<String, dynamic>;
+
           if (responseData.containsKey('video_url')) {
             final videoUrl = responseData['video_url'] as String;
             if (videoUrl.isNotEmpty) {
@@ -131,9 +136,7 @@ class CoachVideoUploadService {
       } else {
         debugPrint('Upload failed with status: ${response.statusCode}');
         debugPrint('Response: ${response.body}');
-        throw Exception(
-          'خطا در آپلود ویدیو (کد خطا: ${response.statusCode})',
-        );
+        throw Exception('خطا در آپلود ویدیو (کد خطا: ${response.statusCode})');
       }
     } catch (e) {
       if (e is Exception) {
@@ -147,15 +150,17 @@ class CoachVideoUploadService {
   String? _extractErrorMessage(String responseBody) {
     try {
       // سعی می‌کنیم JSON parse کنیم
-      final jsonMatch = RegExp(r'"message"\s*:\s*"([^"]+)"')
-          .firstMatch(responseBody);
+      final jsonMatch = RegExp(
+        r'"message"\s*:\s*"([^"]+)"',
+      ).firstMatch(responseBody);
       if (jsonMatch != null) {
         return jsonMatch.group(1);
       }
 
       // یا خطای مستقیم
-      final errorMatch = RegExp(r'"error"\s*:\s*"([^"]+)"')
-          .firstMatch(responseBody);
+      final errorMatch = RegExp(
+        r'"error"\s*:\s*"([^"]+)"',
+      ).firstMatch(responseBody);
       if (errorMatch != null) {
         return errorMatch.group(1);
       }
@@ -171,9 +176,9 @@ class CoachVideoUploadService {
       final profile = await SimpleProfileService.queryCurrentUserProfile(
         select: 'role',
       );
-      
+
       if (profile == null) return false;
-      
+
       final role = profile['role'] as String?;
       return role == 'admin' || role == 'trainer';
     } catch (e) {
@@ -182,4 +187,3 @@ class CoachVideoUploadService {
     }
   }
 }
-

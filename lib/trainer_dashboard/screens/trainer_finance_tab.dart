@@ -1,11 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/trainer_dashboard/screens/trainer_payout_request_screen.dart';
 import 'package:gymaipro/trainer_dashboard/services/trainer_finance_service.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -100,7 +99,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                   SizedBox(width: 12.w),
                   Text(
                     'خلاصه مالی',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 20.sp,
                       fontWeight: FontWeight.bold,
                       color: context.textColor,
@@ -160,7 +160,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                     icon: const Icon(LucideIcons.arrowUpCircle),
                     label: Text(
                       'درخواست برداشت',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 16.sp,
                         fontWeight: FontWeight.bold,
                       ),
@@ -219,7 +220,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                         SizedBox(width: 8.w),
                         Text(
                           'سیاست نگه‌داری',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             fontSize: 16.sp,
                             fontWeight: FontWeight.bold,
                             color: context.textColor,
@@ -230,7 +232,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                     SizedBox(height: 12.h),
                     Text(
                       'مبالغ پس از ثبت برنامه توسط مربی، به مدت ۳ روز نگه‌داری شده و سپس قابل برداشت می‌شوند. برای برداشت، دکمه "درخواست برداشت" را بزنید.',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 14.sp,
                         height: 1.7,
                         color: context.textSecondary,
@@ -256,7 +259,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                       SizedBox(width: 8.w),
                       Text(
                         'تراکنش‌های اخیر',
-                        style: GoogleFonts.vazirmatn(
+                        style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                           fontSize: 18.sp,
                           fontWeight: FontWeight.bold,
                           color: context.textColor,
@@ -336,7 +340,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 14.sp,
                     color: isDark
                         ? context.textColor.withValues(alpha: 0.85)
@@ -347,7 +352,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                 SizedBox(height: 6.h),
                 Text(
                   PaymentConstants.formatAmount(amount),
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 22.sp,
                     fontWeight: FontWeight.bold,
                     color: isDark ? context.textColor : context.textColor,
@@ -428,7 +434,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
               children: [
                 Text(
                   name,
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 15.sp,
                     fontWeight: FontWeight.w600,
                     color: context.textColor,
@@ -449,7 +456,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                       available
                           ? 'قابل برداشت'
                           : 'آزادسازی تا ${holdUntil != null ? _formatDate(holdUntil) : '-'}',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 12.sp,
                         color: available
                             ? AppTheme.successColor
@@ -467,7 +475,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
             children: [
               Text(
                 PaymentConstants.formatAmount(amount),
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.bold,
                   color: context.textColor,
@@ -476,7 +485,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
               SizedBox(height: 4.h),
               Text(
                 'درآمد',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontSize: 11.sp,
                   color: context.textSecondary,
                 ),
@@ -511,7 +521,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
             SizedBox(height: 16.h),
             Text(
               'هنوز تراکنشی ثبت نشده',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 16.sp,
                 color: context.textSecondary,
                 fontWeight: FontWeight.w500,
@@ -521,7 +532,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
             Text(
               'پس از ثبت اولین برنامه، تراکنش‌های شما اینجا نمایش داده می‌شوند',
               textAlign: TextAlign.center,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 13.sp,
                 color: context.textSecondary,
                 height: 1.6,

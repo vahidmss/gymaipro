@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/announcements/services/in_app_announcement_service.dart';
+import 'package:gymaipro/announcements/widgets/in_app_announcement_modal.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/dashboard/widgets/discover_section.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
@@ -22,6 +24,7 @@ import 'package:gymaipro/guide/data/dashboard_guide_data.dart';
 import 'package:gymaipro/guide/guide.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
+import 'package:gymaipro/services/avatar_refresh_notifier.dart';
 import 'package:gymaipro/services/auth_state_service.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/app_state.dart';
@@ -63,6 +66,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _isLoading = true;
   int? _walletAvailableBalance;
   int _refreshKey = 0; // برای force rebuild ویجت‌های فرزند
+  final InAppAnnouncementService _announcementService =
+      InAppAnnouncementService();
+  bool _isAnnouncementDialogVisible = false;
 
   @override
   void initState() {
@@ -101,6 +107,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     DashboardCacheService().initialize();
 
     _loadUserData();
+    AvatarRefreshNotifier.instance.addListener(_onAvatarUpdated);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -146,9 +153,24 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   void dispose() {
+    AvatarRefreshNotifier.instance.removeListener(_onAvatarUpdated);
     _animation.dispose();
     _logoutAnimationController?.dispose();
     super.dispose();
+  }
+
+  void _onAvatarUpdated() async {
+    try {
+      final profileData = await SimpleProfileService.getCurrentProfile();
+      if (profileData != null && mounted) {
+        final latestWeight = await WeeklyWeightService.getLatestWeight(
+          (profileData['id'] ?? '').toString(),
+        );
+        WidgetSafetyUtils.safeSetState(this, () {
+          _profileData = _buildProfileData(profileData, latestWeight);
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadUserData() async {
@@ -184,6 +206,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         _loadWallet();
         // به‌روزرسانی streak و دستاوردهای membership
         _updateStreakAndMembershipAchievements();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _tryShowAnnouncement();
+        });
         return;
       }
 
@@ -223,6 +248,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
         // به‌روزرسانی streak و دستاوردهای membership
         _updateStreakAndMembershipAchievements();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _tryShowAnnouncement();
+        });
       } else {
         if (mounted) {
           SafeSetState.call(this, () {
@@ -480,6 +508,49 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+  Future<void> _tryShowAnnouncement() async {
+    if (!mounted || _isAnnouncementDialogVisible) return;
+    try {
+      final announcement = await _announcementService
+          .getTopActiveAnnouncement();
+      if (announcement == null) return;
+      final shouldShow = await _announcementService.shouldShowAnnouncement(
+        announcement,
+      );
+      if (!shouldShow || !mounted) return;
+
+      _isAnnouncementDialogVisible = true;
+      await _announcementService.markAnnouncementShown(announcement.id);
+      if (!mounted) return;
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) {
+          return InAppAnnouncementModal(
+            announcement: announcement,
+            onDismiss: () async {
+              await _announcementService.markAnnouncementDismissed(
+                announcement.id,
+              );
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+            },
+            onCtaTap: () async {
+              await _announcementService.markAnnouncementClicked(
+                announcement.id,
+              );
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+            },
+          );
+        },
+      );
+    } catch (e) {
+      debugPrint('Error showing in-app announcement: $e');
+    } finally {
+      _isAnnouncementDialogVisible = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -605,10 +676,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   SizedBox(height: 20.h),
 
                   // ── ۲. نکته روز ──
-                  DashboardAnimatedSection(
-                    index: 2,
-                    child: TipCard(),
-                  ),
+                  DashboardAnimatedSection(index: 2, child: TipCard()),
                   SizedBox(height: 20.h),
 
                   // ── ۳. برنامه امروز - اولویت اصلی کاربر ──

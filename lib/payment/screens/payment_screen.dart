@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/payment/models/discount_code.dart';
 import 'package:gymaipro/payment/models/payment_plan.dart';
 import 'package:gymaipro/payment/models/payment_transaction.dart';
@@ -38,6 +37,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   DiscountCode? _appliedDiscount;
   bool _isProcessing = false;
+  bool _paymentSuccess = false;
   bool _hasWalletBalance = false;
   int _walletBalance = 0;
 
@@ -124,8 +124,13 @@ class _PaymentScreenState extends State<PaymentScreen> {
       }
 
       if (result != null && result['success'] == true) {
-        // نمایش دیالوگ موفقیت
         if (mounted) {
+          WidgetSafetyUtils.safeSetState(this, () {
+            _paymentSuccess = true;
+            _isProcessing = false;
+          });
+          await Future<void>.delayed(const Duration(milliseconds: 650));
+          if (!mounted) return;
           _showSuccessDialog(
             (result['message'] as String?) ?? 'پرداخت با موفقیت انجام شد',
           );
@@ -235,13 +240,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
       builder: (context) => AlertDialog(
         title: Text(
           'پرداخت موفق',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             fontSize: 18.sp,
             fontWeight: FontWeight.bold,
             color: AppTheme.goldColor,
           ),
         ),
-        content: Text(message, style: GoogleFonts.vazirmatn(fontSize: 14)),
+        content: Text(message, style: TextStyle(
+    fontFamily: AppTheme.fontFamily,fontSize: 14)),
         actions: [
           TextButton(
             onPressed: () {
@@ -250,7 +257,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
             },
             child: Text(
               'باشه',
-              style: GoogleFonts.vazirmatn(color: AppTheme.goldColor),
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: AppTheme.goldColor),
             ),
           ),
         ],
@@ -264,19 +272,22 @@ class _PaymentScreenState extends State<PaymentScreen> {
       builder: (context) => AlertDialog(
         title: Text(
           'خطا در پرداخت',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             fontSize: 18.sp,
             fontWeight: FontWeight.bold,
             color: AppTheme.goldColor,
           ),
         ),
-        content: Text(message, style: GoogleFonts.vazirmatn(fontSize: 14)),
+        content: Text(message, style: TextStyle(
+    fontFamily: AppTheme.fontFamily,fontSize: 14)),
         actions: [
           TextButton(
             onPressed: () => WidgetSafetyUtils.safePop(context),
             child: Text(
               'متوجه شدم',
-              style: GoogleFonts.vazirmatn(color: AppTheme.goldColor),
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: AppTheme.goldColor),
             ),
           ),
         ],
@@ -293,7 +304,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
         appBar: AppBar(
           title: Text(
             'پرداخت',
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 20.sp,
               fontWeight: FontWeight.bold,
               color: AppTheme.goldColor,
@@ -363,7 +375,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
               Expanded(
                 child: Text(
                   widget.plan.name,
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.goldColor,
@@ -379,7 +392,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ),
                   child: Text(
                     'محبوب',
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 12.sp,
                       color: AppTheme.goldColor,
                     ),
@@ -390,7 +404,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           const SizedBox(height: 8),
           Text(
             widget.plan.shortDescription,
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 14.sp,
               color: Colors.white70,
             ),
@@ -401,7 +416,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
             children: [
               Text(
                 'قیمت:',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontSize: 16.sp,
                   color: Colors.white70,
                 ),
@@ -412,7 +428,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   if (widget.plan.hasDiscount) ...[
                     Text(
                       widget.plan.formattedOriginalPrice,
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 14.sp,
                         color: Colors.white54,
                         decoration: TextDecoration.lineThrough,
@@ -422,7 +439,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ],
                   Text(
                     widget.plan.formattedPrice,
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 18.sp,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.goldColor,
@@ -443,7 +461,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       children: [
         Text(
           'روش پرداخت',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             fontSize: 18.sp,
             fontWeight: FontWeight.bold,
             color: AppTheme.goldColor,
@@ -503,7 +522,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           const SizedBox(height: 24),
           Text(
             'درگاه پرداخت',
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 16.sp,
               fontWeight: FontWeight.bold,
               color: AppTheme.goldColor,
@@ -571,7 +591,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
               child: Center(
                 child: Text(
                   name[0],
-                  style: GoogleFonts.vazirmatn(
+                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                     fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
@@ -582,7 +603,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
             const SizedBox(height: 8),
             Text(
               name,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 14.sp,
                 color: isSelected ? AppTheme.goldColor : Colors.white70,
               ),
@@ -594,34 +616,47 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   Widget _buildPaymentButton() {
+    final isProcessing = _isProcessing && !_paymentSuccess;
+    final isSuccess = _paymentSuccess;
+
     return SizedBox(
       width: double.infinity,
       height: 56.h,
-      child: ElevatedButton(
-        onPressed: _isProcessing ? null : _processPayment,
+      child: ElevatedButton.icon(
+        onPressed: isProcessing || isSuccess ? null : _processPayment,
+        icon: isSuccess
+            ? Icon(LucideIcons.check, size: 22.sp, color: Colors.white)
+            : isProcessing
+                ? SizedBox(
+                    width: 22.w,
+                    height: 22.h,
+                    child: const CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+        label: Text(
+          isSuccess
+              ? 'موفق'
+              : isProcessing
+                  ? 'لطفا صبر کنید...'
+                  : 'پرداخت ${PaymentConstants.formatAmount(_finalAmount)}',
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontSize: 16.sp,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.goldColor,
+          backgroundColor: isSuccess
+              ? const Color(0xFF4CAF50)
+              : AppTheme.goldColor,
           foregroundColor: Colors.black,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.r),
           ),
         ),
-        child: _isProcessing
-            ? SizedBox(
-                width: 24.w,
-                height: 24.h,
-                child: const CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
-                ),
-              )
-            : Text(
-                'پرداخت ${PaymentConstants.formatAmount(_finalAmount)}',
-                style: GoogleFonts.vazirmatn(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
       ),
     );
   }

@@ -1,11 +1,41 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/academy/models/custom_music.dart';
 import 'package:gymaipro/academy/models/workout_music.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// سرویس مدیریت موزیک‌های اختصاصی مربی
 class CustomMusicService {
   final SupabaseClient _supabase = Supabase.instance.client;
+
+  /// تعیین نام نمایشی هنرمند/نویسنده بر اساس نقش: ادمین → GymAI، مربی → نام و نام‌خانوادگی
+  Future<String> resolveArtistByCurrentUser() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return 'مربی ناشناس';
+
+      final profile = await SimpleProfileService.queryCurrentUserProfile(
+        select: 'role, first_name, last_name, username',
+      );
+      if (profile == null) return 'مربی ناشناس';
+
+      final role = profile['role'] as String?;
+      if (role == 'admin') {
+        return 'GymAI';
+      }
+
+      final firstName = profile['first_name'] as String?;
+      final lastName = profile['last_name'] as String?;
+      final username = profile['username'] as String?;
+      final fullName = '${(firstName ?? '').trim()} ${(lastName ?? '').trim()}'.trim();
+      if (fullName.isNotEmpty) return fullName;
+      if ((username ?? '').trim().isNotEmpty) return (username!).trim();
+      return 'مربی ناشناس';
+    } catch (e) {
+      debugPrint('Error resolving artist by user: $e');
+      return 'مربی ناشناس';
+    }
+  }
 
   /// دریافت نام نویسنده از userId (created_by از custom_music که به auth.users.id اشاره می‌کند)
   Future<String> _getAuthorName(String userId) async {
@@ -89,10 +119,13 @@ class CustomMusicService {
   }
 
   /// تبدیل CustomMusic به WorkoutMusic با author
+  /// اگر artist در دیتابیس پر باشد (GymAI یا نام مربی) از همان استفاده می‌شود، وگرنه از پروفایل
   Future<WorkoutMusic> customMusicToWorkoutMusic(
     CustomMusic customMusic,
   ) async {
-    final authorName = await _getAuthorName(customMusic.createdBy);
+    final authorName = (customMusic.artist.trim().isNotEmpty)
+        ? customMusic.artist.trim()
+        : await _getAuthorName(customMusic.createdBy);
     return customMusic.toWorkoutMusic(authorName: authorName);
   }
 
@@ -123,9 +156,11 @@ class CustomMusicService {
       authorNamesMap[entry.key] = entry.value;
     }
     
-    // تبدیل CustomMusic به WorkoutMusic با استفاده از map
+    // تبدیل CustomMusic به WorkoutMusic؛ اولویت با artist ذخیره‌شده (GymAI یا نام مربی)
     return customMusics.map((cm) {
-      final authorName = authorNamesMap[cm.createdBy] ?? 'مربی ناشناس';
+      final authorName = cm.artist.trim().isNotEmpty
+          ? cm.artist.trim()
+          : (authorNamesMap[cm.createdBy] ?? 'مربی ناشناس');
       return cm.toWorkoutMusic(authorName: authorName);
     }).toList();
   }
@@ -255,6 +290,7 @@ class CustomMusicService {
   }
 
   /// ساخت موزیک جدید
+  /// نام هنرمند بر اساس نقش تنظیم می‌شود: ادمین → GymAI، مربی → نام و نام‌خانوادگی
   Future<CustomMusic> createMusic({
     required String title,
     required String artist,
@@ -263,6 +299,7 @@ class CustomMusicService {
     required int duration,
     String? category,
     String? description,
+    String? singer,
     String visibility = 'private',
   }) async {
     try {
@@ -272,8 +309,9 @@ class CustomMusicService {
         throw Exception('کاربر احراز هویت نشده است');
       }
 
+      final displayArtist = await resolveArtistByCurrentUser();
       debugPrint('CustomMusicService: Creating music for user: ${user.id}');
-      debugPrint('CustomMusicService: Title: $title, Artist: $artist');
+      debugPrint('CustomMusicService: Title: $title, Artist (resolved): $displayArtist');
       debugPrint('CustomMusicService: Audio URL: $audioUrl');
       debugPrint('CustomMusicService: Cover URL: $coverImageUrl');
 
@@ -282,12 +320,13 @@ class CustomMusicService {
       final data = {
         'created_by': user.id,
         'title': title,
-        'artist': artist,
+        'artist': displayArtist,
         'audio_url': audioUrl,
         'cover_image_url': coverImageUrl,
         'duration': duration,
         'category': category,
         'description': description,
+        'singer': singer?.trim().isEmpty == true ? null : singer?.trim(),
         'visibility': visibility,
         'views_count': 0,
         'likes_count': 0,
@@ -322,6 +361,7 @@ class CustomMusicService {
   }
 
   /// به‌روزرسانی موزیک
+  /// نام هنرمند دوباره بر اساس نقش تنظیم می‌شود (ادمین → GymAI، مربی → نام فعلی)
   Future<CustomMusic> updateMusic({
     required String musicId,
     String? title,
@@ -331,23 +371,27 @@ class CustomMusicService {
     int? duration,
     String? category,
     String? description,
+    String? singer,
     String? visibility,
   }) async {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) throw Exception('کاربر احراز هویت نشده است');
 
+      final displayArtist = await resolveArtistByCurrentUser();
+
       final data = <String, dynamic>{
         'updated_at': DateTime.now().toIso8601String(),
+        'artist': displayArtist,
       };
 
       if (title != null) data['title'] = title;
-      if (artist != null) data['artist'] = artist;
       if (audioUrl != null) data['audio_url'] = audioUrl;
       if (coverImageUrl != null) data['cover_image_url'] = coverImageUrl;
       if (duration != null) data['duration'] = duration;
       if (category != null) data['category'] = category;
       if (description != null) data['description'] = description;
+      if (singer != null) data['singer'] = singer.trim().isEmpty ? null : singer.trim();
       if (visibility != null) data['visibility'] = visibility;
 
       final response = await _supabase

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/services/notification_data_service.dart';
 import 'package:gymaipro/payment/models/trainer_subscription.dart';
@@ -62,16 +63,14 @@ class TrainerSubscriptionService {
       // افزودن کاربر به شاگردان مربی (active) و ارسال نوتیفیکیشن
       try {
         final trainerClientService = TrainerClientService();
-        final isNewRelationship = await trainerClientService
+        await trainerClientService
             .ensureActiveRelationship(trainerId: trainerId, clientId: userId);
 
-        // اعلان پیوستن شاگرد جدید - فقط اگر رابطه جدید باشد
-        if (isNewRelationship) {
-          await _notifyTrainerNewStudent(
-            trainerId: trainerId,
-            buyerUserId: userId,
-          );
-        }
+        // اعلان خرید اشتراک به مربی - در هر خرید (جدید یا تمدید)
+        await _notifyTrainerNewStudent(
+          trainerId: trainerId,
+          buyerUserId: userId,
+        );
       } catch (e) {
         if (kDebugMode) {
           print('⚠️ خطا در اضافه کردن شاگرد یا ارسال نوتیفیکیشن: $e');
@@ -551,26 +550,16 @@ class TrainerSubscriptionService {
         data: {'buyer_user_id': buyerUserId, 'event': 'student_added'},
       );
 
-      // ارسال پوش نوتیفیکیشن مستقیم به device tokens (user_id در جدول = auth.uid)
+      // ارسال پوش: سمت سرور توکن مربی را می‌خواند (RLS اجازه خواندن به خریدار نمی‌دهد)
       try {
-        final List<dynamic> tokensRes = await _client
-            .from('device_tokens')
-            .select('token')
-            .eq('user_id', trainerAuthId)
-            .eq('is_push_enabled', true);
-        final List<String> tokens = tokensRes
-            .map((e) => (e as Map)['token']?.toString() ?? '')
-            .whereType<String>()
-            .where((t) => t.isNotEmpty)
-            .toList();
-
-        if (tokens.isNotEmpty) {
-          await _client.functions.invoke(
+        if (kDebugMode) print('📤 Push: supabaseEdgeFunctionsEnabled=${AppConfig.supabaseEdgeFunctionsEnabled}');
+        if (AppConfig.supabaseEdgeFunctionsEnabled) {
+          if (kDebugMode) print('📤 Invoking send-notifications (trainer_new_student) for trainer $trainerId');
+          final res = await _client.functions.invoke(
             'send-notifications',
             body: {
-              'mode': 'direct',
-              'target_type': 'device_tokens',
-              'tokens': tokens,
+              'mode': 'trainer_new_student',
+              'trainer_id': trainerId,
               'title': title,
               'body': message,
               'data': {
@@ -581,10 +570,14 @@ class TrainerSubscriptionService {
               },
             },
           );
+          if (kDebugMode) print('☁️ send-notifications result: ${res.status} ${res.data}');
+        } else if (kDebugMode) {
+          print('⚠️ Push skipped: supabaseEdgeFunctionsEnabled=false');
         }
-      } catch (e) {
+      } catch (e, st) {
         if (kDebugMode) {
           print('⚠️ خطا در ارسال پوش نوتیفیکیشن: $e');
+          print('Stack: $st');
         }
       }
     } catch (e) {

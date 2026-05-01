@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -70,7 +69,8 @@ class PaymentMethodCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 16.sp,
                       fontWeight: FontWeight.bold,
                       color: isSelected
@@ -83,7 +83,8 @@ class PaymentMethodCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: GoogleFonts.vazirmatn(
+                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                       fontSize: 14.sp,
                       color: isEnabled ? Colors.white70 : Colors.white38,
                     ),

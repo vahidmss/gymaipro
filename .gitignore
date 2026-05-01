@@ -61,3 +61,7 @@ app.*.map.json
 .env
 .env.local
 .env.*.local
+
+# Firebase / secrets (never commit)
+secrets/
+**/firebase-service-account*.json

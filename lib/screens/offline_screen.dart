@@ -1,10 +1,12 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
+import 'package:gymaipro/services/backend_reachability_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OfflineScreen extends StatefulWidget {
   const OfflineScreen({
@@ -21,24 +23,43 @@ class OfflineScreen extends StatefulWidget {
 class _OfflineScreenState extends State<OfflineScreen> {
   bool _checking = false;
   DateTime? _lastBackPressed;
+  StreamSubscription<bool>? _connectivitySub;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-reconnect when connectivity is restored
+    _connectivitySub =
+        ConnectivityService.instance.isConnectedStream.listen((online) {
+      if (online && !_checking) {
+        _tryReconnect();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _connectivitySub?.cancel();
+    super.dispose();
+  }
 
   Future<void> _tryReconnect() async {
     if (_checking) return;
     setState(() => _checking = true);
+
     final online = await ConnectivityService.instance.checkNow();
-    bool dbReachable = false;
+    bool backendReachable = false;
+
     if (online) {
-      try {
-        // Lightweight DB reachability check
-        await Supabase.instance.client.from('profiles').select('id').limit(1);
-        dbReachable = true;
-      } catch (_) {
-        dbReachable = false;
-      }
+      backendReachable = await BackendReachabilityService.isBackendReachable(
+        timeout: const Duration(seconds: 5),
+      );
     }
-    setState(() => _checking = false);
+
     if (!mounted) return;
-    if (online && dbReachable) {
+    setState(() => _checking = false);
+
+    if (online && backendReachable) {
       if (widget.onReconnect != null) {
         widget.onReconnect!();
       } else {
@@ -46,38 +67,47 @@ class _OfflineScreenState extends State<OfflineScreen> {
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('اتصال به سرور برقرار نشد. دوباره تلاش کنید'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: const Text('اتصال به سرور برقرار نشد. دوباره تلاش کنید'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: AppTheme.darkCardColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10.r),
+          ),
         ),
       );
     }
   }
 
-  Future<bool> _handleWillPop() async {
-    final now = DateTime.now();
-    if (_lastBackPressed == null ||
-        now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
-      _lastBackPressed = now;
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('برای خروج، دوباره دکمه بازگشت را بزنید'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-      return false; // don't pop
-    }
-    // Double back within 2 seconds: exit app
-    await SystemNavigator.pop();
-    return false;
-  }
-
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: _handleWillPop,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final now = DateTime.now();
+        if (_lastBackPressed == null ||
+            now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
+          _lastBackPressed = now;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content:
+                    const Text('برای خروج، دوباره دکمه بازگشت را بزنید'),
+                duration: const Duration(seconds: 2),
+                backgroundColor: AppTheme.darkCardColor,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+              ),
+            );
+          }
+          return;
+        }
+        await SystemNavigator.pop();
+      },
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         body: Center(
@@ -93,8 +123,9 @@ class _OfflineScreenState extends State<OfflineScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'اتصال اینترنت برقرار نیست',
+                  'اتصال به سرور برقرار نیست',
                   style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
                     color: Colors.white,
                     fontSize: 20.sp,
                     fontWeight: FontWeight.bold,
@@ -102,10 +133,11 @@ class _OfflineScreenState extends State<OfflineScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'لطفاً اینترنت را وصل کنید و دوباره تلاش کنید',
+                  'اینترنت یا دسترسی به سرور داخلی را بررسی کنید',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    fontFamily: AppTheme.fontFamily,
+                    color: Colors.white.withValues(alpha: 0.6),
                     fontSize: 14.sp,
                   ),
                 ),
@@ -119,17 +151,44 @@ class _OfflineScreenState extends State<OfflineScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12.r),
                       ),
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
                     ),
                     onPressed: _tryReconnect,
-                    child: _checking
-                        ? SizedBox(
-                            height: 18.h,
-                            width: 18.w,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 2,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: _checking
+                          ? SizedBox(
+                              key: const ValueKey('loading'),
+                              height: 18.h,
+                              width: 18.w,
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.black,
+                              ),
+                            )
+                          : Text(
+                              'تلاش مجدد',
+                              key: const ValueKey('text'),
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          )
-                        : const Text('تلاش مجدد'),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                AnimatedOpacity(
+                  opacity: _checking ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: Text(
+                    'در حال بررسی اتصال...',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: Colors.white.withValues(alpha: 0.4),
+                      fontSize: 12.sp,
+                    ),
                   ),
                 ),
               ],

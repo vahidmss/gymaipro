@@ -45,8 +45,21 @@ if (empty($auth_header) || !preg_match('/Bearer\s+(.+)/i', $auth_header, $matche
 $jwt_token = $matches[1];
 
 // 2. بررسی اعتبار JWT با Supabase
-$supabase_url = 'https://oaztoennovtcfcxvnswa.supabase.co';
-$supabase_anon_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9henRvZW5ub3Z0Y2ZjeHZuc3dhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY4NzYzNzEsImV4cCI6MjA2MjQ1MjM3MX0.UywfAvKyqUjByLQHRnRqJ85Bal6NdvAOwQQJXVaQfGk';
+// تنظیم از upload_config.php خوانده می‌شود تا بتوانیم از IP + Host جداگانه استفاده کنیم
+$upload_config_file = __DIR__ . '/upload_config.php';
+$default_url = 'http://87.248.156.175';
+$default_key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE';
+$default_host = 'api.gymaipro.ir';
+if (file_exists($upload_config_file)) {
+    $cfg = require $upload_config_file;
+    $supabase_url = $cfg['supabase_url'] ?? $default_url;
+    $supabase_anon_key = $cfg['supabase_anon_key'] ?? $default_key;
+    $supabase_host = $cfg['supabase_host'] ?? $default_host;
+} else {
+    $supabase_url = $default_url;
+    $supabase_anon_key = $default_key;
+    $supabase_host = $default_host;
+}
 
 // بررسی کاربر با Supabase
 $ch = curl_init($supabase_url . '/auth/v1/user');
@@ -55,6 +68,7 @@ curl_setopt_array($ch, [
     CURLOPT_HTTPHEADER => [
         'Authorization: Bearer ' . $jwt_token,
         'apikey: ' . $supabase_anon_key,
+        'Host: ' . $supabase_host,
     ],
     CURLOPT_TIMEOUT => 10,
 ]);
@@ -189,8 +203,18 @@ if ($file['size'] > $max_size) {
 // 5. ساخت مسیر مقصد (با username)
 // پاک کردن کاراکترهای غیرمجاز از username برای استفاده در مسیر
 $safe_username = preg_replace('/[^a-zA-Z0-9_-]/', '_', $username);
-$base_path = __DIR__ . '/coaches_video';
-$trainer_folder = $base_path . '/' . $safe_username;
+$upload_context = isset($_POST['upload_context']) ? trim((string)$_POST['upload_context']) : '';
+
+if ($upload_context === 'announcements') {
+    // ساختار منظم برای اخبار: announcements/videos/YYYY/MM
+    $year = date('Y');
+    $month = date('m');
+    $base_path = __DIR__ . '/announcements/videos/' . $year . '/' . $month;
+    $trainer_folder = $base_path;
+} else {
+    $base_path = __DIR__ . '/coaches_video';
+    $trainer_folder = $base_path . '/' . $safe_username;
+}
 
 // ساخت پوشه مربی اگر وجود نداشته باشد
 if (!file_exists($trainer_folder)) {
@@ -208,7 +232,8 @@ if (!file_exists($trainer_folder)) {
 // تولید نام فایل منحصر به فرد
 $timestamp = time();
 $random_string = bin2hex(random_bytes(4));
-$file_name = $timestamp . '_' . $random_string . '.' . $file_extension;
+$prefix = ($upload_context === 'announcements') ? 'announcement_video' : 'video';
+$file_name = $prefix . '_' . $timestamp . '_' . $random_string . '.' . $file_extension;
 $file_path = $trainer_folder . '/' . $file_name;
 
 // 6. انتقال فایل
@@ -225,8 +250,14 @@ if (!move_uploaded_file($file['tmp_name'], $file_path)) {
 // تنظیم مجوزهای فایل
 chmod($file_path, 0644);
 
-// 7. تولید URL کامل (با username)
-$video_url = 'https://dl.gymaipro.ir/coaches_video/' . $safe_username . '/' . $file_name;
+// 7. تولید URL کامل
+if ($upload_context === 'announcements') {
+    $year = date('Y');
+    $month = date('m');
+    $video_url = 'https://dl.gymaipro.ir/announcements/videos/' . $year . '/' . $month . '/' . $file_name;
+} else {
+    $video_url = 'https://dl.gymaipro.ir/coaches_video/' . $safe_username . '/' . $file_name;
+}
 
 // 8. برگرداندن پاسخ موفق
 http_response_code(200);

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/payment/models/payment_transaction.dart';
 import 'package:gymaipro/payment/models/wallet.dart';
 import 'package:gymaipro/payment/services/payment_history_service.dart';
@@ -195,7 +194,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
         appBar: AppBar(
           title: Text(
             'تاریخچه تراکنش‌ها',
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 20.sp,
               fontWeight: FontWeight.bold,
               color: AppTheme.goldColor,
@@ -244,7 +244,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                           SizedBox(width: 8.w),
                           Text(
                             'تراکنش‌ها',
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 18.sp,
                               fontWeight: FontWeight.bold,
                               color: context.textColor,
@@ -299,7 +300,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
         children: [
           Text(
             'فیلتر:',
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 13.sp,
               color: context.textSecondary,
             ),
@@ -309,7 +311,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
             child: DropdownButton<WalletTransactionType?>(
               value: _selectedType,
               dropdownColor: context.cardColor,
-              style: GoogleFonts.vazirmatn(color: context.textColor),
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: context.textColor),
               iconEnabledColor: AppTheme.goldColor,
               items: [
                 const DropdownMenuItem<WalletTransactionType?>(
@@ -332,7 +335,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
               onPressed: () => _onSelectType(null),
               child: Text(
                 'حذف فیلتر',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   color: AppTheme.goldColor,
                   fontSize: 13.sp,
                 ),
@@ -378,7 +382,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
             : (!_hasMoreWallet
                   ? Text(
                       'همه تراکنش‌ها بارگذاری شد',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 12.sp,
                         color: context.textSecondary,
                       ),
@@ -418,7 +423,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
             SizedBox(height: 20.h),
             Text(
               'هنوز تراکنشی انجام نداده‌اید',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 16.sp,
                 color: context.textColor,
                 fontWeight: FontWeight.w600,
@@ -428,7 +434,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
             Text(
               'پس از انجام اولین تراکنش یا پرداخت، تاریخچه آن اینجا نمایش داده می‌شود',
               textAlign: TextAlign.center,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 13.sp,
                 color: context.textSecondary,
                 height: 1.6,
@@ -522,7 +529,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                         children: [
                           Text(
                             transaction.typeText,
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 18.sp,
                               fontWeight: FontWeight.bold,
                               color: context.textColor,
@@ -534,7 +542,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                                 PaymentConstants.formatAmount(
                                   transaction.amount,
                                 ),
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 16.sp,
                               fontWeight: FontWeight.w600,
                               color: transactionColor,
@@ -576,7 +585,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                     onPressed: () => Navigator.of(ctx).pop(),
                     child: Text(
                       'بستن',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.goldColor,
@@ -641,7 +651,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                         children: [
                           Text(
                             transaction.description,
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 18.sp,
                               fontWeight: FontWeight.bold,
                               color: context.textColor,
@@ -652,7 +663,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                             PaymentConstants.formatAmount(
                               transaction.finalAmount,
                             ),
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 16.sp,
                               fontWeight: FontWeight.w600,
                               color: amountColor,
@@ -706,7 +718,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                     onPressed: () => Navigator.of(ctx).pop(),
                     child: Text(
                       'بستن',
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.goldColor,
@@ -732,7 +745,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
             width: 100.w,
             child: Text(
               label,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 13.sp,
                 color: context.textSecondary,
                 fontWeight: FontWeight.w500,
@@ -742,7 +756,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
           Expanded(
             child: Text(
               value,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 fontSize: 14.sp,
                 color: context.textColor,
                 height: 1.4,
@@ -811,7 +826,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                   children: [
                     Text(
                       transaction.typeText,
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 15.sp,
                         fontWeight: FontWeight.w600,
                         color: context.textColor,
@@ -820,7 +836,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                     SizedBox(height: 4.h),
                     Text(
                       transaction.description,
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 13.sp,
                         color: context.textSecondary,
                       ),
@@ -839,7 +856,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                         Flexible(
                           child: Text(
                             _formatDateTime(transaction.createdAt),
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 11.sp,
                               color: context.textSecondary,
                             ),
@@ -867,7 +885,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                     child: Text(
                       (transaction.isPositive ? '+' : '-') +
                           PaymentConstants.formatAmount(transaction.amount),
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 15.sp,
                         fontWeight: FontWeight.bold,
                         color: transactionColor,
@@ -887,7 +906,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                       Flexible(
                         child: Text(
                           'موجودی: ${PaymentConstants.formatAmount(transaction.balanceAfter)}',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             fontSize: 11.sp,
                             color: context.textSecondary,
                           ),
@@ -970,7 +990,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                   children: [
                     Text(
                       transaction.description,
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 15.sp,
                         fontWeight: FontWeight.w600,
                         color: context.textColor,
@@ -979,7 +1000,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                     SizedBox(height: 4.h),
                     Text(
                       transaction.statusText,
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 13.sp,
                         color: statusColor,
                       ),
@@ -996,7 +1018,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                         Flexible(
                           child: Text(
                             _formatDateTime(transaction.createdAt),
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 11.sp,
                               color: context.textSecondary,
                             ),
@@ -1027,7 +1050,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                     ),
                     child: Text(
                       PaymentConstants.formatAmount(transaction.finalAmount),
-                      style: GoogleFonts.vazirmatn(
+                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                         fontSize: 16.sp,
                         fontWeight: FontWeight.bold,
                         color: amountColor,

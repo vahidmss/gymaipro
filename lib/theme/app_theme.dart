@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // ============================================
@@ -283,9 +282,10 @@ class AppTheme {
       surfaceVariant: Color(0xFFFFFBF0), // سطح روشن
       onSurfaceVariant: Color(0xFF6B5D47), // قهوه‌ای متوسط
     ),
-    textTheme: GoogleFonts.vazirmatnTextTheme().apply(
+    textTheme: ThemeData.light().textTheme.apply(
       bodyColor: lightTextColor,
       displayColor: goldColor,
+      fontFamily: fontFamily,
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -385,9 +385,10 @@ class AppTheme {
       surfaceVariant: Color(0xFF0D0D0D), // سطح خیلی تیره
       onSurfaceVariant: Color(0xFFB0B0B0), // متن خاکستری روشن
     ),
-    textTheme: GoogleFonts.vazirmatnTextTheme().apply(
+    textTheme: ThemeData.dark().textTheme.apply(
       bodyColor: darkTextColor,
       displayColor: goldColor,
+      fontFamily: fontFamily,
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(

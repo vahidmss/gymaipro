@@ -247,7 +247,7 @@ class _MusicCardState extends State<MusicCard> {
                     SizedBox(width: 4.w),
                     Expanded(
                       child: Text(
-                        widget.music.artist,
+                        widget.music.displayArtist,
                         style: AppTheme.bodyStyle.copyWith(
                           fontSize: 11.sp,
                           color: context.textSecondary,
@@ -258,6 +258,30 @@ class _MusicCardState extends State<MusicCard> {
                     ),
                   ],
                 ),
+                if (widget.music.showPublisherLine) ...[
+                  SizedBox(height: 2.h),
+                  Row(
+                    children: [
+                      Icon(
+                        LucideIcons.user,
+                        size: 11.sp,
+                        color: context.textSecondary.withValues(alpha: 0.8),
+                      ),
+                      SizedBox(width: 4.w),
+                      Expanded(
+                        child: Text(
+                          'نویسنده: ${widget.music.author}',
+                          style: AppTheme.bodyStyle.copyWith(
+                            fontSize: 10.sp,
+                            color: context.textSecondary.withValues(alpha: 0.85),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 SizedBox(height: 6.h),
                 // Progress Bar (only show when playing)
                 if (_duration.inSeconds > 0 && _isPlaying)

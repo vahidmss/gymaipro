@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/models/friendship_models.dart';
 import 'package:gymaipro/my_club/services/friendship_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -100,10 +99,11 @@ class _FriendshipSearchScreenState extends State<FriendshipSearchScreen> {
           elevation: 0,
           title: Text(
             'جستجوی دوستان',
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 20.sp,
               color: AppTheme.goldColor,
+              fontFamily: AppTheme.fontFamily,
             ),
           ),
           centerTitle: true,
@@ -123,10 +123,14 @@ class _FriendshipSearchScreenState extends State<FriendshipSearchScreen> {
               child: TextField(
                 controller: _searchController,
                 onChanged: _searchUsers,
-                style: GoogleFonts.vazirmatn(color: context.textColor),
+                style: TextStyle(
+                  color: context.textColor,
+                  fontFamily: AppTheme.fontFamily,
+                ),
                 decoration: InputDecoration(
                   hintText: 'جستجو بر اساس نام کاربری...',
-                  hintStyle: GoogleFonts.vazirmatn(
+                  hintStyle: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
                     color: isDark
                         ? Colors.grey[400]
                         : AppTheme.lightTextSecondary.withValues(alpha: 0.6),
@@ -216,17 +220,19 @@ class _FriendshipSearchScreenState extends State<FriendshipSearchScreen> {
             const SizedBox(height: 16),
             Text(
               'نتیجه‌ای یافت نشد',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
                 fontSize: 18.sp,
                 fontWeight: FontWeight.w600,
                 color: context.textColor,
+                fontFamily: AppTheme.fontFamily,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'نام کاربری دیگری امتحان کنید',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
                 color: context.textSecondary,
+                fontFamily: AppTheme.fontFamily,
               ),
             ),
           ],
@@ -265,17 +271,19 @@ class _FriendshipSearchScreenState extends State<FriendshipSearchScreen> {
             const SizedBox(height: 16),
             Text(
               'پیشنهادی نداریم',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
                 fontSize: 18.sp,
                 fontWeight: FontWeight.w600,
                 color: context.textColor,
+                fontFamily: AppTheme.fontFamily,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'برای پیدا کردن دوستان، نام کاربری آن‌ها را جستجو کنید',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
                 color: context.textSecondary,
+                fontFamily: AppTheme.fontFamily,
               ),
               textAlign: TextAlign.center,
             ),
@@ -291,10 +299,11 @@ class _FriendshipSearchScreenState extends State<FriendshipSearchScreen> {
           padding: EdgeInsets.all(16.w),
           child: Text(
             'پیشنهادات دوستی',
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
               fontSize: 18.sp,
               fontWeight: FontWeight.w600,
               color: AppTheme.goldColor,
+              fontFamily: AppTheme.fontFamily,
             ),
           ),
         ),
@@ -459,26 +468,29 @@ class _UserCardState extends State<_UserCard> {
                       children: [
                         Text(
                           widget.user.fullName ?? widget.user.username,
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 16.sp,
                             color: context.textColor,
+                            fontFamily: AppTheme.fontFamily,
                           ),
                         ),
                         Text(
                           '@${widget.user.username}',
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
                             color: context.textSecondary,
                             fontSize: 14.sp,
+                            fontFamily: AppTheme.fontFamily,
                           ),
                         ),
                         if (widget.user.isOnline)
                           Text(
                             'آنلاین',
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
                               color: Colors.green,
                               fontSize: 12.sp,
                               fontWeight: FontWeight.w500,
+                              fontFamily: AppTheme.fontFamily,
                             ),
                           ),
                       ],
@@ -604,13 +616,15 @@ class _UserCardState extends State<_UserCard> {
 
   Future<void> _acceptFriendRequest() async {
     try {
-      // This would need to be implemented in the service
-      // For now, just show a message
+      await FriendshipService.acceptFriendRequestFromRequester(widget.user.id);
+      SafeSetState.call(this, () {
+        _friendshipStatus = FriendshipStatus.friends;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('این ویژگی در نسخه بعدی اضافه خواهد شد'),
-            backgroundColor: Colors.orange,
+            content: Text('درخواست دوستی پذیرفته شد'),
+            backgroundColor: Colors.green,
           ),
         );
       }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class NotificationFilterChip extends StatelessWidget {
   const NotificationFilterChip({
@@ -71,7 +70,8 @@ class NotificationFilterChip extends StatelessWidget {
             ],
             Text(
               label,
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: isSelected
                     ? AppTheme.onGoldColor
                     : context.textColor,

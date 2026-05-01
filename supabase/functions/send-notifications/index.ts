@@ -11,13 +11,32 @@ type BroadcastRequest = {
   data: any;
 };
 
+// مسیرهای ممکن برای فایل Firebase (Deno در بعضی محیط‌ها به /secrets دسترسی ندارد)
+const FIREBASE_CRED_PATHS = [
+  '/home/deno/functions/.secrets/firebase-service-account.json',
+  '/secrets/firebase-service-account.json',
+];
+
+async function getServiceAccountJson(): Promise<string> {
+  let key = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_KEY')?.trim();
+  if (key) return key;
+  const b64 = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_B64')?.trim();
+  if (b64) return atob(b64);
+  const envPath = Deno.env.get('GOOGLE_APPLICATION_CREDENTIALS');
+  const pathsToTry = envPath ? [envPath, ...FIREBASE_CRED_PATHS] : FIREBASE_CRED_PATHS;
+  for (const p of pathsToTry) {
+    try {
+      return await Deno.readTextFile(p);
+    } catch (_) {
+      continue;
+    }
+  }
+  throw new Error('Firebase creds not found. Set FIREBASE_SERVICE_ACCOUNT_B64 (base64) or FIREBASE_SERVICE_ACCOUNT_KEY in .env');
+}
+
 // Get OAuth2 access token for FCM V1 API using proper RSA signing
 async function getFCMAccessToken(): Promise<string> {
-  const serviceAccountKey = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_KEY');
-  if (!serviceAccountKey) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY not set');
-  }
-
+  const serviceAccountKey = await getServiceAccountJson();
   const serviceAccount = JSON.parse(serviceAccountKey);
   const now = Math.floor(Date.now() / 1000);
 
@@ -250,21 +269,33 @@ serve(async (req) => {
   try {
     const url = Deno.env.get('SUPABASE_URL');
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const projectId = Deno.env.get('FIREBASE_PROJECT_ID') || 'gymai-9db69';
+    let projectId = Deno.env.get('FIREBASE_PROJECT_ID')?.trim();
+    if (!projectId) {
+      try {
+        const sa = JSON.parse(await getServiceAccountJson());
+        projectId = sa.project_id || 'gymai-9db69';
+      } catch {
+        projectId = 'gymai-9db69';
+      }
+    }
     if (!url || !serviceKey) {
       return new Response('Missing SUPABASE_URL or SERVICE_ROLE_KEY', { status: 500 });
     }
 
     const authHeader = req.headers.get('Authorization') || '';
-    const jwt = authHeader.replace('Bearer ', '');
+    const jwt = authHeader.replace('Bearer ', '').trim();
     if (!jwt) return new Response('Unauthorized', { status: 401 });
 
-    const supabase = createClient(url, serviceKey, {
-      global: { headers: { Authorization: `Bearer ${jwt}` } },
-    });
-
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !user) return new Response('Unauthorized', { status: 401 });
+    const supabase = createClient(url, serviceKey);
+    // SERVICE_ROLE_KEY: اجازه تست از سرور (curl) بدون لاگین کاربر
+    const isServiceRole = jwt === serviceKey;
+    if (!isServiceRole) {
+      const { data: { user }, error: userErr } = await supabase.auth.getUser(jwt);
+      if (userErr || !user) {
+        console.error('getUser failed:', userErr?.message ?? 'no user');
+        return new Response('Unauthorized', { status: 401 });
+      }
+    }
 
     const accessToken = await getFCMAccessToken();
 
@@ -272,6 +303,7 @@ serve(async (req) => {
     try {
       payload = await req.json();
     } catch (_) {}
+    console.log('send-notifications request mode:', payload?.mode ?? '(none)');
 
     // Direct mode: send immediately without queue
     if (payload?.mode === 'direct') {
@@ -316,6 +348,42 @@ serve(async (req) => {
           headers: { 'Content-Type': 'application/json' },
         });
       }
+    }
+
+    // trainer_new_student: اپ نمی‌تواند توکن مربی را بخواند (RLS)، پس سمت سرور می‌خوانیم
+    if (payload?.mode === 'trainer_new_student') {
+      const trainerId = payload.trainer_id as string;
+      const title = (payload.title || 'شاگرد جدید') as string;
+      const body = (payload.body || 'یک کاربر به شاگردان شما اضافه شد.') as string;
+      const payloadData = (payload.data && typeof payload.data === 'object') ? payload.data : {};
+      if (!trainerId) {
+        return new Response(JSON.stringify({ error: 'trainer_id required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+      let trainerAuthId = trainerId;
+      try {
+        const { data: row } = await supabase.from('profiles').select('auth_user_id').eq('id', trainerId).maybeSingle();
+        if (row?.auth_user_id) trainerAuthId = row.auth_user_id;
+      } catch (_) {}
+      // device_tokens.user_id = auth.uid()؛ جستجو با هر دو برای پوشش profiles.id و auth_user_id
+      const userIdsToTry = [trainerAuthId];
+      if (trainerId !== trainerAuthId) userIdsToTry.push(trainerId);
+      const { data: tokensRows, error: tokensErr } = await supabase
+        .from('device_tokens')
+        .select('token')
+        .in('user_id', userIdsToTry)
+        .eq('is_push_enabled', true);
+      if (tokensErr) {
+        console.error('device_tokens query error:', tokensErr);
+        return new Response(JSON.stringify({ error: tokensErr.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      }
+      const tokens = (tokensRows || []).map((t: any) => t.token as string).filter(Boolean);
+      console.log(`trainer_new_student: trainerId=${trainerId} trainerAuthId=${trainerAuthId} tokens_found=${tokens.length}`);
+      if (tokens.length > 0) {
+        await sendToTokens(accessToken, projectId, tokens, title, body, payloadData);
+      }
+      return new Response(JSON.stringify({ ok: true, mode: 'trainer_new_student', tokens_sent: tokens.length }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // Fallback: process queued requests

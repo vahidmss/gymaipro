@@ -410,7 +410,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                               SizedBox(width: 4.w),
                               Expanded(
                                 child: Text(
-                                  widget.music.artist,
+                                  widget.music.displayArtist,
                                   style: AppTheme.bodyStyle.copyWith(
                                     fontSize: 8.sp,
                                     color: context.textSecondary,
@@ -421,9 +421,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                               ),
                             ],
                           ),
-                          // نمایش author (فرستنده) اگر وجود داشته باشد
-                          if (widget.music.author != null &&
-                              widget.music.author!.isNotEmpty) ...[
+                          if (widget.music.showPublisherLine) ...[
                             SizedBox(height: 3.h),
                             Row(
                               children: [
@@ -435,11 +433,10 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                                 SizedBox(width: 3.w),
                                 Expanded(
                                   child: Text(
-                                    widget.music.author!,
+                                    'نویسنده: ${widget.music.author}',
                                     style: AppTheme.bodyStyle.copyWith(
                                       fontSize: 7.sp,
                                       color: context.textSecondary,
-
                                       fontWeight: FontWeight.w600,
                                     ),
                                     maxLines: 1,

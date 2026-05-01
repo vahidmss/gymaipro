@@ -66,28 +66,24 @@ class AuthStateService {
     }
   }
 
-  /// Check if user is logged in with automatic session refresh
+  /// Check if user is logged in (fast, non-blocking).
+  ///
+  /// Does NOT call refreshSession() to avoid blocking on slow/offline networks.
+  /// Supabase autoRefreshToken handles token refresh in the background.
   Future<bool> isLoggedIn() async {
     try {
       final currentSession = Supabase.instance.client.auth.currentSession;
+      if (currentSession == null) return false;
 
-      if (currentSession != null) {
-        if (currentSession.accessToken.isNotEmpty && !currentSession.isExpired) {
-          return true;
-        }
+      // Valid, non-expired session
+      if (currentSession.accessToken.isNotEmpty && !currentSession.isExpired) {
+        return true;
+      }
 
-        // Try to refresh expired session
-        if (currentSession.isExpired &&
-            currentSession.refreshToken?.isNotEmpty == true) {
-          try {
-            final response = await Supabase.instance.client.auth.refreshSession();
-            return response.session != null &&
-                response.session!.accessToken.isNotEmpty &&
-                !response.session!.isExpired;
-          } catch (_) {
-            return false;
-          }
-        }
+      // Expired but has a refresh token → Supabase auto-refresh will handle it.
+      // Treat user as "logged in" so routing proceeds immediately.
+      if (currentSession.refreshToken?.isNotEmpty == true) {
+        return true;
       }
 
       return false;
@@ -112,54 +108,69 @@ class AuthStateService {
     }
   }
 
-  /// Restore user session with automatic refresh support
+  /// Restore user session with timeout protection.
+  ///
+  /// If the session is expired, tries to refresh with a 5-second timeout.
+  /// On failure, returns the expired session instead of signing out,
+  /// so Supabase autoRefreshToken can recover later.
   Future<Session?> restoreSession() async {
     try {
-      // Retry session restoration with delays
+      // Wait a bit for Supabase to restore from storage
       Session? currentSession;
       for (int attempt = 0; attempt < 3; attempt++) {
         currentSession = Supabase.instance.client.auth.currentSession;
         if (currentSession != null) break;
         if (attempt < 2) {
-          await Future<void>.delayed(Duration(milliseconds: 100 * (attempt + 1)));
+          await Future<void>.delayed(
+            Duration(milliseconds: 100 * (attempt + 1)),
+          );
         }
       }
 
-      if (currentSession != null) {
-        if (currentSession.accessToken.isNotEmpty && !currentSession.isExpired) {
-          await _checkAndClearCacheOnUserChange(currentSession.user.id);
+      if (currentSession == null) return null;
+
+      if (kDebugMode) {
+        debugPrint(
+          'restoreSession: hasSession=true expired=${currentSession.isExpired} hasRefreshToken=${currentSession.refreshToken?.isNotEmpty == true}',
+        );
+      }
+
+      // Valid, non-expired session
+      if (currentSession.accessToken.isNotEmpty && !currentSession.isExpired) {
+        await _checkAndClearCacheOnUserChange(currentSession.user.id);
+        await _saveCurrentUserId(currentSession.user.id);
+        return currentSession;
+      }
+
+      // Expired but has a refresh token → try refresh with strict timeout
+      if (currentSession.isExpired &&
+          currentSession.refreshToken?.isNotEmpty == true) {
+        try {
+          final response = await Supabase.instance.client.auth
+              .refreshSession()
+              .timeout(const Duration(seconds: 5));
+          if (response.session != null && !response.session!.isExpired) {
+            await _checkAndClearCacheOnUserChange(response.session!.user.id);
+            await _saveCurrentUserId(response.session!.user.id);
+            return response.session;
+          }
+        } catch (_) {
+          // Refresh failed (timeout or network).
+          // Return the expired session so the user stays "logged in".
+          // Supabase autoRefreshToken will retry in the background.
+          if (kDebugMode) {
+            debugPrint(
+              'Session refresh failed — returning expired session for offline use',
+            );
+          }
           await _saveCurrentUserId(currentSession.user.id);
           return currentSession;
         }
-
-        // Try to refresh expired session
-        if (currentSession.isExpired &&
-            currentSession.refreshToken?.isNotEmpty == true) {
-          try {
-            final response = await Supabase.instance.client.auth.refreshSession();
-            if (response.session != null && !response.session!.isExpired) {
-              await _checkAndClearCacheOnUserChange(response.session!.user.id);
-              await _saveCurrentUserId(response.session!.user.id);
-              return response.session;
-            }
-          } catch (_) {
-            // Clear invalid session on refresh failure
-            try {
-              await Supabase.instance.client.auth.signOut();
-            } catch (_) {
-              // Ignore signOut errors
-            }
-          }
-        } else {
-          // Clear session without refresh token
-          try {
-            await Supabase.instance.client.auth.signOut();
-          } catch (_) {
-            // Ignore signOut errors
-          }
-        }
       }
 
+      // No refresh token → session is not recoverable right now.
+      // Do NOT force signOut here; keep startup non-destructive and let
+      // user authenticate explicitly if needed.
       return null;
     } catch (e) {
       debugPrint('Error in restoreSession: $e');

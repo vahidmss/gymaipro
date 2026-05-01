@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -139,7 +138,8 @@ class _AIFeatureCardState extends State<AIFeatureCard>
                               Expanded(
                                 child: Text(
                                   widget.title,
-                                  style: GoogleFonts.vazirmatn(
+                                  style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                     fontSize: 18.sp,
                                     fontWeight: FontWeight.bold,
                                     color: context.textColor,
@@ -167,7 +167,8 @@ class _AIFeatureCardState extends State<AIFeatureCard>
                                   ),
                                   child: Text(
                                     'به زودی',
-                                    style: GoogleFonts.vazirmatn(
+                                    style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                       fontSize: 10.sp,
                                       fontWeight: FontWeight.bold,
                                       color: AppTheme.goldColor,
@@ -179,7 +180,8 @@ class _AIFeatureCardState extends State<AIFeatureCard>
                           SizedBox(height: 4.h),
                           Text(
                             widget.description,
-                            style: GoogleFonts.vazirmatn(
+                            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                               fontSize: 14.sp,
                               color: context.textSecondary,
                               height: 1.5.h,

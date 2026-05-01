@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 class NotificationCard extends StatelessWidget {
@@ -147,7 +146,8 @@ class NotificationCard extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 notification.title,
-                                style: GoogleFonts.vazirmatn(
+                                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                   color: context.textColor,
                                   fontSize: 13.sp,
                                   fontWeight: isUnread
@@ -181,7 +181,8 @@ class NotificationCard extends StatelessWidget {
                         SizedBox(height: 4.h),
                         Text(
                           notification.message,
-                          style: GoogleFonts.vazirmatn(
+                          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                             color: context.textSecondary,
                             fontSize: 11.5.sp,
                             height: 1.4,
@@ -203,7 +204,8 @@ class NotificationCard extends StatelessWidget {
                             SizedBox(width: 4.w),
                             Text(
                               notification.timeAgo,
-                              style: GoogleFonts.vazirmatn(
+                              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                 color: context.textSecondary.withValues(alpha: 0.7),
                                 fontSize: 10.5.sp,
                                 fontWeight: FontWeight.w500,
@@ -232,7 +234,8 @@ class NotificationCard extends StatelessWidget {
                                     SizedBox(width: 3.w),
                                     Text(
                                       'مهم',
-                                      style: GoogleFonts.vazirmatn(
+                                      style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                                         color: AppTheme.errorColor,
                                         fontSize: 9.5.sp,
                                         fontWeight: FontWeight.bold,
@@ -247,6 +250,25 @@ class NotificationCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (isUnread && onMarkAsRead != null) ...[
+                    SizedBox(width: 8.w),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(999.r),
+                      onTap: onMarkAsRead,
+                      child: Container(
+                        padding: EdgeInsets.all(6.w),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: typeColor.withValues(alpha: 0.08),
+                        ),
+                        child: Icon(
+                          LucideIcons.check,
+                          size: 14.sp,
+                          color: typeColor,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -312,7 +334,8 @@ class NotificationCard extends StatelessWidget {
         ),
         title: Text(
           'حذف اعلان',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             color: context.textColor,
             fontSize: 16.sp,
             fontWeight: FontWeight.bold,
@@ -320,7 +343,8 @@ class NotificationCard extends StatelessWidget {
         ),
         content: Text(
           'آیا مطمئن هستید که می‌خواهید این اعلان را حذف کنید؟',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             color: context.textSecondary,
             fontSize: 13.sp,
             height: 1.5,
@@ -331,7 +355,8 @@ class NotificationCard extends StatelessWidget {
             onPressed: () => Navigator.pop(context, false),
             child: Text(
               'انصراف',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: context.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
@@ -341,7 +366,8 @@ class NotificationCard extends StatelessWidget {
             onPressed: () => Navigator.pop(context, true),
             child: Text(
               'حذف',
-              style: GoogleFonts.vazirmatn(
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                 color: AppTheme.errorColor,
                 fontWeight: FontWeight.bold,
               ),

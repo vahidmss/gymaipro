@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/payment/models/trainer_subscription.dart';
 import 'package:gymaipro/payment/services/trainer_subscription_service.dart';
 import 'package:gymaipro/payment/widgets/trainer_subscription_card.dart';
@@ -66,7 +65,8 @@ class _MyTrainerSubscriptionsScreenState
           SnackBar(
             content: Text(
               'خطا در بارگذاری اشتراک‌ها: $e',
-              style: GoogleFonts.vazirmatn(),
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,),
             ),
             backgroundColor: Colors.red,
           ),
@@ -97,7 +97,8 @@ class _MyTrainerSubscriptionsScreenState
         backgroundColor: const Color(0xFF1A1A1A),
         title: Text(
           'اشتراک‌های مربی من',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             color: Colors.white,
             fontSize: 18.sp,
             fontWeight: FontWeight.bold,
@@ -113,17 +114,21 @@ class _MyTrainerSubscriptionsScreenState
           labelColor: AppTheme.goldColor,
           unselectedLabelColor: Colors.grey[400],
           tabs: [
-            Tab(child: Text('همه', style: GoogleFonts.vazirmatn(fontSize: 12))),
+            Tab(child: Text('همه', style: TextStyle(
+    fontFamily: AppTheme.fontFamily,fontSize: 12))),
             Tab(
-              child: Text('فعال', style: GoogleFonts.vazirmatn(fontSize: 12)),
+              child: Text('فعال', style: TextStyle(
+    fontFamily: AppTheme.fontFamily,fontSize: 12)),
             ),
             Tab(
-              child: Text('منقضی', style: GoogleFonts.vazirmatn(fontSize: 12)),
+              child: Text('منقضی', style: TextStyle(
+    fontFamily: AppTheme.fontFamily,fontSize: 12)),
             ),
             Tab(
               child: Text(
                 'در انتظار',
-                style: GoogleFonts.vazirmatn(fontSize: 12),
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,fontSize: 12),
               ),
             ),
           ],
@@ -216,7 +221,8 @@ class _MyTrainerSubscriptionsScreenState
           const SizedBox(height: 16),
           Text(
             title,
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               color: Colors.grey[600],
               fontSize: 18.sp,
               fontWeight: FontWeight.bold,
@@ -225,14 +231,16 @@ class _MyTrainerSubscriptionsScreenState
           const SizedBox(height: 8),
           Text(
             message,
-            style: GoogleFonts.vazirmatn(color: Colors.grey[500], fontSize: 14),
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: Colors.grey[500], fontSize: 14),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(LucideIcons.search),
-            label: Text('جستجوی مربی', style: GoogleFonts.vazirmatn()),
+            label: Text('جستجوی مربی', style: TextStyle(
+    fontFamily: AppTheme.fontFamily,)),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.goldColor,
               foregroundColor: Colors.white,
@@ -257,7 +265,8 @@ class _MyTrainerSubscriptionsScreenState
         ),
         title: Text(
           'جزئیات اشتراک',
-          style: GoogleFonts.vazirmatn(
+          style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
             color: Colors.white,
             fontSize: 18.sp,
             fontWeight: FontWeight.bold,
@@ -301,7 +310,8 @@ class _MyTrainerSubscriptionsScreenState
             onPressed: () => Navigator.of(context).pop(),
             child: Text(
               'بستن',
-              style: GoogleFonts.vazirmatn(color: AppTheme.goldColor),
+              style: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: AppTheme.goldColor),
             ),
           ),
         ],
@@ -317,11 +327,13 @@ class _MyTrainerSubscriptionsScreenState
         children: [
           Text(
             label,
-            style: GoogleFonts.vazirmatn(color: Colors.grey[400], fontSize: 14),
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,color: Colors.grey[400], fontSize: 14),
           ),
           Text(
             value,
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               color: Colors.white,
               fontSize: 14.sp,
               fontWeight: FontWeight.bold,

@@ -1,6 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:gymaipro/my_club/services/my_club_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/cache_service.dart';
@@ -84,7 +83,8 @@ class _ClubStatsWidgetState extends State<ClubStatsWidget> {
               const SizedBox(width: 8),
               Text(
                 'آمار باشگاه من',
-                style: GoogleFonts.vazirmatn(
+                style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
@@ -169,7 +169,8 @@ class _StatItem extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value.toString(),
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 18.sp,
               fontWeight: FontWeight.bold,
               color: color,
@@ -178,7 +179,8 @@ class _StatItem extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: GoogleFonts.vazirmatn(
+            style: TextStyle(
+    fontFamily: AppTheme.fontFamily,
               fontSize: 12.sp,
               color: Colors.grey[400],
             ),
