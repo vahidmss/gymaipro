@@ -302,7 +302,7 @@ class _FitnessMetricsState extends State<FitnessMetrics> {
                     child: _buildMinimalCard(
                       context,
                       'Height',
-                      height > 0 ? '${height.toStringAsFixed(0)}' : '-',
+                      height > 0 ? height.toStringAsFixed(0) : '-',
                       'cm',
                       Icons.straighten,
                       height > 0 ? (height / 220).clamp(0.0, 1.0) : 0,
@@ -315,7 +315,7 @@ class _FitnessMetricsState extends State<FitnessMetrics> {
                     child: _buildMinimalCard(
                       context,
                       'Weight',
-                      weight > 0 ? '${weight.toStringAsFixed(1)}' : '-',
+                      weight > 0 ? weight.toStringAsFixed(1) : '-',
                       'kg',
                       Icons.monitor_weight,
                       weight > 0 ? (weight / 150).clamp(0.0, 1.0) : 0,
@@ -980,7 +980,7 @@ class _FitnessMetricsState extends State<FitnessMetrics> {
                                     Container(
                                       width: 5.w,
                                       height: 5.h,
-                                      decoration: BoxDecoration(
+                                      decoration: const BoxDecoration(
                                         color: goldColor,
                                         shape: BoxShape.circle,
                                       ),

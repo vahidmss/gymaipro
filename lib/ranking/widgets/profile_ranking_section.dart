@@ -6,7 +6,7 @@ import 'package:gymaipro/ranking/models/user_ranking.dart';
 import 'package:gymaipro/ranking/utils/score_help_texts.dart';
 import 'package:gymaipro/ranking/widgets/league_badge.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// بخش رتبه‌بندی و تفکیک امتیاز در پروفایل (ورزشکار) — با پراگرس بار شیک
 class ProfileRankingSection extends StatelessWidget {

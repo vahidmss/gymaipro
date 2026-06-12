@@ -263,7 +263,7 @@ class UserPreferencesService {
             .maybeSingle();
 
         if (existing != null) {
-          final currentLikes = (existing['total_likes'] as int? ?? 0);
+          final currentLikes = existing['total_likes'] as int? ?? 0;
           final newLikes = (currentLikes - 1).clamp(0, double.infinity).toInt();
 
           if (newLikes > 0) {
@@ -466,7 +466,7 @@ class UserPreferencesService {
             .maybeSingle();
 
         if (music != null) {
-          final currentLikes = (music['likes_count'] as int? ?? 0);
+          final currentLikes = music['likes_count'] as int? ?? 0;
           final newLikes = (currentLikes - 1).clamp(0, double.infinity).toInt();
 
           // به‌روزرسانی likes_count
@@ -516,12 +516,10 @@ class UserPreferencesService {
             .eq('user_id', user.id)
             .inFilter('music_id', musicIds),
         // دریافت likes_count از custom_music
-        audioUrls != null && audioUrls.isNotEmpty
-            ? _client
+        if (audioUrls != null && audioUrls.isNotEmpty) _client
                   .from('custom_music')
                   .select('audio_url, likes_count')
-                  .inFilter('audio_url', audioUrls)
-            : Future.value([]),
+                  .inFilter('audio_url', audioUrls) else Future.value([]),
       ]);
 
       final likes = futures[0].map((item) => item['music_id'] as int).toList();

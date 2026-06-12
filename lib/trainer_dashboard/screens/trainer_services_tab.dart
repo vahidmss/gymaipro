@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TrainerServicesTab extends StatefulWidget {
@@ -23,6 +23,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
   );
 
   bool _loading = true;
+  bool _isSaving = false;
   bool _isFormatting = false;
 
   // enable/disable toggles
@@ -158,6 +159,11 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
     }
   }
 
+  bool get _canUsePackage => _enableWorkout && _enableDiet;
+
+  double get _packageSavings =>
+      _enablePackage ? (_packageBeforeDiscount - _packageFinal) : 0;
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final user = Supabase.instance.client.auth.currentUser;
@@ -178,24 +184,98 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
       'role': 'trainer',
     };
 
+    setState(() => _isSaving = true);
     try {
       await SimpleProfileService.updateProfile(data);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('قیمت‌ها با موفقیت ذخیره شد'),
-          backgroundColor: Colors.green,
-        ),
+      _showFeedbackSnackBar(
+        message: 'تعرفه‌ها ذخیره شد',
+        subtitle: 'شاگردان می‌توانند خدمات را با قیمت جدید ببینند',
+        isSuccess: true,
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      _showFeedbackSnackBar(
+        message: 'ذخیره ناموفق بود',
+        subtitle: 'لطفاً دوباره تلاش کنید',
+        isSuccess: false,
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  void _showFeedbackSnackBar({
+    required String message,
+    required bool isSuccess,
+    String? subtitle,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = isSuccess ? AppTheme.successColor : AppTheme.errorColor;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
         SnackBar(
-          content: Text('خطا در ذخیره قیمت‌ها: $e'),
-          backgroundColor: Colors.red,
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.fromLTRB(16.w, 0, 16.w, 88.h),
+          padding: EdgeInsets.zero,
+          duration: Duration(seconds: isSuccess ? 3 : 4),
+          content: DecoratedBox(
+            decoration: BoxDecoration(
+              color: context.cardColor,
+              borderRadius: BorderRadius.circular(14.r),
+              border: Border.all(
+                color: accent.withValues(alpha: isDark ? 0.45 : 0.35),
+                width: 1.5,
+              ),
+            ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+              child: Row(
+                children: [
+                  Icon(
+                    isSuccess ? LucideIcons.check : LucideIcons.alertCircle,
+                    color: accent,
+                    size: 22.sp,
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          message,
+                          style: TextStyle(
+                            color: context.textColor,
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: AppTheme.fontFamily,
+                          ),
+                        ),
+                        if (subtitle != null) ...[
+                          SizedBox(height: 2.h),
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              color: context.textSecondary,
+                              fontSize: 12.sp,
+                              fontFamily: AppTheme.fontFamily,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       );
-    }
   }
 
   @override
@@ -203,91 +283,183 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_loading) {
-      return Center(
+      return const Center(
         child: CircularProgressIndicator(color: AppTheme.goldColor),
       );
     }
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildEditableService(
-              icon: LucideIcons.dumbbell,
-              title: 'برنامه تمرینی',
-              controller: _trainingPriceCtr,
-              hint: 'هزینه ماهانه برنامه تمرینی',
-              color: Colors.orange,
-              enabled: _enableWorkout,
-              isDark: isDark,
-              onToggleEnabled: (v) {
-                setState(() {
-                  _enableWorkout = v;
-                  _enforcePackageRule();
-                });
-              },
-            ),
-            SizedBox(height: 12.h),
-            _buildEditableService(
-              icon: LucideIcons.apple,
-              title: 'برنامه رژیم غذایی',
-              controller: _dietPriceCtr,
-              hint: 'هزینه ماهانه برنامه رژیم غذایی',
-              color: Colors.purple,
-              enabled: _enableDiet,
-              isDark: isDark,
-              onToggleEnabled: (v) {
-                setState(() {
-                  _enableDiet = v;
-                  _enforcePackageRule();
-                });
-              },
-            ),
-            SizedBox(height: 12.h),
-            _buildReadonlyService(
-              icon: LucideIcons.headphones,
-              title: 'مشاوره و نظارت',
-              value: _consultPrice,
-              description: 'نصف هزینه برنامه تمرینی به صورت ماهانه',
-              color: Colors.blue,
-              enabled: _enableConsult,
-              isDark: isDark,
-              onToggleEnabled: (v) => setState(() => _enableConsult = v),
-            ),
-            SizedBox(height: 12.h),
-            _buildDiscountCard(isDark),
-            SizedBox(height: 16.h),
-            _buildPackageSummary(isDark),
-            SizedBox(height: 16.h),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _save,
-                icon: const Icon(LucideIcons.save),
-                label: Text(
-                  'ذخیره قیمت‌ها',
-                  style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16.sp,
+    return Stack(
+      children: [
+        AbsorbPointer(
+          absorbing: _isSaving,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildIntroCard(isDark),
+                  SizedBox(height: 16.h),
+                  _buildEditableService(
+                    icon: LucideIcons.dumbbell,
+                    title: 'برنامه تمرینی',
+                    controller: _trainingPriceCtr,
+                    hint: 'هزینه ماهانه برنامه تمرینی',
+                    color: AppTheme.fatColor,
+                    enabled: _enableWorkout,
+                    isDark: isDark,
+                    onToggleEnabled: (v) {
+                      setState(() {
+                        _enableWorkout = v;
+                        _enforcePackageRule();
+                      });
+                    },
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.goldColor,
-                  foregroundColor: AppTheme.onGoldColor,
-                  padding: EdgeInsets.symmetric(vertical: 14.h),
-                  elevation: 4,
-                  shadowColor: AppTheme.goldColor.withValues(alpha: 0.3),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16.r),
+                  SizedBox(height: 12.h),
+                  _buildEditableService(
+                    icon: LucideIcons.apple,
+                    title: 'برنامه رژیم غذایی',
+                    controller: _dietPriceCtr,
+                    hint: 'هزینه ماهانه برنامه رژیم غذایی',
+                    color: Colors.purple,
+                    enabled: _enableDiet,
+                    isDark: isDark,
+                    onToggleEnabled: (v) {
+                      setState(() {
+                        _enableDiet = v;
+                        _enforcePackageRule();
+                      });
+                    },
                   ),
-                ),
+                  SizedBox(height: 12.h),
+                  _buildReadonlyService(
+                    icon: LucideIcons.headphones,
+                    title: 'مشاوره و نظارت',
+                    value: _consultPrice,
+                    description: 'نصف هزینه برنامه تمرینی به صورت ماهانه',
+                    color: AppTheme.carbsColor,
+                    enabled: _enableConsult,
+                    isDark: isDark,
+                    onToggleEnabled: (v) => setState(() => _enableConsult = v),
+                  ),
+                  SizedBox(height: 12.h),
+                  _buildFullPackageSection(isDark),
+                  SizedBox(height: 24.h),
+                  _buildSaveButton(isDark),
+                  SizedBox(height: 16.h),
+                ],
               ),
             ),
-          ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIntroCard(bool isDark) {
+    return Container(
+      padding: EdgeInsets.all(14.w),
+      decoration: BoxDecoration(
+        color: AppTheme.goldColor.withValues(alpha: isDark ? 0.1 : 0.08),
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.28 : 0.22),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.wallet, color: AppTheme.goldColor, size: 20.sp),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Text(
+              'تعرفه‌ها به تومان و به‌صورت ماهانه است. بسته کامل شامل تمرین و رژیم است؛ مشاوره جداگانه محاسبه می‌شود.',
+              style: TextStyle(
+                color: context.textColor,
+                fontSize: 12.5.sp,
+                height: 1.5,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaveButton(bool isDark) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: _isSaving
+            ? LinearGradient(
+                colors: [
+                  AppTheme.goldColor.withValues(alpha: 0.5),
+                  AppTheme.darkGold.withValues(alpha: 0.5),
+                ],
+              )
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppTheme.goldColor, AppTheme.darkGold],
+              ),
+        borderRadius: BorderRadius.circular(16.r),
+        boxShadow: _isSaving
+            ? null
+            : [
+                BoxShadow(
+                  color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.25),
+                  blurRadius: 12.r,
+                  offset: Offset(0, 4.h),
+                ),
+              ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _isSaving ? null : _save,
+          borderRadius: BorderRadius.circular(16.r),
+          child: SizedBox(
+            width: double.infinity,
+            height: 52.h,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_isSaving) ...[
+                  SizedBox(
+                    width: 20.w,
+                    height: 20.w,
+                    child: const CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: AppTheme.onGoldColor,
+                    ),
+                  ),
+                  SizedBox(width: 10.w),
+                  Text(
+                    'در حال ذخیره...',
+                    style: TextStyle(
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.onGoldColor,
+                      fontFamily: AppTheme.fontFamily,
+                    ),
+                  ),
+                ] else ...[
+                  Icon(LucideIcons.save, size: 20.sp, color: AppTheme.onGoldColor),
+                  SizedBox(width: 8.w),
+                  Text(
+                    'ذخیره تعرفه‌ها',
+                    style: TextStyle(
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.onGoldColor,
+                      fontFamily: AppTheme.fontFamily,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -342,7 +514,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
             ),
             BoxShadow(
               color: isDark
-                  ? Colors.black.withValues(alpha: 0.3)
+                  ? AppTheme.veryDarkBackground.withValues(alpha: 0.3)
                   : AppTheme.lightTextColor.withValues(alpha: 0.08),
               blurRadius: 8.r,
               offset: Offset(0.w, 2.h),
@@ -417,9 +589,6 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                       color: context.textColor,
                       fontSize: 14.sp,
                     ),
-                    onTap: () {
-                      controller.clear();
-                    },
                     onChanged: (val) {
                       if (_isFormatting) return;
                       _isFormatting = true;
@@ -444,7 +613,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                       filled: true,
                       fillColor: isDark
                           ? context.veryDarkBackground
-                          : AppTheme.lightSurfaceColor,
+                          : AppTheme.lightCardColor,
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.r),
                         borderSide: BorderSide(
@@ -566,7 +735,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
             ),
             BoxShadow(
               color: isDark
-                  ? Colors.black.withValues(alpha: 0.3)
+                  ? AppTheme.veryDarkBackground.withValues(alpha: 0.3)
                   : AppTheme.lightTextColor.withValues(alpha: 0.08),
               blurRadius: 8.r,
               offset: Offset(0.w, 2.h),
@@ -636,7 +805,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
     fontFamily: AppTheme.fontFamily,
                               color: AppTheme.goldColor,
                               fontWeight: FontWeight.bold,
-                              fontSize: 16.sp,
+                              fontSize: 14.sp,
                             ),
                           ),
                         ),
@@ -662,293 +831,336 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
     );
   }
 
-  Widget _buildDiscountCard(bool isDark) {
-    final dim = _enablePackage ? 1.0 : 0.4;
+  Widget _buildFullPackageSection(bool isDark) {
+    final active = _enablePackage && _canUsePackage;
+
     return Opacity(
-      opacity: dim,
+      opacity: _canUsePackage ? 1.0 : 0.55,
       child: Container(
         padding: EdgeInsets.all(18.w),
         decoration: BoxDecoration(
-          gradient: isDark
-              ? LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    context.cardColor,
-                    context.cardColor.withValues(alpha: 0.95),
-                    context.veryDarkBackground,
-                  ],
-                )
-              : LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    context.cardColor,
-                    context.cardColor.withValues(alpha: 0.98),
-                    AppTheme.lightGradientStart.withValues(alpha: 0.1),
-                  ],
-                ),
+          color: context.cardColor,
           borderRadius: BorderRadius.circular(20.r),
           border: Border.all(
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.3),
-            width: 1.5.w,
+            color: active
+                ? AppTheme.goldColor.withValues(alpha: isDark ? 0.55 : 0.5)
+                : context.separatorColor,
+            width: active ? 2 : 1.5,
           ),
           boxShadow: [
-            BoxShadow(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.25),
-              blurRadius: 16.r,
-              offset: Offset(0.w, 6.h),
-              spreadRadius: 1.r,
-            ),
+            if (active)
+              BoxShadow(
+                color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.12),
+                blurRadius: 14.r,
+                offset: Offset(0, 4.h),
+              ),
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(LucideIcons.percent, color: AppTheme.goldColor),
-                SizedBox(width: 8.w),
-                Text(
-                  'تخفیف بسته کامل',
-                  style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16.sp,
+                Container(
+                  padding: EdgeInsets.all(10.w),
+                  decoration: BoxDecoration(
+                    color: AppTheme.goldColor.withValues(alpha: isDark ? 0.18 : 0.14),
+                    borderRadius: BorderRadius.circular(12.r),
                   ),
+                  child: Icon(
+                    LucideIcons.package,
+                    color: AppTheme.goldColor,
+                    size: 24.sp,
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'بسته کامل',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: context.textColor,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 18.sp,
+                        ),
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        'تمرین + رژیم با یک تخفیف',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: context.textSecondary,
+                          fontSize: 12.5.sp,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: _enablePackage,
+                  activeThumbColor: AppTheme.goldColor,
+                  onChanged: _canUsePackage
+                      ? (v) => setState(() => _enablePackage = v)
+                      : null,
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _discountPctCtr,
-              enabled: _enablePackage,
-              keyboardType: TextInputType.number,
-              textDirection: TextDirection.rtl,
-              style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                color: context.textColor,
-                fontSize: 14.sp,
-              ),
-              onTap: _discountPctCtr.clear,
-              decoration: InputDecoration(
-                hintText: _toPersianDigits('0'),
-                hintStyle: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                  color: context.textSecondary.withValues(alpha: 0.5),
-                  fontSize: 12.sp,
-                ),
-                suffixText: '%',
-                suffixStyle: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                  color: context.textSecondary,
-                  fontSize: 12.sp,
-                ),
-                filled: true,
-                fillColor: isDark
-                    ? context.veryDarkBackground
-                    : AppTheme.lightSurfaceColor,
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                  borderSide: BorderSide(
-                    color: AppTheme.goldColor.withValues(alpha: 0.3),
+            if (!_canUsePackage) ...[
+              SizedBox(height: 12.h),
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.orange.withValues(alpha: 0.12)
+                      : Colors.orange.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10.r),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.35),
                   ),
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                  borderSide: BorderSide(color: AppTheme.goldColor, width: 2.w),
-                ),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12.w,
-                  vertical: 12.h,
+                child: Row(
+                  children: [
+                    Icon(
+                      LucideIcons.info,
+                      color: Colors.orange.shade700,
+                      size: 18.sp,
+                    ),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: Text(
+                        'برای فعال‌سازی بسته کامل، هر دو سرویس تمرین و رژیم باید فعال باشند.',
+                        style: TextStyle(
+                          color: context.textColor,
+                          fontSize: 12.sp,
+                          height: 1.4,
+                          fontFamily: AppTheme.fontFamily,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              onChanged: (_) => SafeSetState.call(this, () {}),
-            ),
+            ],
+            if (_enablePackage && _canUsePackage) ...[
+              SizedBox(height: 16.h),
+              _packagePriceRow(
+                label: 'برنامه تمرینی',
+                amount: _trainingPrice,
+                enabled: _enableWorkout,
+              ),
+              SizedBox(height: 8.h),
+              _packagePriceRow(
+                label: 'برنامه رژیم غذایی',
+                amount: _dietPrice,
+                enabled: _enableDiet,
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                child: Divider(color: context.separatorColor, height: 1),
+              ),
+              _packagePriceRow(
+                label: 'جمع قبل از تخفیف',
+                amount: _packageBeforeDiscount,
+                emphasized: true,
+              ),
+              SizedBox(height: 14.h),
+              Text(
+                'درصد تخفیف بسته',
+                style: TextStyle(
+                  color: context.textColor,
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: AppTheme.fontFamily,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              TextFormField(
+                controller: _discountPctCtr,
+                keyboardType: TextInputType.number,
+                textDirection: TextDirection.ltr,
+                style: TextStyle(
+                  color: context.textColor,
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: AppTheme.fontFamily,
+                ),
+                onChanged: (val) {
+                  if (_isFormatting) return;
+                  _isFormatting = true;
+                  final digits = _normalizeDigits(val).replaceAll(RegExp('[^0-9]'), '');
+                  final n = (int.tryParse(digits) ?? 0).clamp(0, 100);
+                  final formatted = _toPersianDigits(n.toString());
+                  _discountPctCtr.value = TextEditingValue(
+                    text: formatted,
+                    selection: TextSelection.collapsed(offset: formatted.length),
+                  );
+                  SafeSetState.call(this, () {});
+                  _isFormatting = false;
+                },
+                decoration: InputDecoration(
+                  hintText: _toPersianDigits('0'),
+                  hintStyle: TextStyle(
+                    color: context.textSecondary.withValues(alpha: 0.6),
+                    fontFamily: AppTheme.fontFamily,
+                  ),
+                  prefixIcon: Icon(
+                    LucideIcons.percent,
+                    color: AppTheme.goldColor,
+                    size: 20.sp,
+                  ),
+                  suffixText: '%',
+                  suffixStyle: TextStyle(
+                    color: context.textSecondary,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: AppTheme.fontFamily,
+                  ),
+                  filled: true,
+                  fillColor: isDark
+                      ? context.veryDarkBackground
+                      : AppTheme.lightCardColor,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: BorderSide(color: context.separatorColor),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                    borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12.w,
+                    vertical: 12.h,
+                  ),
+                ),
+              ),
+              if (_discountPct > 0 && _packageSavings > 0) ...[
+                SizedBox(height: 10.h),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                  decoration: BoxDecoration(
+                    color: AppTheme.successColor.withValues(alpha: isDark ? 0.12 : 0.1),
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        LucideIcons.badgePercent,
+                        color: AppTheme.successColor,
+                        size: 16.sp,
+                      ),
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: Text(
+                          '${_formatAmountFa(_packageSavings)} تومان صرفه‌جویی برای شاگرد',
+                          style: TextStyle(
+                            color: AppTheme.successColor,
+                            fontSize: 12.5.sp,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: AppTheme.fontFamily,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              SizedBox(height: 14.h),
+              Container(
+                padding: EdgeInsets.all(14.w),
+                decoration: BoxDecoration(
+                  color: AppTheme.goldColor.withValues(alpha: isDark ? 0.12 : 0.1),
+                  borderRadius: BorderRadius.circular(14.r),
+                  border: Border.all(
+                    color: AppTheme.goldColor.withValues(alpha: isDark ? 0.35 : 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'مبلغ نهایی ماهانه',
+                      style: TextStyle(
+                        color: context.textColor,
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: AppTheme.fontFamily,
+                      ),
+                    ),
+                    Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: Text(
+                        '${_formatAmountFa(_packageFinal)} تومان',
+                        style: TextStyle(
+                          color: AppTheme.goldColor,
+                          fontSize: 17.sp,
+                          fontWeight: FontWeight.w800,
+                          fontFamily: AppTheme.fontFamily,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 12.h),
+              Text(
+                'مشاوره و نظارت به‌صورت جداگانه (نصف قیمت تمرین) قابل خرید است.',
+                style: TextStyle(
+                  color: context.textSecondary,
+                  fontSize: 11.5.sp,
+                  height: 1.45,
+                  fontFamily: AppTheme.fontFamily,
+                ),
+              ),
+              SizedBox(height: 10.h),
+              ...const [
+                'شامل برنامه تمرینی ۴ هفته‌ای',
+                'شامل برنامه رژیم ۴ هفته‌ای',
+                'پشتیبانی آنلاین و چت با مربی',
+              ].map((f) => _featureRow(AppTheme.goldColor, f)),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPackageSummary(bool isDark) {
-    final dim = _enablePackage ? 1.0 : 0.4;
-    return Opacity(
-      opacity: dim,
-      child: Container(
-        padding: EdgeInsets.all(18.w),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppTheme.goldColor.withValues(alpha: isDark ? 0.25 : 0.3),
-              AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.2),
-              AppTheme.darkGold.withValues(alpha: isDark ? 0.1 : 0.15),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+  Widget _packagePriceRow({
+    required String label,
+    required double amount,
+    bool enabled = true,
+    bool emphasized = false,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: enabled ? context.textSecondary : context.textSecondary.withValues(alpha: 0.5),
+            fontSize: emphasized ? 14.sp : 13.sp,
+            fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500,
+            fontFamily: AppTheme.fontFamily,
           ),
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.4 : 0.5),
-            width: 1.5.w,
+        ),
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Text(
+            enabled && amount > 0
+                ? '${_formatAmountFa(amount)} تومان'
+                : _toPersianDigits('۰'),
+            style: TextStyle(
+              color: emphasized ? context.textColor : context.textColor.withValues(alpha: 0.9),
+              fontSize: emphasized ? 14.sp : 13.sp,
+              fontWeight: emphasized ? FontWeight.w700 : FontWeight.w600,
+              fontFamily: AppTheme.fontFamily,
+            ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.3),
-              blurRadius: 16.r,
-              offset: Offset(0.w, 6.h),
-              spreadRadius: 1.r,
-            ),
-          ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'بسته کامل',
-                    style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                      color: context.textColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18.sp,
-                    ),
-                  ),
-                ),
-                Switch(
-                  value: _enablePackage,
-                  activeThumbColor: AppTheme.goldColor,
-                  onChanged: (!_enableWorkout || !_enableDiet)
-                      ? null
-                      : (v) => setState(() => _enablePackage = v),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'قیمت قبل از تخفیف',
-                  style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                    color: context.textSecondary,
-                    fontSize: 14.sp,
-                  ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'تومان ',
-                      style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                        color: context.textSecondary,
-                        fontSize: 12.sp,
-                      ),
-                    ),
-                    SizedBox(width: 6.w),
-                    Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Text(
-                        _formatAmountFa(_packageBeforeDiscount),
-                        style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                          color: context.textColor,
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'تخفیف',
-                  style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                    color: context.textSecondary,
-                    fontSize: 14.sp,
-                  ),
-                ),
-                Text(
-                  '% ${_toPersianDigits(_discountPct.toStringAsFixed(0))}',
-                  style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            Container(
-              height: 1.h,
-              margin: EdgeInsets.symmetric(vertical: 12.h),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.transparent,
-                    AppTheme.goldColor.withValues(alpha: 0.3),
-                    AppTheme.goldColor.withValues(alpha: 0.5),
-                    AppTheme.goldColor.withValues(alpha: 0.3),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.3, 0.5, 0.7, 1.0],
-                ),
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'مبلغ نهایی بسته',
-                  style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16.sp,
-                  ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'تومان ',
-                      style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                        color: context.textSecondary,
-                        fontSize: 12.sp,
-                      ),
-                    ),
-                    SizedBox(width: 6.w),
-                    Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Text(
-                        _formatAmountFa(_packageFinal),
-                        style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                          color: AppTheme.goldColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18.sp,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 

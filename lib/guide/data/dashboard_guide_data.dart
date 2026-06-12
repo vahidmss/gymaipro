@@ -22,10 +22,9 @@ class DashboardGuideData {
       id: 'dashboard_main_tour',
       name: 'راهنمای داشبورد',
       description: 'آشنایی با امکانات اصلی داشبورد',
-      showOnce: true,
       steps: [
         // مرحله ۱: خوش آمدگویی
-        GuideStep(
+        const GuideStep(
           id: 'welcome_intro',
           title: '👋 به داشبورد خوش آمدید!',
           description:
@@ -33,7 +32,6 @@ class DashboardGuideData {
           icon: Icons.dashboard,
           primaryColor: AppTheme.goldColor,
           tooltipPosition: TooltipPosition.center,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۲: کارت خوش‌آمدگویی
@@ -45,8 +43,6 @@ class DashboardGuideData {
           icon: Icons.person,
           primaryColor: AppTheme.goldColor,
           targetKey: keys['welcome_card'],
-          tooltipPosition: TooltipPosition.bottom,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۳: معیارهای فیزیکی
@@ -58,8 +54,6 @@ class DashboardGuideData {
           icon: Icons.assessment,
           primaryColor: const Color(0xFF26C281),
           targetKey: keys['fitness_metrics'],
-          tooltipPosition: TooltipPosition.bottom,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۴: نمودار وزن
@@ -71,8 +65,6 @@ class DashboardGuideData {
           icon: Icons.show_chart,
           primaryColor: const Color(0xFF6C63FF),
           targetKey: keys['weight_chart'],
-          tooltipPosition: TooltipPosition.bottom,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۵: دکمه‌های سریع
@@ -84,8 +76,6 @@ class DashboardGuideData {
           icon: Icons.bolt,
           primaryColor: const Color(0xFFFF6B6B),
           targetKey: keys['quick_actions'],
-          tooltipPosition: TooltipPosition.bottom,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۶: برنامه امروز
@@ -97,8 +87,6 @@ class DashboardGuideData {
           icon: Icons.today,
           primaryColor: AppTheme.goldColor,
           targetKey: keys['todays_program'],
-          tooltipPosition: TooltipPosition.bottom,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۷: تب‌های تمرینات و تغذیه
@@ -111,7 +99,6 @@ class DashboardGuideData {
           primaryColor: const Color(0xFFF39C12),
           targetKey: keys['exercises_tabs'],
           tooltipPosition: TooltipPosition.top,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۸: منوی کشویی
@@ -124,17 +111,16 @@ class DashboardGuideData {
           primaryColor: AppTheme.goldColor,
           targetKey: keys['drawer_menu'], // Key به دکمه menu در AppBar
           tooltipPosition: TooltipPosition.right,
-          usePulseAnimation: true,
         ),
 
         // مرحله آخر: تمام شد!
-        GuideStep(
+        const GuideStep(
           id: 'tour_complete',
           title: '🎉 آفرین! همه چیز رو یاد گرفتید',
           description:
               'حالا می‌تونید از تمام امکانات اپ استفاده کنید!\n\nاگر بعدا نیاز به راهنمایی داشتید، از منو > راهنما می‌تونید دوباره این تور رو ببینید.\n\nموفق باشید! 💪',
           icon: Icons.check_circle,
-          primaryColor: const Color(0xFF26C281),
+          primaryColor: Color(0xFF26C281),
           tooltipPosition: TooltipPosition.center,
           usePulseAnimation: false,
         ),
@@ -144,11 +130,10 @@ class DashboardGuideData {
 
   /// راهنمای کوتاه برای ساخت برنامه
   static GuideSequence getProgramBuilderGuide() {
-    return GuideSequence(
+    return const GuideSequence(
       id: 'program_builder_guide',
       name: 'راهنمای ساخت برنامه',
       description: 'نحوه ساخت برنامه تمرینی یا غذایی',
-      showOnce: true,
       steps: [
         GuideStep(
           id: 'choose_program_type',
@@ -166,7 +151,7 @@ class DashboardGuideData {
           description:
               'هوش مصنوعی چند سوال درباره اهداف، تجربه و شرایط فیزیکی شما می‌پرسه.\n\nهر چی دقیق‌تر جواب بدید، برنامه بهتری دریافت می‌کنید!',
           icon: Icons.quiz,
-          primaryColor: const Color(0xFF6C63FF),
+          primaryColor: Color(0xFF6C63FF),
           tooltipPosition: TooltipPosition.center,
         ),
 
@@ -176,7 +161,7 @@ class DashboardGuideData {
           description:
               'هوش مصنوعی بر اساس پاسخ‌های شما، یک برنامه کاملا شخصی‌سازی شده می‌سازه.\n\nممکنه چند لحظه طول بکشه، صبور باشید!',
           icon: Icons.auto_awesome,
-          primaryColor: const Color(0xFFFF6B6B),
+          primaryColor: Color(0xFFFF6B6B),
           tooltipPosition: TooltipPosition.center,
         ),
 
@@ -186,7 +171,7 @@ class DashboardGuideData {
           description:
               'برنامه ساخته شده رو بررسی کنید.\nاگر نیاز به تغییر داشت، می‌تونید ویرایش کنید یا دوباره بسازید.\n\nوقتی راضی بودید، برنامه رو فعال کنید!',
           icon: Icons.check_circle,
-          primaryColor: const Color(0xFF26C281),
+          primaryColor: Color(0xFF26C281),
           tooltipPosition: TooltipPosition.center,
         ),
       ],
@@ -209,10 +194,9 @@ class DashboardGuideData {
           icon: Icons.touch_app,
           primaryColor: const Color(0xFF6C63FF),
           targetKey: keys['weight_chart'],
-          tooltipPosition: TooltipPosition.bottom,
         ),
 
-        GuideStep(
+        const GuideStep(
           id: 'enter_weight',
           title: '⚖️ وزن خود را وارد کنید',
           description:
@@ -222,13 +206,13 @@ class DashboardGuideData {
           tooltipPosition: TooltipPosition.center,
         ),
 
-        GuideStep(
+        const GuideStep(
           id: 'track_progress',
           title: '📈 پیشرفت را ببینید',
           description:
               'وزن‌های ثبت شده در نمودار نمایش داده می‌شود.\n\nمی‌تونید روند تغییرات وزنتون رو در طول زمان ببینید.',
           icon: Icons.trending_up,
-          primaryColor: const Color(0xFF26C281),
+          primaryColor: Color(0xFF26C281),
           tooltipPosition: TooltipPosition.center,
         ),
       ],

@@ -24,6 +24,7 @@ class CoverUploadService {
     File imageFile, {
     void Function(double progress)? onProgress,
     String? uploadContext,
+    int? maxFileSizeBytes,
   }) async {
     try {
       // بررسی وجود فایل
@@ -33,8 +34,11 @@ class CoverUploadService {
 
       // بررسی حجم فایل
       final fileSize = await imageFile.length();
-      if (fileSize > _maxFileSize) {
-        throw Exception('حجم فایل بیشتر از حد مجاز است (حداکثر 5MB)');
+      final maxBytes = maxFileSizeBytes ?? _maxFileSize;
+      if (fileSize > maxBytes) {
+        throw Exception(
+          'حجم فایل بیشتر از حد مجاز است (حداکثر ${maxBytes ~/ (1024 * 1024)}MB)',
+        );
       }
 
       // دریافت JWT token (با رفرش سشن برای جلوگیری از 401 به‌خاطر توکن منقضی)

@@ -4,8 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 /// wrapper برای بخش‌های داشبورد با انیمیشن ورود تدریجی
 class DashboardAnimatedSection extends StatelessWidget {
   const DashboardAnimatedSection({
-    super.key,
-    required this.child,
+    required this.child, super.key,
     this.index = 0,
   });
 
@@ -14,7 +13,7 @@ class DashboardAnimatedSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final delay = (index * 60).toInt();
+    final delay = index * 60;
     return child
         .animate()
         .fadeIn(duration: 420.ms, delay: delay.ms, curve: Curves.easeOut)

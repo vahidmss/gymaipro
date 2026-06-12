@@ -3,9 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// سرویس مدیریت onboarding
 class OnboardingService extends ChangeNotifier {
-  static final OnboardingService _instance = OnboardingService._internal();
   factory OnboardingService() => _instance;
   OnboardingService._internal();
+  static final OnboardingService _instance = OnboardingService._internal();
 
   static const String _keyOnboardingCompleted = 'onboarding_completed';
   static const String _keyOnboardingDontShow = 'onboarding_dont_show';

@@ -122,22 +122,17 @@ class MessageRateLimiterService {
 
       return RateLimitResult(
         canSend: true,
-        reason: null,
         remaining: remaining,
         resetAt: _getNextDayReset(now),
-        message: null,
       );
     } catch (e) {
       if (kDebugMode) {
         print('Error checking rate limit: $e');
       }
       // در صورت خطا، اجازه ارسال بده (fail-open)
-      return RateLimitResult(
+      return const RateLimitResult(
         canSend: true,
-        reason: null,
         remaining: 999,
-        resetAt: null,
-        message: null,
       );
     }
   }
@@ -431,7 +426,7 @@ class MessageRateLimiterService {
   /// محاسبه زمان ریست روزانه بعدی
   DateTime _getNextDayReset(DateTime now) {
     final tomorrow = DateTime(now.year, now.month, now.day + 1);
-    return DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 0, 0, 0);
+    return DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
   }
 }
 
@@ -439,8 +434,7 @@ class MessageRateLimiterService {
 class RateLimitResult {
   const RateLimitResult({
     required this.canSend,
-    this.reason,
-    required this.remaining,
+    required this.remaining, this.reason,
     this.resetAt,
     this.message,
   });

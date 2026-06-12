@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ExerciseListHeader extends StatelessWidget {
   const ExerciseListHeader({required this.sessionNotes, super.key});
@@ -19,7 +19,8 @@ class ExerciseListHeader extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             AppTheme.goldColor.withValues(alpha: isDark ? 0.12 : 0.1),
-            AppTheme.darkGold.withValues(alpha: isDark ? 0.06 : 0.05),
+            AppTheme.darkGold.withValues(alpha: isDark ? 0.06 :
+            0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(18.r),

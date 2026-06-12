@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
   try {
     const signature = req.headers.get('x-signature') || ''
     const secret = Deno.env.get('GYM_TOPUP_SECRET')
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://oaztoennovtcfcxvnswa.supabase.co'
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://api.gymaipro.ir'
     const SERVICE_ROLE_ENV = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || ''
     const bearer = authHeader.startsWith('Bearer ') ? authHeader.substring('Bearer '.length).trim() : ''

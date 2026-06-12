@@ -31,7 +31,7 @@ class CommentCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
+            DecoratedBox(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
@@ -52,7 +52,7 @@ class CommentCard extends StatelessWidget {
                         style: TextStyle(
                           color: AppTheme.goldColor,
                           fontWeight: FontWeight.bold,
-                          fontSize: 16.sp,
+                          fontSize: 14.sp,
                         ),
                       )
                     : null,

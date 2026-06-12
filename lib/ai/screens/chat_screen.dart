@@ -4,8 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/ai/models/ai_chat_message.dart';
+import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/ai/services/ai_chat_availability.dart';
 import 'package:gymaipro/ai/services/ai_chat_service.dart';
 import 'package:gymaipro/ai/services/message_rate_limiter_service.dart';
+import 'package:gymaipro/services/app_access_control_service.dart';
+import 'package:gymaipro/widgets/feature_unavailable_view.dart';
 import 'package:gymaipro/ai/widgets/chat_bubble.dart';
 import 'package:gymaipro/ai/widgets/typing_indicator.dart';
 import 'package:gymaipro/services/ai_trainer_service.dart';
@@ -16,7 +20,7 @@ import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:gymaipro/workout_plan_builder/services/workout_program_service.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -49,6 +53,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
+    AppAccessControlService.instance.refreshConfig();
     _initializeChat();
     _loadLastBackupDate();
     _loadRateLimitStats();
@@ -118,8 +123,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   /// اولیه‌سازی چت
   Future<void> _initializeChat() async {
     try {
-      // اطمینان از وجود AI Trainer
-      await AITrainerService.createAITrainerIfNotExists();
+      await AITrainerService.ensureAITrainerExists();
 
       // ایجاد یا دریافت session فعلی
       _currentSessionId = await _getOrCreateCurrentSession();
@@ -213,8 +217,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     final friendlyName = userName.isNotEmpty ? userName : 'عزیزم';
     final welcomeContent = userName.isNotEmpty
-        ? '$greeting $friendlyName! $emoji\n\nخوش اومدی! من جیم‌آی هستم، مربی ورزشی و متخصص تغذیه هوش مصنوعی‌ت. خیلی خوشحالم که اینجایی و آماده‌ام تا کمکت کنم به اهداف فیتنست برسی! 💪\n\nچیزی هست که می‌خوای ازم بپرسی یا راهنمایی می‌خوای؟'
-        : '$greeting! $emoji\n\nخوش اومدی! من جیم‌آی هستم، مربی ورزشی و متخصص تغذیه هوش مصنوعی‌ت. خیلی خوشحالم که اینجایی و آماده‌ام تا کمکت کنم به اهداف فیتنست برسی! 💪\n\nچیزی هست که می‌خوای ازم بپرسی یا راهنمایی می‌خوای؟';
+        ? '$greeting $friendlyName! $emoji\n\nخوش اومدی! من ${AppConfig.gymAiDisplayName} هستم، مربی ورزشی و متخصص تغذیهٔ هوش مصنوعی‌ات. خیلی خوشحالم که اینجایی و آماده‌ام تا کمکت کنم به اهداف فیتنس برسی! 💪\n\nچیزی هست که می‌خوای ازم بپرسی یا راهنمایی می‌خوای؟'
+        : '$greeting! $emoji\n\nخوش اومدی! من ${AppConfig.gymAiDisplayName} هستم، مربی ورزشی و متخصص تغذیهٔ هوش مصنوعی‌ات. خیلی خوشحالم که اینجایی و آماده‌ام تا کمکت کنم به اهداف فیتنس برسی! 💪\n\nچیزی هست که می‌خوای ازم بپرسی یا راهنمایی می‌خوای؟';
 
     final welcomeMessage = ChatMessage.ai(content: welcomeContent);
     SafeSetState.call(this, () {
@@ -262,7 +266,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
           limitCheck.message ?? 'شما به محدودیت پیام رسیده‌اید',
-          backgroundColor: Colors.orange,
+          backgroundColor: AppTheme.fatColor,
           duration: const Duration(seconds: 4),
         );
         // به‌روزرسانی آمار
@@ -375,12 +379,20 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         errorMessage = e.toString().replaceAll('RateLimitException: ', '');
         // به‌روزرسانی آمار
         await _loadRateLimitStats();
-      } else if (e.toString().contains('OPENAI_API_KEY')) {
+      } else if (e.toString().contains('OPENAI_API_KEY') ||
+          e.toString().contains('کلید API')) {
         errorMessage =
             'کلید API هوش مصنوعی تنظیم نشده است. لطفاً با پشتیبانی تماس بگیرید.';
-      } else if (e.toString().contains('اتصال به اینترنت')) {
+      } else if (e.toString().contains('Insufficient Balance') ||
+          e.toString().contains('insufficient_quota') ||
+          e.toString().contains('402')) {
         errorMessage =
-            'خطا در اتصال به اینترنت. لطفاً اتصال خود را بررسی کنید.';
+            'اعتبار حساب DeepSeek تمام شده. از platform.deepseek.com شارژ کن یا کلید جدید بساز.';
+      } else if (e.toString().contains('اتصال به اینترنت') ||
+          e.toString().contains('از این دستگاه وصل نشدم') ||
+          e.toString().contains('زمان‌بر شد')) {
+        errorMessage =
+            'به سرویس هوش مصنوعی وصل نشدم. اینترنت یا VPN گوشیت را چک کن و دوباره امتحان کن.';
       }
 
       SafeSetState.call(this, () {
@@ -426,12 +438,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
       decoration: BoxDecoration(
         color: isNearLimit
-            ? Colors.orange.withValues(alpha: isDark ? 0.2 : 0.15)
+            ? AppTheme.fatColor.withValues(alpha: isDark ? 0.2 : 0.15)
             : AppTheme.goldColor.withValues(alpha: isDark ? 0.1 : 0.08),
         borderRadius: BorderRadius.circular(10.r),
         border: Border.all(
           color: isNearLimit
-              ? Colors.orange.withValues(alpha: 0.4)
+              ? AppTheme.fatColor.withValues(alpha: 0.4)
               : AppTheme.goldColor.withValues(alpha: 0.3),
           width: 1.w,
         ),
@@ -440,7 +452,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         children: [
           Icon(
             isNearLimit ? LucideIcons.alertCircle : LucideIcons.messageSquare,
-            color: isNearLimit ? Colors.orange : AppTheme.goldColor,
+            color: isNearLimit ? AppTheme.fatColor : AppTheme.goldColor,
             size: 18.sp,
           ),
           SizedBox(width: 10.w),
@@ -486,7 +498,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,
                 fontSize: 11.sp,
-                color: isWarning ? Colors.orange : context.textColor,
+                color: isWarning ? AppTheme.fatColor : context.textColor,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -499,10 +511,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             value: percent / 100,
             minHeight: 5.h,
             backgroundColor: isDark
-                ? Colors.white.withValues(alpha: 0.1)
-                : Colors.black.withValues(alpha: 0.1),
+                ? AppTheme.darkTextColor.withValues(alpha: 0.1)
+                : AppTheme.veryDarkBackground.withValues(alpha: 0.1),
             valueColor: AlwaysStoppedAnimation<Color>(
-              isWarning ? Colors.orange : AppTheme.goldColor,
+              isWarning ? AppTheme.fatColor : AppTheme.goldColor,
             ),
           ),
         ),
@@ -597,7 +609,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.goldColor,
-                    side: BorderSide(color: AppTheme.goldColor),
+                    side: const BorderSide(color: AppTheme.goldColor),
                     padding: EdgeInsets.symmetric(
                       horizontal: 12.w,
                       vertical: 8.h,
@@ -618,13 +630,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     fontFamily: AppTheme.fontFamily,
                       fontSize: 12.sp,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppTheme.darkTextColor,
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _lastBackupDate != null
                         ? AppTheme.goldColor
-                        : Colors.grey,
+                        : AppTheme.darkGreySeparator,
                     padding: EdgeInsets.symmetric(
                       horizontal: 12.w,
                       vertical: 8.h,
@@ -759,11 +771,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 borderRadius: BorderRadius.circular(8.r),
               ),
             ),
-            child: Text(
+            child: const Text(
               'ذخیره',
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,
-                color: Colors.white,
+                color: AppTheme.darkTextColor,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -813,15 +825,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
           '✅ چت با موفقیت در دیتابیس ذخیره شد',
-          backgroundColor: Colors.green,
+          backgroundColor: AppTheme.successColor,
         );
       }
     } catch (e) {
       if (mounted) {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
-          '❌ خطا در ذخیره چت: ${e.toString()}',
-          backgroundColor: Colors.red,
+          '❌ خطا در ذخیره چت: $e',
+          backgroundColor: AppTheme.errorColor,
         );
       }
     } finally {
@@ -852,7 +864,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           WidgetSafetyUtils.safeShowSnackBar(
             context,
             'چت ذخیره شده‌ای در دیتابیس یافت نشد',
-            backgroundColor: Colors.orange,
+            backgroundColor: AppTheme.fatColor,
           );
         }
         return;
@@ -930,17 +942,17 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               Container(
                 padding: EdgeInsets.all(12.w),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.1),
+                  color: AppTheme.fatColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8.r),
                   border: Border.all(
-                    color: Colors.orange.withValues(alpha: 0.3),
+                    color: AppTheme.fatColor.withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       LucideIcons.alertTriangle,
-                      color: Colors.orange,
+                      color: AppTheme.fatColor,
                       size: 16.sp,
                     ),
                     SizedBox(width: 8.w),
@@ -979,11 +991,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   borderRadius: BorderRadius.circular(8.r),
                 ),
               ),
-              child: Text(
+              child: const Text(
                 'بارگذاری',
                 style: TextStyle(
     fontFamily: AppTheme.fontFamily,
-                  color: Colors.white,
+                  color: AppTheme.darkTextColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -998,8 +1010,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         });
         WidgetSafetyUtils.safeShowSnackBar(
           context,
-          '❌ خطا در دریافت اطلاعات: ${e.toString()}',
-          backgroundColor: Colors.red,
+          '❌ خطا در دریافت اطلاعات: $e',
+          backgroundColor: AppTheme.errorColor,
         );
       }
     }
@@ -1045,7 +1057,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
           '✅ $loadedCount چت با موفقیت از دیتابیس بارگذاری شد',
-          backgroundColor: Colors.green,
+          backgroundColor: AppTheme.successColor,
         );
 
         // بارگذاری مجدد لیست session ها
@@ -1059,8 +1071,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       if (mounted) {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
-          '❌ خطا در بارگذاری چت‌ها: ${e.toString()}',
-          backgroundColor: Colors.red,
+          '❌ خطا در بارگذاری چت‌ها: $e',
+          backgroundColor: AppTheme.errorColor,
         );
       }
     } finally {
@@ -1133,6 +1145,30 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    return ValueListenableBuilder<AppAccessConfig>(
+      valueListenable: AppAccessControlService.instance.configNotifier,
+      builder: (context, access, _) {
+        if (!isGymAiChatAvailable(access)) {
+          return Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            appBar: AppBar(
+              title: const Text('چت ${AppConfig.gymAiDisplayName}'),
+            ),
+            body: Padding(
+              padding: EdgeInsets.all(20.w),
+              child: FeatureUnavailableView(
+                title: 'چت ${AppConfig.gymAiDisplayName}',
+                description: gymAiChatUnavailableMessage(access),
+              ),
+            ),
+          );
+        }
+        return _buildChatBody(context);
+      },
+    );
+  }
+
+  Widget _buildChatBody(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
@@ -1163,12 +1199,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       behavior: HitTestBehavior.opaque,
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: context.backgroundColor,
+        backgroundColor: context.headerBackgroundColor,
         resizeToAvoidBottomInset: true,
         appBar: AppBar(
-          backgroundColor: isDark
-              ? context.backgroundColor
-              : Colors.transparent,
+          backgroundColor: context.headerBackgroundColor,
           elevation: 0,
           automaticallyImplyLeading: false,
           title: Row(
@@ -1189,7 +1223,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     ),
                   ],
                 ),
-                child: Icon(LucideIcons.bot, color: Colors.white, size: 20.sp),
+                child: Icon(LucideIcons.bot, color: AppTheme.darkTextColor, size: 20.sp),
               ),
               SizedBox(width: 12.w),
               Column(
@@ -1199,7 +1233,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     'مربی هوش مصنوعی',
                     style: TextStyle(
     fontFamily: AppTheme.fontFamily,
-                      fontSize: 16.sp,
+                      fontSize: 14.sp,
                       fontWeight: FontWeight.bold,
                       color: isDark ? AppTheme.goldColor : context.textColor,
                     ),
@@ -1239,7 +1273,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ? _buildEmptyState()
                   : ListView.builder(
                       controller: _scrollController,
-                      reverse: false,
                       keyboardDismissBehavior:
                           ScrollViewKeyboardDismissBehavior.onDrag,
                       padding: EdgeInsets.only(
@@ -1295,7 +1328,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ),
             child: Icon(
               LucideIcons.messageCircle,
-              color: Colors.white,
+              color: AppTheme.darkTextColor,
               size: 40.sp,
             ),
           ),
@@ -1304,7 +1337,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             'مربی هوش مصنوعی شما',
             style: TextStyle(
     fontFamily: AppTheme.fontFamily,
-              fontSize: 20.sp,
+              fontSize: 18.sp,
               fontWeight: FontWeight.bold,
               color: context.textColor,
             ),
@@ -1401,7 +1434,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       : const LinearGradient(
                           colors: [AppTheme.goldColor, AppTheme.darkGold],
                         ),
-                  color: _isLoading ? Colors.grey : null,
+                  color: _isLoading ? AppTheme.darkGreySeparator : null,
                   borderRadius: BorderRadius.circular(24.r),
                   boxShadow: _isLoading
                       ? null
@@ -1420,11 +1453,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         child: const CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
+                            AppTheme.darkTextColor,
                           ),
                         ),
                       )
-                    : Icon(LucideIcons.send, color: Colors.white, size: 20.sp),
+                    : Icon(LucideIcons.send, color: AppTheme.darkTextColor, size: 20.sp),
               ),
             ),
           ],
@@ -1721,7 +1754,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       }).toList();
 
       final program = WorkoutProgram(
-        name: 'جیم‌آی(${DateTime.now().toLocal().toString().split(' ').first})',
+        name:
+            '${AppConfig.gymAiDisplayName}(${DateTime.now().toLocal().toString().split(' ').first})',
         sessions: sessions.cast<WorkoutSession>(),
       );
 

@@ -20,7 +20,7 @@ class VideoDownloadManager extends ChangeNotifier {
 
   /// Start downloading a video with progress tracking
   Future<bool> downloadVideo(String url) async {
-    if (_isDownloading[url] == true) {
+    if (_isDownloading[url] ?? false) {
       return false; // Already downloading
     }
 

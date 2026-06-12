@@ -6,10 +6,10 @@ import 'package:flutter/foundation.dart';
 import 'package:gymaipro/academy/models/workout_music.dart';
 
 class MusicNotificationService {
-  static final MusicNotificationService _instance =
-      MusicNotificationService._internal();
   factory MusicNotificationService() => _instance;
   MusicNotificationService._internal();
+  static final MusicNotificationService _instance =
+      MusicNotificationService._internal();
 
   AudioHandler? _audioHandler;
   _MusicAudioHandler? _handler;
@@ -56,20 +56,13 @@ class MusicNotificationService {
 
       _audioHandler = await AudioService.init(
         builder: () => _handler!,
-        config: AudioServiceConfig(
+        config: const AudioServiceConfig(
           androidNotificationChannelId: 'music_player_channel',
           androidNotificationChannelName: 'پخش موزیک',
           androidNotificationChannelDescription:
               'کنترل پخش موزیک در notification panel',
           androidNotificationOngoing:
               true, // true برای نمایش مداوم notification
-          androidNotificationIcon: 'mipmap/ic_launcher',
-          androidShowNotificationBadge: false,
-          // باید true باشه وقتی androidNotificationOngoing true هست
-          androidStopForegroundOnPause: true,
-          androidNotificationClickStartsActivity: true,
-          fastForwardInterval: const Duration(seconds: 10),
-          rewindInterval: const Duration(seconds: 10),
         ),
       );
       _isInitialized = true;
@@ -134,7 +127,6 @@ class MusicNotificationService {
             ? Uri.parse(music.coverImageUrl)
             : null,
         duration: duration,
-        playable: true,
         extras: {
           'author': music.author ?? '',
           'category': music.category ?? '',
@@ -191,7 +183,6 @@ class MusicNotificationService {
             ? Uri.parse(music.coverImageUrl)
             : null,
         duration: duration,
-        playable: true,
         extras: {
           'author': music.author ?? '',
           'category': music.category ?? '',
@@ -229,6 +220,13 @@ class MusicNotificationService {
 }
 
 class _MusicAudioHandler extends BaseAudioHandler {
+
+  _MusicAudioHandler({
+    this.onPlayPause,
+    this.onNext,
+    this.onPrevious,
+    this.onStop,
+  });
   VoidCallback? onPlayPause;
   VoidCallback? onNext;
   VoidCallback? onPrevious;
@@ -237,13 +235,6 @@ class _MusicAudioHandler extends BaseAudioHandler {
 
   Duration _lastPosition = Duration.zero;
   Duration _lastDuration = Duration.zero;
-
-  _MusicAudioHandler({
-    this.onPlayPause,
-    this.onNext,
-    this.onPrevious,
-    this.onStop,
-  });
 
   void setNowPlaying(MediaItem item) {
     // استاندارد: برای نمایش درست MediaStyle notification باید queue + mediaItem ست شوند.
@@ -262,7 +253,7 @@ class _MusicAudioHandler extends BaseAudioHandler {
       PlaybackState(
         controls: [
           MediaControl.skipToPrevious,
-          isPlaying ? MediaControl.pause : MediaControl.play,
+          if (isPlaying) MediaControl.pause else MediaControl.play,
           MediaControl.skipToNext,
           MediaControl.stop,
         ],
@@ -280,10 +271,7 @@ class _MusicAudioHandler extends BaseAudioHandler {
         playing: isPlaying,
         updatePosition: position,
         updateTime: DateTime.now(),
-        speed: 1.0,
         queueIndex: 0,
-        repeatMode: AudioServiceRepeatMode.none,
-        shuffleMode: AudioServiceShuffleMode.none,
       ),
     );
   }

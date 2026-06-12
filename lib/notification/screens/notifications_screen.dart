@@ -2,12 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
+import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/notification/providers/notification_provider.dart';
 import 'package:gymaipro/notification/widgets/notification_card.dart';
 import 'package:gymaipro/notification/widgets/notification_filter_chip.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/trainer_dashboard/screens/trainer_dashboard_screen.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -21,6 +21,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
   bool _isSearchExpanded = false;
+  bool _isNavigatingFromTap = false;
   Timer? _searchDebounce;
 
   @override
@@ -159,7 +160,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         border: Border(
           bottom: BorderSide(
             color: context.separatorColor.withValues(alpha: 0.3),
-            width: 1,
           ),
         ),
       ),
@@ -180,7 +180,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     fontFamily: AppTheme.fontFamily,
                 color: context.textColor,
                 fontWeight: FontWeight.bold,
-                fontSize: 22.sp,
+                fontSize: 18.sp,
               ),
               textAlign: TextAlign.center,
             ),
@@ -198,7 +198,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   borderRadius: BorderRadius.circular(16.r),
                   side: BorderSide(
                     color: AppTheme.goldColor.withValues(alpha: 0.3),
-                    width: 1,
                   ),
                 ),
                 itemBuilder: (context) => [
@@ -273,13 +272,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   switch (value) {
                     case 'mark_all':
                       _confirmMarkAllAsRead(provider);
-                      break;
                     case 'delete_read':
                       _confirmDeleteRead(provider);
-                      break;
                     case 'settings':
                       Navigator.pushNamed(context, '/notification-settings');
-                      break;
                   }
                 },
               );
@@ -348,7 +344,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16.r),
-                  borderSide: BorderSide(color: AppTheme.goldColor, width: 2),
+                  borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
                 ),
               ),
               // Search is handled by _onSearchChanged with debounce
@@ -453,7 +449,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     ];
 
     // فقط انواع موجود را برگردان
-    return orderedTypes.where((type) => availableTypes.contains(type)).toList();
+    return orderedTypes.where(availableTypes.contains).toList();
   }
 
   String _getTypeLabel(NotificationType type) {
@@ -629,7 +625,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 style: TextStyle(
     fontFamily: AppTheme.fontFamily,
                   fontWeight: FontWeight.bold,
-                  fontSize: 16.sp,
+                  fontSize: 14.sp,
                 ),
               ),
             ),
@@ -662,7 +658,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,
                 color: context.textColor,
-                fontSize: 20.sp,
+                fontSize: 18.sp,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -712,138 +708,182 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     NotificationItem notification,
     NotificationProvider provider,
   ) {
-    // علامت‌گذاری به عنوان خوانده شده
+    if (_isNavigatingFromTap) return;
+
     if (!notification.isRead) {
-      provider.markAsRead(notification.id);
+      unawaited(provider.markAsRead(notification.id));
     }
 
-    // Navigation بر اساس نوع و داده‌های نوتیفیکیشن
-    _navigateBasedOnNotification(notification);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _navigateBasedOnNotification(notification);
+    });
+  }
+
+  String? _routeFromData(Map<String, dynamic> data) {
+    final route = data['route']?.toString();
+    if (route == null || route.isEmpty) return null;
+    return route.trim();
+  }
+
+  Map<String, dynamic>? _argumentsFromData(Map<String, dynamic> data) {
+    final initialTab = data['initialTab'] as int? ??
+        data['initialTabIndex'] as int? ??
+        data['subTab'] as int?;
+    if (initialTab == null) return null;
+    return {'initialTab': initialTab};
   }
 
   /// Navigation هوشمند بر اساس نوع و داده‌های نوتیفیکیشن
   void _navigateBasedOnNotification(NotificationItem notification) {
-    if (!mounted) return;
+    if (!mounted || _isNavigatingFromTap) return;
+    _isNavigatingFromTap = true;
 
     try {
-      // اولویت 1: استفاده از actionUrl اگر وجود داشته باشد
-      if (notification.actionUrl != null &&
-          notification.actionUrl!.isNotEmpty) {
-        _safeNavigate(notification.actionUrl!);
+      final data = notification.data;
+      final eventType = data['type']?.toString();
+      if (eventType == 'friend_request' ||
+          eventType == 'friend_request_accepted') {
+        _safeNavigate(
+          '/my-club',
+          arguments:
+              _argumentsFromData(data) ?? const {'initialTab': 2},
+        );
         return;
       }
 
-      // اولویت 2: Navigation بر اساس نوع نوتیفیکیشن و data
-      final data = notification.data;
+      if (notification.actionUrl != null &&
+          notification.actionUrl!.isNotEmpty) {
+        if (notification.actionUrl == '/my-club' &&
+            data.containsKey('initialTab')) {
+          _safeNavigate(
+            notification.actionUrl!,
+            arguments: _argumentsFromData(data),
+          );
+          return;
+        }
+        _safeNavigate(notification.actionUrl!);
+        return;
+      }
       switch (notification.type) {
         case NotificationType.message:
-          // Navigation به صفحه چت
-          final peerId = data['peer_id']?.toString() ??
-              data['sender_id']?.toString();
-          final peerName = data['peer_name']?.toString() ??
-              data['sender_name']?.toString() ??
-              'کاربر';
-          final conversationId = data['conversation_id']?.toString();
-
-          if (peerId != null && peerId.isNotEmpty) {
-            _safeNavigate(
-              '/chat',
-              arguments: {
-                'otherUserId': peerId,
-                'otherUserName': peerName,
-                if (conversationId != null) 'conversationId': conversationId,
-              },
-            );
-          }
-          break;
-
+          _navigateMessageNotification(data);
         case NotificationType.payment:
-          // نوتیف‌های مربوط به مربی (شاگرد جدید / درخواست برنامه) → میز کار مربی
-          final event = data['event']?.toString();
-          final service = data['service']?.toString();
-          final route = data['route']?.toString();
-
-          // اگر route مستقیماً به میز کار مربی اشاره کند یا event/service مشخص باشد
-          if (route == '/trainer-dashboard' ||
-              event == 'student_added' ||
-              service != null) {
-            // شاگرد جدید → تب شاگردان (index 0)
-            // درخواست برنامه/خدمت → تب درخواست‌ها (index 1)
-            final initialTabIndex = event == 'student_added' ? 0 : 1;
-            Navigator.push<void>(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => TrainerDashboardScreen(
-                  initialTabIndex: initialTabIndex,
-                ),
-              ),
-            );
-          } else {
-            // سایر نوتیف‌های پرداخت → استفاده از route یا داشبورد
-            final fallbackRoute = data['route']?.toString();
-            if (fallbackRoute != null && fallbackRoute.isNotEmpty) {
-              _safeNavigate(fallbackRoute);
-            } else {
-              _safeNavigate('/dashboard');
-            }
-          }
-          break;
-
+          _navigatePaymentNotification(data);
         case NotificationType.workout:
-          // Navigation به صفحه تمرین
-          final workoutId = data['workout_id']?.toString();
-          final programId = data['program_id']?.toString();
-
-          if (workoutId != null && workoutId.isNotEmpty) {
-            _safeNavigate(
-              '/workout-detail',
-              arguments: {'workoutId': workoutId},
-            );
-          } else if (programId != null && programId.isNotEmpty) {
-            _safeNavigate(
-              '/workout-program',
-              arguments: {'programId': programId},
-            );
-          } else {
-            _safeNavigate('/workouts');
-          }
-          break;
-
+          _navigateWorkoutNotification(data);
         case NotificationType.achievement:
-          // Navigation به صفحه دستاوردها
-          final achievementId = data['achievement_id']?.toString();
-          if (achievementId != null && achievementId.isNotEmpty) {
-            _safeNavigate(
-              '/achievements',
-              arguments: {'achievementId': achievementId},
-            );
-          } else {
-            _safeNavigate('/achievements');
-          }
-          break;
-
+          _navigateAchievementNotification(data);
         case NotificationType.reminder:
-          // Navigation به صفحه مربوطه بر اساس data
-          final reminderType = data['reminder_type']?.toString();
-          if (reminderType == 'workout') {
-            _safeNavigate('/workouts');
-          } else if (reminderType == 'meal') {
-            _safeNavigate('/meal-plan');
-          } else {
-            _safeNavigate('/dashboard');
-          }
-          break;
-
+          _navigateReminderNotification(data);
         case NotificationType.welcome:
         case NotificationType.system:
-          // برای انواع دیگر، به داشبورد برو
-          _safeNavigate('/dashboard');
-          break;
+          _navigateSystemNotification(data);
       }
     } catch (e) {
       debugPrint('❌ Error navigating from notification: $e');
       _safeNavigate('/dashboard');
+    } finally {
+      _isNavigatingFromTap = false;
     }
+  }
+
+  void _navigateMessageNotification(Map<String, dynamic> data) {
+    final peerId =
+        data['peer_id']?.toString() ?? data['sender_id']?.toString();
+    final peerName = data['peer_name']?.toString() ??
+        data['sender_name']?.toString() ??
+        'کاربر';
+    final conversationId = data['conversation_id']?.toString();
+
+    if (peerId == null || peerId.isEmpty) {
+      _safeNavigate('/chat-main', arguments: const {'initialTabIndex': 0});
+      return;
+    }
+
+    _safeNavigate(
+      '/chat',
+      arguments: {
+        'otherUserId': peerId,
+        'otherUserName': peerName,
+        if (conversationId != null) 'conversationId': conversationId,
+      },
+    );
+  }
+
+  void _navigatePaymentNotification(Map<String, dynamic> data) {
+    final event = data['event']?.toString();
+    final route = _routeFromData(data);
+
+    if (route == '/trainer-dashboard' ||
+        event == 'student_added' ||
+        event == 'service_request') {
+      final initialTabIndex = event == 'student_added' ? 0 : 1;
+      _safeNavigate(
+        '/trainer-dashboard',
+        arguments: {'initialTab': initialTabIndex},
+      );
+      return;
+    }
+
+    if (route != null) {
+      _safeNavigate(route, arguments: _argumentsFromData(data));
+      return;
+    }
+
+    _safeNavigate('/dashboard');
+  }
+
+  void _navigateWorkoutNotification(Map<String, dynamic> data) {
+    final workoutId = data['workout_id']?.toString();
+    final programId = data['program_id']?.toString();
+
+    if (workoutId != null && workoutId.isNotEmpty) {
+      _safeNavigate('/workout-detail', arguments: {'workoutId': workoutId});
+      return;
+    }
+    if (programId != null && programId.isNotEmpty) {
+      _safeNavigate('/workout-program', arguments: {'programId': programId});
+      return;
+    }
+    _safeNavigate('/my-club', arguments: const {'initialTab': 0});
+  }
+
+  void _navigateAchievementNotification(Map<String, dynamic> data) {
+    _safeNavigate('/achievements');
+  }
+
+  void _navigateReminderNotification(Map<String, dynamic> data) {
+    final reminderType = data['reminder_type']?.toString();
+    if (reminderType == 'workout') {
+      _safeNavigate('/workouts');
+    } else if (reminderType == 'meal') {
+      _safeNavigate('/meal-plan');
+    } else {
+      _safeNavigate('/dashboard');
+    }
+  }
+
+  void _navigateSystemNotification(Map<String, dynamic> data) {
+    final programType = data['type']?.toString();
+    if (programType == 'friend_request' ||
+        programType == 'friend_request_accepted') {
+      _safeNavigate('/my-club', arguments: const {'initialTab': 2});
+      return;
+    }
+    if (programType == 'diet_program' ||
+        programType == 'workout_program' ||
+        programType == 'workout_program_ready') {
+      _safeNavigate('/my-club', arguments: const {'initialTab': 0});
+      return;
+    }
+
+    final route = _routeFromData(data);
+    if (route != null) {
+      _safeNavigate(route, arguments: _argumentsFromData(data));
+      return;
+    }
+    _safeNavigate('/dashboard');
   }
 
   /// Navigation ایمن با error handling
@@ -851,17 +891,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (!mounted) return;
 
     try {
-      Navigator.pushNamed(context, route, arguments: arguments);
+      navigateAppRouteFrom<void>(
+        context,
+        route,
+        arguments: arguments,
+      );
     } catch (e) {
       debugPrint('❌ Navigation error to $route: $e');
-      // تلاش برای بازگشت به داشبورد
       try {
-        if (mounted && route != '/dashboard') {
-          Navigator.pushNamed(context, '/dashboard');
+        if (mounted) {
+          openMainDashboard();
         }
-      } catch (_) {
-        // اگر navigation هم خطا داد، هیچ کاری نکن
-      }
+      } catch (_) {}
     }
   }
 
@@ -909,7 +950,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(
+            child: const Text(
               'تایید',
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,
@@ -922,14 +963,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed ?? false) {
       final count = await provider.markAllAsRead();
       if (mounted && count > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               '$count اعلان به عنوان خوانده شده علامت‌گذاری شد',
-              style: TextStyle(
+              style: const TextStyle(
     fontFamily: AppTheme.fontFamily,fontWeight: FontWeight.w600),
             ),
             backgroundColor: AppTheme.goldColor,
@@ -987,7 +1028,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(
+            child: const Text(
               'حذف',
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,
@@ -1000,7 +1041,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed ?? false) {
       final count = await provider.deleteReadNotifications();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1009,7 +1050,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               count > 0
                   ? '$count اعلان خوانده شده حذف شد'
                   : 'هیچ اعلان خوانده شده‌ای برای حذف وجود ندارد',
-              style: TextStyle(
+              style: const TextStyle(
     fontFamily: AppTheme.fontFamily,fontWeight: FontWeight.w600),
             ),
             backgroundColor: count > 0

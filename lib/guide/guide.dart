@@ -12,6 +12,7 @@ export 'services/onboarding_service.dart';
 // Widgets
 export 'widgets/feature_showcase_overlay.dart';
 export 'widgets/feature_tour_widget.dart';
+export 'widgets/guide_tour_invite_sheet.dart';
 export 'widgets/onboarding_page_widget.dart';
 export 'widgets/onboarding_screen.dart';
 export 'widgets/drawer_guide_overlay.dart';

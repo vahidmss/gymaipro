@@ -100,11 +100,11 @@ class FitnessLegend {
       fullName: fullName.isNotEmpty
           ? fullName
           : _stripHtml(titleRendered).trim(),
-      nickname: nickname?.isNotEmpty == true ? nickname : null,
-      nationality: nationality?.isNotEmpty == true ? nationality : null,
-      heightCm: heightCm?.isNotEmpty == true ? heightCm : null,
-      weightStage: weightStage?.isNotEmpty == true ? weightStage : null,
-      olympiaTitles: olympiaTitles?.isNotEmpty == true ? olympiaTitles : null,
+      nickname: nickname?.isNotEmpty ?? false ? nickname : null,
+      nationality: nationality?.isNotEmpty ?? false ? nationality : null,
+      heightCm: heightCm?.isNotEmpty ?? false ? heightCm : null,
+      weightStage: weightStage?.isNotEmpty ?? false ? weightStage : null,
+      olympiaTitles: olympiaTitles?.isNotEmpty ?? false ? olympiaTitles : null,
       featuredImageUrl: imageUrl,
     );
   }

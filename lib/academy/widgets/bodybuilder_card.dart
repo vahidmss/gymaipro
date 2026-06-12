@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/professional_bodybuilder.dart';
 import 'package:gymaipro/academy/screens/bodybuilder_detail_screen.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class BodybuilderCard extends StatelessWidget {
   const BodybuilderCard({required this.bodybuilder, super.key});

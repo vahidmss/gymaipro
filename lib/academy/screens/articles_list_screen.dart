@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/article.dart';
+import 'package:gymaipro/academy/services/article_read_supabase_service.dart';
 import 'package:gymaipro/academy/services/article_service.dart';
 import 'package:gymaipro/academy/services/article_stats_cache_service.dart';
-import 'package:gymaipro/academy/services/article_read_supabase_service.dart';
 import 'package:gymaipro/academy/widgets/article_card.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/utils/json_parse_utils.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 
 class ArticlesListScreen extends StatefulWidget {
   const ArticlesListScreen({super.key});
@@ -159,7 +159,7 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () => _loadPage(refresh: true),
-        child: Container(
+        child: ColoredBox(
           color: context.backgroundColor,
           child: Column(
             children: [

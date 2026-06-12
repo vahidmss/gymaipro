@@ -1,33 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/ai/services/user_context_cache_service.dart';
 import 'package:gymaipro/announcements/services/in_app_announcement_service.dart';
 import 'package:gymaipro/announcements/widgets/in_app_announcement_modal.dart';
-import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
-import 'package:gymaipro/dashboard/widgets/discover_section.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
 import 'package:gymaipro/chat/services/chat_unread_notifier.dart';
+import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
+import 'package:gymaipro/dashboard/widgets/dashboard_animated_section.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_app_bar.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_drawer.dart';
+import 'package:gymaipro/dashboard/widgets/dashboard_hero_carousel.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_loading_screen.dart';
+import 'package:gymaipro/dashboard/widgets/dashboard_stories_section.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_welcome.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_welcome_helpers.dart';
+import 'package:gymaipro/dashboard/widgets/discover_section.dart';
 import 'package:gymaipro/dashboard/widgets/fitness_metrics.dart';
 import 'package:gymaipro/dashboard/widgets/quick_action_buttons.dart';
-import 'package:gymaipro/dashboard/widgets/todays_program_section.dart';
 import 'package:gymaipro/dashboard/widgets/tip_card.dart';
-import 'package:gymaipro/dashboard/widgets/weight_chart.dart';
-import 'package:gymaipro/dashboard/widgets/dashboard_hero_carousel.dart';
-import 'package:gymaipro/dashboard/widgets/dashboard_stories_section.dart';
-import 'package:gymaipro/dashboard/widgets/dashboard_animated_section.dart';
+import 'package:gymaipro/dashboard/widgets/todays_program_section.dart';
 import 'package:gymaipro/dashboard/widgets/top_rankings_section.dart';
-import 'package:gymaipro/guide/data/dashboard_guide_data.dart';
+import 'package:gymaipro/dashboard/widgets/weight_chart.dart';
 import 'package:gymaipro/guide/guide.dart';
-import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
-import 'package:gymaipro/services/avatar_refresh_notifier.dart';
-import 'package:gymaipro/services/auth_state_service.dart';
-import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/app_state.dart';
+import 'package:gymaipro/services/auth_state_service.dart';
+import 'package:gymaipro/services/avatar_refresh_notifier.dart';
+import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
 import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/services/logout_cache_clear_service.dart';
@@ -36,7 +35,7 @@ import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/streak_service.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/ai/services/user_context_cache_service.dart';
+import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:provider/provider.dart';
@@ -96,7 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       vsync: this,
     );
 
-    _logoutFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _logoutFadeAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _logoutAnimationController!,
         curve: Curves.easeInOut,
@@ -144,7 +143,14 @@ class _DashboardScreenState extends State<DashboardScreen>
 
       // نمایش راهنمای اصلی داشبورد اگر هنوز نشون داده نشده
       if (mounted && guideService.shouldShowGuide('dashboard_main_tour')) {
-        await startGuide(context, 'dashboard_main_tour');
+        await offerGuideTourIfEligible(
+          context,
+          guideId: 'dashboard_main_tour',
+          title: 'یه تور کوتاه از داشبورد بریم؟',
+          description:
+              'می‌تونم قدم‌به‌قدم بخش‌های مهم این صفحه رو بهت نشون بدم؛ '
+              'هر وقت خواستی از منو هم می‌تونی دوباره تور رو شروع کنی.',
+        );
       }
     } catch (e) {
       debugPrint('Error showing tour: $e');
@@ -159,7 +165,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.dispose();
   }
 
-  void _onAvatarUpdated() async {
+  Future<void> _onAvatarUpdated() async {
     try {
       final profileData = await SimpleProfileService.getCurrentProfile();
       if (profileData != null && mounted) {
@@ -387,13 +393,13 @@ class _DashboardScreenState extends State<DashboardScreen>
       if (!isOnline) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Text(
                 'اتصال اینترنت برقرار نیست. رفرش ممکن نیست',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              duration: const Duration(seconds: 2),
+              duration: Duration(seconds: 2),
             ),
           );
         }
@@ -495,7 +501,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Text(
                 'خطا در خروج از حساب کاربری',
                 maxLines: 2,
@@ -525,7 +531,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
       await showDialog<void>(
         context: context,
-        barrierDismissible: true,
         builder: (dialogContext) {
           return InAppAnnouncementModal(
             announcement: announcement,
@@ -564,9 +569,9 @@ class _DashboardScreenState extends State<DashboardScreen>
             elevation: 0,
           ),
         ),
-        child: Container(
+        child: DecoratedBox(
           decoration: isDark
-              ? null
+              ? const BoxDecoration()
               : BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -602,7 +607,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               if (_isLoggingOut && _logoutFadeAnimation != null)
                 FadeTransition(
                   opacity: _logoutFadeAnimation!,
-                  child: Container(
+                  child: ColoredBox(
                     color: isDark
                         ? Colors.black.withValues(alpha: 0.95)
                         : Colors.white.withValues(alpha: 0.95),
@@ -610,7 +615,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          CircularProgressIndicator(
+                          const CircularProgressIndicator(
                             color: AppTheme.goldColor,
                             strokeWidth: 3,
                           ),
@@ -654,7 +659,6 @@ class _DashboardScreenState extends State<DashboardScreen>
                 children: [
                   // ── ۰. کارت خوش‌آمدگویی (با Streak داخلش) ──
                   DashboardAnimatedSection(
-                    index: 0,
                     child: WelcomeCard(
                       key: DashboardGuideData.keys['welcome_card'],
                       username: _username ?? 'کاربر عزیز',
@@ -669,14 +673,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                   SizedBox(height: 16.h),
 
                   // ── ۱. داستان‌های امروز - زیر کارت خوش‌آمدگویی ──
-                  DashboardAnimatedSection(
+                  const DashboardAnimatedSection(
                     index: 1,
-                    child: const DashboardStoriesSection(),
+                    child: DashboardStoriesSection(),
                   ),
                   SizedBox(height: 20.h),
 
                   // ── ۲. نکته روز ──
-                  DashboardAnimatedSection(index: 2, child: TipCard()),
+                  const DashboardAnimatedSection(index: 2, child: TipCard()),
                   SizedBox(height: 20.h),
 
                   // ── ۳. برنامه امروز - اولویت اصلی کاربر ──
@@ -725,23 +729,23 @@ class _DashboardScreenState extends State<DashboardScreen>
                       : []),
 
                   // ── ۷. محتوای پیشنهادی - ویدیو، مقاله، موزیک ──
-                  DashboardAnimatedSection(
+                  const DashboardAnimatedSection(
                     index: 7,
-                    child: const DashboardHeroCarousel(),
+                    child: DashboardHeroCarousel(),
                   ),
                   SizedBox(height: 24.h),
 
                   // ── ۸. کشف جدیدها - تمرینات و تغذیه ──
-                  DashboardAnimatedSection(
+                  const DashboardAnimatedSection(
                     index: 8,
-                    child: const DiscoverSection(),
+                    child: DiscoverSection(),
                   ),
                   SizedBox(height: 24.h),
 
                   // ── ۹. رتبه‌بندی ──
-                  DashboardAnimatedSection(
+                  const DashboardAnimatedSection(
                     index: 9,
-                    child: const TopRankingsSection(),
+                    child: TopRankingsSection(),
                   ),
                   SizedBox(height: 32.h),
                 ],

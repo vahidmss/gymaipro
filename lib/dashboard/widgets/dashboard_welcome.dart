@@ -6,7 +6,7 @@ import 'package:gymaipro/notification/providers/notification_provider.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/theme/theme_provider.dart';
 import 'package:gymaipro/widgets/notification_icon.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';

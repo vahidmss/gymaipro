@@ -7,7 +7,7 @@ import 'package:gymaipro/payment/services/subscription_service.dart';
 import 'package:gymaipro/payment/widgets/subscription_card.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class SubscriptionScreen extends StatefulWidget {
   const SubscriptionScreen({super.key});

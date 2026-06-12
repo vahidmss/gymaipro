@@ -1,0 +1,18 @@
+{
+  "id": 4010,
+  "title": "پشت بازو خرچنگ سیمکش",
+  "main": "triceps",
+  "movement": "elbow_extension",
+  "targets": {
+    "triceps": 95,
+    "forearms": 25
+  },
+  "secondary": [],
+  "equipment": [
+    "cable"
+  ],
+  "norm": [
+    "muscle_targets adjusted for triceps extension"
+  ],
+  "notes": null
+}

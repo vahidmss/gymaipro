@@ -5,9 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// سرویس مدیریت سیستم دعوت و کد معرف
 /// کد معرف همان username کاربر است
 class ReferralService {
-  static final ReferralService _instance = ReferralService._internal();
   factory ReferralService() => _instance;
   ReferralService._internal();
+  static final ReferralService _instance = ReferralService._internal();
   final SupabaseClient _client = Supabase.instance.client;
 
   /// ثبت کد معرف هنگام ثبت‌نام

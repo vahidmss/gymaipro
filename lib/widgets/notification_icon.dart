@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/notification/providers/notification_provider.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 class NotificationIcon extends StatefulWidget {

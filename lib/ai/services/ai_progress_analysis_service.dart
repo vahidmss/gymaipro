@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:gymaipro/ai/config/ai_engine_config.dart';
 import 'package:gymaipro/ai/models/ai_chat_message.dart';
 import 'package:gymaipro/ai/models/progress_analysis.dart';
 import 'package:gymaipro/ai/services/openai_service.dart';
+import 'package:gymaipro/ai/services/rule_based_progress_analysis_engine.dart';
 import 'package:gymaipro/ai/services/progress_analysis_limit_service.dart';
 import 'package:gymaipro/ai/services/progress_analysis_storage_service.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
@@ -40,20 +42,11 @@ class AIProgressAnalysisService {
 
       // جمع‌آوری داده‌ها
       final progressData = await _collectProgressData(userId, days ?? 30);
+      final analysisText = await _generateAnalysisText(progressData);
 
-      // ساخت prompt برای AI
-      final prompt = _buildAnalysisPrompt(progressData);
-
-      // ارسال به OpenAI
-      final response = await _openAIService.sendMessage(
-        messages: [ChatMessage.user(content: prompt)],
-        systemPrompt: _getSystemPrompt(),
-      );
-
-      // ساخت مدل تحلیل
       final analysis = ProgressAnalysis(
         userId: userId,
-        analysisResult: response.content,
+        analysisResult: analysisText,
         periodDays: days ?? 30,
         analysisDate: DateTime.now(),
       );
@@ -87,12 +80,31 @@ class AIProgressAnalysisService {
 
   /// بررسی محدودیت استفاده
   Future<ProgressAnalysisLimitResult> checkLimit() async {
-    return await _limitService.canUseAnalysis();
+    return _limitService.canUseAnalysis();
   }
 
   /// دریافت آمار استفاده
   Future<ProgressAnalysisLimitStats> getUsageStats() async {
-    return await _limitService.getUsageStats();
+    return _limitService.getUsageStats();
+  }
+
+  Future<String> _generateAnalysisText(Map<String, dynamic> progressData) async {
+    if (!AiEngineConfig.canAttemptOpenAi) {
+      return RuleBasedProgressAnalysisEngine().buildReport(progressData);
+    }
+    try {
+      final prompt = _buildAnalysisPrompt(progressData);
+      final response = await _openAIService.sendMessage(
+        messages: [ChatMessage.user(content: prompt)],
+        systemPrompt: _getSystemPrompt(),
+      );
+      return response.content;
+    } catch (e) {
+      if (kDebugMode) {
+        print('OpenAI progress analysis failed, using local engine: $e');
+      }
+      return RuleBasedProgressAnalysisEngine().buildReport(progressData);
+    }
   }
 
   /// جمع‌آوری داده‌های پیشرفت
@@ -310,7 +322,8 @@ class AIProgressAnalysisService {
 
   /// دریافت system prompt
   String _getSystemPrompt() {
-    return '''تو یک مربی ورزشی و متخصص تغذیه حرفه‌ای هستی. وظیفه تو تحلیل پیشرفت کاربر و ارائه راهکارهای عملی و کاربردی است.
+    return '''
+تو یک مربی ورزشی و متخصص تغذیه حرفه‌ای هستی. وظیفه تو تحلیل پیشرفت کاربر و ارائه راهکارهای عملی و کاربردی است.
 
 در تحلیل خود:
 1. نقاط قوت و پیشرفت‌های کاربر را برجسته کن

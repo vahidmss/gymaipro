@@ -1,10 +1,12 @@
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 
 /// Global error handler for the application
 /// Handles and suppresses Supabase network errors and overflow errors to prevent crashes
 class AppErrorHandler {
   static void initialize() {
+    PlatformDispatcher.instance.onError = handleUncaughtError;
+
     FlutterError.onError = (FlutterErrorDetails details) {
       final error = details.exception;
       final errorString = error.toString();
@@ -26,7 +28,7 @@ class AppErrorHandler {
           // اگر overflow خیلی کوچک بود (مثلاً 0.05 تا چند پیکسل)،
           // لاگ پر سر و صدا نزنیم و فقط لاگ پیش‌فرض Flutter رو نشان بدهیم.
           final match = RegExp(
-            r'overflowed by ([0-9.]+) pixels',
+            'overflowed by ([0-9.]+) pixels',
           ).firstMatch(errorString);
           if (match != null) {
             final value = double.tryParse(match.group(1) ?? '');
@@ -80,6 +82,25 @@ class AppErrorHandler {
       // Let other errors be handled normally
       FlutterError.presentError(details);
     };
+  }
+
+  /// Zone / async guard — returns true when the error was handled (swallowed).
+  static bool handleUncaughtError(Object error, StackTrace stack) {
+    final errorString = error.toString();
+    if (_isSupabaseNetworkError(errorString)) {
+      if (kDebugMode) {
+        debugPrint(
+          '=== ZONE ERROR HANDLER: Suppressed Supabase network error ===',
+        );
+        debugPrint('Error: $error');
+      }
+      return true;
+    }
+    if (kDebugMode) {
+      debugPrint('Uncaught async error: $error');
+      debugPrint('$stack');
+    }
+    return false;
   }
 
   static bool _isSupabaseNetworkError(String errorString) {

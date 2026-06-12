@@ -23,7 +23,7 @@ class AppLoadingWidget extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(color: AppTheme.goldColor, strokeWidth: 3),
+          const CircularProgressIndicator(color: AppTheme.goldColor, strokeWidth: 3),
           SizedBox(height: 16.h),
           Text(
             message ?? _defaultMessage,

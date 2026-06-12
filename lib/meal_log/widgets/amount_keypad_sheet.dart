@@ -56,8 +56,11 @@ class _AmountKeypadSheetState extends State<AmountKeypadSheet> {
         if (!_value.contains('.')) _value += '.';
         return;
       }
-      if (_value == '0' && key != '.') _value = key;
-      else _value += key;
+      if (_value == '0' && key != '.') {
+        _value = key;
+      } else {
+        _value += key;
+      }
     });
   }
 
@@ -137,7 +140,7 @@ class _AmountKeypadSheetState extends State<AmountKeypadSheet> {
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
                             color: textColor,
-                            fontSize: 20.sp,
+                            fontSize: 18.sp,
                             fontWeight: FontWeight.w700,
                           ),
                           textAlign: TextAlign.center,
@@ -260,7 +263,7 @@ class _Keypad extends StatelessWidget {
                   'تأیید',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    color: canConfirm ? Colors.black : Colors.black54,
+                    color: canConfirm ? AppTheme.veryDarkBackground : Colors.black54,
                     fontSize: 15.sp,
                     fontWeight: FontWeight.w600,
                   ),
@@ -295,7 +298,7 @@ class _Keypad extends StatelessWidget {
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       color: textColor,
-                      fontSize: 20.sp,
+                      fontSize: 18.sp,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

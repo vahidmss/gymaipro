@@ -58,7 +58,7 @@ class _ProfessionalBodybuildersScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return ColoredBox(
       color: context.backgroundColor,
       child: RefreshIndicator(
         onRefresh: () => _loadBodybuilders(refresh: true),

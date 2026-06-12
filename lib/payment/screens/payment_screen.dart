@@ -12,7 +12,7 @@ import 'package:gymaipro/payment/widgets/payment_method_card.dart';
 import 'package:gymaipro/payment/widgets/payment_summary.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({required this.plan, super.key, this.metadata});

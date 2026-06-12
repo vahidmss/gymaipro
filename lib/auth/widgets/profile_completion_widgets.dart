@@ -117,7 +117,7 @@ class GenderOption extends StatelessWidget {
                         colors: [
                           AppTheme.lightGradientStart.withValues(alpha: 0.4),
                           AppTheme.lightCardColor,
-                          AppTheme.lightGoldGradient.withValues(alpha: 0.3),
+                          AppTheme.lightGradientStart.withValues(alpha: 0.3),
                         ],
                         stops: const [0.0, 0.5, 1.0],
                       )
@@ -175,7 +175,6 @@ class GenderOption extends StatelessWidget {
                       border: isSelected
                           ? Border.all(
                               color: AppTheme.goldColor.withValues(alpha: 0.3),
-                              width: 1,
                             )
                           : null,
                     ),
@@ -218,7 +217,7 @@ class GenderOption extends StatelessWidget {
                         width: 28.w,
                         height: 28.h,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
+                          gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
@@ -237,7 +236,7 @@ class GenderOption extends StatelessWidget {
                         ),
                         child: Icon(
                           Icons.check_rounded,
-                          color: Colors.white,
+                          color: AppTheme.darkTextColor,
                           size: 18.sp,
                         ),
                       ),
@@ -437,7 +436,7 @@ int _daysInJalaliMonth(int year, int month) {
   return Jalali(year).isLeapYear() ? 30 : 29;
 }
 
-const double _kWheelItemExtent = 48.0;
+const double _kWheelItemExtent = 48;
 const int _kWheelVisibleCount = 5;
 
 /// فیلد قابل لمس برای انتخاب تاریخ تولد — با یک لمس، bottom sheet چرخ‌دار باز می‌شود.
@@ -601,7 +600,7 @@ class _BirthDateWheelSheetState extends State<_BirthDateWheelSheet> {
     );
 
     _days = _buildDays(widget.initialYear, widget.initialMonth);
-    var dayIndex = widget.initialDay.clamp(1, _days.length) - 1;
+    final dayIndex = widget.initialDay.clamp(1, _days.length) - 1;
     _dayController = FixedExtentScrollController(initialItem: dayIndex);
   }
 
@@ -641,17 +640,17 @@ class _BirthDateWheelSheetState extends State<_BirthDateWheelSheet> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF1C1C1E) : AppTheme.lightCardColor;
-    final textColor = isDark ? Colors.white : AppTheme.lightTextColor;
+    final textColor = isDark ? AppTheme.darkTextColor : AppTheme.lightTextColor;
     final secondaryColor = isDark ? Colors.white54 : AppTheme.lightTextSecondary;
-    final gold = AppTheme.goldColor;
+    const gold = AppTheme.goldColor;
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: AppTheme.veryDarkBackground.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, -4),
           ),
@@ -683,7 +682,7 @@ class _BirthDateWheelSheetState extends State<_BirthDateWheelSheet> {
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         color: secondaryColor,
-                        fontSize: 16.sp,
+                        fontSize: 14.sp,
                       ),
                     ),
                   ),
@@ -706,7 +705,7 @@ class _BirthDateWheelSheetState extends State<_BirthDateWheelSheet> {
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         color: gold,
-                        fontSize: 16.sp,
+                        fontSize: 14.sp,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -815,7 +814,6 @@ class _WheelColumn<T> extends StatelessWidget {
                 controller: controller,
                 itemExtent: itemExtent,
                 diameterRatio: 1.4,
-                perspective: 0.003,
                 physics: const FixedExtentScrollPhysics(),
                 onSelectedItemChanged: onSelected != null
                     ? (i) {
@@ -903,7 +901,7 @@ class ActivityOption extends StatelessWidget {
                         colors: [
                           AppTheme.lightGradientStart.withValues(alpha: 0.4),
                           AppTheme.lightCardColor,
-                          AppTheme.lightGoldGradient.withValues(alpha: 0.3),
+                          AppTheme.lightGradientStart.withValues(alpha: 0.3),
                         ],
                         stops: const [0.0, 0.5, 1.0],
                       )
@@ -961,7 +959,6 @@ class ActivityOption extends StatelessWidget {
                       border: isSelected
                           ? Border.all(
                               color: AppTheme.goldColor.withValues(alpha: 0.3),
-                              width: 1,
                             )
                           : null,
                     ),
@@ -1025,7 +1022,7 @@ class ActivityOption extends StatelessWidget {
                         width: 28.w,
                         height: 28.h,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
+                          gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
@@ -1044,7 +1041,7 @@ class ActivityOption extends StatelessWidget {
                         ),
                         child: Icon(
                           Icons.check_rounded,
-                          color: Colors.white,
+                          color: AppTheme.darkTextColor,
                           size: 18.sp,
                         ),
                       ),

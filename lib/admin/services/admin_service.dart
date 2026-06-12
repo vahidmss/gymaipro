@@ -59,7 +59,7 @@ class AdminService {
 
       return response
           .cast<Map<String, dynamic>>()
-          .map((json) => UserProfile.fromJson(json))
+          .map(UserProfile.fromJson)
           .toList();
     } catch (e) {
       debugPrint('AdminService.getAllUsers error: $e');
@@ -247,7 +247,7 @@ class AdminService {
       // ابتدا مکالمات را بدون join بگیریم
       final conversations = await _supabase
           .from('chat_conversations')
-          .select('*')
+          .select()
           .order('updated_at', ascending: false)
           .range(offset, offset + limit - 1);
 
@@ -799,7 +799,7 @@ class AdminService {
     try {
       final programs = await _supabase
           .from('workout_programs')
-          .select('*')
+          .select()
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
@@ -840,7 +840,7 @@ class AdminService {
     try {
       final plans = await _supabase
           .from('meal_plans')
-          .select('*')
+          .select()
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
@@ -928,7 +928,7 @@ class AdminService {
     int offset = 0,
   }) async {
     try {
-      var query = _supabase.from('trainer_clients').select('*');
+      var query = _supabase.from('trainer_clients').select();
 
       if (statusFilter != null && statusFilter.isNotEmpty) {
         query = query.eq('status', statusFilter);
@@ -1026,7 +1026,7 @@ class AdminService {
     int offset = 0,
   }) async {
     try {
-      var query = _supabase.from('payment_transactions').select('*');
+      var query = _supabase.from('payment_transactions').select();
 
       if (statusFilter != null && statusFilter.isNotEmpty) {
         query = query.eq('status', statusFilter);
@@ -1112,7 +1112,7 @@ class AdminService {
     try {
       final wallets = await _supabase
           .from('wallets')
-          .select('*')
+          .select()
           .order('balance', ascending: false)
           .range(offset, offset + limit - 1);
 
@@ -1420,7 +1420,7 @@ class AdminService {
     try {
       final response = await _supabase
           .from('wallet_transactions')
-          .select('*')
+          .select()
           .eq('wallet_id', walletId)
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
@@ -1444,7 +1444,7 @@ class AdminService {
   }) async {
     try {
       // بدون join - اطلاعات کاربران را جداگانه می‌گیریم
-      var query = _supabase.from('admin_wallet_actions').select('*');
+      var query = _supabase.from('admin_wallet_actions').select();
 
       if (adminId != null && adminId.isNotEmpty) {
         query = query.eq('admin_id', adminId);
@@ -1521,7 +1521,7 @@ class AdminService {
     try {
       final response = await _supabase
           .from('discount_codes')
-          .select('*')
+          .select()
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
@@ -1585,7 +1585,7 @@ class AdminService {
     int offset = 0,
   }) async {
     try {
-      var query = _supabase.from('subscriptions').select('*');
+      var query = _supabase.from('subscriptions').select();
 
       if (statusFilter != null && statusFilter.isNotEmpty) {
         query = query.eq('status', statusFilter);
@@ -1758,7 +1758,7 @@ class AdminService {
     int offset = 0,
   }) async {
     try {
-      var query = _supabase.from('certificates').select('*');
+      var query = _supabase.from('certificates').select();
 
       if (statusFilter != null && statusFilter.isNotEmpty) {
         query = query.eq('status', statusFilter);

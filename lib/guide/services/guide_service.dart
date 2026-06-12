@@ -23,6 +23,9 @@ class GuideService extends ChangeNotifier {
   GuideSequence? _activeGuide;
   int _currentStepIndex = 0;
 
+  String? _pendingForcedGuideId;
+  bool _pendingOpenDrawer = false;
+
   /// Initialize the service
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -78,6 +81,35 @@ class GuideService extends ChangeNotifier {
     notifyListeners();
   }
 
+  GuideSequence? getGuide(String guideId) => _guides[guideId];
+
+  void setPendingForcedGuide(String guideId, {bool openDrawer = false}) {
+    _pendingForcedGuideId = guideId;
+    _pendingOpenDrawer = openDrawer;
+    notifyListeners();
+  }
+
+  String? peekPendingForcedGuide() => _pendingForcedGuideId;
+
+  bool get pendingOpenDrawer => _pendingOpenDrawer;
+
+  (String, bool)? consumePendingForcedGuide() {
+    final id = _pendingForcedGuideId;
+    if (id == null) return null;
+    final openDrawer = _pendingOpenDrawer;
+    _pendingForcedGuideId = null;
+    _pendingOpenDrawer = false;
+    notifyListeners();
+    return (id, openDrawer);
+  }
+
+  /// بدون شروع تور: دیگر این راهنما را خودکار پیشنهاد نکن
+  Future<void> suppressGuide(String guideId) async {
+    _dontShowGuides[guideId] = true;
+    await _prefs?.setBool('guide_dont_show_$guideId', true);
+    notifyListeners();
+  }
+
   /// حذف ثبت یک راهنما
   void unregisterGuide(String guideId) {
     _guides.remove(guideId);
@@ -101,7 +133,11 @@ class GuideService extends ChangeNotifier {
       }
     }
 
-    // همیشه نمایش بده (مگر اینکه کاربر تایید کرده دیگه نشون نده)
+    // تورهای یک‌بار مصرف بعد از اتمام دیگر خودکار پیشنهاد نمی‌شوند
+    if (guide.showOnce && isGuideCompleted(guideId)) {
+      return false;
+    }
+
     return true;
   }
 

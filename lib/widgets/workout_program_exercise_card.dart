@@ -1,8 +1,8 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class WorkoutProgramExerciseCard extends StatefulWidget {
   const WorkoutProgramExerciseCard({

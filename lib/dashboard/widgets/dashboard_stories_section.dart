@@ -8,7 +8,7 @@ import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
 import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// بخش داستان‌های افقی - سبک اینستاگرام برای مقالات آکادمی
 /// حلقه طلایی = نخوانده، حلقه خاکستری = خوانده شده

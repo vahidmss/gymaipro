@@ -1,0 +1,361 @@
+SKIP newer disk: .env
+SKIP newer disk: android/settings.gradle.kts
+RESTORE [2026-05-03 06:48] lib/academy/models/custom_music.dart <= b5mi.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/academy/models/fitness_legend.dart <= 8hc5.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/academy/models/professional_bodybuilder.dart <= W2Ax.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/academy/models/workout_music.dart <= TAzr.dart (Workspace Edit)
+SKIP newer disk: lib/academy/screens/academy_main_screen.dart
+SKIP newer disk: lib/academy/screens/article_detail_screen.dart
+RESTORE [2026-05-03 06:49] lib/academy/screens/articles_list_screen.dart <= Icdp.dart (Workspace Edit)
+SKIP newer disk: lib/academy/screens/bodybuilder_detail_screen.dart
+SKIP newer disk: lib/academy/screens/legend_detail_screen.dart
+RESTORE [2026-05-03 06:49] lib/academy/screens/legends_list_screen.dart <= sNPG.dart (Workspace Edit)
+SKIP newer disk: lib/academy/screens/motivational_video_detail_screen.dart
+SKIP newer disk: lib/academy/screens/motivational_videos_screen.dart
+SKIP newer disk: lib/academy/screens/music_favorites_screen.dart
+SKIP newer disk: lib/academy/screens/music_list_screen.dart
+RESTORE [2026-05-03 06:49] lib/academy/screens/professional_bodybuilders_screen.dart <= tHPG.dart (Workspace Edit)
+RESTORE [2026-05-05 00:08] lib/academy/services/article_service.dart <= 3MqH.dart ()
+SKIP newer disk: lib/academy/services/cover_upload_service.dart
+RESTORE [2026-05-02 14:08] lib/academy/services/custom_music_service.dart <= UCct.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/academy/services/motivational_video_service.dart <= V04p.dart (Workspace Edit)
+RESTORE [2026-05-04 15:54] lib/academy/services/music_cache_service.dart <= 4G7i.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/academy/services/music_favorite_service.dart <= 2wpD.dart (Workspace Edit)
+RESTORE [2026-05-05 17:18] lib/academy/services/music_notification_service.dart <= vdvg.dart (Workspace Edit)
+SKIP newer disk: lib/academy/services/music_player_service.dart
+SKIP newer disk: lib/academy/services/music_upload_service.dart
+RESTORE [2026-05-03 06:49] lib/academy/services/workout_music_service.dart <= siMp.dart (Workspace Edit)
+SKIP newer disk: lib/academy/widgets/article_card.dart
+SKIP newer disk: lib/academy/widgets/bodybuilder_card.dart
+RESTORE [2026-05-20 07:27] lib/academy/widgets/comment_card.dart <= Udnu.dart (searchReplace.source)
+SKIP newer disk: lib/academy/widgets/comment_form.dart
+SKIP newer disk: lib/academy/widgets/legend_card.dart
+SKIP newer disk: lib/academy/widgets/motivational_video_card.dart
+SKIP newer disk: lib/academy/widgets/music_card.dart
+SKIP newer disk: lib/academy/widgets/music_player_widget.dart
+SKIP newer disk: lib/academy/widgets/playlist_item_widget.dart
+SKIP newer disk: lib/achievements/screens/achievements_screen.dart
+RESTORE [2026-05-03 06:49] lib/achievements/services/achievement_database_service.dart <= kkye.dart (Workspace Edit)
+RESTORE [2026-05-06 17:55] lib/achievements/services/achievement_service.dart <= SvlK.dart (Workspace Edit)
+SKIP newer disk: lib/achievements/widgets/achievement_card.dart
+SKIP newer disk: lib/achievements/widgets/achievement_notification.dart
+SKIP newer disk: lib/admin/screens/admin_announcements_screen.dart
+SKIP newer disk: lib/admin/screens/admin_app_access_control_screen.dart
+SKIP newer disk: lib/admin/screens/admin_broadcast_screen.dart
+SKIP newer disk: lib/admin/screens/admin_certificates_screen.dart
+SKIP newer disk: lib/admin/screens/admin_chat_management_screen.dart
+SKIP newer disk: lib/admin/screens/admin_commission_settings_screen.dart
+SKIP newer disk: lib/admin/screens/admin_dashboard_screen.dart
+SKIP newer disk: lib/admin/screens/admin_discount_codes_screen.dart
+SKIP newer disk: lib/admin/screens/admin_exercise_sync_screen.dart
+SKIP newer disk: lib/admin/screens/admin_financial_screen.dart
+SKIP newer disk: lib/admin/screens/admin_images_screen.dart
+SKIP newer disk: lib/admin/screens/admin_payments_screen.dart
+SKIP newer disk: lib/admin/screens/admin_payout_requests_screen.dart
+SKIP newer disk: lib/admin/screens/admin_programs_screen.dart
+SKIP newer disk: lib/admin/screens/admin_public_chat_screen.dart
+SKIP newer disk: lib/admin/screens/admin_stats_screen.dart
+SKIP newer disk: lib/admin/screens/admin_trainer_clients_screen.dart
+SKIP newer disk: lib/admin/screens/admin_users_screen.dart
+SKIP newer disk: lib/admin/screens/admin_wallet_actions_screen.dart
+SKIP newer disk: lib/admin/screens/admin_wallets_screen.dart
+RESTORE [2026-05-03 06:49] lib/admin/services/admin_broadcast_service.dart <= efQ3.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/admin/services/admin_service.dart <= mK6x.dart (Workspace Edit)
+RESTORE [2026-06-04 23:15] lib/admin/services/exercise_sync_service.dart <= ippp.dart (Undo Accept Diff)
+SKIP newer disk: lib/admin/services/exercise_v3_sync_mapper.dart
+SKIP newer disk: lib/ai/screens/ai_hub_screen.dart
+SKIP newer disk: lib/ai/screens/ai_programs_screen.dart
+SKIP newer disk: lib/ai/screens/ai_progress_analysis_screen.dart
+SKIP newer disk: lib/ai/screens/chat_screen.dart
+SKIP newer disk: lib/ai/screens/progress_analysis_history_screen.dart
+RESTORE [2026-05-03 06:49] lib/ai/services/ai_chat_service.dart <= ZVCE.dart (Workspace Edit)
+RESTORE [2026-05-28 00:25] lib/ai/services/ai_progress_analysis_service.dart <= rQ5V.dart ()
+RESTORE [2026-05-30 22:41] lib/ai/services/ai_workout_generator_service.dart <= xejG.dart (Workspace Edit)
+RESTORE [2026-05-04 15:54] lib/ai/services/message_rate_limiter_service.dart <= WN7Z.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/ai/services/progress_analysis_limit_service.dart <= ZM8S.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/ai/services/progress_analysis_storage_service.dart <= 68T5.dart (Workspace Edit)
+SKIP newer disk: lib/ai/widgets/analysis_result_display.dart
+RESTORE [2026-05-03 06:49] lib/ai/widgets/typing_indicator.dart <= mRka.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/announcements/models/in_app_announcement.dart <= kxAS.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/announcements/services/in_app_announcement_service.dart <= 9oYo.dart (Workspace Edit)
+SKIP newer disk: lib/announcements/widgets/in_app_announcement_modal.dart
+RESTORE [2026-05-03 06:49] lib/auth/index.dart <= bLg4.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/auth/screens/login_otp_verification_screen.dart <= Wg46.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/auth/screens/login_screen.dart <= 8Wvb.dart (Workspace Edit)
+RESTORE [2026-05-20 07:27] lib/auth/screens/profile_completion_screen.dart <= UqHe.dart (searchReplace.source)
+RESTORE [2026-05-16 15:29] lib/auth/screens/register_screen.dart <= 6Z8W.dart ()
+RESTORE [2026-05-03 06:49] lib/auth/services/auth_state_service.dart <= JNd9.dart (Workspace Edit)
+RESTORE [2026-05-03 12:46] lib/auth/services/supabase_service.dart <= BDIN.dart (Undo Accept Diff)
+RESTORE [2026-05-20 07:27] lib/auth/widgets/profile_completion_widgets.dart <= jvCH.dart (searchReplace.source)
+SKIP newer disk: lib/chat/screens/chat_conversations_screen.dart
+SKIP newer disk: lib/chat/screens/chat_main_screen.dart
+SKIP newer disk: lib/chat/screens/chat_screen.dart
+SKIP newer disk: lib/chat/screens/chat_trainer_selection_screen.dart
+RESTORE [2026-05-03 06:49] lib/chat/services/chat_presence_service.dart <= v7bA.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/chat/services/chat_service.dart <= Vjy5.dart (Workspace Edit)
+RESTORE [2026-05-05 17:18] lib/chat/services/chat_unread_notifier.dart <= vWzz.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/chat/services/public_chat_service.dart <= 6Ecs.dart (Workspace Edit)
+SKIP newer disk: lib/chat/widgets/chat_app_bar_widget.dart
+SKIP newer disk: lib/chat/widgets/chat_message_bubble.dart
+SKIP newer disk: lib/chat/widgets/error_boundary_widget.dart
+SKIP newer disk: lib/chat/widgets/message_input_widget.dart
+SKIP newer disk: lib/chat/widgets/public_chat_widget.dart
+SKIP newer disk: lib/chat/widgets/user_avatar_widget.dart
+SKIP newer disk: lib/config/app_config.dart
+RESTORE [2026-05-30 17:26] lib/core/app_error_handler.dart <= 2l0t.dart (Workspace Edit)
+RESTORE [2026-05-22 04:28] lib/core/app_initializer.dart <= W2Tw.dart (Workspace Edit)
+SKIP newer disk: lib/core/app_navigator.dart
+SKIP newer disk: lib/dashboard/screens/dashboard_screen.dart
+SKIP newer disk: lib/dashboard/screens/program_type_selection_screen.dart
+RESTORE [2026-05-02 14:08] lib/dashboard/services/dashboard_cache_service.dart <= SZ89.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/dashboard/widgets/dashboard_animated_section.dart <= jdlj.dart (Workspace Edit)
+SKIP newer disk: lib/dashboard/widgets/dashboard_app_bar.dart
+SKIP newer disk: lib/dashboard/widgets/dashboard_drawer.dart
+SKIP newer disk: lib/dashboard/widgets/dashboard_hero_carousel.dart
+SKIP newer disk: lib/dashboard/widgets/dashboard_stories_section.dart
+SKIP newer disk: lib/dashboard/widgets/dashboard_welcome.dart
+SKIP newer disk: lib/dashboard/widgets/discover_section.dart
+RESTORE [2026-05-03 06:49] lib/dashboard/widgets/fitness_metrics.dart <= vYuJ.dart (Workspace Edit)
+SKIP newer disk: lib/dashboard/widgets/quick_action_buttons.dart
+SKIP newer disk: lib/dashboard/widgets/streak_badge.dart
+SKIP newer disk: lib/dashboard/widgets/tip_card.dart
+SKIP newer disk: lib/dashboard/widgets/todays_program_section.dart
+SKIP newer disk: lib/dashboard/widgets/top_rankings_section.dart
+SKIP newer disk: lib/dashboard/widgets/weekly_muscle_heatmap_section.dart
+RESTORE [2026-05-04 15:54] lib/dashboard/widgets/weight_chart.dart <= eQdH.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/guide/data/dashboard_guide_data.dart <= kKVH.dart (Workspace Edit)
+SKIP newer disk: lib/guide/data/drawer_guide_data.dart
+RESTORE [2026-05-03 06:49] lib/guide/data/onboarding_data.dart <= Jjin.dart (Workspace Edit)
+SKIP newer disk: lib/guide/guide.dart
+RESTORE [2026-05-03 06:49] lib/guide/models/guide_sequence.dart <= ooXq.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/guide/models/guide_step.dart <= sFou.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/guide/models/onboarding_page.dart <= tQvF.dart (Workspace Edit)
+SKIP newer disk: lib/guide/services/guide_service.dart
+RESTORE [2026-05-02 14:08] lib/guide/services/onboarding_service.dart <= F5Ma.dart (Workspace Edit)
+RESTORE [2026-05-20 07:27] lib/guide/widgets/drawer_guide_overlay.dart <= 6Dwr.dart (searchReplace.source)
+RESTORE [2026-05-03 06:49] lib/guide/widgets/feature_showcase_overlay.dart <= Fvrb.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/guide/widgets/feature_tour_widget.dart <= dDfn.dart (Workspace Edit)
+SKIP newer disk: lib/guide/widgets/guide_tour_invite_sheet.dart
+RESTORE [2026-05-03 06:49] lib/guide/widgets/onboarding_page_widget.dart <= uULV.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/guide/widgets/onboarding_screen.dart <= YQxu.dart (Workspace Edit)
+SKIP newer disk: lib/main.dart
+RESTORE [2026-05-02 14:08] lib/meal_log/data/meal_log_guide_data.dart <= 5PAV.dart (Workspace Edit)
+SKIP newer disk: lib/meal_log/dialogs/persian_food_log_date_picker_dialog.dart
+RESTORE [2026-05-03 06:49] lib/meal_log/models/food_meal_log.dart <= dClK.dart (Workspace Edit)
+SKIP newer disk: lib/meal_log/screens/add_food_screen.dart
+SKIP newer disk: lib/meal_log/screens/meal_log_screen.dart
+SKIP newer disk: lib/meal_log/utils/meal_log_utils.dart
+RESTORE [2026-05-02 14:08] lib/meal_log/utils/meal_plan_mapper.dart <= sEOE.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/meal_log/utils/responsive_dialog_utils.dart <= HYpC.dart (Workspace Edit)
+RESTORE [2026-05-20 07:29] lib/meal_log/widgets/amount_keypad_sheet.dart <= SoL9.dart (searchReplace.source)
+SKIP newer disk: lib/meal_log/widgets/daily_calorie_summary.dart
+SKIP newer disk: lib/meal_log/widgets/edit_amount_dialog.dart
+SKIP newer disk: lib/meal_log/widgets/meal_log_app_bar.dart
+SKIP newer disk: lib/meal_log/widgets/meal_section.dart
+RESTORE [2026-05-02 14:08] lib/meal_log/widgets/meals_list_widget.dart <= Hmkt.dart (Workspace Edit)
+SKIP newer disk: lib/meal_log/widgets/supplement_card.dart
+SKIP newer disk: lib/meal_log/widgets/trainer_supervision_card.dart
+RESTORE [2026-05-20 07:27] lib/meal_plan_builder/dialogs/confirm_delete_food_dialog.dart <= ghtj.dart (searchReplace.source)
+SKIP newer disk: lib/meal_plan_builder/dialogs/copy_day_dialog.dart
+SKIP newer disk: lib/meal_plan_builder/dialogs/day_comment_dialog.dart
+SKIP newer disk: lib/meal_plan_builder/dialogs/edit_food_dialog.dart
+SKIP newer disk: lib/meal_plan_builder/dialogs/meal_note_dialog.dart
+SKIP newer disk: lib/meal_plan_builder/screens/add_food_screen.dart
+SKIP newer disk: lib/meal_plan_builder/screens/meal_plan_builder_screen.dart
+SKIP newer disk: lib/meal_plan_builder/screens/user_details_screen.dart
+RESTORE [2026-05-03 06:49] lib/meal_plan_builder/services/meal_plan_service.dart <= 2YuE.dart (Workspace Edit)
+SKIP newer disk: lib/meal_plan_builder/widgets/app_bar.dart
+SKIP newer disk: lib/meal_plan_builder/widgets/day_selector_card.dart
+SKIP newer disk: lib/meal_plan_builder/widgets/meal_card.dart
+RESTORE [2026-05-20 07:27] lib/meal_plan_builder/widgets/plan_name_card.dart <= ZqaM.dart (searchReplace.source)
+SKIP newer disk: lib/meal_plan_builder/widgets/saved_plans_drawer.dart
+RESTORE [2026-05-09 15:41] lib/models/custom_exercise.dart <= tI1y.dart (Undo Accept Diff)
+SKIP newer disk: lib/models/exercise.dart
+SKIP newer disk: lib/models/food.dart
+RESTORE [2026-05-19 16:57] lib/models/friendship_models.dart <= r4FL.dart (Workspace Edit)
+SKIP newer disk: lib/my_club/my_club_main_screen.dart
+SKIP newer disk: lib/my_club/my_programs_screen.dart
+SKIP newer disk: lib/my_club/screens/confidential_user_info_screen.dart
+SKIP newer disk: lib/my_club/screens/friendship_search_screen.dart
+SKIP newer disk: lib/my_club/screens/my_friends_screen.dart
+SKIP newer disk: lib/my_club/screens/my_points_screen.dart
+SKIP newer disk: lib/my_club/screens/my_trainers_screen.dart
+RESTORE [2026-05-20 06:37] lib/my_club/services/friendship_service.dart <= I30L.dart (Workspace Edit)
+SKIP newer disk: lib/my_club/widgets/club_stats_widget.dart
+SKIP newer disk: lib/my_club/widgets/my_club_trainer_card.dart
+SKIP newer disk: lib/my_club/widgets/program_activity_calendar.dart
+SKIP newer disk: lib/my_club/widgets/program_meal_activity_sheet.dart
+SKIP newer disk: lib/my_club/widgets/program_workout_activity_sheet.dart
+SKIP newer disk: lib/my_club/widgets/recent_activities_widget.dart
+SKIP newer disk: lib/my_club/widgets/unified_empty_state.dart
+RESTORE [2026-05-03 06:49] lib/navigation/navigation_guard.dart <= iJ3o.dart (Workspace Edit)
+SKIP newer disk: lib/navigation/screens/main_navigation_screen.dart
+RESTORE [2026-05-20 07:27] lib/navigation/utils/navigation_utils.dart <= utQM.dart (searchReplace.source)
+SKIP newer disk: lib/navigation/widgets/custom_bottom_navigation.dart
+SKIP newer disk: lib/navigation/widgets/navigation_chrome_bar.dart
+SKIP newer disk: lib/network/wordpress_http.dart
+SKIP newer disk: lib/notification/notification_service.dart
+RESTORE [2026-05-03 06:49] lib/notification/providers/notification_provider.dart <= 1gai.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/notification/repositories/notification_repository.dart <= z7zf.dart (Workspace Edit)
+SKIP newer disk: lib/notification/screens/notification_settings_screen.dart
+SKIP newer disk: lib/notification/screens/notifications_screen.dart
+SKIP newer disk: lib/notification/services/notification_fallback_sync_service.dart
+SKIP newer disk: lib/notification/widgets/notification_card.dart
+RESTORE [2026-05-03 06:49] lib/notification/widgets/notification_filter_chip.dart <= 8xL1.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/payment/models/commission_settings.dart <= gUwW.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/payment/models/payout_request.dart <= Y9B2.dart (Workspace Edit)
+SKIP newer disk: lib/payment/screens/my_trainer_subscriptions_screen.dart
+SKIP newer disk: lib/payment/screens/payment_history_screen.dart
+SKIP newer disk: lib/payment/screens/payment_screen.dart
+SKIP newer disk: lib/payment/screens/subscription_screen.dart
+SKIP newer disk: lib/payment/screens/wallet_charge_screen.dart
+SKIP newer disk: lib/payment/screens/wallet_screen.dart
+RESTORE [2026-05-02 14:08] lib/payment/services/payout_service.dart <= YM7x.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/payment/services/trainer_payment_service.dart <= rKgS.dart (Workspace Edit)
+SKIP newer disk: lib/payment/services/wallet_service.dart
+SKIP newer disk: lib/payment/widgets/discount_input.dart
+SKIP newer disk: lib/payment/widgets/payment_method_card.dart
+SKIP newer disk: lib/payment/widgets/purchase_success_dialog.dart
+SKIP newer disk: lib/payment/widgets/subscription_card.dart
+SKIP newer disk: lib/payment/widgets/trainer_subscription_card.dart
+SKIP newer disk: lib/payment/widgets/wallet_balance_card.dart
+SKIP newer disk: lib/profile/screens/profile_screen.dart
+RESTORE [2026-05-20 07:31] lib/profile/screens/trainer_profile_screen.dart <= RDKJ.dart (searchReplace.source)
+SKIP newer disk: lib/profile/widgets/profile_app_bar_content_widget.dart
+SKIP newer disk: lib/profile/widgets/profile_birth_date_widget.dart
+SKIP newer disk: lib/profile/widgets/profile_form_widgets.dart
+SKIP newer disk: lib/profile/widgets/profile_image_widgets.dart
+SKIP newer disk: lib/profile/widgets/profile_new_widgets.dart
+SKIP newer disk: lib/profile/widgets/profile_stats_widgets.dart
+SKIP newer disk: lib/profile/widgets/profile_weight_controls_widget.dart
+SKIP newer disk: lib/profile/widgets/weight_widgets.dart
+RESTORE [2026-05-02 14:08] lib/ranking/index.dart <= oVhZ.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/ranking/models/league.dart <= M9ym.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/ranking/models/user_activity.dart <= oyv1.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/ranking/models/user_ranking.dart <= ySHF.dart (Workspace Edit)
+SKIP newer disk: lib/ranking/screens/leaderboard_screen.dart
+RESTORE [2026-05-02 14:08] lib/ranking/services/activity_tracking_service.dart <= 42zO.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/ranking/services/ranking_score_service.dart <= qS6l.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/ranking/services/ranking_service.dart <= qqTW.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/ranking/services/ranking_tracker_helper.dart <= ZRfR.dart (Workspace Edit)
+RESTORE [2026-05-20 07:27] lib/ranking/widgets/leaderboard_item.dart <= XGUb.dart (searchReplace.source)
+RESTORE [2026-05-03 06:49] lib/ranking/widgets/league_badge.dart <= esFZ.dart (Workspace Edit)
+SKIP newer disk: lib/ranking/widgets/league_card.dart
+SKIP newer disk: lib/ranking/widgets/profile_ranking_section.dart
+SKIP newer disk: lib/ranking/widgets/user_rank_card.dart
+SKIP newer disk: lib/referral/screens/referral_guide_screen.dart
+SKIP newer disk: lib/screens/exercise_detail_screen.dart
+SKIP newer disk: lib/screens/exercise_list_screen.dart
+SKIP newer disk: lib/screens/exercises/exercise_list_screen.dart
+SKIP newer disk: lib/screens/exercises/widgets/exercise_catalog_card.dart
+SKIP newer disk: lib/screens/exercises/widgets/exercise_trainer_pane.dart
+SKIP newer disk: lib/screens/favorite_foods_screen.dart
+SKIP newer disk: lib/screens/food_detail_screen.dart
+SKIP newer disk: lib/screens/food_list_screen.dart
+SKIP newer disk: lib/screens/help_screen.dart
+SKIP newer disk: lib/screens/offline_screen.dart
+RESTORE [2026-05-04 15:54] lib/screens/otp_verification_screen.dart <= XHvj.dart (Workspace Edit)
+SKIP newer disk: lib/screens/settings_screen.dart
+SKIP newer disk: lib/screens/welcome_screen.dart
+SKIP newer disk: lib/screens/widgets/food_list_card.dart
+SKIP newer disk: lib/services/app_access_control_service.dart
+RESTORE [2026-05-02 14:08] lib/services/auth_state_service.dart <= IGQ0.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/services/coach_video_upload_service.dart <= F2hw.dart (Workspace Edit)
+RESTORE [2026-05-09 15:41] lib/services/coach_video_upload_standalone.php <= HSP9.php (Undo Accept Diff)
+RESTORE [2026-05-03 06:49] lib/services/comprehensive_cache_service.dart <= vwgN.dart (Workspace Edit)
+RESTORE [2026-05-04 15:54] lib/services/custom_exercise_service.dart <= DLx6.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/services/database_migration_service.dart <= gJWS.dart (Workspace Edit)
+RESTORE [2026-06-06 14:54] lib/services/exercise_comment_service.dart <= 2ICr.dart (Workspace Edit)
+SKIP newer disk: lib/services/exercise_service.dart
+RESTORE [2026-05-03 06:49] lib/services/logout_cache_clear_service.dart <= gBw8.dart (Workspace Edit)
+RESTORE [2026-05-05 17:18] lib/services/notification_navigation_service.dart <= 5glR.dart (Workspace Edit)
+RESTORE [2026-05-04 15:54] lib/services/otp_service.dart <= emSA.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/services/referral_service.dart <= rNnI.dart (Workspace Edit)
+SKIP newer disk: lib/services/route_service.dart
+RESTORE [2026-05-22 04:28] lib/services/score_service.dart <= DseI.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/services/simple_profile_service.dart <= 2uXo.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/services/streak_service.dart <= 8L9Z.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/services/user_preferences_service.dart <= QRdT.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/services/video_cache_service.dart <= xie3.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/services/video_download_manager.dart <= 4dKr.dart (Workspace Edit)
+SKIP newer disk: lib/theme/app_theme.dart
+RESTORE [2026-05-04 15:54] lib/theme/theme_provider.dart <= Ooye.dart (Workspace Edit)
+SKIP newer disk: lib/trainer_channel/screens/trainer_channel_manage_screen.dart
+SKIP newer disk: lib/trainer_channel/screens/trainer_channel_screen.dart
+SKIP newer disk: lib/trainer_channel/widgets/trainer_channel_compose_bar.dart
+SKIP newer disk: lib/trainer_channel/widgets/trainer_channel_video_preview.dart
+SKIP newer disk: lib/trainer_channel/widgets/trainer_channel_video_viewer.dart
+SKIP newer disk: lib/trainer_dashboard/screens/certificate_upload_screen.dart
+SKIP newer disk: lib/trainer_dashboard/screens/client_management/client_management_screen.dart
+SKIP newer disk: lib/trainer_dashboard/screens/custom_exercise_editor_screen.dart
+SKIP newer disk: lib/trainer_dashboard/screens/custom_exercises_tab.dart
+SKIP newer disk: lib/trainer_dashboard/screens/custom_music_editor_screen.dart
+SKIP newer disk: lib/trainer_dashboard/screens/custom_musics_tab.dart
+RESTORE [2026-05-20 07:29] lib/trainer_dashboard/screens/trainer_activities_tab.dart <= WXFV.dart (searchReplace.source)
+SKIP newer disk: lib/trainer_dashboard/screens/trainer_dashboard_screen.dart
+SKIP newer disk: lib/trainer_dashboard/screens/trainer_finance_tab.dart
+SKIP newer disk: lib/trainer_dashboard/screens/trainer_payout_request_screen.dart
+SKIP newer disk: lib/trainer_dashboard/screens/trainer_profile_tab.dart
+RESTORE [2026-05-04 15:54] lib/trainer_dashboard/screens/trainer_requests_tab.dart <= UY3a.dart (Workspace Edit)
+SKIP newer disk: lib/trainer_dashboard/screens/trainer_services_tab.dart
+SKIP newer disk: lib/trainer_dashboard/screens/trainer_stats_tab.dart
+RESTORE [2026-05-02 14:08] lib/trainer_dashboard/services/trainer_finance_service.dart <= xRAM.dart (Workspace Edit)
+SKIP newer disk: lib/trainer_dashboard/widgets/athlete_request_widget.dart
+SKIP newer disk: lib/trainer_dashboard/widgets/client_search_widget.dart
+SKIP newer disk: lib/trainer_dashboard/widgets/relationship_stats_widget.dart
+SKIP newer disk: lib/trainer_dashboard/widgets/upload_progress_dialog.dart
+SKIP newer disk: lib/trainer_ranking/screens/trainer_detail_screen.dart
+SKIP newer disk: lib/trainer_ranking/screens/trainer_ranking_screen.dart
+SKIP newer disk: lib/trainer_ranking/widgets/package_card_widget.dart
+SKIP newer disk: lib/trainer_ranking/widgets/review_submission_widget.dart
+SKIP newer disk: lib/trainer_ranking/widgets/service_card_widget.dart
+SKIP newer disk: lib/trainer_ranking/widgets/trainer_card_widget.dart
+SKIP newer disk: lib/trainer_ranking/widgets/trainer_search_filter_widget.dart
+SKIP newer disk: lib/user_profile/screens/athlete_profile_screen.dart
+SKIP newer disk: lib/user_profile/screens/trainer_profile_screen.dart
+SKIP newer disk: lib/user_profile/screens/user_profile_screen.dart
+SKIP newer disk: lib/user_profile/widgets/progress_metrics_widget.dart
+SKIP newer disk: lib/user_profile/widgets/streak_calendar_widget.dart
+RESTORE [2026-05-03 06:49] lib/utils/overflow_detector.dart <= oqHf.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/utils/overflow_prevention.dart <= TZk2.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/utils/overflow_quick_fix.dart <= XGiK.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/utils/overflow_scanner.dart <= jsnc.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/utils/safe_set_state.dart <= mYqr.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/utils/username_validator.dart <= S5B9.dart (Workspace Edit)
+RESTORE [2026-05-02 14:08] lib/utils/widget_safety_utils.dart <= bzuD.dart (Workspace Edit)
+RESTORE [2026-05-20 07:27] lib/widgets/add_comment_form_widget.dart <= UlLz.dart (searchReplace.source)
+RESTORE [2026-05-03 06:49] lib/widgets/app_loading_widget.dart <= 1L9l.dart (Workspace Edit)
+RESTORE [2026-06-06 14:54] lib/widgets/comment_card_widget.dart <= 0VPc.dart (Workspace Edit)
+SKIP newer disk: lib/widgets/comprehensive_cache_info_widget.dart
+RESTORE [2026-06-13 01:37] lib/widgets/exercise_muscle_heatmap_widget.dart <= TwL5.dart ()
+SKIP newer disk: lib/widgets/gold_dialog.dart
+SKIP newer disk: lib/widgets/gymai_trainer_avatar.dart
+RESTORE [2026-05-03 06:49] lib/widgets/responsive_dialog.dart <= o4GZ.dart (Workspace Edit)
+RESTORE [2026-05-20 07:31] lib/widgets/slider_welcome.dart <= RJ10.dart (searchReplace.source)
+SKIP newer disk: lib/widgets/trainers_chat_section.dart
+SKIP newer disk: lib/widgets/video_cache_info_widget.dart
+SKIP newer disk: lib/widgets/workout_program_exercise_card.dart
+SKIP newer disk: lib/workout_log/screens/workout_log_details_screen.dart
+RESTORE [2026-06-06 14:54] lib/workout_log/screens/workout_log_screen.dart <= hAGB.dart (Workspace Edit)
+RESTORE [2026-05-03 06:49] lib/workout_log/services/workout_program_log_service.dart <= 2vSk.dart (Workspace Edit)
+SKIP newer disk: lib/workout_log/viewmodels/workout_log_viewmodel.dart
+SKIP newer disk: lib/workout_log/widgets/exercise_card.dart
+SKIP newer disk: lib/workout_log/widgets/persian_date_picker_dialog.dart
+SKIP newer disk: lib/workout_log/widgets/session_change_dialog.dart
+SKIP newer disk: lib/workout_log/widgets/session_muscle_heatmap_sheet.dart
+SKIP newer disk: lib/workout_log/widgets/workout_preview_dialog.dart
+SKIP newer disk: lib/workout_log/widgets/workout_trainer_supervision_card.dart
+SKIP newer disk: lib/workout_plan_builder/dialogs/edit_session_notes_dialog.dart
+SKIP newer disk: lib/workout_plan_builder/dialogs/exercise_note_dialog.dart
+SKIP newer disk: lib/workout_plan_builder/screens/add_exercise_screen.dart
+SKIP newer disk: lib/workout_plan_builder/screens/workout_program_builder_screen.dart
+SKIP newer disk: lib/workout_plan_builder/services/workout_program_service.dart
+SKIP newer disk: lib/workout_plan_builder/widgets/day_selector.dart
+SKIP newer disk: lib/workout_plan_builder/widgets/empty_state_widget.dart
+SKIP newer disk: lib/workout_plan_builder/widgets/exercise_card.dart
+SKIP newer disk: lib/workout_plan_builder/widgets/exercise_note_button.dart
+SKIP newer disk: lib/workout_plan_builder/widgets/saved_programs_drawer.dart
+SKIP newer disk: lib/workout_plan_builder/widgets/workout_program_app_bar.dart
+SKIP newer disk: lib/workout_questionnaire/screens/workout_questionnaire_screen.dart
+RESTORE [2026-05-02 14:08] lib/workout_questionnaire/services/questionnaire_local_storage_service.dart <= 7jvO.dart (Workspace Edit)
+SKIP newer disk: lib/workout_questionnaire/widgets/question_widget.dart

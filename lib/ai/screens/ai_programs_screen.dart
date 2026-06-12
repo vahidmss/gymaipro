@@ -10,7 +10,7 @@ import 'package:gymaipro/workout_log/screens/workout_log_screen.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:gymaipro/workout_plan_builder/services/workout_program_service.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 
 class AIProgramsScreen extends StatefulWidget {

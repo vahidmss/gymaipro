@@ -4,7 +4,7 @@ import 'package:gymaipro/meal_log/utils/meal_log_utils.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/workout_log/viewmodels/workout_log_viewmodel.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class WorkoutPreviewDialog extends StatelessWidget {
   const WorkoutPreviewDialog({

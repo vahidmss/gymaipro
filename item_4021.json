@@ -1,0 +1,26 @@
+{
+  "id": 4021,
+  "title": "زیربغل نشسته سیمکش",
+  "main": "back_lat",
+  "movement": "horizontal_pull",
+  "targets": {
+    "back_lat": 88,
+    "middle_traps": 60,
+    "rhomboids": 55,
+    "biceps": 45,
+    "shoulder_posterior": 45,
+    "forearms": 35,
+    "lower_back": 30
+  },
+  "secondary": [
+    "biceps",
+    "rhomboids"
+  ],
+  "equipment": [
+    "cable"
+  ],
+  "norm": [
+    "muscle_targets adjusted for row movement"
+  ],
+  "notes": null
+}

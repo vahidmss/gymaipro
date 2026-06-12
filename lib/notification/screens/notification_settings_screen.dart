@@ -7,7 +7,7 @@ import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/services/notification_sync_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {

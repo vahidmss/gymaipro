@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/widgets/online_status_widget.dart';
 import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ChatAppBarWidget extends StatelessWidget implements PreferredSizeWidget {
   const ChatAppBarWidget({
@@ -13,6 +13,7 @@ class ChatAppBarWidget extends StatelessWidget implements PreferredSizeWidget {
     required this.isOtherUserOnline,
     required this.otherUserLastSeen,
     required this.onBackPressed,
+    this.otherUserId,
     this.onPhonePressed,
     this.onVideoPressed,
     this.onMorePressed,
@@ -25,6 +26,7 @@ class ChatAppBarWidget extends StatelessWidget implements PreferredSizeWidget {
   final bool isOtherUserOnline;
   final DateTime? otherUserLastSeen;
   final VoidCallback onBackPressed;
+  final String? otherUserId;
   final VoidCallback? onPhonePressed;
   final VoidCallback? onVideoPressed;
   final VoidCallback? onMorePressed;

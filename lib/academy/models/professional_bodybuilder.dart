@@ -42,7 +42,7 @@ class ProfessionalBodybuilder {
       id: JsonParse.integer(json, 'id'),
       name: JsonParse.string(json, 'name'),
       nationality: JsonParse.string(json, 'nationality'),
-      birthDate: JsonParse.dateTime(json, 'birth_date', DateTime(1900, 1, 1)),
+      birthDate: JsonParse.dateTime(json, 'birth_date', DateTime(1900)),
       biography: JsonParse.string(json, 'biography'),
       achievements: JsonParse.listOfStrings(json, 'achievements'),
       profileImageUrl: JsonParse.string(json, 'profile_image_url'),

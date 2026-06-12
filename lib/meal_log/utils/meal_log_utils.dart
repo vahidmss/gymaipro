@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gymaipro/meal_log/models/food_meal_log.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/services/fitness_calculator.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 
 class MealLogUtils {

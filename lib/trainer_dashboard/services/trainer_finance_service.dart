@@ -338,7 +338,7 @@ class TrainerFinanceService {
       final monthlySubscriptions = <String, int>{}; // تعداد اشتراک ماهانه
 
       // 8. آمار برنامه‌ها
-      int totalSubscriptions = subscriptions.length;
+      final int totalSubscriptions = subscriptions.length;
       int subscriptionsWithProgram = 0;
       int subscriptionsWithoutProgram = 0;
       int activeSubscriptions = 0;
@@ -358,7 +358,7 @@ class TrainerFinanceService {
         for (final req in (processedRequests as List<dynamic>)) {
           final finalAmount = req['final_amount'] as int?;
           final amount = req['amount'] as int?;
-          totalWithdrawn += (finalAmount ?? amount ?? 0);
+          totalWithdrawn += finalAmount ?? amount ?? 0;
         }
       } catch (_) {}
 

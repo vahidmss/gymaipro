@@ -130,7 +130,7 @@ class PayoutService {
 
       int totalPendingAmount = 0;
       for (final req in (existingRequests as List<dynamic>)) {
-        totalPendingAmount += (req['amount'] as int? ?? 0);
+        totalPendingAmount += req['amount'] as int? ?? 0;
       }
 
       // بررسی اینکه آیا با درخواست جدید، مجموع از withdrawable بیشتر می‌شود
@@ -577,7 +577,7 @@ class PayoutService {
         final finalAmount = req['final_amount'] as int?;
         final amount = req['amount'] as int?;
         // استفاده از final_amount اگر وجود داشته باشد (بعد از جریمه)، وگرنه amount
-        totalWithdrawn += (finalAmount ?? amount ?? 0);
+        totalWithdrawn += finalAmount ?? amount ?? 0;
       }
 
       // دریافت تراکنش‌ها برای normalize کردن مبالغ
@@ -696,6 +696,53 @@ class PayoutService {
         print('خطا در به‌روزرسانی موجودی قابل برداشت: $e');
       }
       return false;
+    }
+  }
+
+  Future<Map<String, dynamic>> transferEarningsToPersonalWallet({
+    required String trainerId,
+    required int amount,
+  }) async {
+    try {
+      if (amount <= 0) {
+        return {'success': false, 'error': 'مبلغ باید بیشتر از صفر باشد'};
+      }
+
+      final walletResponse = await _client
+          .from('wallets')
+          .select('trainer_withdrawable, balance')
+          .eq('user_id', trainerId)
+          .maybeSingle();
+
+      if (walletResponse == null) {
+        return {'success': false, 'error': 'کیف پول یافت نشد'};
+      }
+
+      final withdrawable =
+          (walletResponse['trainer_withdrawable'] as num?)?.toInt() ?? 0;
+      if (withdrawable < amount) {
+        return {'success': false, 'error': 'موجودی کافی نیست'};
+      }
+
+      final newWithdrawable = withdrawable - amount;
+      final currentBalance =
+          (walletResponse['balance'] as num?)?.toInt() ?? 0;
+
+      await _client.from('wallets').update({
+        'trainer_withdrawable': newWithdrawable,
+        'balance': currentBalance + amount,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('user_id', trainerId);
+
+      return {
+        'success': true,
+        'message': 'مبلغ با موفقیت به کیف پول شخصی منتقل شد',
+      };
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('transferEarningsToPersonalWallet error: $e');
+      }
+      return {'success': false, 'error': 'خطا در انتقال موجودی'};
     }
   }
 }

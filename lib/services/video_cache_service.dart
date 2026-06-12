@@ -329,7 +329,7 @@ class VideoCacheService {
           await sink.close();
           sink = null;
 
-          onProgress(1.0);
+          onProgress(1);
           return true;
         }
         return false;
@@ -374,11 +374,11 @@ class VideoCacheService {
         final finalSize = await file.length();
         if (finalSize < totalSize * 0.95) {
           print('فایل ناقص دانلود شده: $finalSize از $totalSize');
-          onProgress(0.0); // Reset progress on failure
+          onProgress(0); // Reset progress on failure
           return false;
         }
 
-        onProgress(1.0);
+        onProgress(1);
         print('دانلود کامل شد: $finalSize بایت');
         return true;
       }

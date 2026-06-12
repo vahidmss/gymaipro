@@ -183,8 +183,14 @@ class FoodService {
     }
   }
 
-  Future<List<Food>> getFoods() async {
-    if (_cachedFoods != null) {
+  /// Returns cached foods immediately when available (no network).
+  Future<List<Food>?> getFoodsFromCache() async {
+    if (_cachedFoods == null || _cachedFoods!.isEmpty) return null;
+    return _applyUserData(List<Food>.from(_cachedFoods!));
+  }
+
+  Future<List<Food>> getFoods({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cachedFoods != null) {
       return _applyUserData(_cachedFoods!);
     }
     try {

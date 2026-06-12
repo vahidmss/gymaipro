@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 
@@ -9,11 +9,13 @@ class AddCommentFormWidget extends StatefulWidget {
     this.initialContent,
     this.initialRating,
     this.isLoading = false,
+    this.focusNode,
   });
-  final void Function(String content, int? rating) onSubmit;
+  final Future<bool> Function(String content, int? rating) onSubmit;
   final String? initialContent;
   final int? initialRating;
   final bool isLoading;
+  final FocusNode? focusNode;
 
   @override
   State<AddCommentFormWidget> createState() => _AddCommentFormWidgetState();
@@ -63,7 +65,7 @@ class _AddCommentFormWidgetState extends State<AddCommentFormWidget> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'نظر خود را بنویسید',
+                    '??? ??? ?? ???????',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18.sp,
@@ -77,12 +79,13 @@ class _AddCommentFormWidgetState extends State<AddCommentFormWidget> {
               // Content Input
               TextFormField(
                 controller: _contentController,
+                focusNode: widget.focusNode,
                 maxLines: 4,
                 maxLength: 500,
                 textInputAction: TextInputAction.done,
                 keyboardType: TextInputType.multiline,
                 decoration: InputDecoration(
-                  hintText: 'نظر خود را اینجا بنویسید...',
+                  hintText: '??? ??? ?? ????? ???????...',
                   hintStyle: TextStyle(
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
@@ -115,10 +118,10 @@ class _AddCommentFormWidgetState extends State<AddCommentFormWidget> {
                 style: const TextStyle(color: Colors.white, fontSize: 14),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'لطفاً نظر خود را بنویسید';
+                    return '????? ??? ??? ?? ???????';
                   }
                   if (value.trim().length < 10) {
-                    return 'نظر باید حداقل 10 کاراکتر باشد';
+                    return '??? ???? ????? 10 ??????? ????';
                   }
                   return null;
                 },
@@ -129,7 +132,7 @@ class _AddCommentFormWidgetState extends State<AddCommentFormWidget> {
               Row(
                 children: [
                   Text(
-                    'امتیاز دهید:',
+                    '?????? ????:',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 14.sp,
@@ -182,7 +185,7 @@ class _AddCommentFormWidgetState extends State<AddCommentFormWidget> {
                           ),
                         )
                       : Text(
-                          'ارسال نظر',
+                          '????? ???',
                           style: TextStyle(
                             fontSize: 16.sp,
                             fontWeight: FontWeight.w600,
@@ -220,17 +223,20 @@ class _AddCommentFormWidgetState extends State<AddCommentFormWidget> {
     );
   }
 
-  void _submitForm() {
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       final content = _contentController.text.trim();
-      widget.onSubmit(content, _selectedRating);
+      final ok = await widget.onSubmit(content, _selectedRating);
+      if (!ok) return;
 
       // Clear form after submission
       _contentController.clear();
-      setState(() {
-        _selectedRating = null;
-        _showRating = false;
-      });
+      if (mounted) {
+        setState(() {
+          _selectedRating = null;
+          _showRating = false;
+        });
+      }
     }
   }
 }

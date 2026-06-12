@@ -1,0 +1,2 @@
+-- GymAI system trainer: run sql/create_gymai_trainer_account.sql on the DB once.
+-- App expects profiles.username = 'gymai_trainer' and id = AI_TRAINER_PROFILE_ID in .env.

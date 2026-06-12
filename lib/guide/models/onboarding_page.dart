@@ -2,6 +2,17 @@ import 'package:flutter/material.dart';
 
 /// صفحه onboarding
 class OnboardingPage {
+
+  const OnboardingPage({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.primaryColor, this.imagePath,
+    this.icon,
+    this.gradientStartColor,
+    this.gradientEndColor,
+    this.customWidget,
+  });
   /// شناسه
   final String id;
 
@@ -28,18 +39,6 @@ class OnboardingPage {
 
   /// ویجت سفارشی (اختیاری)
   final Widget? customWidget;
-
-  const OnboardingPage({
-    required this.id,
-    required this.title,
-    required this.description,
-    this.imagePath,
-    this.icon,
-    required this.primaryColor,
-    this.gradientStartColor,
-    this.gradientEndColor,
-    this.customWidget,
-  });
 
   bool get hasImage => imagePath != null;
   bool get hasIcon => icon != null;

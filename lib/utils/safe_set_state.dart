@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart' show WidgetSafetyUtils;
 
 /// Utility class for safe setState calls
 /// 

@@ -5,7 +5,7 @@ import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_dashboard/screens/custom_exercise_editor_screen.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// تب تمرین‌های اختصاصی در داشبورد مربی
 class CustomExercisesTab extends StatefulWidget {
@@ -41,7 +41,7 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
           'خطا در بارگذاری تمرین‌ها: $e',
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.errorColor,
         );
       }
     }
@@ -72,7 +72,7 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
           // لیست تمرین‌ها
           Expanded(
             child: _isLoading
-                ? Center(
+                ? const Center(
                     child: CircularProgressIndicator(color: AppTheme.goldColor),
                   )
                 : _filteredExercises.isEmpty
@@ -97,9 +97,9 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
                   'تمرین‌های اختصاصی',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 20.sp,
+                    fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black,
+                    color: isDark ? AppTheme.darkTextColor : AppTheme.veryDarkBackground,
                   ),
                 ),
                 SizedBox(height: 4.h),
@@ -130,7 +130,7 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
             label: const Text('تمرین جدید'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.goldColor,
-              foregroundColor: Colors.black,
+              foregroundColor: AppTheme.veryDarkBackground,
               padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
             ),
           ),
@@ -229,7 +229,7 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
   Widget _buildExerciseCard(bool isDark, CustomExercise exercise) {
     return Card(
       margin: EdgeInsets.only(bottom: 12.h),
-      color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+      color: isDark ? AppTheme.darkCardColor : AppTheme.darkTextColor,
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16.r),
@@ -265,18 +265,45 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
                   color: AppTheme.goldColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12.r),
                 ),
-                child:
-                    exercise.imageUrl != null && exercise.imageUrl!.isNotEmpty
+                child: exercise.imageUrls.isNotEmpty
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(12.r),
-                        child: Image.network(
-                          exercise.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Icon(
-                            LucideIcons.dumbbell,
-                            color: AppTheme.goldColor,
-                            size: 24.sp,
-                          ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              exercise.imageUrls.first,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Icon(
+                                LucideIcons.dumbbell,
+                                color: AppTheme.goldColor,
+                                size: 24.sp,
+                              ),
+                            ),
+                            if (exercise.imageUrls.length > 1)
+                              Positioned(
+                                left: 4.w,
+                                bottom: 4.h,
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 5.w,
+                                    vertical: 2.h,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.65),
+                                    borderRadius: BorderRadius.circular(6.r),
+                                  ),
+                                  child: Text(
+                                    '${exercise.imageUrls.length}',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10.sp,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       )
                     : Icon(
@@ -299,9 +326,9 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
                             exercise.title,
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
-                              fontSize: 16.sp,
+                              fontSize: 14.sp,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black,
+                              color: isDark ? AppTheme.darkTextColor : AppTheme.veryDarkBackground,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -366,8 +393,7 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
                             color: isDark ? Colors.grey[500] : Colors.grey[500],
                           ),
                         ),
-                        if (exercise.videoUrl != null &&
-                            exercise.videoUrl!.isNotEmpty) ...[
+                        if (exercise.videoUrls.isNotEmpty) ...[
                           SizedBox(width: 12.w),
                           Icon(
                             LucideIcons.video,

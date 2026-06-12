@@ -1,6 +1,28 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+class ProgramDeliveryStats {
+  const ProgramDeliveryStats({
+    required this.medianHours,
+    required this.sampleCount,
+  });
+
+  final double medianHours;
+  final int sampleCount;
+}
+
+typedef TrainerProgramDeliveryStats = ProgramDeliveryStats;
+
+class CustomExercisesByVisibility {
+  const CustomExercisesByVisibility({
+    required this.privateCount,
+    required this.publicCount,
+  });
+
+  final int privateCount;
+  final int publicCount;
+}
+
 class TrainerKpis {
   const TrainerKpis({
     required this.trainerId,
@@ -186,6 +208,103 @@ class TrainerKpiService {
     } catch (e) {
       debugPrint('Error counting students: $e');
       return (0, 0);
+    }
+  }
+
+  Future<ProgramDeliveryStats> getProgramDeliveryStats(String trainerId) async {
+    try {
+      final rows = await _client
+          .from('workout_programs')
+          .select('created_at, sent_at')
+          .eq('trainer_id', trainerId)
+          .eq('is_deleted', false)
+          .not('sent_at', 'is', null);
+
+      final hours = <double>[];
+      for (final row in rows as List<dynamic>) {
+        final map = row as Map<String, dynamic>;
+        final created = DateTime.tryParse(map['created_at']?.toString() ?? '');
+        final sent = DateTime.tryParse(map['sent_at']?.toString() ?? '');
+        if (created == null || sent == null) continue;
+        final diff = sent.difference(created).inMinutes / 60.0;
+        if (diff >= 0) hours.add(diff);
+      }
+
+      if (hours.isEmpty) {
+        return const ProgramDeliveryStats(
+          medianHours: double.nan,
+          sampleCount: 0,
+        );
+      }
+
+      hours.sort();
+      final mid = hours.length ~/ 2;
+      final median = hours.length.isOdd
+          ? hours[mid]
+          : (hours[mid - 1] + hours[mid]) / 2;
+
+      return ProgramDeliveryStats(
+        medianHours: median,
+        sampleCount: hours.length,
+      );
+    } catch (e) {
+      debugPrint('TrainerKpiService.getProgramDeliveryStats error: $e');
+      return const ProgramDeliveryStats(
+        medianHours: double.nan,
+        sampleCount: 0,
+      );
+    }
+  }
+
+  Future<int> sumReviewStarPoints(String trainerId) async {
+    try {
+      final rows = await _client
+          .from('trainer_reviews')
+          .select('rating')
+          .eq('trainer_id', trainerId);
+
+      var sum = 0;
+      for (final row in rows as List<dynamic>) {
+        final rating = row['rating'];
+        if (rating is int) sum += rating;
+        else if (rating is num) sum += rating.round();
+      }
+      return sum;
+    } catch (e) {
+      debugPrint('TrainerKpiService.sumReviewStarPoints error: $e');
+      return 0;
+    }
+  }
+
+  Future<CustomExercisesByVisibility> countCustomExercisesByVisibility(
+    String trainerId,
+  ) async {
+    try {
+      final rows = await _client
+          .from('custom_exercises')
+          .select('visibility')
+          .eq('created_by', trainerId);
+
+      var privateCount = 0;
+      var publicCount = 0;
+      for (final row in rows as List<dynamic>) {
+        final visibility = row['visibility']?.toString() ?? 'private';
+        if (visibility == 'public') {
+          publicCount++;
+        } else {
+          privateCount++;
+        }
+      }
+      return CustomExercisesByVisibility(
+        privateCount: privateCount,
+        publicCount: publicCount,
+      );
+    } catch (e) {
+      debugPrint('TrainerKpiService.countCustomExercisesByVisibility error: $e');
+      return const CustomExercisesByVisibility(
+        privateCount: 0,
+        publicCount: 0,
+      );
     }
   }
 

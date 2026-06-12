@@ -118,7 +118,7 @@ class WidgetSafetyUtils {
         builder: builder,
       );
     }
-    return Future<T?>.value(null);
+    return Future<T?>.value();
   }
 
   /// Safely shows a modal bottom sheet
@@ -144,7 +144,7 @@ class WidgetSafetyUtils {
         builder: builder,
       );
     }
-    return Future<T?>.value(null);
+    return Future<T?>.value();
   }
 
   /// Safely executes a callback if context is still valid

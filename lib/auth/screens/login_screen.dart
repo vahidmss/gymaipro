@@ -7,8 +7,8 @@ import 'package:gymaipro/auth/widgets/auth_gradient_background.dart';
 import 'package:gymaipro/services/otp_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
-import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/utils/text_controller_utils.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -61,14 +61,14 @@ class _LoginScreenState extends State<LoginScreen>
     _logoScaleAnimation = Tween<double>(begin: 0.9, end: 1).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOut), // سریع‌تر
+        curve: const Interval(0, 0.5, curve: Curves.easeOut), // سریع‌تر
       ),
     );
 
-    _cardSlideAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _cardSlideAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: const Interval(0.1, 1.0, curve: Curves.easeOut), // سریع‌تر
+        curve: const Interval(0.1, 1, curve: Curves.easeOut), // سریع‌تر
       ),
     );
 
@@ -281,7 +281,7 @@ class _LoginScreenState extends State<LoginScreen>
                                         scale: _logoScaleAnimation,
                                         child: Padding(
                                           padding: EdgeInsets.only(bottom: 28.h),
-                                          child: Container(
+                                          child: DecoratedBox(
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
                                             // بهینه‌سازی: کاهش shadow برای عملکرد بهتر
@@ -299,9 +299,6 @@ class _LoginScreenState extends State<LoginScreen>
                                             height: 140.h,
                                             width: 140.w,
                                             fit: BoxFit.contain,
-                                            // بهینه‌سازی: cache تصویر
-                                            filterQuality: FilterQuality
-                                                .medium, // تعادل بین کیفیت و عملکرد
                                           ),
                                         ),
                                       ),
@@ -576,9 +573,9 @@ class _LoginScreenState extends State<LoginScreen>
           ],
           SizedBox(height: 20.h),
           // دکمه دریافت کد تایید - با استایل حرفه‌ای مشابه صفحه ثبت‌نام
-          Container(
+          DecoratedBox(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
@@ -586,7 +583,7 @@ class _LoginScreenState extends State<LoginScreen>
                   AppTheme.darkGold,
                   AppTheme.goldColor,
                 ],
-                stops: const [0.0, 0.5, 1.0],
+                stops: [0.0, 0.5, 1.0],
               ),
               borderRadius: BorderRadius.circular(14.r),
               boxShadow: [

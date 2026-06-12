@@ -98,17 +98,20 @@ class WorkoutDailyLogService {
   /// First loads from cache (instant), then updates from database in background
   Future<WorkoutDailyLog?> getDailyLogByDate(
     String userId,
-    DateTime date,
-  ) async {
+    DateTime date, {
+    bool preferRemote = false,
+  }) async {
     try {
       final dateString = date.toIso8601String().substring(0, 10);
-      
-      // First, try to load from cache (instant)
-      final cachedLog = await loadLogLocal(userId, date);
-      if (cachedLog != null) {
-        // Update from database in background (non-blocking)
-        _updateFromDatabaseInBackground(userId, date, cachedLog);
-        return cachedLog;
+
+      if (!preferRemote) {
+        // First, try to load from cache (instant)
+        final cachedLog = await loadLogLocal(userId, date);
+        if (cachedLog != null) {
+          // Update from database in background (non-blocking)
+          _updateFromDatabaseInBackground(userId, date, cachedLog);
+          return cachedLog;
+        }
       }
 
       // If not in cache, load from database
@@ -129,12 +132,12 @@ class WorkoutDailyLogService {
     } catch (e) {
       debugPrint('Error fetching daily log by date: $e');
       // If database fails, try cache as fallback
-      return await loadLogLocal(userId, date);
+      return loadLogLocal(userId, date);
     }
   }
 
   /// Update cache from database in background (non-blocking)
-  void _updateFromDatabaseInBackground(
+  Future<void> _updateFromDatabaseInBackground(
     String userId,
     DateTime date,
     WorkoutDailyLog cachedLog,

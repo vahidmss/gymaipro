@@ -3,15 +3,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Result class for paginated notifications
 class NotificationResult {
-  final List<NotificationItem> notifications;
-  final int unreadCount;
-  final bool hasMore;
 
   NotificationResult({
     required this.notifications,
     required this.unreadCount,
     required this.hasMore,
   });
+  final List<NotificationItem> notifications;
+  final int unreadCount;
+  final bool hasMore;
 }
 
 /// Repository برای مدیریت داده‌های اعلان‌ها
@@ -58,24 +58,22 @@ class NotificationRepository {
       final response = await paginatedQuery;
 
       List<NotificationItem> notifications = [];
-      if (response is List) {
-        notifications = response
-            .map(
-              (json) =>
-                  NotificationItem.fromJson(Map<String, dynamic>.from(json)),
-            )
-            .toList();
+      notifications = response
+          .map(
+            (json) =>
+                NotificationItem.fromJson(Map<String, dynamic>.from(json)),
+          )
+          .toList();
 
-        // Apply search filter in memory if needed
-        if (searchQuery != null && searchQuery.isNotEmpty) {
-          final queryLower = searchQuery.toLowerCase();
-          notifications = notifications.where((n) {
-            return n.title.toLowerCase().contains(queryLower) ||
-                n.message.toLowerCase().contains(queryLower);
-          }).toList();
-        }
+      // Apply search filter in memory if needed
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        final queryLower = searchQuery.toLowerCase();
+        notifications = notifications.where((n) {
+          return n.title.toLowerCase().contains(queryLower) ||
+              n.message.toLowerCase().contains(queryLower);
+        }).toList();
       }
-
+    
       // Get unread count
       final unreadCount = await getUnreadCount();
 
@@ -85,7 +83,7 @@ class NotificationRepository {
           .range(offset + limit, offset + limit)
           .limit(1);
 
-      final hasMore = hasMoreCheck is List && hasMoreCheck.isNotEmpty;
+      final hasMore = hasMoreCheck.isNotEmpty;
 
       return NotificationResult(
         notifications: notifications,
@@ -179,7 +177,7 @@ class NotificationRepository {
           .eq('user_id', user.id)
           .eq('is_read', true);
 
-      if (readNotifications is! List || readNotifications.isEmpty) {
+      if (readNotifications.isEmpty) {
         return [];
       }
 

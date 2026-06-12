@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/payment/services/payout_service.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/trainer_dashboard/screens/trainer_payout_request_screen.dart';
 import 'package:gymaipro/trainer_dashboard/services/trainer_finance_service.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TrainerFinanceTab extends StatefulWidget {
@@ -17,6 +19,7 @@ class TrainerFinanceTab extends StatefulWidget {
 
 class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
   final _finance = TrainerFinanceService();
+  final _payoutService = PayoutService();
   bool _loading = true;
   Map<String, dynamic> _balances = const {};
   List<Map<String, dynamic>> _earnings = const [];
@@ -53,19 +56,137 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
     }
   }
 
+  Future<void> _showTransferToWalletDialog(int maxWithdrawable) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    final controller = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
+          title: Text(
+            'انتقال به کیف پول شخصی',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w700,
+              color: context.textColor,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'حداکثر قابل انتقال: ${PaymentConstants.formatAmount(maxWithdrawable)}',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 12.5.sp,
+                  color: context.textSecondary,
+                  height: 1.45,
+                ),
+              ),
+              SizedBox(height: 12.h),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                  labelText: 'مبلغ (تومان)',
+                  hintText: 'مثلاً ۵۰۰۰۰۰',
+                  labelStyle: TextStyle(fontFamily: AppTheme.fontFamily),
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                'مبلغ به کیف پول شخصی می‌رود و برای خرید در اپ قابل استفاده است.',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 11.sp,
+                  color: context.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('انصراف'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.goldColor,
+                foregroundColor: AppTheme.onGoldColor,
+              ),
+              child: const Text('انتقال'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final amountToman = int.tryParse(controller.text.trim());
+    if (amountToman == null || amountToman <= 0) {
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'مبلغ معتبر وارد کنید',
+        backgroundColor: AppTheme.errorColor,
+      );
+      return;
+    }
+
+    final amountRial = amountToman * 10;
+
+    if (!mounted) return;
+    WidgetSafetyUtils.safeShowSnackBar(
+      context,
+      'در حال انتقال...',
+      backgroundColor: AppTheme.goldColor,
+    );
+
+    final result = await _payoutService.transferEarningsToPersonalWallet(
+      trainerId: user.id,
+      amount: amountRial,
+    );
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      await _load();
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        result['message'] as String? ?? 'انتقال انجام شد',
+        backgroundColor: AppTheme.successColor,
+      );
+    } else {
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        result['error'] as String? ?? 'خطا در انتقال',
+        backgroundColor: AppTheme.errorColor,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_loading) {
-      return Center(
+      return const Center(
         child: CircularProgressIndicator(
           valueColor: AlwaysStoppedAnimation<Color>(AppTheme.goldColor),
         ),
       );
     }
 
-    final int available = _balances['available'] as int? ?? 0;
     final int onHold = _balances['onHold'] as int? ?? 0;
     final int total = _balances['total'] as int? ?? 0;
     final int withdrawable = _balances['withdrawable'] as int? ?? 0;
@@ -101,7 +222,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                     'خلاصه مالی',
                     style: TextStyle(
     fontFamily: AppTheme.fontFamily,
-                      fontSize: 20.sp,
+                      fontSize: 18.sp,
                       fontWeight: FontWeight.bold,
                       color: context.textColor,
                     ),
@@ -117,7 +238,10 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                 total,
                 LucideIcons.trendingUp,
                 isDark
-                    ? [const Color(0xFF2B2E3A), const Color(0xFF232736)]
+                    ? [
+                        context.cardColor,
+                        context.veryDarkBackground,
+                      ]
                     : [
                         AppTheme.lightGradientStart,
                         AppTheme.lightGradientEnd,
@@ -131,51 +255,77 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                 withdrawable,
                 LucideIcons.checkCircle,
                 isDark
-                    ? [const Color(0xFF1E3A2B), const Color(0xFF193024)]
+                    ? [
+                        AppTheme.successColor.withValues(alpha: 0.22),
+                        AppTheme.successColor.withValues(alpha: 0.12),
+                      ]
                     : [
-                        const Color(0xFFE8F5E9),
-                        const Color(0xFFC8E6C9),
+                        AppTheme.successColor.withValues(alpha: 0.14),
+                        AppTheme.successColor.withValues(alpha: 0.08),
                       ],
                 isDark,
               ),
               SizedBox(height: 12.h),
               
-              // دکمه درخواست برداشت
-              if (withdrawable > 0)
+              if (withdrawable > 0) ...[
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      WidgetSafetyUtils.safeNavigate(
-                        context,
-                        () => const TrainerPayoutRequestScreen(),
-                      );
-                      // Reload after navigation returns
-                      Future<void>.delayed(const Duration(milliseconds: 500), () {
-                        if (mounted) {
-                          _load();
-                        }
-                      });
-                    },
-                    icon: const Icon(LucideIcons.arrowUpCircle),
+                  child: FilledButton.icon(
+                    onPressed: () => _showTransferToWalletDialog(withdrawable),
+                    icon: Icon(LucideIcons.wallet, size: 18.sp),
                     label: Text(
-                      'درخواست برداشت',
+                      'انتقال به کیف پول شخصی',
                       style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.bold,
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    style: ElevatedButton.styleFrom(
+                    style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.goldColor,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 16.h),
+                      foregroundColor: AppTheme.onGoldColor,
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12.r),
                       ),
                     ),
                   ),
                 ),
+                SizedBox(height: 8.h),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      WidgetSafetyUtils.safeNavigate(
+                        context,
+                        () => const TrainerPayoutRequestScreen(),
+                      );
+                      Future<void>.delayed(const Duration(milliseconds: 500), () {
+                        if (mounted) _load();
+                      });
+                    },
+                    icon: Icon(LucideIcons.landmark, size: 18.sp),
+                    label: Text(
+                      'برداشت به حساب بانکی',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.goldColor,
+                      side: BorderSide(
+                        color: AppTheme.goldColor.withValues(alpha: 0.45),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: 11.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               SizedBox(height: 12.h),
               _summaryCard(
                 context,
@@ -183,10 +333,13 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                 onHold,
                 LucideIcons.clock,
                 isDark
-                    ? [const Color(0xFF3A2B2B), const Color(0xFF2F2323)]
+                    ? [
+                        AppTheme.fatColor.withValues(alpha: 0.18),
+                        AppTheme.fatColor.withValues(alpha: 0.1),
+                      ]
                     : [
-                        const Color(0xFFFFF3E0),
-                        const Color(0xFFFFE0B2),
+                        AppTheme.fatColor.withValues(alpha: 0.12),
+                        AppTheme.fatColor.withValues(alpha: 0.06),
                       ],
                 isDark,
               ),
@@ -222,7 +375,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                           'سیاست نگه‌داری',
                           style: TextStyle(
     fontFamily: AppTheme.fontFamily,
-                            fontSize: 16.sp,
+                            fontSize: 14.sp,
                             fontWeight: FontWeight.bold,
                             color: context.textColor,
                           ),
@@ -231,7 +384,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                     ),
                     SizedBox(height: 12.h),
                     Text(
-                      'مبالغ پس از ثبت برنامه توسط مربی، به مدت ۳ روز نگه‌داری شده و سپس قابل برداشت می‌شوند. برای برداشت، دکمه "درخواست برداشت" را بزنید.',
+                      'پس از ثبت برنامه، درآمد ۳ روز نگه‌داری می‌شود. سپس می‌توانید به کیف پول شخصی (برای خرید در اپ) منتقل کنید یا به حساب بانکی برداشت کنید. درآمد مربی در تب کیف پول نمایش داده نمی‌شود.',
                       style: TextStyle(
     fontFamily: AppTheme.fontFamily,
                         fontSize: 14.sp,
@@ -305,13 +458,12 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
           color: isDark
               ? context.textColor.withValues(alpha: 0.1)
               : AppTheme.goldColor.withValues(alpha: 0.2),
-          width: 1,
         ),
         boxShadow: [
           BoxShadow(
             color: isDark
-                ? Colors.black.withValues(alpha: 0.3)
-                : Colors.black.withValues(alpha: 0.08),
+                ? AppTheme.veryDarkBackground.withValues(alpha: 0.3)
+                : AppTheme.veryDarkBackground.withValues(alpha: 0.08),
             blurRadius: 12.r,
             offset: Offset(0.w, 4.h),
           ),
@@ -324,7 +476,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
             decoration: BoxDecoration(
               color: isDark
                   ? context.textColor.withValues(alpha: 0.15)
-                  : Colors.white.withValues(alpha: 0.4),
+                  : context.cardColor.withValues(alpha: 0.4),
               borderRadius: BorderRadius.circular(12.r),
             ),
             child: Icon(
@@ -354,7 +506,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                   PaymentConstants.formatAmount(amount),
                   style: TextStyle(
     fontFamily: AppTheme.fontFamily,
-                    fontSize: 22.sp,
+                    fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
                     color: isDark ? context.textColor : context.textColor,
                     letterSpacing: -0.5,
@@ -403,8 +555,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
         boxShadow: [
           BoxShadow(
             color: isDark
-                ? Colors.black.withValues(alpha: 0.2)
-                : Colors.black.withValues(alpha: 0.04),
+                ? AppTheme.veryDarkBackground.withValues(alpha: 0.2)
+                : AppTheme.veryDarkBackground.withValues(alpha: 0.04),
             blurRadius: 8.r,
             offset: Offset(0.w, 2.h),
           ),
@@ -418,12 +570,12 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
             decoration: BoxDecoration(
               color: available
                   ? AppTheme.successColor.withValues(alpha: 0.15)
-                  : Colors.orange.withValues(alpha: 0.15),
+                  : AppTheme.fatColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12.r),
             ),
             child: Icon(
               available ? LucideIcons.checkCircle : LucideIcons.clock,
-              color: available ? AppTheme.successColor : Colors.orange,
+              color: available ? AppTheme.successColor : AppTheme.fatColor,
               size: 24.sp,
             ),
           ),
@@ -449,7 +601,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                       size: 14.sp,
                       color: available
                           ? AppTheme.successColor
-                          : Colors.orange,
+                        : AppTheme.fatColor,
                     ),
                     SizedBox(width: 4.w),
                     Text(
@@ -461,7 +613,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                         fontSize: 12.sp,
                         color: available
                             ? AppTheme.successColor
-                            : Colors.orange,
+                            : AppTheme.fatColor,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -477,7 +629,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                 PaymentConstants.formatAmount(amount),
                 style: TextStyle(
     fontFamily: AppTheme.fontFamily,
-                  fontSize: 16.sp,
+                  fontSize: 14.sp,
                   fontWeight: FontWeight.bold,
                   color: context.textColor,
                 ),
@@ -523,7 +675,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
               'هنوز تراکنشی ثبت نشده',
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,
-                fontSize: 16.sp,
+                fontSize: 14.sp,
                 color: context.textSecondary,
                 fontWeight: FontWeight.w500,
               ),

@@ -45,6 +45,46 @@ class WorkoutProgramService {
     return _cachedPrograms;
   }
 
+  static const String _starterGeneratedByKey = 'gymai_starter';
+
+  bool _isStarterProgramData(dynamic dataRaw) {
+    if (dataRaw == null) return false;
+    try {
+      final Map<String, dynamic> decoded = dataRaw is String
+          ? Map<String, dynamic>.from(jsonDecode(dataRaw) as Map)
+          : Map<String, dynamic>.from(dataRaw as Map);
+      return decoded['generated_by'] == _starterGeneratedByKey;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Find the user's installed beginner starter program, if any.
+  Future<WorkoutProgram?> findStarterProgram() async {
+    final userId = await AuthHelper.getCurrentUserId();
+    if (userId == null) return null;
+
+    try {
+      final List<dynamic> response = await _client
+          .from('workout_programs')
+          .select()
+          .eq('user_id', userId)
+          .eq('is_deleted', false)
+          .order('created_at', ascending: false);
+
+      for (final row in response) {
+        final map = Map<String, dynamic>.from(row as Map);
+        if (!_isStarterProgramData(map['data'])) continue;
+        final program = _parseProgramFromRow(map);
+        if (program != null) return program;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('خطا در findStarterProgram: $e');
+      return null;
+    }
+  }
+
   // Get programs for a specific user created by a specific trainer
   // Returns all programs (sent and unsent) for trainer to edit
   Future<List<WorkoutProgram>> getProgramsForUserByTrainer(
@@ -319,6 +359,7 @@ class WorkoutProgramService {
     String? subscriptionId, // برای اتصال دقیق به اشتراک
     String? paymentTransactionId, // برای اتصال دقیق بر اساس پرداخت
     bool autoSend = false, // اگر true باشد، sent_at بلافاصله تنظیم می‌شود (فقط برای برنامه‌های AI)
+    bool starterProgram = false,
   }) async {
     await init();
 
@@ -355,7 +396,10 @@ class WorkoutProgramService {
         throw Exception('عدم دسترسی به اینترنت. بعداً دوباره تلاش کنید');
       }
       // ساختار بهینه‌شده برای ذخیره‌سازی JSON
-      final jsonData = _createProgramJson(program);
+      final jsonData = _createProgramJson(
+        program,
+        starterProgram: starterProgram,
+      );
 
       // چاپ اطلاعات برنامه قبل از ذخیره
       debugPrint(
@@ -1196,8 +1240,11 @@ class WorkoutProgramService {
   }
 
   // ساختار بهینه‌شده برای ذخیره‌سازی JSON
-  Map<String, dynamic> _createProgramJson(WorkoutProgram program) {
-    return {
+  Map<String, dynamic> _createProgramJson(
+    WorkoutProgram program, {
+    bool starterProgram = false,
+  }) {
+    final map = <String, dynamic>{
       'id': program.id,
       'program_name': program.name,
       'sessions': program.sessions
@@ -1249,6 +1296,16 @@ class WorkoutProgramService {
       'created_at': program.createdAt.toIso8601String(),
       'updated_at': program.updatedAt.toIso8601String(),
     };
+
+    if (program.isSelfServiceAi) {
+      map['is_self_service_ai'] = true;
+    }
+    if (starterProgram) {
+      map['generated_by'] = _starterGeneratedByKey;
+      map['starter_version'] = 5;
+    }
+
+    return map;
   }
 
   // Load programs from Supabase

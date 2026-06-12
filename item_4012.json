@@ -1,0 +1,17 @@
+{
+  "id": 4012,
+  "title": "کرانچ سیمکش",
+  "main": "abs",
+  "movement": "",
+  "targets": {
+    "abs": 90
+  },
+  "secondary": [
+    "obliques"
+  ],
+  "equipment": [
+    "cable"
+  ],
+  "norm": [],
+  "notes": null
+}

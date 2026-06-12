@@ -6,6 +6,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class CertificateService {
   static final SupabaseClient _client = Supabase.instance.client;
 
+  static Future<int> countApprovedTrainerCertificates(String trainerId) async {
+    try {
+      final certs = await getApprovedTrainerCertificates(trainerId);
+      return certs.length;
+    } catch (e) {
+      debugPrint('CertificateService.countApprovedTrainerCertificates error: $e');
+      return 0;
+    }
+  }
+
   /// دریافت مدارک تایید شده مربی
   static Future<List<Certificate>> getApprovedTrainerCertificates(
     String trainerId,

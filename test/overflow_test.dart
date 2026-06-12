@@ -23,9 +23,9 @@ void main() {
           await tester.binding.setSurfaceSize(size);
 
           // تست Text بدون maxLines
-          final textWidget = Text(
+          const textWidget = Text(
             'این یک متن بسیار طولانی است که ممکن است باعث overflow شود و باید بررسی شود',
-            style: const TextStyle(fontSize: 16),
+            style: TextStyle(fontSize: 16),
           );
 
           await tester.pumpWidget(
@@ -36,7 +36,7 @@ void main() {
                     size: size,
                     textScaler: TextScaler.linear(textScale),
                   ),
-                  child: Center(child: textWidget),
+                  child: const Center(child: textWidget),
                 ),
               ),
             ),
@@ -61,11 +61,11 @@ void main() {
         await tester.binding.setSurfaceSize(size);
 
         // تست Row با Text بدون Flexible
-        final rowWidget = Row(
+        const rowWidget = Row(
           children: [
-            const Text('متن طولانی که ممکن است overflow کند'),
-            const Icon(Icons.star),
-            const Text('متن دیگر'),
+            Text('متن طولانی که ممکن است overflow کند'),
+            Icon(Icons.star),
+            Text('متن دیگر'),
           ],
         );
 
@@ -74,7 +74,7 @@ void main() {
             home: Scaffold(
               body: MediaQuery(
                 data: MediaQueryData(size: size),
-                child: Center(child: rowWidget),
+                child: const Center(child: rowWidget),
               ),
             ),
           ),
@@ -199,7 +199,7 @@ void main() {
         await tester.binding.setSurfaceSize(size);
 
         // تست SafeRow که باید overflow نکند
-        final safeRowWidget = Row(
+        const safeRowWidget = Row(
           children: [
             Flexible(
               child: Text(
@@ -208,7 +208,7 @@ void main() {
                 maxLines: 1,
               ),
             ),
-            const Icon(Icons.star),
+            Icon(Icons.star),
           ],
         );
 
@@ -217,7 +217,7 @@ void main() {
             home: Scaffold(
               body: MediaQuery(
                 data: MediaQueryData(size: size),
-                child: Center(child: safeRowWidget),
+                child: const Center(child: safeRowWidget),
               ),
             ),
           ),

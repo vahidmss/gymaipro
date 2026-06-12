@@ -115,7 +115,7 @@ class CoachVideoUploadService {
           if (responseData.containsKey('video_url')) {
             final videoUrl = responseData['video_url'] as String;
             if (videoUrl.isNotEmpty) {
-              onProgress?.call(1.0);
+              onProgress?.call(1);
               return videoUrl;
             }
           }

@@ -5,6 +5,11 @@ import 'package:gymaipro/theme/app_theme.dart';
 
 /// Overlay برای نمایش feature showcase با spotlight روی المنت هدف
 class FeatureShowcaseOverlay extends StatefulWidget {
+
+  const FeatureShowcaseOverlay({
+    required this.step, required this.onNext, required this.onSkip, required this.currentIndex, required this.totalSteps, required this.isFirstStep, required this.isLastStep, super.key,
+    this.onPrevious,
+  });
   final GuideStep step;
   final VoidCallback onNext;
   final VoidCallback? onPrevious;
@@ -13,18 +18,6 @@ class FeatureShowcaseOverlay extends StatefulWidget {
   final int totalSteps;
   final bool isFirstStep;
   final bool isLastStep;
-
-  const FeatureShowcaseOverlay({
-    super.key,
-    required this.step,
-    required this.onNext,
-    this.onPrevious,
-    required this.onSkip,
-    required this.currentIndex,
-    required this.totalSteps,
-    required this.isFirstStep,
-    required this.isLastStep,
-  });
 
   @override
   State<FeatureShowcaseOverlay> createState() => _FeatureShowcaseOverlayState();
@@ -39,13 +32,13 @@ class _FeatureShowcaseOverlayState extends State<FeatureShowcaseOverlay>
   bool _dontShowAgain = false;
 
   double _clamp(double value, double min, double max) {
-    return value.clamp(min, max).toDouble();
+    return value.clamp(min, max);
   }
 
   double _safeClamp(double value, double min, double max) {
     if (!value.isFinite || !min.isFinite || !max.isFinite) return value;
     if (max < min) return min; // جلوگیری از crash در double.clamp
-    return value.clamp(min, max).toDouble();
+    return value.clamp(min, max);
   }
 
   @override
@@ -57,11 +50,11 @@ class _FeatureShowcaseOverlayState extends State<FeatureShowcaseOverlay>
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
 
@@ -142,7 +135,6 @@ class _FeatureShowcaseOverlayState extends State<FeatureShowcaseOverlay>
         duration: const Duration(milliseconds: 300), // کاهش بیشتر duration
         curve: Curves.easeOutCubic, // استفاده از curve نرم‌تر
         alignment: 0.2, // المنت در 20% بالای صفحه نمایش داده شود
-        alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
       );
       // صبر کردن تا اسکرول کامل شود (کمتر از duration برای smooth‌تر شدن)
       await Future<void>.delayed(const Duration(milliseconds: 350));
@@ -379,13 +371,13 @@ class _FeatureShowcaseOverlayState extends State<FeatureShowcaseOverlay>
         : 420.0;
     final tooltipMaxWidth = (screenWidth * (screenWidth > 600 ? 0.55 : 0.92))
         .clamp(0.0, hardMaxTooltipWidth)
-        .toDouble();
+        ;
 
     // محاسبه ارتفاع tooltip بر اساس ارتفاع صفحه (responsive)
     final hardMaxTooltipHeight = screenHeight > 1000 ? 460.0 : 520.0;
     final tooltipMaxHeight = (screenHeight * (screenHeight > 800 ? 0.42 : 0.52))
         .clamp(0.0, hardMaxTooltipHeight)
-        .toDouble();
+        ;
 
     double top = 0;
     double left = 0;
@@ -426,7 +418,6 @@ class _FeatureShowcaseOverlayState extends State<FeatureShowcaseOverlay>
             top = (screenHeight - effectiveTooltipMaxHeight) / 2;
           }
         }
-        break;
       case TooltipPosition.top:
         top = _targetRect!.top - effectiveTooltipMaxHeight - spacing;
         left = (screenWidth - effectiveTooltipMaxWidth) / 2;
@@ -438,7 +429,6 @@ class _FeatureShowcaseOverlayState extends State<FeatureShowcaseOverlay>
             top = (screenHeight - effectiveTooltipMaxHeight) / 2;
           }
         }
-        break;
       case TooltipPosition.left:
         // TARGET-RELATIVE POSITIONING: نسبت به targetRect
         top =
@@ -461,7 +451,6 @@ class _FeatureShowcaseOverlayState extends State<FeatureShowcaseOverlay>
         if (top + effectiveTooltipMaxHeight > screenHeight - minBottom) {
           top = screenHeight - effectiveTooltipMaxHeight - minBottom;
         }
-        break;
       case TooltipPosition.right:
         // TARGET-RELATIVE POSITIONING: نسبت به targetRect
         top =
@@ -486,7 +475,6 @@ class _FeatureShowcaseOverlayState extends State<FeatureShowcaseOverlay>
         if (top + effectiveTooltipMaxHeight > screenHeight - minBottom) {
           top = screenHeight - effectiveTooltipMaxHeight - minBottom;
         }
-        break;
       case TooltipPosition.center:
         // این case قبلاً در ابتدای تابع handle شده
         return const SizedBox.shrink();
@@ -959,10 +947,6 @@ class _FeatureShowcaseOverlayState extends State<FeatureShowcaseOverlay>
 
 /// Painter برای رسم spotlight روی target
 class SpotlightPainter extends CustomPainter {
-  final Rect targetRect;
-  final double progress;
-  final bool usePulse;
-  final double pulseValue;
 
   SpotlightPainter({
     required this.targetRect,
@@ -970,6 +954,10 @@ class SpotlightPainter extends CustomPainter {
     this.usePulse = true,
     this.pulseValue = 0,
   });
+  final Rect targetRect;
+  final double progress;
+  final bool usePulse;
+  final double pulseValue;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1005,7 +993,7 @@ class SpotlightPainter extends CustomPainter {
       ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
 
     double clampDouble(double value, double min, double max) {
-      return value.clamp(min, max).toDouble();
+      return value.clamp(min, max);
     }
 
     final shortest = size.width < size.height ? size.width : size.height;

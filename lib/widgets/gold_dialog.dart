@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class GoldDialog extends StatefulWidget {
   const GoldDialog({

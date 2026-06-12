@@ -5,7 +5,7 @@ import 'package:gymaipro/admin/services/admin_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
 import 'package:intl/intl.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// صفحه مدیریت و تایید مدارک مربیان
 class AdminCertificatesScreen extends StatefulWidget {

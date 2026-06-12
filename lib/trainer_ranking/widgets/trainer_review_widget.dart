@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_ranking/models/trainer_ranking_model.dart'
     show TrainerReview;
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class TrainerReviewWidget extends StatelessWidget {
   const TrainerReviewWidget({required this.review, super.key});

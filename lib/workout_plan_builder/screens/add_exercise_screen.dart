@@ -4,13 +4,18 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AddExerciseScreen extends StatefulWidget {
-  const AddExerciseScreen({required this.exercises, super.key});
+  const AddExerciseScreen({
+    required this.exercises,
+    this.onRequestExercises,
+    super.key,
+  });
 
   final List<Exercise> exercises;
+  final Future<List<Exercise>> Function()? onRequestExercises;
 
   @override
   State<AddExerciseScreen> createState() => _AddExerciseScreenState();
@@ -20,6 +25,10 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
+  final String? _currentUserId = Supabase.instance.client.auth.currentUser?.id;
+  late List<Exercise> _allExercises;
+  bool _isLoadingExercises = false;
+  String? _loadingExercisesError;
 
   // For superset
   final List<SupersetItem> _selectedExercises = [];
@@ -40,6 +49,7 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
   @override
   void initState() {
     super.initState();
+    _allExercises = List<Exercise>.from(widget.exercises);
     _tabController = TabController(length: 2, vsync: this);
     _currentTabIndex = _tabController.index;
     _tabController.addListener(_handleTabChange);
@@ -47,7 +57,41 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
     // Apply initial filters
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _applyFilters('');
+      if (_allExercises.isEmpty) {
+        _loadExercisesInSheet();
+      }
     });
+  }
+
+  Future<void> _loadExercisesInSheet() async {
+    final loader = widget.onRequestExercises;
+    if (loader == null || _isLoadingExercises) return;
+
+    setState(() {
+      _isLoadingExercises = true;
+      _loadingExercisesError = null;
+    });
+
+    try {
+      final loaded = await loader();
+      if (!mounted) return;
+      setState(() {
+        _allExercises = loaded;
+        _cachedFilteredExercises = null;
+        _lastSearchQuery = '';
+      });
+      _applyFilters(_searchController.text.toLowerCase());
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingExercisesError = 'خطا در بارگذاری لیست تمرین‌ها';
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingExercises = false;
+      });
+    }
   }
 
   void _handleTabChange() {
@@ -101,15 +145,14 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
   }
 
   void _applyFilters(String searchQuery) {
-    var filtered = widget.exercises;
+    var filtered = _allExercises;
 
     // فیلتر بر اساس نوع (همه یا اختصاصی)
     if (_filterIndex == 1) {
       // فقط تمرین‌های اختصاصی مربی
-      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-      if (currentUserId != null) {
+      if (_currentUserId != null) {
         filtered = filtered
-            .where((e) => e.createdBy != null && e.createdBy == currentUserId)
+            .where((e) => e.createdBy != null && e.createdBy == _currentUserId)
             .toList();
       } else {
         filtered = [];
@@ -151,14 +194,13 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
     }
 
     // اگر cache نداره، فیلترها رو اعمال کن
-    var filtered = widget.exercises;
+    var filtered = _allExercises;
 
     // فیلتر بر اساس نوع (همه یا اختصاصی)
     if (_filterIndex == 1) {
-      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-      if (currentUserId != null) {
+      if (_currentUserId != null) {
         filtered = filtered
-            .where((e) => e.createdBy != null && e.createdBy == currentUserId)
+            .where((e) => e.createdBy != null && e.createdBy == _currentUserId)
             .toList();
       } else {
         filtered = [];
@@ -184,30 +226,10 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
 
   /// بررسی اینکه آیا تمرین متعلق به مربی فعلی است
   bool _isMyExercise(Exercise exercise) {
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-    if (currentUserId == null) {
+    if (_currentUserId == null || exercise.createdBy == null) {
       return false;
     }
-
-    // Debug: بررسی createdBy
-    if (exercise.createdBy != null) {
-      debugPrint(
-        '=== AddExerciseScreen: Exercise "${exercise.name}" createdBy: ${exercise.createdBy}, currentUserId: $currentUserId ===',
-      );
-    }
-
-    if (exercise.createdBy == null) {
-      return false;
-    }
-
-    final isMatch = exercise.createdBy == currentUserId;
-    if (isMatch) {
-      debugPrint(
-        '=== AddExerciseScreen: Match found! Exercise "${exercise.name}" belongs to current trainer ===',
-      );
-    }
-
-    return isMatch;
+    return exercise.createdBy == _currentUserId;
   }
 
   void _addExercise() {
@@ -273,14 +295,19 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
           children: [
             _buildHeader(isDark),
             _buildTabBar(isDark),
-            Expanded(
-              child: IndexedStack(
-                index: _currentTabIndex,
-                children: [
-                  _buildNormalExerciseTab(isDark),
-                  _buildSupersetTab(isDark),
-                ],
+            if (_isLoadingExercises)
+              LinearProgressIndicator(
+                minHeight: 2.h,
+                color: AppTheme.goldColor,
+                backgroundColor: isDark
+                    ? AppTheme.darkGreySeparator
+                    : AppTheme.lightDividerColor,
               ),
+            Expanded(
+              // فقط تب فعال را بساز؛ IndexedStack هر دو لیست کامل را همزمان می‌ساخت و لگ می‌داد.
+              child: _currentTabIndex == 0
+                  ? _buildNormalExerciseTab(isDark)
+                  : _buildSupersetTab(isDark),
             ),
             _buildBottomButtons(isDark),
           ],
@@ -298,7 +325,6 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
             color: isDark
                 ? AppTheme.darkGreySeparator
                 : AppTheme.lightDividerColor,
-            width: 1,
           ),
         ),
       ),
@@ -319,7 +345,7 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: isDark ? AppTheme.goldColor : context.textColor,
-                fontSize: 16.sp,
+                fontSize: 14.sp,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -383,7 +409,7 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
   Widget _buildFilterBar(bool isDark) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: isDark
               ? AppTheme.darkCardColor
@@ -526,7 +552,13 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
     );
   }
 
-  Widget _buildEmptyState(bool isDark, {double iconSize = 48.0}) {
+  Widget _buildEmptyState(
+    bool isDark, {
+    double iconSize = 48.0,
+    String? subtitle,
+    String? actionText,
+    VoidCallback? onActionTap,
+  }) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -547,6 +579,33 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
               fontSize: 14.sp,
             ),
           ),
+          if (subtitle != null) ...[
+            SizedBox(height: 8.h),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: isDark
+                    ? AppTheme.goldColor.withValues(alpha: 0.6)
+                    : context.textColor.withValues(alpha: 0.6),
+                fontSize: 12.sp,
+              ),
+            ),
+          ],
+          if (actionText != null && onActionTap != null) ...[
+            SizedBox(height: 12.h),
+            TextButton(
+              onPressed: onActionTap,
+              child: Text(
+                actionText,
+                style: const TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: AppTheme.goldColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -645,7 +704,6 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
                                   color: AppTheme.goldColor.withValues(
                                     alpha: 0.5,
                                   ),
-                                  width: 1,
                                 ),
                               ),
                               child: Text(
@@ -681,13 +739,13 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
                 if (isSelected)
                   Container(
                     padding: EdgeInsets.all(6.w),
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: AppTheme.goldColor,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       LucideIcons.check,
-                      color: Colors.black,
+                      color: AppTheme.veryDarkBackground,
                       size: 16.sp,
                     ),
                   ),
@@ -701,17 +759,32 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
 
   Widget _buildNormalExerciseTab(bool isDark) {
     final filtered = _getFilteredExercises();
+    final showLoadingPlaceholder = _isLoadingExercises && filtered.isEmpty;
 
     final slivers = <Widget>[
       SliverToBoxAdapter(child: _buildFilterBar(isDark)),
       SliverToBoxAdapter(child: _buildSearchField(isDark)),
     ];
 
-    if (filtered.isEmpty) {
+    if (showLoadingPlaceholder) {
       slivers.add(
         SliverFillRemaining(
           hasScrollBody: false,
-          child: _buildEmptyState(isDark),
+          child: _buildLoadingState(isDark),
+        ),
+      );
+    } else if (filtered.isEmpty) {
+      slivers.add(
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _buildEmptyState(
+            isDark,
+            actionText: _loadingExercisesError != null ? 'تلاش مجدد' : null,
+            onActionTap: _loadingExercisesError != null
+                ? _loadExercisesInSheet
+                : null,
+            subtitle: _loadingExercisesError,
+          ),
         ),
       );
     } else {
@@ -739,223 +812,274 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
       );
     }
 
-    return CustomScrollView(slivers: slivers);
+    return CustomScrollView(
+      key: const PageStorageKey<String>('add_exercise_normal_tab'),
+      slivers: slivers,
+    );
   }
 
   Widget _buildSupersetTab(bool isDark) {
     final filtered = _getFilteredExercises();
+    final showLoadingPlaceholder = _isLoadingExercises && filtered.isEmpty;
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header with instructions
-          Padding(
-            padding: EdgeInsets.all(16.w),
-            child: Container(
-              padding: EdgeInsets.all(12.w),
-              decoration: BoxDecoration(
-                color: AppTheme.goldColor.withValues(
-                  alpha: isDark ? 0.2 : 0.15,
-                ),
-                borderRadius: BorderRadius.circular(12.r),
-                border: Border.all(
-                  color: AppTheme.goldColor.withValues(alpha: 0.3),
-                ),
+    final slivers = <Widget>[
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(16.w),
+          child: Container(
+            padding: EdgeInsets.all(12.w),
+            decoration: BoxDecoration(
+              color: AppTheme.goldColor.withValues(
+                alpha: isDark ? 0.2 : 0.15,
               ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(6.w),
-                    decoration: BoxDecoration(
-                      color: AppTheme.goldColor.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(6.r),
-                    ),
-                    child: Icon(
-                      LucideIcons.link,
-                      color: AppTheme.goldColor,
-                      size: 16.sp,
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'انتخاب تمرین‌های سوپرست',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: isDark
-                                ? AppTheme.goldColor
-                                : context.textColor,
-                            fontSize: 14.sp,
-                            fontFamily: AppTheme.fontFamily,
-                          ),
-                        ),
-                        SizedBox(height: 2.h),
-                        Text(
-                          '${_selectedExercises.length}/2 تمرین انتخاب شده',
-                          style: TextStyle(
-                            color: isDark
-                                ? AppTheme.goldColor.withValues(alpha: 0.7)
-                                : context.textColor.withValues(alpha: 0.7),
-                            fontSize: 11.sp,
-                            fontFamily: AppTheme.fontFamily,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(
+                color: AppTheme.goldColor.withValues(alpha: 0.3),
               ),
             ),
-          ),
-
-          // Selected exercises
-          if (_selectedExercises.isNotEmpty) ...[
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: Text(
-                'تمرین‌های انتخاب شده:',
-                style: TextStyle(
-                  color: isDark ? AppTheme.goldColor : context.textColor,
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: AppTheme.fontFamily,
-                ),
-              ),
-            ),
-            SizedBox(height: 8.h),
-            ...List.generate(
-              _selectedExercises.length,
-              (i) => Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
-                child: _buildSelectedExerciseItem(i, isDark),
-              ),
-            ),
-            SizedBox(height: 12.h),
-          ],
-
-          // Search section
-          if (_selectedExercises.length < 2) ...[
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: Text(
-                'تمرین بعدی را انتخاب کنید:',
-                style: TextStyle(
-                  color: isDark ? AppTheme.goldColor : context.textColor,
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: AppTheme.fontFamily,
-                ),
-              ),
-            ),
-            SizedBox(height: 8.h),
-            _buildFilterBar(isDark),
-            SizedBox(height: 8.h),
-            _buildSearchField(isDark, hint: 'جستجو در تمرین‌ها...'),
-            SizedBox(height: 12.h),
-
-            // Exercises list
-            if (filtered.isEmpty)
-              Padding(
-                padding: EdgeInsets.all(16.w),
-                child: _buildEmptyState(isDark, iconSize: 32.0),
-              )
-            else
-              ...List.generate(filtered.length, (index) {
-                final exercise = filtered[index];
-                final isAlreadySelected = _selectedExercises.any(
-                  (e) => e.exerciseId == exercise.id,
-                );
-
-                return Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 16.w,
-                    vertical: 4.h,
-                  ),
-                  child: _buildExerciseItem(
-                    exercise: exercise,
-                    isDark: isDark,
-                    isSelected: isAlreadySelected,
-                    onTap: isAlreadySelected
-                        ? null
-                        : () => _addExerciseToSuperset(exercise),
-                    imageSize: 36.0,
-                    showMuscle: false,
-                  ),
-                );
-              }),
-          ] else ...[
-            // Success state when both exercises are selected
-            Padding(
-              padding: EdgeInsets.all(16.w),
-              child: Center(
-                child: Container(
-                  padding: EdgeInsets.all(20.w),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(6.w),
                   decoration: BoxDecoration(
-                    color: AppTheme.goldColor.withValues(
-                      alpha: isDark ? 0.2 : 0.15,
-                    ),
-                    borderRadius: BorderRadius.circular(16.r),
-                    border: Border.all(
-                      color: AppTheme.goldColor.withValues(alpha: 0.3),
-                    ),
+                    color: AppTheme.goldColor.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6.r),
                   ),
+                  child: Icon(
+                    LucideIcons.link,
+                    color: AppTheme.goldColor,
+                    size: 16.sp,
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: EdgeInsets.all(12.w),
-                        decoration: BoxDecoration(
-                          color: AppTheme.goldColor.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                        child: Icon(
-                          LucideIcons.check,
-                          color: AppTheme.goldColor,
-                          size: 24.sp,
-                        ),
-                      ),
-                      SizedBox(height: 12.h),
                       Text(
-                        'سوپرست آماده است!',
+                        'انتخاب تمرین‌های سوپرست',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: isDark
                               ? AppTheme.goldColor
                               : context.textColor,
-                          fontSize: 16.sp,
+                          fontSize: 14.sp,
                           fontFamily: AppTheme.fontFamily,
                         ),
                       ),
-                      SizedBox(height: 6.h),
+                      SizedBox(height: 2.h),
                       Text(
-                        'دو تمرین انتخاب شده و آماده افزودن به برنامه',
+                        '${_selectedExercises.length}/2 تمرین انتخاب شده',
                         style: TextStyle(
                           color: isDark
                               ? AppTheme.goldColor.withValues(alpha: 0.7)
                               : context.textColor.withValues(alpha: 0.7),
-                          fontSize: 12.sp,
+                          fontSize: 11.sp,
                           fontFamily: AppTheme.fontFamily,
                         ),
-                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
                 ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ];
+
+    if (_selectedExercises.isNotEmpty) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: Text(
+              'تمرین‌های انتخاب شده:',
+              style: TextStyle(
+                color: isDark ? AppTheme.goldColor : context.textColor,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                fontFamily: AppTheme.fontFamily,
               ),
             ),
-          ],
-        ],
-      ),
+          ),
+        ),
+      );
+      slivers.add(SliverToBoxAdapter(child: SizedBox(height: 8.h)));
+      slivers.add(
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, i) => Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+              child: _buildSelectedExerciseItem(i, isDark),
+            ),
+            childCount: _selectedExercises.length,
+          ),
+        ),
+      );
+      slivers.add(SliverToBoxAdapter(child: SizedBox(height: 12.h)));
+    }
+
+    if (_selectedExercises.length < 2) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: Text(
+              'تمرین بعدی را انتخاب کنید:',
+              style: TextStyle(
+                color: isDark ? AppTheme.goldColor : context.textColor,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+          ),
+        ),
+      );
+      slivers.add(SliverToBoxAdapter(child: SizedBox(height: 8.h)));
+      slivers.add(SliverToBoxAdapter(child: _buildFilterBar(isDark)));
+      slivers.add(SliverToBoxAdapter(child: SizedBox(height: 8.h)));
+      slivers.add(
+        SliverToBoxAdapter(
+          child: _buildSearchField(isDark, hint: 'جستجو در تمرین‌ها...'),
+        ),
+      );
+      slivers.add(SliverToBoxAdapter(child: SizedBox(height: 12.h)));
+
+      if (showLoadingPlaceholder) {
+        slivers.add(
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(16.w),
+              child: _buildLoadingState(isDark),
+            ),
+          ),
+        );
+      } else if (filtered.isEmpty) {
+        slivers.add(
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.all(16.w),
+              child: _buildEmptyState(
+                isDark,
+                iconSize: 32,
+                actionText: _loadingExercisesError != null
+                    ? 'تلاش مجدد'
+                    : null,
+                onActionTap: _loadingExercisesError != null
+                    ? _loadExercisesInSheet
+                    : null,
+                subtitle: _loadingExercisesError,
+              ),
+            ),
+          ),
+        );
+      } else {
+        slivers.add(
+          SliverPadding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final exercise = filtered[index];
+                  final isAlreadySelected = _selectedExercises.any(
+                    (e) => e.exerciseId == exercise.id,
+                  );
+                  return Padding(
+                    padding: EdgeInsets.only(bottom: 8.h),
+                    child: _buildExerciseItem(
+                      exercise: exercise,
+                      isDark: isDark,
+                      isSelected: isAlreadySelected,
+                      onTap: isAlreadySelected
+                          ? null
+                          : () => _addExerciseToSuperset(exercise),
+                      imageSize: 36,
+                      showMuscle: false,
+                    ),
+                  );
+                },
+                childCount: filtered.length,
+              ),
+            ),
+          ),
+        );
+      }
+    } else {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.all(16.w),
+            child: Center(
+              child: Container(
+                padding: EdgeInsets.all(20.w),
+                decoration: BoxDecoration(
+                  color: AppTheme.goldColor.withValues(
+                    alpha: isDark ? 0.2 : 0.15,
+                  ),
+                  borderRadius: BorderRadius.circular(16.r),
+                  border: Border.all(
+                    color: AppTheme.goldColor.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(12.w),
+                      decoration: BoxDecoration(
+                        color: AppTheme.goldColor.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      child: Icon(
+                        LucideIcons.check,
+                        color: AppTheme.goldColor,
+                        size: 24.sp,
+                      ),
+                    ),
+                    SizedBox(height: 12.h),
+                    Text(
+                      'سوپرست آماده است!',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isDark
+                            ? AppTheme.goldColor
+                            : context.textColor,
+                        fontSize: 14.sp,
+                        fontFamily: AppTheme.fontFamily,
+                      ),
+                    ),
+                    SizedBox(height: 6.h),
+                    Text(
+                      'دو تمرین انتخاب شده و آماده افزودن به برنامه',
+                      style: TextStyle(
+                        color: isDark
+                            ? AppTheme.goldColor.withValues(alpha: 0.7)
+                            : context.textColor.withValues(alpha: 0.7),
+                        fontSize: 12.sp,
+                        fontFamily: AppTheme.fontFamily,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return CustomScrollView(
+      key: const PageStorageKey<String>('add_exercise_superset_tab'),
+      slivers: slivers,
     );
   }
 
   Widget _buildSelectedExerciseItem(int index, bool isDark) {
     final exerciseItem = _selectedExercises[index];
-    final exerciseDetails = widget.exercises.firstWhere(
+    final exerciseDetails = _allExercises.firstWhere(
       (e) => e.id == exerciseItem.exerciseId,
       orElse: () => Exercise(
         id: 0,
@@ -994,7 +1118,7 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
             child: Text(
               '${index + 1}',
               style: TextStyle(
-                color: Colors.black,
+                color: AppTheme.veryDarkBackground,
                 fontWeight: FontWeight.bold,
                 fontSize: 12.sp,
                 fontFamily: AppTheme.fontFamily,
@@ -1011,7 +1135,7 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
                 color: AppTheme.goldColor.withValues(alpha: 0.3),
               ),
             ),
-            child: Container(
+            child: DecoratedBox(
               decoration: BoxDecoration(
                 color: AppTheme.goldColor.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8.r),
@@ -1040,10 +1164,39 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
             ),
           ),
           IconButton(
-            icon: Icon(LucideIcons.x, color: Colors.red, size: 18.sp),
+            icon: Icon(LucideIcons.x, color: AppTheme.errorColor, size: 18.sp),
             onPressed: () => _removeExerciseFromSuperset(index),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 28.w,
+            height: 28.w,
+            child: const CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppTheme.goldColor,
+            ),
+          ),
+          SizedBox(height: 12.h),
+          Text(
+            'در حال بارگذاری تمرین‌ها...',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: isDark
+                  ? AppTheme.goldColor.withValues(alpha: 0.8)
+                  : context.textColor.withValues(alpha: 0.8),
+              fontSize: 13.sp,
+            ),
           ),
         ],
       ),
@@ -1059,7 +1212,6 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
             color: isDark
                 ? AppTheme.darkGreySeparator
                 : AppTheme.lightDividerColor,
-            width: 1,
           ),
         ),
       ),
@@ -1096,10 +1248,10 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
           Expanded(
             child: ElevatedButton.icon(
               icon: Icon(LucideIcons.check, size: 18.sp),
-              label: Text('افزودن'),
+              label: const Text('افزودن'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.goldColor,
-                foregroundColor: Colors.black,
+                foregroundColor: AppTheme.veryDarkBackground,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.r),
                 ),

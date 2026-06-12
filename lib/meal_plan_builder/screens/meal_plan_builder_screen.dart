@@ -1,4 +1,4 @@
-﻿// import removed: fl_chart now used via DailyNutritionChartMealPlanBuilder
+// import removed: fl_chart now used via DailyNutritionChartMealPlanBuilder
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -23,7 +23,7 @@ import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/utils/date_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MealPlanBuilderScreen extends StatefulWidget {

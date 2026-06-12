@@ -1,7 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_plan_builder/widgets/meal_type_card.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class MealTypeSelectorOverlayMealPlanBuilder extends StatelessWidget {
   const MealTypeSelectorOverlayMealPlanBuilder({

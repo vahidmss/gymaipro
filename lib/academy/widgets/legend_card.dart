@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/fitness_legend.dart';
 import 'package:gymaipro/academy/screens/legend_detail_screen.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class LegendCard extends StatelessWidget {
   const LegendCard({required this.legend, super.key});

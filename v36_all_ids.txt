@@ -1,0 +1,20 @@
+4011	فشار پشت بازو هالتر	triceps	elbow_extension
+4013	زیربغل تک بازو سیمکش	back_lat	vertical_pull
+4012	کرانچ سیمکش	abs	
+4010	پشت بازو خرچنگ سیمکش	triceps	elbow_extension
+4009	جلو بازو اینکلاین دمبل	biceps	elbow_flexion
+4008	لگ پرس	quads	knee_dominant_press
+4007	پرس سینه اسمیت	chest	horizontal_push
+4006	شنا با زانو	chest	horizontal_push
+4025	وال سیت	quads	isometric_hold
+4014	فلای پک دستگاه	chest	horizontal_adduction
+4015	دیپ وزن بدن	triceps	vertical_push
+4016	اسکات با مکث	quads	squat
+4024	پشت بازو سیمکش معکوس	triceps	elbow_extension
+4023	لانج عقب	quads	lunge
+4022	لانج با هالتر	quads	lunge
+4021	زیربغل نشسته سیمکش	back_lat	horizontal_pull
+4020	پرس سینه دمبل تک دست	chest	horizontal_push
+4019	پالوف پرس	abs	anti_rotation
+4018	ددباگ	abs	anti_extension
+4017	بورپی	full_body	

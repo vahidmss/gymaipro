@@ -169,7 +169,7 @@ class AdminBroadcastService {
     try {
       final response = await _supabase
           .from('notification_broadcast_requests')
-          .select('*')
+          .select()
           .order('created_at', ascending: false)
           .limit(limit);
 
@@ -187,7 +187,7 @@ class AdminBroadcastService {
     try {
       final response = await _supabase
           .from('notification_broadcast_requests')
-          .select('*')
+          .select()
           .eq('id', requestId)
           .maybeSingle();
 

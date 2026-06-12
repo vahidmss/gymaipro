@@ -83,7 +83,7 @@ class _LegendsListScreenState extends State<LegendsListScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () => _loadPage(refresh: true),
-        child: Container(
+        child: ColoredBox(
           color: context.backgroundColor,
           child: Column(
             children: [

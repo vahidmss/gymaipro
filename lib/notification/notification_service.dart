@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 import 'dart:ui' as ui;
@@ -31,15 +32,40 @@ class NotificationService {
 
   String? _fcmToken;
   bool _isInitialized = false;
+  Future<void>? _initializingFuture;
+  bool _handlersConfigured = false;
+  final Map<String, DateTime> _recentChatNotificationAttempts = {};
+  final Map<String, DateTime> _recentIncomingNotificationKeys = {};
+  DateTime? _lastChatNotificationTimeoutAt;
 
   // Callbacks for handling notifications
   void Function(Map<String, dynamic>)? onNotificationTapped;
   void Function(Map<String, dynamic>)? onNotificationReceived;
 
+  int _safeNotificationId([int? preferred]) {
+    const maxSigned32 = 2147483647;
+    final raw = preferred ?? DateTime.now().millisecondsSinceEpoch;
+    final normalized = raw % maxSigned32;
+    return normalized <= 0 ? 1 : normalized;
+  }
+
   /// Initialize notification service
   Future<void> initialize() async {
     if (_isInitialized) return;
+    if (_initializingFuture != null) {
+      await _initializingFuture;
+      return;
+    }
 
+    _initializingFuture = _initializeInternal();
+    try {
+      await _initializingFuture;
+    } finally {
+      _initializingFuture = null;
+    }
+  }
+
+  Future<void> _initializeInternal() async {
     try {
       // Skip Firebase initialization for web
       if (kIsWeb) {
@@ -65,9 +91,15 @@ class NotificationService {
       await _requestPermissions();
       debugPrint('✅ Permissions requested successfully');
 
-      // Get FCM token
+      // Get FCM token (may fail on emulator: SERVICE_NOT_AVAILABLE)
       await _getFCMToken();
-      debugPrint('✅ FCM token retrieved successfully');
+      if (_fcmToken != null && _fcmToken!.isNotEmpty) {
+        debugPrint('✅ FCM token retrieved successfully');
+      } else {
+        debugPrint(
+          'ℹ️ FCM token unavailable (common on emulator without Play services)',
+        );
+      }
 
       // Setup Firebase message handlers
       await _setupFirebaseHandlers();
@@ -126,8 +158,6 @@ class NotificationService {
         'GymAI Pro Notifications',
         description: 'Notifications for GymAI Pro app',
         importance: Importance.high,
-        playSound: true,
-        enableVibration: true,
       );
 
       await _localNotifications
@@ -327,6 +357,8 @@ class NotificationService {
       debugPrint('⚠️ FirebaseMessaging not ready; skipping handler setup');
       return;
     }
+    if (_handlersConfigured) return;
+
     // Handle background messages
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
@@ -335,6 +367,7 @@ class NotificationService {
 
     // Handle notification taps when app is in background
     FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+    _handlersConfigured = true;
   }
 
   /// Handle initial message (app opened from notification)
@@ -367,23 +400,60 @@ class NotificationService {
   }
 
   /// Handle foreground messages
-  void _handleForegroundMessage(RemoteMessage message) async {
+  Future<void> _handleForegroundMessage(RemoteMessage message) async {
+    final incomingMessageId = message.data['message_id'] as String?;
+    final fallbackKey = [
+      message.data['type'],
+      message.data['conversation_id'],
+      message.data['sender_id'],
+      message.data['message'],
+    ].join('|');
+    final dedupeKey = (incomingMessageId != null && incomingMessageId.isNotEmpty)
+        ? 'id:$incomingMessageId'
+        : 'payload:$fallbackKey';
+    final now = DateTime.now();
+    _recentIncomingNotificationKeys.removeWhere(
+      (_, at) => now.difference(at) > const Duration(seconds: 20),
+    );
+    if (_recentIncomingNotificationKeys.containsKey(dedupeKey)) {
+      debugPrint('ℹ️ Skip duplicate incoming notification: $dedupeKey');
+      return;
+    }
+    _recentIncomingNotificationKeys[dedupeKey] = now;
+
     debugPrint('📨 Foreground message received: ${message.data}');
 
     // بررسی اینکه آیا این نوتیفیکیشن چت است
     final messageType = message.data['type'] as String?;
     if (messageType == 'chat_message') {
-      // بررسی حضور کاربر در چت قبل از نمایش نوتیفیکیشن
+      // In foreground, show an in-app alert only if user is not inside
+      // the same conversation to avoid silent delivery gaps.
       final conversationId = message.data['conversation_id'] as String?;
+      bool isUserInChat = false;
       if (conversationId != null && conversationId.isNotEmpty) {
-        final isUserInChat = await _checkUserPresenceInChat(conversationId);
+        isUserInChat = await _checkUserPresenceInChat(conversationId);
         if (isUserInChat) {
           debugPrint('✅ User is active in chat, skipping notification');
-          // فقط callback را فراخوانی می‌کنیم بدون نمایش نوتیفیکیشن
-          onNotificationReceived?.call(message.data);
-          return;
         }
       }
+
+      if (!isUserInChat) {
+        final senderName =
+            (message.data['sender_name'] as String?)?.trim().isNotEmpty ?? false
+            ? (message.data['sender_name'] as String).trim()
+            : (message.notification?.title ?? 'کاربر');
+        final body =
+            (message.data['message'] as String?)?.trim().isNotEmpty ?? false
+            ? (message.data['message'] as String).trim()
+            : (message.notification?.body ?? 'پیام جدید دریافت کردید');
+        await showInAppChatAlert(
+          senderName: senderName,
+          message: body,
+          conversationId: conversationId,
+        );
+      }
+      onNotificationReceived?.call(message.data);
+      return;
     }
 
     // Show local notification
@@ -531,8 +601,6 @@ class NotificationService {
           'GymAI Pro Notifications',
           description: 'Notifications for GymAI Pro app',
           importance: Importance.high,
-          playSound: true,
-          enableVibration: true,
         );
 
         await androidImplementation.createNotificationChannel(channel);
@@ -634,6 +702,43 @@ class NotificationService {
     }
   }
 
+  Future<bool> isFcmProviderReadyCached() async {
+    if (kIsWeb) return false;
+    return _isInitialized && _firebaseMessaging != null;
+  }
+
+  Future<void> showInAppFriendRequestAlert({
+    required String title,
+    required String body,
+    String? requestId,
+    String? requesterId,
+    String? friendId,
+    bool isAccepted = false,
+  }) async {
+    await showCustomNotification(
+      title: title,
+      body: body,
+      payload: json.encode({
+        'type': isAccepted ? 'friend_request_accepted' : 'friend_request',
+        if (requestId != null) 'request_id': requestId,
+        if (requesterId != null) 'requester_id': requesterId,
+        if (friendId != null) 'friend_id': friendId,
+      }),
+    );
+  }
+
+  Future<void> showInAppGenericAlert({
+    required String title,
+    required String body,
+    Map<String, dynamic>? data,
+  }) async {
+    await showCustomNotification(
+      title: title,
+      body: body,
+      payload: json.encode(data ?? <String, dynamic>{}),
+    );
+  }
+
   /// Show custom local notification
   Future<void> showCustomNotification({
     required String title,
@@ -641,6 +746,10 @@ class NotificationService {
     String? payload,
     int? id,
   }) async {
+    if (!_isInitialized) {
+      await initialize();
+    }
+
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
           'gymai_pro_custom_channel',
@@ -665,10 +774,69 @@ class NotificationService {
     );
 
     await _localNotifications.show(
-      id ?? DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      _safeNotificationId(id),
       title,
       body,
       platformChannelSpecifics,
+      payload: payload,
+    );
+  }
+
+  /// Show professional in-app chat alert (fallback when push is unavailable).
+  Future<void> showInAppChatAlert({
+    required String senderName,
+    required String message,
+    String? conversationId,
+  }) async {
+    if (!_isInitialized) {
+      await initialize();
+    }
+
+    final safeSender = senderName.trim().isNotEmpty ? senderName.trim() : 'کاربر';
+    final safeMessage = message.trim().isNotEmpty
+        ? message.trim()
+        : 'پیام جدید دریافت شد';
+
+    final androidDetails = AndroidNotificationDetails(
+      'chat_realtime_channel',
+      'Chat Messages',
+      channelDescription: 'Realtime in-app chat alerts',
+      importance: Importance.high,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
+      color: AppTheme.goldColor,
+      category: AndroidNotificationCategory.message,
+      styleInformation: BigTextStyleInformation(
+        safeMessage,
+        contentTitle: '💬 $safeSender',
+        summaryText: 'GymAI',
+      ),
+      ticker: 'پیام جدید از $safeSender',
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      subtitle: 'GymAI Pro Chat',
+    );
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    final payload = json.encode({
+      'type': 'chat_message_realtime',
+      'sender_name': safeSender,
+      if (conversationId != null) 'conversation_id': conversationId,
+    });
+
+    await _localNotifications.show(
+      _safeNotificationId(),
+      'پیام جدید از $safeSender',
+      safeMessage,
+      details,
       payload: payload,
     );
   }
@@ -973,30 +1141,102 @@ class NotificationService {
   }) async {
     if (!AppConfig.supabaseEdgeFunctionsEnabled) return false;
     try {
+      // If provider/network recently timed out, back off briefly to avoid
+      // repeated expensive calls that hurt chat responsiveness.
+      if (_lastChatNotificationTimeoutAt != null &&
+          DateTime.now().difference(_lastChatNotificationTimeoutAt!) <
+              const Duration(seconds: 4)) {
+        if (kDebugMode) {
+          debugPrint('ℹ️ Skip chat notification due to timeout backoff');
+        }
+        return false;
+      }
+
+      // Prevent duplicate server calls for same message in short window.
+      final now = DateTime.now();
+      _recentChatNotificationAttempts.removeWhere(
+        (_, at) => now.difference(at) > const Duration(seconds: 30),
+      );
+      final lastAttemptAt = _recentChatNotificationAttempts[messageId];
+      if (lastAttemptAt != null &&
+          now.difference(lastAttemptAt) < const Duration(seconds: 10)) {
+        if (kDebugMode) {
+          debugPrint('ℹ️ Skip duplicate chat notification attempt: $messageId');
+        }
+        return false;
+      }
+      _recentChatNotificationAttempts[messageId] = now;
+
+      // Fast-fail when internet is unavailable to avoid noisy socket errors.
+      final isOnline = await ConnectivityService.instance.checkNow();
+      if (!isOnline) {
+        if (kDebugMode) {
+          debugPrint('ℹ️ Skip send-chat-notification: offline');
+        }
+        return false;
+      }
+
       final supabase = Supabase.instance.client;
 
       final response = await supabase.functions.invoke(
-        'send-chat-notification',
-        body: {
-          'receiver_id': receiverId,
-          'sender_id': senderId,
-          'sender_name': senderName,
-          'message': message,
-          'message_id': messageId,
-          'message_type': messageType,
-          if (conversationId != null) 'conversation_id': conversationId,
-        },
-      );
+            'send-chat-notification',
+            body: {
+              'receiver_id': receiverId,
+              'sender_id': senderId,
+              'sender_name': senderName,
+              'message': message,
+              'message_id': messageId,
+              'message_type': messageType,
+              if (conversationId != null) 'conversation_id': conversationId,
+            },
+          )
+          .timeout(
+            const Duration(seconds: 6),
+            onTimeout: () => FunctionResponse(status: 408, data: 'timeout'),
+          );
 
       if (response.status == 200) {
         debugPrint('✅ Chat notification sent successfully');
         return true;
       } else {
-        debugPrint('❌ Chat notification failed: ${response.data}');
+        final isTimeout =
+            response.status == 408 || response.data?.toString() == 'timeout';
+        if (isTimeout) {
+          _lastChatNotificationTimeoutAt = DateTime.now();
+          // One quick retry before giving up, to improve delivery on flaky links.
+          try {
+            final retryResponse = await supabase.functions
+                .invoke(
+                  'send-chat-notification',
+                  body: {
+                    'receiver_id': receiverId,
+                    'sender_id': senderId,
+                    'sender_name': senderName,
+                    'message': message,
+                    'message_id': messageId,
+                    'message_type': messageType,
+                    if (conversationId != null) 'conversation_id': conversationId,
+                  },
+                )
+                .timeout(
+                  const Duration(seconds: 4),
+                  onTimeout: () => FunctionResponse(status: 408, data: 'timeout'),
+                );
+            if (retryResponse.status == 200) {
+              debugPrint('✅ Chat notification sent successfully (retry)');
+              return true;
+            }
+          } catch (_) {}
+        }
+        if (kDebugMode) {
+          debugPrint('❌ Chat notification failed: ${response.data}');
+        }
         return false;
       }
     } catch (e) {
-      debugPrint('❌ Error sending chat notification: $e');
+      if (kDebugMode) {
+        debugPrint('❌ Error sending chat notification: $e');
+      }
       return false;
     }
   }

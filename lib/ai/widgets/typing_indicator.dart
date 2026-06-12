@@ -46,7 +46,7 @@ class _TypingIndicatorState extends State<TypingIndicator>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      margin: EdgeInsets.only(left: 0, right: 50.w, bottom: 8.h),
+      margin: EdgeInsets.only(right: 50.w, bottom: 8.h),
       child: Row(
         textDirection: TextDirection.rtl,
         crossAxisAlignment: CrossAxisAlignment.end,

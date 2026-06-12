@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_plan_builder/services/meal_plan_service.dart';
-import 'package:gymaipro/workout_plan_builder/services/workout_program_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/utils/date_utils.dart' as du;
+import 'package:gymaipro/utils/widget_safety_utils.dart';
+import 'package:gymaipro/workout_plan_builder/services/workout_program_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TrainerRequestsTab extends StatefulWidget {
@@ -259,7 +259,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return Center(
+      return const Center(
         child: CircularProgressIndicator(
           color: AppTheme.goldColor,
         ),
@@ -342,9 +342,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
           final expiryDate = programDates?['expiry_date'];
           
           // بررسی اینکه آیا مهلت ویرایش گذشته است
-          final isEditDeadlinePassed = editableUntil != null 
-              ? DateTime.now().isAfter(editableUntil)
-              : false;
+          final isEditDeadlinePassed = editableUntil != null && DateTime.now().isAfter(editableUntil);
           
           // محاسبه روزهای باقیمانده تا انقضا
           int? daysUntilExpiry;
@@ -356,7 +354,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
 
           final isDark = Theme.of(context).brightness == Brightness.dark;
           
-          return Container(
+          return DecoratedBox(
             decoration: BoxDecoration(
               color: context.cardColor,
               borderRadius: BorderRadius.circular(16.r),
@@ -364,7 +362,6 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                 color: AppTheme.goldColor.withValues(
                   alpha: isDark ? 0.15 : 0.1,
                 ),
-                width: 1,
               ),
               boxShadow: [
                 BoxShadow(
@@ -373,7 +370,6 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                       : AppTheme.goldColor.withValues(alpha: 0.05),
                   blurRadius: 8.r,
                   offset: Offset(0, 2.h),
-                  spreadRadius: 0,
                 ),
               ],
             ),
@@ -423,7 +419,6 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                                       color: service == 'diet'
                                           ? const Color(0xFF9CD67A).withValues(alpha: 0.3)
                                           : AppTheme.goldColor.withValues(alpha: 0.3),
-                                      width: 1,
                                     ),
                                   ),
                                   child: Text(
@@ -499,7 +494,6 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                           style: OutlinedButton.styleFrom(
                             side: BorderSide(
                               color: AppTheme.goldColor.withValues(alpha: 0.4),
-                              width: 1,
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10.r),
@@ -537,7 +531,6 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                           style: OutlinedButton.styleFrom(
                             side: BorderSide(
                               color: AppTheme.goldColor.withValues(alpha: 0.4),
-                              width: 1,
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10.r),
@@ -566,10 +559,10 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                               ),
                               label: Text(
                                 service == 'diet'
-                                    ? (_planSentStatus[uid] == true
+                                    ? (_planSentStatus[uid] ?? false
                                           ? 'ویرایش رژیم'
                                           : 'ساخت رژیم')
-                                    : (_planSentStatus[uid] == true
+                                    : (_planSentStatus[uid] ?? false
                                           ? 'ویرایش تمرین'
                                           : 'ساخت تمرین'),
                                 style: TextStyle(
@@ -651,7 +644,7 @@ class _Avatar extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(999.r),
-        child: Container(
+        child: ColoredBox(
           color: isDark
               ? context.veryDarkBackground
               : AppTheme.lightSurfaceColor,
@@ -666,7 +659,7 @@ class _Avatar extends StatelessWidget {
                           child: SizedBox(
                             width: 16.w,
                             height: 16.h,
-                            child: CircularProgressIndicator(
+                            child: const CircularProgressIndicator(
                               strokeWidth: 2,
                               color: AppTheme.goldColor,
                             ),
@@ -686,7 +679,7 @@ class _Initials extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: AppTheme.goldColor.withValues(alpha: 0.15),
       ),

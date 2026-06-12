@@ -19,22 +19,6 @@ class UserRanking {
     this.lastName,
   });
 
-  final String userId;
-  final int totalScore;
-  final String currentLeague;
-  final int? globalRank;
-  final int? leagueRank;
-  final int leaguePoints;
-  final DateTime? leagueChangedAt;
-  final String? previousLeague;
-  final DateTime? rankUpdatedAt;
-  
-  // اطلاعات کاربر
-  final String? username;
-  final String? avatarUrl;
-  final String? firstName;
-  final String? lastName;
-
   factory UserRanking.fromJson(Map<String, dynamic> json) {
     return UserRanking(
       userId: json['user_id'] as String,
@@ -56,6 +40,22 @@ class UserRanking {
       lastName: json['last_name'] as String?,
     );
   }
+
+  final String userId;
+  final int totalScore;
+  final String currentLeague;
+  final int? globalRank;
+  final int? leagueRank;
+  final int leaguePoints;
+  final DateTime? leagueChangedAt;
+  final String? previousLeague;
+  final DateTime? rankUpdatedAt;
+  
+  // اطلاعات کاربر
+  final String? username;
+  final String? avatarUrl;
+  final String? firstName;
+  final String? lastName;
 
   Map<String, dynamic> toJson() {
     return {

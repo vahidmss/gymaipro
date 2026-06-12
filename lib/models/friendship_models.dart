@@ -8,11 +8,19 @@
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
-    final firstName = (json['first_name'] as String?) ?? '';
-    final lastName = (json['last_name'] as String?) ?? '';
+    var firstName = (json['first_name'] as String?) ?? '';
+    var lastName = (json['last_name'] as String?) ?? '';
+    final rpcFullName = (json['full_name'] as String?)?.trim();
+    if ((firstName.isEmpty && lastName.isEmpty) &&
+        rpcFullName != null &&
+        rpcFullName.isNotEmpty) {
+      final parts = rpcFullName.split(RegExp(r'\s+'));
+      firstName = parts.isNotEmpty ? parts.first : '';
+      lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+    }
     final fullName = (firstName.isNotEmpty || lastName.isNotEmpty)
         ? '$firstName $lastName'.trim()
-        : null;
+        : (rpcFullName?.isNotEmpty ?? false ? rpcFullName : null);
 
     return UserProfile(
       id: (json['id'] as String?) ?? '',
@@ -158,7 +166,7 @@ class FriendshipStatusHelper {
       case FriendshipStatus.friends:
         return 'دوستان';
       case FriendshipStatus.requestSent:
-        return 'درخواست ارسال شده';
+        return 'لغو درخواست';
       case FriendshipStatus.requestReceived:
         return 'تایید درخواست';
       case FriendshipStatus.requestRejected:

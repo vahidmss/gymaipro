@@ -46,7 +46,7 @@ class ConfirmDeleteFoodDialogMealPlanBuilder extends StatelessWidget {
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
             color: isDark ? AppTheme.goldColor : context.textColor,
-            fontSize: 16.sp,
+            fontSize: 14.sp,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -66,7 +66,7 @@ class ConfirmDeleteFoodDialogMealPlanBuilder extends StatelessWidget {
             style: TextButton.styleFrom(
               foregroundColor: AppTheme.goldColor,
             ),
-            child: Text(
+            child: const Text(
               'انصراف',
               style: TextStyle(fontFamily: AppTheme.fontFamily),
             ),
@@ -74,7 +74,7 @@ class ConfirmDeleteFoodDialogMealPlanBuilder extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red[600]),
-            child: Text(
+            child: const Text(
               'حذف',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,

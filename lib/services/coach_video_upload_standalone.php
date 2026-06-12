@@ -11,7 +11,7 @@
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Authorization, Content-Type');
+header('Access-Control-Allow-Headers: Authorization, Content-Type, X-User-Id, X-Auth-Token');
 
 // Handle preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -30,9 +30,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-// 1. بررسی JWT Token
-$auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-if (empty($auth_header) || !preg_match('/Bearer\s+(.+)/i', $auth_header, $matches)) {
+// 1. بررسی JWT: هدرها یا فیلد فرم auth_token (مثل upload-cover.php)
+$auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['HTTP_X_AUTH_TOKEN'] ?? '';
+$jwt_token = null;
+if (preg_match('/Bearer\s+(.+)/i', $auth_header, $matches)) {
+    $jwt_token = trim($matches[1]);
+}
+if (empty($jwt_token) && !empty($_POST['auth_token'])) {
+    $jwt_token = trim((string) $_POST['auth_token']);
+}
+if (empty($jwt_token)) {
     http_response_code(401);
     echo json_encode([
         'success' => false,
@@ -41,8 +48,6 @@ if (empty($auth_header) || !preg_match('/Bearer\s+(.+)/i', $auth_header, $matche
     ]);
     exit;
 }
-
-$jwt_token = $matches[1];
 
 // 2. بررسی اعتبار JWT با Supabase
 // تنظیم از upload_config.php خوانده می‌شود تا بتوانیم از IP + Host جداگانه استفاده کنیم
@@ -211,6 +216,8 @@ if ($upload_context === 'announcements') {
     $month = date('m');
     $base_path = __DIR__ . '/announcements/videos/' . $year . '/' . $month;
     $trainer_folder = $base_path;
+} elseif ($upload_context === 'custom_exercise') {
+    $trainer_folder = __DIR__ . '/custom_exercises/' . $safe_username . '/videos';
 } else {
     $base_path = __DIR__ . '/coaches_video';
     $trainer_folder = $base_path . '/' . $safe_username;
@@ -232,7 +239,13 @@ if (!file_exists($trainer_folder)) {
 // تولید نام فایل منحصر به فرد
 $timestamp = time();
 $random_string = bin2hex(random_bytes(4));
-$prefix = ($upload_context === 'announcements') ? 'announcement_video' : 'video';
+if ($upload_context === 'announcements') {
+    $prefix = 'announcement_video';
+} elseif ($upload_context === 'custom_exercise') {
+    $prefix = 'exercise_video';
+} else {
+    $prefix = 'video';
+}
 $file_name = $prefix . '_' . $timestamp . '_' . $random_string . '.' . $file_extension;
 $file_path = $trainer_folder . '/' . $file_name;
 
@@ -255,6 +268,8 @@ if ($upload_context === 'announcements') {
     $year = date('Y');
     $month = date('m');
     $video_url = 'https://dl.gymaipro.ir/announcements/videos/' . $year . '/' . $month . '/' . $file_name;
+} elseif ($upload_context === 'custom_exercise') {
+    $video_url = 'https://dl.gymaipro.ir/custom_exercises/' . $safe_username . '/videos/' . $file_name;
 } else {
     $video_url = 'https://dl.gymaipro.ir/coaches_video/' . $safe_username . '/' . $file_name;
 }

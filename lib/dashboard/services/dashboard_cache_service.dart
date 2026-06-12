@@ -258,9 +258,9 @@ class DashboardCacheService {
 
 /// کلاس داخلی برای نگهداری entry های کش
 class _CacheEntry {
+
+  _CacheEntry({required this.data, required this.timestamp, required this.ttl});
   final dynamic data;
   final DateTime timestamp;
   final Duration ttl;
-
-  _CacheEntry({required this.data, required this.timestamp, required this.ttl});
 }

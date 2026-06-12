@@ -11,7 +11,7 @@ import 'package:gymaipro/trainer_dashboard/screens/trainer_finance_tab.dart';
 import 'package:gymaipro/trainer_dashboard/screens/custom_exercises_tab.dart';
 import 'package:gymaipro/trainer_dashboard/screens/custom_musics_tab.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class TrainerDashboardScreen extends StatefulWidget {
   const TrainerDashboardScreen({super.key, this.initialTabIndex = 0});

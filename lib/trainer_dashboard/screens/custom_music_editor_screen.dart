@@ -12,7 +12,7 @@ import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_dashboard/widgets/upload_progress_dialog.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// صفحه ساخت/ویرایش موزیک اختصاصی
 class CustomMusicEditorScreen extends StatefulWidget {

@@ -4,7 +4,7 @@ import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/workout_questionnaire/screens/workout_questionnaire_screen.dart';
 import 'package:gymaipro/trainer_ranking/screens/trainer_ranking_screen.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// صفحه انتخاب نوع برنامه
 /// کاربر می‌تواند بین برنامه تمرینی از AI، برنامه رژیمی از AI، یا برنامه از مربی انتخاب کند

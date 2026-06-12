@@ -114,7 +114,7 @@ class WorkoutMusicService {
             .where((m) => m.isCustom) // فقط موزیک‌های Supabase
             .toList();
         if (cachedMusic.isNotEmpty) {
-          return await _applyUserData(cachedMusic);
+          return _applyUserData(cachedMusic);
         }
       }
 

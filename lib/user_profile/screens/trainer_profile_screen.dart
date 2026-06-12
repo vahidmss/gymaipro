@@ -7,7 +7,7 @@ import 'package:gymaipro/profile/widgets/profile_new_widgets.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_kpi_service.dart';
 import 'package:gymaipro/user_profile/services/user_profile_service.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// اسکرین پروفایل مربی (عمومی)

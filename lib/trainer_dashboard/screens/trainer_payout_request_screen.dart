@@ -8,7 +8,7 @@ import 'package:gymaipro/payment/utils/card_input_formatter.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// صفحه درخواست برداشت مربی

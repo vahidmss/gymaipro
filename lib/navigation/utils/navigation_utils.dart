@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
+import 'package:gymaipro/theme/app_theme.dart';
 
 /// Utility functions for navigation operations
 class NavigationUtils {
@@ -90,8 +91,6 @@ class NavigationUtils {
         return NavigationConstants.chatIndex;
       case NavigationConstants.dashboardRoute:
         return NavigationConstants.dashboardIndex;
-      case NavigationConstants.socialRoute:
-        return NavigationConstants.socialIndex;
       default:
         return null;
     }
@@ -243,12 +242,12 @@ class NavigationUtils {
       child: Container(
         padding: EdgeInsets.all(padding),
         decoration: BoxDecoration(
-          color: Colors.grey[800],
+          color: AppTheme.darkCardColor,
           borderRadius: BorderRadius.circular(borderRadius),
           border: Border.all(color: color.withValues(alpha: 0.2)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: AppTheme.veryDarkBackground.withValues(alpha: 0.1),
               blurRadius: 8.r,
               offset: Offset(0.w, 4.h),
             ),
@@ -272,8 +271,8 @@ class NavigationUtils {
                   Text(
                     title,
                     style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16.sp,
+                      color: AppTheme.darkTextColor,
+                      fontSize: 14.sp,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -281,7 +280,7 @@ class NavigationUtils {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
+                      color: AppTheme.darkTextColor.withValues(alpha: 0.7),
                       fontSize: 12.sp,
                     ),
                   ),
@@ -290,7 +289,7 @@ class NavigationUtils {
             ),
             Icon(
               Icons.arrow_forward_ios,
-              color: Colors.white.withValues(alpha: 0.5),
+              color: AppTheme.darkTextColor.withValues(alpha: 0.5),
               size: 16.sp,
             ),
           ],
@@ -311,11 +310,11 @@ class NavigationUtils {
     return Container(
       width: double.infinity,
       padding: padding ?? EdgeInsets.all(16.w),
-      decoration: BoxDecoration(color: backgroundColor ?? Colors.grey[900]),
+      decoration: BoxDecoration(color: backgroundColor ?? AppTheme.veryDarkBackground),
       child: Text(
         title,
         style: TextStyle(
-          color: textColor ?? Colors.white,
+          color: textColor ?? AppTheme.darkTextColor,
           fontSize: fontSize,
           fontWeight: fontWeight,
         ),

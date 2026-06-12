@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ServiceCardWidget extends StatelessWidget {
   const ServiceCardWidget({
@@ -35,10 +35,19 @@ class ServiceCardWidget extends StatelessWidget {
   final bool isProcessing;
   final VoidCallback? onTap;
 
+  bool get _locked => disabled || onTap == null;
+
   @override
   Widget build(BuildContext context) {
+    final muted = context.textSecondary;
+    final borderColor = _locked
+        ? muted.withValues(alpha: 0.25)
+        : (isSelected
+            ? AppTheme.goldColor
+            : (isPopular ? AppTheme.goldColor : color.withValues(alpha: 0.35)));
+
     return Opacity(
-      opacity: disabled ? 0.5 : 1,
+      opacity: _locked ? 0.52 : 1,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
@@ -48,39 +57,51 @@ class ServiceCardWidget extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: disabled ? null : onTap,
-            borderRadius: BorderRadius.circular(16.r),
-            child: Container(
-              padding: EdgeInsets.all(16.w),
+            onTap: _locked ? null : onTap,
+            borderRadius: BorderRadius.circular(18.r),
+            child: DecoratedBox(
               decoration: BoxDecoration(
                 color: context.cardColor,
-                borderRadius: BorderRadius.circular(16.r),
+                borderRadius: BorderRadius.circular(18.r),
                 border: Border.all(
-                  color: isSelected
-                      ? AppTheme.goldColor
-                      : (isPopular
-                          ? AppTheme.goldColor
-                          : color.withValues(alpha: 0.3)),
+                  color: borderColor,
                   width: isSelected ? 2.5 : (isPopular ? 2 : 1.5),
                 ),
                 boxShadow: [
-                  BoxShadow(
-                    color: (isSelected ? AppTheme.goldColor : color)
-                        .withValues(alpha: 0.15),
-                    blurRadius: 8.r,
-                    offset: Offset(0.w, 2.h),
-                  ),
+                  if (!_locked)
+                    BoxShadow(
+                      color: (isSelected ? AppTheme.goldColor : color)
+                          .withValues(alpha: 0.12),
+                      blurRadius: 12.r,
+                      offset: Offset(0, 4.h),
+                    ),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(context),
-                  SizedBox(height: 16.h),
-                  _buildFeaturesSection(context),
-                  SizedBox(height: 16.h),
-                  _buildPurchaseButton(context),
-                ],
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(17.r),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      height: 3.h,
+                      color: _locked ? muted.withValues(alpha: 0.35) : color,
+                    ),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 16.h),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildHeader(context),
+                          SizedBox(height: 14.h),
+                          _buildFeaturesSection(context),
+                          SizedBox(height: 14.h),
+                          _buildPurchaseButton(context),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -91,16 +112,17 @@ class ServiceCardWidget extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          padding: EdgeInsets.all(6.w),
+          padding: EdgeInsets.all(8.w),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(6.r),
+            color: color.withValues(alpha: _locked ? 0.08 : 0.18),
+            borderRadius: BorderRadius.circular(12.r),
           ),
-          child: Icon(icon, color: color, size: 20),
+          child: Icon(icon, color: color, size: 22.sp),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: 12.w),
         Expanded(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -114,26 +136,27 @@ class ServiceCardWidget extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         color: context.textColor,
-                        fontSize: 17.sp,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w800,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (isPopular) ...[
-                    const SizedBox(width: 6),
+                  if (isPopular && !_locked) ...[
+                    SizedBox(width: 6.w),
                     _buildBadge('محبوب', AppTheme.goldColor),
                   ],
                 ],
               ),
-              SizedBox(height: 6.h),
+              SizedBox(height: 5.h),
               Text(
                 description,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   color: context.textSecondary,
                   fontSize: 12.sp,
+                  height: 1.35,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -141,23 +164,24 @@ class ServiceCardWidget extends StatelessWidget {
             ],
           ),
         ),
+        SizedBox(width: 8.w),
         _buildPriceSection(context),
       ],
     );
   }
 
-  Widget _buildBadge(String text, Color color) {
+  Widget _buildBadge(String text, Color badgeColor) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
       decoration: BoxDecoration(
-        color: color,
+        color: badgeColor,
         borderRadius: BorderRadius.circular(6.r),
       ),
       child: Text(
         text,
         style: TextStyle(
           fontFamily: AppTheme.fontFamily,
-          color: Colors.white,
+          color: AppTheme.darkTextColor,
           fontSize: 9.sp,
           fontWeight: FontWeight.bold,
         ),
@@ -168,45 +192,61 @@ class ServiceCardWidget extends StatelessWidget {
   }
 
   Widget _buildPriceSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
+    final muted = context.textSecondary;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: _locked ? 0.05 : 0.1),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: color.withValues(alpha: _locked ? 0.12 : 0.22),
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'تومان',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: muted,
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(width: 4.w),
+                Flexible(
+                  child: Text(
+                    price,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: _locked ? muted : color,
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w800,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 2.h),
             Text(
-              'تومان ',
+              period,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                color: context.textSecondary,
-                fontSize: 11.sp,
-              ),
-            ),
-            Flexible(
-              child: Text(
-                price,
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  color: color,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.bold,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                color: muted,
+                fontSize: 10.sp,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
         ),
-        SizedBox(height: 2.h),
-        Text(
-          period,
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            color: context.textSecondary,
-            fontSize: 11.sp,
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -215,33 +255,27 @@ class ServiceCardWidget extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'شامل:',
+          'شامل',
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
             color: context.textColor,
-            fontSize: 13.sp,
-            fontWeight: FontWeight.bold,
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w800,
           ),
         ),
         SizedBox(height: 8.h),
         ...features.map(
           (feature) => Padding(
-            padding: EdgeInsets.only(bottom: 6.h),
+            padding: EdgeInsets.only(bottom: 5.h),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: EdgeInsets.all(4.w),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    LucideIcons.check,
-                    color: color,
-                    size: 14.sp,
-                  ),
+                Icon(
+                  LucideIcons.check,
+                  color: color.withValues(alpha: _locked ? 0.45 : 0.9),
+                  size: 16.sp,
                 ),
-                SizedBox(width: 10.w),
+                SizedBox(width: 8.w),
                 Expanded(
                   child: Text(
                     feature,
@@ -250,6 +284,7 @@ class ServiceCardWidget extends StatelessWidget {
                       color: context.textColor,
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w500,
+                      height: 1.35,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -264,28 +299,30 @@ class ServiceCardWidget extends StatelessWidget {
   }
 
   Widget _buildPurchaseButton(BuildContext context) {
+    final muted = context.textSecondary;
     return SizedBox(
       width: double.infinity,
-      height: 44.h,
-      child: ElevatedButton(
-        onPressed: disabled ? null : onTap,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isSelected
-              ? AppTheme.goldColor
-              : (isPopular
-                  ? color.withValues(alpha: 0.2)
-                  : color.withValues(alpha: 0.15)),
-          foregroundColor: isSelected
-              ? Colors.black
-              : (isPopular ? color : context.textColor),
-          elevation: isSelected ? 4 : 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12.r),
-            side: BorderSide(
-              color: isSelected
+      height: 46.h,
+      child: FilledButton(
+        onPressed: _locked ? null : onTap,
+        style: FilledButton.styleFrom(
+          backgroundColor: _locked
+              ? muted.withValues(alpha: 0.2)
+              : (isSelected
                   ? AppTheme.goldColor
-                  : color.withValues(alpha: 0.5),
-              width: isSelected ? 2 : 1.5,
+                  : color.withValues(alpha: 0.22)),
+          foregroundColor: _locked
+              ? muted
+              : (isSelected ? AppTheme.onGoldColor : context.textColor),
+          disabledBackgroundColor: muted.withValues(alpha: 0.15),
+          disabledForegroundColor: muted.withValues(alpha: 0.75),
+          elevation: _locked ? 0 : (isSelected ? 2 : 0),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14.r),
+            side: BorderSide(
+              color: _locked
+                  ? muted.withValues(alpha: 0.25)
+                  : color.withValues(alpha: 0.45),
             ),
           ),
           padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -294,14 +331,17 @@ class ServiceCardWidget extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(LucideIcons.shoppingCart, size: 18.sp),
+            Icon(
+              _locked ? LucideIcons.lock : LucideIcons.shoppingCart,
+              size: 18.sp,
+            ),
             SizedBox(width: 8.w),
             Text(
-              'خرید برنامه',
+              _locked ? 'غیرقابل خرید' : 'ادامه و پرداخت',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                fontSize: 15.sp,
-                fontWeight: FontWeight.bold,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ],

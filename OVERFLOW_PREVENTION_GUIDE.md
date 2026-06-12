@@ -42,7 +42,7 @@ SafeColumn(
 ```dart
 SafeText(
   'متن طولانی',
-  style: TextStyle(fontSize: 16.sp),
+  style: TextStyle(fontSize: 14.sp),
   maxLines: 2,
 )
 ```
@@ -64,7 +64,7 @@ OverflowSafe(
 
 ```dart
 // Wrap text in Flexible
-flexibleText('متن', style: TextStyle(fontSize: 16.sp))
+flexibleText('متن', style: TextStyle(fontSize: 14.sp))
 
 // Wrap widget in Expanded
 expandedWidget(YourWidget())

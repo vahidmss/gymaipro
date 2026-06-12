@@ -10,7 +10,7 @@ import 'package:gymaipro/meal_plan_builder/dialogs/edit_food_dialog.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/models/meal_plan.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class MealCardMealPlanBuilder extends StatelessWidget {
   const MealCardMealPlanBuilder({

@@ -4,7 +4,7 @@ import 'package:gymaipro/meal_log/models/food_log_item.dart';
 import 'package:gymaipro/meal_log/utils/responsive_dialog_utils.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/text_controller_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class EditAmountDialog extends StatefulWidget {
   const EditAmountDialog({required this.foodItem, super.key});

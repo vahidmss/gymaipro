@@ -58,6 +58,8 @@ class Achievement {
 
   bool get isUnlocked => currentValue >= targetValue;
 
+  int get stars => points;
+
   double get progress {
     if (targetValue == 0) return 0;
     return (currentValue / targetValue).clamp(0.0, 1.0);

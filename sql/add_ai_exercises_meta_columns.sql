@@ -1,0 +1,3 @@
+-- اجرا در Supabase SQL Editor:
+-- محتوای فایل زیر را کپی و Run کنید (نه این فایل خالی):
+--   supabase/migrations/20260522120000_ai_exercises_meta_fields.sql

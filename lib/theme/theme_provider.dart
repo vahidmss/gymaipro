@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Provider برای مدیریت تم اپلیکیشن
 /// 
@@ -15,13 +15,13 @@ import 'package:gymaipro/theme/app_theme.dart';
 /// - سریع و کارآمد است
 /// - در همه دستگاه‌های کاربر یکسان عمل می‌کند
 class ThemeProvider extends ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.light;
-  static const String _themeModeKey = 'theme_mode';
-  bool _isLoading = true;
 
   ThemeProvider() {
     _loadTheme();
   }
+  ThemeMode _themeMode = ThemeMode.light;
+  static const String _themeModeKey = 'theme_mode';
+  bool _isLoading = true;
 
   /// وضعیت بارگذاری تم
   bool get isLoading => _isLoading;
@@ -64,13 +64,10 @@ class ThemeProvider extends ChangeNotifier {
         switch (savedMode) {
           case 'dark':
             _themeMode = ThemeMode.dark;
-            break;
           case 'light':
             _themeMode = ThemeMode.light;
-            break;
           case 'system':
             _themeMode = ThemeMode.system;
-            break;
           default:
             _themeMode = ThemeMode.light;
         }
@@ -126,13 +123,10 @@ class ThemeProvider extends ChangeNotifier {
       switch (_themeMode) {
         case ThemeMode.dark:
           modeString = 'dark';
-          break;
         case ThemeMode.light:
           modeString = 'light';
-          break;
         case ThemeMode.system:
           modeString = 'system';
-          break;
       }
       await prefs.setString(_themeModeKey, modeString);
     } catch (e) {

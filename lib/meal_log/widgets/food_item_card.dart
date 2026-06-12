@@ -4,7 +4,7 @@ import 'package:gymaipro/meal_log/models/food_log_item.dart';
 import 'package:gymaipro/meal_log/utils/meal_log_utils.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class FoodItemCard extends StatelessWidget {
   const FoodItemCard({

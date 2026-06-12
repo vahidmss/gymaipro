@@ -1,0 +1,24 @@
+{
+  "id": 4017,
+  "title": "بورپی",
+  "main": "full_body",
+  "movement": "",
+  "targets": {
+    "full_body": 90,
+    "quads": 60,
+    "abs": 55,
+    "chest": 50
+  },
+  "secondary": [
+    "chest",
+    "quads",
+    "abs"
+  ],
+  "equipment": [
+    "bodyweight"
+  ],
+  "norm": [
+    "estimated_1rm_formula disabled for bodyweight/isometric/mobility movement"
+  ],
+  "notes": null
+}

@@ -20,7 +20,7 @@ class ProgressAnalysisLimitService {
     try {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) {
-        return ProgressAnalysisLimitResult(
+        return const ProgressAnalysisLimitResult(
           canUse: false,
           reason: ProgressAnalysisLimitReason.notLoggedIn,
           remainingFree: 0,
@@ -35,11 +35,9 @@ class ProgressAnalysisLimitService {
 
       if (hasSubscription) {
         // کاربر اشتراک دارد - دسترسی نامحدود
-        return ProgressAnalysisLimitResult(
+        return const ProgressAnalysisLimitResult(
           canUse: true,
-          reason: null,
           remainingFree: 0,
-          message: null,
           hasSubscription: true,
         );
       }
@@ -79,13 +77,12 @@ class ProgressAnalysisLimitService {
 
       if (freeUsageCount >= _maxFreeUsage) {
         // استفاده رایگان تمام شده
-        return ProgressAnalysisLimitResult(
+        return const ProgressAnalysisLimitResult(
           canUse: false,
           reason: ProgressAnalysisLimitReason.freeLimitExceeded,
           remainingFree: 0,
           message:
               'شما از $_maxFreeUsage استفاده رایگان خود استفاده کرده‌اید. برای استفاده نامحدود، اشتراک تهیه کنید.',
-          hasSubscription: false,
         );
       }
 
@@ -93,21 +90,16 @@ class ProgressAnalysisLimitService {
       final remaining = _maxFreeUsage - freeUsageCount;
       return ProgressAnalysisLimitResult(
         canUse: true,
-        reason: null,
         remainingFree: remaining,
-        message: null,
-        hasSubscription: false,
       );
     } catch (e) {
       if (kDebugMode) {
         print('Error checking analysis limit: $e');
       }
       // در صورت خطا، اجازه استفاده بده
-      return ProgressAnalysisLimitResult(
+      return const ProgressAnalysisLimitResult(
         canUse: true,
-        reason: null,
         remainingFree: _maxFreeUsage,
-        message: null,
       );
     }
   }
@@ -203,7 +195,7 @@ class ProgressAnalysisLimitService {
     try {
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) {
-        return ProgressAnalysisLimitStats(
+        return const ProgressAnalysisLimitStats(
           freeUsed: 0,
           freeLimit: _maxFreeUsage,
           remainingFree: _maxFreeUsage,
@@ -216,7 +208,7 @@ class ProgressAnalysisLimitService {
       );
 
       if (hasSubscription) {
-        return ProgressAnalysisLimitStats(
+        return const ProgressAnalysisLimitStats(
           freeUsed: 0,
           freeLimit: _maxFreeUsage,
           remainingFree: 0,
@@ -264,7 +256,7 @@ class ProgressAnalysisLimitService {
       if (kDebugMode) {
         print('Error getting usage stats: $e');
       }
-      return ProgressAnalysisLimitStats(
+      return const ProgressAnalysisLimitStats(
         freeUsed: 0,
         freeLimit: _maxFreeUsage,
         remainingFree: _maxFreeUsage,
@@ -341,8 +333,7 @@ class ProgressAnalysisLimitService {
 class ProgressAnalysisLimitResult {
   const ProgressAnalysisLimitResult({
     required this.canUse,
-    this.reason,
-    required this.remainingFree,
+    required this.remainingFree, this.reason,
     this.message,
     this.hasSubscription = false,
   });

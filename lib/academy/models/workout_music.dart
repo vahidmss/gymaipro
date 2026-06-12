@@ -60,7 +60,7 @@ class WorkoutMusic {
       approved: JsonParse.boolean(json, 'approved', true),
       isCustom: JsonParse.boolean(json, 'is_custom', true),
       likes: JsonParse.integer(json, 'likes'),
-      isLikedByUser: JsonParse.boolean(json, 'is_liked_by_user', false),
+      isLikedByUser: JsonParse.boolean(json, 'is_liked_by_user'),
     );
   }
 

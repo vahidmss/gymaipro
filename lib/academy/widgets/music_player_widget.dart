@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/services/music_player_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 class MusicPlayerWidget extends StatelessWidget {
@@ -645,13 +645,13 @@ class _RepeatButton extends StatelessWidget {
     this.compact = false,
   });
 
-  final RepeatMode repeatMode;
+  final MusicRepeatMode repeatMode;
   final VoidCallback onTap;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final isActive = repeatMode != RepeatMode.none;
+    final isActive = repeatMode != MusicRepeatMode.none;
 
     return Material(
       color: Colors.transparent,
@@ -675,7 +675,7 @@ class _RepeatButton extends StatelessWidget {
                 size: compact ? 18.sp : 20.sp,
                 color: isActive ? AppTheme.goldColor : context.textColor,
               ),
-              if (repeatMode == RepeatMode.one)
+              if (repeatMode == MusicRepeatMode.one)
                 Positioned(
                   bottom: compact ? 4.h : 5.h,
                   right: compact ? 4.w : 5.w,

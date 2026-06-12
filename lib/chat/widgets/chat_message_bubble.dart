@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ChatMessageBubble extends StatelessWidget {
   const ChatMessageBubble({
@@ -10,10 +10,16 @@ class ChatMessageBubble extends StatelessWidget {
     required this.isMe,
     super.key,
     this.onLongPress,
+    this.isSending = false,
+    this.isFailed = false,
+    this.onRetryTap,
   });
   final ChatMessage message;
   final bool isMe;
   final VoidCallback? onLongPress;
+  final bool isSending;
+  final bool isFailed;
+  final VoidCallback? onRetryTap;
 
   @override
   Widget build(BuildContext context) {

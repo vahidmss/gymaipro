@@ -96,6 +96,29 @@ class NotificationDataService {
     }
   }
 
+  /// Create a notification for an arbitrary user (alias used by delivery layer).
+  static Future<bool> createNotificationForUser({
+    required String userId,
+    required String title,
+    required String message,
+    required NotificationType type,
+    int priority = 2,
+    Map<String, dynamic>? data,
+    String? actionUrl,
+    DateTime? expiresAt,
+  }) {
+    return createNotification(
+      userId: userId,
+      title: title,
+      message: message,
+      type: type,
+      priority: priority,
+      data: data,
+      actionUrl: actionUrl,
+      expiresAt: expiresAt,
+    );
+  }
+
   /// Create a new notification
   static Future<bool> createNotification({
     required String userId,

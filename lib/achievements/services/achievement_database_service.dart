@@ -82,7 +82,7 @@ class AchievementDatabaseService {
     } catch (e) {
       debugPrint('❌ Error loading achievements from database: $e');
       // Fallback به cache محلی در صورت خطا
-      return await _loadFromLocalCache();
+      return _loadFromLocalCache();
     }
   }
 
@@ -350,7 +350,7 @@ class AchievementDatabaseService {
       // اگر وجود دارد، آن را پاک کن تا از استفاده نادرست جلوگیری شود
       if (jsonStr == null) {
         // بررسی وجود cache قدیمی (بدون user ID)
-        final oldCacheKey = 'achievements_cache';
+        const oldCacheKey = 'achievements_cache';
         if (prefs.containsKey(oldCacheKey)) {
           debugPrint('⚠️ Old cache format detected, removing it');
           await prefs.remove(oldCacheKey);

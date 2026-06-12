@@ -1,9 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/workout_plan_builder/dialogs/edit_session_notes_dialog.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class DaySelector extends StatelessWidget {
   const DaySelector({

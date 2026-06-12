@@ -326,7 +326,7 @@ class CustomMusicService {
         'duration': duration,
         'category': category,
         'description': description,
-        'singer': singer?.trim().isEmpty == true ? null : singer?.trim(),
+        'singer': singer?.trim().isEmpty ?? false ? null : singer?.trim(),
         'visibility': visibility,
         'views_count': 0,
         'likes_count': 0,

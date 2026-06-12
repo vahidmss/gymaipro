@@ -6,7 +6,7 @@ import 'package:gymaipro/academy/services/custom_music_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_dashboard/screens/custom_music_editor_screen.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// تب موزیک‌های اختصاصی در داشبورد مربی
 class CustomMusicsTab extends StatefulWidget {

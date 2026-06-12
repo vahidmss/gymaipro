@@ -1,0 +1,4 @@
+PAGE 1 QUALITY SCAN
+
+EMPTY_MOVEMENT: 4012 کرانچ سیمکش main=abs
+EMPTY_MOVEMENT: 4017 بورپی main=full_body

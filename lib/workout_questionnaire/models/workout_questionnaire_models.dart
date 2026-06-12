@@ -118,6 +118,11 @@ class WorkoutQuestionResponse {
   final double? answerNumber;
   final List<String>? answerChoices;
 
+  bool get hasAnswer =>
+      (answerText?.trim().isNotEmpty ?? false) ||
+      answerNumber != null ||
+      (answerChoices?.isNotEmpty ?? false);
+
   Map<String, dynamic> toJson() {
     return {
       'question_id': questionId,

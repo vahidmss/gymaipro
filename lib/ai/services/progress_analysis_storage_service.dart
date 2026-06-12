@@ -176,7 +176,7 @@ class ProgressAnalysisStorageService {
     }
 
     // اگر دیتابیس خالی بود، از حافظه داخلی بگیر
-    return await getLocalAnalyses();
+    return getLocalAnalyses();
   }
 
   /// حذف تحلیل از حافظه داخلی

@@ -14,7 +14,7 @@ import 'package:gymaipro/ranking/services/ranking_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 

@@ -32,9 +32,10 @@ pluginManagement {
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
 
     repositories {
-        // Tencent mirror: verified accessible from Iran (Apr 2026)
+        // Local repo with pre-cached plugin artifacts (Iran-friendly, instant resolution)
+        maven { url = uri(java.io.File(System.getProperty("user.home"), ".gradle/local-maven-repo").toURI()) }
+        // Tencent mirror: verified accessible from Iran
         maven { url = uri("https://mirrors.cloud.tencent.com/nexus/repository/maven-public") }
-        // Google Maven: accessible from Iran
         google()
         mavenCentral()
     }
@@ -43,9 +44,10 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
     repositories {
-        // Tencent mirror: verified accessible from Iran (Apr 2026)
+        // Local repo with pre-cached plugin artifacts (Iran-friendly, instant resolution)
+        maven { url = uri(java.io.File(System.getProperty("user.home"), ".gradle/local-maven-repo").toURI()) }
+        // Tencent mirror: verified accessible from Iran
         maven { url = uri("https://mirrors.cloud.tencent.com/nexus/repository/maven-public") }
-        // Google Maven: accessible from Iran
         google()
         mavenCentral()
     }

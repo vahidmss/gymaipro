@@ -1,13 +1,14 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:gymaipro/achievements/models/achievement.dart';
 import 'package:gymaipro/achievements/services/achievement_database_service.dart';
 import 'package:gymaipro/achievements/widgets/achievement_notification.dart';
 import 'package:gymaipro/main.dart';
-import 'package:gymaipro/services/score_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 
 class AchievementService extends ChangeNotifier {
+
+  /// Backwards-compatible factory: `AchievementService()` returns the shared instance.
+  factory AchievementService() => instance;
   AchievementService._internal() {
     _initializeAchievements();
     _loadUserProgress();
@@ -17,12 +18,12 @@ class AchievementService extends ChangeNotifier {
   /// Avoid creating multiple instances (causes duplicate DB reads/writes and noisy logs).
   static final AchievementService instance = AchievementService._internal();
 
-  /// Backwards-compatible factory: `AchievementService()` returns the shared instance.
-  factory AchievementService() => instance;
-
   final AchievementDatabaseService _databaseService = AchievementDatabaseService();
   List<Achievement> _achievements = [];
   bool _isLoading = false;
+  bool _isRefreshingFromDatabase = false;
+  DateTime? _lastDatabaseRefreshAt;
+  static const Duration _databaseRefreshCooldown = Duration(seconds: 45);
 
   List<Achievement> get achievements => _achievements;
 
@@ -35,6 +36,8 @@ class AchievementService extends ChangeNotifier {
   int get totalPoints => _achievements
       .where((a) => a.isUnlocked)
       .fold(0, (sum, a) => sum + a.points);
+
+  int get totalStars => totalPoints;
 
   int get totalPossiblePoints =>
       _achievements.fold(0, (sum, a) => sum + a.points);
@@ -425,7 +428,6 @@ class AchievementService extends ChangeNotifier {
           // اگر در دیتابیس نیست، reset کن
           _achievements[i] = achievement.copyWith(
             currentValue: 0,
-            unlockedAt: null,
           );
         }
       }
@@ -470,7 +472,25 @@ class AchievementService extends ChangeNotifier {
   }
 
   /// بارگذاری مجدد از دیتابیس (پاک کردن cache و لود مجدد)
-  Future<void> refreshFromDatabase() async {
+  Future<void> refreshFromDatabase({bool force = false}) async {
+    final now = DateTime.now();
+    if (_isRefreshingFromDatabase) {
+      if (kDebugMode) {
+        debugPrint('ℹ️ Achievement refresh skipped (already in progress)');
+      }
+      return;
+    }
+    if (!force &&
+        _lastDatabaseRefreshAt != null &&
+        now.difference(_lastDatabaseRefreshAt!) < _databaseRefreshCooldown) {
+      if (kDebugMode) {
+        debugPrint('ℹ️ Achievement refresh skipped (cooldown active)');
+      }
+      return;
+    }
+
+    _isRefreshingFromDatabase = true;
+    _lastDatabaseRefreshAt = now;
     try {
       debugPrint('🔄 Refreshing achievements from database...');
       // پاک کردن cache محلی
@@ -480,6 +500,8 @@ class AchievementService extends ChangeNotifier {
       debugPrint('✅ Achievements refreshed from database');
     } catch (e) {
       debugPrint('❌ Error refreshing achievements: $e');
+    } finally {
+      _isRefreshingFromDatabase = false;
     }
   }
 
@@ -511,6 +533,10 @@ class AchievementService extends ChangeNotifier {
     final oldAchievement = _achievements[index];
     final wasUnlocked = oldAchievement.isUnlocked;
     final isNowUnlocked = newValue >= oldAchievement.targetValue;
+    // No-op guard: avoid noisy DB writes and notifications when nothing changed.
+    if (oldAchievement.currentValue == newValue && wasUnlocked == isNowUnlocked) {
+      return;
+    }
     final unlockTime = !wasUnlocked && isNowUnlocked ? DateTime.now() : oldAchievement.unlockedAt;
 
     // به‌روزرسانی در حافظه
@@ -540,37 +566,9 @@ class AchievementService extends ChangeNotifier {
   }
 
   Future<void> _onAchievementUnlocked(Achievement achievement) async {
-    // اضافه کردن امتیاز به ScoreService
-    final scoreService = ScoreService();
-    
-    // مطمئن شویم که ScoreService init شده است
-    // اگر تاریخچه خالی است، از دیتابیس بارگذاری کن
-    if (scoreService.history.isEmpty) {
-      try {
-        await scoreService.loadFromDatabase();
-      } catch (e) {
-        debugPrint('⚠️ Error loading score service: $e');
-      }
-    }
-    
-    // اضافه کردن امتیاز (این متد خودش بررسی می‌کند که تکراری نباشد)
-    final pointsAdded = await scoreService.addAchievementPoints(
-      achievementId: achievement.id,
-      achievementTitle: achievement.title,
-      achievementIcon: achievement.icon,
-      points: achievement.points,
-      description: achievement.description,
+    debugPrint(
+      '🎉 Achievement Unlocked: ${achievement.title} (+${achievement.points} points)',
     );
-    
-    if (pointsAdded) {
-      debugPrint(
-        '🎉 Achievement Unlocked: ${achievement.title} (+${achievement.points} points)',
-      );
-    } else {
-      debugPrint(
-        'ℹ️ Achievement points already awarded: ${achievement.title}',
-      );
-    }
 
     // نمایش نوتیفیکیشن زیبا
     final context = MyApp.navigatorKey.currentContext;

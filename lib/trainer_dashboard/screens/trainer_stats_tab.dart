@@ -4,7 +4,7 @@ import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/trainer_dashboard/services/trainer_finance_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class TrainerStatsTab extends StatefulWidget {
   const TrainerStatsTab({super.key});

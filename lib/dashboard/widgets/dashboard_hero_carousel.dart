@@ -14,7 +14,8 @@ import 'package:gymaipro/academy/services/workout_music_service.dart';
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
 import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:gymaipro/widgets/app_remote_image.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 /// نوع اسلاید کاروسل
@@ -442,7 +443,7 @@ class _HeroSlideCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isAsset = slide.imageUrl.startsWith('images/');
+    final isBundledOrCdn = slide.imageUrl.startsWith('images/');
 
     return GestureDetector(
       onTap: onTap,
@@ -464,11 +465,13 @@ class _HeroSlideCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (isAsset)
-                Image.asset(
-                  slide.imageUrl,
+              if (isBundledOrCdn)
+                AppRemoteImage(
+                  path: slide.imageUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                  filterQuality: FilterQuality.medium,
+                  placeholder: _buildPlaceholder(),
+                  errorWidget: _buildPlaceholder(),
                 )
               else
                 Image.network(

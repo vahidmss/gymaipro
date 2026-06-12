@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 
 class ExerciseCard extends StatelessWidget {
@@ -17,6 +17,7 @@ class ExerciseCard extends StatelessWidget {
     required this.onToggleCollapse,
     required this.onNavigateToTutorial,
     required this.onSaveSet,
+    this.onDismissKeyboard,
     super.key,
   });
   final WorkoutExercise exercise;
@@ -29,6 +30,7 @@ class ExerciseCard extends StatelessWidget {
   final void Function(String) onToggleCollapse;
   final void Function(int) onNavigateToTutorial;
   final void Function(String, int) onSaveSet;
+  final VoidCallback? onDismissKeyboard;
 
   @override
   Widget build(BuildContext context) {

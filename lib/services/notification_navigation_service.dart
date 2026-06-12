@@ -21,10 +21,14 @@ class NotificationNavigationService {
       GlobalKeyDebugger.logNotificationHandler('handleNotificationNavigation');
       debugPrint('=== NOTIFICATION NAVIGATION: Handling type: $type ===');
 
-      if (type == 'chat_message') {
-        _navigateToChat(data);
-      } else {
-        debugPrint('Unknown notification type: $type');
+      switch (type) {
+        case 'chat_message':
+          _navigateToChat(data);
+        case 'chat_message_realtime':
+        case 'chat_message_fallback':
+          _navigateToChatInbox();
+        default:
+          debugPrint('Unknown notification type: $type');
       }
     } catch (e) {
       debugPrint('Error handling notification navigation: $e');
@@ -62,10 +66,49 @@ class NotificationNavigationService {
 
       _pendingNavigation = navigationData;
       _savePendingNavigation(navigationData);
-
-      debugPrint('=== NAVIGATION: Stored navigation for later execution ===');
+      _navigateNowIfPossible(
+        navigationData['route']! as String,
+        navigationData['arguments']! as Map<String, dynamic>,
+      );
+      debugPrint('=== NAVIGATION: Stored chat navigation and attempted immediate execution ===');
     } catch (e) {
       debugPrint('Error preparing chat navigation: $e');
+    }
+  }
+
+  /// Navigation به لیست گفتگوها (fallback / realtime local chat alerts)
+  static void _navigateToChatInbox() {
+    try {
+      const navigationData = {
+        'route': '/chat-main',
+        'arguments': {'initialTabIndex': 0},
+      };
+
+      _pendingNavigation = navigationData;
+      _savePendingNavigation(navigationData);
+      _navigateNowIfPossible(
+        navigationData['route']! as String,
+        navigationData['arguments']! as Map<String, dynamic>,
+      );
+      debugPrint('=== NAVIGATION: Stored chat inbox navigation and attempted immediate execution ===');
+    } catch (e) {
+      debugPrint('Error preparing chat inbox navigation: $e');
+    }
+  }
+
+  static void _navigateNowIfPossible(
+    String route,
+    Map<String, dynamic> arguments,
+  ) {
+    try {
+      final navigatorState = MyApp.navigatorKey.currentState;
+      if (navigatorState == null || !navigatorState.mounted) return;
+      navigatorState.pushNamed(route, arguments: arguments);
+      _pendingNavigation = null;
+      _clearPendingNavigation();
+      debugPrint('=== NAVIGATION: Immediate navigation executed ===');
+    } catch (e) {
+      debugPrint('=== NAVIGATION: Immediate navigation failed, fallback to pending: $e ===');
     }
   }
 

@@ -29,7 +29,7 @@ class UsernameValidator {
   static final RegExp _whitespacePattern = RegExp(r'\s');
 
   // کاراکترهای غیرمجاز (به جز underscore و hyphen که مجاز هستند)
-  static final RegExp _invalidSpecialCharsPattern = RegExp(r'[^a-zA-Z0-9_-]');
+  static final RegExp _invalidSpecialCharsPattern = RegExp('[^a-zA-Z0-9_-]');
 
   /// بررسی اعتبار نام کاربری
   ///
@@ -68,7 +68,7 @@ class UsernameValidator {
     // بررسی الگوی کلی
     if (!_validUsernamePattern.hasMatch(username)) {
       // بررسی دقیق‌تر برای پیام خطای بهتر
-      if (RegExp(r'^[0-9_-]').hasMatch(username)) {
+      if (RegExp('^[0-9_-]').hasMatch(username)) {
         return 'نام کاربری باید با حرف انگلیسی شروع شود';
       }
       if (RegExp(r'[_-]$').hasMatch(username)) {

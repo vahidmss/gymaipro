@@ -1,4 +1,6 @@
-﻿class Food {
+﻿import 'package:gymaipro/models/food_meta.dart';
+
+class Food {
   Food({
     required this.id,
     required this.title,
@@ -17,7 +19,8 @@
     this.isFavorite = false,
     this.likes = 0,
     this.isLikedByUser = false,
-  });
+    FoodMeta? meta,
+  }) : _meta = meta ?? FoodMeta.empty();
 
   factory Food.fromJson(Map<String, dynamic> json) {
     // Get image from _embedded if available
@@ -55,6 +58,8 @@
       (json['title']?['rendered'] ?? '') as String,
     );
 
+    final metaMap = (json['meta'] ?? <String, dynamic>{}) as Map<String, dynamic>;
+
     return Food(
       id: (json['id'] as int?) ?? 0,
       title: cleanTitle,
@@ -69,13 +74,12 @@
       type: (json['type'] ?? '') as String,
       link: (json['link'] ?? '') as String,
       featuredMedia: (json['featured_media'] as int?) ?? 0,
-      nutrition: FoodNutrition.fromJson(
-        (json['meta'] ?? <String, dynamic>{}) as Map<String, dynamic>,
-      ),
+      nutrition: FoodNutrition.fromJson(metaMap),
       foodCategories: List<int>.from(
         (json['food-categories'] ?? <dynamic>[]) as Iterable<dynamic>,
       ),
       classList: filteredClassList,
+      meta: FoodMeta.fromJson(metaMap),
     );
   }
 
@@ -115,6 +119,21 @@
   bool isFavorite;
   int likes;
   bool isLikedByUser;
+  final FoodMeta _meta;
+
+  FoodMeta get meta => _meta;
+
+  String get displayTitle {
+    final appName = _meta.nameApp.trim();
+    if (appName.isNotEmpty) return appName;
+    return title;
+  }
+
+  String get listThumbnailUrl => imageUrl;
+
+  static const String placeholderAsset = 'images/food_placeholder.png';
+
+  String get nutritionBasisLabel => _meta.nutritionBasisLabel;
 
   /// Clean food title by removing trailing numbers, years, and unnecessary characters
   static String _cleanFoodTitle(String title) {

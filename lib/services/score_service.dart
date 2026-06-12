@@ -1,262 +1,224 @@
 import 'package:flutter/foundation.dart';
+import 'package:gymaipro/ranking/models/ranking_score_breakdown.dart';
+import 'package:gymaipro/ranking/services/ranking_score_service.dart';
 import 'package:gymaipro/services/models/point_history.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// سرویس مدیریت امتیاز کاربر
-/// امتیازها را در دیتابیس Supabase ذخیره می‌کند
+/// امتیاز فعالیت کاربر برای رتبه‌بندی و لیگ (جدول user_rankings).
+/// ستارهٔ دستاوردها جداست و در AchievementService مدیریت می‌شود.
 class ScoreService extends ChangeNotifier {
   factory ScoreService() => _instance;
   ScoreService._internal();
   static final ScoreService _instance = ScoreService._internal();
 
-  final String _tableName = 'point_history';
   int _score = 0;
-  final List<PointHistory> _history = [];
+  List<PointHistory> _activityEntries = [];
+  bool _isLoadingFromDatabase = false;
+  bool _isLoading = false;
+  String? _lastLoadError;
+  DateTime? _lastDatabaseLoadAt;
+  static const Duration _databaseLoadCooldown = Duration(seconds: 30);
 
-  /// امتیاز فعلی کاربر
+  bool get isLoading => _isLoading;
+  String? get lastLoadError => _lastLoadError;
+
+  /// امتیاز فعالیت (همان total_score در لیگ)
   int get score => _score;
 
-  /// تاریخچه امتیازات کسب شده
-  List<PointHistory> get history => List.unmodifiable(_history);
+  /// همان [score] — برای خوانایی در UI
+  int get rankingScore => _score;
 
-  /// تاریخچه مرتب شده بر اساس تاریخ (جدیدترین اول)
-  List<PointHistory> get sortedHistory {
-    final sorted = List<PointHistory>.from(_history);
-    sorted.sort((a, b) => b.earnedAt.compareTo(a.earnedAt));
+  /// ردیف‌های تفکیک امتیاز فعالیت
+  List<PointHistory> get activityEntries => List.unmodifiable(_activityEntries);
+
+  /// @deprecated فقط برای سازگاری؛ دیگر تاریخچهٔ دستاورد نگه نمی‌داریم.
+  List<PointHistory> get history => activityEntries;
+
+  List<PointHistory> get sortedActivityEntries {
+    final sorted = List<PointHistory>.from(_activityEntries);
+    sorted.sort((a, b) => b.points.compareTo(a.points));
     return sorted;
   }
 
-  /// تعداد کل امتیازات کسب شده از دستاوردها
-  int get achievementPoints {
-    return _history
-        .where((h) => h.source == PointSource.achievement)
-        .fold(0, (sum, h) => sum + h.points);
-  }
-
-  /// تعداد دستاوردهای باز شده
-  int get unlockedAchievementsCount {
-    return _history.where((h) => h.source == PointSource.achievement).length;
-  }
-
-  /// مقداردهی اولیه - بارگذاری از دیتابیس
   Future<void> init() async {
     await loadFromDatabase();
   }
 
-  /// بارگذاری امتیازها از دیتابیس
-  Future<void> loadFromDatabase() async {
+  Future<void> loadFromDatabase({bool force = false}) async {
+    final now = DateTime.now();
+    if (_isLoadingFromDatabase) {
+      if (kDebugMode) {
+        debugPrint('ℹ️ Activity score load skipped (already in progress)');
+      }
+      return;
+    }
+    if (!force &&
+        _lastDatabaseLoadAt != null &&
+        now.difference(_lastDatabaseLoadAt!) < _databaseLoadCooldown) {
+      if (kDebugMode) {
+        debugPrint('ℹ️ Activity score load skipped (cooldown active)');
+      }
+      return;
+    }
+
+    _isLoadingFromDatabase = true;
+    _isLoading = true;
+    _lastLoadError = null;
+    _lastDatabaseLoadAt = now;
+    notifyListeners();
+
     try {
       final client = Supabase.instance.client;
       final profile = await SimpleProfileService.getCurrentProfile();
       final profileId = profile?['id'] as String?;
 
       if (profileId == null || profileId.isEmpty) {
-        if (kDebugMode) {
-          debugPrint('⚠️ No profile yet (e.g. before registration complete), skipping score load');
-        }
+        _lastLoadError = 'پروفایل کاربر یافت نشد';
         return;
       }
 
-      // بارگذاری تاریخچه از دیتابیس
-      final response = await client
-          .from(_tableName)
-          .select()
-          .eq('user_id', profileId)
-          .order('earned_at', ascending: false);
+      final previousScore = _score;
+      final previousEntries = List<PointHistory>.from(_activityEntries);
 
-      _history.clear();
-      _score = 0;
-
-      for (final item in response) {
-        try {
-          final historyItem = PointHistory.fromJson(item);
-          _history.add(historyItem);
-          _score += historyItem.points;
-        } catch (e) {
-          debugPrint('❌ Error parsing point history item: $e');
-        }
+      try {
+        _score = await _loadRankingScore(client, profileId);
+        final breakdown =
+            await RankingScoreService().getScoreBreakdown(profileId);
+        _activityEntries = breakdown != null
+            ? _activityEntriesFromBreakdown(breakdown)
+            : <PointHistory>[];
+        _lastLoadError = null;
+        debugPrint(
+          '✅ Activity score loaded: $_score (${_activityEntries.length} sources)',
+        );
+      } catch (e) {
+        _score = previousScore;
+        _activityEntries = previousEntries;
+        _lastLoadError = 'خطا در بارگذاری امتیاز فعالیت';
+        debugPrint('❌ Error loading activity score: $e');
       }
 
       notifyListeners();
-      debugPrint('✅ Loaded ${_history.length} point history items from database');
     } catch (e) {
-      debugPrint('❌ Error loading scores from database: $e');
+      _lastLoadError = 'خطا در بارگذاری امتیازات';
+      debugPrint('❌ Error loading activity score: $e');
+      notifyListeners();
+    } finally {
+      _isLoadingFromDatabase = false;
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
-  /// افزودن امتیاز با ثبت در تاریخچه و دیتابیس
-  Future<void> addScore(
-    int points, {
-    PointSource source = PointSource.other,
-    String? sourceId,
-    String? sourceTitle,
-    String? sourceIcon,
-    String? description,
-  }) async {
-    _score += points;
-
-    // ثبت در تاریخچه
-    final historyItem = PointHistory(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      points: points,
-      source: source,
-      sourceId: sourceId,
-      sourceTitle: sourceTitle ?? 'امتیاز کسب شده',
-      sourceIcon: sourceIcon ?? '⭐',
-      earnedAt: DateTime.now(),
-      description: description,
-    );
-
-    _history.add(historyItem);
-    notifyListeners();
-
-    // ذخیره در دیتابیس
-    await _saveToDatabase(historyItem);
-  }
-
-  /// افزودن امتیاز از دستاورد
-  /// این متد خودش بررسی می‌کند که آیا این دستاورد قبلاً امتیاز داده شده یا نه
-  Future<bool> addAchievementPoints({
-    required String achievementId,
-    required String achievementTitle,
-    required String achievementIcon,
-    required int points,
-    String? description,
-  }) async {
-    // ابتدا بررسی از تاریخچه محلی
-    if (hasAchievementPoints(achievementId)) {
-      debugPrint('⚠️ Achievement points already added locally: $achievementId');
-      return false;
-    }
-
-    // بررسی از دیتابیس برای اطمینان
-    final existsInDatabase = await _checkAchievementPointsInDatabase(achievementId);
-    if (existsInDatabase) {
-      debugPrint('⚠️ Achievement points already exist in database: $achievementId');
-      // بارگذاری مجدد از دیتابیس برای همگام‌سازی
-      await loadFromDatabase();
-      return false;
-    }
-
-    // اضافه کردن امتیاز
-    await addScore(
-      points,
-      source: PointSource.achievement,
-      sourceId: achievementId,
-      sourceTitle: achievementTitle,
-      sourceIcon: achievementIcon,
-      description: description ?? 'دستاورد: $achievementTitle',
-    );
-    
-    debugPrint('✅ Achievement points added: $achievementTitle (+$points points)');
-    return true;
-  }
-
-  /// بررسی از دیتابیس که آیا این دستاورد قبلاً امتیاز داده شده یا نه
-  Future<bool> _checkAchievementPointsInDatabase(String achievementId) async {
-    try {
-      final client = Supabase.instance.client;
-      final profile = await SimpleProfileService.getCurrentProfile();
-      final profileId = profile?['id'] as String?;
-
-      if (profileId == null || profileId.isEmpty) {
-        return false;
-      }
-
-      final response = await client
-          .from(_tableName)
-          .select('id')
-          .eq('user_id', profileId)
-          .eq('source', PointSource.achievement.name)
-          .eq('source_id', achievementId)
-          .maybeSingle();
-
-      return response != null;
-    } catch (e) {
-      debugPrint('❌ Error checking achievement points in database: $e');
-      return false;
-    }
-  }
-
-  /// ذخیره یک آیتم تاریخچه در دیتابیس
-  Future<void> _saveToDatabase(PointHistory item) async {
-    try {
-      final client = Supabase.instance.client;
-      final profile = await SimpleProfileService.getCurrentProfile();
-      final profileId = profile?['id'] as String?;
-
-      if (profileId == null || profileId.isEmpty) {
-        if (kDebugMode) {
-          debugPrint('⚠️ No profile yet, skipping score save');
-        }
-        return;
-      }
-
-      await client.from(_tableName).insert({
-        'id': item.id,
-        'user_id': profileId,
-        'points': item.points,
-        'source': item.source.name,
-        'source_id': item.sourceId,
-        'source_title': item.sourceTitle,
-        'source_icon': item.sourceIcon,
-        'earned_at': item.earnedAt.toIso8601String(),
-        'description': item.description,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-
-      debugPrint('✅ Saved point history to database: ${item.id}');
-    } catch (e) {
-      debugPrint('❌ Error saving point history to database: $e');
-    }
-  }
-
-  /// تنظیم امتیاز (بدون ثبت در تاریخچه)
-  void setScore(int points) {
-    _score = points;
-    notifyListeners();
-  }
-
-  /// کاهش امتیاز
-  void subtractScore(int points) {
-    _score = (_score - points).clamp(0, double.infinity).toInt();
-    notifyListeners();
-  }
-
-  /// ریست کردن امتیاز و تاریخچه
   void resetScore() {
     _score = 0;
-    _history.clear();
+    _activityEntries = [];
+    _lastLoadError = null;
     notifyListeners();
   }
 
-  /// دریافت تاریخچه بر اساس منبع
-  List<PointHistory> getHistoryBySource(PointSource source) {
-    return _history.where((h) => h.source == source).toList()
-      ..sort((a, b) => b.earnedAt.compareTo(a.earnedAt));
+  Future<int> _loadRankingScore(
+    SupabaseClient client,
+    String profileId,
+  ) async {
+    final row = await client
+        .from('user_rankings')
+        .select('total_score')
+        .eq('user_id', profileId)
+        .maybeSingle();
+    return (row?['total_score'] as num?)?.toInt() ?? 0;
   }
 
-  /// دریافت تاریخچه بر اساس بازه زمانی
-  List<PointHistory> getHistoryByDateRange({
-    DateTime? startDate,
-    DateTime? endDate,
-  }) {
-    final now = DateTime.now();
-    final start = startDate ?? DateTime(1970);
-    final end = endDate ?? now;
+  static List<PointHistory> _activityEntriesFromBreakdown(
+    RankingScoreBreakdown b,
+  ) {
+    final base = DateTime(2000);
+    var i = 0;
+    PointHistory row({
+      required String key,
+      required int points,
+      required PointSource source,
+      required String title,
+      required String icon,
+      required String description,
+    }) {
+      return PointHistory(
+        id: 'ranking_$key',
+        points: points,
+        source: source,
+        sourceId: 'ranking_$key',
+        sourceTitle: title,
+        sourceIcon: icon,
+        earnedAt: base.add(Duration(days: i++)),
+        description: description,
+      );
+    }
 
-    return _history
-        .where((h) => h.earnedAt.isAfter(start) && h.earnedAt.isBefore(end))
-        .toList()
-      ..sort((a, b) => b.earnedAt.compareTo(a.earnedAt));
-  }
-
-  /// بررسی اینکه آیا امتیاز از یک دستاورد خاص قبلاً اضافه شده یا نه
-  bool hasAchievementPoints(String achievementId) {
-    return _history.any(
-      (h) => h.source == PointSource.achievement && h.sourceId == achievementId,
-    );
+    return <PointHistory>[
+      if (b.currentStreakScore > 0)
+        row(
+          key: 'current_streak',
+          points: b.currentStreakScore,
+          source: PointSource.dailyCheckIn,
+          title: 'زنجیره فعالیت فعلی',
+          icon: '🔥',
+          description: '${b.currentStreak} روز متوالی',
+        ),
+      if (b.longestStreakScore > 0)
+        row(
+          key: 'longest_streak',
+          points: b.longestStreakScore,
+          source: PointSource.dailyCheckIn,
+          title: 'بهترین زنجیره فعالیت',
+          icon: '🏆',
+          description: '${b.longestStreak} روز',
+        ),
+      if (b.activeDaysScore > 0)
+        row(
+          key: 'active_days',
+          points: b.activeDaysScore,
+          source: PointSource.dailyCheckIn,
+          title: 'روزهای فعال (۳۰ روز اخیر)',
+          icon: '📅',
+          description: '${b.activeDays} روز فعال',
+        ),
+      if (b.dailyActivitiesScore > 0)
+        row(
+          key: 'daily_activity',
+          points: b.dailyActivitiesScore,
+          source: PointSource.other,
+          title: 'فعالیت روزانه',
+          icon: '⚡',
+          description: 'جمع فعالیت‌های ۳۰ روز گذشته',
+        ),
+      if (b.totalWorkoutsScore > 0)
+        row(
+          key: 'workouts',
+          points: b.totalWorkoutsScore,
+          source: PointSource.workout,
+          title: 'ثبت تمرین',
+          icon: '💪',
+          description: '${b.totalWorkouts} جلسه تمرین',
+        ),
+      if (b.totalMealsScore > 0)
+        row(
+          key: 'meals',
+          points: b.totalMealsScore,
+          source: PointSource.nutrition,
+          title: 'ثبت تغذیه',
+          icon: '🍽️',
+          description: '${b.totalMeals} وعده',
+        ),
+      if (b.articlesReadScore > 0)
+        row(
+          key: 'articles',
+          points: b.articlesReadScore,
+          source: PointSource.other,
+          title: 'مطالعه مقالات',
+          icon: '📚',
+          description: '${b.articlesReadCount} مقاله',
+        ),
+    ];
   }
 }
-

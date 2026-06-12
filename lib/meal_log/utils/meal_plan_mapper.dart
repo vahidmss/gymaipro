@@ -52,7 +52,6 @@ class MealPlanMapper {
                 plannedAmount: f.amount, // Set planned amount for tracking
                 mealPlanId: selectedPlan.id,
                 alternatives: f.alternatives,
-                unit: 'گرم', // Default unit for plan foods
               ),
             )
             .toList();
@@ -93,7 +92,6 @@ class MealPlanMapper {
               foods: entry.value
                   .map((f) => f.copyWith(mealPlanId: null))
                   .toList(),
-              note: null, // وعده‌های آزاد کامنت ندارند
             ),
           );
         }
@@ -113,7 +111,7 @@ class MealPlanMapper {
         final exists = planMeals.any((m) => m.title == mealTitle);
         if (!exists) {
           planMeals.add(
-            FoodMealLog(title: mealTitle, foods: [], note: null),
+            FoodMealLog(title: mealTitle, foods: []),
           );
         }
       }

@@ -25,7 +25,7 @@ class AuthStateService {
       await _saveCurrentUserId(session.user.id);
 
       // Save phone number for data fallback
-      if (phoneNumber?.trim().isNotEmpty == true) {
+      if (phoneNumber?.trim().isNotEmpty ?? false) {
         try {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString(
@@ -82,7 +82,7 @@ class AuthStateService {
 
       // Expired but has a refresh token → Supabase auto-refresh will handle it.
       // Treat user as "logged in" so routing proceeds immediately.
-      if (currentSession.refreshToken?.isNotEmpty == true) {
+      if (currentSession.refreshToken?.isNotEmpty ?? false) {
         return true;
       }
 
@@ -131,7 +131,7 @@ class AuthStateService {
 
       if (kDebugMode) {
         debugPrint(
-          'restoreSession: hasSession=true expired=${currentSession.isExpired} hasRefreshToken=${currentSession.refreshToken?.isNotEmpty == true}',
+          'restoreSession: hasSession=true expired=${currentSession.isExpired} hasRefreshToken=${currentSession.refreshToken?.isNotEmpty ?? false}',
         );
       }
 
@@ -144,7 +144,7 @@ class AuthStateService {
 
       // Expired but has a refresh token → try refresh with strict timeout
       if (currentSession.isExpired &&
-          currentSession.refreshToken?.isNotEmpty == true) {
+          (currentSession.refreshToken?.isNotEmpty ?? false)) {
         try {
           final response = await Supabase.instance.client.auth
               .refreshSession()
@@ -175,6 +175,20 @@ class AuthStateService {
     } catch (e) {
       debugPrint('Error in restoreSession: $e');
       return null;
+    }
+  }
+
+  static Future<void> ensureFreshSession() async {
+    try {
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session == null) return;
+      if (!session.isExpired) return;
+      if (session.refreshToken?.isEmpty ?? true) return;
+      await Supabase.instance.client.auth
+          .refreshSession()
+          .timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint('ensureFreshSession: $e');
     }
   }
 }

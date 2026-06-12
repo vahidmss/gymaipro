@@ -9,7 +9,7 @@ import 'dart:async';
 import 'package:gymaipro/services/video_cache_service.dart';
 import 'package:gymaipro/services/video_download_manager.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/auth/screens/profile_completion_screen.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
@@ -9,8 +8,8 @@ import 'package:gymaipro/debug/database_debug_service.dart';
 import 'package:gymaipro/services/otp_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
-import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/utils/text_controller_utils.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:sms_autofill/sms_autofill.dart' as sms;
@@ -137,8 +136,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
   }
 
   Future<void> _resendOTP() async {
-    if (!_isActive || !mounted || _isLoading || !_canResend || _isDisposed)
+    if (!_isActive || !mounted || _isLoading || !_canResend || _isDisposed) {
       return;
+    }
 
     WidgetSafetyUtils.safeSetState(this, () {
       _isLoading = true;
@@ -303,7 +303,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
           ),
         ),
         centerTitle: true,
-        iconTheme: IconThemeData(color: AppTheme.goldColor),
+        iconTheme: const IconThemeData(color: AppTheme.goldColor),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -406,8 +406,9 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
                           color: context.textColor,
                         ),
                         onChanged: (value) {
-                          if (_isDisposed || !mounted || !_otpController.isSafe)
+                          if (_isDisposed || !mounted || !_otpController.isSafe) {
                             return;
+                          }
 
                           if (_errorMessage != null) {
                             WidgetSafetyUtils.safeSetState(this, () {

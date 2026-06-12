@@ -10,7 +10,7 @@ import 'package:gymaipro/academy/services/music_cache_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/trainer_dashboard/services/trainer_client_service.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 class MusicListScreen extends StatefulWidget {

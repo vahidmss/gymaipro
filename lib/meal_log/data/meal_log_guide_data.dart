@@ -17,7 +17,6 @@ class MealLogGuideData {
       id: 'meal_log_tour',
       name: 'راهنمای کالری‌شمار',
       description: 'آشنایی با امکانات کالری‌شمار',
-      showOnce: true,
       steps: [
         // مرحله ۱: خلاصه کالری
         GuideStep(
@@ -28,8 +27,6 @@ class MealLogGuideData {
           icon: Icons.pie_chart,
           primaryColor: const Color(0xFF26C281),
           targetKey: keys['calorie_summary'],
-          tooltipPosition: TooltipPosition.bottom,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۲: انتخاب تاریخ
@@ -42,7 +39,6 @@ class MealLogGuideData {
           primaryColor: const Color(0xFF6C63FF),
           targetKey: keys['date_picker'],
           tooltipPosition: TooltipPosition.left,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۳: بخش وعده‌های غذایی
@@ -54,8 +50,6 @@ class MealLogGuideData {
           icon: Icons.restaurant,
           primaryColor: const Color(0xFFF39C12),
           targetKey: keys['breakfast_section'],
-          tooltipPosition: TooltipPosition.bottom,
-          usePulseAnimation: true,
         ),
       ],
     );

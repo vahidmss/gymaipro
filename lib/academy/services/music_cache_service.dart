@@ -1,17 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/academy/models/workout_music.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MusicCacheService {
-  static final MusicCacheService _instance = MusicCacheService._internal();
   factory MusicCacheService() => _instance;
   MusicCacheService._internal();
+  static final MusicCacheService _instance = MusicCacheService._internal();
 
   Directory? _cacheDir;
   Directory? _downloadDir;
@@ -32,7 +33,7 @@ class MusicCacheService {
     if (normalized.isEmpty) return normalized;
     try {
       final uri = Uri.parse(normalized);
-      return uri.replace(query: null, fragment: null).toString();
+      return uri.replace().toString();
     } catch (_) {
       return normalized;
     }
@@ -41,7 +42,7 @@ class MusicCacheService {
   String _getLegacyFileName(String url) {
     final bytes = utf8.encode(url);
     final digest = sha256.convert(bytes);
-    return '${digest.toString()}.${_getFileExtension(url)}';
+    return '$digest.${_getFileExtension(url)}';
   }
 
   Future<Directory> _getCacheDirectory() async {
@@ -70,7 +71,7 @@ class MusicCacheService {
     final key = _storageKey(url);
     final bytes = utf8.encode(key);
     final digest = sha256.convert(bytes);
-    return '${digest.toString()}.${_getFileExtension(key)}';
+    return '$digest.${_getFileExtension(key)}';
   }
 
   String _getFileExtension(String url) {
@@ -120,7 +121,7 @@ class MusicCacheService {
   /// This is automatic cache that happens after playback
   Future<String?> cacheMusic(String url) async {
     final key = _storageKey(url);
-    if (_cachingUrls[key] == true) {
+    if (_cachingUrls[key] ?? false) {
       // Already caching
       return null;
     }
@@ -163,7 +164,7 @@ class MusicCacheService {
   /// This is for the "Downloaded" tab
   Future<String?> downloadMusic(String url) async {
     final key = _storageKey(url);
-    if (_downloadingUrls[key] == true) {
+    if (_downloadingUrls[key] ?? false) {
       // Already downloading
       return null;
     }
@@ -269,7 +270,7 @@ class MusicCacheService {
     }
 
     // Then fallback to auto-cache
-    return await getCachedPath(key);
+    return getCachedPath(key);
   }
 
   Future<void> _markAsDownloaded(String url, {String? legacyUrl}) async {
@@ -359,11 +360,11 @@ class MusicCacheService {
   }
 
   bool isDownloading(String url) {
-    return _downloadingUrls[_storageKey(url)] == true;
+    return _downloadingUrls[_storageKey(url)] ?? false;
   }
 
   bool isCaching(String url) {
-    return _cachingUrls[_storageKey(url)] == true;
+    return _cachingUrls[_storageKey(url)] ?? false;
   }
 
   /// Check if a music is cached

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/app_remote_image.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key, this.jumpToLastPage = false});
@@ -90,10 +91,10 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           // Fullscreen poster background by current page
           if (_pages[_currentPage].image.contains('poster'))
             Positioned.fill(
-              child: Image.asset(
-                _pages[_currentPage].image,
+              child: AppRemoteImage(
+                path: _pages[_currentPage].image,
                 fit: BoxFit.fill,
-                errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                errorWidget: const SizedBox.shrink(),
               ),
             ),
           if (_pages[_currentPage].image.contains('poster'))
@@ -278,12 +279,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   shape: BoxShape.circle,
                   color: AppTheme.cardColor,
                 ),
-                child: Image.asset(
-                  page.image,
+                child: AppRemoteImage(
+                  path: page.image,
                   height: 100.h,
                   width: 100.w,
                   fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) =>
+                  errorWidget:
                       Icon(page.icon, size: 80.sp, color: AppTheme.goldColor),
                 ),
               ),

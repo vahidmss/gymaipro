@@ -4,6 +4,7 @@ import 'package:gymaipro/achievements/screens/achievements_screen.dart';
 import 'package:gymaipro/ranking/screens/leaderboard_screen.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_ranking/screens/trainer_ranking_screen.dart';
+import 'package:gymaipro/widgets/app_remote_image.dart';
 
 class QuickActionButtons extends StatelessWidget {
   const QuickActionButtons({super.key});
@@ -87,8 +88,8 @@ class QuickActionButtons extends StatelessWidget {
                   Container(
                     width: 40.w,
                     height: 48.h,
-                    child: Image.asset(
-                      'images/ai_robot.png',
+                    child: AppRemoteImage(
+                      path: 'images/ai_robot.png',
                       fit: BoxFit.contain,
                       filterQuality: FilterQuality.high,
                     ),

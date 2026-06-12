@@ -7,6 +7,31 @@ import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// وقتی آدرس Supabase درست است اما env `SUPABASE_ANON_KEY` مربوط به همان سرور
+/// نیست (مثلاً کلید پروژهٔ ابری مانده) و API با 401 برمی‌گردد.
+class SupabaseBackendAuthException implements Exception {
+  SupabaseBackendAuthException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
+const String _kAnonKeyMismatchUserMessage =
+    'سرور در دسترس است اما کلید SUPABASE_ANON_KEY با سرور داخلی هماهنگ نیست '
+    '(خطای 401). در فایل .env پروژه، مقدار ANON_KEY را از سرور (فایل .env داکر '
+    'Supabase یا خروجی supabase status) کپی کنید و اپ را دوباره اجرا کنید.';
+
+bool _isInvalidSupabaseApiKey(Object e) {
+  if (e is PostgrestException) {
+    final c = e.code?.toString() ?? '';
+    if (c == '401') return true;
+    if (e.message.contains('Invalid authentication credentials')) return true;
+  }
+  final s = e.toString();
+  return s.contains('Invalid authentication credentials') &&
+      (s.contains('401') || s.contains('Unauthorized'));
+}
+
 class SupabaseService {
   static final SupabaseClient client = Supabase.instance.client;
 
@@ -66,7 +91,11 @@ class SupabaseService {
             params: {'phone': normalizedPhone},
           );
           return result == true;
-        } catch (_) {}
+        } catch (e) {
+          if (_isInvalidSupabaseApiKey(e)) {
+            throw SupabaseBackendAuthException(_kAnonKeyMismatchUserMessage);
+          }
+        }
 
         final digits =
             normalizedPhone.replaceAll(RegExp(r'[^\d]'), '');
@@ -89,7 +118,10 @@ class SupabaseService {
                 .eq('phone_number', candidate)
                 .maybeSingle();
             if (row != null) return true;
-          } catch (_) {
+          } catch (e) {
+            if (_isInvalidSupabaseApiKey(e)) {
+              throw SupabaseBackendAuthException(_kAnonKeyMismatchUserMessage);
+            }
             continue;
           }
         }
@@ -98,6 +130,8 @@ class SupabaseService {
         _doesUserExistTimeout,
         onTimeout: () => false,
       );
+    } on SupabaseBackendAuthException {
+      rethrow;
     } catch (_) {
       return false;
     }
@@ -282,13 +316,13 @@ class SupabaseService {
 
       final normalizedDigits = normalizedPhone.replaceAll(RegExp(r'\D'), '');
       final emailFromProfile = prof?['email'] as String?;
-      final targetEmail = (emailFromProfile?.trim().isNotEmpty == true)
+      final targetEmail = (emailFromProfile?.trim().isNotEmpty ?? false)
           ? emailFromProfile!.trim()
           : _emailForAuth(normalizedPhone: normalizedDigits);
 
       final candidatePasswords = <String>{
         normalizedDigits,
-        normalizedDigits.replaceFirst(RegExp(r'^0+'), ''),
+        normalizedDigits.replaceFirst(RegExp('^0+'), ''),
       }.where((p) => p.isNotEmpty).toList();
 
       // Try signIn with candidate passwords
@@ -326,7 +360,7 @@ class SupabaseService {
         try {
           final pw = normalizedDigits;
           final up = await client.auth.signUp(email: targetEmail, password: pw);
-          Session? newSession = up.session ?? (await client.auth.signInWithPassword(
+          final Session? newSession = up.session ?? (await client.auth.signInWithPassword(
             email: targetEmail,
             password: pw,
           )).session;

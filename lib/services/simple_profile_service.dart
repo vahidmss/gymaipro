@@ -1,8 +1,8 @@
-import 'package:gymaipro/utils/auth_helper.dart';
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
+import 'package:gymaipro/utils/auth_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 // Removed dependency on ProfileService to keep a single source if we deprecate it
 
 class SimpleProfileService {

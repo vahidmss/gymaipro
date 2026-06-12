@@ -11,7 +11,7 @@ class InAppAnnouncementService {
   Future<List<InAppAnnouncement>> getAllAnnouncements() async {
     final response = await _supabase
         .from(_tableName)
-        .select('*')
+        .select()
         .order('priority', ascending: false)
         .order('created_at', ascending: false);
     return (response as List<dynamic>)
@@ -23,7 +23,7 @@ class InAppAnnouncementService {
     final nowIso = DateTime.now().toIso8601String();
     final response = await _supabase
         .from(_tableName)
-        .select('*')
+        .select()
         .eq('is_active', true)
         .or('start_at.is.null,start_at.lte.$nowIso')
         .or('end_at.is.null,end_at.gte.$nowIso')

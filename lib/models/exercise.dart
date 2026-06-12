@@ -1,5 +1,9 @@
 ﻿import 'dart:convert';
 
+import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/models/exercise_rich_meta.dart';
+import 'package:gymaipro/models/muscle_targets.dart';
+
 class Exercise {
   Exercise({
     required this.id,
@@ -10,8 +14,8 @@ class Exercise {
     required this.tips,
     required this.videoUrl,
     required this.imageUrl,
-    required this.otherNames,
-    required this.content,
+    required this.otherNames, required this.content, this.additionalImageUrls = const [],
+    this.additionalVideoUrls = const [],
     this.difficulty = 'متوسط',
     this.equipment = 'بدون تجهیزات',
     this.exerciseType = 'قدرتی',
@@ -24,7 +28,14 @@ class Exercise {
     this.isLikedByUser = false,
     this.author,
     this.createdBy,
-  });
+    this.shortDescription = '',
+    this.movementPattern = '',
+    this.bodyEngagement = '',
+    this.typicalRpe,
+    this.met,
+    this.muscleTargets = const {},
+    ExerciseRichMeta? richMeta,
+  }) : richMeta = richMeta ?? const ExerciseRichMeta();
 
   factory Exercise.fromJson(Map<String, dynamic> json) {
     final String modified = (json['modified'] ?? '').toString();
@@ -261,6 +272,17 @@ class Exercise {
       return <String>[];
     }();
 
+    List<String> readCachedUrlList(String key) {
+      final v = json[key];
+      if (v is List) {
+        return v
+            .map((e) => e.toString().trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+      }
+      return const [];
+    }
+
     return Exercise(
       id: (json['id'] as int?) ?? 0,
       title:
@@ -288,6 +310,8 @@ class Exercise {
           ? readStr('video_url')
           : videoUrlFallback,
       imageUrl: imageUrl,
+      additionalImageUrls: readCachedUrlList('additionalImageUrls'),
+      additionalVideoUrls: readCachedUrlList('additionalVideoUrls'),
       otherNames: otherNamesList.isNotEmpty
           ? otherNamesList
           : otherNamesFallback,
@@ -303,6 +327,33 @@ class Exercise {
       detailedDescription: detailedDesc,
       author: json['author'] as String?,
       createdBy: json['createdBy'] as String?,
+      shortDescription: (json['shortDescription'] as String?)?.trim() ?? '',
+      movementPattern: readStr('movement_pattern').isNotEmpty
+          ? readStr('movement_pattern')
+          : (json['movement_pattern'] ?? '').toString(),
+      bodyEngagement: readStr('body_engagement').isNotEmpty
+          ? readStr('body_engagement')
+          : (json['body_engagement'] ?? '').toString(),
+      typicalRpe: () {
+        final v = metaMap['typical_rpe'] ?? json['typical_rpe'];
+        if (v == null) return null;
+        if (v is num) return v.toDouble();
+        return double.tryParse(v.toString());
+      }(),
+      met: () {
+        final v = metaMap['met'] ?? json['met'];
+        if (v == null) return null;
+        if (v is num) return v.toDouble();
+        return double.tryParse(v.toString());
+      }(),
+      muscleTargets: MuscleTargets.parse(
+        metaMap['muscle_targets'] ?? json['muscle_targets'],
+      ),
+      richMeta: ExerciseRichMeta.fromJson(
+        metaMap['exercise_extended_json'] ??
+            metaMap['rich_meta'] ??
+            json['exercise_extended_json'],
+      ),
     );
   }
   final int id;
@@ -313,6 +364,10 @@ class Exercise {
   final List<String> tips;
   final String videoUrl;
   final String imageUrl;
+  /// تصاویر اضافه بعد از [imageUrl] (مثلاً تمرین اختصاصی چندعکسه)
+  final List<String> additionalImageUrls;
+  /// ویدیوهای اضافه بعد از [videoUrl]
+  final List<String> additionalVideoUrls;
   final List<String> otherNames;
   final String content;
 
@@ -326,10 +381,65 @@ class Exercise {
   final String detailedDescription; // توضیح تکمیلی
   final String? author; // نویسنده تمرین
   final String? createdBy; // شناسه کاربری که تمرین را ایجاد کرده (برای تمرین‌های اختصاصی)
+  final String shortDescription;
+  final String movementPattern;
+  final String bodyEngagement;
+  final double? typicalRpe;
+  final double? met;
+  final Map<String, int> muscleTargets;
+  final ExerciseRichMeta richMeta;
 
   bool isFavorite;
   int likes;
   bool isLikedByUser;
+
+  /// همه آدرس تصاویر بدون تکرار (اولویت با [imageUrl])
+  List<String> get allImageUrls => _mergeUrlLists(imageUrl, additionalImageUrls);
+
+  /// اولین تصویر برای کارت لیست، کاور کشف، مورد علاقه‌ها
+  String get coverImageUrl {
+    final urls = allImageUrls;
+    return urls.isNotEmpty ? urls.first : '';
+  }
+
+  /// همه آدرس ویدیوها بدون تکرار
+  List<String> get allVideoUrls => _mergeUrlLists(videoUrl, additionalVideoUrls);
+
+  String get appShortDescription =>
+      shortDescription.trim().isNotEmpty ? shortDescription : name;
+
+  String get websiteArticleUrl {
+    final slug = richMeta.webSlug.trim();
+    if (slug.isNotEmpty) {
+      return AppConfig.wordpressPath(slug);
+    }
+    if (id > 0) {
+      return AppConfig.wordpressPath('?p=$id');
+    }
+    return '';
+  }
+
+  String get bodyEngagementDisplay {
+    final direct = bodyEngagement.trim();
+    if (direct.isNotEmpty) return direct;
+    return richMeta.bodyEngagementLabel.trim();
+  }
+
+  static List<String> _mergeUrlLists(String primary, List<String> extras) {
+    final seen = <String>{};
+    final out = <String>[];
+    void add(String u) {
+      final t = u.trim();
+      if (t.isEmpty) return;
+      if (seen.add(t)) out.add(t);
+    }
+
+    add(primary);
+    for (final u in extras) {
+      add(u);
+    }
+    return out;
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -341,6 +451,8 @@ class Exercise {
       'tips': tips,
       'videoUrl': videoUrl,
       'imageUrl': imageUrl,
+      'additionalImageUrls': additionalImageUrls,
+      'additionalVideoUrls': additionalVideoUrls,
       'otherNames': otherNames,
       'content': content,
       'difficulty': difficulty,
@@ -352,6 +464,12 @@ class Exercise {
       'detailedDescription': detailedDescription,
       'author': author,
       'createdBy': createdBy,
+      'shortDescription': shortDescription,
+      'movementPattern': movementPattern,
+      'bodyEngagement': bodyEngagement,
+      'typicalRpe': typicalRpe,
+      'met': met,
+      'muscleTargets': muscleTargets,
       'isFavorite': isFavorite,
       'likes': likes,
       'isLikedByUser': isLikedByUser,

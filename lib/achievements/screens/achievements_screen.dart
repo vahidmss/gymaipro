@@ -5,7 +5,7 @@ import 'package:gymaipro/achievements/services/achievement_service.dart';
 import 'package:gymaipro/achievements/widgets/achievement_card.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/services/score_service.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 

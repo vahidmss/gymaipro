@@ -6,10 +6,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// سرویس ردیابی فعالیت‌های خودکار کاربران
 /// این سرویس فعالیت‌های واقعی کاربر را ردیابی می‌کند که قابل دستکاری نیستند
 class ActivityTrackingService {
-  static final ActivityTrackingService _instance =
-      ActivityTrackingService._internal();
   factory ActivityTrackingService() => _instance;
   ActivityTrackingService._internal();
+  static final ActivityTrackingService _instance =
+      ActivityTrackingService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
   final String _tableName = 'user_activity_tracking';

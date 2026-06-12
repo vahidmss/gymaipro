@@ -118,7 +118,7 @@ class TrainerPaymentService {
 
       // اگر بعد از retry هم پروفایل پیدا نشد، خطا throw می‌کنیم
       if (effectiveUserId == null) {
-        final errorMsg = 'پروفایل کاربر پیدا نشد. لطفاً دوباره تلاش کنید.';
+        const errorMsg = 'پروفایل کاربر پیدا نشد. لطفاً دوباره تلاش کنید.';
         if (kDebugMode) {
           print('TRAINER_PAY: ERROR - Cannot proceed without profileId');
         }

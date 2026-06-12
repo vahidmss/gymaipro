@@ -4,7 +4,7 @@ import 'package:gymaipro/academy/models/fitness_legend.dart';
 import 'package:gymaipro/academy/widgets/article_content.dart';
 import 'package:gymaipro/academy/widgets/article_image.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 
 class LegendDetailScreen extends StatefulWidget {

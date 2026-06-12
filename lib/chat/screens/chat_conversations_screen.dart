@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
+import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/chat/screens/chat_screen.dart';
 import 'package:gymaipro/chat/services/chat_service.dart';
+import 'package:gymaipro/chat/services/chat_unread_sync_bus.dart';
+import 'package:gymaipro/chat/widgets/chat_hub_ui.dart';
 import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
 import 'package:gymaipro/my_club/services/friendship_service.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
@@ -12,26 +15,36 @@ import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/widgets/user_role_badge.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// لیست گفتگوهای خصوصی در هاب اجتماعی (با جستجو و کشیدن برای به‌روزرسانی).
 class ChatConversationsScreen extends StatefulWidget {
-  const ChatConversationsScreen({super.key});
+  const ChatConversationsScreen({
+    super.key,
+    this.standalone = false,
+  });
+
+  final bool standalone;
 
   @override
   State<ChatConversationsScreen> createState() =>
       _ChatConversationsScreenState();
 }
 
-class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
+class _ChatConversationsScreenState extends State<ChatConversationsScreen>
+    with AutomaticKeepAliveClientMixin {
   late ChatService _chatService;
   List<ChatConversation> _conversations = [];
   List<ChatConversation> _filteredConversations = [];
   bool _isLoading = true;
-  final String _searchQuery = '';
+  String _searchQuery = '';
+  late final TextEditingController _searchController;
   StreamSubscription<dynamic>? _conversationsSubscription;
+  StreamSubscription<void>? _unreadSyncSubscription;
+  Timer? _searchDebounceTimer;
   final Map<String, String?> _avatarCache = {};
   final Map<String, String> _nameCache = {};
   final Map<String, String> _roleCache = {};
@@ -40,14 +53,19 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
   @override
   void initState() {
     super.initState();
+    _searchController = TextEditingController();
     _chatService = ChatService();
     _loadConversations();
     _subscribeToConversations();
+    _subscribeToUnreadSync();
   }
 
   @override
   void dispose() {
+    _searchDebounceTimer?.cancel();
+    _searchController.dispose();
     _conversationsSubscription?.cancel();
+    _unreadSyncSubscription?.cancel();
     super.dispose();
   }
 
@@ -87,6 +105,21 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
           : 'خطا در بارگذاری گفتگوها. لطفاً دوباره تلاش کنید.';
       WidgetSafetyUtils.safeShowSnackBar(context, msg);
     }
+  }
+
+  Future<void> _refreshConversationsSilently() async {
+    try {
+      if (!ConnectivityService.instance.isConnected) return;
+      final conversations = await _chatService.getConversations().timeout(
+        const Duration(seconds: 10),
+      );
+      if (!mounted) return;
+      SafeSetState.call(this, () {
+        _conversations = conversations;
+        _filterConversations();
+      });
+      unawaited(_warmUpAvatarCache(conversations));
+    } catch (_) {}
   }
 
   Future<void> _warmUpAvatarCache(List<ChatConversation> conversations) async {
@@ -147,6 +180,12 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
     } catch (_) {}
   }
 
+  void _subscribeToUnreadSync() {
+    _unreadSyncSubscription = ChatUnreadSyncBus.instance.stream.listen((_) {
+      unawaited(_refreshConversationsSilently());
+    });
+  }
+
   void _updateConversation(ChatConversation newConversation) {
     SafeSetState.call(this, () {
       // حذف مکالمات تکراری بر اساس ترکیب user1_id و user2_id
@@ -167,14 +206,19 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
         return convKey == newKey;
       });
 
-      // فقط در صورت تغییر آخرین پیام، لیست را به‌روزرسانی کن تا پرش کم شود
+      // به‌روزرسانی وقتی پیام جدید است یا شمارندهٔ نخوانده عوض شده (مثلاً خوانده شد)
       final existingIndex = _conversations.indexWhere(
         (c) => c.id == newConversation.id,
       );
+      final int oldUnread = existingIndex == -1
+          ? -1
+          : _conversations[existingIndex].getUnreadCount(currentUserId);
+      final int newUnread = newConversation.getUnreadCount(currentUserId);
       final bool shouldUpdate =
           existingIndex == -1 ||
           _conversations[existingIndex].lastMessageDateTime !=
-              newConversation.lastMessageDateTime;
+              newConversation.lastMessageDateTime ||
+          oldUnread != newUnread;
       if (shouldUpdate) {
         _conversations.add(newConversation);
         _conversations.sort(
@@ -194,15 +238,12 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
 
     // اعمال جستجو
     if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
       filtered = filtered
           .where(
             (c) =>
-                c.otherUserName.toLowerCase().contains(
-                  _searchQuery.toLowerCase(),
-                ) ||
-                (c.lastMessageText?.toLowerCase().contains(
-                      _searchQuery.toLowerCase(),
-                    ) ??
+                c.otherUserName.toLowerCase().contains(query) ||
+                (c.lastMessageText?.toLowerCase().contains(query) ??
                     false),
           )
           .toList();
@@ -213,20 +254,94 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    super.build(context);
+    final content = Column(
       children: [
+        ChatHubSearchBar(
+          controller: _searchController,
+          hint: 'جستجو بر اساس نام یا متن آخرین پیام',
+          onChanged: (value) {
+            _searchDebounceTimer?.cancel();
+            _searchDebounceTimer = Timer(const Duration(milliseconds: 180), () {
+              if (!mounted) return;
+              SafeSetState.call(this, () {
+                _searchQuery = value;
+                _filterConversations();
+              });
+            });
+          },
+        ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(18.w, 0, 18.w, 10.h),
+          child: Row(
+            textDirection: TextDirection.rtl,
+            children: [
+              Text(
+                'پیام‌های اخیر',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textColor,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14.sp,
+                ),
+              ),
+              SizedBox(width: 8.w),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                decoration: BoxDecoration(
+                  color: AppTheme.goldColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Text(
+                  '${_filteredConversations.length}',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: AppTheme.goldColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11.5.sp,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         Expanded(
           child: _isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(color: AppTheme.goldColor),
+              ? const ChatHubLoadingView(
+                  subtitle: 'لیست گفتگوهای شما از سرور به‌روز می‌شود',
                 )
               : _filteredConversations.isEmpty
-              ? _buildEmptyState()
-              : _buildConversationsList(),
+                  ? _buildEmptyState()
+                  : _buildConversationsList(),
         ),
       ],
     );
+
+    if (!widget.standalone) {
+      return content;
+    }
+
+    return Scaffold(
+      backgroundColor: context.backgroundColor,
+      appBar: AppBar(
+        title: Text(
+          'پیام‌ها',
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontWeight: FontWeight.w700,
+            color: context.textColor,
+          ),
+        ),
+      ),
+      body: SafeArea(
+        top: false,
+        child: content,
+      ),
+    );
   }
+
+  @override
+  bool get wantKeepAlive => true;
 
   Widget _buildEmptyState() {
     String message;
@@ -234,61 +349,26 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
     IconData icon;
 
     if (!ConnectivityService.instance.isConnected) {
-      message = 'آفلاین هستید';
-      subtitle = 'برای مشاهده گفتگوها، اتصال اینترنت را برقرار کنید';
+      message = 'بدون اتصال';
+      subtitle =
+          'اینترنت را وصل کنید تا بتوانید گفتگوها را ببینید و ادامه دهید';
       icon = LucideIcons.wifiOff;
     } else if (_searchQuery.isNotEmpty) {
-      message = 'نتیجه‌ای یافت نشد';
-      subtitle = 'جستجو یا فیلتر خود را تغییر دهید';
+      message = 'نتیجه‌ای پیدا نشد';
+      subtitle = 'عبارت دیگری امتحان کنید یا املای جستجو را بررسی کنید';
       icon = LucideIcons.search;
     } else {
-      message = 'هنوز گفتگویی شروع نشده است';
-      subtitle = 'برای شروع گفتگو با مربیان یا سایر کاربران چت کنید';
-      icon = LucideIcons.messageCircle;
+      message = 'هنوز پیامی ندارید';
+      subtitle =
+          'وقتی با دوستان یا اعضای ${AppConfig.gymAiDisplayName} گفتگو کنید، همهٔ مکالمات اینجا '
+          'مرتب و زنده نمایش داده می‌شود';
+      icon = LucideIcons.messagesSquare;
     }
 
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: EdgeInsets.all(20.w),
-            decoration: BoxDecoration(
-              color: context.cardColor,
-              borderRadius: BorderRadius.circular(20.r),
-              border: Border.all(
-                color: AppTheme.goldColor.withValues(alpha: 0.2),
-              ),
-            ),
-            child: Icon(
-              icon,
-              size: 64.sp,
-              color: AppTheme.goldColor.withValues(alpha: 0.5),
-            ),
-          ),
-          SizedBox(height: 24.h),
-          Text(
-            message,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontWeight: FontWeight.bold,
-              fontSize: 18.sp,
-              color: context.textColor,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 8.h),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 14.sp,
-              color: context.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+    return ChatHubEmptyView(
+      icon: icon,
+      title: message,
+      subtitle: subtitle,
     );
   }
 
@@ -296,12 +376,13 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
     return RefreshIndicator(
       onRefresh: _loadConversations,
       color: AppTheme.goldColor,
-      child: ListView.builder(
+      edgeOffset: 52,
+      child: ListView.separated(
         key: const PageStorageKey('chat_conversations_list'),
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8),
-        itemExtent: 104,
+        padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 20.h),
         cacheExtent: 600,
         itemCount: _filteredConversations.length,
+        separatorBuilder: (_, __) => SizedBox(height: 10.h),
         itemBuilder: (context, index) {
           final conversation = _filteredConversations[index];
           return _buildConversationTile(conversation);
@@ -323,187 +404,187 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
     final unreadCount = conversation.getUnreadCount(currentUserId);
     final hasUnread = conversation.hasUnreadForUser(currentUserId);
 
-    return Column(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final unreadLabel = unreadCount > 99 ? '99+' : '$unreadCount';
+
+    return Material(
       key: ValueKey(conversation.id),
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        DecoratedBox(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _navigateToChatScreen(conversation, otherUserId),
+        onLongPress: () => _showConversationActions(conversation),
+        borderRadius: BorderRadius.circular(16.r),
+        child: Ink(
           decoration: BoxDecoration(
             color: context.cardColor,
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: hasUnread
-                  ? AppTheme.goldColor.withValues(alpha: 0.3)
-                  : context.separatorColor.withValues(alpha: 0.5),
+                  ? AppTheme.goldColor.withValues(alpha: 0.28)
+                  : context.separatorColor.withValues(alpha: 0.35),
             ),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.goldColor.withValues(alpha: 0.05),
-                blurRadius: 8.r,
-                offset: Offset(0.w, 2.h),
+                color: AppTheme.veryDarkBackground.withValues(alpha: isDark ? 0.18 : 0.04),
+                blurRadius: 10,
+                offset: Offset(0, 3.h),
               ),
             ],
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => _navigateToChatScreen(conversation, otherUserId),
-              onLongPress: () => _showConversationActions(conversation),
-              borderRadius: BorderRadius.circular(16.r),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                child: Row(
-                  textDirection: TextDirection.rtl,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+            child: Row(
+              textDirection: TextDirection.rtl,
+              children: [
+                Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    // آواتار
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        UserAvatarWidget(
-                          avatarUrl: _avatarCache[otherUserId],
-                          showOnlineStatus: false,
-                        ),
-                        if (hasUnread)
-                          Positioned(
-                            top: -2,
-                            left: -2,
-                            child: Container(
-                              width: 16.w,
-                              height: 16.h,
-                              decoration: BoxDecoration(
-                                color: AppTheme.goldColor,
-                                borderRadius: BorderRadius.circular(8.r),
-                                border: Border.all(
-                                  color: AppTheme.cardColor,
-                                  width: 2.w,
-                                ),
-                              ),
+                    UserAvatarWidget(
+                      avatarUrl: _avatarCache[otherUserId],
+                      userId: otherUserId,
+                      showOnlineStatus: false,
+                    ),
+                    if (hasUnread)
+                      Positioned(
+                        top: -1,
+                        left: -1,
+                        child: Container(
+                          width: 14.w,
+                          height: 14.h,
+                          decoration: BoxDecoration(
+                            color: AppTheme.goldColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: context.cardColor,
+                              width: 2.w,
                             ),
                           ),
-                      ],
-                    ),
-                    SizedBox(width: 16.w),
-
-                    // محتوا به سبک تلگرام: ردیف بالا نام + تاریخ، ردیف پایین نقش + آخرین پیام، نشان نخوانده کنار پیام
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
+                        ),
+                      ),
+                  ],
+                ),
+                SizedBox(width: 14.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _nameCache[otherUserId] ??
-                                      initialOtherUserName,
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.fontFamily,
-                                    color: hasUnread
-                                        ? context.textColor
-                                        : context.textColor.withValues(
-                                            alpha: 0.9,
-                                          ),
-                                    fontSize: 16.sp,
-                                    fontWeight: hasUnread
-                                        ? FontWeight.bold
-                                        : FontWeight.w600,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                          Expanded(
+                            child: Text(
+                              _nameCache[otherUserId] ??
+                                  initialOtherUserName,
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                color: context.textColor,
+                                fontSize: 14.sp,
+                                fontWeight: hasUnread
+                                    ? FontWeight.w800
+                                    : FontWeight.w700,
+                                letterSpacing: -0.2,
                               ),
-                              SizedBox(width: 8.w),
-                              Flexible(
-                                child: Text(
-                                  timeString,
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.fontFamily,
-                                    color: context.textSecondary,
-                                    fontSize: 11.sp,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          SizedBox(height: 4.h),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Padding(
-                                padding: EdgeInsetsDirectional.only(
-                                  end: 6.w,
-                                ),
-                                child: UserRoleBadge(
-                                  role: _roleCache[otherUserId] ?? 'athlete',
-                                  fontSize: 10.sp,
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 5.w,
-                                    vertical: 1.h,
-                                  ),
-                                ),
+                          SizedBox(width: 8.w),
+                          Text(
+                            timeString,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              color: context.textSecondary.withValues(
+                                alpha: 0.95,
                               ),
-                              Expanded(
-                                child: Text(
-                                  conversation.lastMessageText ?? 'بدون پیام',
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.fontFamily,
-                                    color: hasUnread
-                                        ? context.textColor.withValues(
-                                            alpha: 0.95,
-                                          )
-                                        : context.textSecondary,
-                                    fontSize: 13.sp,
-                                    fontWeight: hasUnread
-                                        ? FontWeight.w600
-                                        : FontWeight.normal,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              SizedBox(width: 6.w),
-                              if (hasUnread)
-                                Container(
-                                  constraints: BoxConstraints(
-                                    minWidth: 20.w,
-                                  ),
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 6.w,
-                                    vertical: 2.h,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: context.goldGradientColors,
-                                    ),
-                                    borderRadius: BorderRadius.circular(10.r),
-                                  ),
-                                  child: Text(
-                                    '$unreadCount',
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.fontFamily,
-                                      color: AppTheme.onGoldColor,
-                                      fontSize: 10.sp,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                            ],
+                              fontSize: 11.5.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                      SizedBox(height: 6.h),
+                      Row(
+                        children: [
+                          UserRoleBadge(
+                            role: _roleCache[otherUserId] ?? 'athlete',
+                            fontSize: 10.sp,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 6.w,
+                              vertical: 2.h,
+                            ),
+                          ),
+                          SizedBox(width: 8.w),
+                          Expanded(
+                            child: Text(
+                              conversation.lastMessageText ?? 'بدون پیام',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                color: hasUnread
+                                    ? context.textColor.withValues(
+                                        alpha: 0.92,
+                                      )
+                                    : context.textSecondary,
+                                fontSize: 13.5.sp,
+                                height: 1.25,
+                                fontWeight: hasUnread
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (hasUnread) ...[
+                            SizedBox(width: 8.w),
+                            Container(
+                              constraints: BoxConstraints(minWidth: 22.w),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 7.w,
+                                vertical: 3.h,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: context.goldGradientColors,
+                                ),
+                                borderRadius: BorderRadius.circular(12.r),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.goldColor.withValues(
+                                      alpha: 0.35,
+                                    ),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 2.h),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                unreadLabel,
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  color: AppTheme.onGoldColor,
+                                  fontSize: 11.sp,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+                SizedBox(width: 6.w),
+                Icon(
+                  LucideIcons.chevronLeft,
+                  size: 22.sp,
+                  color: context.textSecondary.withValues(alpha: 0.35),
+                ),
+              ],
             ),
           ),
         ),
-        const SizedBox(height: 8),
-      ],
+      ),
     );
   }
 
@@ -531,7 +612,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(LucideIcons.pin, color: AppTheme.goldColor),
+                leading: const Icon(LucideIcons.pin, color: AppTheme.goldColor),
                 title: Text(
                   'پین کردن گفتگو',
                   style: TextStyle(
@@ -548,7 +629,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(
+                leading: const Icon(
                   LucideIcons.bellOff,
                   color: AppTheme.goldColor,
                 ),
@@ -568,11 +649,11 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(
+                leading: const Icon(
                   LucideIcons.userX,
                   color: Colors.redAccent,
                 ),
-                title: Text(
+                title: const Text(
                   'بلاک کردن کاربر',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
@@ -589,11 +670,11 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(
+                leading: const Icon(
                   LucideIcons.trash2,
                   color: AppTheme.goldColor,
                 ),
-                title: Text(
+                title: const Text(
                   'حذف گفتگو',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
@@ -659,7 +740,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(
+            child: const Text(
               'بلاک کن',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
@@ -729,7 +810,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(
+            child: const Text(
               'حذف',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
@@ -789,6 +870,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen> {
         builder: (context) => ChatScreen(
           otherUserId: otherUserId,
           otherUserName: otherUserName,
+          initialConversationId: conversation.id,
         ),
       ),
     );

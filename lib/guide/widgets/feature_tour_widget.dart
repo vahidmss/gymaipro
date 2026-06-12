@@ -5,15 +5,14 @@ import 'package:gymaipro/guide/widgets/feature_showcase_overlay.dart';
 import 'package:provider/provider.dart';
 
 /// ویجت اصلی برای نمایش feature tour
-class FeatureTourWidget extends StatelessWidget {
-  final Widget child;
-  final String? guideId; // اگر مشخص شده، فقط این راهنما رو نمایش بده
+class FeatureTourWidget extends StatelessWidget { // اگر مشخص شده، فقط این راهنما رو نمایش بده
 
   const FeatureTourWidget({
-    super.key,
-    required this.child,
+    required this.child, super.key,
     this.guideId,
   });
+  final Widget child;
+  final String? guideId;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +42,7 @@ class FeatureTourWidget extends StatelessWidget {
               isLastStep: guideService.isLastStep,
               onNext: () {
                 if (guideService.isLastStep) {
-                  guideService.completeGuide(dontShowAgain: false);
+                  guideService.completeGuide();
                 } else {
                   guideService.nextStep();
                 }

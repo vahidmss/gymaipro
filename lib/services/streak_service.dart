@@ -5,9 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// سرویس مدیریت streak (روزهای پشت سر هم استفاده از اپ)
 class StreakService {
-  static final StreakService _instance = StreakService._internal();
   factory StreakService() => _instance;
   StreakService._internal();
+  static final StreakService _instance = StreakService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
 
@@ -80,7 +80,7 @@ class StreakService {
           newStreak = 1;
           streakUpdated = true;
           debugPrint(
-            '⚠️ Streak broken (${daysDifference} days gap), resetting to 1',
+            '⚠️ Streak broken ($daysDifference days gap), resetting to 1',
           );
         }
       }

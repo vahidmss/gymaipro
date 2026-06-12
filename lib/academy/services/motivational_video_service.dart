@@ -156,18 +156,16 @@ class MotivationalVideoService {
 
         // Method 1: Try to find JSON data in script tags
         final jsonPattern1 = RegExp(
-          r'<script[^>]*type="application/json"[^>]*>(.*?)</script>',
+          '<script[^>]*type="application/json"[^>]*>(.*?)</script>',
           dotAll: true,
         );
         final jsonPattern2 = RegExp(
-          r"<script[^>]*type='application/json'[^>]*>(.*?)</script>",
+          "<script[^>]*type='application/json'[^>]*>(.*?)</script>",
           dotAll: true,
         );
 
         RegExpMatch? jsonMatch = jsonPattern1.firstMatch(htmlContent);
-        if (jsonMatch == null) {
-          jsonMatch = jsonPattern2.firstMatch(htmlContent);
-        }
+        jsonMatch ??= jsonPattern2.firstMatch(htmlContent);
 
         if (jsonMatch != null && jsonMatch.groupCount > 0) {
           try {
@@ -200,7 +198,7 @@ class MotivationalVideoService {
         // Method 2: Try to find video elements and extract data
         // Look for both self-closing and full video tags
         final videoPattern = RegExp(
-          r'<video[^>]*(?:>.*?</video>|/?>)',
+          '<video[^>]*(?:>.*?</video>|/?>)',
           dotAll: true,
           caseSensitive: false,
         );
@@ -223,9 +221,7 @@ class MotivationalVideoService {
             caseSensitive: false,
           );
           RegExpMatch? srcMatch = srcPattern1.firstMatch(videoHtml);
-          if (srcMatch == null) {
-            srcMatch = srcPattern2.firstMatch(videoHtml);
-          }
+          srcMatch ??= srcPattern2.firstMatch(videoHtml);
           videoUrl = srcMatch?.group(1) ?? '';
 
           // Try to find source tag inside video
@@ -239,9 +235,7 @@ class MotivationalVideoService {
               caseSensitive: false,
             );
             RegExpMatch? sourceMatch = sourcePattern1.firstMatch(videoHtml);
-            if (sourceMatch == null) {
-              sourceMatch = sourcePattern2.firstMatch(videoHtml);
-            }
+            sourceMatch ??= sourcePattern2.firstMatch(videoHtml);
             videoUrl = sourceMatch?.group(1) ?? '';
           }
 
@@ -255,9 +249,7 @@ class MotivationalVideoService {
             caseSensitive: false,
           );
           RegExpMatch? posterMatch = posterPattern1.firstMatch(videoHtml);
-          if (posterMatch == null) {
-            posterMatch = posterPattern2.firstMatch(videoHtml);
-          }
+          posterMatch ??= posterPattern2.firstMatch(videoHtml);
           thumbnailUrl = posterMatch?.group(1) ?? '';
 
           // Extract title from data attributes or nearby content
@@ -270,16 +262,14 @@ class MotivationalVideoService {
             caseSensitive: false,
           );
           RegExpMatch? titleMatch = titlePattern1.firstMatch(videoHtml);
-          if (titleMatch == null) {
-            titleMatch = titlePattern2.firstMatch(videoHtml);
-          }
+          titleMatch ??= titlePattern2.firstMatch(videoHtml);
           title = titleMatch?.group(1) ?? title;
 
           // Try to find title from nearby heading or article
           if (title == 'ویدیو انگیزشی') {
             // Look for heading before video tag
             final headingPattern = RegExp(
-              r'<h[1-6][^>]*>(.*?)</h[1-6]>',
+              '<h[1-6][^>]*>(.*?)</h[1-6]>',
               dotAll: true,
               caseSensitive: false,
             );
@@ -292,7 +282,7 @@ class MotivationalVideoService {
                 final headingText = headingMatch.group(1) ?? '';
                 // Remove HTML tags from heading
                 final cleanHeading = headingText
-                    .replaceAll(RegExp(r'<[^>]+>'), '')
+                    .replaceAll(RegExp('<[^>]+>'), '')
                     .trim();
                 if (cleanHeading.isNotEmpty && cleanHeading.length < 100) {
                   title = cleanHeading;

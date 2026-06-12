@@ -6,7 +6,7 @@ import 'package:gymaipro/trainer_ranking/screens/trainer_detail_screen.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_ranking_service.dart';
 import 'package:gymaipro/trainer_ranking/widgets/shimmer.dart';
 import 'package:gymaipro/trainer_ranking/widgets/trainer_card_widget.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class TrainerRankingScreen extends StatefulWidget {
   const TrainerRankingScreen({super.key});

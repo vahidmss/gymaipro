@@ -28,7 +28,7 @@ class _DrawerGuideOverlayState extends State<DrawerGuideOverlay>
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
 
@@ -67,7 +67,7 @@ class _DrawerGuideOverlayState extends State<DrawerGuideOverlay>
           margin: EdgeInsets.all(16.w),
           padding: EdgeInsets.all(16.w),
           decoration: BoxDecoration(
-            color: isDark ? AppTheme.darkCardColor : Colors.white,
+            color: isDark ? AppTheme.darkCardColor : AppTheme.darkTextColor,
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: AppTheme.goldColor.withValues(alpha: 0.4),
@@ -75,7 +75,7 @@ class _DrawerGuideOverlayState extends State<DrawerGuideOverlay>
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.2),
+                color: AppTheme.veryDarkBackground.withValues(alpha: isDark ? 0.4 : 0.2),
                 blurRadius: 12,
                 spreadRadius: 1,
                 offset: const Offset(0, 4),
@@ -107,10 +107,10 @@ class _DrawerGuideOverlayState extends State<DrawerGuideOverlay>
                     child: Text(
                       '📱 منوی اصلی',
                       style: TextStyle(
-                        fontSize: 16.sp,
+                        fontSize: 14.sp,
                         fontWeight: FontWeight.w700,
                         color: isDark
-                            ? Colors.white
+                            ? AppTheme.darkTextColor
                             : AppTheme.lightTextColor,
                         fontFamily: AppTheme.fontFamily,
                       ),
@@ -122,7 +122,7 @@ class _DrawerGuideOverlayState extends State<DrawerGuideOverlay>
                       Icons.close,
                       size: 20.sp,
                       color: isDark
-                          ? Colors.white.withValues(alpha: 0.7)
+                          ? AppTheme.darkTextColor.withValues(alpha: 0.7)
                           : AppTheme.lightTextSecondary,
                     ),
                     onPressed: _dismiss,
@@ -144,7 +144,7 @@ class _DrawerGuideOverlayState extends State<DrawerGuideOverlay>
                 style: TextStyle(
                   fontSize: 13.sp,
                   color: isDark
-                      ? Colors.white.withValues(alpha: 0.9)
+                      ? AppTheme.darkTextColor.withValues(alpha: 0.9)
                       : AppTheme.lightTextSecondary,
                   height: 1.6,
                   fontFamily: AppTheme.fontFamily,
@@ -174,7 +174,7 @@ class _DrawerGuideOverlayState extends State<DrawerGuideOverlay>
                     style: TextStyle(
                       fontSize: 12.sp,
                       color: isDark
-                          ? Colors.white.withValues(alpha: 0.9)
+                          ? AppTheme.darkTextColor.withValues(alpha: 0.9)
                           : AppTheme.lightTextSecondary,
                       fontFamily: AppTheme.fontFamily,
                     ),
@@ -192,7 +192,7 @@ class _DrawerGuideOverlayState extends State<DrawerGuideOverlay>
                   onPressed: _dismiss,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.goldColor,
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppTheme.darkTextColor,
                     padding: EdgeInsets.symmetric(vertical: 10.h),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10.r),

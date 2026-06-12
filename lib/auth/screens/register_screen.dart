@@ -4,16 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
-import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/auth/utils/phone_utils.dart';
 import 'package:gymaipro/auth/widgets/auth_gradient_background.dart';
 import 'package:gymaipro/screens/otp_verification_screen.dart';
+import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/otp_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
-import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/utils/text_controller_utils.dart';
 import 'package:gymaipro/utils/username_validator.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/widgets/safe_text_field.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -79,14 +79,14 @@ class _RegisterScreenState extends State<RegisterScreen>
     _logoScaleAnimation = Tween<double>(begin: 0.9, end: 1).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOut), // سریع‌تر
+        curve: const Interval(0, 0.5, curve: Curves.easeOut), // سریع‌تر
       ),
     );
 
-    _cardSlideAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _cardSlideAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: const Interval(0.1, 1.0, curve: Curves.easeOut), // سریع‌تر
+        curve: const Interval(0.1, 1, curve: Curves.easeOut), // سریع‌تر
       ),
     );
 
@@ -171,6 +171,12 @@ class _RegisterScreenState extends State<RegisterScreen>
       if (mounted && !_isDisposed) {
         WidgetSafetyUtils.safeSetState(this, () {
           _usernameError = _kUsernameCheckRetryMessage;
+        });
+      }
+    } on SupabaseBackendAuthException catch (e) {
+      if (mounted && !_isDisposed) {
+        WidgetSafetyUtils.safeSetState(this, () {
+          _usernameError = e.message;
         });
       }
     } catch (e) {
@@ -266,7 +272,15 @@ class _RegisterScreenState extends State<RegisterScreen>
 
       // بررسی اولیه وجود کاربر با این شماره موبایل
       if (!mounted) return;
-      final userExists = await SupabaseService().doesUserExist(normalizedPhone);
+      late final bool userExists;
+      try {
+        userExists = await SupabaseService().doesUserExist(normalizedPhone);
+      } on SupabaseBackendAuthException catch (e) {
+        if (!mounted) return;
+        WidgetSafetyUtils.safeShowSnackBar(context, e.message);
+        WidgetSafetyUtils.safeSetState(this, () => _isLoading = false);
+        return;
+      }
       if (!mounted) return;
       if (userExists) {
         WidgetSafetyUtils.safeShowSnackBar(
@@ -324,31 +338,22 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        if (_isDisposed) return false;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (_isDisposed) {
+          if (context.mounted) Navigator.of(context).pop();
+          return;
+        }
 
-        // اگر فیلدها خالی باشند، به welcome با آخرین اسلاید برو
         if ((!_usernameController.isSafe ||
                 _usernameController.safeText.isEmpty) &&
             (!_phoneController.isSafe || _phoneController.safeText.isEmpty)) {
-          // ابتدا TextField را از درخت UI حذف می‌کنیم
-          _isDisposed = true;
-          WidgetSafetyUtils.safeSetState(this, () {});
-
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              WidgetSafetyUtils.safePushReplacementNamed(
-                context,
-                '/welcome',
-                arguments: {'jumpToLastPage': true},
-              );
-            }
-          });
-          return false; // جلوگیری از pop خودکار
+          if (context.mounted) Navigator.of(context).pop();
+          return;
         }
 
-        // اگر داده‌ای وارد شده باشد، دیالوگ نمایش بده
         final shouldPop = await WidgetSafetyUtils.safeShowDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
@@ -363,8 +368,9 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
               TextButton(
                 onPressed: () {
-                  if (_usernameController.isSafe)
+                  if (_usernameController.isSafe) {
                     _usernameController.safeClear();
+                  }
                   if (_phoneController.isSafe) _phoneController.safeClear();
                   WidgetSafetyUtils.safePop(context, true);
                 },
@@ -374,26 +380,9 @@ class _RegisterScreenState extends State<RegisterScreen>
           ),
         );
 
-        // اگر کاربر خروج را انتخاب کرد یا دیالوگ null برگرداند (بستن با back)
-        if (shouldPop == true && !_isDisposed) {
-          // ابتدا TextField را از درخت UI حذف می‌کنیم
-          _isDisposed = true;
-          WidgetSafetyUtils.safeSetState(this, () {});
-
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              // به welcome با آخرین اسلاید برو
-              WidgetSafetyUtils.safePushReplacementNamed(
-                context,
-                '/welcome',
-                arguments: {'jumpToLastPage': true},
-              );
-            }
-          });
+        if ((shouldPop ?? false) && context.mounted) {
+          Navigator.of(context).pop();
         }
-
-        // همیشه false برگردان تا pop نشود (navigation خودمان انجام می‌دهیم)
-        return false;
       },
       child: Scaffold(
         backgroundColor: context.backgroundColor,
@@ -432,7 +421,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                       scale: _logoScaleAnimation,
                                       child: Padding(
                                         padding: EdgeInsets.only(bottom: 28.h),
-                                        child: Container(
+                                        child: DecoratedBox(
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
                                             // بهینه‌سازی: کاهش shadow برای عملکرد بهتر
@@ -450,9 +439,6 @@ class _RegisterScreenState extends State<RegisterScreen>
                                             height: 140.h,
                                             width: 140.w,
                                             fit: BoxFit.contain,
-                                            // بهینه‌سازی: cache تصویر
-                                            filterQuality: FilterQuality
-                                                .medium, // تعادل بین کیفیت و عملکرد
                                           ),
                                         ),
                                       ),
@@ -496,7 +482,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                     begin: Alignment.topLeft,
                                                     end: Alignment.bottomRight,
                                                     colors: [
-                                                      Colors.white.withValues(
+                                                      AppTheme.darkTextColor.withValues(
                                                         alpha: 0.95,
                                                       ),
                                                       context
@@ -504,7 +490,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                           .withValues(
                                                             alpha: 0.2,
                                                           ),
-                                                      Colors.white.withValues(
+                                                      AppTheme.darkTextColor.withValues(
                                                         alpha: 0.98,
                                                       ),
                                                     ],
@@ -553,7 +539,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                           context,
                                                         ).brightness ==
                                                         Brightness.dark
-                                                    ? Colors.black.withValues(
+                                                    ? AppTheme.veryDarkBackground.withValues(
                                                         alpha: 0.4,
                                                       )
                                                     : AppTheme.lightTextColor
@@ -661,7 +647,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                               ).brightness ==
                                                               Brightness.dark
                                                           ? context.cardColor
-                                                          : Colors.white
+                                                          : AppTheme.darkTextColor
                                                                 .withValues(
                                                                   alpha: 0.7,
                                                                 ),
@@ -713,12 +699,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                         30,
                                                       ),
                                                     ],
-                                                    validator: (value) {
-                                                      // استفاده از اعتبارسنجی استاندارد
-                                                      return UsernameValidator.validate(
-                                                        value,
-                                                      );
-                                                    },
+                                                    validator: UsernameValidator.validate,
                                                     onChanged:
                                                         _onUsernameChanged,
                                                     textInputAction:
@@ -872,7 +853,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                               ).brightness ==
                                                               Brightness.dark
                                                           ? context.cardColor
-                                                          : Colors.white
+                                                          : AppTheme.darkTextColor
                                                                 .withValues(
                                                                   alpha: 0.7,
                                                                 ),
@@ -916,9 +897,9 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                   ),
                                                 ),
                                                 SizedBox(height: 20.h),
-                                                Container(
+                                                DecoratedBox(
                                                   decoration: BoxDecoration(
-                                                    gradient: LinearGradient(
+                                                    gradient: const LinearGradient(
                                                       begin: Alignment.topLeft,
                                                       end:
                                                           Alignment.bottomRight,
@@ -927,7 +908,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                         AppTheme.darkGold,
                                                         AppTheme.goldColor,
                                                       ],
-                                                      stops: const [
+                                                      stops: [
                                                         0.0,
                                                         0.5,
                                                         1.0,
@@ -980,7 +961,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                                 context,
                                                               ).brightness ==
                                                               Brightness.dark
-                                                          ? Colors.white
+                                                          ? AppTheme.darkTextColor
                                                           : const Color(
                                                               0xFF2C2416,
                                                             ),
@@ -1040,27 +1021,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                                   SizedBox(height: 16.h),
                                   TextButton(
                                     onPressed: () {
-                                      if (_isDisposed) return;
-
-                                      // ابتدا TextField را از درخت UI حذف می‌کنیم
-                                      _isDisposed = true;
-                                      WidgetSafetyUtils.safeSetState(
-                                        this,
-                                        () {},
+                                      if (!mounted) return;
+                                      Navigator.pushReplacementNamed(
+                                        context,
+                                        '/login',
                                       );
-
-                                      // صبر می‌کنیم تا UI به‌روزرسانی شود
-                                      WidgetsBinding.instance.addPostFrameCallback((
-                                        _,
-                                      ) {
-                                        if (mounted) {
-                                          // بهینه‌سازی: استفاده از transition سریع‌تر
-                                          WidgetSafetyUtils.safePushReplacementNamed(
-                                            context,
-                                            '/login',
-                                          );
-                                        }
-                                      });
                                     },
                                     child: Text(
                                       'قبلاً ثبت‌نام کرده‌اید؟ وارد شوید',

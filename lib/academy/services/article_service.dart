@@ -1,12 +1,13 @@
 ﻿import 'dart:convert';
 
 import 'package:gymaipro/academy/models/article.dart';
+import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/network/wordpress_http.dart';
 import 'package:gymaipro/utils/cache_service.dart';
-import 'package:http/http.dart' as http;
 
 class ArticleService {
-  static const String _baseUrl =
-      'https://gymaipro.ir/wp-json/wp/v2/coaches-article?_embed=true';
+  static String get _baseUrl =>
+      '${AppConfig.wordpressApiOrigin}/wp-json/wp/v2/coaches-article?_embed=true';
   static const String _cacheKey = 'academy_articles';
   static const Duration _cacheExpiry = Duration(minutes: 15);
 
@@ -31,7 +32,7 @@ class ArticleService {
     }
 
     final uri = Uri.parse('$_baseUrl&per_page=$perPage&page=$page');
-    final response = await http.get(
+    final response = await wordpressGet(
       uri,
       headers: {'Accept': 'application/json'},
     );
@@ -54,9 +55,9 @@ class ArticleService {
 
   static Future<Article> fetchArticleById(int id) async {
     final uri = Uri.parse(
-      'https://gymaipro.ir/wp-json/wp/v2/coaches-article/$id?_embed=true',
+      '${AppConfig.wordpressApiOrigin}/wp-json/wp/v2/coaches-article/$id?_embed=true',
     );
-    final response = await http.get(
+    final response = await wordpressGet(
       uri,
       headers: {'Accept': 'application/json'},
     );

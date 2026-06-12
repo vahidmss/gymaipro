@@ -53,7 +53,7 @@ class LeaderboardItem extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.06),
+                  color: AppTheme.veryDarkBackground.withValues(alpha: isDark ? 0.22 : 0.06),
                   blurRadius: 10,
                   offset: const Offset(0, 3),
                 ),
@@ -193,7 +193,7 @@ class _AvatarCircle extends StatelessWidget {
           letter,
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
-            fontSize: 16.sp,
+            fontSize: 14.sp,
             fontWeight: FontWeight.bold,
             color: AppTheme.goldColor,
           ),
@@ -252,7 +252,7 @@ class _RankNumberBadge extends StatelessWidget {
 
     final outerGradient = _outerGradient(context);
     final innerColor = rank <= 3
-        ? Colors.white.withValues(alpha: 0.18)
+        ? AppTheme.darkTextColor.withValues(alpha: 0.18)
         : (isDark ? context.veryDarkBackground : context.cardColor);
 
     final numberColor = rank <= 3 ? const Color(0xFF141414) : context.textColor;
@@ -292,8 +292,7 @@ class _RankNumberBadge extends StatelessWidget {
                 color: innerColor,
                 borderRadius: BorderRadius.circular(outerRadius - 2.r),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: isDark ? 0.10 : 0.22),
-                  width: 1,
+                  color: AppTheme.darkTextColor.withValues(alpha: isDark ? 0.10 : 0.22),
                 ),
               ),
             ),
@@ -322,8 +321,8 @@ class _RankNumberBadge extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.white.withValues(alpha: isDark ? 0.14 : 0.22),
-                    Colors.white.withValues(alpha: 0.0),
+                    AppTheme.darkTextColor.withValues(alpha: isDark ? 0.14 : 0.22),
+                    AppTheme.darkTextColor.withValues(alpha: 0),
                   ],
                 ),
               ),

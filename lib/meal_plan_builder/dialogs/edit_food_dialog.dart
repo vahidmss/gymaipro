@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/text_controller_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class EditFoodDialog extends StatefulWidget {
   const EditFoodDialog({

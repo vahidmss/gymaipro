@@ -20,7 +20,7 @@ import 'package:gymaipro/admin/screens/admin_public_chat_screen.dart';
 import 'package:gymaipro/admin/screens/admin_announcements_screen.dart';
 import 'package:gymaipro/admin/services/admin_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// صفحه اصلی پنل ادمین

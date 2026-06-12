@@ -12,7 +12,7 @@ import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/utils/text_controller_utils.dart';
 import 'package:gymaipro/admin/services/admin_service.dart';
 import 'package:gymaipro/widgets/user_role_badge.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum MessageSendStatus { sending, sent, failed }

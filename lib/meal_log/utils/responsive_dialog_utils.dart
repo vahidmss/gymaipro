@@ -72,7 +72,7 @@ class ResponsiveDialogUtils {
     
     final verticalMargin = screenWidth > 600 ? 12.0 : 8.0;
     
-    return EdgeInsets.symmetric(horizontal: 0, vertical: verticalMargin);
+    return EdgeInsets.symmetric(vertical: verticalMargin);
   }
   
   /// محاسبه border radius استاندارد برای Container ها

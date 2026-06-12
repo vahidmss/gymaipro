@@ -9,6 +9,7 @@ plugins {
 android {
     namespace = "com.example.gymaipro"
     compileSdk = flutter.compileSdkVersion
+
     ndkVersion = "28.2.13676358"
 
     compileOptions {
@@ -30,6 +31,12 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Gym sideload: arm64-only APK (~55MB vs ~117MB universal). Covers essentially all
+        // Android phones in use in Iran since ~2018. Drop armeabi-v7a/x86_64 from release APK.
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     lint {

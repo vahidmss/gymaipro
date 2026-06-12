@@ -48,7 +48,7 @@ class AuthStateService {
       print('=== AUTH SERVICE: Checking if user is logged in... ===');
 
       // بررسی نشست فعلی
-      var currentSession = Supabase.instance.client.auth.currentSession;
+      final currentSession = Supabase.instance.client.auth.currentSession;
       print(
         '=== AUTH SERVICE: Current session: ${currentSession != null ? "exists" : "null"} ===',
       );
@@ -135,7 +135,7 @@ class AuthStateService {
       print('=== AUTH SERVICE: Attempting to restore session... ===');
 
       // بررسی نشست فعلی
-      var currentSession = Supabase.instance.client.auth.currentSession;
+      final currentSession = Supabase.instance.client.auth.currentSession;
 
       if (currentSession != null) {
         print('=== AUTH SERVICE: Session found ===');

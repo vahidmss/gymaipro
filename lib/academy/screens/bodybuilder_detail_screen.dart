@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/professional_bodybuilder.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class BodybuilderDetailScreen extends StatelessWidget {
@@ -214,7 +214,7 @@ class BodybuilderDetailScreen extends StatelessWidget {
                         if (bodybuilder.instagramHandle != null)
                           _buildSocialButton(
                             context,
-                            icon: LucideIcons.instagram,
+                            icon: LucideIcons.share2,
                             label: 'اینستاگرام',
                             onTap: () => _launchUrl(
                               'https://instagram.com/${bodybuilder.instagramHandle}',
@@ -223,7 +223,7 @@ class BodybuilderDetailScreen extends StatelessWidget {
                         if (bodybuilder.youtubeChannel != null)
                           _buildSocialButton(
                             context,
-                            icon: LucideIcons.youtube,
+                            icon: LucideIcons.video,
                             label: 'یوتیوب',
                             onTap: () => _launchUrl(bodybuilder.youtubeChannel!),
                           ),

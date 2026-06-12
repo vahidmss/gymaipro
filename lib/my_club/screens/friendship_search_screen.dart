@@ -4,7 +4,7 @@ import 'package:gymaipro/models/friendship_models.dart';
 import 'package:gymaipro/my_club/services/friendship_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class FriendshipSearchScreen extends StatefulWidget {
   const FriendshipSearchScreen({super.key});

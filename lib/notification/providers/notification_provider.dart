@@ -7,6 +7,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Provider برای مدیریت state اعلان‌ها
 /// شامل realtime updates، pagination، filtering و search
 class NotificationProvider extends ChangeNotifier {
+
+  NotificationProvider() {
+    _initializeRealtime();
+  }
   final NotificationRepository _repository = NotificationRepository();
 
   // State variables
@@ -78,10 +82,6 @@ class NotificationProvider extends ChangeNotifier {
     return filtered;
   }
 
-  NotificationProvider() {
-    _initializeRealtime();
-  }
-
   /// Initialize realtime subscription
   void _initializeRealtime() {
     try {
@@ -100,9 +100,7 @@ class NotificationProvider extends ChangeNotifier {
               column: 'user_id',
               value: user.id,
             ),
-            callback: (payload) {
-              _handleRealtimeUpdate(payload);
-            },
+            callback: _handleRealtimeUpdate,
           )
           .subscribe();
 
@@ -130,7 +128,6 @@ class NotificationProvider extends ChangeNotifier {
             }
             notifyListeners();
           }
-          break;
 
         case PostgresChangeEvent.update:
           final newRecord = payload.newRecord;
@@ -152,7 +149,6 @@ class NotificationProvider extends ChangeNotifier {
             }
             notifyListeners();
           }
-          break;
 
         case PostgresChangeEvent.delete:
           final oldRecord = payload.oldRecord;
@@ -167,7 +163,6 @@ class NotificationProvider extends ChangeNotifier {
             _notifications.removeAt(index);
             notifyListeners();
           }
-          break;
 
         default:
           break;

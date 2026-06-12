@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:gymaipro/ranking/models/league.dart';
-import 'package:gymaipro/theme/app_theme.dart';
 
 /// ویجت نمایش نشان لیگ
 class LeagueBadge extends StatelessWidget {

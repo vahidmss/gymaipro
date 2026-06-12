@@ -30,7 +30,7 @@ import 'package:gymaipro/meal_log/widgets/supplement_card.dart';
 import 'package:gymaipro/meal_log/widgets/trainer_supervision_card.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/models/meal_plan.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:gymaipro/meal_plan_builder/services/meal_plan_service.dart';
 import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
@@ -104,7 +104,14 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
 
       // نمایش راهنما اگر هنوز نشون داده نشده
       if (mounted && guideService.shouldShowGuide('meal_log_tour')) {
-        await startGuide(context, 'meal_log_tour');
+        await offerGuideTourIfEligible(
+          context,
+          guideId: 'meal_log_tour',
+          title: 'یه تور کوتاه از کالری‌شمار بریم؟',
+          description:
+              'خلاصهٔ کالری، تاریخ و وعده‌ها رو با هم مرور می‌کنیم تا '
+              'ثبت غذا راحت‌تر بشه.',
+        );
       }
     } catch (e) {
       debugPrint('Error showing meal log tour: $e');

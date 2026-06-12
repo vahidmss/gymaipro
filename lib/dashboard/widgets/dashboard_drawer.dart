@@ -15,7 +15,7 @@ import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/admin/screens/admin_dashboard_screen.dart';
 import 'package:gymaipro/trainer_dashboard/screens/trainer_dashboard_screen.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -77,7 +77,13 @@ class _DashboardDrawerState extends State<DashboardDrawer>
         registerGuide(context, DrawerGuideData.getDrawerGuide());
         // نمایش راهنما اگر باید نمایش داده شود
         if (guideService.shouldShowGuide('drawer_guide')) {
-          await startGuide(context, 'drawer_guide');
+          await offerGuideTourIfEligible(
+            context,
+            guideId: 'drawer_guide',
+            title: 'منوی کناری رو با هم ببینیم؟',
+            description:
+                'یه تور کوتاه از آیتم‌های منو می‌گیری تا بعداً سری‌تر پیداشون کنی.',
+          );
         }
       }
     });

@@ -27,7 +27,7 @@ class FoodMealLog {
       'foods': foods.map((f) => f.toJson()).toList(),
     };
     if (note != null) {
-      json['note'] = note!;
+      json['note'] = note;
     }
     return json;
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/ranking/models/league.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/app_remote_image.dart';
 
 /// کارت انتخاب لیگ با تصویر
 class LeagueCard extends StatelessWidget {
@@ -62,12 +63,12 @@ class LeagueCard extends StatelessWidget {
             // تصویر لیگ
             ClipRRect(
               borderRadius: BorderRadius.circular(12.r),
-              child: Image.asset(
-                imagePathForLeague(league),
+              child: AppRemoteImage(
+                path: imagePathForLeague(league),
                 width: 56.w,
                 height: 56.w,
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => Container(
+                errorWidget: Container(
                   width: 56.w,
                   height: 56.w,
                   decoration: BoxDecoration(

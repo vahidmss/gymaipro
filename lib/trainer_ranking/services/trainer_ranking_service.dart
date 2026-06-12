@@ -1,7 +1,19 @@
+import 'package:flutter/foundation.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/trainer_ranking/models/trainer_ranking_model.dart';
+import 'package:gymaipro/trainer_ranking/services/trainer_league_points_service.dart';
 import 'package:gymaipro/utils/cache_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+class TrainerTopLeagueEntry {
+  const TrainerTopLeagueEntry({
+    required this.profile,
+    required this.leaguePoints,
+  });
+
+  final UserProfile profile;
+  final int leaguePoints;
+}
 
 class TrainerRankingService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -751,6 +763,37 @@ class TrainerRankingService {
       return specializations.toList()..sort();
     } catch (e) {
       print('خطا در دریافت تخصص‌ها: $e');
+      return [];
+    }
+  }
+
+  Future<List<TrainerTopLeagueEntry>> getTopTrainersByLeagueScores({
+    int limit = 3,
+    int candidatePool = 40,
+  }) async {
+    try {
+      final trainers = await getTrainerRankings(limit: candidatePool);
+      final leagueService = TrainerLeaguePointsService();
+      final scored = <TrainerTopLeagueEntry>[];
+
+      for (final trainer in trainers) {
+        final trainerId = trainer.id;
+        if (trainerId == null || trainerId.isEmpty) continue;
+        final breakdown =
+            await leagueService.computeBreakdown(trainerId);
+        scored.add(
+          TrainerTopLeagueEntry(
+            profile: trainer,
+            leaguePoints: breakdown.totalPoints,
+          ),
+        );
+      }
+
+      scored.sort((a, b) => b.leaguePoints.compareTo(a.leaguePoints));
+      if (scored.length <= limit) return scored;
+      return scored.sublist(0, limit);
+    } catch (e) {
+      debugPrint('getTopTrainersByLeagueScores error: $e');
       return [];
     }
   }

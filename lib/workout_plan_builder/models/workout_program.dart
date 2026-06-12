@@ -40,6 +40,7 @@ class WorkoutProgram {
     DateTime? createdAt,
     DateTime? updatedAt,
     this.sentAt,
+    this.isSelfServiceAi = false,
   }) : id = _normalizeUuid(id),
        createdAt = createdAt ?? DateTime.now(),
        updatedAt = updatedAt ?? DateTime.now();
@@ -122,6 +123,7 @@ class WorkoutProgram {
       createdAt: createdAt,
       updatedAt: updatedAt,
       sentAt: sentAt,
+      isSelfServiceAi: json['is_self_service_ai'] == true,
     );
   }
 
@@ -144,6 +146,7 @@ class WorkoutProgram {
   DateTime createdAt;
   DateTime updatedAt;
   DateTime? sentAt; // Date when program was sent to the user
+  bool isSelfServiceAi;
 
   Map<String, dynamic> toJson() {
     return {
@@ -167,6 +170,7 @@ class WorkoutProgram {
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? sentAt,
+    bool? isSelfServiceAi,
   }) {
     return WorkoutProgram(
       id: id ?? this.id,
@@ -177,6 +181,7 @@ class WorkoutProgram {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       sentAt: sentAt ?? this.sentAt,
+      isSelfServiceAi: isSelfServiceAi ?? this.isSelfServiceAi,
     );
   }
 }

@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
-import 'package:http/http.dart' show Client;
-import 'package:http/io_client.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,8 +9,11 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:gymaipro/ai/services/user_context_cache_service.dart';
 import 'package:gymaipro/auth/services/auth_state_service.dart';
 import 'package:gymaipro/config/app_config.dart';
-import 'package:gymaipro/services/connectivity_service.dart';
+import 'package:gymaipro/notification/notification_service.dart';
+import 'package:gymaipro/notification/services/private_message_notification_service.dart';
+import 'package:gymaipro/services/ai_exercise_read_service.dart';
 import 'package:gymaipro/services/backend_reachability_service.dart';
+import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/database_migration_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
 import 'package:gymaipro/services/food_service.dart';
@@ -20,9 +21,8 @@ import 'package:gymaipro/services/route_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/supabase_service.dart';
 import 'package:gymaipro/services/video_cache_service.dart';
-import 'package:gymaipro/services/ai_exercise_read_service.dart';
-import 'package:gymaipro/notification/notification_service.dart';
-import 'package:gymaipro/notification/services/private_message_notification_service.dart';
+import 'package:http/http.dart' show Client;
+import 'package:http/io_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -34,6 +34,7 @@ class AppInitializer {
 
   /// Whether Supabase.initialize() completed successfully.
   static bool _supabaseInitialized = false;
+  static bool _backgroundServicesStarted = false;
 
   /// Check if Supabase is ready before accessing Supabase.instance.
   static bool get isSupabaseReady => _supabaseInitialized;
@@ -83,10 +84,43 @@ class AppInitializer {
         supabaseService: SupabaseService(),
       );
     }
+
+    // If a local session exists, never send the user to welcome on slow DNS.
+    try {
+      final authService = AuthStateService();
+      final restored = await authService
+          .restoreSession()
+          .timeout(const Duration(seconds: 1), onTimeout: () => null);
+      if (restored != null) {
+        if (kDebugMode) {
+          debugPrint('Bootstrap best-effort: local session → /main');
+        }
+        return AppInitResult(
+          success: true,
+          initialRoute: '/main',
+          supabaseService: SupabaseService(),
+        );
+      }
+      if (Supabase.instance.client.auth.currentSession != null) {
+        return AppInitResult(
+          success: true,
+          initialRoute: '/main',
+          supabaseService: SupabaseService(),
+        );
+      }
+    } catch (_) {}
+
+    String routeOnTimeout() {
+      if (Supabase.instance.client.auth.currentSession != null) {
+        return '/main';
+      }
+      return '/offline';
+    }
+
     try {
       final route = await _determineInitialRoute().timeout(
-        const Duration(seconds: 2),
-        onTimeout: () => '/welcome',
+        const Duration(seconds: 4),
+        onTimeout: routeOnTimeout,
       );
       return AppInitResult(
         success: true,
@@ -94,9 +128,10 @@ class AppInitializer {
         supabaseService: SupabaseService(),
       );
     } catch (_) {
+      final session = Supabase.instance.client.auth.currentSession;
       return AppInitResult(
-        success: false,
-        initialRoute: '/welcome',
+        success: true,
+        initialRoute: session != null ? '/main' : '/offline',
         supabaseService: SupabaseService(),
       );
     }
@@ -111,17 +146,21 @@ class AppInitializer {
       _initializeTimezone();
       await _initializeSupabase();
       _coreInitialized = true;
+    } else if (!dotenv.isInitialized) {
+      // Hot restart: dotenv ریست می‌شود ولی _coreInitialized می‌ماند.
+      await _loadEnvironmentVariables();
+      if (!_supabaseInitialized && AppConfig.supabaseAnonKey.isNotEmpty) {
+        await _initializeSupabase();
+      }
     }
 
-    // ── Retriable services (safe to call again on retry) ──
-    // Fire-and-forget for non-critical services
-    _initializeAppServices();
-
-    // Auth & routing (must complete before we can navigate)
-    // If Supabase is unreachable, we still allow app startup in offline-safe mode.
+    // Auth first so an expired token is refreshed once before background DB work.
     if (_supabaseInitialized) {
       await _setupAuth();
     }
+
+    // ── Retriable services (safe to call again on retry) ──
+    _initializeAppServices();
 
     final initialRoute = _supabaseInitialized
         ? await _determineInitialRoute()
@@ -135,29 +174,29 @@ class AppInitializer {
   }
 
   static Future<void> _loadEnvironmentVariables() async {
+    // Release: از --dart-define / CI. Debug & profile: از asset `.env` در pubspec.
+    if (kReleaseMode) return;
+    if (dotenv.isInitialized) return;
+
     try {
-      await dotenv.load(fileName: '.env');
-      if (kDebugMode) {
-        debugPrint('✅ Environment variables loaded successfully');
-        final openaiKey = dotenv.env['OPENAI_API_KEY'] ?? '';
-        if (openaiKey.isEmpty) {
-          debugPrint(
-            '⚠️ OPENAI_API_KEY is empty in .env – add OPENAI_API_KEY=sk-... to your .env file and restart the app',
-          );
-        } else {
-          debugPrint('✅ OPENAI_API_KEY found (length: ${openaiKey.length})');
-        }
+      await dotenv.load();
+      debugPrint('✅ Environment variables loaded from .env');
+      final anon = dotenv.env['SUPABASE_ANON_KEY']?.trim() ?? '';
+      if (anon.isEmpty) {
+        debugPrint(
+          '⚠️ SUPABASE_ANON_KEY خالی است — ANON_KEY واقعی سرور را در .env بگذارید',
+        );
       }
+      final engine = dotenv.env['AI_ENGINE_MODE'] ?? 'rule_based';
+      debugPrint('✅ AI engine: $engine');
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('⚠️ Could not load .env file: $e');
-        debugPrint(
-          '   Ensure .env exists in project root (copy from .env.example) and contains OPENAI_API_KEY=sk-...',
-        );
-        debugPrint(
-          '   Or run with: flutter run --dart-define=OPENAI_API_KEY=sk-...',
-        );
-      }
+      debugPrint('⚠️ Could not load .env: $e');
+      debugPrint(
+        '   فایل .env در ریشه پروژه باشد و در pubspec.yaml تحت assets ثبت شده باشد.',
+      );
+      debugPrint(
+        '   یا: flutter run --dart-define-from-file=.env',
+      );
     }
   }
 
@@ -195,7 +234,7 @@ class AppInitializer {
   }
 
   static Future<void> _initializeSupabase() async {
-    final Client? httpClient = kDebugMode
+    final Client? httpClient = (!kIsWeb && kDebugMode)
         ? () {
             final io = HttpClient();
             io.badCertificateCallback = (_, __, ___) => true;
@@ -203,14 +242,23 @@ class AppInitializer {
           }()
         : null;
 
+    final anonKey = AppConfig.supabaseAnonKey;
+    if (anonKey.isEmpty) {
+      _supabaseInitialized = false;
+      if (kDebugMode) {
+        debugPrint(
+          '❌ SUPABASE_ANON_KEY خالی است — درخواست‌ها با 401 (No API key) رد می‌شوند. '
+          '.env را لود کنید یا flutter run --dart-define-from-file=.env',
+        );
+      }
+      return;
+    }
+
     try {
       await Supabase.initialize(
         url: AppConfig.supabaseUrl,
-        anonKey: AppConfig.supabaseAnonKey,
+        anonKey: anonKey,
         httpClient: httpClient,
-        authOptions: const FlutterAuthClientOptions(
-          autoRefreshToken: true,
-        ),
       ).timeout(const Duration(seconds: 6));
       _supabaseInitialized = true;
     } catch (e) {
@@ -253,14 +301,8 @@ class AppInitializer {
             final session = event.session;
             if (kDebugMode) {
               if (session != null) {
-                debugPrint('Auth state changed: ${event.event}');
-                debugPrint('Session user ID: ${session.user.id}');
-                debugPrint('Session expired: ${session.isExpired}');
-                if (session.isExpired) {
-                  debugPrint(
-                    'Session expired - auto-refresh will attempt to restore',
-                  );
-                }
+                // Intentionally silent for non-null sessions to avoid noisy
+                // logs from frequent auth token refresh events.
               } else {
                 debugPrint(
                   'Auth state changed: ${event.event} - Session cleared',
@@ -306,10 +348,12 @@ class AppInitializer {
 
   static Future<void> _testSupabaseConnection() async {
     try {
-      final isOnline = await ConnectivityService.instance.checkNow();
-      if (!isOnline) {
+      final canBackend = await ConnectivityService.instance.canReachAppBackend();
+      if (!canBackend) {
         if (kDebugMode) {
-          debugPrint('Offline mode: Skipping connection test');
+          debugPrint(
+            'Skipping Supabase connection test: no usable network/DNS for backend',
+          );
         }
         return;
       }
@@ -338,35 +382,59 @@ class AppInitializer {
   }
 
   static Future<void> _initializeAppServices() async {
+    if (_backgroundServicesStarted) return;
+    _backgroundServicesStarted = true;
+    final canBackend = await ConnectivityService.instance.canReachAppBackend();
+
+    // Stage background services to reduce startup contention/jank.
+    // Critical/near-critical first, heavier preloads later.
+    unawaited(_initVideoCacheService());
+    // Delay heavy notification wiring slightly so first frame is not blocked.
     unawaited(
-      Future.wait([
-            _initExerciseService(),
-            _initFoodService(),
-            _initVideoCacheService(),
-            _initDatabaseMigrations(),
-            _initNotificationService(),
-            _preloadAIExercises(),
-          ])
-          .then((_) {
-            if (kDebugMode) {
-              debugPrint('All initialization services completed');
-            }
-          })
-          .catchError((Object error) {
-            if (kDebugMode) {
-              debugPrint('Error in initialization services: $error');
-            }
-          }),
+      Future<void>.delayed(const Duration(milliseconds: 1200), () async {
+        await _initNotificationService();
+      }),
     );
+    if (canBackend) {
+      unawaited(_initDatabaseMigrations());
+    } else if (kDebugMode) {
+      debugPrint(
+        'Skipping startup DB migrations stage: no usable network/DNS for backend',
+      );
+    }
+
+    if (canBackend) {
+      unawaited(
+        Future<void>.delayed(const Duration(milliseconds: 900), () async {
+          await _initExerciseService();
+        }),
+      );
+      unawaited(
+        Future<void>.delayed(const Duration(milliseconds: 1300), () async {
+          await _initFoodService();
+        }),
+      );
+      unawaited(
+        Future<void>.delayed(const Duration(milliseconds: 1800), () async {
+          await _preloadAIExercises();
+        }),
+      );
+    } else if (kDebugMode) {
+      debugPrint(
+        'Skipping startup network-heavy services (exercise/food/AI preload) due to offline DNS state',
+      );
+    }
   }
 
   /// پیش‌بارگذاری تمرینات AI از دیتابیس برای استفاده در تولید برنامه
   static Future<void> _preloadAIExercises() async {
     try {
-      final isOnline = await ConnectivityService.instance.checkNow();
-      if (!isOnline) {
+      final canBackend = await ConnectivityService.instance.canReachAppBackend();
+      if (!canBackend) {
         if (kDebugMode) {
-          debugPrint('Skipping AI exercises preload: offline');
+          debugPrint(
+            'Skipping AI exercises preload: no usable network/DNS for backend',
+          );
         }
         return;
       }
@@ -424,10 +492,12 @@ class AppInitializer {
 
   static Future<void> _initDatabaseMigrations() async {
     try {
-      final isOnline = await ConnectivityService.instance.checkNow();
-      if (!isOnline) {
+      final canBackend = await ConnectivityService.instance.canReachAppBackend();
+      if (!canBackend) {
         if (kDebugMode) {
-          debugPrint('Skipping database migrations: offline');
+          debugPrint(
+            'Skipping database migrations: no usable network/DNS for backend',
+          );
         }
         return;
       }
@@ -488,10 +558,10 @@ class AppInitializer {
     }
     try {
       final authService = AuthStateService();
-      final isOnline = await ConnectivityService.instance.checkNow();
+      final canUseBackend = await ConnectivityService.instance.canReachAppBackend();
 
       if (kDebugMode) {
-        debugPrint('Setting up auth - Online: $isOnline');
+        debugPrint('Setting up auth - Backend reachable (DNS): $canUseBackend');
       }
 
       // Small delay to let Supabase finish session hydration from storage
@@ -507,51 +577,17 @@ class AppInitializer {
           );
         }
 
-        // Subscribe to notifications (fire-and-forget with timeout)
-        unawaited(
-          NotificationService()
-              .forceSubscribeToAll()
-              .timeout(const Duration(seconds: 3))
-              .then((_) {
-            if (kDebugMode) {
-              debugPrint('✅ Subscribed to topic "all" after session restore');
-            }
-          }).catchError((Object e) {
-            if (kDebugMode) {
-              debugPrint('⚠️ Error subscribing to topic "all": $e');
-            }
-          }),
-        );
+        if (session.isExpired) {
+          await AuthStateService.ensureFreshSession();
+        }
 
-        // Verify profile if online (with timeout to avoid hanging)
-        if (isOnline) {
-          try {
-            final hasProfile = await _verifyUserProfile(
-              session.user.id,
-              session.user,
-            ).timeout(const Duration(seconds: 5), onTimeout: () => false);
-            if (!hasProfile) {
-              if (kDebugMode) {
-                debugPrint(
-                  '⚠️ User ${session.user.id} has no complete profile. Keeping session and redirecting to registration flow.',
-                );
-              }
-              return;
-            }
-            unawaited(_refreshUserContextCache());
-            if (kDebugMode) {
-              debugPrint('User profile and cache refreshed successfully');
-            }
-          } catch (e) {
-            if (kDebugMode) {
-              debugPrint('Error refreshing profile/cache: $e');
-            }
-            // IMPORTANT: Do NOT sign out on transient errors. Keep session and let routing handle it.
-          }
+        // Heavy profile/cache checks should not block startup route resolution.
+        if (canUseBackend) {
+          unawaited(_verifyAndRefreshProfileInBackground(session));
         } else {
           if (kDebugMode) {
             debugPrint(
-              'Offline mode - skipping profile verification and cache refresh',
+              'No backend DNS/network - skipping profile verification and cache refresh',
             );
           }
         }
@@ -566,6 +602,30 @@ class AppInitializer {
         debugPrint('Stack trace: $stackTrace');
       }
       // در صورت خطا، به کاربر اجازه می‌دهیم به صفحه welcome برود
+    }
+  }
+
+  static Future<void> _verifyAndRefreshProfileInBackground(Session session) async {
+    try {
+      await AuthStateService.ensureFreshSession();
+      final hasProfile = await _verifyUserProfile(session.user.id, session.user)
+          .timeout(const Duration(seconds: 5), onTimeout: () => false);
+      if (!hasProfile) {
+        if (kDebugMode) {
+          debugPrint(
+            '⚠️ User ${session.user.id} has no complete profile. Keeping session and deferring to route guards.',
+          );
+        }
+        return;
+      }
+      await _refreshUserContextCache();
+      if (kDebugMode) {
+        debugPrint('User profile and cache refreshed successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Error refreshing profile/cache: $e');
+      }
     }
   }
 
@@ -648,10 +708,11 @@ class AppInitializer {
 
   static Future<String> _determineFallbackRouteWithoutSupabase() async {
     try {
-      final isOnline = await ConnectivityService.instance.checkNow();
-      if (!isOnline) return '/offline';
+      if (kIsWeb) return '/welcome';
+      final canBackend = await ConnectivityService.instance.canReachAppBackend();
+      if (!canBackend) return '/offline';
       final backendReachable = await BackendReachabilityService
-          .isBackendReachable(timeout: const Duration(seconds: 3));
+          .isBackendReachable();
       return backendReachable ? '/welcome' : '/offline';
     } catch (_) {
       return '/welcome';

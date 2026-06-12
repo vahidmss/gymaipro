@@ -9,7 +9,7 @@ import 'package:gymaipro/payment/widgets/wallet_balance_card.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/date_utils.dart' as app_date_utils;
 import 'package:gymaipro/utils/widget_safety_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 
 /// آیتم تراکنش اخیر: یا کیف‌پول یا پرداخت درگاهی

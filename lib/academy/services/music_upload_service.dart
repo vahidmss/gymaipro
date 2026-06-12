@@ -23,6 +23,7 @@ class MusicUploadService {
   Future<String> uploadMusic(
     File audioFile, {
     void Function(double progress)? onProgress,
+    String? uploadContext,
   }) async {
     try {
       // بررسی وجود فایل
@@ -91,6 +92,10 @@ class MusicUploadService {
 
       // اضافه کردن header احراز هویت
       request.headers['Authorization'] = 'Bearer ${session.accessToken}';
+
+      if (uploadContext != null && uploadContext.trim().isNotEmpty) {
+        request.fields['upload_context'] = uploadContext.trim();
+      }
 
       // اضافه کردن فایل با progress tracking واقعی
       final originalFileName = audioFile.path.split('/').last;

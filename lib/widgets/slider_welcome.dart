@@ -35,14 +35,14 @@ class WelcomeSlider extends StatelessWidget {
                 style: TextStyle(
                   color: const Color(0xFFFFD700),
                   fontWeight: FontWeight.bold,
-                  fontSize: 22.sp,
+                  fontSize: 18.sp,
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
               Text(
                 slide['desc']!,
-                style: TextStyle(color: Colors.white70, fontSize: 16.sp),
+                style: TextStyle(color: Colors.white70, fontSize: 14.sp),
                 textAlign: TextAlign.center,
               ),
             ],

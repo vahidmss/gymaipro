@@ -3,21 +3,6 @@ import 'package:gymaipro/utils/json_parse_utils.dart';
 
 /// مدل موزیک اختصاصی مربی
 class CustomMusic {
-  final String id;
-  final String createdBy;
-  final String title;
-  final String artist;
-  final String audioUrl;
-  final String coverImageUrl;
-  final int duration; // مدت زمان به ثانیه
-  final String? category; // دسته‌بندی
-  final String? description;
-  final String? singer; // نام خواننده (اختیاری — برای موزیک بی‌کلام خالی)
-  final String visibility; // 'private' or 'public'
-  final int viewsCount;
-  final int likesCount;
-  final DateTime createdAt;
-  final DateTime updatedAt;
 
   CustomMusic({
     required this.id,
@@ -27,14 +12,12 @@ class CustomMusic {
     required this.audioUrl,
     required this.coverImageUrl,
     required this.duration,
-    this.category,
+    required this.createdAt, required this.updatedAt, this.category,
     this.description,
     this.singer,
     this.visibility = 'private',
     this.viewsCount = 0,
     this.likesCount = 0,
-    required this.createdAt,
-    required this.updatedAt,
   });
 
   factory CustomMusic.fromJson(Map<String, dynamic> json) {
@@ -56,6 +39,21 @@ class CustomMusic {
       updatedAt: JsonParse.dateTime(json, 'updated_at'),
     );
   }
+  final String id;
+  final String createdBy;
+  final String title;
+  final String artist;
+  final String audioUrl;
+  final String coverImageUrl;
+  final int duration; // مدت زمان به ثانیه
+  final String? category; // دسته‌بندی
+  final String? description;
+  final String? singer; // نام خواننده (اختیاری — برای موزیک بی‌کلام خالی)
+  final String visibility; // 'private' or 'public'
+  final int viewsCount;
+  final int likesCount;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   Map<String, dynamic> toJson() {
     return {
@@ -101,11 +99,7 @@ class CustomMusic {
       author: authorName,
       singer: singer,
       visibility: visibility,
-      tags: const [],
-      approved: true, // همیشه تایید شده (چون فقط مربی می‌تواند اضافه کند)
-      isCustom: true, // همه موزیک‌ها از Supabase هستند
       likes: likesCount, // استفاده از likes_count از دیتابیس
-      isLikedByUser: false, // بعداً از سرویس لایک پر می‌شود
     );
   }
 }

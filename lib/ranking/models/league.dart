@@ -113,9 +113,9 @@ class League {
 
   /// درصد پیشرفت به سمت لیگ بعدی
   double getProgressToNextLeague(int currentScore) {
-    if (maxScore == null) return 1.0; // الماس - حداکثر
-    if (currentScore < minScore) return 0.0;
-    if (currentScore >= maxScore!) return 1.0;
+    if (maxScore == null) return 1; // الماس - حداکثر
+    if (currentScore < minScore) return 0;
+    if (currentScore >= maxScore!) return 1;
     
     final range = maxScore! - minScore;
     final progress = currentScore - minScore;

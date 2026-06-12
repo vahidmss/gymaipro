@@ -179,11 +179,6 @@ enum OverflowWarningType {
 
 /// یک هشدار overflow
 class OverflowWarning {
-  final String file;
-  final int line;
-  final OverflowWarningType type;
-  final String message;
-  final String code;
 
   OverflowWarning({
     required this.file,
@@ -192,6 +187,11 @@ class OverflowWarning {
     required this.message,
     required this.code,
   });
+  final String file;
+  final int line;
+  final OverflowWarningType type;
+  final String message;
+  final String code;
 
   @override
   String toString() {

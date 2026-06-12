@@ -107,7 +107,6 @@ class AIChatService {
         updatedAt: now,
         isActive: true,
         messageCount: 0,
-        lastMessageAt: null,
       );
 
       // ذخیره session در SharedPreferences
@@ -356,7 +355,7 @@ class AIChatService {
 
   /// دریافت آمار محدودیت پیام
   Future<RateLimitStats> getRateLimitStats() async {
-    return await _rateLimiter.getStats();
+    return _rateLimiter.getStats();
   }
 
   /// ارسال پیام و دریافت پاسخ
@@ -964,7 +963,7 @@ class AIChatService {
       // دریافت سطر کاربر از دیتابیس (هر کاربر یک سطر)
       final response = await _supabase
           .from('ai_chat_sessions')
-          .select('*')
+          .select()
           .eq('user_id', userId)
           .maybeSingle();
 
@@ -1095,7 +1094,7 @@ class AIChatService {
       // دریافت session از دیتابیس
       final response = await _supabase
           .from('ai_chat_sessions')
-          .select('*')
+          .select()
           .eq('id', databaseSessionId)
           .eq('user_id', userId)
           .single();
@@ -1269,6 +1268,25 @@ class AIChatSession {
     this.lastMessageAt,
   });
 
+  factory AIChatSession.fromLocalMap(Map<String, dynamic> map) {
+    return AIChatSession(
+      id: (map['id'] as String?) ?? '',
+      userId: (map['user_id'] as String?) ?? '',
+      title: (map['title'] as String?) ?? '',
+      createdAt: map['created_at'] != null
+          ? DateTime.parse(map['created_at'] as String)
+          : DateTime.now(),
+      updatedAt: map['updated_at'] != null
+          ? DateTime.parse(map['updated_at'] as String)
+          : DateTime.now(),
+      isActive: (map['is_active'] as bool?) ?? true,
+      messageCount: (map['message_count'] as int?) ?? 0,
+      lastMessageAt: map['last_message_at'] != null
+          ? DateTime.parse(map['last_message_at'] as String)
+          : null,
+    );
+  }
+
   factory AIChatSession.fromMap(Map<String, dynamic> map) {
     return AIChatSession(
       id: (map['id'] as String?) ?? '',
@@ -1316,25 +1334,6 @@ class AIChatSession {
       'message_count': messageCount,
       'last_message_at': lastMessageAt?.toIso8601String(),
     };
-  }
-
-  factory AIChatSession.fromLocalMap(Map<String, dynamic> map) {
-    return AIChatSession(
-      id: (map['id'] as String?) ?? '',
-      userId: (map['user_id'] as String?) ?? '',
-      title: (map['title'] as String?) ?? '',
-      createdAt: map['created_at'] != null
-          ? DateTime.parse(map['created_at'] as String)
-          : DateTime.now(),
-      updatedAt: map['updated_at'] != null
-          ? DateTime.parse(map['updated_at'] as String)
-          : DateTime.now(),
-      isActive: (map['is_active'] as bool?) ?? true,
-      messageCount: (map['message_count'] as int?) ?? 0,
-      lastMessageAt: map['last_message_at'] != null
-          ? DateTime.parse(map['last_message_at'] as String)
-          : null,
-    );
   }
 }
 

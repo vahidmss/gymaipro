@@ -2,8 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/workout_log/viewmodels/workout_log_viewmodel.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class WorkoutTrainerSupervisionCard extends StatefulWidget {
@@ -13,12 +14,18 @@ class WorkoutTrainerSupervisionCard extends StatefulWidget {
     required this.selectedSession,
     required this.onSessionSelected,
     super.key,
+    this.viewModel,
+    this.onSessionHeatmapTap,
+    this.sessionsLocked = false,
   });
 
   final String programId;
   final WorkoutProgram? selectedProgram;
   final WorkoutSession? selectedSession;
   final void Function(WorkoutSession?) onSessionSelected;
+  final WorkoutLogViewModel? viewModel;
+  final VoidCallback? onSessionHeatmapTap;
+  final bool sessionsLocked;
 
   @override
   State<WorkoutTrainerSupervisionCard> createState() =>

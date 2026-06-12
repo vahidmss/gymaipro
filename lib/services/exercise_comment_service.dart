@@ -2,10 +2,45 @@
 import 'package:gymaipro/models/exercise_comment.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+class _CommentAuthor {
+
+  factory _CommentAuthor.fromProfileRow(Map<String, dynamic> row) {
+    final first = (row['first_name'] as String?)?.trim() ?? '';
+    final last = (row['last_name'] as String?)?.trim() ?? '';
+    final username = (row['username'] as String?)?.trim();
+    final combined = '$first $last'.trim();
+
+    String displayName;
+    if (combined.isNotEmpty) {
+      displayName = combined;
+    } else if (username != null && username.isNotEmpty) {
+      displayName = username;
+    } else {
+      displayName = 'کاربر';
+    }
+
+    return _CommentAuthor(
+      displayName: displayName,
+      username: username,
+      avatarUrl: row['avatar_url'] as String?,
+    );
+  }
+  const _CommentAuthor({
+    required this.displayName,
+    this.username,
+    this.avatarUrl,
+  });
+
+  final String displayName;
+  final String? username;
+  final String? avatarUrl;
+
+  static const fallback = _CommentAuthor(displayName: 'کاربر');
+}
+
 class ExerciseCommentService {
   static final SupabaseClient _supabase = Supabase.instance.client;
 
-  // Get comments for an exercise
   static Future<List<ExerciseComment>> getExerciseComments(
     String exerciseId,
   ) async {
@@ -19,52 +54,58 @@ class ExerciseCommentService {
           .eq('exercise_id', exerciseId)
           .order('created_at', ascending: false);
 
-      final List<ExerciseComment> comments = [];
-      for (final commentData in response) {
-        // Get user profile info
-        final userProfile = await _getUserProfile(
-          commentData['user_id'] as String,
-        );
+      final rows = List<Map<String, dynamic>>.from(response as List);
+      final userIds = rows
+          .map((r) => (r['user_id'] as String?)?.trim())
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toSet();
+      final authors = await _loadAuthorsForUserIds(userIds);
 
-        // Parse reactions
-        final List<CommentReaction> reactions = [];
-        if (commentData['comment_reactions'] != null) {
-          for (final reactionData
-              in commentData['comment_reactions'] as List<dynamic>) {
+      final comments = <ExerciseComment>[];
+      for (final commentData in rows) {
+        final userId = commentData['user_id'] as String;
+        final author = authors[userId] ?? _CommentAuthor.fallback;
+
+        final reactions = <CommentReaction>[];
+        final rawReactions = commentData['comment_reactions'];
+        if (rawReactions is List) {
+          for (final reactionData in rawReactions) {
             reactions.add(
-              CommentReaction.fromJson(reactionData as Map<String, dynamic>),
+              CommentReaction.fromJson(
+                Map<String, dynamic>.from(reactionData as Map),
+              ),
             );
           }
         }
 
-        // Create comment with user info
-        final comment = ExerciseComment(
-          id: commentData['id'] as String,
-          exerciseId: commentData['exercise_id'] as String,
-          userId: commentData['user_id'] as String,
-          content: commentData['content'] as String,
-          rating: commentData['rating'] as int?,
-          parentId: commentData['parent_id'] as String?,
-          isEdited: (commentData['is_edited'] as bool?) ?? false,
-          createdAt: DateTime.parse(commentData['created_at'] as String),
-          updatedAt: DateTime.parse(commentData['updated_at'] as String),
-          username: userProfile['username'] as String?,
-          userAvatar: userProfile['avatar_url'] as String?,
-          userFullName: userProfile['full_name'] as String?,
-          reactions: reactions,
+        comments.add(
+          ExerciseComment(
+            id: commentData['id'] as String,
+            exerciseId: commentData['exercise_id'] as String,
+            userId: userId,
+            content: commentData['content'] as String,
+            rating: commentData['rating'] as int?,
+            parentId: commentData['parent_id'] as String?,
+            isEdited: (commentData['is_edited'] as bool?) ?? false,
+            createdAt: DateTime.parse(commentData['created_at'] as String),
+            updatedAt: DateTime.parse(commentData['updated_at'] as String),
+            username: author.username,
+            userAvatar: author.avatarUrl,
+            userFullName: author.displayName,
+            reactions: reactions,
+          ),
         );
-
-        comments.add(comment);
       }
 
       return comments;
     } catch (e) {
+      // ignore: avoid_print
       print('خطا در دریافت نظرات: $e');
       return [];
     }
   }
 
-  // Add new comment
   static Future<ExerciseComment?> addComment({
     required String exerciseId,
     required String content,
@@ -87,8 +128,8 @@ class ExerciseCommentService {
           .select()
           .single();
 
-      // Get user profile info
-      final userProfile = await _getUserProfile(user.id);
+      final authors = await _loadAuthorsForUserIds({user.id});
+      final author = authors[user.id] ?? _CommentAuthor.fallback;
 
       return ExerciseComment(
         id: response['id'] as String,
@@ -100,18 +141,18 @@ class ExerciseCommentService {
         isEdited: (response['is_edited'] as bool?) ?? false,
         createdAt: DateTime.parse(response['created_at'] as String),
         updatedAt: DateTime.parse(response['updated_at'] as String),
-        username: userProfile['username'] as String?,
-        userAvatar: userProfile['avatar_url'] as String?,
-        userFullName: userProfile['full_name'] as String?,
+        username: author.username,
+        userAvatar: author.avatarUrl,
+        userFullName: author.displayName,
         reactions: [],
       );
     } catch (e) {
+      // ignore: avoid_print
       print('خطا در افزودن نظر: $e');
       return null;
     }
   }
 
-  // Update comment
   static Future<bool> updateComment({
     required String commentId,
     required String content,
@@ -129,12 +170,12 @@ class ExerciseCommentService {
 
       return true;
     } catch (e) {
+      // ignore: avoid_print
       print('خطا در بروزرسانی نظر: $e');
       return false;
     }
   }
 
-  // Delete comment
   static Future<bool> deleteComment(String commentId) async {
     try {
       final user = _supabase.auth.currentUser;
@@ -148,12 +189,12 @@ class ExerciseCommentService {
 
       return true;
     } catch (e) {
+      // ignore: avoid_print
       print('خطا در حذف نظر: $e');
       return false;
     }
   }
 
-  // Add reaction to comment
   static Future<bool> addReaction({
     required String commentId,
     required String reactionType,
@@ -170,12 +211,12 @@ class ExerciseCommentService {
 
       return true;
     } catch (e) {
+      // ignore: avoid_print
       print('خطا در افزودن واکنش: $e');
       return false;
     }
   }
 
-  // Remove reaction from comment
   static Future<bool> removeReaction({
     required String commentId,
     required String reactionType,
@@ -193,27 +234,58 @@ class ExerciseCommentService {
 
       return true;
     } catch (e) {
+      // ignore: avoid_print
       print('خطا در حذف واکنش: $e');
       return false;
     }
   }
 
-  // Get user profile info
-  static Future<Map<String, dynamic>> _getUserProfile(String userId) async {
-    try {
-      final response = await _supabase
-          .from('profiles')
-          .select('username, avatar_url, full_name')
-          .eq('id', userId)
-          .single();
+  /// `exercise_comments.user_id` = auth.users.id — پروفایل با auth_user_id یا id.
+  static Future<Map<String, _CommentAuthor>> _loadAuthorsForUserIds(
+    Set<String> userIds,
+  ) async {
+    if (userIds.isEmpty) return {};
 
-      return {
-        'username': response['username'] ?? 'کاربر',
-        'avatar_url': response['avatar_url'],
-        'full_name': response['full_name'] ?? response['username'] ?? 'کاربر',
-      };
+    const select =
+        'id, auth_user_id, first_name, last_name, username, avatar_url';
+    final out = <String, _CommentAuthor>{};
+    final unresolved = Set<String>.from(userIds);
+
+    try {
+      final byAuth = await _supabase
+          .from('profiles')
+          .select(select)
+          .inFilter('auth_user_id', userIds.toList());
+
+      for (final row in List<Map<String, dynamic>>.from(byAuth as List)) {
+        final authId = (row['auth_user_id'] as String?)?.trim();
+        if (authId == null || authId.isEmpty) continue;
+        out[authId] = _CommentAuthor.fromProfileRow(row);
+        unresolved.remove(authId);
+      }
     } catch (e) {
-      return {'username': 'کاربر', 'avatar_url': null, 'full_name': 'کاربر'};
+      // ignore: avoid_print
+      print('خطا در بارگذاری پروفایل (auth_user_id): $e');
     }
+
+    if (unresolved.isNotEmpty) {
+      try {
+        final byId = await _supabase
+            .from('profiles')
+            .select(select)
+            .inFilter('id', unresolved.toList());
+
+        for (final row in List<Map<String, dynamic>>.from(byId as List)) {
+          final id = (row['id'] as String?)?.trim();
+          if (id == null || id.isEmpty) continue;
+          out[id] = _CommentAuthor.fromProfileRow(row);
+        }
+      } catch (e) {
+        // ignore: avoid_print
+        print('خطا در بارگذاری پروفایل (id): $e');
+      }
+    }
+
+    return out;
   }
 }

@@ -207,7 +207,7 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     if (_loading) {
-      return Center(
+      return const Center(
         child: CircularProgressIndicator(
           color: AppTheme.goldColor,
         ),
@@ -239,7 +239,7 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                       color: isDark
                           ? context.textColor.withValues(alpha: 0.6)
                           : context.textSecondary,
-                      fontSize: 16.sp,
+                      fontSize: 14.sp,
                     ),
                   ),
                 ],
@@ -353,7 +353,7 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                 ),
                 BoxShadow(
                   color: isDark
-                      ? Colors.black.withValues(alpha: 0.3)
+                      ? AppTheme.veryDarkBackground.withValues(alpha: 0.3)
                       : AppTheme.lightTextColor.withValues(alpha: 0.08),
                   blurRadius: 8.r,
                   offset: Offset(0.w, 2.h),
@@ -383,7 +383,7 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
     fontFamily: AppTheme.fontFamily,
                                       color: context.textColor,
                                       fontWeight: FontWeight.w700,
-                                      fontSize: 16.sp,
+                                      fontSize: 14.sp,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -394,14 +394,22 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                                       ? 'غذایی'
                                       : 'تمرینی',
                                   fg: serviceType == 'diet'
-                                      ? const Color(0xFFB4E197)
+                                      ? AppTheme.successColor
                                       : AppTheme.goldColor,
                                   bg1: serviceType == 'diet'
-                                      ? const Color(0xFF284029)
-                                      : const Color(0xFF3A2E12),
+                                      ? AppTheme.successColor.withValues(
+                                          alpha: 0.22,
+                                        )
+                                      : AppTheme.goldColor.withValues(
+                                          alpha: 0.2,
+                                        ),
                                   bg2: serviceType == 'diet'
-                                      ? const Color(0xFF213321)
-                                      : const Color(0xFF2B2310),
+                                      ? AppTheme.successColor.withValues(
+                                          alpha: 0.14,
+                                        )
+                                      : AppTheme.goldColor.withValues(
+                                          alpha: 0.12,
+                                        ),
                                 ),
                                 const SizedBox(width: 6),
                                 _Chip(
@@ -410,13 +418,17 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                                       : 'در حال انجام',
                                   fg: programStatus == 'completed'
                                       ? AppTheme.goldColor
-                                      : Colors.white70,
+                                      : context.textSecondary,
                                   bg1: programStatus == 'completed'
-                                      ? const Color(0xFF3B3320)
-                                      : const Color(0xFF2A2A2A),
+                                      ? AppTheme.goldColor.withValues(
+                                          alpha: 0.2,
+                                        )
+                                      : AppTheme.darkCardColor,
                                   bg2: programStatus == 'completed'
-                                      ? const Color(0xFF2A2417)
-                                      : const Color(0xFF222222),
+                                      ? AppTheme.goldColor.withValues(
+                                          alpha: 0.12,
+                                        )
+                                      : context.veryDarkBackground,
                                 ),
                               ],
                             ),
@@ -572,7 +584,7 @@ class _Avatar extends StatelessWidget {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
@@ -594,7 +606,7 @@ class _Avatar extends StatelessWidget {
           height: 52.h,
           color: isDark
               ? context.veryDarkBackground
-              : AppTheme.lightSurfaceColor,
+              : AppTheme.lightCardColor,
           child: avatarUrl != null && avatarUrl!.isNotEmpty
               ? Image.network(
                   avatarUrl!,
@@ -606,7 +618,7 @@ class _Avatar extends StatelessWidget {
                           child: SizedBox(
                             width: 16.w,
                             height: 16.h,
-                            child: CircularProgressIndicator(
+                            child: const CircularProgressIndicator(
                               strokeWidth: 2,
                               color: AppTheme.goldColor,
                             ),
@@ -637,7 +649,7 @@ class _Initials extends StatelessWidget {
               ? AppTheme.goldColor
               : AppTheme.lightTextColor,
           fontWeight: FontWeight.w700,
-          fontSize: 20.sp,
+          fontSize: 18.sp,
         ),
       ),
     );

@@ -1,18 +1,52 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/models/custom_exercise.dart';
 import 'package:gymaipro/models/exercise.dart';
+import 'package:gymaipro/models/exercise_display_labels.dart';
+import 'package:gymaipro/models/exercise_rich_meta.dart';
+import 'package:gymaipro/models/muscle_targets.dart';
 import 'package:gymaipro/models/exercise_comment.dart';
+import 'package:gymaipro/network/wordpress_http.dart';
 import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/user_preferences_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // Decode heavy JSON off the UI thread (returns sendable types only).
 List<dynamic> _decodeJsonList(String jsonStr) {
   return jsonDecode(jsonStr) as List<dynamic>;
+}
+
+List<String> parseStoredMediaUrls(dynamic raw) {
+  if (raw == null) return [];
+  if (raw is List) {
+    return raw
+        .map((e) => e.toString().trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+  if (raw is String) {
+    final t = raw.trim();
+    if (t.isEmpty) return [];
+    if (t.startsWith('[')) {
+      try {
+        final decoded = jsonDecode(t);
+        if (decoded is List) {
+          return decoded
+              .map((e) => e.toString().trim())
+              .where((s) => s.isNotEmpty)
+              .toList();
+        }
+      } catch (_) {}
+      return [];
+    }
+    return [t];
+  }
+  return [];
 }
 
 class ExerciseService {
@@ -23,7 +57,8 @@ class ExerciseService {
   ExerciseService._internal();
   static final ExerciseService _instance = ExerciseService._internal();
 
-  final String apiUrl = 'https://gymaipro.ir/wp-json/wp/v2/exercises';
+  String get apiUrl =>
+      '${AppConfig.wordpressApiOrigin}/wp-json/wp/v2/exercises';
   final SupabaseClient _client = Supabase.instance.client;
   final UserPreferencesService _preferencesService = UserPreferencesService();
   final CustomExerciseService _customExerciseService = CustomExerciseService();
@@ -36,7 +71,21 @@ class ExerciseService {
   static const String _exercisesListCacheTimeKey = 'exercises_list_cache_time';
   static const String _exercisesListCacheVersionKey =
       'exercises_list_cache_version';
-  static const int _cacheVersion = 3; // افزایش برای invalidate کردن cache قدیمی (افزودن createdBy به Exercise)
+  static const int _cacheVersion = 6; // list without extended_json + lazy richMeta
+
+  /// ستون‌های لیست (بدون exercise_extended_json سنگین).
+  static const String _listSelectColumns = '''
+id, name, content, main_muscle, secondary_muscles, tips, video_url, image_url,
+other_names, difficulty, equipment, exercise_type, estimated_duration, target_area,
+short_description, detailed_description, learn, movement_pattern, body_engagement,
+muscle_targets_json, met, typical_rpe, movement_distance_cm, calories_per_1000kg,
+exercise_difficulty_score, estimated_1rm_formula, views_count, likes_count, source
+''';
+
+  /// بازگرداندن فوری لیست از حافظه — بدون هیچ async/await/DB.
+  /// اگر هنوز لود نشده باشد، لیست خالی برمی‌گرداند.
+  /// این برای باز کردن فوری bottom sheet انتخاب تمرین مناسب است.
+  List<Exercise> get cachedExercisesSync => _cachedExercises ?? const [];
 
   // Clear all cached data
   void clearCache() {
@@ -122,7 +171,7 @@ class ExerciseService {
       if (_cachedExercises != null && _lastCacheTime != null) {
         final timeSinceLastCache = DateTime.now().difference(_lastCacheTime!);
         if (timeSinceLastCache < _cacheValidity) {
-          return await _applyUserDataToExercises(_cachedExercises!);
+          return _applyUserDataToExercises(_cachedExercises!);
         }
       }
 
@@ -235,9 +284,9 @@ class ExerciseService {
       
       final response = await _client
           .from('ai_exercises')
-          .select()
+          .select(_listSelectColumns)
           .order('name')
-          .limit(1000); // محدود کردن برای سرعت بیشتر
+          .limit(1000);
 
       debugPrint('=== _getExercisesFromSupabase: Query executed, response type: ${response.runtimeType} ===');
       debugPrint('=== _getExercisesFromSupabase: Response length: ${(response as List).length} ===');
@@ -245,7 +294,7 @@ class ExerciseService {
       final exercises = <Exercise>[];
       for (final row in response) {
         try {
-          final exercise = _mapSupabaseRowToExercise(row);
+          final exercise = _mapSupabaseRowToExercise(row, includeRichMeta: false);
           exercises.add(exercise);
         } catch (e, stackTrace) {
           debugPrint('Error mapping exercise: $e');
@@ -300,8 +349,17 @@ class ExerciseService {
     return '';
   }
 
+  static int _parseExerciseId(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse(v?.toString() ?? '') ?? 0;
+  }
+
   /// تبدیل ردیف Supabase به Exercise
-  Exercise _mapSupabaseRowToExercise(Map<String, dynamic> row) {
+  Exercise _mapSupabaseRowToExercise(
+    Map<String, dynamic> row, {
+    bool includeRichMeta = true,
+  }) {
     // تبدیل tips از array یا string
     List<String> tipsList = [];
     if (row['tips'] != null) {
@@ -349,18 +407,34 @@ class ExerciseService {
       }
     }
 
+    final imageUrls = parseStoredMediaUrls(row['image_url']);
+    final videoUrls = parseStoredMediaUrls(row['video_url']);
+    final shortDesc = (row['short_description'] as String?)?.trim() ?? '';
+    final learn = (row['learn'] as String?)?.trim() ?? '';
+    final rawContent =
+        (row['content'] as String?) ?? (row['description'] as String?) ?? '';
+
+    double? parseDouble(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString());
+    }
+
     return Exercise(
-      id: (row['id'] as int?) ?? 0,
+      id: _parseExerciseId(row['id']),
       title: (row['name'] as String?) ?? '',
       name: (row['name'] as String?) ?? '',
       mainMuscle: (row['main_muscle'] as String?) ?? '',
       secondaryMuscles: (row['secondary_muscles'] as String?) ?? '',
       tips: tipsList,
-      videoUrl: (row['video_url'] as String?) ?? '',
-      imageUrl: (row['image_url'] as String?) ?? '',
+      videoUrl: videoUrls.isNotEmpty ? videoUrls.first : '',
+      imageUrl: imageUrls.isNotEmpty ? imageUrls.first : '',
+      additionalVideoUrls:
+          videoUrls.length > 1 ? videoUrls.sublist(1) : const <String>[],
+      additionalImageUrls:
+          imageUrls.length > 1 ? imageUrls.sublist(1) : const <String>[],
       otherNames: otherNamesList,
-      content:
-          (row['content'] as String?) ?? (row['description'] as String?) ?? '',
+      content: learn.isNotEmpty ? learn : rawContent,
       difficulty: (row['difficulty'] as String?) ?? 'متوسط',
       equipment: (row['equipment'] as String?) ?? 'بدون تجهیزات',
       exerciseType: (row['exercise_type'] as String?) ?? 'قدرتی',
@@ -370,8 +444,17 @@ class ExerciseService {
           (row['main_muscle'] as String?) ??
           '',
       tags: [],
+      shortDescription: shortDesc,
       detailedDescription: _extractDetailedDescription(row),
-      author: 'جیم اِی آی', // تمرینات عمومی از جیم اِی آی هستند
+      movementPattern: (row['movement_pattern'] as String?) ?? '',
+      bodyEngagement: (row['body_engagement'] as String?) ?? '',
+      typicalRpe: parseDouble(row['typical_rpe']),
+      met: parseDouble(row['met']),
+      author: 'جیم اِی آی',
+      muscleTargets: MuscleTargets.parse(row['muscle_targets_json']),
+      richMeta: includeRichMeta
+          ? ExerciseRichMeta.fromSupabaseRow(row)
+          : const ExerciseRichMeta(),
     );
   }
 
@@ -605,16 +688,18 @@ class ExerciseService {
     final muscleGroups = <String>{};
 
     for (final exercise in exercises) {
-      difficulties.add(exercise.difficulty);
-      equipments.add(exercise.equipment);
-      exerciseTypes.add(exercise.exerciseType);
-      targetAreas.add(exercise.targetArea);
-
+      difficulties.add(
+        ExerciseDisplayLabels.difficultyLabel(exercise.difficulty),
+      );
+      equipments.add(
+        ExerciseDisplayLabels.equipmentLabel(exercise.equipment),
+      );
+      exerciseTypes.add(ExerciseDisplayLabels.type(exercise.exerciseType));
+      if (exercise.targetArea.isNotEmpty) {
+        targetAreas.add(exercise.targetArea);
+      }
       if (exercise.mainMuscle.isNotEmpty) {
         muscleGroups.add(exercise.mainMuscle);
-      }
-      if (exercise.secondaryMuscles.isNotEmpty) {
-        muscleGroups.addAll(exercise.secondaryMuscles.split(', '));
       }
     }
 
@@ -661,26 +746,62 @@ class ExerciseService {
     }
   }
 
-  // Get exercise by ID
+  /// تمرین با همه فیلدهای متا — اول Supabase، بعد کش/لیست.
   Future<Exercise?> getExerciseById(int id) async {
-    // First, try to load from SharedPreferences cache (instant)
+    if (id <= 0) return null;
+
+    try {
+      final row = await _client
+          .from('ai_exercises')
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+      if (row != null) {
+        final exercise = _mapSupabaseRowToExercise(
+          Map<String, dynamic>.from(row),
+        );
+        await _saveExerciseToCache(exercise);
+        return exercise;
+      }
+    } catch (e) {
+      debugPrint('getExerciseById supabase($id): $e');
+    }
+
     final cachedExercise = await _loadExerciseFromCache(id);
     if (cachedExercise != null) {
-      // Update from API in background (non-blocking)
-      _updateExerciseFromApiInBackground(id, cachedExercise);
+      unawaited(_refreshExerciseDetailFromSupabase(id, cachedExercise));
       return cachedExercise;
     }
 
-    // If not in cache, load from exercises list
-    final exercises = await getExercises();
+    final exercises = await getExercises(forceRefresh: true);
     try {
-      final exercise = exercises.firstWhere((exercise) => exercise.id == id);
-      // Save to cache
+      final exercise = exercises.firstWhere((e) => e.id == id);
       await _saveExerciseToCache(exercise);
       return exercise;
-    } catch (e) {
+    } catch (_) {
       return null;
     }
+  }
+
+  Future<void> _refreshExerciseDetailFromSupabase(
+    int id,
+    Exercise cached,
+  ) async {
+    try {
+      final row = await _client
+          .from('ai_exercises')
+          .select()
+          .eq('id', id)
+          .maybeSingle();
+      if (row == null) return;
+      final fresh = _mapSupabaseRowToExercise(
+        Map<String, dynamic>.from(row),
+      );
+      fresh.isFavorite = cached.isFavorite;
+      fresh.isLikedByUser = cached.isLikedByUser;
+      fresh.likes = cached.likes;
+      await _saveExerciseToCache(fresh);
+    } catch (_) {}
   }
 
   /// Load exercise from SharedPreferences cache
@@ -710,15 +831,17 @@ class ExerciseService {
   }
 
   /// Update exercise from API in background (non-blocking)
-  void _updateExerciseFromApiInBackground(
+  Future<void> _updateExerciseFromApiInBackground(
     int id,
     Exercise cachedExercise,
   ) async {
     try {
       final url =
           '$apiUrl/$id?_embed=true&_fields=id,title,content,modified,meta,_embedded,featured_image';
-      final response = await http
-          .get(Uri.parse(url), headers: {'Content-Type': 'application/json'})
+      final response = await wordpressGet(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+      )
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -761,20 +884,9 @@ class ExerciseService {
   // Get muscle groups list
   Future<List<String>> getMuscleGroups() async {
     final exercises = await getExercises();
-    final Set<String> muscleGroups = {};
-
-    for (final exercise in exercises) {
-      // Extract main muscle groups and add them to the set
-      if (exercise.mainMuscle.isNotEmpty) {
-        final mainParts = exercise.mainMuscle.split('(')[0].trim();
-        final muscles = mainParts.split(' ');
-        for (final muscle in muscles) {
-          if (muscle.trim().length > 3) muscleGroups.add(muscle.trim());
-        }
-      }
-    }
-
-    return muscleGroups.toList()..sort();
+    return ExerciseDisplayLabels.uniqueMuscleCategories(
+      exercises.map((e) => e.mainMuscle).where((m) => m.isNotEmpty),
+    );
   }
 
   // Toggle favorite status
@@ -784,38 +896,28 @@ class ExerciseService {
       throw Exception('User not logged in');
     }
 
+    final exercises = _cachedExercises;
+    if (exercises == null || exercises.isEmpty) {
+      throw Exception('لیست تمرین‌ها هنوز بارگذاری نشده است');
+    }
+
+    final index = exercises.indexWhere((e) => e.id == exerciseId);
+    if (index == -1) {
+      throw Exception('تمرین یافت نشد');
+    }
+
+    final exercise = exercises[index];
     try {
-      // Find the exercise in cache to get its details
-      if (_cachedExercises != null) {
-        final exercise = _cachedExercises!.firstWhere(
-          (e) => e.id == exerciseId,
-          orElse: () => Exercise(
-            id: 0,
-            title: '',
-            name: '',
-            mainMuscle: '',
-            secondaryMuscles: '',
-            tips: [],
-            videoUrl: '',
-            imageUrl: '',
-            otherNames: [],
-            content: '',
-          ),
+      if (exercise.isFavorite) {
+        await _preferencesService.removeExerciseFromFavorites(exerciseId);
+        exercise.isFavorite = false;
+      } else {
+        await _preferencesService.addExerciseToFavorites(
+          exerciseId,
+          exercise.name,
+          exercise.coverImageUrl,
         );
-        if (exercise.id == exerciseId) {
-          // Toggle favorite in database
-          if (exercise.isFavorite) {
-            await _preferencesService.removeExerciseFromFavorites(exerciseId);
-            exercise.isFavorite = false;
-          } else {
-            await _preferencesService.addExerciseToFavorites(
-              exerciseId,
-              exercise.name,
-              exercise.imageUrl,
-            );
-            exercise.isFavorite = true;
-          }
-        }
+        exercise.isFavorite = true;
       }
     } catch (e) {
       throw Exception('Failed to toggle favorite status');
@@ -829,40 +931,27 @@ class ExerciseService {
       throw Exception('User not logged in');
     }
 
+    final exercises = _cachedExercises;
+    if (exercises == null || exercises.isEmpty) {
+      throw Exception('لیست تمرین‌ها هنوز بارگذاری نشده است');
+    }
+
+    final index = exercises.indexWhere((e) => e.id == exerciseId);
+    if (index == -1) {
+      throw Exception('تمرین یافت نشد');
+    }
+
+    final exercise = exercises[index];
     try {
-      // Find the exercise in cache
-      if (_cachedExercises != null) {
-        final exercise = _cachedExercises!.firstWhere(
-          (e) => e.id == exerciseId,
-          orElse: () => Exercise(
-            id: 0,
-            title: '',
-            name: '',
-            mainMuscle: '',
-            secondaryMuscles: '',
-            tips: [],
-            videoUrl: '',
-            imageUrl: '',
-            otherNames: [],
-            content: '',
-          ),
-        );
-        if (exercise.id == exerciseId) {
-          // Toggle like in database
-          if (exercise.isLikedByUser) {
-            await _preferencesService.removeExerciseLike(exerciseId);
-            exercise.isLikedByUser = false;
-            // Global likes will be updated by the service
-            exercise.likes = (exercise.likes - 1)
-                .clamp(0, double.infinity)
-                .toInt();
-          } else {
-            await _preferencesService.addExerciseLike(exerciseId);
-            exercise.isLikedByUser = true;
-            // Global likes will be updated by the service
-            exercise.likes = exercise.likes + 1;
-          }
-        }
+      if (exercise.isLikedByUser) {
+        await _preferencesService.removeExerciseLike(exerciseId);
+        exercise.isLikedByUser = false;
+        exercise.likes =
+            (exercise.likes - 1).clamp(0, double.infinity).toInt();
+      } else {
+        await _preferencesService.addExerciseLike(exerciseId);
+        exercise.isLikedByUser = true;
+        exercise.likes = exercise.likes + 1;
       }
     } catch (e) {
       throw Exception('Failed to toggle like status');

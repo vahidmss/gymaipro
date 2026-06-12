@@ -1,17 +1,13 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:gymaipro/academy/services/music_cache_service.dart';
+import 'package:gymaipro/services/video_cache_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:gymaipro/services/video_cache_service.dart';
-import 'package:gymaipro/academy/services/music_cache_service.dart';
 
 /// اطلاعات هر نوع کش
 class CacheInfo {
-  final String type;
-  final String displayName;
-  final int size;
-  final int fileCount;
-  final IconData icon;
 
   CacheInfo({
     required this.type,
@@ -20,15 +16,15 @@ class CacheInfo {
     required this.fileCount,
     required this.icon,
   });
+  final String type;
+  final String displayName;
+  final int size;
+  final int fileCount;
+  final IconData icon;
 }
 
 /// اطلاعات یک فایل کش شده
-class CachedFile {
-  final String path;
-  final String fileName;
-  final int size;
-  final DateTime modifiedDate;
-  final String type; // 'video', 'music_cache', 'music_downloads'
+class CachedFile { // 'video', 'music_cache', 'music_downloads'
 
   CachedFile({
     required this.path,
@@ -37,14 +33,19 @@ class CachedFile {
     required this.modifiedDate,
     required this.type,
   });
+  final String path;
+  final String fileName;
+  final int size;
+  final DateTime modifiedDate;
+  final String type;
 }
 
 /// سرویس جامع برای مدیریت همه انواع کش
 class ComprehensiveCacheService {
-  static final ComprehensiveCacheService _instance =
-      ComprehensiveCacheService._internal();
   factory ComprehensiveCacheService() => _instance;
   ComprehensiveCacheService._internal();
+  static final ComprehensiveCacheService _instance =
+      ComprehensiveCacheService._internal();
 
   final VideoCacheService _videoCacheService = VideoCacheService();
   final MusicCacheService _musicCacheService = MusicCacheService();

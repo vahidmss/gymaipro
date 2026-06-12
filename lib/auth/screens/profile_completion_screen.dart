@@ -1,18 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/auth/services/auth_state_service.dart';
-import 'package:gymaipro/services/simple_profile_service.dart';
+import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart' as auth_supabase;
+import 'package:gymaipro/auth/widgets/profile_completion_widgets.dart';
+import 'package:gymaipro/services/referral_service.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
+import 'package:gymaipro/services/weekly_weight_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/animation_utils.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:gymaipro/services/weekly_weight_service.dart';
-import 'package:gymaipro/services/referral_service.dart';
-import 'package:gymaipro/utils/animation_utils.dart';
-import 'package:gymaipro/utils/widget_safety_utils.dart';
-import 'package:gymaipro/auth/widgets/profile_completion_widgets.dart';
 
 class ProfileCompletionScreen extends StatefulWidget {
   const ProfileCompletionScreen({
@@ -76,7 +79,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
   // Step 6: Activity Level
   String? _selectedActivityLevel;
 
-  bool _isLoading = false;
+  final bool _isLoading = false;
 
   @override
   void initState() {
@@ -342,7 +345,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
         backgroundColor: AppTheme.lightBackgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(
+          icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
             color: AppTheme.goldColor,
           ),
@@ -461,7 +464,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
                       },
                 style: OutlinedButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: 14.h),
-                  side: BorderSide(color: AppTheme.goldColor, width: 1.5),
+                  side: const BorderSide(color: AppTheme.goldColor, width: 1.5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16.r),
                   ),
@@ -507,7 +510,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.symmetric(vertical: 14.h),
                 backgroundColor: AppTheme.goldColor,
-                foregroundColor: Colors.black,
+                foregroundColor: AppTheme.veryDarkBackground,
                 elevation: 4,
                 shadowColor: AppTheme.goldColor.withValues(alpha: 0.4),
                 shape: RoundedRectangleBorder(
@@ -520,7 +523,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
                       height: 24.h,
                       child: const CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.veryDarkBackground),
                       ),
                     )
                   : Row(
@@ -804,7 +807,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
               textInputAction: TextInputAction.done,
               inputFormatters: [
                 // فقط اعداد انگلیسی و نقطه اعشار مجاز
-                FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                FilteringTextInputFormatter.allow(RegExp('[0-9.]')),
                 // محدود کردن طول
                 LengthLimitingTextInputFormatter(6),
               ],
@@ -969,7 +972,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
         inputFormatters: inputFormatters,
         style: TextStyle(
           color: AppTheme.lightTextColor,
-          fontSize: 16.sp,
+          fontSize: 14.sp,
           fontFamily: AppTheme.fontFamily,
         ),
         decoration: InputDecoration(
@@ -1003,7 +1006,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
           fillColor: AppTheme.lightCardColor,
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.r),
-            borderSide: BorderSide(color: AppTheme.lightDividerColor),
+            borderSide: const BorderSide(color: AppTheme.lightDividerColor),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.r),
@@ -1069,7 +1072,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
                 style: ElevatedButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: 16.h),
                   backgroundColor: AppTheme.goldColor,
-                  foregroundColor: Colors.black,
+                  foregroundColor: AppTheme.veryDarkBackground,
                   elevation: 2,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12.r),
@@ -1082,7 +1085,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
                         child: const CircularProgressIndicator(
                           strokeWidth: 2,
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.black,
+                            AppTheme.veryDarkBackground,
                           ),
                         ),
                       )
@@ -1218,11 +1221,11 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
       duration: const Duration(milliseconds: 1500),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
 
@@ -1306,7 +1309,11 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
         'activity_level': widget.activityLevel,
       };
 
-      final success = await SimpleProfileService.updateProfile(updates);
+      final success = await _saveProfileCoreDataWithRetry(
+        userId: session.user.id,
+        normalizedPhone: normalizedPhone,
+        updates: updates,
+      );
 
       if (!success) {
         if (mounted) {
@@ -1323,51 +1330,18 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
         return;
       }
 
-      // Prefer profile id for user-scoped tables (legacy-safe). Fallback to auth id.
-      final profile = await SimpleProfileService.getCurrentProfile();
-      final profileId = (profile?['id'] as String?)?.trim();
-      final userId = profileId?.isNotEmpty == true
-          ? profileId
-          : Supabase.instance.client.auth.currentUser?.id;
-
-      try {
-        // استفاده از weightValue که قبلاً parse شده است
-        if (userId != null) {
-          await WeeklyWeightService.recordWeeklyWeight(userId, weightValue);
-        }
-      } catch (_) {}
-
-      // ثبت کد معرف اگر وارد شده باشد
-      if (widget.referralCode.isNotEmpty && userId != null) {
-        try {
-          final referralService = ReferralService();
-          final success = await referralService.registerReferral(
-            referrerUsername: widget.referralCode.trim(),
-            newUserId: userId,
-          );
-          if (success) {
-            debugPrint('✅ Referral code registered: ${widget.referralCode}');
-          } else {
-            debugPrint(
-              '⚠️ Failed to register referral code: ${widget.referralCode}',
-            );
-          }
-        } catch (e) {
-          debugPrint('⚠️ Error registering referral code: $e');
-        }
-      }
+      _runPostRegistrationTasks(
+        userId: session.user.id,
+        weightValue: weightValue,
+      );
 
       if (mounted) {
         WidgetSafetyUtils.safeSetState(this, () {
           _isLoading = false;
           _isSuccess = true;
         });
-        await Future<void>.delayed(const Duration(milliseconds: 1500));
-        WidgetSafetyUtils.safePushNamedAndRemoveUntil(
-          context,
-          '/main',
-          (route) => false,
-        );
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        goToMainApp(context);
       }
     } catch (e) {
       debugPrint('Error completing registration: $e');
@@ -1380,6 +1354,104 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
         await Future<void>.delayed(const Duration(seconds: 3));
         WidgetSafetyUtils.safePop(context);
       }
+    }
+  }
+
+  Future<bool> _saveProfileCoreDataWithRetry({
+    required String userId,
+    required String normalizedPhone,
+    required Map<String, dynamic> updates,
+  }) async {
+    final client = Supabase.instance.client;
+    final emailForAuth =
+        '${normalizedPhone.replaceAll(RegExp(r'\D'), '')}@gym.ai';
+    final cleanUpdates = Map<String, dynamic>.from(updates)
+      ..['updated_at'] = DateTime.now().toUtc().toIso8601String();
+
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        final updateResponse = await client
+            .from('profiles')
+            .update(cleanUpdates)
+            .eq('id', userId)
+            .select('id')
+            .maybeSingle()
+            .timeout(const Duration(seconds: 8));
+
+        if (updateResponse != null) {
+          SimpleProfileService.invalidateCache();
+          return true;
+        }
+
+        final upsertPayload = <String, dynamic>{
+          'id': userId,
+          'username': widget.username,
+          'phone_number': normalizedPhone,
+          'email': emailForAuth,
+          'role': 'athlete',
+          ...cleanUpdates,
+        };
+
+        final upsertResponse = await client
+            .from('profiles')
+            .upsert(upsertPayload, onConflict: 'id')
+            .select('id')
+            .maybeSingle()
+            .timeout(const Duration(seconds: 8));
+
+        if (upsertResponse != null) {
+          SimpleProfileService.invalidateCache();
+          return true;
+        }
+      } catch (e) {
+        debugPrint(
+          '⚠️ REGISTRATION: profile save attempt $attempt failed: $e',
+        );
+      }
+
+      if (attempt < 3) {
+        await Future<void>.delayed(Duration(milliseconds: 350 * attempt));
+      }
+    }
+
+    return false;
+  }
+
+  void _runPostRegistrationTasks({
+    required String userId,
+    required double weightValue,
+  }) {
+    unawaited(
+      Future<void>(() async {
+        try {
+          await WeeklyWeightService.recordWeeklyWeight(userId, weightValue);
+        } catch (e) {
+          debugPrint('⚠️ Weekly weight post-task failed: $e');
+        }
+      }),
+    );
+
+    if (widget.referralCode.trim().isNotEmpty) {
+      unawaited(
+        Future<void>(() async {
+          try {
+            final referralService = ReferralService();
+            final success = await referralService.registerReferral(
+              referrerUsername: widget.referralCode.trim(),
+              newUserId: userId,
+            );
+            if (success) {
+              debugPrint('✅ Referral code registered: ${widget.referralCode}');
+            } else {
+              debugPrint(
+                '⚠️ Failed to register referral code: ${widget.referralCode}',
+              );
+            }
+          } catch (e) {
+            debugPrint('⚠️ Error registering referral code: $e');
+          }
+        }),
+      );
     }
   }
 
@@ -1435,7 +1507,7 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
                         ? AppTheme.goldColor
                         : _isLoading
                         ? AppTheme.goldColor
-                        : Colors.red,
+                        : AppTheme.errorColor,
                     fontFamily: AppTheme.fontFamily,
                   ),
                 ),
@@ -1484,7 +1556,7 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
                           Condition.largerThan(name: TABLET, value: 18.sp),
                         ],
                       ).value,
-                      color: Colors.red,
+                      color: AppTheme.errorColor,
                       fontFamily: AppTheme.fontFamily,
                     ),
                     textAlign: TextAlign.center,
@@ -1494,7 +1566,7 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
                   SizedBox(
                     width: 40.w,
                     height: 40.h,
-                    child: CircularProgressIndicator(
+                    child: const CircularProgressIndicator(
                       strokeWidth: 3,
                       valueColor: AlwaysStoppedAnimation<Color>(
                         AppTheme.goldColor,
@@ -1502,7 +1574,7 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
                     ),
                   )
                 else
-                  Icon(Icons.error_outline, color: Colors.red, size: 40.sp),
+                  Icon(Icons.error_outline, color: AppTheme.errorColor, size: 40.sp),
               ],
             ),
           ),

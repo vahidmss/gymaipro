@@ -4,7 +4,7 @@ import 'package:gymaipro/academy/models/motivational_video.dart';
 import 'package:gymaipro/academy/services/motivational_video_service.dart';
 import 'package:gymaipro/academy/widgets/motivational_video_card.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class MotivationalVideosScreen extends StatefulWidget {
   const MotivationalVideosScreen({super.key});

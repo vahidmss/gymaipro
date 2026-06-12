@@ -1,0 +1,27 @@
+{
+  "id": 4020,
+  "title": "پرس سینه دمبل تک دست",
+  "main": "chest",
+  "movement": "horizontal_push",
+  "targets": {
+    "chest_middle": 90,
+    "chest": 85,
+    "chest_upper": 50,
+    "chest_lower": 45,
+    "triceps": 45,
+    "abs": 40,
+    "shoulder_anterior": 40
+  },
+  "secondary": [
+    "triceps",
+    "abs"
+  ],
+  "equipment": [
+    "dumbbell",
+    "bench"
+  ],
+  "norm": [
+    "muscle_targets adjusted for chest press"
+  ],
+  "notes": null
+}

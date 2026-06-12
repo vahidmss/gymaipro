@@ -6,7 +6,7 @@ import 'package:gymaipro/ai/widgets/analysis_result_display.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 
 class ProgressAnalysisHistoryScreen extends StatefulWidget {

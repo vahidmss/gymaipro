@@ -27,39 +27,31 @@ class AppTheme {
   // رنگ‌های Light Mode (طلایی لوکس)
   // ============================================
   static const Color lightBackgroundColor = Color(
-    0xFFFFFCF5,
-  ); // سفید کرمی روشن (میانی gradient)
+    0xFFF6EEDD,
+  ); // کرمی ملایم کمی تیره‌تر برای کنتراست بهتر
   static const Color lightCardColor = Color(
-    0xFFFFFAF5,
-  ); // سفید کرمی با تفاوت بیشتر از background
+    0xFFFCF4E6,
+  ); // کارت روشن با تفکیک مناسب از پس‌زمینه
   static const Color lightTextColor = Color(0xFF1A1611); // قهوه‌ای خیلی تیره
   static const Color lightTextSecondary = Color(0xFF5A4E3D); // قهوه‌ای متوسط
-  static const Color lightSurfaceColor = Color(0xFFFFFAF0); // سطح روشن
+  static const Color lightSurfaceColor = Color(0xFFFFFAF0);
   static const Color lightDividerColor = Color(
     0xFFE5D9C4,
   ); // جداکننده طلایی روشن
-  static const Color lightButtonBackground = Color(
-    0xFFFFF8E8,
-  ); // پس‌زمینه دکمه روشن
-  static const Color lightButtonText = Color(0xFF1A1611); // متن دکمه
+  static const Color lightButtonBackground = Color(0xFFFFF8E8);
   static const Color lightGradientStart = Color(
-    0xFFFFF5D6,
-  ); // شروع gradient طلایی روشن
+    0xFFF2DEB8,
+  ); // شروع گرادیان لایت (تیره‌تر از قبل)
   static const Color lightGradientEnd = Color(
-    0xFFFFE8A3,
-  ); // پایان gradient طلایی روشن
+    0xFFEBCB84,
+  ); // پایان گرادیان لایت (تیره‌تر از قبل)
   static const Color lightBackgroundGradientStart = Color(
-    0xFFFFF8E8,
+    0xFFDABD87,
   ); // شروع gradient پس‌زمینه
   static const Color lightBackgroundGradientMiddle = Color(
-    0xFFFFFCF5,
+    0xFFE2CCA0,
   ); // میانی gradient پس‌زمینه
-  static const Color lightBackgroundGradientEnd = Color(
-    0xFFFFF5E6,
-  ); // پایان gradient پس‌زمینه
-  static const Color lightGoldGradient = Color(
-    0xFFFFECAF,
-  ); // رنگ روشن طلایی برای gradient
+  static const Color lightGoldGradient = Color(0xFFFFECAF);
   static const Color goldTabIndicator = Color(
     0xFFE7B628,
   ); // خط طلایی زیر تب فعال
@@ -117,7 +109,7 @@ class AppTheme {
 
   static TextStyle bodyStyle = TextStyle(
     color: Colors.white.withValues(alpha: 0.6),
-    fontSize: 16.sp,
+    fontSize: 14.sp,
     fontFamily: fontFamily,
   );
 
@@ -271,16 +263,16 @@ class AppTheme {
   static ThemeData lightGoldTheme = ThemeData(
     brightness: Brightness.light,
     primaryColor: goldColor,
-    scaffoldBackgroundColor: lightBackgroundGradientMiddle,
+    scaffoldBackgroundColor: lightBackgroundColor,
     colorScheme: const ColorScheme.light(
-      primary: Color(0xFFD4AF37), // طلایی اصلی
-      secondary: Color(0xFFB8860B), // طلایی تیره
-      surface: Color(0xFFFFFEF9), // سفید کرمی
-      onPrimary: Color(0xFF2C2416), // قهوه‌ای تیره روی طلایی
-      onSecondary: Color(0xFFFFFEF9), // کرم روی طلایی تیره
-      onSurface: Color(0xFF2C2416), // قهوه‌ای تیره
-      surfaceVariant: Color(0xFFFFFBF0), // سطح روشن
-      onSurfaceVariant: Color(0xFF6B5D47), // قهوه‌ای متوسط
+      primary: goldColor,
+      secondary: darkGold,
+      surface: lightCardColor,
+      onPrimary: lightTextColor,
+      onSecondary: lightCardColor,
+      onSurface: lightTextColor,
+      surfaceContainerHighest: lightCardColor,
+      onSurfaceVariant: lightTextSecondary,
     ),
     textTheme: ThemeData.light().textTheme.apply(
       bodyColor: lightTextColor,
@@ -290,7 +282,7 @@ class AppTheme {
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: goldColor,
-        foregroundColor: const Color(0xFF2C2416),
+        foregroundColor: lightTextColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16.r),
         ),
@@ -308,7 +300,7 @@ class AppTheme {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16.r),
-        borderSide: BorderSide(color: lightDividerColor),
+        borderSide: const BorderSide(color: lightDividerColor),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16.r),
@@ -319,7 +311,7 @@ class AppTheme {
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: lightCardColor,
-      contentTextStyle: TextStyle(color: lightTextColor),
+      contentTextStyle: const TextStyle(color: lightTextColor),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12.r),
@@ -334,7 +326,7 @@ class AppTheme {
       titleTextStyle: TextStyle(
         color: goldColor,
         fontWeight: FontWeight.bold,
-        fontSize: 22.sp,
+        fontSize: 18.sp,
       ),
       iconTheme: const IconThemeData(color: goldColor),
     ),
@@ -363,10 +355,27 @@ class AppTheme {
         fontSize: 14.sp,
       ),
     ),
-    dividerTheme: DividerThemeData(
+    dividerTheme: const DividerThemeData(
       color: lightDividerColor,
       thickness: 1,
       space: 1,
+    ),
+  );
+
+  // ============================================
+  // دکوریشن استاندارد پس‌زمینه صفحات (single source of truth)
+  // ============================================
+  static BoxDecoration get lightPageDecoration => BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        lightBackgroundGradientStart,
+        lightBackgroundGradientMiddle,
+        lightCardColor,
+        lightGradientEnd.withValues(alpha: 0.12),
+      ],
+      stops: const [0.0, 0.08, 0.22, 1.0],
     ),
   );
 
@@ -381,8 +390,7 @@ class AppTheme {
       surface: Color(0xFF1E1E1E), // کارت تاریک
       onPrimary: Color(0xFF0A0A0A), // متن تیره روی طلایی
       onSecondary: Color(0xFFFFFFFF), // سفید روی طلایی تیره
-      onSurface: Color(0xFFFFFFFF), // متن سفید
-      surfaceVariant: Color(0xFF0D0D0D), // سطح خیلی تیره
+      surfaceContainerHighest: Color(0xFF0D0D0D), // سطح خیلی تیره
       onSurfaceVariant: Color(0xFFB0B0B0), // متن خاکستری روشن
     ),
     textTheme: ThemeData.dark().textTheme.apply(
@@ -411,7 +419,7 @@ class AppTheme {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16.r),
-        borderSide: BorderSide(color: darkGreySeparator),
+        borderSide: const BorderSide(color: darkGreySeparator),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16.r),
@@ -422,7 +430,7 @@ class AppTheme {
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: darkCardColor,
-      contentTextStyle: TextStyle(color: darkTextColor),
+      contentTextStyle: const TextStyle(color: darkTextColor),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12.r),
@@ -437,7 +445,7 @@ class AppTheme {
       titleTextStyle: TextStyle(
         color: goldColor,
         fontWeight: FontWeight.bold,
-        fontSize: 22.sp,
+        fontSize: 18.sp,
       ),
       iconTheme: const IconThemeData(color: goldColor),
     ),
@@ -457,7 +465,7 @@ class AppTheme {
         fontSize: 14.sp,
       ),
     ),
-    dividerTheme: DividerThemeData(
+    dividerTheme: const DividerThemeData(
       color: darkGreySeparator,
       thickness: 1,
       space: 1,
@@ -511,7 +519,7 @@ extension AppThemeExtension on BuildContext {
     final brightness = Theme.of(this).brightness;
     return brightness == Brightness.dark
         ? AppTheme.darkGreyGradient
-        : AppTheme.lightGoldGradient;
+        : AppTheme.lightGradientStart;
   }
 
   // رنگ پس‌زمینه خیلی تیره/روشن
@@ -519,7 +527,7 @@ extension AppThemeExtension on BuildContext {
     final brightness = Theme.of(this).brightness;
     return brightness == Brightness.dark
         ? AppTheme.veryDarkBackground
-        : AppTheme.lightSurfaceColor;
+        : AppTheme.lightCardColor;
   }
 
   // رنگ‌های دکمه بر اساس تم
@@ -527,14 +535,54 @@ extension AppThemeExtension on BuildContext {
     final brightness = Theme.of(this).brightness;
     return brightness == Brightness.dark
         ? AppTheme.darkCardColor
-        : AppTheme.lightButtonBackground;
+        : AppTheme.lightCardColor;
   }
 
   Color get buttonText {
     final brightness = Theme.of(this).brightness;
     return brightness == Brightness.dark
         ? AppTheme.darkTextColor
-        : AppTheme.lightButtonText;
+        : AppTheme.lightTextColor;
+  }
+
+  // دکوریشن استاندارد پس‌زمینه صفحه (همه تب‌ها از این استفاده می‌کنند)
+  BoxDecoration get pageDecoration =>
+      Theme.of(this).brightness == Brightness.dark
+          ? const BoxDecoration()
+          : AppTheme.lightPageDecoration;
+
+  // استایل یکپارچه هدرها
+  Color get headerBackgroundColor => cardColor;
+
+  Color get headerShadowColor {
+    final isDark = Theme.of(this).brightness == Brightness.dark;
+    return isDark
+        ? Colors.black.withValues(alpha: 0.28)
+        : textColor.withValues(alpha: 0.06);
+  }
+
+  BoxDecoration get headerContainerDecoration => BoxDecoration(
+    color: headerBackgroundColor,
+    border: Border(bottom: BorderSide(color: separatorColor)),
+    boxShadow: [
+      BoxShadow(
+        color: headerShadowColor,
+        blurRadius: 8.r,
+        offset: Offset(0, 2.h),
+      ),
+    ],
+  );
+
+  TextStyle headerTitleStyle({
+    double? fontSize,
+    FontWeight fontWeight = FontWeight.bold,
+  }) {
+    return TextStyle(
+      color: textColor,
+      fontSize: fontSize ?? 20.sp,
+      fontWeight: fontWeight,
+      fontFamily: AppTheme.fontFamily,
+    );
   }
 
   // رنگ‌های gradient طلایی بر اساس تم

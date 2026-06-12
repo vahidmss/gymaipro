@@ -22,6 +22,49 @@ class OpenAIService {
   final http.Client _client = http.Client();
   final ChatSettings _settings;
 
+  /// Raw chat completion — returns assistant text (for JSON/metadata pipelines).
+  Future<String> sendCompletion({
+    required List<Map<String, String>> messages,
+    String? model,
+    double? temperature,
+    int? maxTokens,
+    Map<String, dynamic>? responseFormat,
+    Duration? requestTimeout,
+  }) async {
+    if (_apiKey.isEmpty) {
+      throw const OpenAIException('کلید OPENAI_API_KEY تنظیم نشده است.');
+    }
+
+    final requestBody = <String, dynamic>{
+      'model': model ?? _settings.model,
+      'messages': messages,
+      if (temperature != null) 'temperature': temperature,
+      if (maxTokens != null) 'max_tokens': maxTokens,
+      if (responseFormat != null) 'response_format': responseFormat,
+    };
+
+    final response = await _client
+        .post(
+          Uri.parse('$_baseUrl/chat/completions'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_apiKey',
+          },
+          body: jsonEncode(requestBody),
+        )
+        .timeout(requestTimeout ?? const Duration(seconds: 90));
+
+    if (response.statusCode == 200) {
+      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+      return (responseData['choices'] as List<dynamic>)[0]['message']['content']
+          as String;
+    }
+
+    final errorData = jsonDecode(response.body);
+    final errorMessage = errorData['error']?['message'] ?? 'خطای نامشخص';
+    throw OpenAIException('خطا در ارتباط با OpenAI: $errorMessage');
+  }
+
   /// ارسال پیام به OpenAI
   Future<ChatMessage> sendMessage({
     required List<ChatMessage> messages,

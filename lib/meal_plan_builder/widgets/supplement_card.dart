@@ -1,9 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 // کارت مکمل/دارو (Supplement Card) مخصوص صفحه ساخت برنامه غذایی
 // استفاده در MealPlanBuilderScreen
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/meal_plan.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class SupplementCardMealPlanBuilder extends StatelessWidget {
   const SupplementCardMealPlanBuilder({

@@ -4,7 +4,7 @@ import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/services/user_preferences_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class AddFoodScreen extends StatefulWidget {
   const AddFoodScreen({

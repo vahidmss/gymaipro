@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:gymaipro/config/app_config.dart';
+import 'package:http/http.dart' as http;
 
 /// Service to monitor internet connectivity across the app.
 ///
@@ -82,6 +84,19 @@ class ConnectivityService {
     final current = await _connectivity.checkConnectivity();
     _updateStates(current);
     return _lastConnected;
+  }
+
+  /// Lightweight backend reachability check (health endpoint).
+  Future<bool> canReachAppBackend() async {
+    if (!await checkNow()) return false;
+    try {
+      final response = await http
+          .get(Uri.parse(AppConfig.backendHealthCheckUrl))
+          .timeout(const Duration(seconds: 8));
+      return response.statusCode >= 200 && response.statusCode < 500;
+    } catch (_) {
+      return false;
+    }
   }
 
   void _updateStates(List<ConnectivityResult> results) {

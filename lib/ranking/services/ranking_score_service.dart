@@ -7,9 +7,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// سرویس محاسبه امتیاز رتبه‌بندی بر اساس فعالیت‌های خودکار
 class RankingScoreService {
-  static final RankingScoreService _instance = RankingScoreService._internal();
   factory RankingScoreService() => _instance;
   RankingScoreService._internal();
+  static final RankingScoreService _instance = RankingScoreService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
   final ActivityTrackingService _activityService = ActivityTrackingService();

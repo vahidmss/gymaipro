@@ -1,15 +1,18 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/my_club/models/program_activity_filter.dart';
+import 'package:gymaipro/my_club/widgets/program_meal_activity_sheet.dart';
+import 'package:gymaipro/my_club/widgets/program_workout_activity_sheet.dart';
 import 'package:gymaipro/my_club/widgets/unified_empty_state.dart';
 import 'package:gymaipro/payment/models/trainer_subscription.dart';
 import 'package:gymaipro/payment/services/trainer_subscription_service.dart';
-import 'package:gymaipro/services/active_program_service.dart';
 import 'package:gymaipro/services/active_meal_plan_service.dart';
-import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/services/active_program_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
+import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:gymaipro/workout_log/services/beginner_starter_program_service.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MyProgramsScreen extends StatefulWidget {
@@ -103,27 +106,36 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
       for (final row in rows) {
         final r = Map<String, dynamic>.from(row as Map);
         final createdAt = DateTime.tryParse(r['created_at']?.toString() ?? '');
+        final isStarterProgram = BeginnerStarterProgramService.isStarterProgramData(
+          r['data'],
+        );
 
-        // خواندن expiry_date
+        // خواندن expiry_date — برنامهٔ مبتدی رایگان منقضی نمی‌شود
         DateTime? expiryDate;
-        if (r['expiry_date'] != null) {
-          expiryDate = DateTime.tryParse(r['expiry_date'] as String);
-        } else if (createdAt != null) {
-          // اگر expiry_date وجود نداشت، از created_at محاسبه کن (33 روز)
-          expiryDate = createdAt.add(const Duration(days: 33));
+        if (!isStarterProgram) {
+          if (r['expiry_date'] != null) {
+            expiryDate = DateTime.tryParse(r['expiry_date'] as String);
+          } else if (createdAt != null) {
+            expiryDate = createdAt.add(const Duration(days: 33));
+          }
         }
 
-        // بررسی انقضا بر اساس expiry_date
-        final bool isExpired = expiryDate != null
+        final bool isExpired = !isStarterProgram && (expiryDate != null
             ? DateTime.now().isAfter(expiryDate)
-            : (createdAt != null
-                  ? DateTime.now().difference(createdAt).inDays > 45
-                  : false);
+            : (createdAt != null &&
+                  DateTime.now().difference(createdAt).inDays > 45));
+
+        DateTime? sentAt;
+        if (r['sent_at'] != null) {
+          sentAt = DateTime.tryParse(r['sent_at'].toString());
+        }
 
         items.add({
           'id': r['id'],
           'program_name': r['program_name'] ?? 'بدون نام',
           'created_at': createdAt,
+          'sent_at': sentAt,
+          'data': r['data'],
           'trainer': r['trainer'],
           'isExpired': isExpired,
           'expiry_date': expiryDate,
@@ -239,10 +251,16 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
           }
         }
 
+        DateTime? sentAt;
+        if (r['sent_at'] != null) {
+          sentAt = DateTime.tryParse(r['sent_at'].toString());
+        }
+
         mealPlanItems.add({
           'id': r['id'],
           'plan_name': r['plan_name'] ?? 'برنامه رژیمی',
           'created_at': r['created_at'],
+          'sent_at': sentAt,
           'trainer': trainer,
           'expiry_date': expiryDate,
         });
@@ -258,46 +276,51 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
             final bool isActive = _activeProgramId == programId;
             final bool isExpired = p['isExpired'] as bool? ?? false;
             final trainer = p['trainer'] as Map<String, dynamic>?;
-            final trainerName = trainer == null
-                ? 'آزمایشی'
-                : '${trainer['first_name'] ?? ''} ${trainer['last_name'] ?? ''}'
-                      .trim()
-                      .isEmpty
-                ? (trainer['username'] ?? 'آزمایشی')
-                : '${trainer['first_name'] ?? ''} ${trainer['last_name'] ?? ''}';
+            final trainerName = _formatTrainerName(trainer);
 
+            final createdAt = p['created_at'] as DateTime?;
+            final sentAt = p['sent_at'] as DateTime?;
+            final labels = _ProgramCardLabels.resolve(
+              p['program_name'] as String,
+              trainerName,
+            );
             unified.add({
               'type': 'workout',
               'id': programId,
-              'title': p['program_name'] as String,
-              'subtitle': 'مربی: $trainerName',
+              'title': labels.title,
+              'trainerLine': labels.trainerLine,
               'isActive': isActive,
               'isExpired': isExpired,
               'expiry_date': p['expiry_date'],
+              'created_at': createdAt,
+              'sent_at': sentAt,
+              'session_days': ProgramActivityFilter.extractWorkoutSessionDays(
+                p['data'],
+              ).toList(),
             });
           }
           // Meal plans
           for (final mp in mealPlanItems) {
             final trainer = mp['trainer'] as Map<String, dynamic>?;
-            final trainerName = trainer == null
-                ? 'آزمایشی'
-                : '${trainer['first_name'] ?? ''} ${trainer['last_name'] ?? ''}'
-                      .trim()
-                      .isEmpty
-                ? (trainer['username'] ?? 'آزمایشی')
-                : '${trainer['first_name'] ?? ''} ${trainer['last_name'] ?? ''}';
+            final trainerName = _formatTrainerName(trainer);
             final String mealPlanId = mp['id'] as String;
             final bool isActive = _activeMealPlanId == mealPlanId;
 
+            final rawPlanName = (mp['plan_name'] as String?) ?? '';
+            final labels = _ProgramCardLabels.resolve(rawPlanName, trainerName);
+            final createdAt = mp['created_at'] != null
+                ? DateTime.tryParse(mp['created_at'].toString())
+                : null;
+            final sentAt = mp['sent_at'] as DateTime?;
             unified.add({
               'type': 'diet',
               'id': mealPlanId,
-              'title': (mp['plan_name'] as String?)?.isEmpty ?? true
-                  ? 'برنامه رژیمی'
-                  : mp['plan_name'] as String,
-              'subtitle': 'مربی: $trainerName',
+              'title': labels.title,
+              'trainerLine': labels.trainerLine,
               'isActive': isActive,
               'expiry_date': mp['expiry_date'],
+              'created_at': createdAt,
+              'sent_at': sentAt,
             });
           }
 
@@ -322,13 +345,42 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
           SnackBar(
             content: Text(
               'خطا در بارگذاری برنامه‌ها: $e',
-              style: TextStyle(fontFamily: AppTheme.fontFamily),
+              style: const TextStyle(fontFamily: AppTheme.fontFamily),
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
     }
+  }
+
+  ProgramActivityFilter _activityFilterForItem(Map<String, dynamic> it) {
+    final createdAt = it['created_at'] as DateTime?;
+    final sentAt = it['sent_at'] as DateTime?;
+    final expiry = it['expiry_date'] as DateTime?;
+    final fromCandidates = [sentAt, createdAt].whereType<DateTime>().toList();
+    final validFrom = ProgramActivityFilter.dateOnly(
+      fromCandidates.isEmpty
+          ? DateTime.now().subtract(const Duration(days: 90))
+          : fromCandidates.reduce((a, b) => a.isBefore(b) ? a : b),
+    );
+    final validTo = ProgramActivityFilter.dateOnly(expiry ?? DateTime.now());
+    return ProgramActivityFilter(
+      programId: it['id'] as String,
+      validFrom: validFrom,
+      validTo: validTo,
+      sessionDays: ProgramActivityFilter.sessionDaysFrom(it['session_days']),
+    );
+  }
+
+  String _formatTrainerName(Map<String, dynamic>? trainer) {
+    if (trainer == null) return 'آزمایشی';
+    final fullName =
+        '${trainer['first_name'] ?? ''} ${trainer['last_name'] ?? ''}'.trim();
+    if (fullName.isNotEmpty) return fullName;
+    final username = trainer['username']?.toString().trim();
+    if (username != null && username.isNotEmpty) return username;
+    return 'آزمایشی';
   }
 
   Future<void> _loadPendingRequests(String userId) async {
@@ -380,26 +432,52 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
 
   Future<void> _activateProgram(String programId) async {
     final ok = await _active.setActiveProgram(programId);
-    if (ok && mounted) {
-      // به‌روزرسانی state و _items
-      setState(() {
-        _activeProgramId = programId;
-        // به‌روزرسانی وضعیت در _items
-        for (var item in _items) {
-          if (item['type'] == 'workout' && item['id'] == programId) {
-            item['isActive'] = true;
-          } else if (item['type'] == 'workout') {
-            item['isActive'] = false;
-          }
+    if (!ok || !mounted) return;
+
+    StarterProgramActivationResult? starterEnrollment;
+    try {
+      starterEnrollment = await BeginnerStarterProgramService()
+          .enrollIfStarterProgram(programId);
+    } catch (e) {
+      debugPrint('خطا در ثبت شاگردی GymAI برای برنامه مبتدی: $e');
+    }
+
+    setState(() {
+      _activeProgramId = programId;
+      for (final item in _items) {
+        if (item['type'] == 'workout' && item['id'] == programId) {
+          item['isActive'] = true;
+        } else if (item['type'] == 'workout') {
+          item['isActive'] = false;
         }
-      });
+      }
+    });
+
+    if (!mounted) return;
+
+    if (starterEnrollment != null) {
+      final msg = BeginnerStarterProgramService.enrollmentDialogMessage(
+        trainerName: starterEnrollment.trainerDisplayName,
+        isNewAiStudent: starterEnrollment.isNewAiStudent,
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          content: Text(
+            msg,
+            style: const TextStyle(fontFamily: AppTheme.fontFamily),
+          ),
+          backgroundColor: AppTheme.successColor,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
           content: Text(
             'برنامه فعال شد',
             style: TextStyle(fontFamily: AppTheme.fontFamily),
           ),
-          backgroundColor: Colors.green,
+          backgroundColor: AppTheme.successColor,
         ),
       );
     }
@@ -412,19 +490,19 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
       setState(() {
         _activeProgramId = null;
         // به‌روزرسانی وضعیت در _items
-        for (var item in _items) {
+        for (final item in _items) {
           if (item['type'] == 'workout') {
             item['isActive'] = false;
           }
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text(
             'برنامه تمرینی غیرفعال شد',
             style: TextStyle(fontFamily: AppTheme.fontFamily),
           ),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppTheme.fatColor,
         ),
       );
     }
@@ -437,7 +515,7 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
   void _renewProgram(String programId) {
     // TODO: اتصال به پرداخت/تمدید واقعی. فعلاً پیام نمونه
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
         content: Text(
           'تمدید با ۵۰٪ هزینه: به‌زودی',
           style: TextStyle(fontFamily: AppTheme.fontFamily),
@@ -454,7 +532,7 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
       setState(() {
         _activeMealPlanId = mealPlanId;
         // به‌روزرسانی وضعیت در _items
-        for (var item in _items) {
+        for (final item in _items) {
           if (item['type'] == 'diet' && item['id'] == mealPlanId) {
             item['isActive'] = true;
           } else if (item['type'] == 'diet') {
@@ -463,12 +541,12 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text(
             'برنامه رژیمی فعال شد',
             style: TextStyle(fontFamily: AppTheme.fontFamily),
           ),
-          backgroundColor: Colors.green,
+          backgroundColor: AppTheme.successColor,
         ),
       );
     }
@@ -481,19 +559,19 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
       setState(() {
         _activeMealPlanId = null;
         // به‌روزرسانی وضعیت در _items
-        for (var item in _items) {
+        for (final item in _items) {
           if (item['type'] == 'diet') {
             item['isActive'] = false;
           }
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text(
             'برنامه رژیمی غیرفعال شد',
             style: TextStyle(fontFamily: AppTheme.fontFamily),
           ),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppTheme.fatColor,
         ),
       );
     }
@@ -536,29 +614,45 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
                       if (it['type'] == 'workout') {
                         return _ProgramCard(
                           programName: it['title'] as String,
-                          trainerName: (it['subtitle'] as String?) ?? '—',
+                          trainerLine: it['trainerLine'] as String?,
                           programId: it['id'] as String,
                           isActive: (it['isActive'] as bool?) ?? false,
                           isExpired: (it['isExpired'] as bool?) ?? false,
                           expiryDate: it['expiry_date'] as DateTime?,
                           onActivate: () => _activateProgram(it['id'] as String),
-                          onDeactivate: () => _deactivateProgram(),
+                          onDeactivate: _deactivateProgram,
                           onOpen: _goToWorkoutLog,
                           onRenew: () => _renewProgram(it['id'] as String),
+                          onPreview: () => ProgramWorkoutActivitySheet.show(
+                            context,
+                            programTitle: it['title'] as String,
+                            filter: _activityFilterForItem(it),
+                            onOpenWorkoutLog: _goToWorkoutLog,
+                          ),
                         );
                       }
                       return _DietPlanCard(
                         planName: it['title'] as String,
-                        trainerName: (it['subtitle'] as String?) ?? '—',
+                        trainerLine: it['trainerLine'] as String?,
                         mealPlanId: it['id'] as String,
                         isActive: (it['isActive'] as bool?) ?? false,
                         expiryDate: it['expiry_date'] as DateTime?,
                         onActivate: () => _activateMealPlan(it['id'] as String),
-                        onDeactivate: () => _deactivateMealPlan(),
+                        onDeactivate: _deactivateMealPlan,
                         onOpen: () => Navigator.pushNamed(
                           context,
                           '/meal-log',
                           arguments: it['id'] as String,
+                        ),
+                        onPreview: () => ProgramMealActivitySheet.show(
+                          context,
+                          planTitle: it['title'] as String,
+                          filter: _activityFilterForItem(it),
+                          onOpenMealLog: () => Navigator.pushNamed(
+                            context,
+                            '/meal-log',
+                            arguments: it['id'] as String,
+                          ),
                         ),
                       );
                     }),
@@ -578,12 +672,12 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
             Container(
               padding: EdgeInsets.all(6.w),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
+                color: AppTheme.fatColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8.r),
               ),
               child: Icon(
                 LucideIcons.clock,
-                color: Colors.orange,
+                color: AppTheme.fatColor,
                 size: 16.sp,
               ),
             ),
@@ -601,7 +695,7 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
+                color: AppTheme.fatColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10.r),
               ),
               child: Text(
@@ -610,7 +704,7 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 12.sp,
                   fontWeight: FontWeight.bold,
-                  color: Colors.orange,
+                  color: AppTheme.fatColor,
                 ),
               ),
             ),
@@ -656,13 +750,13 @@ class _PendingRequestCard extends StatelessWidget {
     switch (request.serviceType) {
       case TrainerServiceType.training:
         serviceIcon = LucideIcons.dumbbell;
-        serviceColor = Colors.orange;
+        serviceColor = AppTheme.fatColor;
       case TrainerServiceType.diet:
         serviceIcon = LucideIcons.salad;
         serviceColor = Colors.purple;
       case TrainerServiceType.consulting:
         serviceIcon = LucideIcons.headphones;
-        serviceColor = Colors.blue;
+        serviceColor = AppTheme.carbsColor;
       case TrainerServiceType.package:
         serviceIcon = LucideIcons.package2;
         serviceColor = AppTheme.goldColor;
@@ -673,22 +767,22 @@ class _PendingRequestCard extends StatelessWidget {
     IconData statusIcon;
     if (request.programStatus == ProgramStatus.notStarted) {
       statusText = 'در انتظار آماده‌سازی توسط مربی';
-      statusColor = Colors.orange;
+      statusColor = AppTheme.fatColor;
       statusIcon = LucideIcons.clock;
     } else if (request.programStatus == ProgramStatus.inProgress) {
       statusText = 'مربی در حال آماده‌سازی';
-      statusColor = Colors.blue;
+      statusColor = AppTheme.carbsColor;
       statusIcon = LucideIcons.loader;
     } else {
       statusText = 'در حال پردازش';
-      statusColor = Colors.grey;
+      statusColor = AppTheme.darkGreySeparator;
       statusIcon = LucideIcons.clock;
     }
 
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
       decoration: BoxDecoration(
-        color: isDark ? context.cardColor : Colors.white,
+        color: isDark ? context.cardColor : AppTheme.darkTextColor,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: statusColor.withValues(alpha: 0.3),
@@ -804,8 +898,8 @@ class _PendingRequestCard extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.grey.withValues(alpha: 0.1),
+            ? AppTheme.darkTextColor.withValues(alpha: 0.08)
+            : AppTheme.darkGreySeparator.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8.r),
       ),
       child: Text(
@@ -843,7 +937,7 @@ class _PendingRequestCard extends StatelessWidget {
               label: 'آماده‌سازی',
               isCompleted: false,
               isActive: true,
-              color: Colors.orange,
+              color: AppTheme.fatColor,
               isDark: isDark,
               context: context,
             ),
@@ -856,7 +950,7 @@ class _PendingRequestCard extends StatelessWidget {
             _buildProgressStep(
               label: 'ارسال',
               isCompleted: false,
-              color: Colors.grey,
+              color: AppTheme.darkGreySeparator,
               isDark: isDark,
               context: context,
             ),
@@ -890,7 +984,7 @@ class _PendingRequestCard extends StatelessWidget {
             border: isActive ? Border.all(color: color, width: 2) : null,
           ),
           child: isCompleted
-              ? Icon(LucideIcons.check, color: Colors.white, size: 12.sp)
+              ? Icon(LucideIcons.check, color: AppTheme.darkTextColor, size: 12.sp)
               : null,
         ),
         SizedBox(height: 4.h),
@@ -910,21 +1004,99 @@ class _PendingRequestCard extends StatelessWidget {
   }
 }
 
+/// عنوان کارت بدون تکرار «برنامه تمرینی/رژیمی» (نوع روی چیپ نمایش داده می‌شود).
+class _ProgramCardLabels {
+  const _ProgramCardLabels({required this.title, this.trainerLine});
+
+  final String title;
+  final String? trainerLine;
+
+  static _ProgramCardLabels resolve(String rawName, String trainerName) {
+    final trainer = _normalizeTrainer(trainerName);
+    final cleaned = _cleanProgramName(rawName);
+
+    if (cleaned.isEmpty || _isGenericProgramLabel(cleaned)) {
+      return _ProgramCardLabels(title: trainer);
+    }
+    if (_isSameLabel(cleaned, trainer)) {
+      return _ProgramCardLabels(title: trainer);
+    }
+    return _ProgramCardLabels(title: cleaned, trainerLine: trainer);
+  }
+
+  static String _normalizeTrainer(String name) {
+    final t = name.trim().replaceFirst(RegExp(r'^مربی:\s*'), '');
+    if (t.isEmpty || t == '—') return 'آزمایشی';
+    return t;
+  }
+
+  static bool _isGenericProgramLabel(String s) {
+    final n = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return n == 'بدون نام' ||
+        n == 'برنامه رژیمی' ||
+        n == 'برنامه تمرینی' ||
+        n == 'برنامه غذایی';
+  }
+
+  static bool _isSameLabel(String a, String b) {
+    return a.trim().toLowerCase() == b.trim().toLowerCase();
+  }
+
+  static String _cleanProgramName(String raw) {
+    var s = raw.trim();
+    if (s.isEmpty) return '';
+
+    for (final prefix in ['برنامه تمرینی', 'برنامه رژیمی', 'برنامه غذایی']) {
+      if (s.startsWith(prefix)) {
+        s = s.substring(prefix.length).trim();
+        if (s.startsWith('-') ||
+            s.startsWith('–') ||
+            s.startsWith('—') ||
+            s.startsWith(':') ||
+            s.startsWith('،')) {
+          s = s.substring(1).trim();
+        }
+      }
+    }
+
+    s = s.replaceAll(
+      RegExp(r'\s*[-–—:،]\s*\d{4}[/.\-]\d{1,2}[/.\-]\d{1,2}\s*$'),
+      '',
+    );
+    s = s.replaceAll(
+      RegExp(r'\s*[-–—:،]\s*\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4}\s*$'),
+      '',
+    );
+
+    final parts = s
+        .split(RegExp(r'\s*[-–—]\s*'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (parts.length > 1) {
+      for (final part in parts) {
+        if (!_looksLikeDate(part) && !_isGenericProgramLabel(part)) {
+          return part;
+        }
+      }
+    }
+
+    return s.trim();
+  }
+
+  static bool _looksLikeDate(String s) {
+    return RegExp(r'^\d{4}[/.\-]\d{1,2}[/.\-]\d{1,2}$').hasMatch(s) ||
+        RegExp(r'^\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4}$').hasMatch(s);
+  }
+}
+
 class _ProgramCard extends StatelessWidget {
   const _ProgramCard({
     required this.programName,
-    required this.trainerName,
-    required this.programId,
-    required this.isActive,
-    required this.isExpired,
-    required this.expiryDate,
-    required this.onActivate,
-    required this.onDeactivate,
-    required this.onOpen,
-    required this.onRenew,
+    required this.programId, required this.isActive, required this.isExpired, required this.expiryDate, required this.onActivate, required this.onDeactivate, required this.onOpen, required this.onRenew, required this.onPreview, this.trainerLine,
   });
   final String programName;
-  final String trainerName;
+  final String? trainerLine;
   final String programId;
   final bool isActive;
   final bool isExpired;
@@ -933,6 +1105,7 @@ class _ProgramCard extends StatelessWidget {
   final VoidCallback onDeactivate;
   final VoidCallback onOpen;
   final VoidCallback onRenew;
+  final VoidCallback onPreview;
 
   @override
   Widget build(BuildContext context) {
@@ -946,7 +1119,7 @@ class _ProgramCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: isExpired
-                  ? Colors.red.withValues(alpha: 0.5)
+                  ? AppTheme.errorColor.withValues(alpha: 0.5)
                   : isDark
                   ? Colors.grey[700]!
                   : AppTheme.lightDividerColor.withValues(alpha: 0.5),
@@ -954,7 +1127,7 @@ class _ProgramCard extends StatelessWidget {
             boxShadow: [
               BoxShadow(
                 color: isDark
-                    ? Colors.black.withValues(alpha: 0.25)
+                    ? AppTheme.veryDarkBackground.withValues(alpha: 0.25)
                     : AppTheme.goldColor.withValues(alpha: 0.08),
                 blurRadius: 8.r,
                 offset: Offset(0.w, 4.h),
@@ -968,121 +1141,168 @@ class _ProgramCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          programName,
-                          style: TextStyle(
-                            color: context.textColor,
-                            fontSize: 18.sp,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: AppTheme.fontFamily,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const _TypeChip(
-                        icon: LucideIcons.dumbbell,
-                        label: 'تمرینی',
-                        color: Color(0xFF7EC8FF),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildStatusBadge(),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        LucideIcons.user,
-                        size: 16.sp,
-                        color: isDark
-                            ? Colors.grey[400]
-                            : AppTheme.lightTextSecondary.withValues(
-                                alpha: 0.6,
-                              ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'مربی: $trainerName',
-                          style: TextStyle(
-                            color: context.textSecondary,
-                            fontSize: 12.sp,
-                            fontFamily: AppTheme.fontFamily,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  // نمایش تاریخ انقضا
-                  if (expiryDate != null) ...[
-                    const SizedBox(height: 8),
-                    Builder(
-                      builder: (context) {
-                        final now = DateTime.now();
-                        final difference = expiryDate!.difference(now);
-                        final daysRemaining = difference.inDays;
-
-                        String text;
-                        if (daysRemaining < 0) {
-                          text = 'اعتبار منقضی شده';
-                        } else if (daysRemaining == 0) {
-                          text = 'در دسترس تا امروز';
-                        } else {
-                          text = 'در دسترس تا $daysRemaining روز دیگر';
-                        }
-
-                        return Row(
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: onPreview,
+                      borderRadius: BorderRadius.circular(12.r),
+                      child: Padding(
+                        padding: EdgeInsets.only(bottom: 4.h),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(
-                              LucideIcons.calendar,
-                              size: 14.sp,
-                              color: isExpired
-                                  ? Colors.red
-                                  : isDark
-                                  ? Colors.grey[400]
-                                  : AppTheme.lightTextSecondary.withValues(
-                                      alpha: 0.6,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    programName,
+                                    style: TextStyle(
+                                      color: context.textColor,
+                                      fontSize: 14.sp,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: AppTheme.fontFamily,
                                     ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const _TypeChip(
+                                  icon: LucideIcons.dumbbell,
+                                  label: 'تمرینی',
+                                  color: Color(0xFF7EC8FF),
+                                ),
+                                const SizedBox(width: 8),
+                                _buildStatusBadge(),
+                              ],
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              text,
-                              style: TextStyle(
-                                color: isExpired
-                                    ? Colors.red
-                                    : context.textSecondary,
-                                fontSize: 11.sp,
-                                fontFamily: AppTheme.fontFamily,
-                                fontWeight: isExpired
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
+                            if (trainerLine != null) ...[
+                              SizedBox(height: 8.h),
+                              Row(
+                                children: [
+                                  Icon(
+                                    LucideIcons.user,
+                                    size: 16.sp,
+                                    color: isDark
+                                        ? Colors.grey[400]
+                                        : AppTheme.lightTextSecondary
+                                            .withValues(alpha: 0.6),
+                                  ),
+                                  SizedBox(width: 6.w),
+                                  Expanded(
+                                    child: Text(
+                                      trainerLine!,
+                                      style: TextStyle(
+                                        color: context.textSecondary,
+                                        fontSize: 12.sp,
+                                        fontFamily: AppTheme.fontFamily,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
+                            ],
+                            if (expiryDate != null) ...[
+                              SizedBox(height: 8.h),
+                              Builder(
+                                builder: (context) {
+                                  final now = DateTime.now();
+                                  final difference =
+                                      expiryDate!.difference(now);
+                                  final daysRemaining = difference.inDays;
+
+                                  String text;
+                                  if (daysRemaining < 0) {
+                                    text = 'اعتبار منقضی شده';
+                                  } else if (daysRemaining == 0) {
+                                    text = 'در دسترس تا امروز';
+                                  } else {
+                                    text =
+                                        'در دسترس تا $daysRemaining روز دیگر';
+                                  }
+
+                                  return Row(
+                                    children: [
+                                      Icon(
+                                        LucideIcons.calendar,
+                                        size: 14.sp,
+                                        color: isExpired
+                                            ? AppTheme.errorColor
+                                            : isDark
+                                                ? Colors.grey[400]
+                                                : AppTheme.lightTextSecondary
+                                                    .withValues(alpha: 0.6),
+                                      ),
+                                      SizedBox(width: 6.w),
+                                      Expanded(
+                                        child: Text(
+                                          text,
+                                          style: TextStyle(
+                                            color: isExpired
+                                                ? AppTheme.errorColor
+                                                : context.textSecondary,
+                                            fontSize: 11.sp,
+                                            fontFamily: AppTheme.fontFamily,
+                                            fontWeight: isExpired
+                                                ? FontWeight.w600
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ),
+                                      Icon(
+                                        LucideIcons.chevronLeft,
+                                        size: 14.sp,
+                                        color: AppTheme.goldColor
+                                            .withValues(alpha: 0.7),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ] else ...[
+                              SizedBox(height: 6.h),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    'مشاهده اجرا',
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      fontSize: 11.sp,
+                                      color: AppTheme.goldColor
+                                          .withValues(alpha: 0.85),
+                                    ),
+                                  ),
+                                  SizedBox(width: 4.w),
+                                  Icon(
+                                    LucideIcons.chevronLeft,
+                                    size: 14.sp,
+                                    color: AppTheme.goldColor
+                                        .withValues(alpha: 0.7),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ],
-                        );
-                      },
+                        ),
+                      ),
                     ),
-                  ],
+                  ),
                   const SizedBox(height: 12),
                   if (isExpired)
                     Container(
                       padding: EdgeInsets.all(12.w),
                       decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
+                        color: AppTheme.errorColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12.r),
                         border: Border.all(
-                          color: Colors.red.withValues(alpha: 0.3),
+                          color: AppTheme.errorColor.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Row(
                         children: [
                           const Icon(
                             LucideIcons.info,
-                            color: Colors.red,
+                            color: AppTheme.errorColor,
                             size: 18,
                           ),
                           const SizedBox(width: 8),
@@ -1090,7 +1310,7 @@ class _ProgramCard extends StatelessWidget {
                             child: Text(
                               'تمدید برنامه‌ای که قبلاً صادر شده نصف قیمت است.',
                               style: TextStyle(
-                                color: Colors.red,
+                                color: AppTheme.errorColor,
                                 fontSize: 12.sp,
                                 fontFamily: AppTheme.fontFamily,
                               ),
@@ -1124,12 +1344,12 @@ class _ProgramCard extends StatelessWidget {
                               onDeactivate();
                             }
                           },
-                          activeColor: AppTheme.goldColor,
+                          activeThumbColor: AppTheme.goldColor,
                           activeTrackColor: AppTheme.goldColor.withValues(
                             alpha: 0.5,
                           ),
-                          inactiveThumbColor: Colors.grey,
-                          inactiveTrackColor: Colors.grey.withValues(alpha: 0.3),
+                          inactiveThumbColor: AppTheme.darkGreySeparator,
+                          inactiveTrackColor: AppTheme.darkGreySeparator.withValues(alpha: 0.3),
                         ),
                       ],
                     ),
@@ -1144,12 +1364,12 @@ class _ProgramCard extends StatelessWidget {
                         ),
                         label: Text(
                           isActive ? 'ثبت تمرین' : 'برنامه غیرفعال است',
-                          style: TextStyle(fontFamily: AppTheme.fontFamily),
+                          style: const TextStyle(fontFamily: AppTheme.fontFamily),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: isActive
                               ? AppTheme.goldColor
-                              : Colors.grey.withValues(alpha: 0.5),
+                              : AppTheme.darkGreySeparator.withValues(alpha: 0.5),
                           foregroundColor: isActive
                               ? AppTheme.onGoldColor
                               : Colors.grey[700],
@@ -1157,7 +1377,7 @@ class _ProgramCard extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12.r),
                           ),
-                          disabledBackgroundColor: Colors.grey.withValues(
+                          disabledBackgroundColor: AppTheme.darkGreySeparator.withValues(
                             alpha: 0.3,
                           ),
                           disabledForegroundColor: Colors.grey[600],
@@ -1172,13 +1392,13 @@ class _ProgramCard extends StatelessWidget {
                       child: ElevatedButton.icon(
                         onPressed: onRenew,
                         icon: const Icon(LucideIcons.refreshCw),
-                        label: Text(
+                        label: const Text(
                           'تمدید با ۵۰٪',
                           style: TextStyle(fontFamily: AppTheme.fontFamily),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red[700],
-                          foregroundColor: Colors.white,
+                          foregroundColor: AppTheme.darkTextColor,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12.r),
@@ -1198,14 +1418,14 @@ class _ProgramCard extends StatelessWidget {
             child: Container(
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.4),
+                color: AppTheme.veryDarkBackground.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(16.r),
               ),
               child: Center(
                 child: Icon(
                   LucideIcons.lock,
                   size: 64.sp,
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: AppTheme.darkTextColor.withValues(alpha: 0.9),
                 ),
               ),
             ),
@@ -1216,7 +1436,7 @@ class _ProgramCard extends StatelessWidget {
 
   Widget _buildStatusBadge() {
     final String label = isActive ? 'فعال' : 'غیرفعال';
-    final Color color = isActive ? AppTheme.goldColor : Colors.grey;
+    final Color color = isActive ? AppTheme.goldColor : AppTheme.darkGreySeparator;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6),
       decoration: BoxDecoration(
@@ -1240,22 +1460,17 @@ class _ProgramCard extends StatelessWidget {
 class _DietPlanCard extends StatelessWidget {
   const _DietPlanCard({
     required this.planName,
-    required this.trainerName,
-    required this.mealPlanId,
-    required this.isActive,
-    required this.expiryDate,
-    required this.onActivate,
-    required this.onDeactivate,
-    required this.onOpen,
+    required this.mealPlanId, required this.isActive, required this.expiryDate, required this.onActivate, required this.onDeactivate, required this.onOpen, required this.onPreview, this.trainerLine,
   });
   final String planName;
-  final String trainerName;
+  final String? trainerLine;
   final String mealPlanId;
   final bool isActive;
   final DateTime? expiryDate;
   final VoidCallback onActivate;
   final VoidCallback onDeactivate;
   final VoidCallback onOpen;
+  final VoidCallback onPreview;
 
   @override
   Widget build(BuildContext context) {
@@ -1271,7 +1486,7 @@ class _DietPlanCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: isExpired
-                  ? Colors.red.withValues(alpha: 0.5)
+                  ? AppTheme.errorColor.withValues(alpha: 0.5)
                   : isDark
                   ? Colors.grey[700]!
                   : AppTheme.lightDividerColor.withValues(alpha: 0.5),
@@ -1279,7 +1494,7 @@ class _DietPlanCard extends StatelessWidget {
             boxShadow: [
               BoxShadow(
                 color: isDark
-                    ? Colors.black.withValues(alpha: 0.25)
+                    ? AppTheme.veryDarkBackground.withValues(alpha: 0.25)
                     : AppTheme.goldColor.withValues(alpha: 0.08),
                 blurRadius: 8.r,
                 offset: Offset(0.w, 4.h),
@@ -1293,58 +1508,72 @@ class _DietPlanCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          planName.isEmpty ? 'برنامه رژیمی' : planName,
-                          style: TextStyle(
-                            color: context.textColor,
-                            fontSize: 18.sp,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: AppTheme.fontFamily,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const _TypeChip(
-                        icon: LucideIcons.salad,
-                        label: 'رژیمی',
-                        color: Color(0xFFFFC069),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildStatusBadge(),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        LucideIcons.user,
-                        size: 16.sp,
-                        color: isDark
-                            ? Colors.grey[400]
-                            : AppTheme.lightTextSecondary.withValues(
-                                alpha: 0.6,
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: onPreview,
+                      borderRadius: BorderRadius.circular(12.r),
+                      child: Padding(
+                        padding: EdgeInsets.only(bottom: 4.h),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    planName,
+                                    style: TextStyle(
+                                      color: context.textColor,
+                                      fontSize: 14.sp,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: AppTheme.fontFamily,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const _TypeChip(
+                                  icon: LucideIcons.salad,
+                                  label: 'رژیمی',
+                                  color: Color(0xFFFFC069),
+                                ),
+                                const SizedBox(width: 8),
+                                _buildStatusBadge(),
+                              ],
+                            ),
+                            if (trainerLine != null) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(
+                                    LucideIcons.user,
+                                    size: 16.sp,
+                                    color: isDark
+                                        ? Colors.grey[400]
+                                        : AppTheme.lightTextSecondary.withValues(
+                                            alpha: 0.6,
+                                          ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      trainerLine!,
+                                      style: TextStyle(
+                                        color: context.textSecondary,
+                                        fontSize: 12.sp,
+                                        fontFamily: AppTheme.fontFamily,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          trainerName.startsWith('مربی: ')
-                              ? trainerName
-                              : 'مربی: $trainerName',
-                          style: TextStyle(
-                            color: context.textSecondary,
-                            fontSize: 12.sp,
-                            fontFamily: AppTheme.fontFamily,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                            ],
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                  // نمایش تاریخ انقضا
                   if (expiryDate != null) ...[
                     const SizedBox(height: 8),
                     Builder(
@@ -1368,7 +1597,7 @@ class _DietPlanCard extends StatelessWidget {
                               LucideIcons.calendar,
                               size: 14.sp,
                               color: isExpired
-                                  ? Colors.red
+                                  ? AppTheme.errorColor
                                   : isDark
                                   ? Colors.grey[400]
                                   : AppTheme.lightTextSecondary.withValues(
@@ -1380,7 +1609,7 @@ class _DietPlanCard extends StatelessWidget {
                               text,
                               style: TextStyle(
                                 color: isExpired
-                                    ? Colors.red
+                                    ? AppTheme.errorColor
                                     : context.textSecondary,
                                 fontSize: 11.sp,
                                 fontFamily: AppTheme.fontFamily,
@@ -1418,12 +1647,12 @@ class _DietPlanCard extends StatelessWidget {
                             onDeactivate();
                           }
                         },
-                        activeColor: AppTheme.goldColor,
+                        activeThumbColor: AppTheme.goldColor,
                         activeTrackColor: AppTheme.goldColor.withValues(
                           alpha: 0.5,
                         ),
-                        inactiveThumbColor: Colors.grey,
-                        inactiveTrackColor: Colors.grey.withValues(alpha: 0.3),
+                        inactiveThumbColor: AppTheme.darkGreySeparator,
+                        inactiveTrackColor: AppTheme.darkGreySeparator.withValues(alpha: 0.3),
                       ),
                     ],
                   ),
@@ -1438,12 +1667,12 @@ class _DietPlanCard extends StatelessWidget {
                       ),
                       label: Text(
                         isActive ? 'ثبت تغذیه' : 'برنامه غیرفعال است',
-                        style: TextStyle(fontFamily: AppTheme.fontFamily),
+                        style: const TextStyle(fontFamily: AppTheme.fontFamily),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isActive
                             ? AppTheme.goldColor
-                            : Colors.grey.withValues(alpha: 0.5),
+                            : AppTheme.darkGreySeparator.withValues(alpha: 0.5),
                         foregroundColor: isActive
                             ? AppTheme.onGoldColor
                             : Colors.grey[700],
@@ -1451,7 +1680,7 @@ class _DietPlanCard extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12.r),
                         ),
-                        disabledBackgroundColor: Colors.grey.withValues(
+                        disabledBackgroundColor: AppTheme.darkGreySeparator.withValues(
                           alpha: 0.3,
                         ),
                         disabledForegroundColor: Colors.grey[600],
@@ -1469,14 +1698,14 @@ class _DietPlanCard extends StatelessWidget {
             child: Container(
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.4),
+                color: AppTheme.veryDarkBackground.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(16.r),
               ),
               child: Center(
                 child: Icon(
                   LucideIcons.lock,
                   size: 64.sp,
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: AppTheme.darkTextColor.withValues(alpha: 0.9),
                 ),
               ),
             ),
@@ -1487,7 +1716,7 @@ class _DietPlanCard extends StatelessWidget {
 
   Widget _buildStatusBadge() {
     final String label = isActive ? 'فعال' : 'غیرفعال';
-    final Color color = isActive ? AppTheme.goldColor : Colors.grey;
+    final Color color = isActive ? AppTheme.goldColor : AppTheme.darkGreySeparator;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6),
       decoration: BoxDecoration(

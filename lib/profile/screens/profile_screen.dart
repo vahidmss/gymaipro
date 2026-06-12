@@ -25,7 +25,7 @@ import 'package:gymaipro/ranking/services/ranking_service.dart';
 import 'package:gymaipro/trainer_dashboard/screens/trainer_dashboard_screen.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_kpi_service.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 /// وضعیت آپلود تصویر پروفایل برای UX حرفه‌ای

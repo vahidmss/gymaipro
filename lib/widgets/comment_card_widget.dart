@@ -1,4 +1,4 @@
-﻿import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -14,11 +14,13 @@ class CommentCardWidget extends StatefulWidget {
     this.onEdit,
     this.onDelete,
     this.onReply,
+    this.onReactionsChanged,
   });
   final ExerciseComment comment;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final void Function(String)? onReply;
+  final VoidCallback? onReactionsChanged;
 
   @override
   State<CommentCardWidget> createState() => _CommentCardWidgetState();
@@ -116,7 +118,7 @@ class _CommentCardWidgetState extends State<CommentCardWidget> {
               Text(
                 widget.comment.userFullName ??
                     widget.comment.username ??
-                    'کاربر',
+                    '?????',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16.sp,
@@ -156,7 +158,7 @@ class _CommentCardWidgetState extends State<CommentCardWidget> {
                   children: [
                     Icon(Icons.edit, size: 18),
                     SizedBox(width: 8),
-                    Text('ویرایش'),
+                    Text('??????'),
                   ],
                 ),
               ),
@@ -166,7 +168,7 @@ class _CommentCardWidgetState extends State<CommentCardWidget> {
                   children: [
                     Icon(Icons.delete, size: 18.sp, color: Colors.red),
                     const SizedBox(width: 8),
-                    const Text('حذف', style: TextStyle(color: Colors.red)),
+                    const Text('???', style: TextStyle(color: Colors.red)),
                   ],
                 ),
               ),
@@ -213,7 +215,7 @@ class _CommentCardWidgetState extends State<CommentCardWidget> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                '(ویرایش شده)',
+                '(?????? ???)',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 12.sp,
@@ -238,7 +240,7 @@ class _CommentCardWidgetState extends State<CommentCardWidget> {
             color: Colors.white.withValues(alpha: 0.7),
           ),
           label: Text(
-            'پاسخ',
+            '????',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.7),
               fontSize: 12.sp,
@@ -249,11 +251,11 @@ class _CommentCardWidgetState extends State<CommentCardWidget> {
         const Spacer(),
 
         // Reactions
-        _buildReactionButton('like', '👍'),
+        _buildReactionButton('like', '??'),
         const SizedBox(width: 8),
-        _buildReactionButton('heart', '❤️'),
+        _buildReactionButton('heart', '??'),
         const SizedBox(width: 8),
-        _buildReactionButton('dislike', '👎'),
+        _buildReactionButton('dislike', '??'),
       ],
     );
   }
@@ -344,11 +346,12 @@ class _CommentCardWidgetState extends State<CommentCardWidget> {
 
       // Refresh the comment
       SafeSetState.call(this, () {});
+      widget.onReactionsChanged?.call();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطا در ثبت واکنش: $e'),
+            content: Text('??? ?? ??? ?????: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -365,15 +368,15 @@ class _CommentCardWidgetState extends State<CommentCardWidget> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.cardColor,
-        title: const Text('حذف نظر', style: TextStyle(color: Colors.white)),
+        title: const Text('??? ???', style: TextStyle(color: Colors.white)),
         content: const Text(
-          'آیا مطمئن هستید که می‌خواهید این نظر را حذف کنید؟',
+          '??? ????? ????? ?? ????????? ??? ??? ?? ??? ?????',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('انصراف'),
+            child: const Text('??????'),
           ),
           TextButton(
             onPressed: () {
@@ -381,7 +384,7 @@ class _CommentCardWidgetState extends State<CommentCardWidget> {
               widget.onDelete?.call();
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('حذف'),
+            child: const Text('???'),
           ),
         ],
       ),
@@ -404,13 +407,13 @@ class _CommentCardWidgetState extends State<CommentCardWidget> {
     final difference = now.difference(date);
 
     if (difference.inDays > 0) {
-      return '${difference.inDays} روز پیش';
+      return '${difference.inDays} ??? ???';
     } else if (difference.inHours > 0) {
-      return '${difference.inHours} ساعت پیش';
+      return '${difference.inHours} ???? ???';
     } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} دقیقه پیش';
+      return '${difference.inMinutes} ????? ???';
     } else {
-      return 'همین الان';
+      return '???? ????';
     }
   }
 }

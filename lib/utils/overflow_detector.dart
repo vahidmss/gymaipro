@@ -28,7 +28,7 @@ class OverflowDetector {
       textDirection: TextDirection.rtl,
       textScaler: textScaleFactor != null
           ? TextScaler.linear(textScaleFactor)
-          : const TextScaler.linear(1.0),
+          : const TextScaler.linear(1),
       maxLines: maxLines,
     );
 
@@ -73,13 +73,6 @@ enum OverflowType { horizontal, vertical, both }
 
 /// یک مشکل overflow پیدا شده
 class OverflowIssue {
-  final OverflowType type;
-  final String widgetType;
-  final double? width;
-  final double? maxWidth;
-  final double? height;
-  final double? maxHeight;
-  final String? message;
 
   OverflowIssue({
     required this.type,
@@ -90,6 +83,13 @@ class OverflowIssue {
     this.maxHeight,
     this.message,
   });
+  final OverflowType type;
+  final String widgetType;
+  final double? width;
+  final double? maxWidth;
+  final double? height;
+  final double? maxHeight;
+  final String? message;
 
   @override
   String toString() {
@@ -129,7 +129,7 @@ extension OverflowCheckExtension on BuildContext {
     if (widget is Text) {
       final text = widget.data ?? '';
       final style = widget.style ?? DefaultTextStyle.of(this).style;
-      final textScale = mediaQuery.textScaler.scale(1.0);
+      final textScale = mediaQuery.textScaler.scale(1);
 
       return OverflowDetector.checkTextOverflow(
         text: text,

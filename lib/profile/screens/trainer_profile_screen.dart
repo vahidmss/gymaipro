@@ -1,11 +1,11 @@
-﻿import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/trainer_client.dart';
 import 'package:gymaipro/models/trainer_detail.dart';
 import 'package:gymaipro/models/trainer_review.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/services/trainer_service.dart';
+import 'package:gymaipro/widgets/gymai_trainer_avatar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TrainerProfileScreen extends StatefulWidget {
@@ -340,37 +340,17 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
             Row(
               children: [
                 // Trainer avatar
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(50.r),
-                  child:
-                      _trainer?.avatarUrl != null &&
-                          _trainer!.avatarUrl!.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: _trainer!.avatarUrl!,
-                          width: 100.w,
-                          height: 100.h,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            width: 100.w,
-                            height: 100.h,
-                            color: Colors.grey.shade300,
-                            child: const Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            width: 100.w,
-                            height: 100.h,
-                            color: Colors.grey.shade300,
-                            child: const Icon(Icons.person, size: 50),
-                          ),
-                        )
-                      : Container(
-                          width: 100.w,
-                          height: 100.h,
-                          color: Colors.grey.shade300,
-                          child: const Icon(Icons.person, size: 50),
-                        ),
+                GymaiTrainerAvatar(
+                  avatarUrl: _trainer?.avatarUrl,
+                  userId: _trainer?.id,
+                  username: _trainer?.username,
+                  size: 100.w,
+                  fallback: Container(
+                    width: 100.w,
+                    height: 100.h,
+                    color: Colors.grey.shade300,
+                    child: const Icon(Icons.person, size: 50),
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -381,7 +361,7 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
                         _trainer?.fullName ?? '',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 22.sp,
+                          fontSize: 18.sp,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -398,7 +378,7 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
                                 ? '${_avgRating.toStringAsFixed(1)} (${_reviews.length})'
                                 : 'بدون امتیاز',
                             style: TextStyle(
-                              fontSize: 16.sp,
+                              fontSize: 14.sp,
                               color: _avgRating > 0
                                   ? Colors.black87
                                   : Colors.grey,
@@ -567,7 +547,7 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
             const SizedBox(height: 2),
             Text(
               value,
-              style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w500),
+              style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w500),
             ),
           ],
         ),

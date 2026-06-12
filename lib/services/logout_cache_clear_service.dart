@@ -1,15 +1,15 @@
 import 'package:flutter/foundation.dart';
+import 'package:gymaipro/academy/services/article_service.dart';
+import 'package:gymaipro/academy/services/article_stats_cache_service.dart';
 import 'package:gymaipro/achievements/services/achievement_database_service.dart';
 import 'package:gymaipro/achievements/services/achievement_service.dart';
-import 'package:gymaipro/academy/services/article_service.dart';
-import 'package:gymaipro/services/score_service.dart';
-import 'package:gymaipro/academy/services/article_stats_cache_service.dart';
 import 'package:gymaipro/ai/services/ai_chat_service.dart';
 import 'package:gymaipro/ai/services/user_context_cache_service.dart';
 import 'package:gymaipro/chat/services/chat_presence_service.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
 import 'package:gymaipro/services/food_service.dart';
+import 'package:gymaipro/services/score_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_ranking_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -219,7 +219,7 @@ class LogoutCacheClearService {
       int removedCount = 0;
       for (final key in keys) {
         // بررسی اینکه آیا کلید با یکی از پیشوندها شروع می‌شود
-        final shouldRemove = prefixesToRemove.any((prefix) => key.startsWith(prefix));
+        final shouldRemove = prefixesToRemove.any(key.startsWith);
         
         if (shouldRemove) {
           await prefs.remove(key);

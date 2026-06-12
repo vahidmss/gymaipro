@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 /// مدل تنظیمات کمیسیون
 class CommissionSettings {

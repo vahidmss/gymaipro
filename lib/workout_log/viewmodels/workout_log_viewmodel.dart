@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/services/active_program_service.dart';
+import 'package:gymaipro/services/muscle_heatmap_aggregate.dart';
 import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
 import 'package:gymaipro/workout_log/models/workout_program_log.dart';
@@ -33,10 +33,20 @@ class WorkoutLogViewModel extends ChangeNotifier {
 
   bool _hasTodayLog = false;
   bool _isLoadingTodayLog = true;
+  bool _isLoadingDayLog = false;
+  bool _awaitingSessionPickAfterDateChange = false;
   String? _loggedSessionDay;
+  int? _loggedSessionDateKey;
   final Map<String, Timer> _autoSaveTimers = {};
+  final Map<String, Timer> _heatmapPreviewTimers = {};
+  int _dbSaveGeneration = 0;
   bool _isLoadingData = false;
   bool _isDisposed = false;
+  MuscleHeatmapSnapshot? _sessionHeatmapCache;
+  bool _sessionHeatmapDirty = true;
+
+  /// فقط برای به‌روزرسانی چیپ/شیت نقشه — بدون rebuild کل صفحه.
+  final ValueNotifier<int> sessionHeatmapTick = ValueNotifier(0);
 
   // Getters
   Jalali get selectedDate => _selectedDate;
@@ -51,7 +61,60 @@ class WorkoutLogViewModel extends ChangeNotifier {
   Map<String, bool> get collapsedExercises => _collapsedExercises;
   bool get hasTodayLog => _hasTodayLog;
   bool get isLoadingTodayLog => _isLoadingTodayLog;
+  bool get isLoadingDayLog => _isLoadingDayLog;
   String? get loggedSessionDay => _loggedSessionDay;
+
+  /// هیت‌مپ جلسه — با کش؛ فقط وقتی لاگ عوض می‌شود دوباره حساب می‌شود.
+  MuscleHeatmapSnapshot get sessionHeatmapSnapshot {
+    if (_selectedSession == null) return MuscleHeatmapSnapshot.empty();
+    if (!_sessionHeatmapDirty && _sessionHeatmapCache != null) {
+      return _sessionHeatmapCache!;
+    }
+    _sessionHeatmapCache = MuscleHeatmapAggregate.fromExerciseLogs(
+      _buildExerciseLogs(),
+      _exerciseDetails,
+      catalogFallback: _exerciseService.cachedExercisesSync,
+    );
+    _sessionHeatmapDirty = false;
+    return _sessionHeatmapCache!;
+  }
+
+  void _invalidateSessionHeatmap() {
+    _sessionHeatmapDirty = true;
+    _sessionHeatmapCache = null;
+  }
+
+  void bumpSessionHeatmapPreview() {
+    if (_isDisposed) return;
+    _invalidateSessionHeatmap();
+    sessionHeatmapTick.value++;
+  }
+
+  DateTime get _selectedDateOnly {
+    final g = _selectedDate.toGregorian();
+    return DateTime(g.year, g.month, g.day);
+  }
+
+  int get _selectedDateKey => _selectedDateOnly.millisecondsSinceEpoch;
+
+  bool get _hasLoggedSessionOnSelectedDate =>
+      _loggedSessionDay != null && _loggedSessionDateKey == _selectedDateKey;
+
+  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  static bool _logMatchesDate(WorkoutDailyLog log, DateTime expected) {
+    return _dateOnly(log.logDate) == _dateOnly(expected);
+  }
+
+  void _bindLoggedSession(String sessionDay, DateTime logDate) {
+    _loggedSessionDay = sessionDay;
+    _loggedSessionDateKey = _dateOnly(logDate).millisecondsSinceEpoch;
+  }
+
+  void _clearLoggedSessionMeta() {
+    _loggedSessionDay = null;
+    _loggedSessionDateKey = null;
+  }
 
   Future<void> initialize() async {
     await loadActiveProgram();
@@ -394,10 +457,14 @@ class WorkoutLogViewModel extends ChangeNotifier {
           savedStatus.length > setIndex &&
           savedStatus[setIndex]) {
         savedStatus[setIndex] = false;
+        bumpSessionHeatmapPreview();
         _safeNotifyListeners();
       }
       return;
     }
+
+    _heatmapPreviewTimers[setKey]?.cancel();
+    _heatmapPreviewTimers[setKey] = Timer(const Duration(milliseconds: 350), bumpSessionHeatmapPreview);
 
     _autoSaveTimers[setKey] = Timer(const Duration(seconds: 1), () {
       saveSet(exerciseId, setIndex);
@@ -407,14 +474,42 @@ class WorkoutLogViewModel extends ChangeNotifier {
   Future<void> saveSet(String exerciseId, int setIndex) async {
     try {
       final controllers = _exerciseControllers[exerciseId]![setIndex];
-      final weight = double.tryParse(controllers['weight']?.text ?? '0') ?? 0.0;
-      final reps = int.tryParse(controllers['reps']?.text ?? '0') ?? 0;
-      final timeSeconds = int.tryParse(controllers['time']?.text ?? '0') ?? 0;
+      final weightText = controllers['weight']?.text.trim() ?? '';
+      final repsText = controllers['reps']?.text.trim() ?? '';
+      final timeText = controllers['time']?.text.trim() ?? '';
+      final weight = weightText.isNotEmpty
+          ? (double.tryParse(weightText) ?? 0.0)
+          : 0.0;
+      final reps =
+          repsText.isNotEmpty ? (int.tryParse(repsText) ?? 0) : 0;
+      final timeSeconds =
+          timeText.isNotEmpty ? (int.tryParse(timeText) ?? 0) : 0;
 
-      await _saveSetToDatabase(exerciseId, setIndex, weight, reps, timeSeconds);
+      final savedStatus = _setSavedStatus[exerciseId];
+      final wasSaved = savedStatus != null &&
+          savedStatus.length > setIndex &&
+          savedStatus[setIndex];
 
-      _setSavedStatus[exerciseId]![setIndex] = true;
-      _safeNotifyListeners();
+      if (savedStatus != null && savedStatus.length > setIndex) {
+        savedStatus[setIndex] = true;
+      }
+
+      bumpSessionHeatmapPreview();
+      if (!wasSaved) {
+        _safeNotifyListeners();
+      }
+
+      final sessionDay = _selectedSession!.day;
+      final generation = _dbSaveGeneration;
+      await _saveSetToDatabase(
+        exerciseId,
+        setIndex,
+        weight,
+        reps,
+        timeSeconds,
+        sessionDay: sessionDay,
+        generation: generation,
+      );
     } catch (e) {
       debugPrint('Error auto-saving set: $e');
     }
@@ -425,9 +520,13 @@ class WorkoutLogViewModel extends ChangeNotifier {
     int setIndex,
     double weight,
     int reps,
-    int timeSeconds,
-  ) async {
+    int timeSeconds, {
+    required String sessionDay,
+    required int generation,
+  }) async {
     try {
+      if (!_isDbSaveStillValid(generation, sessionDay)) return;
+
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null ||
           _selectedProgram == null ||
@@ -435,32 +534,30 @@ class WorkoutLogViewModel extends ChangeNotifier {
         return;
       }
 
-      final gregorian = _selectedDate.toGregorian();
-      final selectedDateTime = gregorian.toDateTime();
+      final selectedDateTime = _selectedDateOnly;
 
       final existingDailyLog = await _workoutLogService.getDailyLogByDate(
         user.id,
         selectedDateTime,
+        preferRemote: true,
       );
+
+      if (!_isDbSaveStillValid(generation, sessionDay)) return;
 
       if (existingDailyLog != null) {
         await _updateExistingLog(
           existingDailyLog,
-          exerciseId,
-          setIndex,
-          weight,
-          reps,
-          timeSeconds,
+          sessionDay: sessionDay,
+          generation: generation,
         );
       } else {
         await _createNewProgramLog(
-          exerciseId,
-          setIndex,
-          weight,
-          reps,
-          timeSeconds,
+          sessionDay: sessionDay,
+          generation: generation,
         );
       }
+
+      if (!_isDbSaveStillValid(generation, sessionDay)) return;
 
       try {
         await Supabase.instance.client
@@ -486,78 +583,33 @@ class WorkoutLogViewModel extends ChangeNotifier {
   }
 
   Future<void> _updateExistingLog(
-    WorkoutDailyLog dailyLog,
-    String exerciseId,
-    int setIndex,
-    double weight,
-    int reps,
-    int timeSeconds,
-  ) async {
+    WorkoutDailyLog dailyLog, {
+    required String sessionDay,
+    required int generation,
+  }) async {
     try {
+      if (!_isDbSaveStillValid(generation, sessionDay)) return;
+
       final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) return;
+      if (user == null || _selectedSession == null) return;
+
+      final activeDay = sessionDay;
+      var activeFound = false;
 
       final updatedSessions = <WorkoutSessionLog>[];
-
       for (final session in dailyLog.sessions) {
-        final updatedExercises = <WorkoutExerciseLog>[];
-        for (final exercise in session.exercises) {
-          if (exercise is NormalExerciseLog) {
-            if (exercise.exerciseId.toString() == exerciseId) {
-              final allSets = _buildSetLogs(exerciseId);
-              updatedExercises.add(
-                NormalExerciseLog(
-                  id: exercise.id,
-                  exerciseId: exercise.exerciseId,
-                  exerciseName: exercise.exerciseName,
-                  tag: exercise.tag,
-                  style: exercise.style,
-                  sets: allSets,
-                ),
-              );
-            } else {
-              updatedExercises.add(exercise);
-            }
-          } else if (exercise is SupersetExerciseLog) {
-            final updatedSupersetItems = <SupersetItemLog>[];
-            for (final item in exercise.exercises) {
-              final oldItemId = '${exercise.id}_${item.exerciseId}';
-              final newItemId = _findSupersetItemId(
-                exercise.id,
-                item.exerciseId,
-              );
-
-              if (oldItemId == exerciseId || newItemId == exerciseId) {
-                final allSets = _buildSetLogs(exerciseId);
-                updatedSupersetItems.add(
-                  SupersetItemLog(
-                    exerciseId: item.exerciseId,
-                    exerciseName: item.exerciseName,
-                    sets: allSets,
-                  ),
-                );
-              } else {
-                updatedSupersetItems.add(item);
-              }
-            }
-            updatedExercises.add(
-              SupersetExerciseLog(
-                id: exercise.id,
-                tag: exercise.tag,
-                style: exercise.style,
-                exercises: updatedSupersetItems,
-              ),
-            );
-          }
+        if (session.day == activeDay) {
+          activeFound = true;
+          updatedSessions.add(
+            _buildCurrentSessionLog(existingId: session.id),
+          );
+        } else {
+          updatedSessions.add(session);
         }
-        updatedSessions.add(
-          WorkoutSessionLog(
-            id: session.id,
-            day: session.day,
-            exercises: updatedExercises,
-            notes: _selectedSession?.notes ?? session.notes,
-          ),
-        );
+      }
+
+      if (!activeFound) {
+        updatedSessions.add(_buildCurrentSessionLog());
       }
 
       final updatedDailyLog = WorkoutDailyLog(
@@ -571,33 +623,34 @@ class WorkoutLogViewModel extends ChangeNotifier {
 
       await _workoutLogService.updateDailyLog(updatedDailyLog);
 
-      _loggedSessionDay = _selectedSession?.day;
-      _safeNotifyListeners();
+      if (!_isDbSaveStillValid(generation, sessionDay)) return;
+
+      _hasTodayLog = updatedSessions.isNotEmpty;
+      _bindLoggedSession(activeDay, _selectedDateOnly);
     } catch (e) {
       debugPrint('Error updating existing log: $e');
     }
   }
 
-  Future<void> _createNewProgramLog(
-    String exerciseId,
-    int setIndex,
-    double weight,
-    int reps,
-    int timeSeconds,
-  ) async {
+  Future<void> _createNewProgramLog({
+    required String sessionDay,
+    required int generation,
+  }) async {
+    if (!_isDbSaveStillValid(generation, sessionDay)) return;
+
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null || _selectedProgram == null || _selectedSession == null) {
       return;
     }
 
-    final gregorian = _selectedDate.toGregorian();
-    final selectedDateTime = gregorian.toDateTime();
+    final selectedDateTime = _selectedDateOnly;
 
     final sessionLog = WorkoutSessionLog(
       id: const Uuid().v4(),
-      day: _selectedSession!.day,
+      day: sessionDay,
       exercises: _buildExerciseLogs(),
       notes: _selectedSession!.notes,
+      programId: _selectedProgram?.id,
     );
 
     final dailyLog = WorkoutDailyLog(
@@ -608,9 +661,10 @@ class WorkoutLogViewModel extends ChangeNotifier {
 
     await _workoutLogService.saveDailyLog(dailyLog);
 
+    if (!_isDbSaveStillValid(generation, sessionDay)) return;
+
     _hasTodayLog = true;
-    _loggedSessionDay = _selectedSession?.day;
-    _safeNotifyListeners();
+    _bindLoggedSession(sessionDay, selectedDateTime);
   }
 
   List<WorkoutExerciseLog> _buildExerciseLogs() {
@@ -668,6 +722,23 @@ class WorkoutLogViewModel extends ChangeNotifier {
     return exercises;
   }
 
+  bool _sessionLogHasSavedSets(WorkoutSessionLog sessionLog) {
+    for (final exercise in sessionLog.exercises) {
+      if (exercise is NormalExerciseLog) {
+        if (exercise.sets.any(MuscleHeatmapAggregate.setHasWork)) {
+          return true;
+        }
+      } else if (exercise is SupersetExerciseLog) {
+        for (final item in exercise.exercises) {
+          if (item.sets.any(MuscleHeatmapAggregate.setHasWork)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   List<ExerciseSetLog> _buildSetLogs(String exerciseId) {
     final controllers = _exerciseControllers[exerciseId];
     if (controllers == null) return [];
@@ -711,15 +782,76 @@ class WorkoutLogViewModel extends ChangeNotifier {
     return '${supersetId}_$exerciseId';
   }
 
-  Future<void> checkLogForDate(Jalali date) async {
-    _isLoadingTodayLog = true;
+  void _cancelPendingAutoSaves() {
+    for (final timer in _autoSaveTimers.values) {
+      timer.cancel();
+    }
+    _autoSaveTimers.clear();
+    for (final timer in _heatmapPreviewTimers.values) {
+      timer.cancel();
+    }
+    _heatmapPreviewTimers.clear();
+    _dbSaveGeneration++;
+  }
+
+  bool _isDbSaveStillValid(int generation, String sessionDay) {
+    return !_isDisposed &&
+        generation == _dbSaveGeneration &&
+        _selectedSession?.day == sessionDay;
+  }
+
+  /// لاگ سشن فعال از روی فرم — فقط همان روز/سشن انتخاب‌شده.
+  WorkoutSessionLog _buildCurrentSessionLog({String? existingId}) {
+    return WorkoutSessionLog(
+      id: existingId ?? const Uuid().v4(),
+      day: _selectedSession!.day,
+      exercises: _buildExerciseLogs(),
+      notes: _selectedSession?.notes,
+      programId: _selectedProgram?.id,
+    );
+  }
+
+  /// پاک‌سازی سشن و فرم — قبل از بارگذاری روز جدید.
+  void _clearSessionFormState() {
+    _cancelPendingAutoSaves();
+    disposeControllers();
+    bumpSessionHeatmapPreview();
+    _selectedSession = null;
+    _clearLoggedSessionMeta();
+    _hasTodayLog = false;
+    _collapsedExercises.clear();
+    _isLoadingData = false;
+  }
+
+  /// تغییر تاریخ تقویم: فرم خالی + بارگذاری لاگ همان روز (در صورت وجود).
+  Future<void> changeSelectedDate(Jalali date) async {
+    final sameDay = date.year == _selectedDate.year &&
+        date.month == _selectedDate.month &&
+        date.day == _selectedDate.day;
+    if (sameDay) return;
+
+    _awaitingSessionPickAfterDateChange = true;
+    await checkLogForDate(date, showFullScreenLoader: false);
+    if (_selectedSession != null && _hasLoggedSessionOnSelectedDate) {
+      _awaitingSessionPickAfterDateChange = false;
+    }
+  }
+
+  Future<void> checkLogForDate(
+    Jalali date, {
+    bool showFullScreenLoader = true,
+  }) async {
+    _selectedDate = date;
+    _clearSessionFormState();
+    if (showFullScreenLoader) {
+      _isLoadingTodayLog = true;
+    } else {
+      _isLoadingDayLog = true;
+    }
     _safeNotifyListeners();
 
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
-      _hasTodayLog = false;
-      _isLoadingTodayLog = false;
-      _safeNotifyListeners();
       return;
     }
 
@@ -727,8 +859,11 @@ class WorkoutLogViewModel extends ChangeNotifier {
       await loadActiveProgram();
     }
 
-    final gregorian = date.toGregorian();
-    final dateTime = gregorian.toDateTime();
+    final dateTime = DateTime(
+      date.toGregorian().year,
+      date.toGregorian().month,
+      date.toGregorian().day,
+    );
 
     try {
       final dailyLog = await _workoutLogService.getDailyLogByDate(
@@ -736,14 +871,12 @@ class WorkoutLogViewModel extends ChangeNotifier {
         dateTime,
       );
 
-      if (dailyLog != null) {
+      if (dailyLog != null && _logMatchesDate(dailyLog, dateTime)) {
         _hasTodayLog = true;
-        _isLoadingTodayLog = false;
-        _safeNotifyListeners();
 
         if (dailyLog.sessions.isNotEmpty) {
-          final sessionLog = dailyLog.sessions.first;
-          _loggedSessionDay = sessionLog.day; // تنظیم loggedSessionDay
+          final sessionLog = _pickSessionLogForDayLoad(dailyLog);
+          _bindLoggedSession(sessionLog.day, dailyLog.logDate);
 
           WorkoutSession? foundSession;
           if (_selectedProgram != null) {
@@ -757,45 +890,85 @@ class WorkoutLogViewModel extends ChangeNotifier {
 
           if (foundSession != null && _selectedProgram != null) {
             _selectedSession = foundSession;
-            _safeNotifyListeners();
             initExerciseControllers();
             await loadExerciseDetails();
             await loadSavedData(sessionLog);
           } else {
             _selectedSession = _reconstructSessionFromLog(sessionLog);
-            _safeNotifyListeners();
             initExerciseControllers();
             await loadExerciseDetails();
             await loadSavedData(sessionLog);
           }
         } else {
           _selectedSession = null;
-          _isLoadingTodayLog = false;
-          _safeNotifyListeners();
-          if (_selectedProgram != null) {
-            initExerciseControllers();
-            await loadExerciseDetails();
-          }
         }
       } else {
         _hasTodayLog = false;
-        _isLoadingTodayLog = false;
-        _loggedSessionDay = null;
-        if (_selectedProgram == null) {
-          _selectedSession = null;
-        }
-        _safeNotifyListeners();
-        if (_selectedProgram != null && _selectedSession != null) {
-          initExerciseControllers();
-          await loadExerciseDetails();
-        }
+        _clearLoggedSessionMeta();
+        _selectedSession = null;
       }
     } catch (e) {
       debugPrint('Error loading today log: $e');
       _hasTodayLog = false;
-      _isLoadingTodayLog = false;
+      _clearLoggedSessionMeta();
+      _selectedSession = null;
+    } finally {
+      if (showFullScreenLoader) {
+        _isLoadingTodayLog = false;
+      } else {
+        _isLoadingDayLog = false;
+      }
       _safeNotifyListeners();
     }
+  }
+
+  /// اگر چند سشن در یک روز ثبت شده، آخرین سشن را بارگذاری می‌کند.
+  WorkoutSessionLog _pickSessionLogForDayLoad(WorkoutDailyLog dailyLog) {
+    if (dailyLog.sessions.length == 1) {
+      return dailyLog.sessions.first;
+    }
+    return dailyLog.sessions.last;
+  }
+
+  /// آیا برای تعویض سشن در **همین روز** باید از کاربر تأیید گرفت؟
+  /// (تغییر تاریخ تقویم = انتخاب اول سشن، بدون آلارم حذف)
+  SessionChangePrompt evaluateSessionChange(WorkoutSession newSession) {
+    // بعد از عوض کردن تاریخ تقویم، اولین انتخاب سشن بدون آلارم.
+    if (_awaitingSessionPickAfterDateChange) {
+      return const SessionChangePrompt.none();
+    }
+
+    final hasUnsaved = hasUnsavedData();
+    final currentSessionDay = _selectedSession?.day;
+
+    // فقط تداخل سشن‌های همان روز تقویم (نه نام سشن در روز دیگر).
+    final conflictWithSavedLog = _hasTodayLog &&
+        _hasLoggedSessionOnSelectedDate &&
+        _loggedSessionDay != null &&
+        _loggedSessionDay != newSession.day;
+
+    final conflictWithDraft = hasUnsaved &&
+        currentSessionDay != null &&
+        currentSessionDay != newSession.day;
+
+    if (!conflictWithSavedLog && !conflictWithDraft) {
+      return const SessionChangePrompt.none();
+    }
+
+    // سشن فعلی (پیش‌نویس یا ثبت‌شده) که باید حذف/پاک شود.
+    final sessionToReplace = currentSessionDay ?? _loggedSessionDay;
+
+    final dialogLoggedDay = sessionToReplace ?? '';
+
+    final dayToDelete = conflictWithSavedLog
+        ? _loggedSessionDay
+        : (conflictWithDraft ? currentSessionDay : null);
+
+    return SessionChangePrompt.needConfirm(
+      sessionDayToDelete: dayToDelete,
+      hasUnsavedData: hasUnsaved,
+      loggedSessionDayForDialog: dialogLoggedDay,
+    );
   }
 
   WorkoutSession _reconstructSessionFromLog(WorkoutSessionLog sessionLog) {
@@ -878,6 +1051,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
     }
 
     _isLoadingData = false;
+    bumpSessionHeatmapPreview();
   }
 
   Future<void> _loadNormalExerciseData(NormalExerciseLog exerciseLog) async {
@@ -941,20 +1115,33 @@ class WorkoutLogViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> onSessionSelected(WorkoutSession? session) async {
+  Future<void> onSessionSelected(
+    WorkoutSession? session, {
+    bool startFresh = false,
+  }) async {
+    _cancelPendingAutoSaves();
+
     if (session == null) {
       _selectedSession = null;
+      disposeControllers();
+      bumpSessionHeatmapPreview();
       _safeNotifyListeners();
       return;
     }
 
+    _awaitingSessionPickAfterDateChange = false;
+    _isLoadingData = true;
     _selectedSession = session;
-    _safeNotifyListeners();
-
     initExerciseControllers();
     await loadExerciseDetails();
-    await loadSavedDataForSession(session);
+    if (startFresh) {
+      _clearLoggedSessionMeta();
+    } else {
+      await loadSavedDataForSession(session);
+    }
     _isLoadingData = false;
+    bumpSessionHeatmapPreview();
+    _safeNotifyListeners();
   }
 
   Future<void> loadSavedDataForSession(WorkoutSession session) async {
@@ -962,15 +1149,17 @@ class WorkoutLogViewModel extends ChangeNotifier {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
 
-      final gregorian = _selectedDate.toGregorian();
-      final selectedDateTime = gregorian.toDateTime();
+      final selectedDateTime = _selectedDateOnly;
 
       final dailyLog = await _workoutLogService.getDailyLogByDate(
         user.id,
         selectedDateTime,
+        preferRemote: true,
       );
 
-      if (dailyLog != null && dailyLog.sessions.isNotEmpty) {
+      if (dailyLog != null &&
+          _logMatchesDate(dailyLog, selectedDateTime) &&
+          dailyLog.sessions.isNotEmpty) {
         WorkoutSessionLog? matchingSessionLog;
         for (final sessionLog in dailyLog.sessions) {
           if (sessionLog.day == session.day) {
@@ -979,9 +1168,17 @@ class WorkoutLogViewModel extends ChangeNotifier {
           }
         }
 
-        if (matchingSessionLog != null) {
+        if (matchingSessionLog != null &&
+            _sessionLogHasSavedSets(matchingSessionLog)) {
+          _bindLoggedSession(matchingSessionLog.day, dailyLog.logDate);
           await loadSavedData(matchingSessionLog);
+        } else {
+          _clearLoggedSessionMeta();
+          _hasTodayLog = dailyLog.sessions.any(_sessionLogHasSavedSets);
         }
+      } else {
+        _clearLoggedSessionMeta();
+        _hasTodayLog = false;
       }
     } catch (e) {
       debugPrint('Error loading saved data for session: $e');
@@ -990,31 +1187,37 @@ class WorkoutLogViewModel extends ChangeNotifier {
 
   Future<void> deleteSessionLog(String sessionDay) async {
     try {
+      _cancelPendingAutoSaves();
+
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
 
-      final gregorian = _selectedDate.toGregorian();
-      final selectedDateTime = gregorian.toDateTime();
+      final selectedDateTime = _selectedDateOnly;
+
+      await _workoutLogService.deleteLogLocal(user.id, selectedDateTime);
 
       final dailyLog = await _workoutLogService.getDailyLogByDate(
         user.id,
         selectedDateTime,
+        preferRemote: true,
       );
 
-      if (dailyLog != null && dailyLog.sessions.isNotEmpty) {
+      if (dailyLog != null &&
+          _logMatchesDate(dailyLog, selectedDateTime) &&
+          dailyLog.sessions.isNotEmpty) {
         final updatedSessions = dailyLog.sessions
             .where((s) => s.day != sessionDay)
             .toList();
 
-        // اگر session حذف شده همان loggedSessionDay است، آن را null کن
-        if (_loggedSessionDay == sessionDay) {
-          _loggedSessionDay = null;
+        if (_loggedSessionDay == sessionDay &&
+            _loggedSessionDateKey == _selectedDateKey) {
+          _clearLoggedSessionMeta();
         }
 
         if (updatedSessions.isEmpty) {
           await _workoutLogService.deleteDailyLog(dailyLog.id);
           _hasTodayLog = false;
-          _loggedSessionDay = null;
+          _clearLoggedSessionMeta();
         } else {
           final updatedDailyLog = WorkoutDailyLog(
             id: dailyLog.id,
@@ -1025,11 +1228,16 @@ class WorkoutLogViewModel extends ChangeNotifier {
             updatedAt: DateTime.now(),
           );
           await _workoutLogService.updateDailyLog(updatedDailyLog);
+          _hasTodayLog = updatedSessions.any(_sessionLogHasSavedSets);
         }
-
-        disposeControllers();
-        _safeNotifyListeners();
+      } else {
+        _hasTodayLog = false;
+        _clearLoggedSessionMeta();
       }
+
+      disposeControllers();
+      bumpSessionHeatmapPreview();
+      _safeNotifyListeners();
     } catch (e) {
       debugPrint('Error deleting session log: $e');
     }
@@ -1041,7 +1249,6 @@ class WorkoutLogViewModel extends ChangeNotifier {
 
     // بررسی تمام controllers برای پیدا کردن داده‌های وارد شده
     for (final entry in _exerciseControllers.entries) {
-      final exerciseId = entry.key;
       final controllers = entry.value;
 
       for (final setControllers in controllers) {
@@ -1059,20 +1266,12 @@ class WorkoutLogViewModel extends ChangeNotifier {
     return false;
   }
 
-  /// تمام focus nodes را unfocus می‌کند و کیبورد را می‌بندد
+  /// فقط فوکوس فعال را آزاد می‌کند (بدون loop روی همهٔ فیلدها).
   void unfocusAllFields() {
-    for (final exerciseFocusNodes in _exerciseFocusNodes.values) {
-      for (final setFocusNodes in exerciseFocusNodes) {
-        for (final focusNode in setFocusNodes.values) {
-          focusNode.unfocus();
-        }
-      }
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary != null && primary.hasFocus) {
+      primary.unfocus();
     }
-  }
-
-  void updateSelectedDate(Jalali date) {
-    _selectedDate = date;
-    _safeNotifyListeners();
   }
 
   Future<void> clearCache() async {
@@ -1093,6 +1292,11 @@ class WorkoutLogViewModel extends ChangeNotifier {
       timer.cancel();
     }
     _autoSaveTimers.clear();
+    for (final timer in _heatmapPreviewTimers.values) {
+      timer.cancel();
+    }
+    _heatmapPreviewTimers.clear();
+    sessionHeatmapTick.dispose();
     super.dispose();
   }
 
@@ -1102,4 +1306,38 @@ class WorkoutLogViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
+}
+
+/// نتیجه بررسی تعویض سشن در همان روز تقویم.
+class SessionChangePrompt {
+  const SessionChangePrompt._({
+    required this.requiresConfirmation,
+    this.sessionDayToDelete,
+    this.hasUnsavedData = false,
+    this.loggedSessionDayForDialog = '',
+  });
+
+  const SessionChangePrompt.none()
+      : requiresConfirmation = false,
+        sessionDayToDelete = null,
+        hasUnsavedData = false,
+        loggedSessionDayForDialog = '';
+
+  factory SessionChangePrompt.needConfirm({
+    required String? sessionDayToDelete,
+    required bool hasUnsavedData,
+    required String loggedSessionDayForDialog,
+  }) {
+    return SessionChangePrompt._(
+      requiresConfirmation: true,
+      sessionDayToDelete: sessionDayToDelete,
+      hasUnsavedData: hasUnsavedData,
+      loggedSessionDayForDialog: loggedSessionDayForDialog,
+    );
+  }
+
+  final bool requiresConfirmation;
+  final String? sessionDayToDelete;
+  final bool hasUnsavedData;
+  final String loggedSessionDayForDialog;
 }

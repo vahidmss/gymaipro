@@ -49,7 +49,7 @@ class PlanNameCardMealPlanBuilder extends StatelessWidget {
             ),
             BoxShadow(
               color: isDark
-                  ? Colors.black.withValues(alpha: 0.5)
+                  ? AppTheme.veryDarkBackground.withValues(alpha: 0.5)
                   : AppTheme.lightTextColor.withValues(alpha: 0.08),
               blurRadius: 8.r,
               offset: Offset(0.w, 2.h),
@@ -60,8 +60,8 @@ class PlanNameCardMealPlanBuilder extends StatelessWidget {
           controller: controller,
           readOnly: readOnly,
           style: TextStyle(
-            color: isDark ? AppTheme.goldColor : Colors.black,
-            fontSize: 16.sp,
+            color: isDark ? AppTheme.goldColor : AppTheme.veryDarkBackground,
+            fontSize: 14.sp,
             fontWeight: FontWeight.w500,
           ),
           decoration: InputDecoration(
@@ -69,13 +69,13 @@ class PlanNameCardMealPlanBuilder extends StatelessWidget {
             hintStyle: TextStyle(
               color: isDark
                   ? AppTheme.goldColor.withValues(alpha: 0.6)
-                  : Colors.black.withValues(alpha: 0.5),
+                  : AppTheme.veryDarkBackground.withValues(alpha: 0.5),
               fontSize: 14.sp,
               fontWeight: FontWeight.w400,
             ),
             labelText: 'نام برنامه',
             labelStyle: TextStyle(
-              color: isDark ? AppTheme.goldColor : Colors.black,
+              color: isDark ? AppTheme.goldColor : AppTheme.veryDarkBackground,
               fontSize: 14.sp,
               fontWeight: FontWeight.w600,
             ),

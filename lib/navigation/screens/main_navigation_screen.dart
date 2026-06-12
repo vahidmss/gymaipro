@@ -20,6 +20,11 @@ class MainNavigationScreen extends StatefulWidget {
 
   static _MainNavigationScreenState? _currentState;
 
+  static bool get isShellActive {
+    final state = _currentState;
+    return state != null && state.mounted;
+  }
+
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 
@@ -28,6 +33,30 @@ class MainNavigationScreen extends StatefulWidget {
     final state = _currentState;
     if (state != null && state.mounted) {
       state._onNavItemTapped(index);
+    }
+  }
+
+  /// باشگاه من (ورزشکار / فضای شخصی مربی) — تب داخلی مثلاً ۰ = برنامه‌ها
+  static void navigateToMyClub({int initialTab = 0}) {
+    final state = _currentState;
+    if (state != null && state.mounted) {
+      state._navigateToMyClub(initialTab);
+    }
+  }
+
+  /// میز کار مربی — همان اسلات تب پایین
+  static void navigateToTrainerDashboard({int initialTab = 0}) {
+    final state = _currentState;
+    if (state != null && state.mounted) {
+      state._navigateToTrainerDashboard(initialTab);
+    }
+  }
+
+  /// تب اجتماعی (پیام‌ها / چت‌روم)
+  static void navigateToSocial({int initialTab = 0}) {
+    final state = _currentState;
+    if (state != null && state.mounted) {
+      state._navigateToSocial(initialTab);
     }
   }
 
@@ -55,6 +84,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   late PageController _pageController;
   int? _pendingAcademyTabIndex;
   WorkoutMusic? _pendingAcademyMusic;
+  int? _pendingMyClubTabIndex;
+  int? _pendingSocialTabIndex;
+  int? _pendingTrainerDashboardTabIndex;
   String? _userRole; // نقش کاربر: 'athlete' یا 'trainer'
 
   // GlobalKey برای المان‌های ناوبری
@@ -134,6 +166,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     });
   }
 
+  void _navigateToMyClub(int initialTab) {
+    setState(() => _pendingMyClubTabIndex = initialTab);
+    _onNavItemTapped(NavigationConstants.myClubIndex);
+  }
+
+  void _navigateToSocial(int initialTab) {
+    setState(() => _pendingSocialTabIndex = initialTab);
+    _onNavItemTapped(NavigationConstants.socialIndex);
+  }
+
+  void _navigateToTrainerDashboard(int initialTab) {
+    setState(() {
+      _userRole = 'trainer';
+      _pendingTrainerDashboardTabIndex = initialTab;
+    });
+    _onNavItemTapped(NavigationConstants.myClubIndex);
+  }
+
   Future<bool> _handleBackPress() async {
     // اگر روی تب داشبورد نیستیم، به داشبورد برو
     if (_currentIndex != NavigationConstants.dashboardIndex) {
@@ -191,11 +241,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
               // باشگاه من / داشبورد مربی (index 3) - بر اساس نقش کاربر
               _userRole == 'trainer'
-                  ? const TrainerDashboardScreen()
+                  ? TrainerDashboardScreen(
+                      initialTabIndex: _pendingTrainerDashboardTabIndex ?? 0,
+                    )
                   : const MyClubMainScreen(),
 
               // اجتماعی / چت‌ها (index 4) - گفتگوها، چت عمومی، مربیان
-              const ChatMainScreen(),
+              ChatMainScreen(
+                initialTabIndex: _pendingSocialTabIndex ?? 0,
+              ),
             ],
           ),
           bottomNavigationBar: SafeArea(

@@ -6,7 +6,7 @@ import 'package:gymaipro/academy/services/music_player_service.dart';
 import 'package:gymaipro/academy/widgets/music_player_widget.dart';
 import 'package:gymaipro/academy/widgets/playlist_item_widget.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 class MusicFavoritesScreen extends StatefulWidget {

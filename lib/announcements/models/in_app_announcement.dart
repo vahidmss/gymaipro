@@ -23,24 +23,6 @@ class InAppAnnouncement {
     this.updatedAt,
   });
 
-  final String id;
-  final String title;
-  final String description;
-  final AnnouncementMediaType mediaType;
-  final String? mediaUrl;
-  final AnnouncementCtaType ctaType;
-  final String? ctaText;
-  final String? ctaValue;
-  final AnnouncementDismissMode dismissMode;
-  final int priority;
-  final bool isActive;
-  final DateTime? startAt;
-  final DateTime? endAt;
-  final DateTime createdAt;
-  final DateTime? updatedAt;
-
-  bool get hasCta => ctaType != AnnouncementCtaType.none;
-
   factory InAppAnnouncement.fromMap(Map<String, dynamic> map) {
     return InAppAnnouncement(
       id: (map['id'] ?? '').toString(),
@@ -60,6 +42,24 @@ class InAppAnnouncement {
       updatedAt: _parseDateTime(map['updated_at']),
     );
   }
+
+  final String id;
+  final String title;
+  final String description;
+  final AnnouncementMediaType mediaType;
+  final String? mediaUrl;
+  final AnnouncementCtaType ctaType;
+  final String? ctaText;
+  final String? ctaValue;
+  final AnnouncementDismissMode dismissMode;
+  final int priority;
+  final bool isActive;
+  final DateTime? startAt;
+  final DateTime? endAt;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+
+  bool get hasCta => ctaType != AnnouncementCtaType.none;
 
   Map<String, dynamic> toInsertMap() {
     return {

@@ -2,6 +2,14 @@ import 'package:gymaipro/guide/models/guide_step.dart';
 
 /// یک دنباله کامل از مراحل راهنما
 class GuideSequence {
+
+  const GuideSequence({
+    required this.id,
+    required this.name,
+    required this.steps, this.description,
+    this.showOnce = true,
+    this.prerequisiteId,
+  });
   /// شناسه یکتا
   final String id;
 
@@ -19,15 +27,6 @@ class GuideSequence {
 
   /// پیش‌نیاز (اگر راهنمای دیگری باید قبل از این نمایش داده شود)
   final String? prerequisiteId;
-
-  const GuideSequence({
-    required this.id,
-    required this.name,
-    this.description,
-    required this.steps,
-    this.showOnce = true,
-    this.prerequisiteId,
-  });
 
   int get stepCount => steps.length;
 

@@ -2,7 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class UserAvatarWidget extends StatelessWidget {
   const UserAvatarWidget({
@@ -12,6 +12,7 @@ class UserAvatarWidget extends StatelessWidget {
     this.isOnline = false,
     this.role = 'athlete',
     this.showOnlineStatus = true,
+    this.userId,
   });
 
   final String? avatarUrl;
@@ -19,6 +20,7 @@ class UserAvatarWidget extends StatelessWidget {
   final bool isOnline;
   final String role;
   final bool showOnlineStatus;
+  final String? userId;
 
   @override
   Widget build(BuildContext context) {

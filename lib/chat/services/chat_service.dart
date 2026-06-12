@@ -10,6 +10,7 @@ class ChatService {
   ChatService() : _supabase = Supabase.instance.client;
 
   final SupabaseClient _supabase;
+  static final Map<String, List<ChatMessage>> _messageCache = {};
 
   // Helpers
   List<String> _sortedUserIds(String a, String b) {
@@ -349,8 +350,6 @@ class ChatService {
         attachmentSize: attachmentSize,
         createdAt: now,
         updatedAt: now,
-        isRead: false,
-        isDeleted: false,
       );
 
       // Get current messages
@@ -440,7 +439,7 @@ class ChatService {
         );
       } else {
         final errorMsg = e.message is Map
-            ? e.message.toString()
+            ? e.message
             : (e.code ?? 'خطای ناشناخته');
         throw Exception('خطا در ارسال پیام: $errorMsg');
       }
@@ -630,5 +629,59 @@ class ChatService {
           .delete()
           .eq('id', conversationId);
     } catch (_) {}
+  }
+
+  List<ChatMessage> getCachedMessages(String otherUserId) {
+    return List<ChatMessage>.from(_messageCache[otherUserId] ?? const []);
+  }
+
+  void saveCachedMessages(String otherUserId, List<ChatMessage> messages) {
+    _messageCache[otherUserId] = List<ChatMessage>.from(messages);
+  }
+
+  Future<List<ChatMessage>> getMessagesByConversationId(
+    String conversationId, {
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    try {
+      final response = await _supabase
+          .from('chat_conversations')
+          .select('messages, user1_id, user2_id')
+          .eq('id', conversationId)
+          .maybeSingle();
+      if (response == null) return [];
+
+      final messagesJson = response['messages'] as List<dynamic>? ?? [];
+      final allMessages = messagesJson
+          .cast<Map<String, dynamic>>()
+          .map((json) {
+            try {
+              final jsonCopy = Map<String, dynamic>.from(json);
+              if (jsonCopy['created_at'] != null &&
+                  jsonCopy['created_at'] is! String) {
+                jsonCopy['created_at'] =
+                    (jsonCopy['created_at'] as DateTime).toIso8601String();
+              }
+              if (jsonCopy['updated_at'] != null &&
+                  jsonCopy['updated_at'] is! String) {
+                jsonCopy['updated_at'] =
+                    (jsonCopy['updated_at'] as DateTime).toIso8601String();
+              }
+              return ChatMessage.fromJson(jsonCopy);
+            } catch (_) {
+              return null;
+            }
+          })
+          .whereType<ChatMessage>()
+          .toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+      final start = offset.clamp(0, allMessages.length);
+      final end = (offset + limit).clamp(0, allMessages.length);
+      return allMessages.sublist(start, end);
+    } catch (_) {
+      return [];
+    }
   }
 }

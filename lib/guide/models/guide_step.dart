@@ -2,6 +2,20 @@ import 'package:flutter/material.dart';
 
 /// مدل یک مرحله از راهنما
 class GuideStep {
+
+  const GuideStep({
+    required this.id,
+    required this.title,
+    required this.description,
+    this.icon,
+    this.imageAsset,
+    this.primaryColor,
+    this.backgroundColor,
+    this.targetKey,
+    this.tooltipPosition = TooltipPosition.bottom,
+    this.usePulseAnimation = true,
+    this.action,
+  });
   /// شناسه یکتا
   final String id;
 
@@ -34,20 +48,6 @@ class GuideStep {
 
   /// دکمه عمل اختیاری
   final GuideStepAction? action;
-
-  const GuideStep({
-    required this.id,
-    required this.title,
-    required this.description,
-    this.icon,
-    this.imageAsset,
-    this.primaryColor,
-    this.backgroundColor,
-    this.targetKey,
-    this.tooltipPosition = TooltipPosition.bottom,
-    this.usePulseAnimation = true,
-    this.action,
-  });
 
   GuideStep copyWith({
     String? id,
@@ -89,12 +89,12 @@ enum TooltipPosition {
 
 /// عمل اختیاری برای یک مرحله
 class GuideStepAction {
-  final String label;
-  final VoidCallback onTap;
 
   const GuideStepAction({
     required this.label,
     required this.onTap,
   });
+  final String label;
+  final VoidCallback onTap;
 }
 

@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:gymaipro/config/app_config.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'package:sms_autofill/sms_autofill.dart' as sms;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OTPService {
   // Normalize phone number format
@@ -144,7 +144,7 @@ class OTPService {
             print('✅ SMS sent successfully');
             return true;
           } else {
-            print('❌ SMS API returned error: ${responseData.toString()}');
+            print('❌ SMS API returned error: $responseData');
             return false;
           }
         } catch (e) {

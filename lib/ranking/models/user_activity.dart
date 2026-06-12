@@ -13,17 +13,6 @@ class UserActivity {
     this.updatedAt,
   });
 
-  final String userId;
-  final DateTime activityDate;
-  final int articleReadingMinutes;
-  final int musicListeningMinutes;
-  final int videoWatchingMinutes;
-  final int workoutLogsCount;
-  final int mealLogsCount;
-  final int calorieCountingDays;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
-
   factory UserActivity.fromJson(Map<String, dynamic> json) {
     return UserActivity(
       userId: json['user_id'] as String,
@@ -42,6 +31,17 @@ class UserActivity {
           : null,
     );
   }
+
+  final String userId;
+  final DateTime activityDate;
+  final int articleReadingMinutes;
+  final int musicListeningMinutes;
+  final int videoWatchingMinutes;
+  final int workoutLogsCount;
+  final int mealLogsCount;
+  final int calorieCountingDays;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   Map<String, dynamic> toJson() {
     return {

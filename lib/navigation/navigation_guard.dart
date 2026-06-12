@@ -52,7 +52,7 @@ class NavigationGuard {
           },
         );
 
-        if (shouldExit == true) {
+        if (shouldExit ?? false) {
           SystemNavigator.pop();
         }
         

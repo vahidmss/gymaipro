@@ -1,0 +1,18 @@
+version: gymai/v3.6-patched
+total: 114 items on page: 20
+
+=== TARGET ID CHECKS ===
+ID 4011 فشار پشت بازو هالتر: main=triceps (OK) movement=elbow_extension (OK) targets={'triceps': 95, 'forearms': 25} notes=['Applied v3.6 ID override.'] norm=['main_muscle corrected: triceps → back_lat', 'muscle_targets adjusted for vertical pull / lat movement']
+ID 4013 زیربغل تک بازو سیمکش: main=back_lat (OK) movement=vertical_pull (OK) targets={'back_lat': 90, 'biceps': 35, 'shoulder_posterior': 25, 'lower_traps': 25} notes=['Applied v3.6 ID override.'] norm=['muscle_targets adjusted for vertical pull / lat movement']
+ID 4016 اسکات با مکث: main=quads (OK) movement=squat (OK) targets={'quads': 95, 'glutes': 75, 'hamstrings': 55, 'abs': 35, 'lower_back': 30} notes=['Applied v3.6 ID override.'] norm=['main_muscle corrected: quads → back_lat', 'muscle_targets adjusted for vertical pull / lat movement']
+ID 4019 پالوف پرس: main=abs (OK) movement=anti_rotation (OK) targets={'abs': 85, 'obliques': 70, 'glutes': 30} notes=['Applied v3.6 ID override.'] norm=['main_muscle corrected: abs → quads', 'movement_pattern corrected: anti_rotation → knee_dominant_press', 'muscle_targets adjusted for leg press']
+ID 4022 لانج با هالتر: main=quads (OK) movement=lunge (OK) targets={'quads': 85, 'glutes': 75, 'hamstrings': 45} notes=['Applied v3.6 ID override.'] norm=['main_muscle corrected: quads → back_lat', 'movement_pattern inferred: vertical_pull', 'muscle_targets adjusted for vertical pull / lat movement']
+ID 4023 لانج عقب: main=quads (OK) movement=lunge (OK) targets={'quads': 80, 'glutes': 75} notes=['Applied v3.6 ID override.'] norm=[]
+
+=== PAGE SCAN (heuristic) ===
+ID 4021 زیربغل نشسته سیمکش: got main=back_lat mov=horizontal_pull, expected main=back_lat mov=vertical_pull
+
+=== FALSE LAT CHECK (هالتر + back_lat) ===
+None found on page 1.
+
+OVERALL PAGE1: ISSUES REMAIN

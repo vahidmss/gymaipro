@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS public.custom_exercises (
     tags TEXT[],
     other_names TEXT[],
     estimated_duration INTEGER DEFAULT 0, -- ثانیه
+    muscle_targets_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     
     -- آمار
     views_count INTEGER DEFAULT 0,
@@ -46,6 +47,10 @@ CREATE TABLE IF NOT EXISTS public.custom_exercises (
     CONSTRAINT valid_difficulty CHECK (difficulty IN ('آسان', 'متوسط', 'سخت', 'حرفه‌ای')),
     CONSTRAINT valid_exercise_type CHECK (exercise_type IN ('قدرتی', 'کاردیو', 'کششی', 'تعادلی', 'انعطاف‌پذیری'))
 );
+
+-- ستون‌های اضافه‌شده بعد از ایجاد اولیه جدول
+ALTER TABLE public.custom_exercises
+    ADD COLUMN IF NOT EXISTS muscle_targets_json JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 -- ایندکس‌ها
 CREATE INDEX IF NOT EXISTS idx_custom_exercises_created_by ON public.custom_exercises(created_by);
@@ -74,18 +79,21 @@ CREATE TRIGGER trigger_update_custom_exercises_updated_at
 ALTER TABLE public.custom_exercises ENABLE ROW LEVEL SECURITY;
 
 -- Policy: کاربران می‌توانند تمرین‌های خود را ببینند
+DROP POLICY IF EXISTS "Users can view their own custom exercises" ON public.custom_exercises;
 CREATE POLICY "Users can view their own custom exercises"
     ON public.custom_exercises
     FOR SELECT
     USING (auth.uid() = created_by);
 
 -- Policy: مربیان می‌توانند تمرین‌های public را ببینند
+DROP POLICY IF EXISTS "Users can view public custom exercises" ON public.custom_exercises;
 CREATE POLICY "Users can view public custom exercises"
     ON public.custom_exercises
     FOR SELECT
     USING (visibility = 'public' AND approved = true);
 
 -- Policy: مربیان می‌توانند تمرین‌های مربی خود را ببینند (اگر شاگرد باشند)
+DROP POLICY IF EXISTS "Clients can view trainer's shared exercises" ON public.custom_exercises;
 CREATE POLICY "Clients can view trainer's shared exercises"
     ON public.custom_exercises
     FOR SELECT
@@ -101,12 +109,14 @@ CREATE POLICY "Clients can view trainer's shared exercises"
     );
 
 -- Policy: فقط سازنده می‌تواند تمرین بسازد
+DROP POLICY IF EXISTS "Users can create their own custom exercises" ON public.custom_exercises;
 CREATE POLICY "Users can create their own custom exercises"
     ON public.custom_exercises
     FOR INSERT
     WITH CHECK (auth.uid() = created_by);
 
 -- Policy: فقط سازنده می‌تواند تمرین خود را ویرایش کند
+DROP POLICY IF EXISTS "Users can update their own custom exercises" ON public.custom_exercises;
 CREATE POLICY "Users can update their own custom exercises"
     ON public.custom_exercises
     FOR UPDATE
@@ -114,12 +124,14 @@ CREATE POLICY "Users can update their own custom exercises"
     WITH CHECK (auth.uid() = created_by);
 
 -- Policy: فقط سازنده می‌تواند تمرین خود را حذف کند
+DROP POLICY IF EXISTS "Users can delete their own custom exercises" ON public.custom_exercises;
 CREATE POLICY "Users can delete their own custom exercises"
     ON public.custom_exercises
     FOR DELETE
     USING (auth.uid() = created_by);
 
 -- Policy: ادمین‌ها می‌توانند همه تمرین‌ها را ببینند و تایید کنند
+DROP POLICY IF EXISTS "Admins can manage all custom exercises" ON public.custom_exercises;
 CREATE POLICY "Admins can manage all custom exercises"
     ON public.custom_exercises
     FOR ALL

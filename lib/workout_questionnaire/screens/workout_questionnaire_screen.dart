@@ -12,7 +12,7 @@ import 'package:gymaipro/workout_questionnaire/services/questionnaire_questions_
 import 'package:gymaipro/workout_questionnaire/widgets/question_widget.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:gymaipro/workout_plan_builder/services/workout_program_service.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class WorkoutQuestionnaireScreen extends StatefulWidget {
   const WorkoutQuestionnaireScreen({super.key});

@@ -4,10 +4,10 @@ import 'package:gymaipro/ranking/services/activity_tracking_service.dart';
 /// Helper برای ردیابی خودکار فعالیت‌ها در جاهای مختلف اپ
 /// این کلاس به صورت خودکار فعالیت‌ها را ردیابی می‌کند
 class RankingTrackerHelper {
-  static final RankingTrackerHelper _instance =
-      RankingTrackerHelper._internal();
   factory RankingTrackerHelper() => _instance;
   RankingTrackerHelper._internal();
+  static final RankingTrackerHelper _instance =
+      RankingTrackerHelper._internal();
 
   final ActivityTrackingService _activityService = ActivityTrackingService();
 

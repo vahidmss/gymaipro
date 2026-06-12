@@ -4,9 +4,7 @@ import 'package:gymaipro/theme/app_theme.dart';
 
 class NotificationFilterChip extends StatelessWidget {
   const NotificationFilterChip({
-    super.key,
-    required this.label,
-    required this.isSelected,
+    required this.label, required this.isSelected, super.key,
     this.onTap,
     this.icon,
   });
@@ -29,7 +27,7 @@ class NotificationFilterChip extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           gradient: isSelected
-              ? LinearGradient(
+              ? const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [

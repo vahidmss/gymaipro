@@ -6,7 +6,7 @@ import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/services/navigation_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class FoodDetailScreen extends StatefulWidget {

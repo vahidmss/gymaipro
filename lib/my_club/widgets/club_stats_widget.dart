@@ -4,7 +4,7 @@ import 'package:gymaipro/my_club/services/my_club_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/cache_service.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ClubStatsWidget extends StatefulWidget {
   const ClubStatsWidget({super.key});

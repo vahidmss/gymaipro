@@ -8,7 +8,7 @@ import 'package:gymaipro/academy/models/workout_music.dart';
 import 'package:gymaipro/academy/services/music_cache_service.dart';
 import 'package:gymaipro/academy/services/music_notification_service.dart';
 
-enum RepeatMode { none, one, all }
+enum MusicRepeatMode { none, one, all }
 
 class MusicPlayerService extends ChangeNotifier {
   static final MusicPlayerService _instance = MusicPlayerService._internal();
@@ -29,7 +29,7 @@ class MusicPlayerService extends ChangeNotifier {
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
   bool _isShuffled = false;
-  RepeatMode _repeatMode = RepeatMode.none;
+  MusicRepeatMode _repeatMode = MusicRepeatMode.none;
   List<int> _shuffledIndices = [];
   bool _isInitialized = false;
   bool _isInitializing = false;
@@ -70,7 +70,7 @@ class MusicPlayerService extends ChangeNotifier {
   Duration get duration => _duration;
   Duration get position => _position;
   bool get isShuffled => _isShuffled;
-  RepeatMode get repeatMode => _repeatMode;
+  MusicRepeatMode get repeatMode => _repeatMode;
 
   bool get hasNext => _getNextIndex() != null;
   bool get hasPrevious => _getPreviousIndex() != null;
@@ -1201,14 +1201,14 @@ class MusicPlayerService extends ChangeNotifier {
 
   void toggleRepeat() {
     switch (_repeatMode) {
-      case RepeatMode.none:
-        _repeatMode = RepeatMode.all;
+      case MusicRepeatMode.none:
+        _repeatMode = MusicRepeatMode.all;
         break;
-      case RepeatMode.all:
-        _repeatMode = RepeatMode.one;
+      case MusicRepeatMode.all:
+        _repeatMode = MusicRepeatMode.one;
         break;
-      case RepeatMode.one:
-        _repeatMode = RepeatMode.none;
+      case MusicRepeatMode.one:
+        _repeatMode = MusicRepeatMode.none;
         break;
     }
     notifyListeners();
@@ -1234,13 +1234,13 @@ class MusicPlayerService extends ChangeNotifier {
 
       if (currentShuffledIndex < _shuffledIndices.length - 1) {
         return currentShuffledIndex + 1;
-      } else if (_repeatMode == RepeatMode.all) {
+      } else if (_repeatMode == MusicRepeatMode.all) {
         return 0;
       }
     } else {
       if (_currentIndex < _playlist.length - 1) {
         return _currentIndex + 1;
-      } else if (_repeatMode == RepeatMode.all) {
+      } else if (_repeatMode == MusicRepeatMode.all) {
         return 0;
       }
     }
@@ -1267,13 +1267,13 @@ class MusicPlayerService extends ChangeNotifier {
 
       if (currentShuffledIndex > 0) {
         return currentShuffledIndex - 1;
-      } else if (_repeatMode == RepeatMode.all) {
+      } else if (_repeatMode == MusicRepeatMode.all) {
         return _shuffledIndices.length - 1;
       }
     } else {
       if (_currentIndex > 0) {
         return _currentIndex - 1;
-      } else if (_repeatMode == RepeatMode.all) {
+      } else if (_repeatMode == MusicRepeatMode.all) {
         return _playlist.length - 1;
       }
     }
@@ -1313,7 +1313,7 @@ class MusicPlayerService extends ChangeNotifier {
       // Cache current track after completion
       _cacheCurrentTrackInBackground();
       
-      if (_repeatMode == RepeatMode.one) {
+      if (_repeatMode == MusicRepeatMode.one) {
         // Replay current track
         if (_currentIndex >= 0 && _currentIndex < _playlist.length) {
           playMusic(_playlist[_currentIndex], index: _currentIndex).catchError((
@@ -1329,7 +1329,7 @@ class MusicPlayerService extends ChangeNotifier {
           _position = Duration.zero;
           notifyListeners();
         }
-      } else if (_repeatMode == RepeatMode.all) {
+      } else if (_repeatMode == MusicRepeatMode.all) {
         // Play next or loop to start
         final nextIndex = _getNextIndex();
         if (nextIndex != null) {
@@ -1354,7 +1354,7 @@ class MusicPlayerService extends ChangeNotifier {
           });
         }
       } else {
-        // RepeatMode.none - Play next or stop
+        // MusicRepeatMode.none - Play next or stop
         final nextIndex = _getNextIndex();
         if (nextIndex != null) {
           playAtIndex(nextIndex).catchError((Object e) {

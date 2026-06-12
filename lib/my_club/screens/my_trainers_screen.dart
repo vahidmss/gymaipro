@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/my_club/widgets/unified_empty_state.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -6,7 +6,7 @@ import 'package:gymaipro/trainer_dashboard/services/trainer_client_service.dart'
 import 'package:gymaipro/utils/auth_helper.dart';
 import 'package:gymaipro/utils/cache_service.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class MyTrainersScreen extends StatefulWidget {
   const MyTrainersScreen({super.key});

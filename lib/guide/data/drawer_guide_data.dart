@@ -25,7 +25,7 @@ class DrawerGuideData {
       id: 'drawer_guide',
       name: 'راهنمای منو',
       description: 'آشنایی با منوی اصلی',
-      showOnce: false, // می‌تونه چند بار نمایش داده بشه
+      showOnce: true, // بعد از یک بار اتمام، پیشنهاد خودکار متوقف می‌شود (ریست از منو)
       steps: [
         // مرحله ۱: معرفی
         GuideStep(

@@ -4,14 +4,12 @@ import 'package:gymaipro/theme/app_theme.dart';
 
 /// ویجت برای نمایش یک صفحه onboarding
 class OnboardingPageWidget extends StatelessWidget {
-  final OnboardingPage page;
-  final Animation<double> animation;
 
   const OnboardingPageWidget({
-    super.key,
-    required this.page,
-    required this.animation,
+    required this.page, required this.animation, super.key,
   });
+  final OnboardingPage page;
+  final Animation<double> animation;
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +17,7 @@ class OnboardingPageWidget extends StatelessWidget {
     final orientation = MediaQuery.of(context).orientation;
 
     double clampDouble(double value, double min, double max) {
-      return value.clamp(min, max).toDouble();
+      return value.clamp(min, max);
     }
 
     return LayoutBuilder(
@@ -59,7 +57,6 @@ class OnboardingPageWidget extends StatelessWidget {
             child: useSideBySide
                 ? Row(
                     textDirection: TextDirection.rtl,
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
                         flex: 5,
@@ -98,7 +95,7 @@ class OnboardingPageWidget extends StatelessWidget {
                               SizedBox(height: gapLg * 0.8),
                               FadeTransition(
                                 opacity: animation,
-                                child: page.customWidget!,
+                                child: page.customWidget,
                               ),
                             ],
                           ],
@@ -138,7 +135,7 @@ class OnboardingPageWidget extends StatelessWidget {
                         SizedBox(height: gapLg * 0.8),
                         FadeTransition(
                           opacity: animation,
-                          child: page.customWidget!,
+                          child: page.customWidget,
                         ),
                       ],
                     ],
@@ -230,7 +227,7 @@ class OnboardingPageWidget extends StatelessWidget {
 
   Widget _buildVisual(bool isDark, BoxConstraints constraints) {
     double clampDouble(double value, double min, double max) {
-      return value.clamp(min, max).toDouble();
+      return value.clamp(min, max);
     }
 
     final w = constraints.maxWidth;

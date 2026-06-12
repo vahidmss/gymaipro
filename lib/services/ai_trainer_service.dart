@@ -1,8 +1,12 @@
-﻿import 'package:supabase_flutter/supabase_flutter.dart';
+﻿import 'package:gymaipro/config/app_config.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// سرویس مدیریت AI Trainer
 class AITrainerService {
   static final SupabaseClient _client = Supabase.instance.client;
+
+  static const String systemUsername = 'gymai_trainer';
+  static const String avatarAssetPath = 'images/GymAI.jpg';
 
   /// شناسه AI Trainer (cache شده)
   static String? _aiTrainerId;
@@ -200,6 +204,62 @@ class AITrainerService {
       }
     } catch (e) {
       print('خطا در به‌روزرسانی آمار AI Trainer: $e');
+    }
+  }
+
+  static bool isGymaiTrainer({String? userId, String? username}) {
+    final configuredId = AppConfig.aiTrainerProfileId;
+    if (userId != null &&
+        userId.isNotEmpty &&
+        userId == configuredId) {
+      return true;
+    }
+    if (_aiTrainerId != null && userId != null && userId == _aiTrainerId) {
+      return true;
+    }
+    final u = username?.trim().toLowerCase() ?? '';
+    return u == systemUsername;
+  }
+
+  static Future<String?> resolveTrainerIdForAiPrograms() async {
+    final cached = await getAITrainerId();
+    if (cached != null && cached.isNotEmpty) return cached;
+    return AppConfig.aiTrainerProfileId;
+  }
+
+  static Future<Map<String, dynamic>?> getDisplayProfile() =>
+      getAITrainerProfile();
+
+  static String displayNameFromProfile(Map<String, dynamic>? profile) {
+    if (profile == null) return AppConfig.gymAiDisplayName;
+    final first = (profile['first_name'] as String?)?.trim() ?? '';
+    final last = (profile['last_name'] as String?)?.trim() ?? '';
+    final full = '$first $last'.trim();
+    if (full.isNotEmpty) return full;
+    final username = (profile['username'] as String?)?.trim() ?? '';
+    if (username == systemUsername) return AppConfig.gymAiDisplayName;
+    if (username.isNotEmpty) return username;
+    return AppConfig.gymAiDisplayName;
+  }
+
+  static Future<void> syncActiveStudentCount() async {
+    try {
+      final trainerId = await resolveTrainerIdForAiPrograms();
+      if (trainerId == null) return;
+
+      final activeRes = await _client
+          .from('trainer_clients')
+          .select('client_id')
+          .eq('trainer_id', trainerId)
+          .eq('status', 'active')
+          .count();
+
+      await _client.from('profiles').update({
+        'student_count': activeRes.count,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', trainerId);
+    } catch (e) {
+      print('خطا در syncActiveStudentCount: $e');
     }
   }
 }

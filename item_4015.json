@@ -1,0 +1,26 @@
+{
+  "id": 4015,
+  "title": "دیپ وزن بدن",
+  "main": "triceps",
+  "movement": "vertical_push",
+  "targets": {
+    "chest_lower": 90,
+    "triceps": 85,
+    "chest": 55,
+    "shoulder_anterior": 45,
+    "abs": 20
+  },
+  "secondary": [
+    "chest",
+    "shoulder_anterior"
+  ],
+  "equipment": [
+    "bodyweight",
+    "bench"
+  ],
+  "norm": [
+    "muscle_targets adjusted for dips",
+    "estimated_1rm_formula disabled for bodyweight/isometric/mobility movement"
+  ],
+  "notes": null
+}

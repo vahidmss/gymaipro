@@ -62,6 +62,7 @@ class WorkoutSessionLog {
     required this.day,
     required this.exercises,
     this.notes,
+    this.programId,
   });
 
   factory WorkoutSessionLog.fromJson(Map<String, dynamic> json) {
@@ -78,12 +79,14 @@ class WorkoutSessionLog {
         }
       }).toList(),
       notes: json['notes'] as String?,
+      programId: json['program_id'] as String?,
     );
   }
   String id;
   String day;
   List<WorkoutExerciseLog> exercises;
   String? notes;
+  String? programId;
 
   Map<String, dynamic> toJson() {
     return {
@@ -91,6 +94,7 @@ class WorkoutSessionLog {
       'day': day,
       'exercises': exercises.map((e) => e.toJson()).toList(),
       if (notes != null) 'notes': notes,
+      if (programId != null) 'program_id': programId,
     };
   }
 }

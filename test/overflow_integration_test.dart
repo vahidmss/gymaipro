@@ -89,11 +89,11 @@ void main() {
       // تست Row
       await testWidgetTreeForOverflow(
         tester,
-        Row(
+        const Row(
           children: [
-            const Text('متن 1'),
-            const Text('متن 2'),
-            const Text('متن 3'),
+            Text('متن 1'),
+            Text('متن 2'),
+            Text('متن 3'),
           ],
         ),
         'Row',
@@ -116,7 +116,7 @@ void main() {
     testWidgets('SafeRow should not overflow', (WidgetTester tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 568));
 
-      final safeRow = Row(
+      const safeRow = Row(
         children: [
           Flexible(
             child: Text(
@@ -125,12 +125,12 @@ void main() {
               maxLines: 1,
             ),
           ),
-          const Icon(Icons.star),
+          Icon(Icons.star),
         ],
       );
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(body: Center(child: safeRow)),
         ),
       );
@@ -146,14 +146,14 @@ void main() {
     ) async {
       await tester.binding.setSurfaceSize(const Size(320, 568));
 
-      final safeText = Text(
+      const safeText = Text(
         'این یک متن بسیار طولانی است که باید با ellipsis نمایش داده شود',
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
       );
 
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(body: Center(child: safeText)),
         ),
       );

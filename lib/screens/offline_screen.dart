@@ -6,7 +6,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/backend_reachability_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class OfflineScreen extends StatefulWidget {
   const OfflineScreen({

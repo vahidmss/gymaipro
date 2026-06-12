@@ -59,7 +59,7 @@ class DatabaseMigrationService {
               final id = profile['id'];
               final currentRole = profile['role'] as String?;
               if (currentRole == null ||
-                  currentRole.toString().trim().isEmpty) {
+                  currentRole.trim().isEmpty) {
                 await _client
                     .from('profiles')
                     .update({'role': 'athlete'})

@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/models/custom_exercise.dart';
 import 'package:gymaipro/models/exercise.dart';
+import 'package:gymaipro/models/muscle_targets.dart';
 import 'package:gymaipro/services/coach_video_upload_service.dart';
 import 'package:gymaipro/services/trainer_service.dart';
 import 'package:gymaipro/services/user_service.dart';
@@ -14,6 +16,12 @@ class CustomExerciseService {
   final SupabaseClient _supabase = Supabase.instance.client;
   final UserService _userService = UserService();
   final CoachVideoUploadService _videoUploadService = CoachVideoUploadService();
+
+  String? _encodeUrlColumn(List<String> urls) {
+    if (urls.isEmpty) return null;
+    if (urls.length == 1) return urls.first;
+    return jsonEncode(urls);
+  }
 
   /// دریافت نام نویسنده از userId
   Future<String> _getAuthorName(String userId) async {
@@ -57,7 +65,7 @@ class CustomExerciseService {
           .order('created_at', ascending: false)
           .then((value) => value as List);
 
-      return (response as List)
+      return response
           .map((e) => CustomExercise.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
@@ -78,7 +86,7 @@ class CustomExerciseService {
           .order('created_at', ascending: false)
           .then((value) => value as List);
 
-      return (response as List)
+      return response
           .map((e) => CustomExercise.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
@@ -140,9 +148,8 @@ class CustomExerciseService {
   Future<CustomExercise> createExercise({
     required String title,
     required String name,
-    String? description,
+    required String mainMuscle, String? description,
     String? detailedDescription,
-    required String mainMuscle,
     String secondaryMuscles = '',
     String difficulty = 'متوسط',
     String equipment = 'بدون تجهیزات',
@@ -150,16 +157,24 @@ class CustomExerciseService {
     String? targetArea,
     String? videoUrl,
     String? imageUrl,
+    List<String>? videoUrls,
+    List<String>? imageUrls,
     List<String> tips = const [],
     String visibility = 'private',
     bool sharedWithClients = true,
     List<String> tags = const [],
     List<String> otherNames = const [],
     int estimatedDuration = 0,
+    Map<String, int> muscleTargets = const {},
   }) async {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) throw Exception('کاربر احراز هویت نشده است');
+
+      final resolvedVideoUrls = videoUrls ??
+          (videoUrl != null && videoUrl.isNotEmpty ? [videoUrl] : const <String>[]);
+      final resolvedImageUrls = imageUrls ??
+          (imageUrl != null && imageUrl.isNotEmpty ? [imageUrl] : const <String>[]);
 
       final data = {
         'created_by': user.id,
@@ -173,14 +188,16 @@ class CustomExerciseService {
         'equipment': equipment,
         'exercise_type': exerciseType,
         'target_area': targetArea,
-        'video_url': videoUrl,
-        'image_url': imageUrl,
+        'video_url': _encodeUrlColumn(resolvedVideoUrls),
+        'image_url': _encodeUrlColumn(resolvedImageUrls),
         'tips': tips,
         'visibility': visibility,
         'shared_with_clients': sharedWithClients,
         'tags': tags,
         'other_names': otherNames,
         'estimated_duration': estimatedDuration,
+        if (MuscleTargets.hasData(muscleTargets))
+          'muscle_targets_json': jsonEncode(muscleTargets),
       };
 
       final response = await _supabase
@@ -189,7 +206,7 @@ class CustomExerciseService {
           .select()
           .single();
 
-      final customExercise = CustomExercise.fromJson(response as Map<String, dynamic>);
+      final customExercise = CustomExercise.fromJson(response);
 
       // اگر تمرین public باشه، به ai_exercises هم اضافه می‌کنیم
       if (visibility == 'public') {
@@ -218,12 +235,15 @@ class CustomExerciseService {
     String? targetArea,
     String? videoUrl,
     String? imageUrl,
+    List<String>? videoUrls,
+    List<String>? imageUrls,
     List<String>? tips,
     String? visibility,
     bool? sharedWithClients,
     List<String>? tags,
     List<String>? otherNames,
     int? estimatedDuration,
+    Map<String, int>? muscleTargets,
   }) async {
     try {
       final user = _supabase.auth.currentUser;
@@ -242,8 +262,16 @@ class CustomExerciseService {
       if (equipment != null) data['equipment'] = equipment;
       if (exerciseType != null) data['exercise_type'] = exerciseType;
       if (targetArea != null) data['target_area'] = targetArea;
-      if (videoUrl != null) data['video_url'] = videoUrl;
-      if (imageUrl != null) data['image_url'] = imageUrl;
+      if (videoUrls != null) {
+        data['video_url'] = _encodeUrlColumn(videoUrls);
+      } else if (videoUrl != null) {
+        data['video_url'] = videoUrl;
+      }
+      if (imageUrls != null) {
+        data['image_url'] = _encodeUrlColumn(imageUrls);
+      } else if (imageUrl != null) {
+        data['image_url'] = imageUrl;
+      }
       if (tips != null) data['tips'] = tips;
       if (visibility != null) data['visibility'] = visibility;
       if (sharedWithClients != null) {
@@ -253,6 +281,11 @@ class CustomExerciseService {
       if (otherNames != null) data['other_names'] = otherNames;
       if (estimatedDuration != null) {
         data['estimated_duration'] = estimatedDuration;
+      }
+      if (muscleTargets != null) {
+        data['muscle_targets_json'] = MuscleTargets.hasData(muscleTargets)
+            ? jsonEncode(muscleTargets)
+            : null;
       }
 
       // دریافت تمرین قبلی برای بررسی تغییر visibility
@@ -272,7 +305,7 @@ class CustomExerciseService {
           .select()
           .single();
 
-      final customExercise = CustomExercise.fromJson(response as Map<String, dynamic>);
+      final customExercise = CustomExercise.fromJson(response);
 
       // مدیریت sync با ai_exercises بر اساس تغییر visibility
       final newVisibility = visibility ?? oldVisibility;
@@ -303,13 +336,13 @@ class CustomExerciseService {
       // دریافت تمرین برای بررسی visibility قبل از حذف
       final exerciseResponse = await _supabase
           .from('custom_exercises')
-          .select('*')
+          .select()
           .eq('id', exerciseId)
           .eq('created_by', user.id)
           .maybeSingle();
 
       if (exerciseResponse != null) {
-        final customExercise = CustomExercise.fromJson(exerciseResponse as Map<String, dynamic>);
+        final customExercise = CustomExercise.fromJson(exerciseResponse);
         
         // اگر تمرین public بود، از ai_exercises هم حذف می‌کنیم
         if (customExercise.visibility == 'public') {
@@ -437,10 +470,36 @@ class CustomExerciseService {
     void Function(double progress)? onProgress,
   }) async {
     final file = File(videoFile.path);
-    return await _videoUploadService.uploadVideo(
+    return _videoUploadService.uploadVideo(
       file,
       onProgress: onProgress,
     );
+  }
+
+  /// آپلود تصویر تمرین اختصاصی
+  Future<String> uploadExerciseImage(XFile imageFile) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      throw Exception('کاربر احراز هویت نشده است');
+    }
+
+    final file = File(imageFile.path);
+    if (!await file.exists()) {
+      throw Exception('فایل تصویر وجود ندارد');
+    }
+
+    final ext = imageFile.path.split('.').last.toLowerCase();
+    final safeExt = ext.isEmpty ? 'jpg' : ext;
+    final path =
+        '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$safeExt';
+
+    await _supabase.storage.from('custom_exercise_images').upload(
+          path,
+          file,
+          fileOptions: const FileOptions(upsert: true),
+        );
+
+    return _supabase.storage.from('custom_exercise_images').getPublicUrl(path);
   }
 }
 

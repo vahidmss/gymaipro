@@ -18,7 +18,6 @@ class ResponsiveDialog {
     return showDialog<T>(
       context: context,
       barrierDismissible: barrierDismissible,
-      useRootNavigator: true, // جلوگیری از conflict با overlay
       builder: (context) {
         final mediaQuery = MediaQuery.of(context);
         final screenWidth = mediaQuery.size.width;

@@ -7,7 +7,7 @@ import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/user_profile/screens/athlete_profile_screen.dart';
 import 'package:gymaipro/user_profile/screens/trainer_profile_screen.dart';
 import 'package:gymaipro/user_profile/services/user_profile_service.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Wrapper برای پروفایل کاربر - بر اساس role اسکرین مناسب رو نمایش می‌دهد
 class UserProfileScreen extends StatefulWidget {

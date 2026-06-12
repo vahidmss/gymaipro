@@ -1,48 +1,65 @@
+import 'dart:convert';
+
 import 'package:gymaipro/models/exercise.dart';
+import 'package:gymaipro/models/muscle_targets.dart';
+
+/// یک ستون TEXT که یا یک URL است یا JSON آرایهٔ URLها (چند رسانه بدون ستون جدا)
+List<String> _parseCustomExerciseUrlList(dynamic raw) {
+  if (raw == null) return [];
+  if (raw is List) {
+    return raw
+        .map((e) => e.toString().trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+  if (raw is String) {
+    final t = raw.trim();
+    if (t.isEmpty) return [];
+    if (t.startsWith('[')) {
+      try {
+        final decoded = jsonDecode(t);
+        if (decoded is List) {
+          return decoded
+              .map((e) => e.toString().trim())
+              .where((s) => s.isNotEmpty)
+              .toList();
+        }
+      } catch (_) {}
+      return [];
+    }
+    return [t];
+  }
+  return [];
+}
+
+List<String> _dedupeCustomExerciseUrls(List<String> urls) {
+  final seen = <String>{};
+  return urls.where((u) => u.isNotEmpty).where(seen.add).toList();
+}
+
+String? _encodeCustomExerciseUrlColumn(List<String> urls) {
+  if (urls.isEmpty) return null;
+  if (urls.length == 1) return urls.first;
+  return jsonEncode(urls);
+}
 
 /// مدل تمرین اختصاصی مربی
 class CustomExercise {
-  final String id;
-  final String createdBy;
-  final String title;
-  final String name;
-  final String? description;
-  final String? detailedDescription;
-  final String mainMuscle;
-  final String secondaryMuscles;
-  final String difficulty;
-  final String equipment;
-  final String exerciseType;
-  final String? targetArea;
-  final String? videoUrl;
-  final String? imageUrl;
-  final List<String> tips;
-  final String visibility; // 'private' or 'public'
-  final bool sharedWithClients;
-  final bool approved;
-  final List<String> tags;
-  final List<String> otherNames;
-  final int estimatedDuration;
-  final int viewsCount;
-  final int likesCount;
-  final DateTime createdAt;
-  final DateTime updatedAt;
 
   CustomExercise({
     required this.id,
     required this.createdBy,
     required this.title,
     required this.name,
-    this.description,
+    required this.mainMuscle, required this.createdAt, required this.updatedAt, this.description,
     this.detailedDescription,
-    required this.mainMuscle,
     this.secondaryMuscles = '',
     this.difficulty = 'متوسط',
     this.equipment = 'بدون تجهیزات',
     this.exerciseType = 'قدرتی',
     this.targetArea,
-    this.videoUrl,
-    this.imageUrl,
+    this.imageUrls = const [],
+    this.videoUrls = const [],
     this.tips = const [],
     this.visibility = 'private',
     this.sharedWithClients = true,
@@ -52,11 +69,19 @@ class CustomExercise {
     this.estimatedDuration = 0,
     this.viewsCount = 0,
     this.likesCount = 0,
-    required this.createdAt,
-    required this.updatedAt,
+    this.muscleTargets = const {},
   });
 
   factory CustomExercise.fromJson(Map<String, dynamic> json) {
+    final imageUrls = _dedupeCustomExerciseUrls([
+      ..._parseCustomExerciseUrlList(json['image_url']),
+      ..._parseCustomExerciseUrlList(json['image_urls']),
+    ]);
+    final videoUrls = _dedupeCustomExerciseUrls([
+      ..._parseCustomExerciseUrlList(json['video_url']),
+      ..._parseCustomExerciseUrlList(json['video_urls']),
+    ]);
+
     return CustomExercise(
       id: json['id'] as String,
       createdBy: json['created_by'] as String,
@@ -70,8 +95,8 @@ class CustomExercise {
       equipment: json['equipment'] as String? ?? 'بدون تجهیزات',
       exerciseType: json['exercise_type'] as String? ?? 'قدرتی',
       targetArea: json['target_area'] as String?,
-      videoUrl: json['video_url'] as String?,
-      imageUrl: json['image_url'] as String?,
+      imageUrls: imageUrls,
+      videoUrls: videoUrls,
       tips: json['tips'] != null
           ? List<String>.from(json['tips'] as List)
           : [],
@@ -87,10 +112,41 @@ class CustomExercise {
       estimatedDuration: json['estimated_duration'] as int? ?? 0,
       viewsCount: json['views_count'] as int? ?? 0,
       likesCount: json['likes_count'] as int? ?? 0,
+      muscleTargets: MuscleTargets.parse(
+        json['muscle_targets_json'] ?? json['muscle_targets'],
+      ),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
   }
+  final String id;
+  final String createdBy;
+  final String title;
+  final String name;
+  final String? description;
+  final String? detailedDescription;
+  final String mainMuscle;
+  final String secondaryMuscles;
+  final String difficulty;
+  final String equipment;
+  final String exerciseType;
+  final String? targetArea;
+  /// آدرس تصاویر (به ترتیب نمایش)
+  final List<String> imageUrls;
+  /// آدرس ویدیوها (به ترتیب نمایش)
+  final List<String> videoUrls;
+  final List<String> tips;
+  final String visibility; // 'private' or 'public'
+  final bool sharedWithClients;
+  final bool approved;
+  final List<String> tags;
+  final List<String> otherNames;
+  final int estimatedDuration;
+  final int viewsCount;
+  final int likesCount;
+  final Map<String, int> muscleTargets;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
   Map<String, dynamic> toJson() {
     return {
@@ -106,8 +162,8 @@ class CustomExercise {
       'equipment': equipment,
       'exercise_type': exerciseType,
       'target_area': targetArea,
-      'video_url': videoUrl,
-      'image_url': imageUrl,
+      'video_url': _encodeCustomExerciseUrlColumn(videoUrls),
+      'image_url': _encodeCustomExerciseUrlColumn(imageUrls),
       'tips': tips,
       'visibility': visibility,
       'shared_with_clients': sharedWithClients,
@@ -117,6 +173,8 @@ class CustomExercise {
       'estimated_duration': estimatedDuration,
       'views_count': viewsCount,
       'likes_count': likesCount,
+      if (MuscleTargets.hasData(muscleTargets))
+        'muscle_targets_json': jsonEncode(muscleTargets),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -139,6 +197,13 @@ class CustomExercise {
       if (!otherNames.contains('اختصاصی')) 'اختصاصی',
     ];
     
+    final firstVid = videoUrls.isNotEmpty ? videoUrls.first : '';
+    final firstImg = imageUrls.isNotEmpty ? imageUrls.first : '';
+    final restVid =
+        videoUrls.length > 1 ? videoUrls.sublist(1) : const <String>[];
+    final restImg =
+        imageUrls.length > 1 ? imageUrls.sublist(1) : const <String>[];
+
     return Exercise(
       id: uniqueId,
       title: title,
@@ -146,8 +211,10 @@ class CustomExercise {
       mainMuscle: mainMuscle,
       secondaryMuscles: secondaryMuscles,
       tips: tips,
-      videoUrl: videoUrl ?? '',
-      imageUrl: imageUrl ?? '',
+      videoUrl: firstVid,
+      imageUrl: firstImg,
+      additionalVideoUrls: restVid,
+      additionalImageUrls: restImg,
       otherNames: otherNamesWithTag,
       content: description ?? detailedDescription ?? '',
       difficulty: difficulty,
@@ -179,8 +246,8 @@ class CustomExercise {
     String? equipment,
     String? exerciseType,
     String? targetArea,
-    String? videoUrl,
-    String? imageUrl,
+    List<String>? imageUrls,
+    List<String>? videoUrls,
     List<String>? tips,
     String? visibility,
     bool? sharedWithClients,
@@ -206,8 +273,8 @@ class CustomExercise {
       equipment: equipment ?? this.equipment,
       exerciseType: exerciseType ?? this.exerciseType,
       targetArea: targetArea ?? this.targetArea,
-      videoUrl: videoUrl ?? this.videoUrl,
-      imageUrl: imageUrl ?? this.imageUrl,
+      imageUrls: imageUrls ?? this.imageUrls,
+      videoUrls: videoUrls ?? this.videoUrls,
       tips: tips ?? this.tips,
       visibility: visibility ?? this.visibility,
       sharedWithClients: sharedWithClients ?? this.sharedWithClients,
@@ -222,4 +289,3 @@ class CustomExercise {
     );
   }
 }
-

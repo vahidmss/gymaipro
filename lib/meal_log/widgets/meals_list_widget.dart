@@ -93,7 +93,7 @@ class MealsListWidget extends StatelessWidget {
 
     final meal = currentLog!.meals.firstWhere(
       (meal) => meal.title == mealTitle,
-      orElse: () => FoodMealLog(title: mealTitle, foods: [], note: null),
+      orElse: () => FoodMealLog(title: mealTitle, foods: []),
     );
     return meal.note;
   }

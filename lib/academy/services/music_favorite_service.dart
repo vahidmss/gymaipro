@@ -3,11 +3,11 @@ import 'package:gymaipro/academy/models/workout_music.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MusicFavoriteService {
+  factory MusicFavoriteService() => _instance;
+  MusicFavoriteService._internal();
   static const String _favoritesKey = 'music_favorites';
   static final MusicFavoriteService _instance =
       MusicFavoriteService._internal();
-  factory MusicFavoriteService() => _instance;
-  MusicFavoriteService._internal();
 
   Future<void> addToFavorites(WorkoutMusic music) async {
     final favorites = await getFavorites();

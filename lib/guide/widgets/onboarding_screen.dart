@@ -8,14 +8,12 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
 /// صفحه Onboarding
 class OnboardingScreen extends StatefulWidget {
-  final List<OnboardingPage> pages;
-  final VoidCallback onComplete;
 
   const OnboardingScreen({
-    super.key,
-    required this.pages,
-    required this.onComplete,
+    required this.pages, required this.onComplete, super.key,
   });
+  final List<OnboardingPage> pages;
+  final VoidCallback onComplete;
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -101,7 +99,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     final currentPage = widget.pages[_currentPage];
 
     double clampDouble(double value, double min, double max) {
-      return value.clamp(min, max).toDouble();
+      return value.clamp(min, max);
     }
 
     return Scaffold(

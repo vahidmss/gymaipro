@@ -7,9 +7,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// سرویس اصلی مدیریت رتبه‌بندی کاربران
 class RankingService {
-  static final RankingService _instance = RankingService._internal();
   factory RankingService() => _instance;
   RankingService._internal();
+  static final RankingService _instance = RankingService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
   final RankingScoreService _scoreService = RankingScoreService();
@@ -191,7 +191,6 @@ class RankingService {
         userId: userId,
         totalScore: 0,
         currentLeague: 'bronze',
-        leaguePoints: 0,
         username: profile['username'] as String?,
         avatarUrl: profile['avatar_url'] as String?,
         firstName: profile['first_name'] as String?,

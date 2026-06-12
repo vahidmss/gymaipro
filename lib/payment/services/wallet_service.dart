@@ -13,6 +13,24 @@ class WalletService {
   static final WalletService _instance = WalletService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
+  Wallet? _cachedWallet;
+  String? _cachedWalletUserId;
+  DateTime? _cachedWalletAt;
+  Future<Wallet?>? _inFlightWallet;
+  static const Duration _walletCacheTtl = Duration(seconds: 20);
+
+  void _invalidateWalletCache() {
+    _cachedWallet = null;
+    _cachedWalletUserId = null;
+    _cachedWalletAt = null;
+    _inFlightWallet = null;
+  }
+
+  /// پاک کردن کش و دریافت مجدد موجودی (بعد از شارژ آنلاین)
+  Future<Wallet?> refreshUserWallet() async {
+    _invalidateWalletCache();
+    return getUserWallet();
+  }
 
   /// در این پروژه، برای بسیاری از جدول‌ها `user_id` به `profiles.id` وصل است (نه `auth.users.id`).
   /// پس برای جلوگیری از خطای FK باید profileId را استفاده کنیم.
@@ -76,34 +94,53 @@ class WalletService {
         return null;
       }
 
-      if (kDebugMode) {
-        print('دریافت کیف پول برای کاربر: $userId');
+      if (_cachedWallet != null &&
+          _cachedWalletUserId == userId &&
+          _cachedWalletAt != null &&
+          DateTime.now().difference(_cachedWalletAt!) < _walletCacheTtl) {
+        return _cachedWallet;
       }
 
-      // تلاش برای دریافت کیف پول موجود
-      final response = await _client
-          .from('wallets')
-          .select()
-          .eq('user_id', userId)
-          .maybeSingle();
+      if (_inFlightWallet != null) {
+        return await _inFlightWallet;
+      }
 
-      if (response != null) {
+      _inFlightWallet = () async {
         if (kDebugMode) {
+          print('دریافت کیف پول برای کاربر: $userId');
+        }
+
+        final response = await _client
+            .from('wallets')
+            .select()
+            .eq('user_id', userId)
+            .maybeSingle();
+
+        final wallet = response != null
+            ? Wallet.fromJson(response)
+            : await _createWallet(userId);
+
+        if (kDebugMode && response != null) {
           print('کیف پول موجود پیدا شد');
         }
-        return Wallet.fromJson(response);
-      } else {
-        // کیف پول وجود ندارد، ایجاد کیف پول جدید
-        if (kDebugMode) {
+        if (kDebugMode && response == null) {
           print('کیف پول وجود ندارد، در حال ایجاد کیف پول جدید...');
         }
-        return await _createWallet(userId);
-      }
+
+        _cachedWallet = wallet;
+        _cachedWalletUserId = userId;
+        _cachedWalletAt = DateTime.now();
+        return wallet;
+      }();
+
+      return await _inFlightWallet;
     } catch (e) {
       if (kDebugMode) {
         print('خطا در دریافت کیف پول: $e');
       }
       return null;
+    } finally {
+      _inFlightWallet = null;
     }
   }
 
@@ -172,6 +209,7 @@ class WalletService {
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', wallet.id);
+      _invalidateWalletCache();
 
       // اضافه کردن تراکنش کیف پول
       await _addWalletTransaction(
@@ -247,6 +285,7 @@ class WalletService {
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', wallet.id);
+      _invalidateWalletCache();
 
       try {
         // اضافه کردن تراکنش کیف پول (از available_balance استفاده می‌کنیم)
@@ -275,6 +314,7 @@ class WalletService {
               'updated_at': DateTime.now().toIso8601String(),
             })
             .eq('id', wallet.id);
+        _invalidateWalletCache();
         rethrow;
       }
 
@@ -315,6 +355,7 @@ class WalletService {
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', wallet.id);
+      _invalidateWalletCache();
 
       // اضافه کردن تراکنش کیف پول
       await _addWalletTransaction(
@@ -368,6 +409,7 @@ class WalletService {
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', wallet.id);
+      _invalidateWalletCache();
 
       // اضافه کردن تراکنش کیف پول
       await _addWalletTransaction(
@@ -424,6 +466,7 @@ class WalletService {
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', wallet.id);
+      _invalidateWalletCache();
 
       if (kDebugMode) {
         print('مبلغ مسدود شد: ${PaymentConstants.formatAmount(amount)}');
@@ -467,6 +510,7 @@ class WalletService {
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', wallet.id);
+      _invalidateWalletCache();
 
       if (kDebugMode) {
         print('مبلغ آزاد شد: ${PaymentConstants.formatAmount(amount)}');

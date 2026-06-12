@@ -4,7 +4,7 @@ import 'package:gymaipro/ranking/models/league.dart';
 import 'package:gymaipro/ranking/models/user_ranking.dart';
 import 'package:gymaipro/ranking/widgets/league_badge.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// کارت رتبه کاربر زیر لیست Leaderboard — طراحی دارک/لایت
 class UserRankCard extends StatelessWidget {

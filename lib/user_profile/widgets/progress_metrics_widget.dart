@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/ranking/models/ranking_score_breakdown.dart';
 import 'package:gymaipro/ranking/utils/score_help_texts.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Widget برای نمایش جزئیات امتیازات (Progress Metrics)
 class ProgressMetricsWidget extends StatelessWidget {

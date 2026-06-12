@@ -1,7 +1,7 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/screens/chat_screen.dart';
@@ -9,6 +9,7 @@ import 'package:gymaipro/payment/models/trainer_subscription.dart';
 import 'package:gymaipro/payment/services/trainer_payment_service.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
+import 'package:gymaipro/payment/widgets/purchase_success_dialog.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_ranking/models/certificate.dart';
@@ -16,18 +17,22 @@ import 'package:gymaipro/trainer_ranking/models/trainer_ranking_model.dart'
     show TrainerReview;
 import 'package:gymaipro/trainer_ranking/services/certificate_service.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_kpi_service.dart';
+import 'package:gymaipro/trainer_ranking/services/trainer_league_bonus_policy.dart';
+import 'package:gymaipro/trainer_ranking/services/trainer_league_points.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_ranking_service.dart';
-import 'package:gymaipro/payment/widgets/purchase_success_dialog.dart';
 import 'package:gymaipro/trainer_ranking/utils/dialog_helpers.dart';
 import 'package:gymaipro/trainer_ranking/utils/format_utils.dart';
 import 'package:gymaipro/trainer_ranking/widgets/certificate_carousel.dart';
+import 'package:gymaipro/widgets/gymai_trainer_avatar.dart';
 import 'package:gymaipro/trainer_ranking/widgets/package_card_widget.dart';
 import 'package:gymaipro/trainer_ranking/widgets/review_submission_widget.dart';
-import 'package:gymaipro/trainer_ranking/widgets/shimmer.dart';
 import 'package:gymaipro/trainer_ranking/widgets/service_card_widget.dart';
+import 'package:gymaipro/trainer_ranking/widgets/shimmer.dart';
+import 'package:gymaipro/trainer_channel/screens/trainer_channel_screen.dart';
+import 'package:gymaipro/trainer_channel/services/trainer_channel_service.dart';
 import 'package:gymaipro/trainer_ranking/widgets/trainer_review_widget.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -58,6 +63,13 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
 
   TrainerKpis? _kpis;
   bool _isLoadingKpis = true;
+  TrainerProgramDeliveryStats? _deliveryStats;
+  int _approvedCertCount = 0;
+  TrainerLeaguePointsBreakdown? _leaguePoints;
+  int _reviewStarsSum = 0;
+  int _privateExerciseCount = 0;
+  int _publicExerciseCount = 0;
+  int _eventBonusPoints = 0;
 
   // Pricing/Services state
   bool _isLoadingServices = true;
@@ -74,6 +86,8 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
 
   String? _discountCode;
   int _walletBalance = 0;
+  bool _hasVisibleChannel = false;
+  final TrainerChannelService _channelService = TrainerChannelService();
 
   @override
   void initState() {
@@ -107,7 +121,27 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
       _loadServicesPricing(),
       _loadWalletBalance(),
       _refreshTrainerInfo(),
+      _loadChannelVisibility(),
     ]);
+  }
+
+  Future<void> _loadChannelVisibility() async {
+    try {
+      final visible = await _channelService.isChannelVisibleToPublic(
+        widget.trainer.id!,
+      );
+      if (mounted) {
+        SafeSetState.call(this, () => _hasVisibleChannel = visible);
+      }
+    } catch (_) {}
+  }
+
+  void _openTrainerChannel() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TrainerChannelScreen(trainer: widget.trainer),
+      ),
+    );
   }
 
   Future<bool> _checkConnectivity() async {
@@ -144,6 +178,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
           _reviews = reviews;
           _isLoadingReviews = false;
         });
+        _recomputeLeaguePoints();
       }
     } catch (e) {
       if (mounted) {
@@ -181,6 +216,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
               _currentActiveStudentCount =
                   updatedTrainer.activeStudentCount ?? 0;
             });
+            _recomputeLeaguePoints();
             if (kDebugMode) {
               print(
                 '🔄 اطلاعات مربی به‌روزرسانی شد - امتیاز: $_currentRating, نظرات: $_currentReviewCount, کل شاگردان: $_currentStudentCount, شاگردان فعال: $_currentActiveStudentCount',
@@ -234,10 +270,40 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         return;
       }
 
-      final kpis = await _kpiService.getTrainerKpis(widget.trainer.id!);
+      final trainerId = widget.trainer.id!;
+      final kpis = await _kpiService.getTrainerKpis(trainerId);
+      final delivery = await _kpiService.getProgramDeliveryStats(trainerId);
+      final certN =
+          await CertificateService.countApprovedTrainerCertificates(trainerId);
+      final starSum = await _kpiService.sumReviewStarPoints(trainerId);
+      final exVis =
+          await _kpiService.countCustomExercisesByVisibility(trainerId);
+      final eventBonus =
+          await TrainerLeagueBonusRegistry.eventBonusFor(trainerId);
+      final league = TrainerLeaguePoints.compute(
+        TrainerLeaguePointsInput(
+          totalStudents: kpis.totalStudents,
+          sentWorkoutPrograms: kpis.activeWorkoutPrograms,
+          sumReviewStars: starSum,
+          medianDeliveryHours: delivery.medianHours,
+          deliverySampleCount: delivery.sampleCount,
+          privateCustomExercises: exVis.privateCount,
+          publicCustomExercises: exVis.publicCount,
+          customMusicCount: kpis.totalCustomMusics,
+          approvedCertificateCount: certN,
+          eventBonusPoints: eventBonus,
+        ),
+      );
       if (mounted) {
         SafeSetState.call(this, () {
           _kpis = kpis;
+          _deliveryStats = delivery;
+          _approvedCertCount = certN;
+          _reviewStarsSum = starSum;
+          _privateExerciseCount = exVis.privateCount;
+          _publicExerciseCount = exVis.publicCount;
+          _eventBonusPoints = eventBonus;
+          _leaguePoints = league;
           _isLoadingKpis = false;
         });
       }
@@ -246,6 +312,38 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         SafeSetState.call(this, () => _isLoadingKpis = false);
       }
     }
+  }
+
+  void _recomputeLeaguePoints() {
+    final kpis = _kpis;
+    final delivery = _deliveryStats;
+    if (kpis == null || delivery == null || !mounted) return;
+    final starSum = _reviews.isNotEmpty
+        ? _reviews.fold<int>(
+            0,
+            (s, r) => s + r.rating.round().clamp(1, 5),
+          )
+        : _reviewStarsSum;
+    final league = TrainerLeaguePoints.compute(
+      TrainerLeaguePointsInput(
+        totalStudents: kpis.totalStudents,
+        sentWorkoutPrograms: kpis.activeWorkoutPrograms,
+        sumReviewStars: starSum,
+        medianDeliveryHours: delivery.medianHours,
+        deliverySampleCount: delivery.sampleCount,
+        privateCustomExercises: _privateExerciseCount,
+        publicCustomExercises: _publicExerciseCount,
+        customMusicCount: kpis.totalCustomMusics,
+        approvedCertificateCount: _approvedCertCount,
+        eventBonusPoints: _eventBonusPoints,
+      ),
+    );
+    SafeSetState.call(this, () {
+      _leaguePoints = league;
+      if (_reviews.isNotEmpty) {
+        _reviewStarsSum = starSum;
+      }
+    });
   }
 
   Future<void> _loadServicesPricing() async {
@@ -319,22 +417,51 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
   }
 
   void _showReviewDialog() {
-    showDialog<void>(
+    HapticFeedback.lightImpact();
+    showModalBottomSheet<void>(
       context: context,
-      barrierDismissible: true,
-      builder: (context) {
-        final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: EdgeInsets.symmetric(
-            horizontal: 16.w,
-            vertical: keyboardHeight > 0 ? 8.h : 24.h,
-          ),
-          child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            child: ReviewSubmissionWidget(
-              trainerId: widget.trainer.id ?? '',
-              onReviewSubmitted: _loadReviews,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final bottomInset = MediaQuery.of(sheetContext).viewInsets.bottom;
+        final maxH = MediaQuery.of(sheetContext).size.height * 0.92;
+
+        return Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxH),
+              child: Material(
+                color: sheetContext.cardColor,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(22.r)),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    SizedBox(height: 10.h),
+                    Container(
+                      width: 44.w,
+                      height: 5.h,
+                      decoration: BoxDecoration(
+                        color: sheetContext.separatorColor
+                            .withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(3.r),
+                      ),
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        physics: const ClampingScrollPhysics(),
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        child: ReviewSubmissionWidget(
+                          trainerId: widget.trainer.id ?? '',
+                          onReviewSubmitted: _loadReviews,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         );
@@ -343,20 +470,24 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
   }
 
   void _selectService(String serviceId, double cost) {
+    if (cost <= 0) {
+      return;
+    }
     HapticFeedback.mediumImpact();
     _loadWalletBalance();
     _showPaymentBottomSheet(serviceId, cost);
   }
 
   void _showPaymentBottomSheet(String serviceId, double cost) {
+    if (cost <= 0) {
+      return;
+    }
     HapticFeedback.lightImpact();
 
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      isDismissible: true,
-      enableDrag: true,
       builder: (BuildContext sheetContext) {
         return _PaymentBottomSheet(
           serviceName: _getServiceName(serviceId),
@@ -403,6 +534,13 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser == null) {
       return {'success': false, 'error': 'لطفاً ابتدا وارد حساب کاربری خود شوید'};
+    }
+
+    if (_isOwnTrainerProfile) {
+      return {
+        'success': false,
+        'error': 'نمی‌توانید از خودتان برنامه بخرید',
+      };
     }
 
     TrainerServiceType serviceType;
@@ -495,7 +633,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                 decoration: BoxDecoration(
                   color: isDark
                       ? context.veryDarkBackground
-                      : AppTheme.lightButtonBackground,
+                      : AppTheme.lightCardColor,
                   borderRadius: BorderRadius.circular(12.r),
                   border: Border.all(
                     color: AppTheme.goldColor.withValues(alpha: 0.2),
@@ -552,7 +690,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.goldColor,
-                foregroundColor: isDark ? AppTheme.onGoldColor : Colors.white,
+                foregroundColor: AppTheme.onGoldColor,
                 padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.r),
@@ -579,7 +717,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     return Scaffold(
       backgroundColor: context.backgroundColor,
       appBar: AppBar(
-        backgroundColor: context.backgroundColor,
+        backgroundColor: context.headerBackgroundColor,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
@@ -591,16 +729,19 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
           widget.trainer.fullName.isNotEmpty
               ? widget.trainer.fullName
               : widget.trainer.username,
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            color: context.textColor,
+          style: context.headerTitleStyle(
             fontSize: 15.sp,
-            fontWeight: FontWeight.w700,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
+          if (_hasVisibleChannel)
+            IconButton(
+              onPressed: _openTrainerChannel,
+              icon: Icon(LucideIcons.radio, color: AppTheme.goldColor, size: 20.sp),
+              tooltip: 'کانال',
+            ),
           IconButton(
             onPressed: _messageTrainer,
             icon: Icon(LucideIcons.messageCircle, color: AppTheme.goldColor, size: 20.sp),
@@ -613,7 +754,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
           // هدر ثابت: آواتار + آمار (بلافاصله پر)
           _buildProfileHeader(),
           // تب‌بار
-          Container(
+          DecoratedBox(
             decoration: BoxDecoration(
               color: context.cardColor,
               border: Border(
@@ -654,7 +795,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     );
   }
 
-  /// هدر پروفایل مربی: آواتار، رتبه، امتیاز، آمار (مشابه اپ‌های حرفه‌ای)
+  /// هدر پروفایل مربی: آواتار، رتبه، امتیاز، آمار
   Widget _buildProfileHeader() {
     final t = widget.trainer;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -675,7 +816,6 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         children: [
           // ردیف اول: آواتار + اطلاعات اصلی
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // آواتار
               Hero(
@@ -694,10 +834,12 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                   ),
                   child: Padding(
                     padding: EdgeInsets.all(2.w),
-                    child: ClipOval(
-                      child: t.avatarUrl != null
-                          ? Image.network(t.avatarUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildDefaultAvatar())
-                          : _buildDefaultAvatar(),
+                    child: GymaiTrainerAvatar(
+                      avatarUrl: t.avatarUrl,
+                      userId: t.id,
+                      username: t.username,
+                      size: 52.w,
+                      fallback: _buildDefaultAvatar(),
                     ),
                   ),
                 ),
@@ -726,7 +868,11 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                           SizedBox(width: 6.w),
                         ],
                         if (rating > 0) ...[
-                          Icon(LucideIcons.star, size: 12.sp, color: const Color(0xFFFF9800)),
+                          Icon(
+                            LucideIcons.star,
+                            size: 12.sp,
+                            color: AppTheme.goldColor,
+                          ),
                           SizedBox(width: 2.w),
                           Text(
                             rating.toStringAsFixed(1),
@@ -747,12 +893,20 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                           Container(
                             width: 7.w,
                             height: 7.w,
-                            decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF4CAF50)),
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppTheme.successColor,
+                            ),
                           ),
                           SizedBox(width: 4.w),
                           Text(
                             'آنلاین',
-                            style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 10.sp, color: const Color(0xFF4CAF50), fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 10.sp,
+                              color: AppTheme.successColor,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
@@ -786,7 +940,470 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
               ),
             ],
           ),
+          if (_hasVisibleChannel) ...[
+            SizedBox(height: 10.h),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _openTrainerChannel,
+                icon: Icon(LucideIcons.radio, size: 16.sp, color: AppTheme.goldColor),
+                label: Text(
+                  'مشاهده کانال',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.goldColor,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: AppTheme.goldColor.withValues(alpha: 0.5)),
+                  padding: EdgeInsets.symmetric(vertical: 10.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                ),
+              ),
+            ),
+          ],
+          if (!_isLoadingKpis && _leaguePoints != null) ...[
+            SizedBox(height: 10.h),
+            GestureDetector(
+              onTap: () => _showLeaguePointsBreakdown(context),
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(LucideIcons.award, size: 14.sp, color: AppTheme.goldColor),
+                  SizedBox(width: 6.w),
+                  Text(
+                    '${_leaguePoints!.totalPoints}',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.goldColor,
+                    ),
+                  ),
+                  SizedBox(width: 4.w),
+                  Text(
+                    'امتیاز',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w600,
+                      color: context.textSecondary,
+                    ),
+                  ),
+                  SizedBox(width: 4.w),
+                  Icon(
+                    LucideIcons.chevronDown,
+                    size: 14.sp,
+                    color: context.textSecondary.withValues(alpha: 0.55),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  void _showLeaguePointsBreakdown(BuildContext context) {
+    final b = _leaguePoints;
+    if (b == null) return;
+    final d = _deliveryStats;
+    final kpis = _kpis;
+
+    String deliverySubtitle() {
+      if (b.deliverySkippedInsufficientData) {
+        return 'بعد از چند بار ارسال برنامه به شاگرد، این بخش هم فعال می‌شود.';
+      }
+      if (d != null && d.sampleCount > 0 && !d.medianHours.isNaN) {
+        final h = d.medianHours;
+        if (h < 1) {
+          return 'معمولاً کمتر از یک ساعت تا رسیدن برنامه به شاگرد.';
+        }
+        if (h < 24) {
+          return 'معمولاً حدود ${h.round()} ساعت طول می‌کشه تا برنامه به شاگرد برسه.';
+        }
+        final days = (h / 24).round();
+        return 'معمولاً حدود $days روز طول می‌کشه تا برنامه به شاگرد برسه.';
+      }
+      return '';
+    }
+
+    String deliveryTitle() {
+      if (b.deliverySkippedInsufficientData) {
+        return 'سرعت رسیدن برنامه';
+      }
+      const labels = <int, String>{
+        5: 'خیلی سریع',
+        4: 'سریع',
+        3: 'معمولی',
+        2: 'کمی طولانی',
+        1: 'نیاز به سرعت بیشتر',
+      };
+      final label = labels[b.deliveryPoints.clamp(1, 5)] ?? '';
+      return label.isEmpty ? 'سرعت رسیدن برنامه' : 'سرعت رسیدن برنامه · $label';
+    }
+
+    final reviewCount = kpis?.totalReviews ?? _currentReviewCount;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      enableDrag: false,
+      useSafeArea: true,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final card = isDark ? const Color(0xFF1A1D24) : const Color(0xFFFFFBF5);
+        final muted = ctx.textSecondary;
+        final padBottom = MediaQuery.paddingOf(ctx).bottom;
+        final dragHandle = Center(
+          child: Container(
+            width: 44.w,
+            height: 5.h,
+            decoration: BoxDecoration(
+              color: muted.withValues(alpha: 0.28),
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+        );
+
+        final tiles = <Widget>[
+          if (kpis != null) ...[
+            _leagueBreakdownTile(
+              ctx,
+              icon: LucideIcons.send,
+              title: 'برنامه به شاگرد',
+              statLine:
+                  'تعداد برنامه‌های ارسال‌شده: ${kpis.activeWorkoutPrograms}',
+              hintLine: kpis.activeWorkoutPrograms == 0
+                  ? 'هنوز برنامه‌ای به شاگرد نرسیده.'
+                  : null,
+              points: b.sentProgramPoints,
+            ),
+            _leagueBreakdownTile(
+              ctx,
+              icon: LucideIcons.users,
+              title: 'شاگردان',
+              statLine: 'تعداد شاگردان ثبت‌شده: ${kpis.totalStudents}',
+              hintLine: kpis.totalStudents == 0
+                  ? 'هنوز شاگردی ثبت نشده.'
+                  : null,
+              points: b.studentPoints,
+            ),
+          ],
+          _leagueBreakdownTile(
+            ctx,
+            icon: LucideIcons.star,
+            title: 'نظر و ستاره',
+            statLine:
+                'تعداد نظر: $reviewCount — جمع ستاره‌ها: ${b.reviewStarPoints}',
+            hintLine: reviewCount == 0
+                ? 'با ثبت نظر، امتیاز این بخش هم زیاد می‌شه.'
+                : null,
+            points: b.reviewStarPoints,
+          ),
+          _leagueBreakdownTile(
+            ctx,
+            icon: LucideIcons.timer,
+            title: deliveryTitle(),
+            statLine: b.deliverySkippedInsufficientData
+                ? 'سرعت تحویل: هنوز محاسبه نشده'
+                : (d != null &&
+                        d.sampleCount > 0 &&
+                        !d.medianHours.isNaN
+                    ? 'بر اساس ${d.sampleCount} ارسال اخیر'
+                    : 'سرعت تحویل برنامه'),
+            hintLine: deliverySubtitle().isEmpty
+                ? (b.deliverySkippedInsufficientData
+                    ? 'بعد از چند ارسال، این بخش پر می‌شه.'
+                    : null)
+                : deliverySubtitle(),
+            points: b.deliveryPoints,
+            chipText: b.deliverySkippedInsufficientData
+                ? 'به‌زودی'
+                : '+${b.deliveryPoints}',
+          ),
+          _leagueBreakdownTile(
+            ctx,
+            icon: LucideIcons.music,
+            title: 'موسیقی',
+            statLine:
+                'تعداد موزیک ثبت‌شده: ${kpis?.totalCustomMusics ?? 0}',
+            hintLine: (kpis?.totalCustomMusics ?? 0) == 0
+                ? 'هنوز موزیکی ثبت نشده.'
+                : null,
+            points: b.musicPoints,
+          ),
+          if (_privateExerciseCount > 0)
+            _leagueBreakdownTile(
+              ctx,
+              icon: LucideIcons.lock,
+              title: 'تمرین شخصی',
+              statLine: 'تعداد: $_privateExerciseCount',
+              points: b.privateExercisePoints,
+            ),
+          if (_publicExerciseCount > 0)
+            _leagueBreakdownTile(
+              ctx,
+              icon: LucideIcons.globe,
+              title: 'تمرین عمومی',
+              statLine: 'تعداد: $_publicExerciseCount',
+              points: b.publicExercisePoints,
+            ),
+          if (_privateExerciseCount == 0 && _publicExerciseCount == 0)
+            _leagueBreakdownTile(
+              ctx,
+              icon: LucideIcons.dumbbell,
+              title: 'تمرین اختصاصی',
+              statLine: 'تمرین شخصی: ۰ — تمرین عمومی: ۰',
+              hintLine: 'با ساخت تمرین، امتیاز می‌گیری.',
+              points: b.privateExercisePoints + b.publicExercisePoints,
+            ),
+          _leagueBreakdownTile(
+            ctx,
+            icon: LucideIcons.badgeCheck,
+            title: 'مدارک معتبر',
+            statLine: 'تعداد مدرک تأییدشده: $_approvedCertCount',
+            hintLine: b.certificatePoints == 0
+                ? 'با ${TrainerLeaguePoints.kCertificateMinApproved} مدرک به بالا، ${TrainerLeaguePoints.kCertificateBonusPoints} امتیاز هدیه.'
+                : 'با ${TrainerLeaguePoints.kCertificateMinApproved} مدرک به بالا فعال شده.',
+            points: b.certificatePoints,
+          ),
+          if (b.eventBonusPoints > 0)
+            _leagueBreakdownTile(
+              ctx,
+              icon: LucideIcons.gift,
+              title: 'هدیه ویژه',
+              statLine: 'مربوط به کمپین یا چالش',
+              points: b.eventBonusPoints,
+            ),
+          SizedBox(height: 8.h + padBottom),
+        ];
+
+        return DraggableScrollableSheet(
+          initialChildSize: 0.55,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          snap: true,
+          snapSizes: const <double>[0.55, 0.9],
+          expand: false,
+          builder: (ctx, scrollController) {
+            return ClipRRect(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+              child: Material(
+                color: card,
+                elevation: 8,
+                shadowColor: Colors.black.withValues(alpha: 0.2),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(6.w, 8.h, 6.w, 0),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.only(top: 4.h),
+                            child: dragHandle,
+                          ),
+                          Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: IconButton(
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => Navigator.of(ctx).maybePop(),
+                              icon: Icon(
+                                LucideIcons.x,
+                                size: 20.sp,
+                                color: muted.withValues(alpha: 0.85),
+                              ),
+                              tooltip: 'بستن',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      child: Text(
+                        'امتیاز از چه‌چیزهاییه؟',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 15.sp,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 10.h),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 14.w),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 14.w),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.goldColor.withValues(alpha: 0.12),
+                              AppTheme.goldColor.withValues(alpha: 0.03),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(14.r),
+                          border: Border.all(
+                            color: AppTheme.goldColor.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'جمع امتیاز',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w600,
+                                color: muted,
+                              ),
+                            ),
+                            SizedBox(width: 10.w),
+                            Text(
+                              '${b.totalPoints}',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 18.sp,
+                                fontWeight: FontWeight.w900,
+                                color: AppTheme.goldColor,
+                                height: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 10.h),
+                    Expanded(
+                      child: ListView(
+                        controller: scrollController,
+                        padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 0),
+                        children: tiles,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _leagueBreakdownTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String statLine,
+    required int points,
+    String? hintLine,
+    String? chipText,
+  }) {
+    final muted = context.textSecondary;
+    final chipLabel = chipText ?? (points > 0 ? '+$points' : '$points');
+    final isPendingChip = chipText == 'به‌زودی';
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: 7.h),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Colors.white.withValues(alpha: 0.04)
+              : const Color(0xFF1A1A12).withValues(alpha: 0.035),
+          borderRadius: BorderRadius.circular(10.r),
+          border: Border.all(color: muted.withValues(alpha: 0.1)),
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 34.w,
+                height: 34.w,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppTheme.goldColor.withValues(alpha: 0.11),
+                ),
+                child: Icon(icon, size: 16.sp, color: AppTheme.goldColor),
+              ),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 11.5.sp,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                    ),
+                    SizedBox(height: 3.h),
+                    Text(
+                      statLine,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 10.5.sp,
+                        fontWeight: FontWeight.w600,
+                        color: muted.withValues(alpha: 0.95),
+                        height: 1.3,
+                      ),
+                    ),
+                    if (hintLine != null && hintLine.isNotEmpty) ...[
+                      SizedBox(height: 2.h),
+                      Text(
+                        hintLine,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 9.5.sp,
+                          color: muted.withValues(alpha: 0.78),
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              SizedBox(width: 6.w),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 5.h),
+                decoration: BoxDecoration(
+                  color: AppTheme.goldColor.withValues(
+                    alpha: isPendingChip ? 0.06 : (points > 0 ? 0.14 : 0.07),
+                  ),
+                  borderRadius: BorderRadius.circular(16.r),
+                ),
+                child: Text(
+                  chipLabel,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w800,
+                    color: isPendingChip
+                        ? muted
+                        : (points > 0 ? AppTheme.goldColor : muted),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -867,7 +1484,6 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                 borderRadius: BorderRadius.circular(12.r),
                 border: Border.all(
                   color: context.separatorColor.withValues(alpha: 0.5),
-                  width: 1,
                 ),
               ),
               child: Text(
@@ -923,7 +1539,6 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                     borderRadius: BorderRadius.circular(10.r),
                     border: Border.all(
                       color: AppTheme.goldColor.withValues(alpha: 0.3),
-                      width: 1,
                     ),
                   ),
                   child: Text(
@@ -948,7 +1563,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                   icon: LucideIcons.users,
                   title: 'کل شاگردان',
                   value: _currentStudentCount.toString(),
-                  color: Colors.green,
+                  color: AppTheme.successColor,
                 ),
               ),
               SizedBox(width: 8.w),
@@ -957,7 +1572,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                   icon: LucideIcons.userCheck,
                   title: 'شاگرد فعال',
                   value: _currentActiveStudentCount.toString(),
-                  color: Colors.blue,
+                  color: AppTheme.carbsColor,
                 ),
               ),
             ],
@@ -970,7 +1585,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                   icon: LucideIcons.clock,
                   title: 'سال تجربه',
                   value: (widget.trainer.experienceYears ?? 0).toString(),
-                  color: Colors.orange,
+                  color: AppTheme.fatColor,
                 ),
               ),
               SizedBox(width: 8.w),
@@ -979,7 +1594,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                   icon: LucideIcons.star,
                   title: 'امتیاز',
                   value: _currentRating.toStringAsFixed(1),
-                  color: Colors.amber,
+                  color: AppTheme.goldColor,
                 ),
               ),
             ],
@@ -993,7 +1608,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                 child: SizedBox(
                   width: 24.w,
                   height: 24.w,
-                  child: CircularProgressIndicator(
+                  child: const CircularProgressIndicator(
                     strokeWidth: 2,
                     color: AppTheme.goldColor,
                   ),
@@ -1008,7 +1623,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                     icon: LucideIcons.dumbbell,
                     title: 'ورزشی',
                     value: (_programStats['workout_programs'] ?? 0).toString(),
-                    color: Colors.orange,
+                    color: AppTheme.fatColor,
                   ),
                 ),
                 SizedBox(width: 8.w),
@@ -1018,7 +1633,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                     title: 'تغذیه',
                     value: (_programStats['nutrition_programs'] ?? 0)
                         .toString(),
-                    color: Colors.purple,
+                    color: AppTheme.proteinColor,
                   ),
                 ),
               ],
@@ -1029,105 +1644,177 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
   }
 
   Widget _buildReviewsTab() {
+    final reviewCount =
+        _reviews.isNotEmpty ? _reviews.length : _currentReviewCount;
+    final avg = _currentRating;
+    final scoreText = avg <= 0
+        ? '—'
+        : ((avg * 10).round() % 10 == 0)
+            ? avg.toStringAsFixed(0)
+            : avg.toStringAsFixed(1);
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-          child: InkWell(
-            onTap: _showReviewDialog,
-            borderRadius: BorderRadius.circular(12.r),
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(vertical: 10.h),
-              decoration: BoxDecoration(
-                color: AppTheme.goldColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12.r),
-                border: Border.all(
-                  color: AppTheme.goldColor.withValues(alpha: 0.4),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+          padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
                 children: [
-                  Icon(
-                    LucideIcons.star,
-                    size: 16.sp,
-                    color: AppTheme.goldColor,
-                  ),
+                  _reviewsTabStarRow(avg),
                   SizedBox(width: 8.w),
                   Text(
-                    'ثبت نظر',
+                    scoreText,
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontSize: 13.sp,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w800,
                       color: AppTheme.goldColor,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '$reviewCount نظر',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w600,
+                      color: context.textSecondary,
                     ),
                   ),
                 ],
               ),
-            ),
+              SizedBox(height: 10.h),
+              InkWell(
+                onTap: _showReviewDialog,
+                borderRadius: BorderRadius.circular(12.r),
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  decoration: BoxDecoration(
+                    color: AppTheme.goldColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(
+                      color: AppTheme.goldColor.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        LucideIcons.star,
+                        size: 16.sp,
+                        color: AppTheme.goldColor,
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        'تجربه‌ات را بنویس',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.goldColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-
-        // لیست نظرات
+        SizedBox(height: 8.h),
         Expanded(
           child: _isLoadingReviews
               ? const Center(
                   child: CircularProgressIndicator(color: AppTheme.goldColor),
                 )
               : _reviews.isEmpty
-              ? SingleChildScrollView(
-                  child: Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(48.w),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            LucideIcons.messageCircle,
-                            size: 80.sp,
-                            color: context.textSecondary,
-                          ),
-                          SizedBox(height: 24.h),
-                          Text(
-                            'هنوز نظری ثبت نشده',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: context.textColor,
-                              fontSize: 18.sp,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          SizedBox(height: 8.h),
-                          Text(
-                            'اولین کسی باشید که نظر می‌دهد',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: context.textSecondary,
-                              fontSize: 14.sp,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
+                  ? _buildReviewsEmptyState()
+                  : ListView.builder(
+                      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 24.h),
+                      itemCount: _reviews.length,
+                      itemBuilder: (BuildContext context, int index) {
+                        return TrainerReviewWidget(review: _reviews[index]);
+                      },
                     ),
-                  ),
-                )
-              : ListView.builder(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12),
-                  itemCount: _reviews.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    if (kDebugMode) {
-                      print('🔄 نمایش نظر ${index + 1} از ${_reviews.length}');
-                    }
-                    return TrainerReviewWidget(review: _reviews[index]);
-                  },
-                ),
         ),
       ],
+    );
+  }
+
+  Widget _reviewsTabStarRow(double rating) {
+    final r = rating.clamp(0.0, 5.0);
+    final inactive = context.textSecondary.withValues(alpha: 0.28);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      textDirection: TextDirection.ltr,
+      children: List.generate(5, (i) {
+        final idx = i + 1.0;
+        if (r >= idx - 0.001) {
+          return Icon(Icons.star_rounded, size: 16.sp, color: AppTheme.goldColor);
+        }
+        if (r >= idx - 0.5) {
+          return Icon(
+            Icons.star_half_rounded,
+            size: 16.sp,
+            color: AppTheme.goldColor,
+          );
+        }
+        return Icon(
+          Icons.star_outline_rounded,
+          size: 16.sp,
+          color: inactive,
+        );
+      }),
+    );
+  }
+
+  Widget _buildReviewsEmptyState() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  LucideIcons.messageCircle,
+                  size: 56.sp,
+                  color: context.textSecondary,
+                ),
+                SizedBox(height: 16.h),
+                Text(
+                  'هنوز نظری ثبت نشده',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  'از دکمهٔ «تجربه‌ات را بنویس» در بالا استفاده کن.',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textSecondary,
+                    fontSize: 13.sp,
+                    height: 1.45,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1136,7 +1823,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
       future: _loadCertificates(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
+          return const Center(
             child: CircularProgressIndicator(color: AppTheme.goldColor),
           );
         }
@@ -1309,7 +1996,6 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
           color: context.separatorColor.withValues(alpha: 0.4),
-          width: 1,
         ),
       ),
       child: Column(
@@ -1341,10 +2027,35 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     );
   }
 
+  bool get _isOwnTrainerProfile {
+    final trainerId = widget.trainer.id;
+    if (trainerId == null || trainerId.isEmpty) return false;
+    final authId = Supabase.instance.client.auth.currentUser?.id;
+    return authId != null && authId == trainerId;
+  }
+
   Widget _buildServicesTab() {
     if (_isLoadingServices) {
       return const Center(
         child: CircularProgressIndicator(color: AppTheme.goldColor),
+      );
+    }
+
+    if (_isOwnTrainerProfile) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.all(24.w),
+          child: Text(
+            'این پروفایل مربی خودتان است. برای خرید برنامه از مربی دیگر، از بخش رتبه‌بندی مربیان اقدام کنید.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 13.sp,
+              height: 1.55,
+              color: context.textSecondary,
+            ),
+          ),
+        ),
       );
     }
 
@@ -1358,22 +2069,43 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     final packageFinal = (packageRaw * (1 - (_discountPct.clamp(0, 100) / 100)))
         .floor();
 
+    final trainingPurchasable =
+        _serviceTrainingEnabled && _trainingCost > 0;
+    final dietPurchasable = _serviceDietEnabled && _dietCost > 0;
+    final consultPurchasable = _serviceConsultEnabled &&
+        _serviceTrainingEnabled &&
+        _trainingCost > 0 &&
+        consultingCost > 0;
+    final packagePurchasable = packageFinal > 0;
+
     return ListView(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12),
+      padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
       children: [
-        // عنوان بخش
-        _buildSectionTitle('خدمات ارائه شده'),
+        _buildSectionTitle('تعرفه‌ها'),
+        Padding(
+          padding: EdgeInsets.only(bottom: 12.h),
+          child: Text(
+            'مبالغ به تومان، دورهٔ یک ماهه. خدمتی که قیمت ندارد یا غیرفعال است قابل خرید نیست.',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 11.sp,
+              height: 1.45,
+              color: context.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
 
         // برنامه تمرینی
         ServiceCardWidget(
           icon: LucideIcons.dumbbell,
           title: 'برنامه تمرینی',
-          description: 'برنامه تمرینی شخصی‌سازی شده براساس اهداف شما',
+          description: 'برنامه تمرینی شخصی‌سازی‌شده بر اساس اهداف شما',
           price: _serviceTrainingEnabled
               ? FormatUtils.formatAmount(_trainingCost)
               : FormatUtils.toPersianDigits('۰'),
           period: 'ماهانه',
-          features: [
+          features: const [
             'برنامه ی تمرینی روزانه',
             'شامل 4 هفته تمرین',
             'راهنمایی تکنیک ها و حرکات',
@@ -1381,12 +2113,14 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
             'بررسی پیشرفت شما',
             'چت نامحدود با مربی',
           ],
-          color: Colors.orange,
-          disabled: !_serviceTrainingEnabled,
+          color: AppTheme.fatColor,
+          disabled: !trainingPurchasable,
           serviceId: 'training',
-          onTap: () => _selectService('training', _trainingCost.toDouble()),
+          onTap: trainingPurchasable
+              ? () => _selectService('training', _trainingCost.toDouble())
+              : null,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12.h),
 
         // برنامه رژیم غذایی
         ServiceCardWidget(
@@ -1397,7 +2131,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
               ? FormatUtils.formatAmount(_dietCost)
               : FormatUtils.toPersianDigits('۰'),
           period: 'ماهانه',
-          features: [
+          features: const [
             'برنامه ی غذایی روزانه',
             'شامل 4 هفته رژیم',
             'محاسبه ی کالری و درشت‌مغذی‌ها',
@@ -1405,12 +2139,14 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
             'بررسی پیشرفت شما',
             'چت نامحدود با مربی',
           ],
-          color: Colors.purple,
-          disabled: !_serviceDietEnabled,
+          color: AppTheme.proteinColor,
+          disabled: !dietPurchasable,
           serviceId: 'diet',
-          onTap: () => _selectService('diet', _dietCost.toDouble()),
+          onTap: dietPurchasable
+              ? () => _selectService('diet', _dietCost.toDouble())
+              : null,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12.h),
 
         // مشاوره و نظارت
         ServiceCardWidget(
@@ -1421,26 +2157,32 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
               ? FormatUtils.formatAmount(consultingCost)
               : FormatUtils.toPersianDigits('۰'),
           period: 'ماهانه',
-          features: [
+          features: const [
             'چت نامحدود با مربی',
             'بررسی روزانه پیشرفت',
             'مشاوره تخصصی',
             'تنظیم برنامه بر اساس نتایج',
             'پشتیبانی 24/7',
           ],
-          color: Colors.blue,
-          disabled: !_serviceConsultEnabled || !_serviceTrainingEnabled,
+          color: AppTheme.carbsColor,
+          disabled: !consultPurchasable,
           serviceId: 'consulting',
-          onTap: () => _selectService('consulting', consultingCost.toDouble()),
+          onTap: consultPurchasable
+              ? () =>
+                  _selectService('consulting', consultingCost.toDouble())
+              : null,
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16.h),
 
         // بسته کامل
         PackageCardWidget(
           cost: packageFinal.toDouble(),
-          packageRaw: _trainingCost + _dietCost + consultingCost,
+          packageRaw: packageRaw,
           discountPct: _discountPct,
-          onTap: () => _selectService('package', packageFinal.toDouble()),
+          disabled: !packagePurchasable,
+          onTap: packagePurchasable
+              ? () => _selectService('package', packageFinal.toDouble())
+              : null,
         ),
       ],
     );
@@ -1451,7 +2193,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     return ColoredBox(
       color: isDark
           ? context.veryDarkBackground
-          : AppTheme.lightButtonBackground,
+          : AppTheme.lightCardColor,
       child: Icon(LucideIcons.user, color: context.textSecondary, size: 36.sp),
     );
   }
@@ -1513,7 +2255,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                                 style: TextStyle(
                                   fontFamily: AppTheme.fontFamily,
                                   color: context.textColor,
-                                  fontSize: 16.sp,
+                                  fontSize: 14.sp,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -1654,13 +2396,13 @@ class _PaymentBottomSheetState extends State<_PaymentBottomSheet>
 
     return PopScope(
       canPop: !isProcessing,
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: context.cardColor,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
+              color: AppTheme.veryDarkBackground.withValues(alpha: 0.15),
               blurRadius: 20,
               offset: const Offset(0, -4),
             ),
@@ -1708,7 +2450,7 @@ class _PaymentBottomSheetState extends State<_PaymentBottomSheet>
         width: 40.w,
         height: 4.h,
         decoration: BoxDecoration(
-          color: Colors.grey.withValues(alpha: 0.3),
+          color: AppTheme.darkGreySeparator.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(2.r),
         ),
       ),
@@ -1741,7 +2483,7 @@ class _PaymentBottomSheetState extends State<_PaymentBottomSheet>
       decoration: BoxDecoration(
         color: isDark
             ? context.veryDarkBackground
-            : AppTheme.lightButtonBackground,
+            : AppTheme.lightCardColor,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.15)),
       ),
@@ -1779,8 +2521,8 @@ class _PaymentBottomSheetState extends State<_PaymentBottomSheet>
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   color: widget.walletBalance >= (widget.cost * 10).round()
-                      ? const Color(0xFF4CAF50)
-                      : Colors.orange,
+                      ? AppTheme.successColor
+                      : AppTheme.fatColor,
                   fontSize: 13.sp,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1844,7 +2586,7 @@ class _PaymentBottomSheetState extends State<_PaymentBottomSheet>
         filled: true,
         fillColor: isDark
             ? context.veryDarkBackground
-            : AppTheme.lightButtonBackground,
+            : AppTheme.lightCardColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12.r),
           borderSide: BorderSide.none,
@@ -1855,7 +2597,7 @@ class _PaymentBottomSheetState extends State<_PaymentBottomSheet>
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12.r),
-          borderSide: BorderSide(color: AppTheme.goldColor, width: 2),
+          borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
         ),
         contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
       ),
@@ -1867,20 +2609,20 @@ class _PaymentBottomSheetState extends State<_PaymentBottomSheet>
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
       decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.1),
+        color: AppTheme.errorColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+        border: Border.all(color: AppTheme.errorColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          Icon(LucideIcons.alertCircle, color: Colors.red, size: 18.sp),
+          Icon(LucideIcons.alertCircle, color: AppTheme.errorColor, size: 18.sp),
           SizedBox(width: 8.w),
           Expanded(
             child: Text(
               _errorMessage!,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                color: Colors.red,
+                color: AppTheme.errorColor,
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w500,
               ),
@@ -1910,7 +2652,7 @@ class _PaymentBottomSheetState extends State<_PaymentBottomSheet>
               backgroundColor: isWalletProcessing
                   ? AppTheme.goldColor.withValues(alpha: 0.7)
                   : AppTheme.goldColor,
-              foregroundColor: isDark ? AppTheme.onGoldColor : Colors.white,
+              foregroundColor: AppTheme.onGoldColor,
               elevation: isProcessing ? 0 : 6,
               shadowColor: AppTheme.goldColor.withValues(alpha: 0.4),
               shape: RoundedRectangleBorder(
@@ -1929,7 +2671,8 @@ class _PaymentBottomSheetState extends State<_PaymentBottomSheet>
                           height: 20.h,
                           child: const CircularProgressIndicator(
                             strokeWidth: 2.5,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(AppTheme.darkTextColor),
                           ),
                         ),
                         SizedBox(width: 10.w),
@@ -2061,12 +2804,12 @@ class _PaymentBottomSheetState extends State<_PaymentBottomSheet>
               width: 80.w,
               height: 80.w,
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withValues(alpha: 0.15),
+                color: AppTheme.successColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 LucideIcons.checkCircle2,
-                color: const Color(0xFF4CAF50),
+                color: AppTheme.successColor,
                 size: 48.sp,
               ),
             ),
@@ -2076,8 +2819,8 @@ class _PaymentBottomSheetState extends State<_PaymentBottomSheet>
             'پرداخت موفق',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              color: const Color(0xFF4CAF50),
-              fontSize: 20.sp,
+              color: AppTheme.successColor,
+              fontSize: 18.sp,
               fontWeight: FontWeight.bold,
             ),
           ),

@@ -1,0 +1,17 @@
+{
+  "id": 4018,
+  "title": "ددباگ",
+  "main": "abs",
+  "movement": "anti_extension",
+  "targets": {
+    "abs": 85
+  },
+  "secondary": [],
+  "equipment": [
+    "bodyweight"
+  ],
+  "norm": [
+    "unknown secondary_muscles ignored in keys: خم کننده لگن"
+  ],
+  "notes": null
+}

@@ -220,9 +220,7 @@ class MealPlanService {
                 .maybeSingle();
           }
 
-          if (sub == null) {
-            // اگر subscriptionId مشخص نشده، از trainer_id و user_id پیدا کن
-            sub = await client
+          sub ??= await client
                 .from('trainer_subscriptions')
                 .select('id, created_at')
                 .eq('trainer_id', trainerId)
@@ -231,7 +229,6 @@ class MealPlanService {
                 .order('created_at', ascending: false)
                 .limit(1)
                 .maybeSingle();
-          }
 
           // محاسبه زمان انتظار (از created_at subscription تا sent_at plan)
           if (sub != null && sub['created_at'] != null) {

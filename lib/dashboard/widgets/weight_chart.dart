@@ -1,11 +1,11 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:shamsi_date/shamsi_date.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:responsive_framework/responsive_framework.dart';
+import 'package:shamsi_date/shamsi_date.dart';
 
 class WeightChart extends StatefulWidget {
   const WeightChart({required this.userId, super.key, this.currentWeight});
@@ -23,7 +23,7 @@ class _WeightChartState extends State<WeightChart>
 
   List<Map<String, dynamic>> _weightData = [];
   bool _isLoading = true;
-  String _selectedPeriod = 'ALL';
+  final String _selectedPeriod = 'ALL';
 
   @override
   void initState() {
@@ -155,7 +155,7 @@ class _WeightChartState extends State<WeightChart>
       'اسفند',
     ];
     final monthName = monthNames[j.month];
-    return '\u200F${_toPersianDigits(j.day.toString())} ${monthName} ${_toPersianDigits(j.year.toString())}';
+    return '\u200F${_toPersianDigits(j.day.toString())} $monthName ${_toPersianDigits(j.year.toString())}';
   }
 
   String _formatJalaliShort(DateTime date) {
@@ -441,7 +441,7 @@ class _WeightChartState extends State<WeightChart>
 
     final chartWidget = LineChart(
       LineChartData(
-        gridData: FlGridData(
+        gridData: const FlGridData(
           show: false, // گریدهای وسط چارت نمایش داده نمیشن
           drawVerticalLine: false,
           drawHorizontalLine: false,
@@ -527,7 +527,6 @@ class _WeightChartState extends State<WeightChart>
         minY: minYValue,
         maxY: maxYValue,
         lineTouchData: LineTouchData(
-          handleBuiltInTouches: true,
           touchTooltipData: LineTouchTooltipData(
             getTooltipItems: (List<LineBarSpot> touchedSpots) {
               return touchedSpots.map((touched) {
@@ -583,7 +582,7 @@ class _WeightChartState extends State<WeightChart>
               },
             ),
             belowBarData: BarAreaData(
-              show: false, // پر شدن زیر نمودار حذف شد
+              
             ),
           ),
         ],
@@ -594,7 +593,7 @@ class _WeightChartState extends State<WeightChart>
       builder: (context, constraints) {
         final baseWidthPerPoint = 40.w;
         final minWidth = constraints.maxWidth;
-        final targetWidth = (spots.length * baseWidthPerPoint).toDouble();
+        final targetWidth = spots.length * baseWidthPerPoint;
         final width = targetWidth < minWidth ? minWidth : targetWidth;
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,

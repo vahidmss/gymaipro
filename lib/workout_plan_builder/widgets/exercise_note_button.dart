@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gymaipro/workout_plan_builder/dialogs/exercise_note_dialog.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ExerciseNoteButton extends StatelessWidget {
   const ExerciseNoteButton({

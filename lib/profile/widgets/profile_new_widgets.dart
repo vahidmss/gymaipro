@@ -8,7 +8,7 @@ import 'package:gymaipro/ranking/models/league.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_kpi_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/format_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ModernProfileHeader extends StatelessWidget {
   final Map<String, dynamic> profileData;

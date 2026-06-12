@@ -8,17 +8,16 @@
 
 ### روش 1: استفاده از فایل `.env` (پیشنهادی)
 
-1. فایل `.env.example` را کپی کنید و نام آن را به `.env` تغییر دهید:
-   ```bash
-   cp .env.example .env
-   ```
+1. در ریشه پروژه فایل `.env` را داشته باشید (اگر نیست، یک فایل خالی `.env` بسازید).
 
 2. فایل `.env` را باز کنید و مقادیر واقعی را وارد کنید:
    ```env
    SMS_API_BASE_URL=https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber
    SMS_API_USERNAME=1990557589
    SMS_API_PASSWORD=08918b92-394d-4d42-a2a5-8828112ded71
-   SMS_API_BODY_ID=your-sms-body-id
+   SMS_API_BODY_ID=your-otp-body-id
+   SMS_BODY_ID_TRAINER_PROGRAM_REQUEST=450989
+   SMS_BODY_ID_USER_PROGRAM_PURCHASE=450988
    ```
    
    **نکته:** مقادیر بالا نمونه هستند. مقادیر واقعی را از پنل پیامک پنل دریافت کنید.
@@ -100,4 +99,4 @@ GymAI Pro
 
 - `lib/config/app_config.dart`: تنظیمات از environment variables
 - `lib/services/otp_service.dart`: سرویس ارسال و تایید OTP
-- `.env.example`: الگوی فایل environment variables
+- `.env`: تنظیمات محلی (در git commit نمی‌شود)

@@ -176,8 +176,7 @@ class SafeText extends StatelessWidget {
 /// Automatically makes content scrollable if it exceeds available space
 class OverflowSafe extends StatelessWidget {
   const OverflowSafe({
-    super.key,
-    required this.child,
+    required this.child, super.key,
     this.scrollDirection = Axis.vertical,
     this.reverse = false,
     this.padding,

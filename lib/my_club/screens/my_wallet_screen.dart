@@ -4,7 +4,7 @@ import 'package:gymaipro/payment/models/wallet.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/payment/widgets/wallet_balance_card.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class MyWalletScreen extends StatefulWidget {
   const MyWalletScreen({super.key});

@@ -1,0 +1,19 @@
+{
+  "id": 4014,
+  "title": "فلای پک دستگاه",
+  "main": "chest",
+  "movement": "horizontal_adduction",
+  "targets": {
+    "chest": 92
+  },
+  "secondary": [
+    "shoulder_anterior"
+  ],
+  "equipment": [
+    "machine"
+  ],
+  "norm": [
+    "movement_pattern corrected: horizontal_push → horizontal_adduction"
+  ],
+  "notes": null
+}

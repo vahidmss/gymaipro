@@ -6,9 +6,9 @@ import 'package:gymaipro/auth/services/auth_state_service.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
 import 'package:gymaipro/services/otp_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/utils/widget_safety_utils.dart';
-import 'package:gymaipro/utils/text_controller_utils.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
+import 'package:gymaipro/utils/text_controller_utils.dart';
+import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:sms_autofill/sms_autofill.dart' as sms;
@@ -446,7 +446,6 @@ class _LoginOTPVerificationScreenState extends State<LoginOTPVerificationScreen>
                       borderRadius: BorderRadius.circular(12.r),
                       border: Border.all(
                         color: Colors.red.withValues(alpha: 0.3),
-                        width: 1,
                       ),
                     ),
                     child: Row(
@@ -487,9 +486,9 @@ class _LoginOTPVerificationScreenState extends State<LoginOTPVerificationScreen>
                   ),
                 ],
                 SizedBox(height: 40.h),
-                Container(
+                DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
+                    gradient: const LinearGradient(
                       colors: [AppTheme.goldColor, AppTheme.darkGold],
                     ),
                     borderRadius: BorderRadius.circular(16.r),

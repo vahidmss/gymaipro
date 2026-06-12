@@ -8,7 +8,7 @@ import 'package:gymaipro/ranking/widgets/leaderboard_item.dart';
 import 'package:gymaipro/ranking/widgets/user_rank_card.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// صفحه Leaderboard با طراحی دارک/لایت و کارت‌های لیگ
 class LeaderboardScreen extends StatefulWidget {

@@ -13,7 +13,7 @@ import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:gymaipro/user_profile/widgets/progress_metrics_widget.dart';
 import 'package:gymaipro/user_profile/widgets/streak_calendar_widget.dart';
 import 'package:gymaipro/utils/format_utils.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// اسکرین پروفایل ورزشکار (عمومی)
