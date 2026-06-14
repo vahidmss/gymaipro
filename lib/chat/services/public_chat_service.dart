@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:gymaipro/chat/models/public_chat_message.dart';
-import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/user_service.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PublicChatService {

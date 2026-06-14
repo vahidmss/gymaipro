@@ -12,7 +12,6 @@ class UserAvatarWidget extends StatelessWidget {
     this.isOnline = false,
     this.role = 'athlete',
     this.showOnlineStatus = true,
-    this.userId,
   });
 
   final String? avatarUrl;
@@ -20,7 +19,6 @@ class UserAvatarWidget extends StatelessWidget {
   final bool isOnline;
   final String role;
   final bool showOnlineStatus;
-  final String? userId;
 
   @override
   Widget build(BuildContext context) {

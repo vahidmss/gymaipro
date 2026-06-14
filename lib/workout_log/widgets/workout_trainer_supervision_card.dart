@@ -1,8 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:gymaipro/widgets/gymai_trainer_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/workout_log/viewmodels/workout_log_viewmodel.dart';
+import 'package:gymaipro/workout_log/widgets/session_heatmap_trainer_chip.dart';
+import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -41,6 +43,18 @@ class _WorkoutTrainerSupervisionCardState
   void initState() {
     super.initState();
     _loadTrainerInfo();
+  }
+
+  @override
+  void didUpdateWidget(WorkoutTrainerSupervisionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.programId != widget.programId) {
+      setState(() {
+        _trainerInfo = null;
+        _isLoading = true;
+      });
+      _loadTrainerInfo();
+    }
   }
 
   Future<void> _loadTrainerInfo() async {
@@ -132,8 +146,6 @@ class _WorkoutTrainerSupervisionCardState
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     if (_isLoading) {
       return Container(
         margin: EdgeInsets.only(bottom: 16.h),
@@ -159,12 +171,10 @@ class _WorkoutTrainerSupervisionCardState
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: isDark
-            ? context.cardColor
-            : AppTheme.goldColor.withValues(alpha: 0.1),
+        color: WorkoutLogColors.sectionBackground(context),
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.25),
+          color: WorkoutLogColors.chipBorder(context, selected: false),
           width: 1.w,
         ),
       ),
@@ -181,42 +191,25 @@ class _WorkoutTrainerSupervisionCardState
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: AppTheme.goldColor.withValues(alpha: 0.4),
+                    color: WorkoutLogColors.chipBorder(
+                      context,
+                      selected: true,
+                    ),
                     width: 1.5.w,
                   ),
                 ),
-                child: ClipOval(
-                  child:
-                      _trainerInfo?['avatar_url'] != null &&
-                          (_trainerInfo!['avatar_url'] as String).isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: _trainerInfo!['avatar_url'] as String,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            color: AppTheme.goldColor.withValues(alpha: 0.1),
-                            child: Icon(
-                              LucideIcons.user,
-                              color: AppTheme.goldColor,
-                              size: 24.sp,
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            color: AppTheme.goldColor.withValues(alpha: 0.1),
-                            child: Icon(
-                              LucideIcons.user,
-                              color: AppTheme.goldColor,
-                              size: 24.sp,
-                            ),
-                          ),
-                        )
-                      : Container(
-                          color: AppTheme.goldColor.withValues(alpha: 0.1),
-                          child: Icon(
-                            LucideIcons.user,
-                            color: AppTheme.goldColor,
-                            size: 24.sp,
-                          ),
-                        ),
+                child: GymaiTrainerAvatar(
+                  size: 48.w,
+                  avatarUrl: _trainerInfo?['avatar_url'] as String?,
+                  userId: _trainerInfo?['id'] as String?,
+                  username: _trainerInfo?['username'] as String?,
+                  firstName: _trainerInfo?['first_name'] as String?,
+                  lastName: _trainerInfo?['last_name'] as String?,
+                  fallback: Icon(
+                    LucideIcons.user,
+                    color: WorkoutLogColors.iconOnSurface(context),
+                    size: 24.sp,
+                  ),
                 ),
               ),
               SizedBox(width: 12.w),
@@ -226,23 +219,12 @@ class _WorkoutTrainerSupervisionCardState
                   children: [
                     Text(
                       'تحت نظارت مربی',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        color: isDark ? AppTheme.goldColor : AppTheme.darkGold,
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: WorkoutLogTypography.trainerLabel(context),
                     ),
                     SizedBox(height: 4.h),
                     Text(
                       _getTrainerName(),
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        color: context.textColor,
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                      ),
+                      style: WorkoutLogTypography.trainerName(context),
                     ),
                   ],
                 ),
@@ -258,14 +240,8 @@ class _WorkoutTrainerSupervisionCardState
             ),
             SizedBox(height: 12.h),
             Text(
-              'امروز میخوای کدوم روز برنامه رو اجرا کنی!؟',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                color: isDark ? AppTheme.goldColor : AppTheme.darkGold,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w600,
-                height: 1.3,
-              ),
+              'امروز میخوای کدوم روز برنامه رو اجرا کنی؟',
+              style: WorkoutLogTypography.sectionTitle(context),
             ),
             SizedBox(height: 10.h),
             SizedBox(
@@ -282,64 +258,81 @@ class _WorkoutTrainerSupervisionCardState
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12.r),
-                        onTap: () => widget.onSessionSelected(session),
+                        onTap: widget.sessionsLocked
+                            ? null
+                            : () => widget.onSessionSelected(session),
                         child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          curve: Curves.easeInOut,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 14.w,
-                            vertical: 8.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.goldColor.withValues(
-                                    alpha: isDark ? 0.25 : 0.2,
-                                  )
-                                : AppTheme.goldColor.withValues(
-                                    alpha: isDark ? 0.1 : 0.08,
-                                  ),
-                            borderRadius: BorderRadius.circular(8.r),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppTheme.goldColor.withValues(alpha: 0.5)
-                                  : AppTheme.goldColor.withValues(alpha: 0.3),
-                              width: 1.w,
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeInOut,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 14.w,
+                              vertical: 8.h,
                             ),
-                          ),
-                          child: Text(
-                            session.day,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? (isDark
-                                        ? AppTheme.goldColor
-                                        : AppTheme.darkGold)
-                                  : (isDark
-                                        ? AppTheme.goldColor.withValues(
-                                            alpha: 0.8,
-                                          )
-                                        : AppTheme.darkGold.withValues(
-                                            alpha: 0.7,
-                                          )),
-                              fontSize: 12.sp,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w600,
-                              fontFamily: AppTheme.fontFamily,
+                            decoration: BoxDecoration(
+                              color: WorkoutLogColors.chipFill(
+                                context,
+                                selected: isSelected,
+                              ).withValues(
+                                alpha: widget.sessionsLocked && !isSelected
+                                    ? 0.65
+                                    : 1,
+                              ),
+                              borderRadius: BorderRadius.circular(8.r),
+                              border: Border.all(
+                                color: WorkoutLogColors.chipBorder(
+                                  context,
+                                  selected: isSelected,
+                                ),
+                                width: 1.w,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (widget.sessionsLocked && isSelected)
+                                  Padding(
+                                    padding: EdgeInsets.only(left: 5.w),
+                                    child: SizedBox(
+                                      width: 10.w,
+                                      height: 10.w,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 1.5.w,
+                                        color: WorkoutLogColors.iconOnSurface(context),
+                                      ),
+                                    ),
+                                  ),
+                                Text(
+                                  session.day,
+                                  style: WorkoutLogTypography.chip(
+                                    context,
+                                    selected: isSelected,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  );
+                    );
+              
                 },
               ),
             ),
+            if (widget.selectedSession != null &&
+                widget.viewModel != null &&
+                widget.onSessionHeatmapTap != null) ...[
+              SizedBox(height: 12.h),
+              SessionHeatmapTrainerChip(
+                viewModel: widget.viewModel!,
+                onTap: widget.onSessionHeatmapTap!,
+              ),
+            ],
             // نمایش کامنت روز (اگر وجود داشته باشد)
             if (widget.selectedSession != null &&
                 widget.selectedSession!.notes != null &&
                 widget.selectedSession!.notes!.isNotEmpty) ...[
               SizedBox(height: 12.h),
-              _buildDayComment(isDark),
+              _buildDayComment(context),
             ],
           ],
         ],
@@ -347,7 +340,7 @@ class _WorkoutTrainerSupervisionCardState
     );
   }
 
-  Widget _buildDayComment(bool isDark) {
+  Widget _buildDayComment(BuildContext context) {
     if (widget.selectedSession == null ||
         widget.selectedSession!.notes == null ||
         widget.selectedSession!.notes!.isEmpty) {
@@ -357,14 +350,10 @@ class _WorkoutTrainerSupervisionCardState
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
       decoration: BoxDecoration(
-        color: isDark
-            ? Colors.amber[700]!.withValues(alpha: 0.1)
-            : Colors.amber[800]!.withValues(alpha: 0.12),
+        color: WorkoutLogColors.noteBackground(context),
         borderRadius: BorderRadius.circular(8.r),
         border: Border.all(
-          color: isDark
-              ? Colors.amber[700]!.withValues(alpha: 0.25)
-              : Colors.amber[800]!.withValues(alpha: 0.4),
+          color: WorkoutLogColors.noteBorder(context),
           width: 0.8.w,
         ),
       ),
@@ -373,21 +362,14 @@ class _WorkoutTrainerSupervisionCardState
         children: [
           Icon(
             LucideIcons.messageCircle,
-            color: isDark ? Colors.amber[700] : Colors.amber[900],
+            color: WorkoutLogColors.noteText(context),
             size: 14.sp,
           ),
           SizedBox(width: 8.w),
           Expanded(
             child: Text(
               widget.selectedSession!.notes!,
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                color: isDark ? Colors.amber[700] : Colors.black87,
-                fontSize: 11.sp,
-                fontWeight: FontWeight.w600,
-                fontStyle: FontStyle.italic,
-                height: 1.4,
-              ),
+              style: WorkoutLogTypography.note(context).copyWith(fontSize: 12.5.sp),
             ),
           ),
         ],

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ExerciseListHeader extends StatelessWidget {
@@ -64,21 +65,17 @@ class ExerciseListHeader extends StatelessWidget {
                 ),
                 child: Icon(
                   LucideIcons.clipboardList,
-                  color: isDark
-                      ? const Color(0xFFD4AF37)
-                      : const Color(0xFFB8860B),
+                  color: WorkoutLogColors.iconOnSurface(context),
                   size: 18.sp,
                 ),
               ),
               SizedBox(width: 12.w),
               Text(
                 'توضیحات روز تمرینی',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  color: isDark ? AppTheme.goldColor : AppTheme.darkGold,
+                style: WorkoutLogTypography.sectionTitle(context).copyWith(
+                  fontSize: 15.sp,
                   fontWeight: FontWeight.w800,
-                  fontSize: 16.sp,
-                  letterSpacing: 0.3,
+                  color: WorkoutLogColors.labelAccent(context),
                 ),
               ),
             ],
@@ -86,13 +83,10 @@ class ExerciseListHeader extends StatelessWidget {
           SizedBox(height: 14.h),
           Text(
             sessionNotes,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              color: isDark ? AppTheme.darkTextColor : AppTheme.lightTextColor,
-              fontSize: 14.sp,
-              height: 1.7,
+            style: WorkoutLogTypography.note(context).copyWith(
+              fontSize: 13.5.sp,
+              color: WorkoutLogColors.primaryText(context),
               fontWeight: FontWeight.w500,
-              letterSpacing: 0.1,
             ),
           ),
         ],

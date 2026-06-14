@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_log/utils/meal_log_utils.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
 import 'package:gymaipro/workout_log/viewmodels/workout_log_viewmodel.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -47,25 +48,12 @@ class WorkoutPreviewDialog extends StatelessWidget {
             children: [
               Text(
                 'پیش‌نمایش تمرین',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  color: isDark ? AppTheme.goldColor : Colors.black87,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
-                ),
+                style: WorkoutLogTypography.dialogTitle(context),
               ),
               SizedBox(height: 12.h),
               Text(
                 'هنوز داده‌ای وارد نشده است',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  color: isDark
-                      ? AppTheme.darkTextColor.withValues(alpha: 0.6)
-                      : Colors.black54,
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: WorkoutLogTypography.dialogMuted(context),
               ),
               SizedBox(height: 20.h),
               TextButton(
@@ -78,12 +66,7 @@ class WorkoutPreviewDialog extends StatelessWidget {
                 ),
                 child: Text(
                   'بستن',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: AppTheme.goldColor,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13.sp,
-                  ),
+                  style: WorkoutLogTypography.chip(context, selected: true),
                 ),
               ),
             ],
@@ -128,24 +111,13 @@ class WorkoutPreviewDialog extends StatelessWidget {
                       children: [
                         Text(
                           'پیش‌نمایش تمرین',
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            color: isDark ? AppTheme.goldColor : Colors.black87,
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.2,
-                          ),
+                          style: WorkoutLogTypography.dialogTitle(context),
                         ),
                         SizedBox(height: 2.h),
                         Text(
                           dateString,
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            color: isDark
-                                ? AppTheme.darkTextColor.withValues(alpha: 0.6)
-                                : Colors.black54,
-                            fontSize: 11.sp,
-                            fontWeight: FontWeight.w500,
+                          style: WorkoutLogTypography.dialogMuted(context).copyWith(
+                            fontSize: 12.sp,
                           ),
                         ),
                       ],
@@ -162,9 +134,7 @@ class WorkoutPreviewDialog extends StatelessWidget {
                         padding: EdgeInsets.all(4.w),
                         child: Icon(
                           LucideIcons.x,
-                          color: isDark
-                              ? AppTheme.darkTextColor.withValues(alpha: 0.6)
-                              : Colors.black54,
+                          color: WorkoutLogColors.secondaryText(context),
                           size: 16.sp,
                         ),
                       ),
@@ -185,14 +155,9 @@ class WorkoutPreviewDialog extends StatelessWidget {
                         padding: EdgeInsets.only(bottom: 12.h),
                         child: Text(
                           'روز: ${viewModel.selectedSession!.day}',
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            color: isDark
-                                ? AppTheme.goldColor.withValues(alpha: 0.8)
-                                : Colors.black87,
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.1,
+                          style: WorkoutLogTypography.sectionTitle(context).copyWith(
+                            fontSize: 13.sp,
+                            color: WorkoutLogColors.primaryText(context),
                           ),
                         ),
                       ),
@@ -283,7 +248,6 @@ class WorkoutPreviewDialog extends StatelessWidget {
     List<Map<String, TextEditingController>> exerciseData, {
     bool isSuperset = false,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final sets = <Widget>[];
     final exerciseSets = exercise is NormalExercise
         ? exercise.sets
@@ -312,19 +276,16 @@ class WorkoutPreviewDialog extends StatelessWidget {
                 height: 24.h,
                 margin: EdgeInsets.only(top: 2.h),
                 decoration: BoxDecoration(
-                  color: AppTheme.goldColor.withValues(
-                    alpha: isDark ? 0.15 : 0.1,
-                  ),
+                  color: WorkoutLogColors.chipFill(context, selected: true),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: Text(
                     '${i + 1}',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      color: isDark ? AppTheme.goldColor : Colors.black87,
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w700,
+                    style: WorkoutLogTypography.caption(
+                      context,
+                      color: WorkoutLogColors.primaryText(context),
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
@@ -372,14 +333,7 @@ class WorkoutPreviewDialog extends StatelessWidget {
             padding: EdgeInsets.only(bottom: 10.h),
             child: Text(
               exerciseName,
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                color: isDark ? AppTheme.goldColor : Colors.black87,
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.1,
-                height: 1.3,
-              ),
+              style: WorkoutLogTypography.exerciseTitle(context),
             ),
           ),
           // ست‌ها
@@ -393,32 +347,18 @@ class WorkoutPreviewDialog extends StatelessWidget {
   }
 
   Widget _buildDataItem(BuildContext context, String label, String value) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            color: isDark
-                ? AppTheme.darkTextColor.withValues(alpha: 0.5)
-                : Colors.black54,
-            fontSize: 10.sp,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.1,
-          ),
+          style: WorkoutLogTypography.fieldLabel(context),
         ),
         SizedBox(height: 2.h),
         Text(
           value,
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            color: isDark ? AppTheme.darkTextColor : Colors.black87,
+          style: WorkoutLogTypography.inputValue(context).copyWith(
             fontSize: 13.sp,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.2,
-            height: 1.2,
           ),
         ),
       ],

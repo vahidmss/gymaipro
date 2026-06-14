@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/meal_log/models/meal_quick_log_entry.dart';
+import 'package:gymaipro/meal_log/services/meal_quick_log_service.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/services/user_preferences_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/food_amount_utils.dart';
+import 'package:gymaipro/widgets/food_serving_amount_sheet.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class AddFoodScreen extends StatefulWidget {
@@ -23,11 +29,14 @@ class AddFoodScreen extends StatefulWidget {
 class _AddFoodScreenState extends State<AddFoodScreen> {
   final FoodService _foodService = FoodService();
   final UserPreferencesService _preferencesService = UserPreferencesService();
+  final MealQuickLogService _quickLogService = MealQuickLogService();
 
   String _selectedMealTitle = '';
   String _searchQuery = '';
-  String _filterType = 'همه'; // 'همه' or 'مورد علاقه'
+  String _filterType = 'همه'; // 'همه' | 'اخیر' | 'مورد علاقه'
   List<Food> _filteredFoods = [];
+  List<MealQuickLogEntry> _recentEntries = [];
+  List<MealQuickLogEntry> _filteredRecentEntries = [];
   Set<int> _favoriteFoodIds = {};
 
   @override
@@ -38,6 +47,38 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
     _filteredFoods = widget.foods;
     // Load favorites from database and sync
     _syncFavoritesFromDatabase();
+    unawaited(_loadRecentEntries());
+  }
+
+  Future<void> _loadRecentEntries() async {
+    final entries = await _quickLogService.getRecentEntries(limit: 12);
+    if (!mounted) return;
+    setState(() {
+      _recentEntries = entries;
+      if (_filterType == 'اخیر') {
+        _applyRecentFilter();
+      }
+    });
+  }
+
+  Food? _foodForId(int foodId) {
+    for (final food in widget.foods) {
+      if (food.id == foodId) return food;
+    }
+    return null;
+  }
+
+  void _applyRecentFilter() {
+    var entries = _recentEntries;
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      entries = entries.where((entry) {
+        final food = _foodForId(entry.foodId);
+        return food != null &&
+            (food.displayTitle.toLowerCase().contains(q) || food.meta.matchesSearch(q));
+      }).toList();
+    }
+    _filteredRecentEntries = entries;
   }
 
   Future<void> _syncFavoritesFromDatabase() async {
@@ -72,14 +113,18 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
 
   void _filterFoods() {
     setState(() {
+      if (_filterType == 'اخیر') {
+        _applyRecentFilter();
+        return;
+      }
+
       var filtered = widget.foods;
 
       // Apply search filter
       if (_searchQuery.isNotEmpty) {
+        final q = _searchQuery.toLowerCase();
         filtered = filtered
-            .where(
-              (f) => f.title.toLowerCase().contains(_searchQuery.toLowerCase()),
-            )
+            .where((f) => f.displayTitle.toLowerCase().contains(q) || f.meta.matchesSearch(q))
             .toList();
       }
 
@@ -126,7 +171,27 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
     }
   }
 
-  Future<void> _showAmountDialog(Food food) async {
+  String _formatAmount(double amount) {
+    return amount % 1 == 0 ? amount.toInt().toString() : amount.toStringAsFixed(1);
+  }
+
+  String _unitDisplayLabel(Food food, String unit) {
+    return food.meta.servingUnits.resolve(unit)?.displayLabel ?? unit;
+  }
+
+  int _estimatedCalories(Food food, MealQuickLogEntry entry) {
+    return FoodAmountUtils.scaledCalories(
+      food,
+      entry.amount,
+      entry.unit,
+    ).round();
+  }
+
+  Future<void> _showAmountDialog(
+    Food food, {
+    double? initialAmount,
+    String? initialUnit,
+  }) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
@@ -136,8 +201,12 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
       barrierColor: isDark
           ? Colors.black.withValues(alpha: 0.7)
           : AppTheme.lightTextColor.withValues(alpha: 0.5),
-      builder: (context) =>
-          _AmountInputDialog(food: food, mealTitle: _selectedMealTitle),
+      builder: (context) => FoodServingAmountSheet(
+        food: food,
+        mealTitle: _selectedMealTitle,
+        initialAmount: initialAmount,
+        initialUnit: initialUnit,
+      ),
     );
     if (result != null && mounted) {
       Navigator.of(context).pop(result);
@@ -179,7 +248,9 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                 // Filter tabs
                 SliverToBoxAdapter(child: _buildFilterTabs(isDark)),
                 // Food list
-                _buildFoodListSliver(isDark),
+                _filterType == 'اخیر'
+                    ? _buildRecentListSliver(isDark)
+                    : _buildFoodListSliver(isDark),
               ],
             ),
           );
@@ -296,6 +367,8 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
         children: [
           _buildFilterTab('همه', isDark),
           SizedBox(width: 8.w),
+          _buildFilterTab('اخیر', isDark),
+          SizedBox(width: 8.w),
           _buildFilterTab('مورد علاقه', isDark),
         ],
       ),
@@ -347,34 +420,111 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
     );
   }
 
-  Widget _buildFoodList(bool isDark) {
-    if (_filteredFoods.isEmpty) {
-      return Center(
-        child: Text(
-          'غذایی یافت نشد',
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            color: isDark
-                ? AppTheme.goldColor.withValues(alpha: 0.7)
-                : context.textColor.withValues(alpha: 0.7),
-            fontSize: 12.sp,
+  Widget _buildRecentListSliver(bool isDark) {
+    if (_filteredRecentEntries.isEmpty) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Text(
+            _recentEntries.isEmpty
+                ? 'هنوز غذایی ثبت نکردی — بعد از چند ثبت، اینجا سریع اضافه می‌کنی'
+                : 'غذای اخیر با این جستجو پیدا نشد',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: isDark
+                  ? AppTheme.goldColor.withValues(alpha: 0.7)
+                  : context.textColor.withValues(alpha: 0.7),
+              fontSize: 12.sp,
+            ),
           ),
         ),
       );
     }
 
-    return ListView.builder(
-      padding: EdgeInsets.fromLTRB(10.w, 4.h, 10.w, 12.h),
-      itemCount: _filteredFoods.length,
-      itemBuilder: (context, index) {
-        final food = _filteredFoods[index];
-        return _buildFoodItem(
-          food,
-          food.isFavorite,
-          isDark,
-          key: ValueKey('${food.id}_${food.isFavorite}'),
-        );
-      },
+    return SliverPadding(
+      padding: EdgeInsets.fromLTRB(10.w, 2.h, 10.w, 12.h),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final entry = _filteredRecentEntries[index];
+          final food = _foodForId(entry.foodId);
+          if (food == null) return const SizedBox.shrink();
+          return _buildRecentItem(entry, food, isDark);
+        }, childCount: _filteredRecentEntries.length),
+      ),
+    );
+  }
+
+  Widget _buildRecentItem(
+    MealQuickLogEntry entry,
+    Food food,
+    bool isDark,
+  ) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.h),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCardColor : context.cardColor,
+        borderRadius: BorderRadius.circular(10.r),
+        border: Border.all(
+          color: isDark
+              ? AppTheme.darkGreySeparator
+              : AppTheme.lightDividerColor,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showAmountDialog(
+            food,
+            initialAmount: entry.amount,
+            initialUnit: entry.unit,
+          ),
+          borderRadius: BorderRadius.circular(10.r),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.history,
+                  color: AppTheme.goldColor,
+                  size: 18.sp,
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        food.displayTitle,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: isDark ? AppTheme.goldColor : context.textColor,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        '${_formatAmount(entry.amount)} ${_unitDisplayLabel(food, entry.unit)} · ≈ ${_estimatedCalories(food, entry)} کالری',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: context.textSecondary,
+                          fontSize: 11.sp,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  LucideIcons.plus,
+                  color: AppTheme.goldColor,
+                  size: 18.sp,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -469,7 +619,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        food.title,
+                        food.displayTitle,
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           color: isDark
@@ -483,7 +633,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                       ),
                       SizedBox(height: 2.h),
                       Text(
-                        '${food.nutrition.calories} کالری',
+                        '${food.nutrition.calories} کالری · ${food.nutritionBasisLabel}',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           color: isDark
@@ -514,472 +664,6 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _AmountInputDialog extends StatefulWidget {
-  const _AmountInputDialog({required this.food, required this.mealTitle});
-
-  final Food food;
-  final String mealTitle;
-
-  @override
-  State<_AmountInputDialog> createState() => _AmountInputDialogState();
-}
-
-class _AmountInputDialogState extends State<_AmountInputDialog> {
-  String _selectedUnit = 'گرم';
-  String _amountStr = '';
-  final FocusNode _focusNode = FocusNode();
-
-  double? get _parsed {
-    final v = _amountStr.trim().replaceAll(',', '.');
-    if (v.isEmpty) return null;
-    return double.tryParse(v);
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      FocusManager.instance.primaryFocus?.unfocus();
-      FocusScope.of(context).requestFocus(_focusNode);
-    });
-  }
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  void _onKey(String key) {
-    setState(() {
-      if (key == '⌫') {
-        if (_amountStr.isNotEmpty)
-          _amountStr = _amountStr.substring(0, _amountStr.length - 1);
-        return;
-      }
-      if (key == '.') {
-        if (!_amountStr.contains('.')) _amountStr += '.';
-        return;
-      }
-      if (_amountStr == '0' && key != '.')
-        _amountStr = key;
-      else
-        _amountStr += key;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final dialogHeight = screenHeight * 0.70;
-
-    final nutrition = widget.food.nutrition;
-
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Container(
-        height: dialogHeight,
-        decoration: BoxDecoration(
-          color: isDark ? context.backgroundColor : context.cardColor,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(18.r),
-            topRight: Radius.circular(18.r),
-          ),
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(8.w),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        widget.food.title,
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: isDark
-                              ? AppTheme.goldColor
-                              : context.textColor,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(
-                        LucideIcons.x,
-                        color: isDark ? AppTheme.goldColor : context.textColor,
-                        size: 16.sp,
-                      ),
-                      padding: EdgeInsets.zero,
-                      constraints: BoxConstraints(
-                        minWidth: 28.w,
-                        minHeight: 28.h,
-                      ),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 4.h),
-                Center(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(6.r),
-                    child: Image.asset(
-                      'images/gymaifoodplaceholder.png',
-                      width: 40.w,
-                      height: 40.h,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 40.w,
-                        height: 40.h,
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? AppTheme.darkGreySeparator
-                              : AppTheme.lightDividerColor,
-                          borderRadius: BorderRadius.circular(6.r),
-                        ),
-                        child: Icon(
-                          LucideIcons.imageOff,
-                          color: isDark
-                              ? AppTheme.goldColor.withValues(alpha: 0.5)
-                              : context.textColor.withValues(alpha: 0.5),
-                          size: 18.sp,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 4.h),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 4.h),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppTheme.darkCardColor
-                        : context.cardColor.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(6.r),
-                    border: Border.all(
-                      color: isDark
-                          ? AppTheme.darkGreySeparator
-                          : AppTheme.lightDividerColor,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'اطلاعات تغذیه‌ای (۱۰۰ گرم)',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: isDark
-                              ? AppTheme.goldColor
-                              : context.textColor,
-                          fontSize: 9.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(height: 3.h),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildNutritionItem(
-                              context,
-                              'کالری',
-                              nutrition.calories,
-                              AppTheme.goldColor,
-                              isDark,
-                            ),
-                          ),
-                          SizedBox(width: 4.w),
-                          Expanded(
-                            child: _buildNutritionItem(
-                              context,
-                              'پروتئین',
-                              '${nutrition.protein} گرم',
-                              AppTheme.proteinColor,
-                              isDark,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 3.h),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildNutritionItem(
-                              context,
-                              'کربو',
-                              '${nutrition.carbohydrates} گرم',
-                              AppTheme.carbsColor,
-                              isDark,
-                            ),
-                          ),
-                          SizedBox(width: 4.w),
-                          Expanded(
-                            child: _buildNutritionItem(
-                              context,
-                              'چربی',
-                              '${nutrition.fat} گرم',
-                              AppTheme.fatColor,
-                              isDark,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 6.h),
-                Focus(
-                  focusNode: _focusNode,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _unitChip(context, isDark, 'گرم'),
-                          SizedBox(width: 10.w),
-                          _unitChip(context, isDark, 'عدد'),
-                        ],
-                      ),
-                      SizedBox(height: 6.h),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 10.w,
-                          vertical: 8.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? AppTheme.darkCardColor
-                              : context.cardColor.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(8.r),
-                          border: Border.all(
-                            color: isDark
-                                ? AppTheme.darkGreySeparator
-                                : AppTheme.lightDividerColor,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              _amountStr.isEmpty ? '0' : _amountStr,
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                color: isDark
-                                    ? AppTheme.goldColor
-                                    : context.textColor,
-                                fontSize: 18.sp,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            SizedBox(width: 6.w),
-                            Text(
-                              _selectedUnit,
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                color:
-                                    (isDark
-                                            ? AppTheme.goldColor
-                                            : context.textColor)
-                                        .withValues(alpha: 0.8),
-                                fontSize: 12.sp,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 8.h),
-                      _buildInlineKeypad(context, isDark),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 8.h),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: (_parsed != null && _parsed! > 0)
-                        ? () {
-                            Navigator.of(context).pop({
-                              'food': widget.food,
-                              'amount': _parsed!,
-                              'unit': _selectedUnit,
-                              'mealTitle': widget.mealTitle,
-                            });
-                          }
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.goldColor,
-                      foregroundColor: Colors.black,
-                      padding: EdgeInsets.symmetric(vertical: 8.h),
-                      minimumSize: Size(0, 40.h),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8.r),
-                      ),
-                    ),
-                    child: Text(
-                      'افزودن',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _unitChip(BuildContext context, bool isDark, String unit) {
-    final selected = _selectedUnit == unit;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedUnit = unit),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppTheme.goldColor.withValues(alpha: isDark ? 0.25 : 0.2)
-              : (isDark ? AppTheme.darkCardColor : context.cardColor),
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(
-            color: selected
-                ? AppTheme.goldColor
-                : (isDark
-                      ? AppTheme.darkGreySeparator
-                      : AppTheme.lightDividerColor),
-          ),
-        ),
-        child: Text(
-          unit,
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            color: selected
-                ? AppTheme.goldColor
-                : context.textColor.withValues(alpha: 0.8),
-            fontSize: 12.sp,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-
-  static const List<List<String>> _keypadRows = [
-    ['1', '2', '3'],
-    ['4', '5', '6'],
-    ['7', '8', '9'],
-    ['.', '0', '⌫'],
-  ];
-
-  Widget _buildInlineKeypad(BuildContext context, bool isDark) {
-    final textColor = isDark ? AppTheme.goldColor : context.textColor;
-    final surface = isDark ? AppTheme.darkCardColor : context.cardColor;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ..._keypadRows.map(
-          (row) => Padding(
-            padding: EdgeInsets.only(bottom: 6.h),
-            child: Row(
-              children: row.map((key) {
-                final isBack = key == '⌫';
-                return Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 3.w),
-                    child: Material(
-                      color: surface,
-                      borderRadius: BorderRadius.circular(8.r),
-                      child: InkWell(
-                        onTap: () => _onKey(key),
-                        borderRadius: BorderRadius.circular(8.r),
-                        child: Container(
-                          height: 40.h,
-                          alignment: Alignment.center,
-                          child: isBack
-                              ? Icon(
-                                  Icons.backspace_outlined,
-                                  size: 18.sp,
-                                  color: textColor.withValues(alpha: 0.8),
-                                )
-                              : Text(
-                                  key,
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.fontFamily,
-                                    color: textColor,
-                                    fontSize: 16.sp,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNutritionItem(
-    BuildContext context,
-    String label,
-    String value,
-    Color color,
-    bool isDark,
-  ) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 4.h),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: isDark ? 0.1 : 0.08),
-        borderRadius: BorderRadius.circular(5.r),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              color: isDark
-                  ? color.withValues(alpha: 0.8)
-                  : context.textColor.withValues(alpha: 0.7),
-              fontSize: 8.sp,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          SizedBox(height: 1.h),
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              color: isDark ? color : context.textColor,
-              fontSize: 10.sp,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }

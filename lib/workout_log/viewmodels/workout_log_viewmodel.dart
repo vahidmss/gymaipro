@@ -201,7 +201,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
 
   void toggleExerciseCollapse(String exerciseId) {
     _collapsedExercises[exerciseId] =
-        !(_collapsedExercises[exerciseId] ?? true);
+        !(_collapsedExercises[exerciseId] ?? false);
     _safeNotifyListeners();
   }
 
@@ -225,6 +225,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
         .toList();
 
     if (idsToLoad.isEmpty) {
+      bumpSessionHeatmapPreview();
       _safeNotifyListeners();
       return;
     }
@@ -259,6 +260,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
         .toList();
 
     if (remainingIdsToLoad.isEmpty) {
+      bumpSessionHeatmapPreview();
       _safeNotifyListeners();
       return;
     }
@@ -314,6 +316,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
       }
     }
 
+    bumpSessionHeatmapPreview();
     _safeNotifyListeners();
   }
 
@@ -472,6 +475,10 @@ class WorkoutLogViewModel extends ChangeNotifier {
   }
 
   Future<void> saveSet(String exerciseId, int setIndex) async {
+    final savedStatus = _setSavedStatus[exerciseId];
+    final wasSaved = savedStatus != null &&
+        savedStatus.length > setIndex &&
+        savedStatus[setIndex];
     try {
       final controllers = _exerciseControllers[exerciseId]![setIndex];
       final weightText = controllers['weight']?.text.trim() ?? '';
@@ -480,15 +487,9 @@ class WorkoutLogViewModel extends ChangeNotifier {
       final weight = weightText.isNotEmpty
           ? (double.tryParse(weightText) ?? 0.0)
           : 0.0;
-      final reps =
-          repsText.isNotEmpty ? (int.tryParse(repsText) ?? 0) : 0;
+      final reps = repsText.isNotEmpty ? (int.tryParse(repsText) ?? 0) : 0;
       final timeSeconds =
           timeText.isNotEmpty ? (int.tryParse(timeText) ?? 0) : 0;
-
-      final savedStatus = _setSavedStatus[exerciseId];
-      final wasSaved = savedStatus != null &&
-          savedStatus.length > setIndex &&
-          savedStatus[setIndex];
 
       if (savedStatus != null && savedStatus.length > setIndex) {
         savedStatus[setIndex] = true;
@@ -512,6 +513,11 @@ class WorkoutLogViewModel extends ChangeNotifier {
       );
     } catch (e) {
       debugPrint('Error auto-saving set: $e');
+      // Rollback optimistic update on failure
+      if (savedStatus != null && savedStatus.length > setIndex && !wasSaved) {
+        savedStatus[setIndex] = false;
+        _safeNotifyListeners();
+      }
     }
   }
 
@@ -918,6 +924,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
       } else {
         _isLoadingDayLog = false;
       }
+      bumpSessionHeatmapPreview();
       _safeNotifyListeners();
     }
   }

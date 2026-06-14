@@ -131,7 +131,7 @@ if (!function_exists('gymai_food_batch5_definitions')) {
         {
           "key": "piece",
           "label": "عدد متوسط",
-          "grams": 120,
+          "grams": 180,
           "step": 0.5,
           "decimals": 1,
           "is_primary": true,
@@ -212,7 +212,7 @@ if (!function_exists('gymai_food_batch5_definitions')) {
         {
           "key": "piece",
           "label": "عدد متوسط",
-          "grams": 120,
+          "grams": 130,
           "step": 0.5,
           "decimals": 1,
           "is_primary": true,
@@ -292,8 +292,8 @@ if (!function_exists('gymai_food_batch5_definitions')) {
       "units": [
         {
           "key": "piece",
-          "label": "عدد متوسط",
-          "grams": 120,
+          "label": "خوشه کوچک",
+          "grams": 150,
           "step": 0.5,
           "decimals": 1,
           "is_primary": true,
@@ -373,8 +373,8 @@ if (!function_exists('gymai_food_batch5_definitions')) {
       "units": [
         {
           "key": "piece",
-          "label": "عدد متوسط",
-          "grams": 120,
+          "label": "یک عدد",
+          "grams": 15,
           "step": 0.5,
           "decimals": 1,
           "is_primary": true,
@@ -535,8 +535,8 @@ if (!function_exists('gymai_food_batch5_definitions')) {
       "units": [
         {
           "key": "piece",
-          "label": "عدد متوسط",
-          "grams": 120,
+          "label": "یک عدد",
+          "grams": 75,
           "step": 0.5,
           "decimals": 1,
           "is_primary": true,
@@ -617,7 +617,7 @@ if (!function_exists('gymai_food_batch5_definitions')) {
         {
           "key": "piece",
           "label": "عدد متوسط",
-          "grams": 120,
+          "grams": 150,
           "step": 0.5,
           "decimals": 1,
           "is_primary": true,
@@ -673,7 +673,7 @@ if (!function_exists('gymai_food_batch5_definitions')) {
     "meal_times": "میان‌وعده,صبحانه",
     "nutrition_basis": "per_100g",
     "serving_size_grams": "100",
-    "default_serving_unit": "piece",
+    "default_serving_unit": "cup",
     "protein": "0.7",
     "calories": "32",
     "carbohydrates": "8",
@@ -693,12 +693,12 @@ if (!function_exists('gymai_food_batch5_definitions')) {
     "tip_3": "یک پیمانه.",
     "substitutes_json": [],
     "serving_units": {
-      "default_unit": "piece",
+      "default_unit": "cup",
       "units": [
         {
-          "key": "piece",
-          "label": "عدد متوسط",
-          "grams": 120,
+          "key": "cup",
+          "label": "پیمانه",
+          "grams": 150,
           "step": 0.5,
           "decimals": 1,
           "is_primary": true,
@@ -778,8 +778,8 @@ if (!function_exists('gymai_food_batch5_definitions')) {
       "units": [
         {
           "key": "piece",
-          "label": "عدد متوسط",
-          "grams": 120,
+          "label": "برش متوسط",
+          "grams": 250,
           "step": 0.5,
           "decimals": 1,
           "is_primary": true,

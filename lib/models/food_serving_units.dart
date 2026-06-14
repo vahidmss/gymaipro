@@ -210,6 +210,138 @@ class FoodServingUnits {
     return FoodServingUnits(defaultUnitKey: key, units: units);
   }
 
+  /// Fixes mistaken `piece` weights copied from the banana template (~120g).
+  FoodServingUnits sanitizedForFood({
+    required String nameApp,
+    required List<String> tips,
+  }) {
+    if (units.isEmpty) return this;
+
+    final name = nameApp.trim().toLowerCase();
+    final tipsText = tips.join(' ');
+
+    double? pieceGramsFor(String foodName) {
+      if (foodName.contains('موز') || foodName.contains('banana')) return null;
+      if (foodName.contains('انجیر') && foodName.contains('خشک')) return 10;
+      if (foodName.contains('خرما') || foodName.contains('date')) return 15;
+      if (foodName.contains('کیوی') || foodName.contains('kiwi')) return 75;
+      if (foodName.contains('هندوانه') || foodName.contains('watermelon')) {
+        return 250;
+      }
+      if (foodName.contains('انگور') || foodName.contains('grape')) return 150;
+      if (foodName.contains('سیب') || foodName.contains('apple')) return 180;
+      if (foodName.contains('پرتقال') || foodName.contains('orange')) return 130;
+      if (foodName.contains('هلو') || foodName.contains('peach')) return 150;
+      if (foodName.contains('آووکادو') || foodName.contains('avocado')) {
+        return 100;
+      }
+      if (_hasSmallCountTip(tipsText) &&
+          (foodName.contains('خشک') || foodName.contains('dried'))) {
+        return 10;
+      }
+      if (_hasSmallCountTip(tipsText)) return 15;
+      return null;
+    }
+
+    String? pieceLabelFor(String foodName) {
+      if (foodName.contains('هندوانه') || foodName.contains('watermelon')) {
+        return 'برش متوسط';
+      }
+      if (foodName.contains('انگور') || foodName.contains('grape')) {
+        return 'خوشه کوچک';
+      }
+      if ((foodName.contains('انجیر') && foodName.contains('خشک')) ||
+          foodName.contains('خرما') ||
+          foodName.contains('date')) {
+        return 'یک عدد';
+      }
+      if (foodName.contains('آووکادو') || foodName.contains('avocado')) {
+        return 'نیم عدد';
+      }
+      return null;
+    }
+
+    final targetGrams = pieceGramsFor(name);
+    var nextUnits = units.map((unit) {
+      if (unit.key != 'piece') return unit;
+      if (targetGrams == null && unit.gramsPerUnit < 80) return unit;
+      if (targetGrams == null) return unit;
+
+      final label = pieceLabelFor(name) ?? unit.label;
+      if ((unit.gramsPerUnit - targetGrams).abs() < 1 &&
+          label == unit.label) {
+        return unit;
+      }
+      return FoodServingUnit(
+        key: unit.key,
+        label: label,
+        gramsPerUnit: targetGrams,
+        step: unit.step,
+        decimals: unit.decimals,
+        isPrimary: unit.isPrimary,
+        hint: unit.hint,
+      );
+    }).toList();
+
+    var nextDefault = defaultUnitKey;
+    if (name.contains('توت') && name.contains('فرنگ')) {
+      if (!nextUnits.any((u) => u.key == 'cup')) {
+        nextUnits = [
+          const FoodServingUnit(
+            key: 'cup',
+            label: 'پیمانه',
+            gramsPerUnit: 150,
+            step: 0.5,
+            decimals: 1,
+            isPrimary: true,
+          ),
+          ...nextUnits.where((u) => u.key != 'piece'),
+          const FoodServingUnit(
+            key: 'gram',
+            label: 'گرم',
+            gramsPerUnit: 1,
+            step: 1,
+            decimals: 0,
+            isPrimary: false,
+          ),
+        ];
+      } else {
+        nextUnits = nextUnits
+            .map(
+              (u) => u.key == 'cup'
+                  ? FoodServingUnit(
+                      key: u.key,
+                      label: u.label,
+                      gramsPerUnit: u.gramsPerUnit,
+                      step: u.step,
+                      decimals: u.decimals,
+                      isPrimary: true,
+                      hint: u.hint,
+                    )
+                  : FoodServingUnit(
+                      key: u.key,
+                      label: u.label,
+                      gramsPerUnit: u.gramsPerUnit,
+                      step: u.step,
+                      decimals: u.decimals,
+                      isPrimary: false,
+                      hint: u.hint,
+                    ),
+            )
+            .toList();
+      }
+      nextDefault = 'cup';
+    }
+
+    return FoodServingUnits(defaultUnitKey: nextDefault, units: nextUnits);
+  }
+
+  static bool _hasSmallCountTip(String tips) {
+    return RegExp(
+      r'[۱1][\s\-–—]*[۲2]?\s*عدد|۲[\s\-–—]*۳\s*عدد|دو عدد کوچک',
+    ).hasMatch(tips);
+  }
+
   FoodServingUnit? resolve(String unitOrKey) {
     final q = unitOrKey.trim();
     if (q.isEmpty) return null;

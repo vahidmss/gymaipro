@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/debug/global_key_debugger.dart';
 import 'package:gymaipro/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -101,6 +102,13 @@ class NotificationNavigationService {
     Map<String, dynamic> arguments,
   ) {
     try {
+      if (tryNavigateIntegratedRoute(route, arguments: arguments)) {
+        _pendingNavigation = null;
+        _clearPendingNavigation();
+        debugPrint('=== NAVIGATION: Integrated shell navigation executed ===');
+        return;
+      }
+
       final navigatorState = MyApp.navigatorKey.currentState;
       if (navigatorState == null || !navigatorState.mounted) return;
       navigatorState.pushNamed(route, arguments: arguments);

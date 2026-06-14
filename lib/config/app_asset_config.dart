@@ -1,12 +1,10 @@
 import 'package:gymaipro/config/app_config.dart';
 
-/// Bundled vs CDN-backed app imagery for smaller APK size.
-///
-/// Heavy decorative assets live on [cdnBaseUrl]. Small UI icons stay in APK.
+/// App imagery paths — decorative assets ship in the bundled [images/] folder.
 class AppAssetConfig {
   AppAssetConfig._();
 
-  /// Base URL without trailing slash, e.g. `https://gymaipro.ir/static/app-images`.
+  /// Optional CDN base (unused while all assets are bundled locally).
   static String get cdnBaseUrl {
     const fromEnv = String.fromEnvironment('APP_ASSETS_CDN_BASE');
     if (fromEnv.isNotEmpty) {
@@ -19,23 +17,8 @@ class AppAssetConfig {
     return '${AppConfig.wordpressApiOrigin}/static/app-images';
   }
 
-  /// Filenames served from CDN (not bundled in APK).
-  static const remoteFileNames = <String>{
-    'bronze.png',
-    'silver.png',
-    'gold.png',
-    'platinum.png',
-    'diamond.png',
-    'poster1.png',
-    'poster2.png',
-    'poster3.png',
-    'poster4.png',
-    'poster5.png',
-    'gymai_body_front_premium.png',
-    'gymai_body_back_premium.png',
-    'gymai_anatomy_body_front_back.png',
-    'ai_robot.png',
-  };
+  /// Filenames loaded from CDN instead of APK. Empty = همه از [images/] لوکال.
+  static const remoteFileNames = <String>{};
 
   /// Normalizes `images/foo.png` → `foo.png`.
   static String fileNameFromPath(String path) {

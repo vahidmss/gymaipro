@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class MyProgramsButton extends StatelessWidget {
@@ -8,7 +8,6 @@ class MyProgramsButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       child: Material(
@@ -25,12 +24,10 @@ class MyProgramsButton extends StatelessWidget {
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
             decoration: BoxDecoration(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.12 : 0.1),
+              color: WorkoutLogColors.chipFill(context, selected: true),
               borderRadius: BorderRadius.circular(10.r),
               border: Border.all(
-                color: AppTheme.goldColor.withValues(
-                  alpha: isDark ? 0.3 : 0.35,
-                ),
+                color: WorkoutLogColors.chipBorder(context, selected: true),
                 width: 1.w,
               ),
             ),
@@ -39,18 +36,13 @@ class MyProgramsButton extends StatelessWidget {
               children: [
                 Icon(
                   LucideIcons.listChecks,
-                  color: AppTheme.goldColor,
-                  size: 16.sp,
+                  color: WorkoutLogColors.iconOnSurface(context),
+                  size: 17.sp,
                 ),
                 SizedBox(width: 8.w),
                 Text(
                   'برنامه‌های من',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? AppTheme.goldColor : AppTheme.darkGold,
-                  ),
+                  style: WorkoutLogTypography.chip(context, selected: true),
                 ),
               ],
             ),

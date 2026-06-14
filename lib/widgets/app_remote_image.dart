@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:gymaipro/config/app_asset_config.dart';
 import 'package:shimmer/shimmer.dart';
 
-/// Loads bundled icons locally or heavy images from [AppAssetConfig.cdnBaseUrl].
+/// Loads app images from bundled [images/] assets (or CDN when listed in [AppAssetConfig.remoteFileNames]).
 class AppRemoteImage extends StatelessWidget {
   const AppRemoteImage({
     required this.path,

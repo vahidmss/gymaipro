@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -5,6 +6,7 @@ import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
 
 class ExerciseCard extends StatelessWidget {
   const ExerciseCard({
@@ -47,7 +49,9 @@ class ExerciseCard extends StatelessWidget {
     final savedStatus = setSavedStatus[exerciseId] ?? [];
     final focusNodes = exerciseFocusNodes[exerciseId] ?? [];
     final exerciseDetails = this.exerciseDetails[exercise.exerciseId];
-    final isCollapsed = collapsedExercises[exerciseId] ?? true;
+    final isCollapsed = collapsedExercises[exerciseId] ?? false;
+    final completedSets = savedStatus.where((s) => s).length;
+    final totalSets = exercise.sets.length;
 
     return Builder(
       builder: (context) {
@@ -122,20 +126,24 @@ class ExerciseCard extends StatelessWidget {
                         child: exerciseDetails?.imageUrl != null
                             ? ClipRRect(
                                 borderRadius: BorderRadius.circular(8.r),
-                                child: Image.network(
-                                  exerciseDetails!.imageUrl,
+                                child: CachedNetworkImage(
+                                  imageUrl: exerciseDetails!.imageUrl,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Icon(
-                                        LucideIcons.dumbbell,
-                                        color: AppTheme.goldColor,
-                                        size: 16.sp,
-                                      ),
+                                  placeholder: (context, url) => Icon(
+                                    LucideIcons.dumbbell,
+                                    color: WorkoutLogColors.secondaryText(context),
+                                    size: 16.sp,
+                                  ),
+                                  errorWidget: (context, url, error) => Icon(
+                                    LucideIcons.dumbbell,
+                                    color: WorkoutLogColors.iconOnSurface(context),
+                                    size: 16.sp,
+                                  ),
                                 ),
                               )
                             : Icon(
                                 LucideIcons.dumbbell,
-                                color: AppTheme.goldColor,
+                                color: WorkoutLogColors.iconOnSurface(context),
                                 size: 16.sp,
                               ),
                       ),
@@ -150,76 +158,20 @@ class ExerciseCard extends StatelessWidget {
                                 exercise.exerciseId,
                                 fallbackTag: exercise.tag,
                               ),
-                              style: TextStyle(
-                                color: isDark
-                                    ? AppTheme.darkTextColor
-                                    : AppTheme.lightTextColor,
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w700,
-                                fontFamily: AppTheme.fontFamily,
-                                letterSpacing: 0.2,
-                                height: 1.3,
-                              ),
+                              style: WorkoutLogTypography.exerciseTitle(context),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            // Display exercise note if available
+                            SizedBox(height: 4.h),
+                            _buildSetCompletionIndicator(
+                              context,
+                              completedSets,
+                              totalSets,
+                            ),
                             if (exercise.note != null &&
                                 exercise.note!.isNotEmpty) ...[
                               SizedBox(height: 6.h),
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 8.w,
-                                  vertical: 4.h,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? Colors.amber[700]!.withValues(
-                                          alpha: 0.12,
-                                        )
-                                      : Colors.amber[800]!.withValues(
-                                          alpha: 0.15,
-                                        ),
-                                  borderRadius: BorderRadius.circular(6.r),
-                                  border: Border.all(
-                                    color: isDark
-                                        ? Colors.amber[700]!.withValues(
-                                            alpha: 0.3,
-                                          )
-                                        : Colors.amber[800]!.withValues(
-                                            alpha: 0.5,
-                                          ),
-                                    width: 0.5.w,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      LucideIcons.messageCircle,
-                                      color: isDark
-                                          ? Colors.amber[700]
-                                          : Colors.amber[900],
-                                      size: 11.sp,
-                                    ),
-                                    SizedBox(width: 5.w),
-                                    Expanded(
-                                      child: Text(
-                                        exercise.note!,
-                                        style: TextStyle(
-                                          color: isDark
-                                              ? Colors.amber[700]
-                                              : Colors.black,
-                                          fontSize: 9.sp,
-                                          fontWeight: FontWeight.w600,
-                                          fontFamily: AppTheme.fontFamily,
-                                          fontStyle: FontStyle.italic,
-                                          height: 1.3,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                              _buildExerciseNote(context, exercise.note!),
                             ],
                           ],
                         ),
@@ -281,7 +233,7 @@ class ExerciseCard extends StatelessWidget {
                               isCollapsed
                                   ? LucideIcons.chevronDown
                                   : LucideIcons.chevronUp,
-                              color: AppTheme.goldColor,
+                              color: WorkoutLogColors.iconOnSurface(context),
                               size: 16.sp,
                             ),
                           ),
@@ -296,9 +248,7 @@ class ExerciseCard extends StatelessWidget {
                 firstChild: const SizedBox.shrink(),
                 secondChild: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.black.withValues(alpha: 0.25)
-                        : AppTheme.lightSurfaceColor.withValues(alpha: 0.3),
+                    color: WorkoutLogColors.setsPanelBackground(context),
                     borderRadius: BorderRadius.vertical(
                       bottom: Radius.circular(12.r),
                     ),
@@ -345,9 +295,17 @@ class ExerciseCard extends StatelessWidget {
 
   Widget _buildSupersetExerciseCard(SupersetExercise exercise) {
     final exerciseId = exercise.id;
-    final isCollapsed = collapsedExercises[exerciseId] ?? true;
+    final isCollapsed = collapsedExercises[exerciseId] ?? false;
     final totalSets = exercise.exercises.first.sets.length;
-    final supersetTag = exercise.tag; // tag برای کل superset
+    final supersetTag = exercise.tag;
+    int supersetCompletedSets = 0;
+    int supersetTotalSets = 0;
+    for (final item in exercise.exercises) {
+      final itemId = '${exercise.id}_${item.exerciseId}';
+      final itemStatus = setSavedStatus[itemId] ?? [];
+      supersetCompletedSets += itemStatus.where((s) => s).length;
+      supersetTotalSets += item.sets.length;
+    }
 
     return Builder(
       builder: (context) {
@@ -400,7 +358,7 @@ class ExerciseCard extends StatelessWidget {
                         ),
                         child: Icon(
                           LucideIcons.zap,
-                          color: AppTheme.goldColor,
+                          color: WorkoutLogColors.iconOnSurface(context),
                           size: 16.sp,
                         ),
                       ),
@@ -431,12 +389,12 @@ class ExerciseCard extends StatelessWidget {
                                   ),
                                   child: Text(
                                     'سوپرست',
-                                    style: TextStyle(
-                                      color: AppTheme.goldColor,
-                                      fontSize: 10.sp,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: AppTheme.fontFamily,
-                                      letterSpacing: 0.1,
+                                    style: WorkoutLogTypography.caption(
+                                      context,
+                                      color: WorkoutLogColors.labelAccent(
+                                        context,
+                                      ),
+                                      fontWeight: FontWeight.w800,
                                     ),
                                   ),
                                 ),
@@ -471,75 +429,21 @@ class ExerciseCard extends StatelessWidget {
                                   ),
                                   child: Text(
                                     '${exercise.exercises.length} تمرین • $totalSets ست',
-                                    style: TextStyle(
-                                      color: isDark
-                                          ? Colors.grey[300]
-                                          : AppTheme.lightTextSecondary,
-                                      fontSize: 9.sp,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: AppTheme.fontFamily,
-                                    ),
+                                    style: WorkoutLogTypography.caption(context),
                                   ),
                                 ),
                               ],
                             ),
-                            // Display superset exercise note if available
+                            SizedBox(height: 4.h),
+                            _buildSetCompletionIndicator(
+                              context,
+                              supersetCompletedSets,
+                              supersetTotalSets,
+                            ),
                             if (exercise.note != null &&
                                 exercise.note!.isNotEmpty) ...[
                               SizedBox(height: 6.h),
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 8.w,
-                                  vertical: 4.h,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? Colors.amber[700]!.withValues(
-                                          alpha: 0.12,
-                                        )
-                                      : Colors.amber[800]!.withValues(
-                                          alpha: 0.15,
-                                        ),
-                                  borderRadius: BorderRadius.circular(6.r),
-                                  border: Border.all(
-                                    color: isDark
-                                        ? Colors.amber[700]!.withValues(
-                                            alpha: 0.3,
-                                          )
-                                        : Colors.amber[800]!.withValues(
-                                            alpha: 0.5,
-                                          ),
-                                    width: 0.5.w,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      LucideIcons.messageCircle,
-                                      color: isDark
-                                          ? Colors.amber[700]
-                                          : Colors.amber[900],
-                                      size: 11.sp,
-                                    ),
-                                    SizedBox(width: 5.w),
-                                    Expanded(
-                                      child: Text(
-                                        exercise.note!,
-                                        style: TextStyle(
-                                          color: isDark
-                                              ? Colors.amber[700]
-                                              : Colors.black,
-                                          fontSize: 9.sp,
-                                          fontWeight: FontWeight.w600,
-                                          fontFamily: AppTheme.fontFamily,
-                                          fontStyle: FontStyle.italic,
-                                          height: 1.3,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                              _buildExerciseNote(context, exercise.note!),
                             ],
                           ],
                         ),
@@ -571,7 +475,7 @@ class ExerciseCard extends StatelessWidget {
                               isCollapsed
                                   ? LucideIcons.chevronDown
                                   : LucideIcons.chevronUp,
-                              color: AppTheme.goldColor,
+                              color: WorkoutLogColors.iconOnSurface(context),
                               size: 16.sp,
                             ),
                           ),
@@ -586,9 +490,7 @@ class ExerciseCard extends StatelessWidget {
                 firstChild: const SizedBox.shrink(),
                 secondChild: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.black.withValues(alpha: 0.25)
-                        : AppTheme.lightSurfaceColor.withValues(alpha: 0.3),
+                    color: WorkoutLogColors.setsPanelBackground(context),
                     borderRadius: BorderRadius.vertical(
                       bottom: Radius.circular(12.r),
                     ),
@@ -632,14 +534,12 @@ class ExerciseCard extends StatelessWidget {
                                   width: 28.w,
                                   height: 28.h,
                                   decoration: BoxDecoration(
-                                    color: Colors.amber[700]!.withValues(
-                                      alpha: isDark ? 0.18 : 0.12,
-                                    ),
+                                    color: WorkoutLogColors.accent(context)
+                                        .withValues(alpha: isDark ? 0.18 : 0.12),
                                     borderRadius: BorderRadius.circular(6.r),
                                     border: Border.all(
-                                      color: Colors.amber[700]!.withValues(
-                                        alpha: 0.25,
-                                      ),
+                                      color: WorkoutLogColors.accent(context)
+                                          .withValues(alpha: 0.3),
                                       width: 0.5.w,
                                     ),
                                   ),
@@ -648,21 +548,31 @@ class ExerciseCard extends StatelessWidget {
                                           borderRadius: BorderRadius.circular(
                                             6.r,
                                           ),
-                                          child: Image.network(
-                                            itemExerciseDetails!.imageUrl,
+                                          child: CachedNetworkImage(
+                                            imageUrl:
+                                                itemExerciseDetails!.imageUrl,
                                             fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (context, error, stackTrace) =>
-                                                    Icon(
-                                                      LucideIcons.dumbbell,
-                                                      color: Colors.amber[700],
-                                                      size: 12.sp,
-                                                    ),
+                                            placeholder: (context, url) => Icon(
+                                              LucideIcons.dumbbell,
+                                              color: WorkoutLogColors
+                                                  .supersetAccent(context)
+                                                  .withValues(alpha: 0.55),
+                                              size: 12.sp,
+                                            ),
+                                            errorWidget:
+                                                (context, url, error) => Icon(
+                                                  LucideIcons.dumbbell,
+                                                  color: WorkoutLogColors
+                                                      .supersetAccent(context),
+                                                  size: 12.sp,
+                                                ),
                                           ),
                                         )
                                       : Icon(
                                           LucideIcons.dumbbell,
-                                          color: Colors.amber[700],
+                                          color: WorkoutLogColors.supersetAccent(
+                                            context,
+                                          ),
                                           size: 12.sp,
                                         ),
                                 ),
@@ -673,14 +583,9 @@ class ExerciseCard extends StatelessWidget {
                                       item.exerciseId,
                                       fallbackTag: supersetTag,
                                     ),
-                                    style: TextStyle(
-                                      color: isDark
-                                          ? AppTheme.darkTextColor
-                                          : AppTheme.lightTextColor,
-                                      fontSize: 12.sp,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: AppTheme.fontFamily,
-                                    ),
+                                    style: WorkoutLogTypography.exerciseTitle(
+                                      context,
+                                    ).copyWith(fontSize: 13.sp),
                                   ),
                                 ),
                               ],
@@ -761,7 +666,6 @@ class ExerciseCard extends StatelessWidget {
 
     return Builder(
       builder: (context) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
@@ -769,37 +673,35 @@ class ExerciseCard extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
           decoration: BoxDecoration(
             color: isSaved
-                ? AppTheme.successColor.withValues(alpha: isDark ? 0.15 : 0.12)
+                ? WorkoutLogColors.successBackground(context)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8.r),
             border: Border.all(
               color: isSaved
-                  ? AppTheme.successColor.withValues(alpha: 0.3)
-                  : (isDark
-                        ? Colors.grey.withValues(alpha: 0.12)
-                        : AppTheme.lightDividerColor.withValues(alpha: 0.4)),
-              width: isSaved ? 1.w : 0.5.w,
+                  ? WorkoutLogColors.successBorder(context)
+                  : WorkoutLogColors.inputBorder(context),
+              width: isSaved ? 1.2.w : 0.8.w,
             ),
           ),
           child: Row(
             children: [
-              // Set number badge - مینیمال
               AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
                 width: 32.w,
                 height: 32.h,
                 decoration: BoxDecoration(
-                  color: isSaved
-                      ? AppTheme.successColor
-                      : AppTheme.goldColor.withValues(
-                          alpha: isDark ? 0.2 : 0.15,
-                        ),
+                  color: WorkoutLogColors.setBadgeFill(
+                    context,
+                    isSaved: isSaved,
+                  ),
                   borderRadius: BorderRadius.circular(8.r),
                   border: Border.all(
                     color: isSaved
-                        ? AppTheme.successColor.withValues(alpha: 0.6)
-                        : AppTheme.goldColor.withValues(alpha: 0.3),
+                        ? WorkoutLogColors.successBorder(context)
+                        : WorkoutLogColors.accent(context).withValues(
+                            alpha: 0.35,
+                          ),
                     width: 1.w,
                   ),
                 ),
@@ -817,11 +719,12 @@ class ExerciseCard extends StatelessWidget {
                             '${setIndex + 1}',
                             key: ValueKey('number-$setIndex'),
                             style: TextStyle(
-                              color: isDark
-                                  ? AppTheme.goldColor
-                                  : AppTheme.darkGold,
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w700,
+                              color: WorkoutLogColors.setBadgeText(
+                                context,
+                                isSaved: isSaved,
+                              ),
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w800,
                               fontFamily: AppTheme.fontFamily,
                             ),
                           ),
@@ -829,23 +732,15 @@ class ExerciseCard extends StatelessWidget {
                 ),
               ),
               SizedBox(width: 10.w),
-              // Reps/Time input (FIRST)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       style == ExerciseStyle.setsReps ? 'تکرار' : 'زمان',
-                      style: TextStyle(
-                        color: isDark
-                            ? Colors.grey[400]
-                            : AppTheme.lightTextSecondary,
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: AppTheme.fontFamily,
-                      ),
+                      style: WorkoutLogTypography.fieldLabel(context),
                     ),
-                    SizedBox(height: 3.h),
+                    SizedBox(height: 4.h),
                     TextField(
                       controller: style == ExerciseStyle.setsReps
                           ? setControllers['reps']
@@ -855,7 +750,7 @@ class ExerciseCard extends StatelessWidget {
                                 ? focusNodes['reps']
                                 : focusNodes['time'])
                           : null,
-                      keyboardType: const TextInputType.numberWithOptions(),
+                      keyboardType: TextInputType.number,
                       textInputAction: style == ExerciseStyle.setsReps
                           ? TextInputAction.next
                           : (isLastSet
@@ -863,97 +758,27 @@ class ExerciseCard extends StatelessWidget {
                                 : TextInputAction.next),
                       enableSuggestions: false,
                       autocorrect: false,
-                      onChanged: (value) {
-                        // Auto-save will be triggered by listener in parent
-                      },
                       onSubmitted: (value) {
-                        // Move to next field or close keyboard
                         if (style == ExerciseStyle.setsReps) {
-                          // Move to weight field
                           focusNodes?['weight']?.requestFocus();
                         } else {
-                          // For time-based exercises, move to next set or close keyboard
                           if (isLastSet) {
                             focusNodes?['time']?.unfocus();
                           } else {
-                            // Find next set's time focus node
                             _moveToNextSet(exerciseId, setIndex, 'time');
                           }
                         }
                         onSaveSet(exerciseId, setIndex);
                       },
-                      onEditingComplete: () {
-                        // Save when user finishes editing
-                        onSaveSet(exerciseId, setIndex);
-                      },
                       inputFormatters: <TextInputFormatter>[
                         FilteringTextInputFormatter.digitsOnly,
                       ],
-                      style: TextStyle(
-                        color: isDark
-                            ? AppTheme.darkTextColor
-                            : AppTheme.lightTextColor,
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: AppTheme.fontFamily,
-                      ),
-                      decoration: InputDecoration(
+                      style: WorkoutLogTypography.inputValue(context),
+                      decoration: _inputDecoration(
+                        context: context,
                         hintText: numericHint.isNotEmpty ? numericHint : '0',
-                        hintStyle: TextStyle(
-                          color: (isSaved && numericHint.isNotEmpty)
-                              ? (isDark
-                                    ? AppTheme.darkTextColor
-                                    : AppTheme.lightTextColor)
-                              : (isDark
-                                    ? Colors.grey[500]
-                                    : AppTheme.lightTextSecondary.withValues(
-                                        alpha: 0.6,
-                                      )),
-                          fontSize: 12.sp,
-                          fontFamily: AppTheme.fontFamily,
-                          fontWeight: (isSaved && numericHint.isNotEmpty)
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                        ),
-                        suffixText: style == ExerciseStyle.setsTime
-                            ? 'ثانیه'
-                            : null,
-                        suffixStyle: TextStyle(
-                          color: isDark
-                              ? Colors.grey[400]
-                              : AppTheme.lightTextSecondary,
-                          fontSize: 10.sp,
-                          fontFamily: AppTheme.fontFamily,
-                        ),
-                        filled: true,
-                        fillColor: isDark
-                            ? Colors.black.withValues(alpha: 0.3)
-                            : AppTheme.lightCardColor,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.r),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.r),
-                          borderSide: BorderSide(
-                            color: isDark
-                                ? Colors.grey.withValues(alpha: 0.15)
-                                : AppTheme.lightDividerColor,
-                            width: 0.8.w,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8.r),
-                          borderSide: BorderSide(
-                            color: AppTheme.goldColor,
-                            width: 1.5.w,
-                          ),
-                        ),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 10.w,
-                          vertical: 8.h,
-                        ),
-                        isDense: true,
+                        suffixText:
+                            style == ExerciseStyle.setsTime ? 'ثانیه' : null,
                       ),
                     ),
                   ],
@@ -961,23 +786,15 @@ class ExerciseCard extends StatelessWidget {
               ),
               if (style == ExerciseStyle.setsReps) ...[
                 SizedBox(width: 8.w),
-                // Weight input (SECOND)
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'وزن',
-                        style: TextStyle(
-                          color: isDark
-                              ? Colors.grey[400]
-                              : AppTheme.lightTextSecondary,
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: AppTheme.fontFamily,
-                        ),
+                        style: WorkoutLogTypography.fieldLabel(context),
                       ),
-                      SizedBox(height: 3.h),
+                      SizedBox(height: 4.h),
                       TextField(
                         controller: setControllers['weight'],
                         focusNode: focusNodes?['weight'],
@@ -989,91 +806,24 @@ class ExerciseCard extends StatelessWidget {
                             : TextInputAction.next,
                         enableSuggestions: false,
                         autocorrect: false,
-                        onChanged: (value) {
-                          // Auto-save will be triggered by listener in parent
-                        },
                         onSubmitted: (value) {
-                          // Move to next set's reps field or close keyboard
                           if (isLastSet) {
                             focusNodes?['weight']?.unfocus();
                           } else {
-                            // Find next set's reps focus node
                             _moveToNextSet(exerciseId, setIndex, 'reps');
                           }
                           onSaveSet(exerciseId, setIndex);
                         },
-                        onEditingComplete: () {
-                          // Save when user finishes editing
-                          onSaveSet(exerciseId, setIndex);
-                        },
                         inputFormatters: <TextInputFormatter>[
                           FilteringTextInputFormatter.allow(
-                            RegExp(r'[0-9\\.]'),
+                            RegExp('[0-9.]'),
                           ),
                         ],
-                        style: TextStyle(
-                          color: isDark
-                              ? AppTheme.darkTextColor
-                              : AppTheme.lightTextColor,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: AppTheme.fontFamily,
-                        ),
-                        decoration: InputDecoration(
+                        style: WorkoutLogTypography.inputValue(context),
+                        decoration: _inputDecoration(
+                          context: context,
                           hintText: weightHint,
-                          hintStyle: TextStyle(
-                            color: (isSaved && weightHint != '0')
-                                ? (isDark
-                                      ? AppTheme.darkTextColor
-                                      : AppTheme.lightTextColor)
-                                : (isDark
-                                      ? Colors.grey[500]
-                                      : AppTheme.lightTextSecondary.withValues(
-                                          alpha: 0.6,
-                                        )),
-                            fontSize: 12.sp,
-                            fontFamily: AppTheme.fontFamily,
-                            fontWeight: (isSaved && weightHint != '0')
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                          ),
                           suffixText: 'کیلو',
-                          suffixStyle: TextStyle(
-                            color: isDark
-                                ? Colors.grey[400]
-                                : AppTheme.lightTextSecondary,
-                            fontSize: 10.sp,
-                            fontFamily: AppTheme.fontFamily,
-                          ),
-                          filled: true,
-                          fillColor: isDark
-                              ? Colors.black.withValues(alpha: 0.3)
-                              : AppTheme.lightCardColor,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8.r),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8.r),
-                            borderSide: BorderSide(
-                              color: isDark
-                                  ? Colors.grey.withValues(alpha: 0.15)
-                                  : AppTheme.lightDividerColor,
-                              width: 0.8.w,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8.r),
-                            borderSide: BorderSide(
-                              color: AppTheme.goldColor,
-                              width: 1.5.w,
-                            ),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 10.w,
-                            vertical: 8.h,
-                          ),
-                          isDense: true,
                         ),
                       ),
                     ],
@@ -1084,6 +834,119 @@ class ExerciseCard extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required BuildContext context,
+    required String hintText,
+    String? suffixText,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: WorkoutLogTypography.inputHint(context),
+      suffixText: suffixText,
+      suffixStyle: WorkoutLogTypography.inputSuffix(context),
+      filled: true,
+      fillColor: WorkoutLogColors.inputFill(context),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8.r),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8.r),
+        borderSide: BorderSide(
+          color: WorkoutLogColors.inputBorder(context),
+          width: 1.w,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8.r),
+        borderSide: BorderSide(
+          color: WorkoutLogColors.inputBorderFocused(context),
+          width: 1.6.w,
+        ),
+      ),
+      contentPadding: EdgeInsets.symmetric(
+        horizontal: 10.w,
+        vertical: 9.h,
+      ),
+      isDense: true,
+    );
+  }
+
+  Widget _buildExerciseNote(BuildContext context, String note) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 5.h),
+      decoration: BoxDecoration(
+        color: WorkoutLogColors.noteBackground(context),
+        borderRadius: BorderRadius.circular(6.r),
+        border: Border.all(
+          color: WorkoutLogColors.noteBorder(context),
+          width: 0.8.w,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            LucideIcons.messageCircle,
+            color: WorkoutLogColors.noteText(context),
+            size: 12.sp,
+          ),
+          SizedBox(width: 5.w),
+          Expanded(
+            child: Text(
+              note,
+              style: WorkoutLogTypography.note(context),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSetCompletionIndicator(
+    BuildContext context,
+    int completed,
+    int total,
+  ) {
+    if (total == 0) return const SizedBox.shrink();
+    final isAllDone = completed == total;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ...List.generate(total, (i) {
+          final done = i < completed;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            width: 8.w,
+            height: 8.w,
+            margin: EdgeInsets.only(left: 3.w),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: done
+                  ? WorkoutLogColors.successSolid(context)
+                  : WorkoutLogColors.pendingDot(context),
+            ),
+          );
+        }),
+        SizedBox(width: 6.w),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: Text(
+            isAllDone ? '✓ کامل' : '$completed/$total ست',
+            key: ValueKey('$completed-$total'),
+            style: WorkoutLogTypography.caption(
+              context,
+              color: isAllDone
+                  ? WorkoutLogColors.successText(context)
+                  : WorkoutLogColors.secondaryText(context),
+              fontWeight: isAllDone ? FontWeight.w800 : FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

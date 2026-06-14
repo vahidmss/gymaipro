@@ -9,7 +9,7 @@ import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/widgets/app_remote_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// ???? ?????? — ????? ???? ???? ?????? + ?????? ????? ??? ???.
+/// نقشه عضلانی — نمایش هیت‌مپ حرکت + انتخاب ناحیه روی بدن.
 class ExerciseMuscleHeatmapWidget extends StatefulWidget {
   const ExerciseMuscleHeatmapWidget({
     required this.muscleTargets,
@@ -20,14 +20,8 @@ class ExerciseMuscleHeatmapWidget extends StatefulWidget {
   });
 
   final Map<String, int> muscleTargets;
-
-  /// ???? ????? ???? ????? ???? ???? — ???? ??? ? ??? ????.
   final bool compact;
-
-  /// ???? embedded — ???? ???? ? ??????? ????.
   final bool embedded;
-
-  /// ?????? ???? ?? ???? compact (???????).
   final double? mapHeight;
 
   @override
@@ -123,7 +117,7 @@ class _ExerciseMuscleHeatmapWidgetState
         if (!widget.compact) ...[
           SizedBox(height: 10.h),
           Text(
-            '??? ?? ????? ???? ??? ?? ?????? ?????',
+            '\u0631\u0648\u06cc \u0647\u0631 \u0646\u0627\u062d\u06cc\u0647 \u0636\u0631\u0628\u0647 \u0628\u0632\u0646 \u062a\u0627 \u062c\u0632\u0626\u06cc\u0627\u062a \u0628\u0628\u06cc\u0646\u06cc',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
@@ -207,7 +201,7 @@ class _ExerciseMuscleHeatmapWidgetState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '???? ?????? ?????',
+                '\u0646\u0642\u0634\u0647 \u0639\u0636\u0644\u0627\u0646\u06cc \u062a\u0645\u0631\u06cc\u0646',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 15.sp,
@@ -216,7 +210,7 @@ class _ExerciseMuscleHeatmapWidgetState
                 ),
               ),
               Text(
-                '??????? ??????: ${MuscleTargets.label(top.key)}',
+                '\u0628\u06cc\u0634\u062a\u0631\u06cc\u0646 \u0641\u0639\u0627\u0644\u06cc\u062a: ${MuscleTargets.label(top.key)}',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 12.sp,
@@ -249,8 +243,8 @@ class _ExerciseMuscleHeatmapWidgetState
       ),
       child: Row(
         children: [
-          _viewTab('??? ???', BodyView.front, isDark),
-          _viewTab('??? ???', BodyView.back, isDark),
+          _viewTab('\u062c\u0644\u0648 \u0628\u062f\u0646', BodyView.front, isDark),
+          _viewTab('\u067e\u0634\u062a \u0628\u062f\u0646', BodyView.back, isDark),
         ],
       ),
     );
@@ -308,14 +302,12 @@ class _InteractiveBodyMap extends StatelessWidget {
   final ValueChanged<BodyView> onSuggestView;
 
   static const _minMapIntensity = 10;
-
   static const _frontAsset = 'images/gymai_body_front_premium.png';
   static const _backAsset = 'images/gymai_body_back_premium.png';
 
   BodyView? _suggestedView() {
     final current = _viewMuscleKeys(view);
     if (current.isNotEmpty) return null;
-
     final other = view == BodyView.front ? BodyView.back : BodyView.front;
     return _viewMuscleKeys(other).isNotEmpty ? other : null;
   }
@@ -464,8 +456,8 @@ class _InteractiveBodyMap extends StatelessWidget {
                                   SizedBox(height: 8.h),
                                   Text(
                                     suggestedView == BodyView.back
-                                        ? '????? ???? ?? ??? ??? ???? ????'
-                                        : '????? ???? ?? ??? ??? ???? ????',
+                                        ? '\u0639\u0636\u0644\u0627\u062a \u0627\u0635\u0644\u06cc \u062f\u0631 \u067e\u0634\u062a \u0628\u062f\u0646 \u0642\u0631\u0627\u0631 \u062f\u0627\u0631\u0646'
+                                        : '\u0639\u0636\u0644\u0627\u062a \u0627\u0635\u0644\u06cc \u062f\u0631 \u062c\u0644\u0648 \u0628\u062f\u0646 \u0642\u0631\u0627\u0631 \u062f\u0627\u0631\u0646',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontFamily: AppTheme.fontFamily,
@@ -476,7 +468,7 @@ class _InteractiveBodyMap extends StatelessWidget {
                                   ),
                                   SizedBox(height: 4.h),
                                   Text(
-                                    '??? ?? ?? ???? ????? ????? ???? ???',
+                                    '\u0644\u0645\u0633 \u06a9\u0646 \u062a\u0627 \u0646\u0645\u0627\u06cc \u0645\u0646\u0627\u0633\u0628 \u0646\u0645\u0627\u06cc\u0634 \u062f\u0627\u062f\u0647 \u0634\u0648\u062f',
                                     style: TextStyle(
                                       fontFamily: AppTheme.fontFamily,
                                       fontSize: 11.sp,
@@ -514,7 +506,6 @@ class _InteractiveBodyMap extends StatelessWidget {
   }
 }
 
-/// ????? ????? ???? — ????? ???? ?? ??? ?????
 class _MuscleHeatOverlay extends StatelessWidget {
   const _MuscleHeatOverlay({
     required this.intensity,
@@ -680,7 +671,7 @@ class _SelectedMuscleCard extends StatelessWidget {
           ),
           SizedBox(height: 6.h),
           Text(
-            '??? ?????: $label',
+            '\u0634\u062f\u062a \u062a\u0645\u0631\u06cc\u0646: $label',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 12.sp,
@@ -705,7 +696,6 @@ class _SelectedMuscleCard extends StatelessWidget {
   }
 }
 
-/// ???? PNG ??? (?????? viewport ????)
 enum _BodyImageFrame {
   front(
     imageAspect: 1536 / 1024,
@@ -727,13 +717,10 @@ enum _BodyImageFrame {
   _BodyLayout layout(Size canvas) {
     final cx = viewport.left + viewport.width / 2;
     final cy = viewport.top + viewport.height / 2;
-
     final imgH = canvas.height / viewport.height;
     final imgW = imgH * imageAspect;
-
     final offsetX = canvas.width / 2 - cx * imgW;
     final offsetY = canvas.height / 2 - cy * imgH;
-
     return _BodyLayout(
       imageRect: Rect.fromLTWH(offsetX, offsetY, imgW, imgH),
     );
@@ -745,7 +732,6 @@ class _BodyLayout {
   final Rect imageRect;
 }
 
-/// ????? ????????? ???? ??? PNG ??? (?????? ????)
 class _MuscleHotspot {
   const _MuscleHotspot(
     this.key,
@@ -760,8 +746,6 @@ class _MuscleHotspot {
   final double cx;
   final double cy;
   final double radius;
-
-  /// ???? ??? ???? / ?????
   final double scaleX;
   final double scaleY;
 }

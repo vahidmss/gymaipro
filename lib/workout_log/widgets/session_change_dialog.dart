@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_log/utils/meal_log_utils.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class SessionChangeDialog extends StatelessWidget {
@@ -21,18 +22,19 @@ class SessionChangeDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateString = MealLogUtils.getPersianFormattedDate(dateTime);
+    final warningColor = WorkoutLogColors.warningText(context);
+
     return AlertDialog(
+      backgroundColor: WorkoutLogColors.sectionBackground(context),
       title: Row(
         children: [
-          Icon(LucideIcons.alertTriangle, color: Colors.orange, size: 24.sp),
+          Icon(LucideIcons.alertTriangle, color: warningColor, size: 24.sp),
           SizedBox(width: 8.w),
           Expanded(
             child: Text(
               'تغییر سشن تمرین',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
+              style: WorkoutLogTypography.dialogTitle(context).copyWith(
                 fontSize: 18.sp,
-                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -45,41 +47,32 @@ class SessionChangeDialog extends StatelessWidget {
           if (hasUnsavedData && loggedSessionDay.isNotEmpty)
             Text(
               'شما در حال حاضر روز "$loggedSessionDay" را مقداردهی کرده‌اید.',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 14.sp,
-                height: 1.6,
-              ),
+              style: WorkoutLogTypography.dialogBody(context),
             )
           else if (loggedSessionDay.isNotEmpty)
             Text(
               'برای تاریخ $dateString، سشن "$loggedSessionDay" قبلاً ثبت شده است.',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 14.sp,
-                height: 1.6,
-              ),
+              style: WorkoutLogTypography.dialogBody(context),
             )
           else if (hasUnsavedData)
             Text(
               'شما داده‌هایی در فرم فعلی وارد کرده‌اید.',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 14.sp,
-                height: 1.6,
-              ),
+              style: WorkoutLogTypography.dialogBody(context),
             ),
           SizedBox(height: 12.h),
           Container(
             padding: EdgeInsets.all(12.w),
             decoration: BoxDecoration(
-              color: Colors.orange.withValues(alpha: 0.1),
+              color: WorkoutLogColors.warningBackground(context),
               borderRadius: BorderRadius.circular(8.r),
-              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+              border: Border.all(
+                color: WorkoutLogColors.warningBorder(context),
+              ),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(LucideIcons.info, color: Colors.orange, size: 20.sp),
+                Icon(LucideIcons.info, color: warningColor, size: 20.sp),
                 SizedBox(width: 8.w),
                 Expanded(
                   child: Text(
@@ -88,12 +81,10 @@ class SessionChangeDialog extends StatelessWidget {
                         : hasUnsavedData
                         ? 'در صورت تغییر به روز "$newSessionDay"، تمام اطلاعات وارد شده در فرم فعلی پاک خواهد شد.'
                         : 'در صورت تغییر به سشن "$newSessionDay"، تمام اطلاعات ثبت شده در سشن "$loggedSessionDay" حذف خواهد شد.',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
+                    style: WorkoutLogTypography.dialogBody(context).copyWith(
                       fontSize: 13.sp,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.orange[900],
-                      height: 1.5,
+                      fontWeight: FontWeight.w700,
+                      color: warningColor,
                     ),
                   ),
                 ),
@@ -103,11 +94,7 @@ class SessionChangeDialog extends StatelessWidget {
           SizedBox(height: 8.h),
           Text(
             'آیا مطمئن هستید که می‌خواهید ادامه دهید؟',
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 13.sp,
-              color: Colors.grey[700],
-            ),
+            style: WorkoutLogTypography.dialogMuted(context),
           ),
         ],
       ),
@@ -116,21 +103,19 @@ class SessionChangeDialog extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(false),
           child: Text(
             'لغو',
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.w600,
+            style: WorkoutLogTypography.dialogMuted(context).copyWith(
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),
-          style: TextButton.styleFrom(foregroundColor: Colors.red),
+          style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
           child: Text(
             'تایید و حذف',
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontWeight: FontWeight.bold,
+            style: WorkoutLogTypography.dialogBody(context).copyWith(
+              fontWeight: FontWeight.w800,
+              color: AppTheme.errorColor,
             ),
           ),
         ),

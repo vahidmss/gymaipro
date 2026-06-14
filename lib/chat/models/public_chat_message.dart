@@ -1,4 +1,4 @@
-﻿class PublicChatMessage {
+class PublicChatMessage {
   PublicChatMessage({
     required this.id,
     required this.senderId,

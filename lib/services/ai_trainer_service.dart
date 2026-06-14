@@ -207,7 +207,12 @@ class AITrainerService {
     }
   }
 
-  static bool isGymaiTrainer({String? userId, String? username}) {
+  static bool isGymaiTrainer({
+    String? userId,
+    String? username,
+    String? firstName,
+    String? lastName,
+  }) {
     final configuredId = AppConfig.aiTrainerProfileId;
     if (userId != null &&
         userId.isNotEmpty &&
@@ -217,8 +222,35 @@ class AITrainerService {
     if (_aiTrainerId != null && userId != null && userId == _aiTrainerId) {
       return true;
     }
+    return _looksLikeGymaiName(
+      firstName: firstName,
+      lastName: lastName,
+      username: username,
+    );
+  }
+
+  static bool _looksLikeGymaiName({
+    String? firstName,
+    String? lastName,
+    String? username,
+  }) {
     final u = username?.trim().toLowerCase() ?? '';
-    return u == systemUsername;
+    if (u == systemUsername || u.contains('gymai') || u.contains('gym_ai')) {
+      return true;
+    }
+
+    final full = '${firstName ?? ''} ${lastName ?? ''}'.trim().toLowerCase();
+    if (full.contains('gymai') || full.contains('gym ai')) return true;
+
+    final display = '${firstName ?? ''} ${lastName ?? ''}'.trim();
+    if (display == AppConfig.gymAiDisplayName) return true;
+
+    final compact = display.replaceAll(RegExp(r'[\s\u200c]'), '');
+    if (compact.contains('جیم') &&
+        (compact.contains('ای') || compact.contains('آی'))) {
+      return true;
+    }
+    return false;
   }
 
   static Future<String?> resolveTrainerIdForAiPrograms() async {

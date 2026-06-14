@@ -13,6 +13,7 @@ import 'package:gymaipro/workout_log/utils/workout_log_keyboard.dart';
 import 'package:gymaipro/workout_log/viewmodels/workout_log_viewmodel.dart';
 import 'package:gymaipro/workout_log/widgets/session_muscle_heatmap_sheet.dart';
 import 'package:gymaipro/workout_log/widgets/workout_log_widgets.dart';
+import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
 import 'package:gymaipro/workout_log/widgets/workout_preview_dialog.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -140,13 +141,8 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
               upgradedFromVersion: result.upgradedFromVersion,
               rebuiltProgram: result.rebuiltProgram,
             ),
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
+            style: WorkoutLogTypography.dialogBody(context).copyWith(
               fontSize: 13.5.sp,
-              height: 1.55,
-              color: isDark
-                  ? AppTheme.darkTextColor.withValues(alpha: 0.9)
-                  : AppTheme.lightTextSecondary,
             ),
           ),
           actions: [
@@ -154,12 +150,9 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
               onPressed: () => Navigator.of(ctx).pop(),
               child: Text(
                 'باشه، شروع می‌کنم',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.goldColor,
-                  fontSize: 14.sp,
-                ),
+              style: WorkoutLogTypography.chip(context, selected: true).copyWith(
+                fontSize: 14.sp,
+              ),
               ),
             ),
           ],

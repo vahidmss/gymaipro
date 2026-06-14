@@ -198,6 +198,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hideBottomNav = _currentIndex == NavigationConstants.socialIndex;
     return WillPopScope(
       onWillPop: _handleBackPress,
       child: Container(
@@ -252,15 +253,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               ),
             ],
           ),
-          bottomNavigationBar: SafeArea(
-            top: false,
-            child: CustomBottomNavigation(
-              currentIndex: _currentIndex,
-              onTap: _onNavItemTapped,
-              navKeys: _navKeys,
-              userRole: _userRole,
-            ),
-          ),
+          // تب اجتماعی (لیست چت) تمام‌صفحه — بدون منوی پایین.
+          bottomNavigationBar: hideBottomNav
+              ? null
+              : SafeArea(
+                  top: false,
+                  child: CustomBottomNavigation(
+                    currentIndex: _currentIndex,
+                    onTap: _onNavItemTapped,
+                    navKeys: _navKeys,
+                    userRole: _userRole,
+                  ),
+                ),
         ),
       ),
     );

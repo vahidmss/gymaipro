@@ -108,7 +108,7 @@ if (!function_exists('gymai_food_batch1_definitions')) {
     "rank_math_description": "کالری و ماکروهای برنج سفید پخته در هر ۱۰۰ گرم. تفسیر GI و زمان‌بندی مصرف در تغذیه ورزشی.",
     "rank_math_focus_keyword": "برنج سفید پخته",
     "name_app": "برنج سفید پخته",
-    "other_names": "برنج پخته, برنج ایرانی, Cooked White Rice, چلو",
+    "other_names": "برنج سفید, برنج پخته, برنج ایرانی, Cooked White Rice, چلو",
     "food_group": "کربوهیدرات",
     "food_type": "solid",
     "meal_times": "ناهار,شام,بعد تمرین",

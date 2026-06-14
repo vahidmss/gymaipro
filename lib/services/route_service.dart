@@ -5,7 +5,7 @@ import 'package:gymaipro/ai/screens/ai_programs_screen.dart';
 import 'package:gymaipro/auth/screens/login_screen.dart';
 import 'package:gymaipro/auth/screens/register_screen.dart';
 import 'package:gymaipro/auth/services/auth_state_service.dart';
-import 'package:gymaipro/chat/screens/chat_conversations_screen.dart';
+import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/chat/screens/chat_main_screen.dart';
 import 'package:gymaipro/chat/screens/chat_screen.dart';
 import 'package:gymaipro/dashboard/screens/dashboard_screen.dart';
@@ -261,8 +261,9 @@ class RouteService {
           builder: (_) => ArticleDetailScreen(article: article),
         );
       case '/conversations':
-        return MaterialPageRoute(
-          builder: (_) => const ChatConversationsScreen(),
+        return _integratedSocialTabRoute(
+          settings: settings,
+          initialTab: 0,
         );
       case '/chat-main':
         final initialTabIndex = settings.arguments is int
@@ -273,9 +274,9 @@ class RouteService {
                             as int?
                       : null) ??
                   0;
-        return MaterialPageRoute(
-          builder: (_) =>
-              ChatMainScreen(initialTabIndex: initialTabIndex.clamp(0, 2)),
+        return _integratedSocialTabRoute(
+          settings: settings,
+          initialTab: initialTabIndex.clamp(0, 2),
         );
 
       case '/chat':
@@ -440,6 +441,34 @@ class RouteService {
       print('=== ROUTE SERVICE: Error checking login status: $e ===');
       return false;
     }
+  }
+
+  /// تب اجتماعی داخل shell است — route جدا push نشود تا منوی پایین بماند.
+  static MaterialPageRoute<void> _integratedSocialTabRoute({
+    required RouteSettings settings,
+    required int initialTab,
+  }) {
+    final tab = initialTab.clamp(0, 2);
+    return MaterialPageRoute(
+      settings: settings,
+      builder: (context) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          if (MainNavigationScreen.isShellActive) {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+            openMainSocial(initialTab: tab);
+            return;
+          }
+        });
+
+        if (MainNavigationScreen.isShellActive) {
+          return const SizedBox.shrink();
+        }
+        return ChatMainScreen(initialTabIndex: tab);
+      },
+    );
   }
 }
 

@@ -2,9 +2,10 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_log/models/food_meal_log.dart';
+import 'package:gymaipro/meal_log/services/meal_insight_engine.dart';
 import 'package:gymaipro/meal_log/utils/meal_log_utils.dart';
 import 'package:gymaipro/models/food.dart';
-import 'package:gymaipro/services/fitness_calculator.dart';
+import 'package:gymaipro/meal_log/utils/meal_nutrition_targets.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:responsive_framework/responsive_framework.dart';
@@ -14,12 +15,16 @@ class DailyCalorieSummary extends StatefulWidget {
     required this.meals,
     required this.allFoods,
     required this.profileData,
+    this.barGuidance,
+    this.referenceTime,
     super.key,
   });
 
   final List<FoodMealLog> meals;
   final List<Food> allFoods;
   final Map<String, dynamic>? profileData;
+  final MealCalorieBarGuidance? barGuidance;
+  final DateTime? referenceTime;
 
   @override
   State<DailyCalorieSummary> createState() => _DailyCalorieSummaryState();
@@ -33,8 +38,9 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // محاسبه کالری مجاز روزانه (TDEE)
-    final dailyCalorieTarget = _calculateDailyCalorieTarget();
+    // محاسبه مرجع کالری روزانه (TDEE / برآورد پروفایل)
+    final targets = MealNutritionTargets.fromProfile(widget.profileData);
+    final dailyCalorieTarget = targets.calorieTarget;
 
     // محاسبه totals از غذاهای ثبت شده
     final totals = MealLogUtils.calculateTotals(widget.meals, widget.allFoods);
@@ -43,16 +49,25 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
     final consumedCarbs = totals['carbs'] ?? 0;
     final consumedFat = totals['fat'] ?? 0;
 
+    final calorieDelta = dailyCalorieTarget - consumedCalories;
+    final isOverReference = calorieDelta < 0;
+
     // محاسبه درصد مصرف
     final progressPercentage = dailyCalorieTarget > 0
         ? (consumedCalories / dailyCalorieTarget).clamp(0.0, 1.0)
         : 0.0;
 
-    // کالری باقیمانده
-    final remainingCalories = (dailyCalorieTarget - consumedCalories).clamp(
-      0.0,
-      double.infinity,
-    );
+    final barGuidance = widget.barGuidance ??
+        MealInsightEngine.buildBarGuidance(
+          meals: widget.meals,
+          allFoods: widget.allFoods,
+          profileData: widget.profileData,
+          referenceTime: widget.referenceTime,
+        );
+
+    final now = widget.referenceTime ?? DateTime.now();
+    final percentage = (progressPercentage * 100).round();
+    final isViewingToday = _isViewingToday(now);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -117,79 +132,82 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ردیف اول: کالری مجاز و باقیمانده در یک خط + دکمه تغییر نمایش
+              // ─── ردیف بالا: خوشامدگویی + نشان هدف + دکمه نمودار ───
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            'کالری مجاز روزانه: ',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: context.textColor.withValues(alpha: 0.7),
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Text(
-                          dailyCalorieTarget.toStringAsFixed(0),
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            color: context.textColor,
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                   Row(
                     children: [
                       Text(
-                        'کالری باقیمانده: ',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: context.textColor.withValues(alpha: 0.7),
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        isViewingToday
+                            ? _greetingEmoji(now.hour)
+                            : '📅',
+                        style: TextStyle(fontSize: 14.sp),
                       ),
+                      SizedBox(width: 5.w),
                       Text(
-                        remainingCalories.toStringAsFixed(0),
+                        isViewingToday
+                            ? _greetingText(now.hour)
+                            : MealLogUtils.getPersianFormattedDate(now),
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           color: context.textColor,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.1,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
+                      if (targets.goalAdjustmentLabel != null) ...[
+                        SizedBox(width: 8.w),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 7.w,
+                            vertical: 2.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: (isDark
+                                    ? AppTheme.goldColor
+                                    : AppTheme.darkGold)
+                                .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8.r),
+                            border: Border.all(
+                              color: (isDark
+                                      ? AppTheme.goldColor
+                                      : AppTheme.darkGold)
+                                  .withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: Text(
+                            targets.goalAdjustmentLabel!,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              color: isDark
+                                  ? AppTheme.goldColor
+                                  : AppTheme.darkGold,
+                              fontSize: 9.sp,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
-                  SizedBox(width: 8.w),
                   // دکمه تغییر نمایش
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: () {
-                        setState(() {
-                          _showChart = !_showChart;
-                        });
-                      },
+                      onTap: () => setState(() => _showChart = !_showChart),
                       borderRadius: BorderRadius.circular(8.r),
                       child: Container(
                         padding: EdgeInsets.all(6.w),
                         decoration: BoxDecoration(
-                          color: AppTheme.goldColor.withValues(alpha: 0.1),
+                          color: context.cardColor,
                           borderRadius: BorderRadius.circular(8.r),
                           border: Border.all(
-                            color: AppTheme.goldColor.withValues(alpha: 0.3),
+                            color: (isDark
+                                    ? AppTheme.goldColor
+                                    : AppTheme.darkGold)
+                                .withValues(alpha: 0.5),
                             width: 1.w,
                           ),
                         ),
@@ -197,7 +215,7 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
                           _showChart
                               ? LucideIcons.barChart3
                               : LucideIcons.pieChart,
-                          color: AppTheme.goldColor,
+                          color: isDark ? AppTheme.goldColor : AppTheme.darkGold,
                           size: 18.sp,
                         ),
                       ),
@@ -205,6 +223,150 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
                   ),
                 ],
               ),
+
+              SizedBox(height: 12.h),
+
+              // ─── ردیف اعداد: مصرف شده | باقیمانده (متقارن) ───
+              if (!_showChart)
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // مصرف شده
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'مصرف شده',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                color: context.textSecondary,
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(height: 4.h),
+                            RichText(
+                              textDirection: TextDirection.rtl,
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: consumedCalories.toStringAsFixed(0),
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      color: isOverReference
+                                          ? _statusErrorColor(isDark)
+                                          : context.textColor,
+                                      fontSize: 24.sp,
+                                      fontWeight: FontWeight.w900,
+                                      height: 1.1,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: ' کالری',
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      color: context.textSecondary,
+                                      fontSize: 10.sp,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: 2.h),
+                            Text(
+                              '${targets.calorieReferenceTitle}: ${dailyCalorieTarget.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                color: context.textSecondary,
+                                fontSize: 9.sp,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              textDirection: TextDirection.rtl,
+                            ),
+                          ],
+                        ),
+                      ),
+                      // جداکننده عمودی
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 14.w),
+                        child: Container(
+                          width: 1.w,
+                          color: context.separatorColor,
+                        ),
+                      ),
+                      // باقیمانده / بیش از مرجع
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              isOverReference ? 'بیش از مرجع' : 'باقیمانده',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                color: context.textSecondary,
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(height: 4.h),
+                            RichText(
+                              textDirection: TextDirection.rtl,
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: (isOverReference
+                                            ? -calorieDelta
+                                            : calorieDelta)
+                                        .toStringAsFixed(0),
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      color: isOverReference
+                                          ? _statusErrorColor(isDark)
+                                          : (isDark
+                                              ? AppTheme.goldColor
+                                              : AppTheme.darkGold),
+                                      fontSize: 24.sp,
+                                      fontWeight: FontWeight.w900,
+                                      height: 1.1,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: ' کالری',
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      color: context.textSecondary,
+                                      fontSize: 10.sp,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: 2.h),
+                            Text(
+                              '$percentage٪ از مرجع',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                color: _percentageBadgeColor(
+                                  context,
+                                  progressPercentage,
+                                  isOverReference,
+                                  isDark,
+                                ),
+                                fontSize: 9.sp,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              textDirection: TextDirection.rtl,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
               SizedBox(height: 12.h),
 
@@ -218,13 +380,18 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
                   isDark,
                 )
               else
-                // Progress Bar با نشانگر
                 _buildProgressBar(
                   progressPercentage,
                   consumedCalories,
                   dailyCalorieTarget,
+                  isOverReference,
                   isDark,
                 ),
+
+              if (!_showChart && barGuidance.hasContent) ...[
+                SizedBox(height: 8.h),
+                _buildBarGuidance(context, barGuidance, isDark),
+              ],
 
               SizedBox(height: 8.h),
 
@@ -262,7 +429,7 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
                   isDark,
                 ),
                 SizedBox(height: 8.h),
-                _buildTip(context, isDark),
+                _buildTip(context, targets, isDark),
               ],
             ],
           ),
@@ -593,6 +760,7 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
     double progress,
     double consumed,
     double target,
+    bool isOverReference,
     bool isDark,
   ) {
     return LayoutBuilder(
@@ -652,12 +820,11 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
-                    color: AppTheme.goldColor.withValues(
-                      alpha: isDark ? 0.2 : 0.1,
-                    ),
+                    color: context.cardColor,
                     borderRadius: BorderRadius.circular(6.r),
                     border: Border.all(
-                      color: AppTheme.goldColor.withValues(alpha: 0.3),
+                      color: (isDark ? AppTheme.goldColor : AppTheme.darkGold)
+                          .withValues(alpha: 0.45),
                       width: 1.w,
                     ),
                   ),
@@ -667,35 +834,37 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
                       Icon(
                         LucideIcons.flame,
                         size: 12.sp,
-                        color: AppTheme.goldColor,
+                        color: isDark ? AppTheme.goldColor : AppTheme.darkGold,
                       ),
                       SizedBox(width: 6.w),
                       Text(
                         'مصرف شده: ',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          color: context.textColor.withValues(alpha: 0.7),
+                          color: context.textSecondary,
                           fontSize: 11.sp,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       Text(
                         consumed.toStringAsFixed(0),
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          color: context.textColor,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.bold,
+                          color: isOverReference
+                              ? _statusErrorColor(isDark)
+                              : context.textColor,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                       SizedBox(width: 2.w),
                       Text(
-                        ' کالری',
+                        'کالری',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          color: context.textColor.withValues(alpha: 0.6),
+                          color: context.textSecondary,
                           fontSize: 10.sp,
-                          fontWeight: FontWeight.w400,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
@@ -709,21 +878,138 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
     );
   }
 
-  Widget _buildTip(BuildContext context, bool isDark) {
+  Widget _buildBarGuidance(
+    BuildContext context,
+    MealCalorieBarGuidance guidance,
+    bool isDark,
+  ) {
+    final accent = _guidanceToneColor(guidance.tone, isDark);
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(10.r),
+        border: Border.all(color: accent.withValues(alpha: isDark ? 0.55 : 0.65)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        textDirection: TextDirection.rtl,
+        children: [
+          Icon(
+            _guidanceToneIcon(guidance.tone),
+            color: accent,
+            size: 15.sp,
+          ),
+          SizedBox(width: 6.w),
+          Expanded(
+            child: Text(
+              guidance.message,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textColor,
+                fontSize: 11.5.sp,
+                fontWeight: FontWeight.w600,
+                height: 1.45,
+              ),
+              textDirection: TextDirection.rtl,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _greetingText(int hour) {
+    if (hour >= 5 && hour < 12) return 'صبح بخیر';
+    if (hour >= 12 && hour < 17) return 'ظهر بخیر';
+    if (hour >= 17 && hour < 21) return 'عصر بخیر';
+    return 'شب بخیر';
+  }
+
+  static bool _isViewingToday(DateTime reference) {
+    final today = DateTime.now();
+    return reference.year == today.year &&
+        reference.month == today.month &&
+        reference.day == today.day;
+  }
+
+  static String _greetingEmoji(int hour) {
+    if (hour >= 5 && hour < 8) return '🌅';
+    if (hour >= 8 && hour < 12) return '☀️';
+    if (hour >= 12 && hour < 15) return '🌤️';
+    if (hour >= 15 && hour < 19) return '🌇';
+    if (hour >= 19 && hour < 21) return '🌆';
+    return '🌙';
+  }
+
+  Color _percentageBadgeColor(
+    BuildContext context,
+    double progress,
+    bool isOverReference,
+    bool isDark,
+  ) {
+    if (isOverReference) return _statusErrorColor(isDark);
+    if (progress >= 0.85) return _statusSuccessColor(isDark);
+    if (progress >= 0.5) return isDark ? AppTheme.goldColor : AppTheme.darkGold;
+    return context.textSecondary;
+  }
+
+  Color _statusErrorColor(bool isDark) =>
+      isDark ? const Color(0xFFFF8A80) : const Color(0xFFB71C1C);
+
+  Color _statusSuccessColor(bool isDark) =>
+      isDark ? const Color(0xFF81C784) : AppTheme.proteinColor;
+
+  Color _guidanceToneColor(MealInsightTone tone, bool isDark) {
+    switch (tone) {
+      case MealInsightTone.success:
+        return _statusSuccessColor(isDark);
+      case MealInsightTone.warning:
+        return _statusErrorColor(isDark);
+      case MealInsightTone.tip:
+      case MealInsightTone.info:
+        return isDark ? AppTheme.goldColor : AppTheme.darkGold;
+    }
+  }
+
+  IconData _guidanceToneIcon(MealInsightTone tone) {
+    switch (tone) {
+      case MealInsightTone.success:
+        return LucideIcons.checkCircle;
+      case MealInsightTone.warning:
+        return LucideIcons.alertTriangle;
+      case MealInsightTone.tip:
+        return LucideIcons.sparkles;
+      case MealInsightTone.info:
+        return LucideIcons.lightbulb;
+    }
+  }
+
+  Widget _buildTip(
+    BuildContext context,
+    MealNutritionTargets targets,
+    bool isDark,
+  ) {
     return Container(
       padding: EdgeInsets.all(10.w),
       decoration: BoxDecoration(
-        color: AppTheme.goldColor.withValues(alpha: isDark ? 0.1 : 0.08),
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(10.r),
-        border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: (isDark ? AppTheme.goldColor : AppTheme.darkGold)
+              .withValues(alpha: 0.45),
+        ),
       ),
       child: Text(
-        'کالری مجاز روزانه بر اساس محاسبات شما برای تثبیت وزن است، نه کاهش یا افزایش وزن.',
+        targets.calorieReferenceHint,
         style: TextStyle(
           fontFamily: AppTheme.fontFamily,
-          color: context.textColor.withValues(alpha: 0.8),
-          fontSize: 10.sp,
-          height: 1.4,
+          color: context.textColor,
+          fontSize: 10.5.sp,
+          fontWeight: FontWeight.w500,
+          height: 1.45,
         ),
       ),
     );
@@ -946,7 +1232,7 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
         Text(
           label,
           style: TextStyle(
-            color: context.textColor.withValues(alpha: 0.9),
+            color: context.textColor,
             fontSize: ResponsiveValue(
               context,
               defaultValue: 10.sp,
@@ -967,9 +1253,7 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
         Text(
           unit,
           style: TextStyle(
-            color: isDark
-                ? AppTheme.goldColor
-                : context.textColor.withValues(alpha: 0.7),
+            color: context.textSecondary,
             fontSize: ResponsiveValue(
               context,
               defaultValue: 9.sp,
@@ -990,118 +1274,11 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
   }
 
   Map<String, double> _calculateMacroTargets() {
-    if (widget.profileData == null) {
-      // مقادیر پیش‌فرض بر اساس جنسیت (فرض: مرد با وزن 70 کیلوگرم)
-      return {'protein': 154.0, 'carbs': 250.0, 'fat': 65.0};
-    }
-
-    final height =
-        double.tryParse((widget.profileData!['height'] as String?) ?? '') ?? 0;
-    final latestWeight = widget.profileData!['latest_weight'] as double?;
-    final weight =
-        latestWeight ??
-        double.tryParse((widget.profileData!['weight'] as String?) ?? '') ??
-        0;
-    final birthDateStr = widget.profileData!['birth_date'] as String?;
-    final isMale = (widget.profileData!['gender'] as String?) == 'male';
-
-    // محاسبه سن
-    int age = 25;
-    if (birthDateStr != null && birthDateStr.isNotEmpty) {
-      try {
-        final birthDate = DateTime.parse(birthDateStr);
-        final now = DateTime.now();
-        age =
-            now.year -
-            birthDate.year -
-            ((now.month < birthDate.month ||
-                    (now.month == birthDate.month && now.day < birthDate.day))
-                ? 1
-                : 0);
-      } catch (_) {
-        age = 25;
-      }
-    }
-
-    // اگر اطلاعات کافی نداریم، مقدار پیش‌فرض برگردان
-    if (height <= 0 || weight <= 0 || age <= 0) {
-      return {'protein': 120.0, 'carbs': 250.0, 'fat': 65.0};
-    }
-
-    // محاسبه TDEE با استفاده از activity_level واقعی
-    final bmr = FitnessCalculator.calculateBMR(weight, height, age, isMale);
-    final activityLevelStr =
-        (widget.profileData!['activity_level'] as String?) ?? 'moderate';
-    final activityLevel = activityLevelStr.toActivityLevel();
-    final tdee = FitnessCalculator.calculateTDEE(bmr, activityLevel);
-
-    // محاسبه ماکروها با فرمول‌های علمی دقیق بر اساس جنسیت
-    // پروتئین: تفاوت جنسیتی در نیاز پروتئین
-    // مردان: 2-2.2 گرم/کیلوگرم (برای ورزشکاران)
-    // زنان: 1.8-2 گرم/کیلوگرم (نیاز کمتر به دلیل تفاوت متابولیسم)
-    final proteinTarget = isMale ? weight * 2.2 : weight * 1.9;
-
-    // کربوهیدرات: تفاوت جنسیتی در نیاز کربوهیدرات
-    // مردان: 45-50% از TDEE (نیاز بیشتر به انرژی)
-    // زنان: 40-45% از TDEE (نیاز کمتر به کربوهیدرات)
-    final carbsPercentage = isMale ? 0.47 : 0.42;
-    final carbsTarget = (tdee * carbsPercentage) / 4.0;
-
-    // چربی: تفاوت جنسیتی در نیاز چربی
-    // مردان: 20-25% از TDEE
-    // زنان: 25-30% از TDEE (نیاز بیشتر برای سلامت هورمون‌ها و سیکل قاعدگی)
-    final fatPercentage = isMale ? 0.23 : 0.28;
-    final fatTarget = (tdee * fatPercentage) / 9.0;
-
-    return {'protein': proteinTarget, 'carbs': carbsTarget, 'fat': fatTarget};
-  }
-
-  double _calculateDailyCalorieTarget() {
-    if (widget.profileData == null) return 2000.0; // مقدار پیش‌فرض
-
-    final height =
-        double.tryParse((widget.profileData!['height'] as String?) ?? '') ?? 0;
-    // استفاده از آخرین وزن ثبت شده یا وزن پروفایل
-    final latestWeight = widget.profileData!['latest_weight'] as double?;
-    final weight =
-        latestWeight ??
-        double.tryParse((widget.profileData!['weight'] as String?) ?? '') ??
-        0;
-    final birthDateStr = widget.profileData!['birth_date'] as String?;
-    final isMale = (widget.profileData!['gender'] as String?) == 'male';
-
-    // محاسبه سن
-    int age = 25;
-    if (birthDateStr != null && birthDateStr.isNotEmpty) {
-      try {
-        final birthDate = DateTime.parse(birthDateStr);
-        final now = DateTime.now();
-        age =
-            now.year -
-            birthDate.year -
-            ((now.month < birthDate.month ||
-                    (now.month == birthDate.month && now.day < birthDate.day))
-                ? 1
-                : 0);
-      } catch (_) {
-        age = 25;
-      }
-    }
-
-    // اگر اطلاعات کافی نداریم، مقدار پیش‌فرض برگردان
-    if (height <= 0 || weight <= 0 || age <= 0) {
-      return 2000.0;
-    }
-
-    // محاسبه BMR
-    final bmr = FitnessCalculator.calculateBMR(weight, height, age, isMale);
-
-    // محاسبه TDEE با استفاده از activity_level واقعی از پروفایل
-    final activityLevelStr =
-        (widget.profileData!['activity_level'] as String?) ?? 'moderate';
-    final activityLevel = activityLevelStr.toActivityLevel();
-    final tdee = FitnessCalculator.calculateTDEE(bmr, activityLevel);
-
-    return tdee;
+    final targets = MealNutritionTargets.fromProfile(widget.profileData);
+    return {
+      'protein': targets.proteinTarget,
+      'carbs': targets.carbsTarget,
+      'fat': targets.fatTarget,
+    };
   }
 }

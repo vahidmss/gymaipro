@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
 import 'package:gymaipro/notification/notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,7 +11,6 @@ class ChatService {
   ChatService() : _supabase = Supabase.instance.client;
 
   final SupabaseClient _supabase;
-  static final Map<String, List<ChatMessage>> _messageCache = {};
 
   // Helpers
   List<String> _sortedUserIds(String a, String b) {
@@ -326,10 +326,7 @@ class ChatService {
 
     try {
       // Get or create conversation
-      final conversation = await _getOrCreateConversation(
-        me,
-        receiverId,
-      ).timeout(const Duration(seconds: 8));
+      final conversation = await _getOrCreateConversation(me, receiverId);
       if (conversation == null) {
         throw Exception('خطا در ایجاد یا یافتن مکالمه');
       }
@@ -350,17 +347,16 @@ class ChatService {
         attachmentSize: attachmentSize,
         createdAt: now,
         updatedAt: now,
+        isRead: false,
+        isDeleted: false,
       );
 
       // Get current messages
       final response = await _supabase
           .from('chat_conversations')
-          .select(
-            'messages, user1_id, user2_id, user1_unread_count, user2_unread_count',
-          )
+          .select('messages, user1_id, user2_id')
           .eq('id', conversation.id)
-          .single()
-          .timeout(const Duration(seconds: 8));
+          .single();
 
       final currentMessages = (response['messages'] as List<dynamic>? ?? [])
           .cast<Map<String, dynamic>>()
@@ -403,26 +399,52 @@ class ChatService {
       await _supabase
           .from('chat_conversations')
           .update(updateData)
-          .eq('id', conversation.id)
-          .timeout(const Duration(seconds: 8));
+          .eq('id', conversation.id);
 
-      // ارسال نوتیفیکیشن نباید UX ارسال پیام را بلاک کند.
-      unawaited(
-        _sendChatNotificationInBackground(
+      // ارسال نوتیفیکیشن به گیرنده
+      try {
+        // دریافت نام فرستنده از پروفایل
+        String senderName = 'کاربر';
+        try {
+          final senderProfile = await _supabase
+              .from('profiles')
+              .select('first_name, last_name, username')
+              .eq('id', me)
+              .maybeSingle();
+          
+          if (senderProfile != null) {
+            final firstName = (senderProfile['first_name'] as String?)?.trim() ?? '';
+            final lastName = (senderProfile['last_name'] as String?)?.trim() ?? '';
+            final username = (senderProfile['username'] as String?)?.trim() ?? '';
+            
+            if (firstName.isNotEmpty && lastName.isNotEmpty) {
+              senderName = '$firstName $lastName';
+            } else if (firstName.isNotEmpty) {
+              senderName = firstName;
+            } else if (lastName.isNotEmpty) {
+              senderName = lastName;
+            } else if (username.isNotEmpty) {
+              senderName = username;
+            }
+          }
+        } catch (_) {}
+
+        // ارسال نوتیفیکیشن
+        final notificationService = NotificationService();
+        await notificationService.sendChatNotification(
           receiverId: receiverId,
           senderId: me,
+          senderName: senderName,
           message: message.trim(),
           messageId: messageId,
           messageType: messageType,
           conversationId: conversation.id,
-        ),
-      );
+        );
+      } catch (_) {
+        // در صورت خطا در ارسال نوتیفیکیشن، پیام همچنان ارسال شده است
+      }
 
       return newMessage;
-    } on TimeoutException {
-      throw Exception(
-        'ارسال پیام بیش از حد طول کشید. اینترنت را بررسی کنید و دوباره تلاش کنید.',
-      );
     } on PostgrestException catch (e) {
       // Handle specific error codes
       if (e.code == '42P01') {
@@ -439,64 +461,12 @@ class ChatService {
         );
       } else {
         final errorMsg = e.message is Map
-            ? e.message
+            ? e.message.toString()
             : (e.code ?? 'خطای ناشناخته');
         throw Exception('خطا در ارسال پیام: $errorMsg');
       }
     } catch (e) {
       throw Exception('خطا در ارسال پیام: $e');
-    }
-  }
-
-  Future<void> _sendChatNotificationInBackground({
-    required String receiverId,
-    required String senderId,
-    required String message,
-    required String messageId,
-    required String messageType,
-    required String conversationId,
-  }) async {
-    try {
-      // دریافت نام فرستنده با timeout کوتاه
-      String senderName = 'کاربر';
-      try {
-        final senderProfile = await _supabase
-            .from('profiles')
-            .select('first_name, last_name, username')
-            .eq('id', senderId)
-            .maybeSingle()
-            .timeout(const Duration(seconds: 3));
-
-        if (senderProfile != null) {
-          final firstName = (senderProfile['first_name'] as String?)?.trim() ?? '';
-          final lastName = (senderProfile['last_name'] as String?)?.trim() ?? '';
-          final username = (senderProfile['username'] as String?)?.trim() ?? '';
-
-          if (firstName.isNotEmpty && lastName.isNotEmpty) {
-            senderName = '$firstName $lastName';
-          } else if (firstName.isNotEmpty) {
-            senderName = firstName;
-          } else if (lastName.isNotEmpty) {
-            senderName = lastName;
-          } else if (username.isNotEmpty) {
-            senderName = username;
-          }
-        }
-      } catch (_) {}
-
-      await NotificationService()
-          .sendChatNotification(
-            receiverId: receiverId,
-            senderId: senderId,
-            senderName: senderName,
-            message: message,
-            messageId: messageId,
-            messageType: messageType,
-            conversationId: conversationId,
-          )
-          .timeout(const Duration(seconds: 5));
-    } catch (_) {
-      // در صورت خطای نوتیفیکیشن، ارسال پیام موفق باقی می‌ماند.
     }
   }
 
@@ -629,59 +599,5 @@ class ChatService {
           .delete()
           .eq('id', conversationId);
     } catch (_) {}
-  }
-
-  List<ChatMessage> getCachedMessages(String otherUserId) {
-    return List<ChatMessage>.from(_messageCache[otherUserId] ?? const []);
-  }
-
-  void saveCachedMessages(String otherUserId, List<ChatMessage> messages) {
-    _messageCache[otherUserId] = List<ChatMessage>.from(messages);
-  }
-
-  Future<List<ChatMessage>> getMessagesByConversationId(
-    String conversationId, {
-    int limit = 50,
-    int offset = 0,
-  }) async {
-    try {
-      final response = await _supabase
-          .from('chat_conversations')
-          .select('messages, user1_id, user2_id')
-          .eq('id', conversationId)
-          .maybeSingle();
-      if (response == null) return [];
-
-      final messagesJson = response['messages'] as List<dynamic>? ?? [];
-      final allMessages = messagesJson
-          .cast<Map<String, dynamic>>()
-          .map((json) {
-            try {
-              final jsonCopy = Map<String, dynamic>.from(json);
-              if (jsonCopy['created_at'] != null &&
-                  jsonCopy['created_at'] is! String) {
-                jsonCopy['created_at'] =
-                    (jsonCopy['created_at'] as DateTime).toIso8601String();
-              }
-              if (jsonCopy['updated_at'] != null &&
-                  jsonCopy['updated_at'] is! String) {
-                jsonCopy['updated_at'] =
-                    (jsonCopy['updated_at'] as DateTime).toIso8601String();
-              }
-              return ChatMessage.fromJson(jsonCopy);
-            } catch (_) {
-              return null;
-            }
-          })
-          .whereType<ChatMessage>()
-          .toList()
-        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-
-      final start = offset.clamp(0, allMessages.length);
-      final end = (offset + limit).clamp(0, allMessages.length);
-      return allMessages.sublist(start, end);
-    } catch (_) {
-      return [];
-    }
   }
 }

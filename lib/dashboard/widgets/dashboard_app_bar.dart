@@ -1,9 +1,11 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/achievements/screens/achievements_screen.dart';
+import 'package:gymaipro/achievements/services/achievement_service.dart';
+import 'package:gymaipro/core/gamification_labels.dart';
 import 'package:gymaipro/guide/data/dashboard_guide_data.dart';
 import 'package:gymaipro/services/avatar_refresh_notifier.dart';
-import 'package:gymaipro/services/score_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -36,66 +38,81 @@ class DashboardAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   Widget _buildScoreWidget(BuildContext context) {
-    return Consumer<ScoreService>(
-      builder: (context, scoreService, child) {
-        return Container(
-          margin: EdgeInsets.symmetric(vertical: 8.h),
-          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-          decoration: BoxDecoration(
-            color: context.cardColor,
+    return Consumer<AchievementService>(
+      builder: (context, achievementService, child) {
+        final stars = achievementService.totalStars;
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              Navigator.push<void>(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const AchievementsScreen(),
+                ),
+              );
+            },
             borderRadius: BorderRadius.circular(20.r),
-            border: Border.all(
-              color: AppTheme.goldColor.withValues(alpha: 0.2),
-              width: 1.w,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.goldColor.withValues(alpha: 0.15),
-                blurRadius: 8.r,
-                offset: Offset(0.w, 2.h),
+            child: Container(
+              margin: EdgeInsets.symmetric(vertical: 8.h),
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+              decoration: BoxDecoration(
+                color: context.cardColor,
+                borderRadius: BorderRadius.circular(20.r),
+                border: Border.all(
+                  color: AppTheme.goldColor.withValues(alpha: 0.2),
+                  width: 1.w,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.goldColor.withValues(alpha: 0.15),
+                    blurRadius: 8.r,
+                    offset: Offset(0.w, 2.h),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            textDirection: TextDirection.rtl,
-            children: [
-              Icon(
-                LucideIcons.star,
-                color: context.textColor,
-                size: ResponsiveValue(
-                  context,
-                  defaultValue: 18.sp,
-                  conditionalValues: [
-                    Condition.smallerThan(name: MOBILE, value: 16.sp),
-                    Condition.largerThan(name: TABLET, value: 20.sp),
-                  ],
-                ).value,
-              ),
-              SizedBox(width: 8.w),
-              Flexible(
-                child: Text(
-                  _formatScore(scoreService.score),
-                  style: TextStyle(
-                    color: context.textColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: ResponsiveValue(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                textDirection: TextDirection.rtl,
+                children: [
+                  Icon(
+                    GamificationLabels.starsIcon,
+                    color: AppTheme.goldColor,
+                    size: ResponsiveValue(
                       context,
-                      defaultValue: 15.sp,
+                      defaultValue: 18.sp,
                       conditionalValues: [
-                        Condition.smallerThan(name: MOBILE, value: 13.sp),
-                        Condition.largerThan(name: TABLET, value: 17.sp),
+                        Condition.smallerThan(name: MOBILE, value: 16.sp),
+                        Condition.largerThan(name: TABLET, value: 20.sp),
                       ],
                     ).value,
-                    fontFamily: AppTheme.fontFamily,
-                    letterSpacing: 0.3,
-                    height: 1.2,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                  SizedBox(width: 8.w),
+                  Flexible(
+                    child: Text(
+                      _formatScore(stars),
+                      style: TextStyle(
+                        color: context.textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: ResponsiveValue(
+                          context,
+                          defaultValue: 15.sp,
+                          conditionalValues: [
+                            Condition.smallerThan(name: MOBILE, value: 13.sp),
+                            Condition.largerThan(name: TABLET, value: 17.sp),
+                          ],
+                        ).value,
+                        fontFamily: AppTheme.fontFamily,
+                        letterSpacing: 0.3,
+                        height: 1.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         );
       },

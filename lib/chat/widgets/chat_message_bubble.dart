@@ -10,16 +10,10 @@ class ChatMessageBubble extends StatelessWidget {
     required this.isMe,
     super.key,
     this.onLongPress,
-    this.isSending = false,
-    this.isFailed = false,
-    this.onRetryTap,
   });
   final ChatMessage message;
   final bool isMe;
   final VoidCallback? onLongPress;
-  final bool isSending;
-  final bool isFailed;
-  final VoidCallback? onRetryTap;
 
   @override
   Widget build(BuildContext context) {

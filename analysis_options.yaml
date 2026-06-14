@@ -63,6 +63,8 @@ analyzer:
     strict-raw-types: true
   exclude:
     - _recovery_backup_*/**
+    - tools/_reconstructed*/**
+    - tools/_meal_log_patches.jsonl
     - build/**
     - ios/**
     - android/**

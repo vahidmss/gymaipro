@@ -258,10 +258,11 @@ class BeginnerStarterProgramService {
   }
 
   _StarterBuildResult _buildProgram(List<Exercise> all) {
-    final usedIds = <int>{};
     final missingSlots = <String>[];
 
     final sessions = _sessionTemplates.map((tpl) {
+      // تکرار همان حرکت در جلسات مختلف مجاز است (مثلاً لگ پرس هر جلسه).
+      final usedIds = <int>{};
       final exercises = <WorkoutExercise>[];
       for (final spec in tpl.exercises) {
         final ex = _resolveExercise(all, spec, usedIds: usedIds);

@@ -14,9 +14,10 @@ class FoodService {
   FoodService._internal();
   static final FoodService _instance = FoodService._internal();
 
-  // Use _embed for images
-  final String apiUrl =
-      'https://gymaipro.ir/wp-json/wp/v2/foods?_embed=true&per_page=100';
+  // Use _embed for images; fetch all pages (WP returns max 100 per request).
+  static const String _foodsApiBase =
+      'https://gymaipro.ir/wp-json/wp/v2/foods?_embed=true';
+  static const int _foodsPerPage = 100;
   final SupabaseClient _client = Supabase.instance.client;
   final UserPreferencesService _preferencesService = UserPreferencesService();
 
@@ -199,23 +200,12 @@ class FoodService {
         // If offline and no cache, return empty (UI should handle gracefully)
         return await _applyUserData(_cachedFoods ?? []);
       }
-      final response = await http.get(
-        Uri.parse(apiUrl),
-        headers: {'Content-Type': 'application/json'},
-      );
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body) as List<dynamic>;
-        final foods = data
-            .map((json) => Food.fromJson(json as Map<String, dynamic>))
-            .toList();
+      final foods = await _fetchAllFoodsFromApi();
         _cachedFoods = foods;
         print(
-          'Food titles cleaned: ${foods.take(3).map((f) => f.title).join(', ')}',
-        ); // Debug log
+          'Foods loaded: ${foods.length} items',
+        );
         return await _applyUserData(foods);
-      } else {
-        throw Exception('Failed to load foods: ${response.statusCode}');
-      }
     } catch (e) {
       // On error (including offline), if we have cache return it; otherwise a friendly error
       if (_cachedFoods != null) {
@@ -223,6 +213,42 @@ class FoodService {
       }
       throw Exception('عدم دسترسی به اینترنت یا خطا در دریافت خوراکی‌ها');
     }
+  }
+
+  Future<List<Food>> _fetchAllFoodsFromApi() async {
+    final all = <Food>[];
+    var page = 1;
+    var totalPages = 1;
+
+    while (page <= totalPages) {
+      final uri = Uri.parse(
+        '$_foodsApiBase&per_page=$_foodsPerPage&page=$page',
+      );
+      final response = await http.get(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+      );
+      if (response.statusCode != 200) {
+        throw Exception('Failed to load foods: ${response.statusCode}');
+      }
+
+      final totalPagesHeader = response.headers['x-wp-totalpages'];
+      if (totalPagesHeader != null) {
+        totalPages = int.tryParse(totalPagesHeader) ?? totalPages;
+      }
+
+      final data = json.decode(response.body) as List<dynamic>;
+      if (data.isEmpty) break;
+
+      all.addAll(
+        data.map((item) => Food.fromJson(item as Map<String, dynamic>)),
+      );
+
+      if (data.length < _foodsPerPage) break;
+      page++;
+    }
+
+    return all;
   }
 
   // --- Like/Favorite logic using UserPreferencesService ---

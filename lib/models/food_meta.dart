@@ -34,8 +34,15 @@ class FoodMeta {
         ? '100'
         : _str(json['serving_size_grams']);
 
+    final tips = [
+      _str(json['tip_1']),
+      _str(json['tip_2']),
+      _str(json['tip_3']),
+    ].where((t) => t.isNotEmpty).toList();
+    final nameApp = _str(json['name_app']);
+
     return FoodMeta(
-      nameApp: _str(json['name_app']),
+      nameApp: nameApp,
       otherNames: _splitCsv(_str(json['other_names'])),
       foodGroup: _str(json['food_group']),
       foodType: _str(json['food_type']),
@@ -51,14 +58,10 @@ class FoodMeta {
         json['serving_units_json'] ?? json['serving_units'],
         defaultUnitKey: defaultUnit,
         servingSizeGrams: servingSize,
-      ),
+      ).sanitizedForFood(nameApp: nameApp, tips: tips),
       allergens: _str(json['allergens']),
       glycemicIndex: _str(json['glycemic_index']),
-      tips: [
-        _str(json['tip_1']),
-        _str(json['tip_2']),
-        _str(json['tip_3']),
-      ].where((t) => t.isNotEmpty).toList(),
+      tips: tips,
     );
   }
 

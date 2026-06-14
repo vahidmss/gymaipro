@@ -1,7 +1,6 @@
 // صفحه چت - نسخه بهبود یافته
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
@@ -12,16 +11,11 @@ import 'package:gymaipro/chat/widgets/chat_app_bar_widget.dart';
 import 'package:gymaipro/chat/widgets/chat_message_bubble.dart';
 import 'package:gymaipro/chat/widgets/error_boundary_widget.dart';
 import 'package:gymaipro/chat/widgets/message_input_widget.dart';
-import 'package:gymaipro/core/app_navigator.dart';
-import 'package:gymaipro/navigation/constants/navigation_constants.dart';
-import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
-import 'package:gymaipro/services/app_access_control_service.dart';
 import 'package:gymaipro/services/supabase_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/utils/text_controller_utils.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
-import 'package:gymaipro/widgets/feature_unavailable_view.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -30,12 +24,10 @@ class ChatScreen extends StatefulWidget {
   const ChatScreen({
     required this.otherUserId,
     required this.otherUserName,
-    this.initialConversationId,
     super.key,
   });
   final String otherUserId;
   final String otherUserName;
-  final String? initialConversationId;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -45,18 +37,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late ChatService _chatService;
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
-  bool _privateChatEnabled = true;
   bool _isSending = false;
-  bool _isAppInForeground = true;
-  bool _isHandlingBackNavigation = false;
-  final Set<String> _pendingMessageIds = <String>{};
-  final Set<String> _failedMessageIds = <String>{};
-  final Set<String> _messageIds = <String>{};
   bool _isLoadingMore = false;
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  Timer? _metricsDebounceTimer;
-  Timer? _readReceiptSyncTimer;
 
   // Real-time subscriptions
   StreamSubscription<ChatMessage>? _messageSubscription;
@@ -76,13 +60,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _errorMessage;
   bool _hasMoreMessages = true;
   static const int _messagesPerPage = 20;
-  late final AppAccessControlService _accessService;
 
   @override
   void initState() {
     super.initState();
-    _accessService = AppAccessControlService.instance;
-    _accessService.configNotifier.addListener(_onAccessConfigChanged);
     WidgetsBinding.instance.addObserver(this);
     // برای جلوگیری از قفل شدن انیمیشن‌های ورودی/کیبورد،
     // مقداردهی اولیه‌ی سنگین را به بعد از اولین فریم موکول می‌کنیم.
@@ -95,12 +76,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _accessService.configNotifier.removeListener(_onAccessConfigChanged);
     WidgetsBinding.instance.removeObserver(this);
     _messageController.dispose();
     _scrollController.dispose();
-    _metricsDebounceTimer?.cancel();
-    _readReceiptSyncTimer?.cancel();
     _messageSubscription?.cancel();
 
     // حذف حضور کاربر از چت
@@ -125,7 +103,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      _isAppInForeground = true;
       _updateUserPresence(true);
       // از سرگیری heartbeat
       if (_currentUserId != null && _conversationId != null) {
@@ -135,7 +112,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         );
       }
     } else if (state == AppLifecycleState.paused) {
-      _isAppInForeground = false;
       _updateUserPresence(false);
       // توقف سریع heartbeat و inactive کردن رکورد
       if (_conversationId != null) {
@@ -152,41 +128,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  bool _isCurrentChatRouteVisible() {
-    final route = ModalRoute.of(context);
-    return route == null || route.isCurrent;
-  }
-
-  bool _shouldAutoMarkAsRead() {
-    return mounted && _isAppInForeground && _isCurrentChatRouteVisible();
-  }
-
   @override
   void didChangeMetrics() {
-    // Keyboard animation triggers many metric events in a burst.
-    // Debounce and avoid long scroll animations during IME transition.
-    _metricsDebounceTimer?.cancel();
-    _metricsDebounceTimer = Timer(const Duration(milliseconds: 140), () {
-      if (!mounted) return;
-      _scrollToBottom(animate: false);
-    });
+    // هنگام تغییر اندازه (باز/بسته شدن کیبورد) اسکرول کن به آخر
+    _scrollToBottom();
     super.didChangeMetrics();
   }
 
   Future<void> _initializeChat() async {
     try {
-      final accessConfig = await _accessService.getConfig();
-      if (!accessConfig.privateChatEnabled) {
-        SafeSetState.call(this, () {
-          _privateChatEnabled = false;
-          _isLoading = false;
-        });
-        return;
-      }
-
       _chatService = ChatService();
       _currentUserId = Supabase.instance.client.auth.currentUser?.id;
-      _conversationId = widget.initialConversationId;
 
       if (_currentUserId == null) {
         throw Exception('کاربر احراز هویت نشده');
@@ -197,20 +149,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         await _loadOtherUserInfo();
       } catch (_) {}
 
-      // Fast path: show cached messages immediately (like modern messengers).
-      final cached = _chatService.getCachedMessages(widget.otherUserId);
-      if (cached.isNotEmpty) {
-        SafeSetState.call(this, () {
-          _messages = cached;
-          _isLoading = false;
-          _errorMessage = null;
-          _hasMoreMessages = true;
-        });
-        _scrollToBottom(animate: false);
-      }
-
       try {
-        await _loadMessages(showLoading: cached.isEmpty);
+        await _loadMessages();
       } catch (_) {
         SafeSetState.call(this, () {
           _isLoading = false;
@@ -224,10 +164,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       } catch (_) {}
 
       _subscribeToMessages();
-      _startReadReceiptSync();
-      if (_shouldAutoMarkAsRead()) {
-        _markConversationAsRead();
-      }
+      _markConversationAsRead();
 
       // ثبت حضور کاربر در چت
       if (_currentUserId != null && _conversationId != null) {
@@ -247,16 +184,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       SafeSetState.call(this, () {
         _isLoading = false;
         _errorMessage = 'خطا در راه‌اندازی چت: $e';
-      });
-    }
-  }
-
-  void _onAccessConfigChanged() {
-    if (!mounted) return;
-    final enabled = _accessService.configNotifier.value.privateChatEnabled;
-    if (_privateChatEnabled != enabled) {
-      setState(() {
-        _privateChatEnabled = enabled;
       });
     }
   }
@@ -326,85 +253,50 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
-  Future<void> _loadMessages({bool showLoading = true}) async {
-    final sw = Stopwatch()..start();
+  Future<void> _loadMessages() async {
     try {
-      if (showLoading) {
-        SafeSetState.call(this, () {
-          _isLoading = true;
-          _errorMessage = null;
-        });
-      }
+      SafeSetState.call(this, () {
+        _isLoading = true;
+        _errorMessage = null;
+      });
 
-      List<ChatMessage> messages;
-      if (_conversationId != null && _conversationId!.isNotEmpty) {
-        // Fast path: avoid extra lookup when conversation id is already known.
-        messages = await _chatService.getMessagesByConversationId(_conversationId!);
-      } else {
-        await _chatService.ensureConversationExists(widget.otherUserId);
-        messages = await _chatService.getMessages(widget.otherUserId);
-        // Resolve and cache conversation id once.
-        final conversation = await _chatService.getConversationByUserId(
-          widget.otherUserId,
-        );
-        if (conversation != null) {
-          _conversationId = conversation.id;
-        }
+      await _chatService.ensureConversationExists(widget.otherUserId);
+      final messages = await _chatService.getMessages(widget.otherUserId);
+
+      // دریافت conversation ID
+      final conversation = await _chatService.getConversationByUserId(
+        widget.otherUserId,
+      );
+      if (conversation != null) {
+        _conversationId = conversation.id;
       }
 
       SafeSetState.call(this, () {
         _messages = messages;
-        _messageIds
-          ..clear()
-          ..addAll(messages.map((m) => m.id));
         _isLoading = false;
-        _errorMessage = null;
         _hasMoreMessages = messages.length >= _messagesPerPage;
       });
-      _syncMessagesCache();
       _scrollToBottom();
     } catch (_) {
       SafeSetState.call(this, () {
         _isLoading = false;
         _errorMessage = 'خطا در بارگیری پیام‌ها';
       });
-    } finally {
-      sw.stop();
-      if (kDebugMode) {
-        debugPrint('⏱️ chat_load_messages_ms=${sw.elapsedMilliseconds}');
-      }
     }
   }
 
   Future<void> _loadMoreMessages() async {
     if (_isLoadingMore || !_hasMoreMessages) return;
-    final sw = Stopwatch()..start();
 
     try {
       SafeSetState.call(this, () => _isLoadingMore = true);
 
-      final int loadedCount = _messages.length;
-      List<ChatMessage> moreMessages;
-      if (_conversationId != null && _conversationId!.isNotEmpty) {
-        moreMessages = await _chatService.getMessagesByConversationId(
-          _conversationId!,
-          limit: _messagesPerPage,
-          offset: loadedCount,
-        );
-      } else {
-        moreMessages = await _chatService.getMessages(
-          widget.otherUserId,
-          limit: _messagesPerPage,
-          offset: loadedCount,
-        );
-      }
+      final moreMessages = await _chatService.getMessages(widget.otherUserId);
 
       if (moreMessages.isNotEmpty) {
         SafeSetState.call(this, () {
-          final unique = moreMessages.where((m) => _messageIds.add(m.id)).toList();
-          _messages.insertAll(0, unique);
-          _hasMoreMessages =
-              moreMessages.length >= _messagesPerPage && unique.isNotEmpty;
+          _messages.insertAll(0, moreMessages);
+          _hasMoreMessages = moreMessages.length >= _messagesPerPage;
         });
       } else {
         SafeSetState.call(this, () {
@@ -415,10 +307,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // ignore load-more errors; user can pull-to-refresh
     } finally {
       SafeSetState.call(this, () => _isLoadingMore = false);
-      sw.stop();
-      if (kDebugMode) {
-        debugPrint('⏱️ chat_load_more_ms=${sw.elapsedMilliseconds}');
-      }
     }
   }
 
@@ -428,16 +316,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         .listen((message) {
           // فقط پیام‌های دیگران را اضافه کن، نه پیام‌های خود کاربر
           if (message.senderId != _currentUserId) {
-            final inserted = _addMessageIfNotExists(message);
-            // سرویس ممکن است در هر update پیام‌های قدیمی را هم emit کند.
-            // فقط برای پیام‌های واقعاً جدید اسکرول/mark-as-read انجام بده.
-            if (inserted) {
-              _syncMessagesCache();
-              _scrollToBottom();
-              if (_shouldAutoMarkAsRead()) {
-                _markConversationAsRead();
-              }
-            }
+            _addMessageIfNotExists(message);
+            _scrollToBottom();
+            _markConversationAsRead();
           } else {
             // برای پیام‌های خود کاربر، فقط آپدیت کن
             SafeSetState.call(this, () {
@@ -446,40 +327,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 _messages[index] = message;
               }
             });
-            _syncMessagesCache();
           }
         }, onError: (_) {});
   }
 
   Future<void> _markConversationAsRead() async {
     try {
-      // Critical guard: never mark as read unless this exact chat screen
-      // is visible in foreground.
-      if (!_shouldAutoMarkAsRead()) return;
-
-      // Optimistic badge clear for instant UX.
-      if (mounted) {
-        try {
-          final notifier = Provider.of<ChatUnreadNotifier>(context, listen: false);
-          await notifier.ensureInitialized(SupabaseService());
-          notifier.clearUnreadCount();
-        } catch (_) {}
-      }
-
-      // Prefer cached conversation id to avoid an extra network lookup.
-      String? conversationId = _conversationId;
-      if (conversationId == null || conversationId.isEmpty) {
-        final conversation = await _chatService.getConversationByUserId(
-          widget.otherUserId,
-        );
-        conversationId = conversation?.id;
-        if (conversationId != null && conversationId.isNotEmpty) {
-          _conversationId = conversationId;
-        }
-      }
-
-      if (conversationId != null && conversationId.isNotEmpty) {
-        await _chatService.markConversationAsRead(conversationId);
+      // ابتدا مکالمه را پیدا کن
+      final conversation = await _chatService.getConversationByUserId(
+        widget.otherUserId,
+      );
+      if (conversation != null) {
+        await _chatService.markConversationAsRead(conversation.id);
 
         // به‌روزرسانی ChatUnreadNotifier
         if (mounted) {
@@ -497,69 +356,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
-  void _startReadReceiptSync() {
-    _readReceiptSyncTimer?.cancel();
-    _readReceiptSyncTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (!mounted || !_isAppInForeground || !_isCurrentChatRouteVisible()) {
-        return;
-      }
-      unawaited(_syncReadReceiptsFallback());
-    });
-  }
-
-  Future<void> _syncReadReceiptsFallback() async {
-    try {
-      final conversationId = _conversationId;
-      final currentUserId = _currentUserId;
-      if (conversationId == null ||
-          conversationId.isEmpty ||
-          currentUserId == null ||
-          _messages.isEmpty) {
-        return;
-      }
-
-      // Lightweight fallback for missed realtime receipt updates.
-      final latestMessages = await _chatService.getMessagesByConversationId(
-        conversationId,
-        limit: 80,
-      );
-      if (latestMessages.isEmpty || !mounted) return;
-
-      final latestById = <String, ChatMessage>{
-        for (final m in latestMessages) m.id: m,
-      };
-      var changed = false;
-      final updated = <ChatMessage>[];
-      for (final msg in _messages) {
-        final latest = latestById[msg.id];
-        if (latest != null &&
-            msg.senderId == currentUserId &&
-            msg.isRead != latest.isRead) {
-          updated.add(msg.copyWith(isRead: latest.isRead, updatedAt: latest.updatedAt));
-          changed = true;
-        } else {
-          updated.add(msg);
-        }
-      }
-
-      if (!changed) return;
-      SafeSetState.call(this, () {
-        _messages = updated;
-      });
-      _syncMessagesCache();
-    } catch (_) {}
-  }
-
   Future<void> _sendMessage() async {
     if (!mounted || !_messageController.isSafe) return;
     final message = _messageController.safeText.trim();
     if (message.isEmpty || _isSending) return;
 
     // Create optimistic message
-    final tempMessageId =
-        'local_${DateTime.now().microsecondsSinceEpoch}_${_messages.length}';
     final tempMessage = ChatMessage(
-      id: tempMessageId,
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       senderId: _currentUserId!,
       receiverId: widget.otherUserId,
       message: message,
@@ -569,12 +373,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     SafeSetState.call(this, () {
       _isSending = true;
-      _pendingMessageIds.add(tempMessageId);
-      _failedMessageIds.remove(tempMessageId);
       _messages.add(tempMessage);
-        _messageIds.add(tempMessageId);
     });
-    _syncMessagesCache();
 
     if (_messageController.isSafe) {
       _messageController.safeClear();
@@ -589,30 +389,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       // Replace temp message with real message
       SafeSetState.call(this, () {
-        _pendingMessageIds.remove(tempMessageId);
-        _failedMessageIds.remove(tempMessageId);
         final index = _messages.indexWhere((m) => m.id == tempMessage.id);
         if (index != -1) {
-          _messageIds.remove(tempMessageId);
           _messages[index] = sentMessage;
-          _messageIds.add(sentMessage.id);
         } else {
           // اگر پیام موقت پیدا نشد، پیام واقعی را اضافه کن
-          if (_messageIds.add(sentMessage.id)) {
-            _messages.add(sentMessage);
-          }
+          _messages.add(sentMessage);
         }
         // مرتب‌سازی بر اساس زمان ایجاد (قدیمی‌ترین اول)
         _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       });
-      _syncMessagesCache();
     } catch (e) {
-      // Keep failed message in list and allow inline retry like modern messengers.
+      // Remove temp message on error
       SafeSetState.call(this, () {
-        _pendingMessageIds.remove(tempMessageId);
-        _failedMessageIds.add(tempMessageId);
+        _messages.removeWhere((m) => m.id == tempMessage.id);
       });
-      _syncMessagesCache();
 
       if (mounted) {
         final errorMessage = e.toString().replaceAll('Exception: ', '');
@@ -626,12 +417,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
             ),
             backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'تلاش مجدد',
-              textColor: AppTheme.darkTextColor,
+              textColor: Colors.white,
               onPressed: () {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                _retryFailedMessage(tempMessageId);
+                _sendMessage();
               },
             ),
           ),
@@ -642,84 +434,32 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _retryFailedMessage(String messageId) async {
-    if (_isSending) return;
-    final index = _messages.indexWhere((m) => m.id == messageId);
-    if (index == -1) return;
-    final failedMessage = _messages[index];
-    if (failedMessage.message.trim().isEmpty) return;
-
-    SafeSetState.call(this, () {
-      _isSending = true;
-      _failedMessageIds.remove(messageId);
-      _pendingMessageIds.add(messageId);
-    });
-
-    try {
-      final sentMessage = await _chatService.sendMessage(
-        receiverId: widget.otherUserId,
-        message: failedMessage.message,
-      );
-
-      SafeSetState.call(this, () {
-        _pendingMessageIds.remove(messageId);
-        _failedMessageIds.remove(messageId);
-        final currentIndex = _messages.indexWhere((m) => m.id == messageId);
-        if (currentIndex != -1) {
-          _messageIds.remove(messageId);
-          _messages[currentIndex] = sentMessage;
-          _messageIds.add(sentMessage.id);
-        } else {
-          if (_messageIds.add(sentMessage.id)) {
-            _messages.add(sentMessage);
-          }
-        }
-        _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      });
-      _syncMessagesCache();
-    } catch (_) {
-      SafeSetState.call(this, () {
-        _pendingMessageIds.remove(messageId);
-        _failedMessageIds.add(messageId);
-      });
-      _syncMessagesCache();
-    } finally {
-      SafeSetState.call(this, () => _isSending = false);
-    }
-  }
-
-  void _scrollToBottom({bool animate = true}) {
+  void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         // With reverse: true, انتهای لیست در minScrollExtent است
         final target = _scrollController.position.minScrollExtent;
-        final distance = (_scrollController.offset - target).abs();
-        if (distance < 2) return;
-        if (animate) {
-          _scrollController.animateTo(
-            target,
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-          );
-        } else {
-          _scrollController.jumpTo(target);
-        }
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
       }
     });
   }
 
   // اضافه کردن پیام بدون تکرار و حفظ ترتیب زمانی
-  bool _addMessageIfNotExists(ChatMessage message) {
-    if (_messageIds.add(message.id)) {
+  void _addMessageIfNotExists(ChatMessage message) {
+    // بررسی وجود پیام بر اساس ID
+    final exists = _messages.any((m) => m.id == message.id);
+
+    if (!exists) {
       SafeSetState.call(this, () {
         _messages.add(message);
         // مرتب‌سازی بر اساس زمان ایجاد (قدیمی‌ترین اول)
         _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       });
-      _syncMessagesCache();
-      return true;
     }
-    return false;
   }
 
   Future<void> _refreshMessages() async {
@@ -733,9 +473,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       // Update local state immediately
       SafeSetState.call(this, () {
         _messages.removeWhere((m) => m.id == message.id);
-        _messageIds.remove(message.id);
       });
-      _syncMessagesCache();
     } catch (e) {
       WidgetSafetyUtils.safeShowSnackBar(
         context,
@@ -758,7 +496,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           );
         }
       });
-      _syncMessagesCache();
     } catch (e) {
       WidgetSafetyUtils.safeShowSnackBar(
         context,
@@ -767,105 +504,45 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _flushReadStateInBackground() {
-    unawaited(_markConversationAsRead());
-  }
-
-  void _handleBackNavigation() {
-    if (!mounted) return;
-    if (_isHandlingBackNavigation) return;
-    _isHandlingBackNavigation = true;
-    try {
-      FocusManager.instance.primaryFocus?.unfocus();
-      _syncMessagesCache();
-      // Telegram/WhatsApp-style UX: navigate immediately, sync read-state async.
-      _flushReadStateInBackground();
-
-      final navigator = Navigator.of(context);
-      if (navigator.canPop()) {
-        navigator.pop();
-        return;
-      }
-
-      // Defensive fallback: return to chat tab without pushing a new route stack.
-      popRootNavigatorOverlays();
-      MainNavigationScreen.navigateToTab(NavigationConstants.chatIndex);
-    } catch (_) {
-      _isHandlingBackNavigation = false;
-    }
-  }
-
-  void _syncMessagesCache() {
-    if (!mounted) return;
-    final otherUserId = widget.otherUserId;
-    final messages = List<ChatMessage>.from(_messages);
-    scheduleMicrotask(() {
-      _chatService.saveCachedMessages(otherUserId, messages);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (!_privateChatEnabled) {
-      return const Scaffold(
-        body: FeatureUnavailableView(
-          title: 'چت خصوصی بسته است',
-          description: 'این بخش توسط مدیر سیستم موقتاً غیرفعال شده است.',
+    return Theme(
+      data: Theme.of(
+        context,
+      ).copyWith(scaffoldBackgroundColor: context.backgroundColor),
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        backgroundColor: context.backgroundColor,
+        appBar: ChatAppBarWidget(
+          otherUserName: widget.otherUserName,
+          otherUserRole: _otherUserRole,
+          otherUserAvatar: _otherUserAvatar,
+          isOtherUserOnline: _isOtherUserOnline,
+          otherUserLastSeen: _otherUserLastSeen,
+          onBackPressed: () => Navigator.of(context).pop(),
+          onMorePressed: _showChatOptions,
         ),
-      );
-    }
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        _handleBackNavigation();
-      },
-      child: DecoratedBox(
-        decoration: const BoxDecoration(),
-        child: Scaffold(
-          resizeToAvoidBottomInset: true,
-          backgroundColor: Colors.transparent,
-          appBar: ChatAppBarWidget(
-            otherUserName: widget.otherUserName,
-            otherUserId: widget.otherUserId,
-            otherUserRole: _otherUserRole,
-            otherUserAvatar: _otherUserAvatar,
-            isOtherUserOnline: _isOtherUserOnline,
-            otherUserLastSeen: _otherUserLastSeen,
-            onBackPressed: _handleBackNavigation,
-            onMorePressed: _showChatOptions,
-          ),
-          body: Column(
-            children: [
-              Expanded(
-                child: ErrorBoundaryWidget(
-                  child: _buildMessagesList(),
-                  onRetry: () {
-                    setState(() {
-                      _isLoading = true;
-                      _errorMessage = null;
-                    });
-                    _initializeChat();
-                  },
-                ),
+        body: Column(
+          children: [
+            Expanded(
+              child: ErrorBoundaryWidget(
+                child: _buildMessagesList(),
+                onRetry: () {
+                  setState(() {
+                    _isLoading = true;
+                    _errorMessage = null;
+                  });
+                  _initializeChat();
+                },
               ),
-              Container(
-                height: 1.h,
-                margin: EdgeInsets.symmetric(horizontal: 14.w),
-                color: context.separatorColor.withValues(alpha: 0.22),
-              ),
-              SafeArea(
-                top: false,
-                child: MessageInputWidget(
-                  controller: _messageController,
-                  onSendPressed: _sendMessage,
-                  onAttachmentPressed: _showAttachmentOptions,
-                  isSending: _isSending,
-                  useSafeArea: false,
-                ),
-              ),
-            ],
-          ),
+            ),
+            MessageInputWidget(
+              controller: _messageController,
+              onSendPressed: _sendMessage,
+              onAttachmentPressed: _showAttachmentOptions,
+              isSending: _isSending,
+            ),
+          ],
         ),
       ),
     );
@@ -877,7 +554,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(color: AppTheme.goldColor),
+            CircularProgressIndicator(color: AppTheme.goldColor),
             SizedBox(height: 16.h),
             Text(
               'در حال بارگذاری پیام‌ها...',
@@ -907,7 +584,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontWeight: FontWeight.bold,
-                fontSize: 14.sp,
+                fontSize: 16.sp,
                 color: context.textColor,
               ),
               textAlign: TextAlign.center,
@@ -915,8 +592,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             SizedBox(height: 16.h),
             ElevatedButton.icon(
               onPressed: _loadMessages,
-              icon: const Icon(LucideIcons.refreshCw),
-              label: const Text('تلاش مجدد'),
+              icon: Icon(LucideIcons.refreshCw),
+              label: Text('تلاش مجدد'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.goldColor,
                 foregroundColor: AppTheme.onGoldColor,
@@ -978,7 +655,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         controller: _scrollController,
         reverse: true,
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: EdgeInsets.fromLTRB(14.w, 16.h, 14.w, 12.h),
+        padding: EdgeInsets.all(16.w),
         itemCount: _messages.length + (_hasMoreMessages ? 1 : 0),
         itemBuilder: (context, index) {
           // در حالت reverse، اندیس 0 یعنی آخرین پیام
@@ -999,11 +676,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           return ChatMessageBubble(
             message: message,
             isMe: isMe,
-            isSending: _pendingMessageIds.contains(message.id),
-            isFailed: _failedMessageIds.contains(message.id),
-            onRetryTap: _failedMessageIds.contains(message.id)
-                ? () => _retryFailedMessage(message.id)
-                : null,
             onLongPress: () => _showMessageOptions(message),
           );
         },
@@ -1053,7 +725,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: const Icon(LucideIcons.search, color: AppTheme.goldColor),
+                leading: Icon(LucideIcons.search, color: AppTheme.goldColor),
                 title: Text(
                   'جستجو در گفتگو',
                   style: TextStyle(
@@ -1070,7 +742,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: const Icon(LucideIcons.bell, color: AppTheme.goldColor),
+                leading: Icon(LucideIcons.bell, color: AppTheme.goldColor),
                 title: Text(
                   'تنظیمات اعلان',
                   style: TextStyle(
@@ -1087,8 +759,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: const Icon(LucideIcons.trash2, color: AppTheme.goldColor),
-                title: const Text(
+                leading: Icon(LucideIcons.trash2, color: AppTheme.goldColor),
+                title: Text(
                   'حذف گفتگو',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
@@ -1134,7 +806,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: const Icon(LucideIcons.edit, color: AppTheme.goldColor),
+                leading: Icon(LucideIcons.edit, color: AppTheme.goldColor),
                 title: Text(
                   'ویرایش',
                   style: TextStyle(
@@ -1151,7 +823,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: const Icon(LucideIcons.copy, color: AppTheme.goldColor),
+                leading: Icon(LucideIcons.copy, color: AppTheme.goldColor),
                 title: Text(
                   'کپی',
                   style: TextStyle(
@@ -1168,8 +840,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: const Icon(LucideIcons.trash2, color: AppTheme.goldColor),
-                title: const Text(
+                leading: Icon(LucideIcons.trash2, color: AppTheme.goldColor),
+                title: Text(
                   'حذف',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
@@ -1196,11 +868,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       context: context,
       builder: (context) {
         // کنترل امن دیالوگ و dispose کردن TextEditingController
-        return PopScope(
-          onPopInvokedWithResult: (didPop, _) {
+        return WillPopScope(
+          onWillPop: () async {
             if (editController.isSafe) {
               editController.dispose();
             }
+            return true;
           },
           child: AlertDialog(
             backgroundColor: context.cardColor,
@@ -1232,7 +905,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12.r),
-                  borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
+                  borderSide: BorderSide(color: AppTheme.goldColor, width: 2),
                 ),
               ),
             ),
@@ -1266,7 +939,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     editController.dispose();
                   }
                 },
-                child: const Text(
+                child: Text(
                   'ذخیره',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
@@ -1306,7 +979,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: const Icon(LucideIcons.image, color: AppTheme.goldColor),
+                leading: Icon(LucideIcons.image, color: AppTheme.goldColor),
                 title: Text(
                   'عکس',
                   style: TextStyle(
@@ -1323,7 +996,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: const Icon(LucideIcons.file, color: AppTheme.goldColor),
+                leading: Icon(LucideIcons.file, color: AppTheme.goldColor),
                 title: Text(
                   'فایل',
                   style: TextStyle(
@@ -1340,7 +1013,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: const Icon(LucideIcons.mic, color: AppTheme.goldColor),
+                leading: Icon(LucideIcons.mic, color: AppTheme.goldColor),
                 title: Text(
                   'صوت',
                   style: TextStyle(
@@ -1407,7 +1080,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     SnackBar(
                       content: Text(
                         'خطا در حذف گفتگو: $e',
-                        style: const TextStyle(fontFamily: AppTheme.fontFamily),
+                        style: TextStyle(fontFamily: AppTheme.fontFamily),
                       ),
                       backgroundColor: context.cardColor,
                     ),
@@ -1417,11 +1090,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 if (mounted) Navigator.of(context).pop();
               }
             },
-            child: const Text(
+            child: Text(
               'حذف',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                color: Color.fromRGBO(212, 175, 55, 1),
+                color: const Color.fromRGBO(212, 175, 55, 1),
                 fontWeight: FontWeight.bold,
               ),
             ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gymaipro/meal_log/models/food_meal_log.dart';
 import 'package:gymaipro/models/food.dart';
-import 'package:gymaipro/services/fitness_calculator.dart';
+import 'package:gymaipro/meal_log/utils/meal_nutrition_targets.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 
@@ -71,56 +71,11 @@ class MealLogUtils {
     return {'min': 200, 'max': 300};
   }
 
-  /// Calculates daily calorie target (TDEE) from profile data
+  /// Calculates daily calorie reference from profile (TDEE + fitness goals).
   static double calculateDailyCalorieTarget(
     Map<String, dynamic>? profileData,
   ) {
-    if (profileData == null) return 2000.0; // مقدار پیش‌فرض
-
-    final height =
-        double.tryParse((profileData['height'] as String?) ?? '') ?? 0;
-    // استفاده از آخرین وزن ثبت شده یا وزن پروفایل
-    final latestWeight = profileData['latest_weight'] as double?;
-    final weight =
-        latestWeight ??
-        double.tryParse((profileData['weight'] as String?) ?? '') ??
-        0;
-    final birthDateStr = profileData['birth_date'] as String?;
-    final isMale = (profileData['gender'] as String?) == 'male';
-
-    // محاسبه سن
-    int age = 25;
-    if (birthDateStr != null && birthDateStr.isNotEmpty) {
-      try {
-        final birthDate = DateTime.parse(birthDateStr);
-        final now = DateTime.now();
-        age =
-            now.year -
-            birthDate.year -
-            ((now.month < birthDate.month ||
-                    (now.month == birthDate.month && now.day < birthDate.day))
-                ? 1
-                : 0);
-      } catch (_) {
-        age = 25;
-      }
-    }
-
-    // اگر اطلاعات کافی نداریم، مقدار پیش‌فرض برگردان
-    if (height <= 0 || weight <= 0 || age <= 0) {
-      return 2000.0;
-    }
-
-    // محاسبه BMR
-    final bmr = FitnessCalculator.calculateBMR(weight, height, age, isMale);
-
-    // محاسبه TDEE با استفاده از activity_level واقعی از پروفایل
-    final activityLevelStr =
-        (profileData['activity_level'] as String?) ?? 'moderate';
-    final activityLevel = activityLevelStr.toActivityLevel();
-    final tdee = FitnessCalculator.calculateTDEE(bmr, activityLevel);
-
-    return tdee;
+    return MealNutritionTargets.dailyCalories(profileData);
   }
 
   // Persian date formatting helpers

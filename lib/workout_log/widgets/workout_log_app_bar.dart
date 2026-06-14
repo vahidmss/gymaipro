@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class WorkoutLogAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -36,7 +37,7 @@ class WorkoutLogAppBar extends StatelessWidget implements PreferredSizeWidget {
             padding: EdgeInsets.all(6.w),
             child: Icon(
               LucideIcons.arrowRight,
-              color: AppTheme.goldColor,
+              color: WorkoutLogColors.iconOnSurface(context),
               size: 22.sp,
             ),
           ),
@@ -44,11 +45,10 @@ class WorkoutLogAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       title: Text(
         'ثبت تمرین',
-        style: TextStyle(
-          fontFamily: AppTheme.fontFamily,
-          color: isDark ? AppTheme.goldColor : context.textColor,
-          fontWeight: FontWeight.w700,
+        style: WorkoutLogTypography.sectionTitle(context).copyWith(
           fontSize: 18.sp,
+          fontWeight: FontWeight.w800,
+          color: WorkoutLogColors.primaryText(context),
         ),
       ),
       centerTitle: true,
@@ -65,7 +65,7 @@ class WorkoutLogAppBar extends StatelessWidget implements PreferredSizeWidget {
                 padding: EdgeInsets.all(8.w),
                 child: Icon(
                   LucideIcons.fileText,
-                  color: AppTheme.goldColor,
+                  color: WorkoutLogColors.iconOnSurface(context),
                   size: 18.sp,
                 ),
               ),
@@ -82,7 +82,7 @@ class WorkoutLogAppBar extends StatelessWidget implements PreferredSizeWidget {
               padding: EdgeInsets.all(8.w),
               child: Icon(
                 LucideIcons.calendar,
-                color: AppTheme.goldColor,
+                color: WorkoutLogColors.iconOnSurface(context),
                 size: 18.sp,
               ),
             ),

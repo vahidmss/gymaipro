@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/achievements/services/achievement_service.dart';
 import 'package:gymaipro/ai/services/user_context_cache_service.dart';
 import 'package:gymaipro/announcements/services/in_app_announcement_service.dart';
 import 'package:gymaipro/announcements/widgets/in_app_announcement_modal.dart';
@@ -20,6 +21,7 @@ import 'package:gymaipro/dashboard/widgets/quick_action_buttons.dart';
 import 'package:gymaipro/dashboard/widgets/tip_card.dart';
 import 'package:gymaipro/dashboard/widgets/todays_program_section.dart';
 import 'package:gymaipro/dashboard/widgets/top_rankings_section.dart';
+import 'package:gymaipro/dashboard/widgets/weekly_muscle_heatmap_section.dart';
 import 'package:gymaipro/dashboard/widgets/weight_chart.dart';
 import 'package:gymaipro/guide/guide.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
@@ -291,6 +293,21 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   /// به‌روزرسانی streak و دستاوردهای membership
+  Future<void> _refreshGamificationScores({bool force = false}) async {
+    if (!mounted) return;
+    try {
+      final achievementService =
+          Provider.of<AchievementService>(context, listen: false);
+      final scoreService = Provider.of<ScoreService>(context, listen: false);
+      await Future.wait<void>([
+        achievementService.refreshFromDatabase(force: force),
+        scoreService.loadFromDatabase(force: force),
+      ]);
+    } catch (e) {
+      debugPrint('⚠️ Error refreshing gamification scores: $e');
+    }
+  }
+
   Future<void> _updateStreakAndMembershipAchievements() async {
     try {
       final streakService = StreakService();
@@ -300,6 +317,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
       // به‌روزرسانی دستاوردهای membership
       await streakService.updateMembershipAchievements();
+
+      await _refreshGamificationScores();
     } catch (e) {
       // بی‌صدا - خطا در به‌روزرسانی streak نباید روی عملکرد اصلی تاثیر بگذارد
       debugPrint('⚠️ Error updating streak and membership achievements: $e');
@@ -430,9 +449,9 @@ class _DashboardScreenState extends State<DashboardScreen>
       await chatUnread.refreshUnreadCount();
     } catch (_) {}
 
-    // بارگذاری امتیاز از دیتابیس تا ستاره‌های اپ‌بار با منبع واقعی همگام باشند
+    // بارگذاری امتیاز و ستاره‌های دستاورد از منبع واقعی
     try {
-      await ScoreService().loadFromDatabase();
+      await _refreshGamificationScores(force: true);
     } catch (_) {}
 
     // Reload dashboard user data and rebuild
@@ -701,9 +720,18 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                   SizedBox(height: 24.h),
 
-                  // ── ۵. متریک‌های فیتنس ──
+                  // ── ۵. هیت‌مپ عضلانی هفتگی ──
                   DashboardAnimatedSection(
                     index: 5,
+                    child: WeeklyMuscleHeatmapSection(
+                      refreshToken: _refreshKey,
+                    ),
+                  ),
+                  SizedBox(height: 24.h),
+
+                  // ── ۶. متریک‌های فیتنس ──
+                  DashboardAnimatedSection(
+                    index: 6,
                     child: FitnessMetrics(
                       key: DashboardGuideData.keys['fitness_metrics'],
                       profileData: _profileData,
@@ -711,9 +739,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                   SizedBox(height: 24.h),
 
-                  // ── ۶. نمودار وزن ──
+                  // ── ۷. نمودار وزن ──
                   DashboardAnimatedSection(
-                    index: 6,
+                    index: 7,
                     child: _profileData['id'] != null
                         ? WeightChart(
                             key: DashboardGuideData.keys['weight_chart'],
@@ -728,23 +756,23 @@ class _DashboardScreenState extends State<DashboardScreen>
                       ? [SizedBox(height: 24.h)]
                       : []),
 
-                  // ── ۷. محتوای پیشنهادی - ویدیو، مقاله، موزیک ──
+                  // ── ۸. محتوای پیشنهادی - ویدیو، مقاله، موزیک ──
                   const DashboardAnimatedSection(
-                    index: 7,
+                    index: 8,
                     child: DashboardHeroCarousel(),
                   ),
                   SizedBox(height: 24.h),
 
-                  // ── ۸. کشف جدیدها - تمرینات و تغذیه ──
+                  // ── ۹. کشف جدیدها - تمرینات و تغذیه ──
                   const DashboardAnimatedSection(
-                    index: 8,
+                    index: 9,
                     child: DiscoverSection(),
                   ),
                   SizedBox(height: 24.h),
 
-                  // ── ۹. رتبه‌بندی ──
+                  // ── ۱۰. رتبه‌بندی ──
                   const DashboardAnimatedSection(
-                    index: 9,
+                    index: 10,
                     child: TopRankingsSection(),
                   ),
                   SizedBox(height: 32.h),

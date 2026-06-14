@@ -13,7 +13,6 @@ class ChatAppBarWidget extends StatelessWidget implements PreferredSizeWidget {
     required this.isOtherUserOnline,
     required this.otherUserLastSeen,
     required this.onBackPressed,
-    this.otherUserId,
     this.onPhonePressed,
     this.onVideoPressed,
     this.onMorePressed,
@@ -26,7 +25,6 @@ class ChatAppBarWidget extends StatelessWidget implements PreferredSizeWidget {
   final bool isOtherUserOnline;
   final DateTime? otherUserLastSeen;
   final VoidCallback onBackPressed;
-  final String? otherUserId;
   final VoidCallback? onPhonePressed;
   final VoidCallback? onVideoPressed;
   final VoidCallback? onMorePressed;

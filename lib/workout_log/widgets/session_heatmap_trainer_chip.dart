@@ -119,8 +119,8 @@ class _SessionHeatmapTrainerChipState extends State<SessionHeatmapTrainerChip> {
                           isLive ? LucideIcons.sparkles : LucideIcons.flame,
                           size: 20.sp,
                           color: isActive
-                              ? AppTheme.goldColor
-                              : AppTheme.goldColor.withValues(alpha: 0.5),
+                              ? WorkoutLogColors.iconOnSurface(context)
+                              : WorkoutLogColors.secondaryText(context),
                         ),
                       ),
                     ),
@@ -131,23 +131,15 @@ class _SessionHeatmapTrainerChipState extends State<SessionHeatmapTrainerChip> {
                         children: [
                           Text(
                             isLive ? 'نقشهٔ زنده' : 'نقشهٔ این جلسه',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w800,
-                              color: WorkoutLogColors.primaryText(context),
-                            ),
+                            style: WorkoutLogTypography.sectionTitle(context)
+                                .copyWith(fontSize: 13.5.sp),
                           ),
-                          SizedBox(height: 2.h),
+                          SizedBox(height: 3.h),
                           Text(
                             subtitle,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 11.sp,
-                              color: WorkoutLogColors.secondaryText(context),
-                            ),
+                            style: WorkoutLogTypography.caption(context),
                           ),
                         ],
                       ),
@@ -165,19 +157,18 @@ class _SessionHeatmapTrainerChipState extends State<SessionHeatmapTrainerChip> {
                         ),
                         child: Text(
                           snap.topMuscleLabel!,
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.goldColor,
-                          ),
+                            style: WorkoutLogTypography.caption(
+                              context,
+                              color: WorkoutLogColors.primaryText(context),
+                              fontWeight: FontWeight.w800,
+                            ),
                         ),
                       ),
                     ],
                     Icon(
                       LucideIcons.chevronLeft,
                       size: 18.sp,
-                      color: AppTheme.goldColor.withValues(alpha: 0.8),
+                      color: WorkoutLogColors.iconOnSurface(context),
                     ),
                   ],
                 ),

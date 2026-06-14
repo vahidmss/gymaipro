@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_log/utils/meal_log_utils.dart';
-import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class WorkoutDateSeparatorWidget extends StatelessWidget {
@@ -23,7 +23,9 @@ class WorkoutDateSeparatorWidget extends StatelessWidget {
               gradient: LinearGradient(
                 colors: [
                   Colors.transparent,
-                  AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.4),
+                  WorkoutLogColors.accent(context).withValues(
+                    alpha: isDark ? 0.35 : 0.45,
+                  ),
                 ],
               ),
             ),
@@ -34,12 +36,10 @@ class WorkoutDateSeparatorWidget extends StatelessWidget {
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
             decoration: BoxDecoration(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.12 : 0.1),
+              color: WorkoutLogColors.chipFill(context, selected: true),
               borderRadius: BorderRadius.circular(12.r),
               border: Border.all(
-                color: AppTheme.goldColor.withValues(
-                  alpha: isDark ? 0.3 : 0.35,
-                ),
+                color: WorkoutLogColors.chipBorder(context, selected: true),
                 width: 1.w,
               ),
             ),
@@ -48,17 +48,15 @@ class WorkoutDateSeparatorWidget extends StatelessWidget {
               children: [
                 Icon(
                   LucideIcons.calendar,
-                  size: 14.sp,
-                  color: AppTheme.goldColor,
+                  size: 15.sp,
+                  color: WorkoutLogColors.iconOnSurface(context),
                 ),
                 SizedBox(width: 8.w),
                 Text(
                   dateText,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: isDark ? AppTheme.goldColor : AppTheme.darkGold,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w600,
+                  style: WorkoutLogTypography.sectionTitle(context).copyWith(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -71,7 +69,9 @@ class WorkoutDateSeparatorWidget extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.4),
+                  WorkoutLogColors.accent(context).withValues(
+                    alpha: isDark ? 0.35 : 0.45,
+                  ),
                   Colors.transparent,
                 ],
               ),

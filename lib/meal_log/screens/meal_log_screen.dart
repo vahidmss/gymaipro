@@ -1,14 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 // Controllers
 import 'package:gymaipro/meal_log/controllers/meal_log_controller.dart';
 // Screens
 import 'package:gymaipro/meal_log/screens/add_food_screen.dart';
-// Models
 import 'package:gymaipro/meal_log/models/food_log.dart';
 import 'package:gymaipro/meal_log/models/food_log_item.dart';
 import 'package:gymaipro/meal_log/models/food_meal_log.dart';
 // Services
+import 'package:gymaipro/meal_log/services/meal_insight_engine.dart';
 import 'package:gymaipro/meal_log/services/meal_log_service.dart';
 // Utils
 import 'package:gymaipro/meal_log/utils/meal_plan_mapper.dart';
@@ -17,10 +19,12 @@ import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 // Widgets
+import 'package:gymaipro/meal_log/widgets/meal_insight_card.dart';
 import 'package:gymaipro/meal_log/widgets/daily_calorie_summary.dart';
 import 'package:gymaipro/meal_log/dialogs/persian_food_log_date_picker_dialog.dart';
 import 'package:gymaipro/meal_log/widgets/date_separator_widget.dart';
 import 'package:gymaipro/meal_log/widgets/amount_keypad_sheet.dart';
+import 'package:gymaipro/widgets/food_serving_amount_sheet.dart';
 import 'package:gymaipro/meal_log/widgets/meal_log_app_bar.dart';
 import 'package:gymaipro/meal_log/widgets/meals_list_widget.dart';
 import 'package:gymaipro/meal_log/data/meal_log_guide_data.dart';
@@ -64,6 +68,8 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
   MealPlan? _selectedPlan;
   int? _selectedSession;
   String? _activeMealPlanId;
+
+  MealInsightResult _mealInsight = MealInsightResult.empty;
 
   // Calendar preloaded data
   Map<DateTime, bool> _preloadedFoodLogDates = {};
@@ -174,6 +180,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
         SafeSetState.call(this, () {
           _profileData = cachedProfileData;
         });
+        _refreshMealIntelligence();
         return;
       }
 
@@ -203,6 +210,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
         SafeSetState.call(this, () {
           _profileData = builtProfileData;
         });
+        _refreshMealIntelligence();
       }
     } catch (e) {
       // Error handled silently
@@ -255,7 +263,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       _isLoading = true;
     });
 
-    // هر دو را هم‌زمان بگیر؛ یک‌بار هر دو آماده شدند، یک‌جا یک فریم کامل نشون بده (مثل اپ‌های حرفه‌ای)
+    // هر دو را هم‌زمان بگیر؛ یک‌بار هر دو آماده شدند، یک‌جا یک فریم کامل نشون بده
     final localLogFuture = _foodLogService.loadLogLocal(_selectedDate);
     final foodsFuture = _foodService.getFoods();
 
@@ -279,7 +287,10 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
 
     // در پس‌زمینه از سرور به‌روزرسانی کن
     await _loadCurrentLog();
-    _preloadCalendarData();
+    unawaited(
+      _preloadCalendarData().then((_) => _refreshMealIntelligence()),
+    );
+    _refreshMealIntelligence();
   }
 
   Future<void> _preloadCalendarData() async {
@@ -418,6 +429,152 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
 
     // Ensure all standard meals exist in log (even if empty)
     await _ensureStandardMeals();
+    _refreshMealIntelligence();
+  }
+
+  bool get _isFreeLoggingMode => !_shouldShowTrainerCard();
+
+  void _refreshMealIntelligence() {
+    if (!_isFreeLoggingMode || !mounted) return;
+
+    final insight = MealInsightEngine.analyze(
+      meals: _currentLog?.meals ?? const [],
+      allFoods: _allFoods,
+      profileData: _profileData,
+      loggedDates: _preloadedFoodLogDates,
+      referenceTime: _isTodaySelected ? DateTime.now() : _selectedDate,
+    );
+
+    SafeSetState.call(this, () => _mealInsight = insight);
+  }
+
+  bool get _isTodaySelected {
+    final now = DateTime.now();
+    return _selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day;
+  }
+
+  void _markSelectedDateLogged() {
+    final key = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+    );
+    _preloadedFoodLogDates[key] = true;
+  }
+
+  void _afterLogUpdated() {
+    _markSelectedDateLogged();
+    _refreshMealIntelligence();
+  }
+
+  Future<void> _ensureCurrentLogInitialized() async {
+    if (_currentLog != null) return;
+
+    final userId = Supabase.instance.client.auth.currentUser?.id ??
+        (await SimpleProfileService.getCurrentProfile())?['id'] as String? ??
+        '';
+    final newLog = FoodLog(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      userId: userId,
+      logDate: _selectedDate,
+      meals: [],
+      supplements: [],
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    SafeSetState.call(this, () => _currentLog = newLog);
+    await _foodLogService.saveLogLocal(newLog);
+    _foodLogService.saveLog(newLog).catchError((_) {});
+    await _ensureStandardMeals();
+  }
+
+  Future<void> _addFoodDirectly({
+    required Food food,
+    required double amount,
+    required String unit,
+    required String mealTitle,
+  }) async {
+    await _ensureCurrentLogInitialized();
+
+    final mealExists =
+        _currentLog!.meals.any((meal) => meal.title == mealTitle);
+    if (!mealExists) {
+      SafeSetState.call(this, () {
+        _currentLog!.meals.add(FoodMealLog(title: mealTitle, foods: []));
+      });
+      await _foodLogService.saveLogLocal(_currentLog!);
+    }
+
+    final updatedLog = await _controller.addFoodToMeal(
+      currentLog: _currentLog!,
+      mealTitle: mealTitle,
+      food: food,
+      amount: amount,
+      unit: unit,
+    );
+
+    SafeSetState.call(this, () => _currentLog = updatedLog);
+    _afterLogUpdated();
+  }
+
+  String _resolveMealTitle({String? preferred}) {
+    if (preferred != null &&
+        preferred.isNotEmpty &&
+        MealInsightEngine.isStandardMealTitle(preferred)) {
+      return preferred;
+    }
+    return MealInsightEngine.suggestedMealForHour(DateTime.now().hour);
+  }
+
+  Future<Map<String, dynamic>?> _pickFoodAmount({
+    required Food food,
+    required String mealTitle,
+    double? initialAmount,
+    String? initialUnit,
+  }) async {
+    if (!mounted) return null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      barrierColor: isDark
+          ? Colors.black.withValues(alpha: 0.7)
+          : AppTheme.lightTextColor.withValues(alpha: 0.5),
+      builder: (context) => FoodServingAmountSheet(
+        food: food,
+        mealTitle: mealTitle,
+        initialAmount: initialAmount,
+        initialUnit: initialUnit,
+      ),
+    );
+  }
+
+  Future<void> _onInsightSuggestion(MealFoodSuggestion suggestion) async {
+    final food = _allFoods.firstWhere(
+      (f) => f.id == suggestion.foodId,
+      orElse: () => MealLogUtils.createDefaultFood(suggestion.foodId),
+    );
+    if (food.id == 0) return;
+
+    final mealTitle = _resolveMealTitle(preferred: suggestion.mealTitle);
+    final result = await _pickFoodAmount(
+      food: food,
+      mealTitle: mealTitle,
+      initialAmount: suggestion.amount,
+      initialUnit: suggestion.unit,
+    );
+    if (result == null || !mounted) return;
+
+    await _addFoodDirectly(
+      food: result['food'] as Food? ?? food,
+      amount: result['amount'] as double,
+      unit: result['unit'] as String? ?? 'گرم',
+      mealTitle: result['mealTitle'] as String? ?? mealTitle,
+    );
   }
 
   Future<void> _ensureStandardMeals() async {
@@ -609,7 +766,19 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                                                 meals: _currentLog?.meals ?? [],
                                                 allFoods: _allFoods,
                                                 profileData: _profileData,
+                                                barGuidance:
+                                                    _mealInsight.barGuidance,
+                                                referenceTime: _isTodaySelected
+                                                    ? DateTime.now()
+                                                    : _selectedDate,
                                               ),
+                                      if (!_isLoading &&
+                                          _isFreeLoggingMode &&
+                                          _mealInsight.shouldShowInsightCard)
+                                        MealInsightCard(
+                                          insight: _mealInsight,
+                                          onSuggestionTap: _onInsightSuggestion,
+                                        ),
                                       // بخش خروج به کالری شماری آزاد (فقط وقتی از meal plan آمده)
                                       if (!_isLoading &&
                                           _shouldShowTrainerCard()) ...[
@@ -752,8 +921,17 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
           barrierColor: isDark
               ? Colors.black.withValues(alpha: 0.7)
               : AppTheme.lightTextColor.withValues(alpha: 0.5),
-          builder: (context) =>
-              AddFoodScreen(foods: _allFoods, initialMealTitle: mealTitle),
+          builder: (context) => Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
+            ),
+            child: AddFoodScreen(
+              foods: _allFoods,
+              initialMealTitle: mealTitle,
+            ),
+          ),
+          enableDrag: false,
+          useSafeArea: false,
         );
     if (result != null) {
       // Initialize log if it doesn't exist (سریع: اول auth، بعد در پس‌زمینه sync)
@@ -807,6 +985,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       SafeSetState.call(this, () {
         _currentLog = updatedLog;
       });
+      _afterLogUpdated();
     }
   }
 
@@ -823,6 +1002,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       SafeSetState.call(this, () {
         _currentLog = updatedLog;
       });
+      _afterLogUpdated();
     }
   }
 
@@ -853,6 +1033,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       SafeSetState.call(this, () {
         _currentLog = updatedLog;
       });
+      _afterLogUpdated();
     }
   }
 
@@ -873,6 +1054,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
         SafeSetState.call(this, () {
           _currentLog = updatedLog;
         });
+        _afterLogUpdated();
       case 'substitute':
         _showSubstituteFoodDialog(foodItem, mealTitle);
       case 'delete':
@@ -887,7 +1069,6 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     final alternatives = foodItem.alternatives ?? [];
     if (alternatives.isEmpty) return;
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final selected =
         await WidgetSafetyUtils.safeShowDialog<Map<String, dynamic>>(
           context: context,
@@ -906,6 +1087,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       SafeSetState.call(this, () {
         _currentLog = updatedLog;
       });
+      _afterLogUpdated();
     }
   }
 }

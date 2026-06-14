@@ -10,6 +10,8 @@ class GymaiTrainerAvatar extends StatelessWidget {
     this.avatarUrl,
     this.userId,
     this.username,
+    this.firstName,
+    this.lastName,
     this.fit = BoxFit.cover,
     this.fallback,
     this.clipOval = true,
@@ -18,13 +20,20 @@ class GymaiTrainerAvatar extends StatelessWidget {
   final String? avatarUrl;
   final String? userId;
   final String? username;
+  final String? firstName;
+  final String? lastName;
   final double size;
   final BoxFit fit;
   final Widget? fallback;
   final bool clipOval;
 
   bool get _isGymai =>
-      AITrainerService.isGymaiTrainer(userId: userId, username: username);
+      AITrainerService.isGymaiTrainer(
+        userId: userId,
+        username: username,
+        firstName: firstName,
+        lastName: lastName,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -33,15 +42,7 @@ class GymaiTrainerAvatar extends StatelessWidget {
 
     Widget child;
     if (_isGymai) {
-      child = hasNetwork
-          ? CachedNetworkImage(
-              imageUrl: url,
-              width: size,
-              height: size,
-              fit: fit,
-              errorWidget: (_, __, ___) => _assetImage(),
-            )
-          : _assetImage();
+      child = _assetImage();
     } else if (hasNetwork) {
       child = CachedNetworkImage(
         imageUrl: url,

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/chat/services/chat_service.dart';
-import 'package:gymaipro/chat/services/chat_unread_sync_bus.dart';
 import 'package:gymaipro/notification/gateway/notification_delivery_gateway.dart';
 import 'package:gymaipro/notification/notification_service.dart';
 import 'package:gymaipro/notification/repositories/notification_repository.dart';
@@ -154,8 +153,7 @@ class NotificationFallbackSyncService {
         pushHealthy: postSyncHealth.canDeliverPush,
       );
 
-      // Push an in-app sync signal so chat/notification badges refresh immediately.
-      ChatUnreadSyncBus.instance.ping();
+      // Push an in-app sync signal so notification badges refresh immediately.
       NotificationSyncBus.instance.ping();
 
       await _markSuccess(

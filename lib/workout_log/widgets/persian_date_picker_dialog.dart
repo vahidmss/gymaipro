@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/widgets/gold_button.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -207,7 +208,7 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
             child: IconButton(
               icon: Icon(
                 LucideIcons.chevronRight,
-                color: AppTheme.goldColor,
+                color: WorkoutLogColors.iconOnSurface(context),
                 size: 20.sp,
               ),
               onPressed: () {
@@ -232,22 +233,16 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
             children: [
               Text(
                 _getPersianMonthName(_getPersianMonthNumber()),
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  color: isDark ? AppTheme.goldColor : context.textColor,
-                  fontWeight: FontWeight.bold,
+                style: WorkoutLogTypography.sectionTitle(context).copyWith(
                   fontSize: 20.sp,
-                  letterSpacing: 0.5,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               SizedBox(height: 4.h),
               Text(
                 _convertToPersianNumbers(_getPersianYear().toString()),
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  color: context.textColor.withValues(alpha: 0.6),
+                style: WorkoutLogTypography.dialogMuted(context).copyWith(
                   fontSize: 13.sp,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -260,7 +255,7 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
             child: IconButton(
               icon: Icon(
                 LucideIcons.chevronLeft,
-                color: AppTheme.goldColor,
+                color: WorkoutLogColors.iconOnSurface(context),
                 size: 20.sp,
               ),
               onPressed: () {
@@ -319,7 +314,6 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
   }
 
   Widget _buildWeekdayHeaders(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     const weekdays = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
     return Row(
       children: weekdays
@@ -330,14 +324,10 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
                   padding: EdgeInsets.symmetric(vertical: 8.h),
                   child: Text(
                     day,
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      color: isDark
-                          ? AppTheme.goldColor.withValues(alpha: 0.8)
-                          : context.textColor.withValues(alpha: 0.7),
-                      fontWeight: FontWeight.bold,
+                    style: WorkoutLogTypography.fieldLabel(context).copyWith(
                       fontSize: 13.sp,
-                      letterSpacing: 0.5,
+                      fontWeight: FontWeight.w800,
+                      color: WorkoutLogColors.secondaryText(context),
                     ),
                   ),
                 ),
@@ -449,10 +439,12 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         color: isSelected
-                            ? AppTheme.onGoldColor
+                            ? WorkoutLogColors.onGoldSurface(context)
                             : hasWorkoutLog
-                            ? (isDark ? Colors.green[300] : Colors.green[700])
-                            : context.textColor,
+                            ? (isDark
+                                  ? const Color(0xFFA5D6A7)
+                                  : const Color(0xFF1B5E20))
+                            : WorkoutLogColors.primaryText(context),
                         fontWeight: isSelected || hasWorkoutLog || isToday
                             ? FontWeight.bold
                             : FontWeight.w500,
@@ -466,10 +458,11 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
                         LucideIcons.dumbbell,
                         size: 10.sp,
                         color: isSelected
-                            ? AppTheme.onGoldColor.withValues(alpha: 0.9)
+                            ? WorkoutLogColors.onGoldSurface(context)
+                                .withValues(alpha: 0.9)
                             : (isDark
-                                  ? Colors.green[300]
-                                  : Colors.green[700]),
+                                  ? const Color(0xFFA5D6A7)
+                                  : const Color(0xFF1B5E20)),
                       ),
                     ],
                   ],

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/ranking/models/ranking_score_breakdown.dart';
 import 'package:gymaipro/ranking/services/ranking_score_service.dart';
@@ -82,9 +84,18 @@ class ScoreService extends ChangeNotifier {
       final previousEntries = List<PointHistory>.from(_activityEntries);
 
       try {
-        _score = await _loadRankingScore(client, profileId);
+        final rankingService = RankingScoreService();
         final breakdown =
-            await RankingScoreService().getScoreBreakdown(profileId);
+            await rankingService.getScoreBreakdown(profileId);
+        final computedScore = breakdown?.totalScore ?? 0;
+        var loadedScore = await _loadRankingScore(client, profileId);
+
+        if (computedScore > loadedScore) {
+          loadedScore = computedScore;
+          unawaited(rankingService.updateUserScore(profileId));
+        }
+
+        _score = loadedScore;
         _activityEntries = breakdown != null
             ? _activityEntriesFromBreakdown(breakdown)
             : <PointHistory>[];

@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/muscle_targets.dart';
 import 'package:gymaipro/services/muscle_heatmap_aggregate.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
 import 'package:gymaipro/widgets/app_remote_image.dart';
 import 'package:gymaipro/widgets/exercise_muscle_heatmap_widget.dart';
 import 'package:gymaipro/workout_log/viewmodels/workout_log_viewmodel.dart';
@@ -84,12 +85,8 @@ class SessionMuscleHeatmapSheet extends StatelessWidget {
                           liveSession != null
                               ? 'نقشهٔ ${liveSession.day}'
                               : 'نقشهٔ این جلسه',
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontFamily,
+                          style: WorkoutLogTypography.sectionTitle(context).copyWith(
                             fontSize: 16.sp,
-                            fontWeight: FontWeight.w800,
-                            color:
-                                isDark ? Colors.white : AppTheme.lightTextColor,
                           ),
                         ),
                       ),
@@ -105,12 +102,8 @@ class SessionMuscleHeatmapSheet extends StatelessWidget {
                     SizedBox(height: 4.h),
                     Text(
                       liveCopy.subtitle,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
+                      style: WorkoutLogTypography.dialogMuted(context).copyWith(
                         fontSize: 12.sp,
-                        color: isDark
-                            ? Colors.white54
-                            : AppTheme.lightTextSecondary,
                       ),
                     ),
                   ],
@@ -175,11 +168,10 @@ class _TopMuscleChips extends StatelessWidget {
           ),
           child: Text(
             MuscleTargets.label(e.key),
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : AppTheme.lightTextColor,
+            style: WorkoutLogTypography.caption(
+              context,
+              color: WorkoutLogColors.primaryText(context),
+              fontWeight: FontWeight.w800,
             ),
           ),
         );
@@ -223,20 +215,15 @@ class _EmptySessionBody extends StatelessWidget {
               children: [
                 Text(
                   headline,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
+                  style: WorkoutLogTypography.sectionTitle(context).copyWith(
                     fontSize: 13.sp,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white70 : AppTheme.lightTextColor,
                   ),
                 ),
                 SizedBox(height: 4.h),
                 Text(
                   sub,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
+                  style: WorkoutLogTypography.dialogMuted(context).copyWith(
                     fontSize: 11.sp,
-                    color: isDark ? Colors.white38 : AppTheme.lightTextSecondary,
                   ),
                 ),
               ],
@@ -277,10 +264,9 @@ class _TipLine extends StatelessWidget {
             Expanded(
               child: Text(
                 text,
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
+                style: WorkoutLogTypography.dialogBody(context).copyWith(
                   fontSize: 11.sp,
-                  color: isDark ? Colors.white60 : AppTheme.lightTextSecondary,
+                  color: WorkoutLogColors.secondaryText(context),
                 ),
               ),
             ),
@@ -325,12 +311,9 @@ class _SessionHeroBanner extends StatelessWidget {
             Expanded(
               child: Text(
                 line,
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
+                style: WorkoutLogTypography.sectionTitle(context).copyWith(
                   fontSize: 13.sp,
                   fontWeight: FontWeight.w800,
-                  height: 1.35,
-                  color: isDark ? Colors.white : AppTheme.lightTextColor,
                 ),
               ),
             ),

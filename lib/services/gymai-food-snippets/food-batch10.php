@@ -375,8 +375,8 @@ if (!function_exists('gymai_food_batch10_definitions')) {
       "units": [
         {
           "key": "piece",
-          "label": "عدد متوسط",
-          "grams": 120,
+          "label": "یک عدد",
+          "grams": 10,
           "step": 0.5,
           "decimals": 1,
           "is_primary": true,

@@ -347,7 +347,10 @@ class Exercise {
         return double.tryParse(v.toString());
       }(),
       muscleTargets: MuscleTargets.parse(
-        metaMap['muscle_targets'] ?? json['muscle_targets'],
+        metaMap['muscle_targets'] ??
+            json['muscle_targets'] ??
+            json['muscle_targets_json'] ??
+            json['muscleTargets'],
       ),
       richMeta: ExerciseRichMeta.fromJson(
         metaMap['exercise_extended_json'] ??
