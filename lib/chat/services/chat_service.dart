@@ -1,7 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
+import 'package:gymaipro/chat/services/chat_cache_service.dart';
 import 'package:gymaipro/notification/notification_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -11,6 +12,7 @@ class ChatService {
   ChatService() : _supabase = Supabase.instance.client;
 
   final SupabaseClient _supabase;
+  final ChatCacheService _cache = ChatCacheService();
 
   // Helpers
   List<String> _sortedUserIds(String a, String b) {
@@ -141,12 +143,16 @@ class ChatService {
           .or('user1_id.eq.$me,user2_id.eq.$me')
           .order('updated_at', ascending: false);
 
-      return rows
+      final conversations = rows
           .cast<Map<String, dynamic>>()
           .map(ChatConversation.fromJson)
           .toList();
+      unawaited(_cache.persistConversations(conversations));
+      return conversations;
     } catch (_) {
-      return [];
+      return _cache.getConversationsMemory().isNotEmpty
+          ? _cache.getConversationsMemory()
+          : await _cache.loadConversationsDisk();
     }
   }
 
@@ -191,76 +197,94 @@ class ChatService {
     return controller.stream;
   }
 
+  List<ChatMessage> _parseMessagesJson(List<dynamic> messagesJson) {
+    return messagesJson
+        .cast<Map<String, dynamic>>()
+        .map((json) {
+          try {
+            final jsonCopy = Map<String, dynamic>.from(json);
+            if (jsonCopy['created_at'] != null &&
+                jsonCopy['created_at'] is! String) {
+              jsonCopy['created_at'] =
+                  (jsonCopy['created_at'] as DateTime).toIso8601String();
+            }
+            if (jsonCopy['updated_at'] != null &&
+                jsonCopy['updated_at'] is! String) {
+              jsonCopy['updated_at'] =
+                  (jsonCopy['updated_at'] as DateTime).toIso8601String();
+            }
+            return ChatMessage.fromJson(jsonCopy);
+          } catch (_) {
+            return null;
+          }
+        })
+        .whereType<ChatMessage>()
+        .where((msg) {
+          if (msg.messageType == 'admin_warning') return true;
+          return !msg.isDeleted;
+        })
+        .toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  }
+
+  /// [loadedFromEnd]: تعداد پیام‌هایی که از انتهای لیست (جدیدترین) قبلاً لود شده.
+  /// ۰ = آخرین [limit] پیام؛ برای load-more مقدار فعلی طول لیست روی صفحه.
+  List<ChatMessage> _sliceMessagesFromEnd(
+    List<ChatMessage> allMessages, {
+    required int loadedFromEnd,
+    required int limit,
+  }) {
+    final total = allMessages.length;
+    final end = total - loadedFromEnd;
+    final start = (end - limit).clamp(0, end);
+    if (start >= end) return [];
+    return allMessages.sublist(start, end);
+  }
+
   Future<List<ChatMessage>> getMessages(
     String otherUserId, {
     int limit = 50,
+    int loadedFromEnd = 0,
     int offset = 0,
   }) async {
     final me = _supabase.auth.currentUser?.id;
     if (me == null) return [];
 
+    final fromEnd = offset > 0 ? offset : loadedFromEnd;
+
     try {
       final conversation = await _getOrCreateConversation(me, otherUserId);
       if (conversation == null) return [];
 
-      // Get messages from JSONB field
       final response = await _supabase
           .from('chat_conversations')
           .select('messages')
           .eq('id', conversation.id)
           .single();
 
-      final messagesJson = response['messages'] as List<dynamic>? ?? [];
-      final allMessages = messagesJson
-          .cast<Map<String, dynamic>>()
-          .map((json) {
-            try {
-              // Ensure created_at and updated_at are strings for parsing
-              final jsonCopy = Map<String, dynamic>.from(json);
-              if (jsonCopy['created_at'] != null && jsonCopy['created_at'] is! String) {
-                jsonCopy['created_at'] = (jsonCopy['created_at'] as DateTime).toIso8601String();
-              }
-              if (jsonCopy['updated_at'] != null && jsonCopy['updated_at'] is! String) {
-                jsonCopy['updated_at'] = (jsonCopy['updated_at'] as DateTime).toIso8601String();
-              }
-              return ChatMessage.fromJson(jsonCopy);
-            } catch (_) {
-              return null;
-            }
-          })
-          .whereType<ChatMessage>()
-          .where((msg) {
-            // پیام‌های admin_warning همیشه نمایش داده می‌شوند
-            if (msg.messageType == 'admin_warning') {
-              return true;
-            }
-            // پیام‌های عادی فقط اگر حذف نشده باشند
-            return !msg.isDeleted;
-          })
-          .toList();
-
-      // Sort by created_at ascending (oldest first) for proper display with reverse ListView
-      allMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-
-      // Apply pagination (get latest messages first when offset is 0)
-      if (offset == 0) {
-        // Return latest messages (last N messages)
-        final start = allMessages.length > limit 
-            ? allMessages.length - limit 
-            : 0;
-        return allMessages.sublist(start);
-      } else {
-        // For pagination, return older messages
-        final start = offset;
-        final end = offset + limit;
-        if (start >= allMessages.length) return [];
-        return allMessages.sublist(
-          start,
-          end < allMessages.length ? end : allMessages.length,
-        );
+      final allMessages =
+          _parseMessagesJson(response['messages'] as List<dynamic>? ?? []);
+      final page = _sliceMessagesFromEnd(
+        allMessages,
+        loadedFromEnd: fromEnd,
+        limit: limit,
+      );
+      if (fromEnd == 0) {
+        saveCachedMessages(otherUserId, page);
       }
+      return page;
     } catch (_) {
-      return [];
+      if (fromEnd == 0) {
+        final disk = await _cache.loadMessagesDisk(otherUserId);
+        if (disk.isNotEmpty) {
+          return _sliceMessagesFromEnd(
+            disk,
+            loadedFromEnd: 0,
+            limit: limit,
+          );
+        }
+      }
+      return getCachedMessages(otherUserId);
     }
   }
 
@@ -354,9 +378,12 @@ class ChatService {
       // Get current messages
       final response = await _supabase
           .from('chat_conversations')
-          .select('messages, user1_id, user2_id')
+          .select(
+            'messages, user1_id, user2_id, user1_unread_count, user2_unread_count',
+          )
           .eq('id', conversation.id)
-          .single();
+          .single()
+          .timeout(const Duration(seconds: 8));
 
       final currentMessages = (response['messages'] as List<dynamic>? ?? [])
           .cast<Map<String, dynamic>>()
@@ -399,52 +426,32 @@ class ChatService {
       await _supabase
           .from('chat_conversations')
           .update(updateData)
-          .eq('id', conversation.id);
+          .eq('id', conversation.id)
+          .timeout(const Duration(seconds: 8));
 
-      // ارسال نوتیفیکیشن به گیرنده
-      try {
-        // دریافت نام فرستنده از پروفایل
-        String senderName = 'کاربر';
-        try {
-          final senderProfile = await _supabase
-              .from('profiles')
-              .select('first_name, last_name, username')
-              .eq('id', me)
-              .maybeSingle();
-          
-          if (senderProfile != null) {
-            final firstName = (senderProfile['first_name'] as String?)?.trim() ?? '';
-            final lastName = (senderProfile['last_name'] as String?)?.trim() ?? '';
-            final username = (senderProfile['username'] as String?)?.trim() ?? '';
-            
-            if (firstName.isNotEmpty && lastName.isNotEmpty) {
-              senderName = '$firstName $lastName';
-            } else if (firstName.isNotEmpty) {
-              senderName = firstName;
-            } else if (lastName.isNotEmpty) {
-              senderName = lastName;
-            } else if (username.isNotEmpty) {
-              senderName = username;
-            }
-          }
-        } catch (_) {}
+      final cached = getCachedMessages(receiverId);
+      final merged = [
+        ...cached.where((m) => m.id != newMessage.id),
+        newMessage,
+      ];
+      saveCachedMessages(receiverId, merged);
 
-        // ارسال نوتیفیکیشن
-        final notificationService = NotificationService();
-        await notificationService.sendChatNotification(
+      unawaited(
+        _sendChatNotificationInBackground(
           receiverId: receiverId,
           senderId: me,
-          senderName: senderName,
           message: message.trim(),
           messageId: messageId,
           messageType: messageType,
           conversationId: conversation.id,
-        );
-      } catch (_) {
-        // در صورت خطا در ارسال نوتیفیکیشن، پیام همچنان ارسال شده است
-      }
+        ),
+      );
 
       return newMessage;
+    } on TimeoutException {
+      throw Exception(
+        'ارسال پیام بیش از حد طول کشید. اینترنت را بررسی کنید و دوباره تلاش کنید.',
+      );
     } on PostgrestException catch (e) {
       // Handle specific error codes
       if (e.code == '42P01') {
@@ -599,5 +606,94 @@ class ChatService {
           .delete()
           .eq('id', conversationId);
     } catch (_) {}
+  }
+
+  List<ChatMessage> getCachedMessages(String otherUserId) {
+    return _cache.getMessagesMemory(otherUserId);
+  }
+
+  void saveCachedMessages(String otherUserId, List<ChatMessage> messages) {
+    final sorted = List<ChatMessage>.from(messages)
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    _cache.setMessagesMemory(otherUserId, sorted);
+    unawaited(_cache.persistMessages(otherUserId, sorted));
+  }
+
+  Future<void> clearAllCaches() async {
+    await _cache.clearAllForCurrentUser();
+    ChatCacheService.clearAllMemory();
+  }
+
+  Future<List<ChatMessage>> getMessagesByConversationId(
+    String conversationId, {
+    int limit = 50,
+    int loadedFromEnd = 0,
+    int offset = 0,
+  }) async {
+    final fromEnd = offset > 0 ? offset : loadedFromEnd;
+    try {
+      final response = await _supabase
+          .from('chat_conversations')
+          .select('messages, user1_id, user2_id')
+          .eq('id', conversationId)
+          .maybeSingle();
+      if (response == null) return [];
+
+      final allMessages =
+          _parseMessagesJson(response['messages'] as List<dynamic>? ?? []);
+      return _sliceMessagesFromEnd(
+        allMessages,
+        loadedFromEnd: fromEnd,
+        limit: limit,
+      );
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> _sendChatNotificationInBackground({
+    required String receiverId,
+    required String senderId,
+    required String message,
+    required String messageId,
+    required String messageType,
+    required String conversationId,
+  }) async {
+    try {
+      String senderName = 'کاربر';
+      final senderProfile = await _supabase
+          .from('profiles')
+          .select('first_name, last_name, username')
+          .or('id.eq.$senderId,auth_user_id.eq.$senderId')
+          .maybeSingle();
+      if (senderProfile != null) {
+        final firstName =
+            (senderProfile['first_name'] as String?)?.trim() ?? '';
+        final lastName = (senderProfile['last_name'] as String?)?.trim() ?? '';
+        final username = (senderProfile['username'] as String?)?.trim() ?? '';
+        if (firstName.isNotEmpty && lastName.isNotEmpty) {
+          senderName = '$firstName $lastName';
+        } else if (firstName.isNotEmpty) {
+          senderName = firstName;
+        } else if (lastName.isNotEmpty) {
+          senderName = lastName;
+        } else if (username.isNotEmpty) {
+          senderName = username;
+        }
+      }
+      await NotificationService().sendChatNotification(
+        receiverId: receiverId,
+        senderId: senderId,
+        senderName: senderName,
+        message: message,
+        messageId: messageId,
+        messageType: messageType,
+        conversationId: conversationId,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('ChatService: background notification failed: $e');
+      }
+    }
   }
 }

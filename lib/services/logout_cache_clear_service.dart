@@ -6,6 +6,7 @@ import 'package:gymaipro/achievements/services/achievement_service.dart';
 import 'package:gymaipro/ai/services/ai_chat_service.dart';
 import 'package:gymaipro/ai/services/user_context_cache_service.dart';
 import 'package:gymaipro/chat/services/chat_presence_service.dart';
+import 'package:gymaipro/chat/services/chat_service.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
 import 'package:gymaipro/services/food_service.dart';
@@ -84,6 +85,7 @@ class LogoutCacheClearService {
       // پاک کردن داده‌های حضور در چت
       final chatPresenceService = ChatPresenceService();
       await chatPresenceService.clearAllPresence();
+      await ChatService().clearAllCaches();
 
       if (kDebugMode) {
         print('✅ کش‌های AI و چت پاک شدند');

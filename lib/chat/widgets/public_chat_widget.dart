@@ -2,17 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/chat/widgets/chat_hub_ui.dart';
+import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/chat/models/public_chat_message.dart';
 import 'package:gymaipro/chat/services/public_chat_service.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/utils/text_controller_utils.dart';
 import 'package:gymaipro/admin/services/admin_service.dart';
 import 'package:gymaipro/widgets/user_role_badge.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:shamsi_date/shamsi_date.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 enum MessageSendStatus { sending, sent, failed }
@@ -25,7 +27,7 @@ class PublicChatWidget extends StatefulWidget {
 }
 
 class PublicChatWidgetState extends State<PublicChatWidget>
-    with TickerProviderStateMixin, WidgetsBindingObserver {
+    with WidgetsBindingObserver {
   final PublicChatService _service = PublicChatService();
   final AdminService _adminService = AdminService();
   final ScrollController _scrollController = ScrollController();
@@ -36,11 +38,6 @@ class PublicChatWidgetState extends State<PublicChatWidget>
   bool _isAdmin = false;
   List<PublicChatMessage> _messages = [];
   late Stream<PublicChatMessage> _subscription;
-
-  late AnimationController _fadeController;
-  late AnimationController _slideController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
 
   // برای مدیریت اسکرول و کیبورد
   Timer? _scrollDebounceTimer;
@@ -54,33 +51,10 @@ class PublicChatWidgetState extends State<PublicChatWidget>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // انیمیشن‌ها
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-
-    _fadeAnimation = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
-    _slideAnimation = Tween<Offset>(
-      begin: Offset(0.w, 0.3.h),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
-
     // اضافه کردن listener برای focus
     _focusNode.addListener(_onFocusChange);
 
     _setupSubscription();
-
-    // شروع انیمیشن‌ها
-    unawaited(_fadeController.safeForward());
-    unawaited(_slideController.safeForward());
   }
 
   @override
@@ -373,8 +347,6 @@ class PublicChatWidgetState extends State<PublicChatWidget>
     _controller.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
-    _fadeController.dispose();
-    _slideController.dispose();
     super.dispose();
   }
 
@@ -404,438 +376,459 @@ class PublicChatWidgetState extends State<PublicChatWidget>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: SlideTransition(
-        position: _slideAnimation,
-        child: Column(
-          children: [
-            // Messages Area - بدون کادر اصلی
-            Expanded(
-              child: _isLoading
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(
-                            color: AppTheme.goldColor,
-                            strokeWidth: 3,
-                          ),
-                          SizedBox(height: 16.h),
-                          Text(
-                            'در حال بارگذاری...',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: context.textSecondary,
-                              fontSize: 14.sp,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : _messages.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(32.w),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: EdgeInsets.all(24.w),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: context.goldGradientColors
-                                      .map((c) => c.withValues(alpha: 0.15))
-                                      .toList(),
-                                ),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppTheme.goldColor.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                  width: 2,
-                                ),
-                              ),
-                              child: Icon(
-                                LucideIcons.messageCircle,
-                                size: 48.sp,
-                                color: AppTheme.goldColor.withValues(
-                                  alpha: 0.7,
-                                ),
-                              ),
-                            ),
-                            SizedBox(height: 24.h),
-                            Text(
-                              'هنوز پیامی ارسال نشده',
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                color: context.textColor,
-                                fontSize: 18.sp,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 8.h),
-                            Text(
-                              'اولین پیام را شما ارسال کنید و گفتگو را شروع کنید',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                color: context.textSecondary,
-                                fontSize: 14.sp,
-                                height: 1.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+
+    return Column(
+      children: [
+        _buildRoomHeader(isDark),
+        Expanded(
+          child: _isLoading
+              ? const ChatHubLoadingView(
+                  mode: ChatHubLoadingMode.room,
+                  title: 'در حال بارگذاری اتاق…',
+                  subtitle: 'پیام‌های اخیر همگانی از سرور می‌آید',
+                )
+              : _messages.isEmpty
+                  ? ChatHubEmptyView(
+                      icon: LucideIcons.messagesSquare,
+                      title: 'اتاق هنوز ساکت است',
+                      subtitle:
+                          'اولین پیام را بفرست و گفتگوی ${AppConfig.gymAiDisplayName} را شروع کن',
                     )
                   : RefreshIndicator(
                       onRefresh: _refreshMessages,
                       color: AppTheme.goldColor,
+                      edgeOffset: 8,
                       child: GestureDetector(
-                        onTap: () {
-                          // با لمس لیست، focus را از TextField بردار
-                          _focusNode.unfocus();
-                        },
+                        onTap: () => _focusNode.unfocus(),
+                        behavior: HitTestBehavior.translucent,
                         child: ListView.builder(
                           controller: _scrollController,
                           reverse: true,
                           keyboardDismissBehavior:
                               ScrollViewKeyboardDismissBehavior.onDrag,
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: EdgeInsets.only(
-                            left: 16.w,
-                            right: 16.w,
-                            top: 20.h,
-                            bottom: 20.h,
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics(),
                           ),
+                          padding: EdgeInsets.fromLTRB(14.w, 8.h, 14.w, 16.h),
                           itemCount: _messages.length,
                           itemBuilder: (context, index) {
-                            // reverse=true: اندیس 0 یعنی آخرین پیام
-                            final int listCount = _messages.length;
-                            final int messageIndex = (listCount - 1) - index;
+                            final messageIndex = _messages.length - 1 - index;
                             final msg = _messages[messageIndex];
-                            return _buildMessageBubble(msg);
+                            return Column(
+                              children: [
+                                if (_showDateHeader(messageIndex))
+                                  _buildDateChip(msg.createdAt),
+                                _buildMessageBubble(msg, messageIndex),
+                              ],
+                            );
                           },
                         ),
                       ),
                     ),
-            ),
-            // Input Area حرفه‌ای
-            Container(
-              decoration: BoxDecoration(
-                color: context.cardColor,
-                border: Border(
-                  top: BorderSide(
-                    color: AppTheme.goldColor.withValues(alpha: 0.2),
-                    width: 1,
-                  ),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.goldColor.withValues(
-                      alpha: isDark ? 0.05 : 0.1,
-                    ),
-                    blurRadius: 10,
-                    offset: Offset(0, -2.h),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 16.w,
-                    vertical: 12.h,
-                  ),
-                  child: Row(
-                    textDirection: TextDirection.rtl,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      // دکمه ارسال (همیشه فعال)
-                      Container(
-                        width: 48.w,
-                        height: 48.w,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: context.goldGradientColors,
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(24.r),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.goldColor.withValues(alpha: 0.4),
-                              blurRadius: 12,
-                              spreadRadius: 0,
-                              offset: Offset(0, 4.h),
-                            ),
-                          ],
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(24.r),
-                            onTap: _send,
-                            child: Center(
-                              child: Icon(
-                                LucideIcons.send,
-                                color: AppTheme.onGoldColor,
-                                size: 20.sp,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      // فیلد ورودی
-                      Expanded(
-                        child: Container(
-                          constraints: BoxConstraints(
-                            minHeight: 48.h,
-                            maxHeight: 120.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: context.backgroundColor,
-                            borderRadius: BorderRadius.circular(24.r),
-                            border: Border.all(
-                              color: AppTheme.goldColor.withValues(
-                                alpha: isDark ? 0.25 : 0.35,
-                              ),
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.goldColor.withValues(
-                                  alpha: isDark ? 0.05 : 0.08,
-                                ),
-                                blurRadius: 8,
-                                offset: Offset(0, 2.h),
-                              ),
-                            ],
-                          ),
-                          child: TextField(
-                            controller: _controller,
-                            focusNode: _focusNode,
-                            textDirection: TextDirection.rtl,
-                            maxLines: null,
-                            minLines: 1,
-                            textCapitalization: TextCapitalization.sentences,
-                            enableInteractiveSelection: true,
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: context.textColor,
-                              fontSize: 15.sp,
-                              height: 1.4,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'پیام خود را بنویسید...',
-                              hintStyle: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                color: context.textSecondary,
-                                fontSize: 15.sp,
-                              ),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 20.w,
-                                vertical: 14.h,
-                              ),
-                              isDense: true,
-                            ),
-                            onSubmitted: (_) => _send(),
-                            textInputAction: TextInputAction.send,
-                            onChanged: (_) {
-                              // هنگام تایپ، اگر نزدیک به پایین هستیم، اسکرول کن
-                              if (_scrollController.hasClients) {
-                                final position = _scrollController.position;
-                                final distanceFromBottom =
-                                    position.maxScrollExtent - position.pixels;
-                                if (distanceFromBottom < 100) {
-                                  _scrollToBottom();
-                                }
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+        ),
+        _buildInputBar(isDark),
+      ],
+    );
+  }
+
+  Widget _buildRoomHeader(bool isDark) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 6.h),
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppTheme.goldColor.withValues(alpha: isDark ? 0.14 : 0.1),
+            context.cardColor,
           ],
+          begin: Alignment.centerRight,
+          end: Alignment.centerLeft,
+        ),
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.22 : 0.18),
+        ),
+      ),
+      child: Row(
+        textDirection: TextDirection.rtl,
+        children: [
+          Container(
+            padding: EdgeInsets.all(8.w),
+            decoration: BoxDecoration(
+              color: AppTheme.goldColor.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            child: Icon(
+              LucideIcons.radio,
+              size: 18.sp,
+              color: AppTheme.goldColor,
+            ),
+          ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'اتاق عمومی ${AppConfig.gymAiDisplayName}',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5.sp,
+                    color: context.textColor,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  'گفتگوی آزاد ورزشکاران و مربیان — با احترام صحبت کنید',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 11.sp,
+                    color: context.textSecondary,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_messages.isNotEmpty)
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+              decoration: BoxDecoration(
+                color: AppTheme.goldColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20.r),
+              ),
+              child: Text(
+                '${_messages.length}',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.goldColor,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputBar(bool isDark) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: context.cardColor,
+        border: Border(
+          top: BorderSide(
+            color: context.separatorColor.withValues(alpha: 0.35),
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.06),
+            blurRadius: 12,
+            offset: Offset(0, -3.h),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 10.h),
+          child: Row(
+            textDirection: TextDirection.rtl,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _send,
+                  borderRadius: BorderRadius.circular(14.r),
+                  child: Ink(
+                    width: 44.w,
+                    height: 44.w,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: context.goldGradientColors,
+                      ),
+                      borderRadius: BorderRadius.circular(14.r),
+                    ),
+                    child: Icon(
+                      LucideIcons.send,
+                      color: AppTheme.onGoldColor,
+                      size: 20.sp,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Container(
+                  constraints: BoxConstraints(
+                    minHeight: 44.h,
+                    maxHeight: 120.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: context.backgroundColor,
+                    borderRadius: BorderRadius.circular(16.r),
+                    border: Border.all(
+                      color: AppTheme.goldColor.withValues(
+                        alpha: isDark ? 0.2 : 0.22,
+                      ),
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    textDirection: TextDirection.rtl,
+                    maxLines: null,
+                    minLines: 1,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textColor,
+                      fontSize: 15.sp,
+                      height: 1.45,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'پیام همگانی…',
+                      hintStyle: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: context.textSecondary,
+                        fontSize: 14.sp,
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16.w,
+                        vertical: 12.h,
+                      ),
+                      isDense: true,
+                    ),
+                    onSubmitted: (_) => _send(),
+                    textInputAction: TextInputAction.send,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildMessageBubble(PublicChatMessage msg) {
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  bool _showDateHeader(int messageIndex) {
+    if (messageIndex <= 0) return true;
+    return !_isSameDay(
+      _messages[messageIndex].createdAt,
+      _messages[messageIndex - 1].createdAt,
+    );
+  }
+
+  bool _showSenderHeader(int messageIndex) {
+    if (messageIndex <= 0) return true;
+    final prev = _messages[messageIndex - 1];
+    final curr = _messages[messageIndex];
+    if (!_isSameDay(prev.createdAt, curr.createdAt)) return true;
+    if (prev.senderId != curr.senderId) return true;
+    return curr.createdAt.difference(prev.createdAt).inMinutes > 4;
+  }
+
+  String _dateChipLabel(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(date.year, date.month, date.day);
+    if (day == today) return 'امروز';
+    if (day == today.subtract(const Duration(days: 1))) return 'دیروز';
+    final j = Jalali.fromDateTime(date);
+    return '${j.day} ${j.formatter.mN} ${j.year}';
+  }
+
+  Widget _buildDateChip(DateTime date) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 10.h),
+      child: Center(
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 5.h),
+          decoration: BoxDecoration(
+            color: context.cardColor,
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(
+              color: AppTheme.goldColor.withValues(alpha: 0.15),
+            ),
+          ),
+          child: Text(
+            _dateChipLabel(date),
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w600,
+              color: context.textSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble(PublicChatMessage msg, int messageIndex) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isCurrentUser =
         msg.senderId == Supabase.instance.client.auth.currentUser?.id;
+    final showHeader = _showSenderHeader(messageIndex);
+    final isGrouped = !showHeader;
 
-    // برای ادمین: Long press menu برای حذف پیام
-    if (_isAdmin) {
-      return GestureDetector(
-        onLongPress: () => _showAdminMessageMenu(msg),
-        child: _buildMessageContent(msg, isDark, isCurrentUser),
-      );
-    }
+    final bubble = _isAdmin
+        ? GestureDetector(
+            onLongPress: () => _showAdminMessageMenu(msg),
+            child: _buildMessageContent(
+              msg,
+              isDark,
+              isCurrentUser,
+              showHeader: showHeader,
+              isGrouped: isGrouped,
+            ),
+          )
+        : _buildMessageContent(
+            msg,
+            isDark,
+            isCurrentUser,
+            showHeader: showHeader,
+            isGrouped: isGrouped,
+          );
 
-    return _buildMessageContent(msg, isDark, isCurrentUser);
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: isGrouped ? 3.h : 10.h,
+        top: showHeader ? 2.h : 0,
+      ),
+      child: bubble,
+    );
   }
 
   Widget _buildMessageContent(
     PublicChatMessage msg,
     bool isDark,
-    bool isCurrentUser,
-  ) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 12.h, top: 2.h),
+    bool isCurrentUser, {
+    required bool showHeader,
+    required bool isGrouped,
+  }) {
+    final maxBubbleWidth = MediaQuery.of(context).size.width * 0.76;
+
+    return Align(
+      alignment: isCurrentUser
+          ? AlignmentDirectional.centerEnd
+          : AlignmentDirectional.centerStart,
       child: Row(
         textDirection: TextDirection.rtl,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // آواتار کاربر فعلی (سمت راست)
-          if (isCurrentUser) ...[
-            GestureDetector(
-              onTap: () => Navigator.pushNamed(
-                context,
-                '/trainer-profile',
-                arguments: msg.senderId,
-              ),
-              child: Container(
-                width: 28.w,
-                height: 28.w,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(colors: context.goldGradientColors),
-                  border: Border.all(
-                    color: AppTheme.onGoldColor.withValues(alpha: 0.3),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.goldColor.withValues(alpha: 0.2),
-                      blurRadius: 6,
-                      offset: Offset(0, 2.h),
-                    ),
-                  ],
-                ),
-                child: ClipOval(
-                  child:
-                      (msg.senderAvatar != null && msg.senderAvatar!.isNotEmpty)
-                      ? Image.network(
-                          msg.senderAvatar!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Icon(
-                              LucideIcons.user,
-                              color: AppTheme.onGoldColor,
-                              size: 14.sp,
-                            );
-                          },
-                        )
-                      : Icon(
-                          LucideIcons.user,
-                          color: AppTheme.onGoldColor,
-                          size: 14.sp,
-                        ),
-                ),
-              ),
+          if (!isCurrentUser) ...[
+            SizedBox(
+              width: 36.w,
+              child: showHeader
+                  ? _buildSenderAvatar(msg, size: 34)
+                  : SizedBox(width: 34.w),
             ),
-            SizedBox(width: 10.w),
+            SizedBox(width: 8.w),
           ],
-          // محتوای پیام
-          Expanded(
+          Flexible(
             child: Column(
               crossAxisAlignment: isCurrentUser
-                  ? CrossAxisAlignment.start
-                  : CrossAxisAlignment.end,
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // نام کاربر و نقش (فقط برای پیام‌های دیگران)
-                if (!isCurrentUser)
+                if (!isCurrentUser && showHeader)
                   Padding(
-                    padding: EdgeInsets.only(bottom: 4.h, left: 4.w),
+                    padding: EdgeInsets.only(bottom: 4.h, right: 2.w),
                     child: Row(
                       textDirection: TextDirection.rtl,
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          msg.senderName ?? 'کاربر ناشناس',
+                          msg.senderName ?? 'کاربر',
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
                             color: context.textColor,
                             fontSize: 12.sp,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         if (msg.senderRole != null) ...[
-                          SizedBox(width: 4.w),
+                          SizedBox(width: 6.w),
                           UserRoleBadge(
                             role: msg.senderRole!,
                             fontSize: 9.sp,
                             padding: EdgeInsets.symmetric(
-                              horizontal: 5.w,
-                              vertical: 1.h,
+                              horizontal: 6.w,
+                              vertical: 2.h,
                             ),
                           ),
                         ],
                       ],
                     ),
                   ),
-                // حباب پیام
                 Container(
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.7,
-                  ),
+                  constraints: BoxConstraints(maxWidth: maxBubbleWidth),
                   padding: EdgeInsets.symmetric(
-                    horizontal: 12.w,
-                    vertical: 10.h,
+                    horizontal: 14.w,
+                    vertical: isGrouped ? 8.h : 10.h,
                   ),
                   decoration: BoxDecoration(
                     gradient: isCurrentUser
                         ? LinearGradient(
+                            colors: context.goldGradientColors,
                             begin: Alignment.topRight,
                             end: Alignment.bottomLeft,
-                            colors: context.goldGradientColors,
                           )
                         : null,
-                    color: isCurrentUser ? null : context.cardColor,
+                    color: isCurrentUser
+                        ? null
+                        : (isDark
+                            ? context.cardColor
+                            : context.cardColor.withValues(alpha: 0.95)),
                     borderRadius: BorderRadius.only(
-                      topRight: Radius.circular(16.r),
-                      topLeft: Radius.circular(16.r),
-                      bottomRight: isCurrentUser
-                          ? Radius.circular(16.r)
-                          : Radius.circular(4.r),
-                      bottomLeft: isCurrentUser
-                          ? Radius.circular(4.r)
-                          : Radius.circular(16.r),
+                      topRight: Radius.circular(isGrouped ? 14.r : 16.r),
+                      topLeft: Radius.circular(isGrouped ? 14.r : 16.r),
+                      bottomRight: Radius.circular(
+                        isCurrentUser
+                            ? (isGrouped ? 14.r : 16.r)
+                            : (isGrouped ? 6.r : 5.r),
+                      ),
+                      bottomLeft: Radius.circular(
+                        isCurrentUser
+                            ? (isGrouped ? 6.r : 5.r)
+                            : (isGrouped ? 14.r : 16.r),
+                      ),
                     ),
                     border: isCurrentUser
                         ? null
                         : Border.all(
                             color: AppTheme.goldColor.withValues(
-                              alpha: isDark ? 0.25 : 0.35,
+                              alpha: isDark ? 0.14 : 0.2,
                             ),
-                            width: 1,
                           ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.goldColor.withValues(
-                          alpha: isDark ? 0.1 : 0.15,
-                        ),
-                        blurRadius: 8.r,
-                        spreadRadius: 0,
-                        offset: Offset(0.w, 2.h),
-                      ),
-                    ],
+                    boxShadow: isGrouped
+                        ? null
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: isDark ? 0.12 : 0.05,
+                              ),
+                              blurRadius: 6,
+                              offset: Offset(0, 2.h),
+                            ),
+                          ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // متن پیام
                       Text(
                         msg.message,
                         style: TextStyle(
@@ -843,30 +836,26 @@ class PublicChatWidgetState extends State<PublicChatWidget>
                           color: isCurrentUser
                               ? AppTheme.onGoldColor
                               : context.textColor,
-                          fontSize: 14.sp,
-                          height: 1.4,
+                          fontSize: 14.5.sp,
+                          height: 1.5,
                         ),
                         textAlign: TextAlign.right,
                       ),
                       SizedBox(height: 4.h),
-                      // زمان و وضعیت ارسال
                       Row(
                         textDirection: TextDirection.rtl,
                         mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            '${msg.createdAt.hour.toString().padLeft(2, "0")}:${msg.createdAt.minute.toString().padLeft(2, "0")}',
+                            '${msg.createdAt.hour.toString().padLeft(2, '0')}:${msg.createdAt.minute.toString().padLeft(2, '0')}',
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
                               color: isCurrentUser
-                                  ? AppTheme.onGoldColor.withValues(alpha: 0.7)
+                                  ? AppTheme.onGoldColor.withValues(alpha: 0.72)
                                   : context.textSecondary,
                               fontSize: 10.sp,
-                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          // Indicator وضعیت ارسال (فقط برای پیام‌های کاربر)
                           if (isCurrentUser) ...[
                             SizedBox(width: 4.w),
                             _buildMessageStatusIndicator(msg.id),
@@ -879,55 +868,38 @@ class PublicChatWidgetState extends State<PublicChatWidget>
               ],
             ),
           ),
-          // آواتار کاربر (فقط برای پیام‌های دیگران - سمت چپ)
-          if (!isCurrentUser) ...[
-            SizedBox(width: 10.w),
-            GestureDetector(
-              onTap: () => Navigator.pushNamed(
-                context,
-                '/trainer-profile',
-                arguments: msg.senderId,
-              ),
-              child: Container(
-                width: 32.w,
-                height: 32.w,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: context.goldGradientColors
-                        .map<Color>((c) => c.withValues(alpha: 0.2))
-                        .toList(),
-                  ),
-                  border: Border.all(
-                    color: AppTheme.goldColor.withValues(alpha: 0.4),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.goldColor.withValues(alpha: 0.15),
-                      blurRadius: 6,
-                      offset: Offset(0, 2.h),
-                    ),
-                  ],
-                ),
-                child: ClipOval(
-                  child:
-                      (msg.senderAvatar != null && msg.senderAvatar!.isNotEmpty)
-                      ? Image.network(
-                          msg.senderAvatar!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _buildAvatarFallback(
-                              msg.senderName ?? 'کاربر',
-                            );
-                          },
-                        )
-                      : _buildAvatarFallback(msg.senderName ?? 'کاربر'),
-                ),
-              ),
-            ),
-          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildSenderAvatar(PublicChatMessage msg, {required double size}) {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(
+        context,
+        '/trainer-profile',
+        arguments: msg.senderId,
+      ),
+      child: Container(
+        width: size.w,
+        height: size.w,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: AppTheme.goldColor.withValues(alpha: 0.35),
+            width: 1.2,
+          ),
+        ),
+        child: ClipOval(
+          child: (msg.senderAvatar != null && msg.senderAvatar!.isNotEmpty)
+              ? Image.network(
+                  msg.senderAvatar!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      _buildAvatarFallback(msg.senderName ?? 'کاربر'),
+                )
+              : _buildAvatarFallback(msg.senderName ?? 'کاربر'),
+        ),
       ),
     );
   }

@@ -787,6 +787,7 @@ class NotificationService {
     required String senderName,
     required String message,
     String? conversationId,
+    String? peerId,
   }) async {
     if (!_isInitialized) {
       await initialize();
@@ -827,9 +828,11 @@ class NotificationService {
     );
 
     final payload = json.encode({
-      'type': 'chat_message_realtime',
+      'type': 'chat_message',
       'sender_name': safeSender,
       if (conversationId != null) 'conversation_id': conversationId,
+      if (peerId != null && peerId.isNotEmpty) 'peer_id': peerId,
+      if (peerId != null && peerId.isNotEmpty) 'peer_name': safeSender,
     });
 
     await _localNotifications.show(

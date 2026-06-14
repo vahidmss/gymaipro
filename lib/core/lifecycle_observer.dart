@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gymaipro/chat/services/chat_presence_service.dart';
 import 'package:gymaipro/core/app_initializer.dart';
 import 'package:gymaipro/notification/notification_service.dart';
+import 'package:gymaipro/notification/services/notification_fallback_sync_service.dart';
 
 class LifecycleObserver extends StatefulWidget {
   const LifecycleObserver({required this.child, super.key});
@@ -61,6 +64,9 @@ class _LifecycleObserverState extends State<LifecycleObserver>
       if (_notificationService != null) {
         await _notificationService!.markUserActive();
       }
+      unawaited(
+        NotificationFallbackSyncService().syncOnForeground(reason: source),
+      );
     } catch (e) {
       if (kDebugMode) {
         debugPrint('LifecycleObserver _markActive error: $e');

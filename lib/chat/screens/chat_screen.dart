@@ -4,10 +4,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
+import 'package:gymaipro/chat/services/chat_cache_service.dart';
 import 'package:gymaipro/chat/services/chat_presence_service.dart';
 import 'package:gymaipro/chat/services/chat_service.dart';
 import 'package:gymaipro/chat/services/chat_unread_notifier.dart';
+import 'package:gymaipro/chat/services/chat_unread_sync_bus.dart';
 import 'package:gymaipro/chat/widgets/chat_app_bar_widget.dart';
+import 'package:gymaipro/chat/widgets/chat_hub_ui.dart';
 import 'package:gymaipro/chat/widgets/chat_message_bubble.dart';
 import 'package:gymaipro/chat/widgets/error_boundary_widget.dart';
 import 'package:gymaipro/chat/widgets/message_input_widget.dart';
@@ -24,10 +27,12 @@ class ChatScreen extends StatefulWidget {
   const ChatScreen({
     required this.otherUserId,
     required this.otherUserName,
+    this.initialConversationId,
     super.key,
   });
   final String otherUserId;
   final String otherUserName;
+  final String? initialConversationId;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -59,7 +64,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   // Error handling
   String? _errorMessage;
   bool _hasMoreMessages = true;
+  bool _isAppInForeground = true;
   static const int _messagesPerPage = 20;
+  final Set<String> _messageIds = {};
+  Timer? _metricsDebounceTimer;
+  final ChatCacheService _chatCache = ChatCacheService();
 
   @override
   void initState() {
@@ -80,6 +89,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _messageController.dispose();
     _scrollController.dispose();
     _messageSubscription?.cancel();
+    _metricsDebounceTimer?.cancel();
 
     // حذف حضور کاربر از چت
     if (_currentUserId != null && _conversationId != null) {
@@ -103,6 +113,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
+      _isAppInForeground = true;
       _updateUserPresence(true);
       // از سرگیری heartbeat
       if (_currentUserId != null && _conversationId != null) {
@@ -112,6 +123,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         );
       }
     } else if (state == AppLifecycleState.paused) {
+      _isAppInForeground = false;
       _updateUserPresence(false);
       // توقف سریع heartbeat و inactive کردن رکورد
       if (_conversationId != null) {
@@ -130,27 +142,61 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeMetrics() {
-    // هنگام تغییر اندازه (باز/بسته شدن کیبورد) اسکرول کن به آخر
-    _scrollToBottom();
+    _metricsDebounceTimer?.cancel();
+    _metricsDebounceTimer = Timer(const Duration(milliseconds: 140), () {
+      if (!mounted) return;
+      _scrollToBottom(animate: false);
+    });
     super.didChangeMetrics();
+  }
+
+  bool _isCurrentChatRouteVisible() {
+    final route = ModalRoute.of(context);
+    return route == null || route.isCurrent;
+  }
+
+  bool _shouldAutoMarkAsRead() {
+    return mounted && _isAppInForeground && _isCurrentChatRouteVisible();
+  }
+
+  void _syncMessagesCache() {
+    _chatService.saveCachedMessages(widget.otherUserId, _messages);
   }
 
   Future<void> _initializeChat() async {
     try {
       _chatService = ChatService();
       _currentUserId = Supabase.instance.client.auth.currentUser?.id;
+      _conversationId = widget.initialConversationId;
 
       if (_currentUserId == null) {
         throw Exception('کاربر احراز هویت نشده');
       }
 
-      // Load data sequentially to ensure proper error handling
       try {
         await _loadOtherUserInfo();
       } catch (_) {}
 
+      // نمایش فوری از کش (حافظه یا دیسک)
+      var cached = _chatService.getCachedMessages(widget.otherUserId);
+      if (cached.isEmpty) {
+        cached = await _chatCache.loadMessagesDisk(widget.otherUserId);
+      }
+      if (cached.isNotEmpty) {
+        SafeSetState.call(this, () {
+          _messages = cached;
+          _messageIds
+            ..clear()
+            ..addAll(cached.map((m) => m.id));
+          _isLoading = false;
+          _errorMessage = null;
+          _hasMoreMessages = true;
+        });
+        _scrollToBottom(animate: false);
+      }
+
       try {
-        await _loadMessages();
+        await _loadMessages(showLoading: cached.isEmpty);
       } catch (_) {
         SafeSetState.call(this, () {
           _isLoading = false;
@@ -164,7 +210,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       } catch (_) {}
 
       _subscribeToMessages();
-      _markConversationAsRead();
+      if (_shouldAutoMarkAsRead()) {
+        _markConversationAsRead();
+      }
 
       // ثبت حضور کاربر در چت
       if (_currentUserId != null && _conversationId != null) {
@@ -253,34 +301,52 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
-  Future<void> _loadMessages() async {
+  Future<void> _loadMessages({bool showLoading = true}) async {
     try {
-      SafeSetState.call(this, () {
-        _isLoading = true;
-        _errorMessage = null;
-      });
+      if (showLoading) {
+        SafeSetState.call(this, () {
+          _isLoading = true;
+          _errorMessage = null;
+        });
+      }
 
-      await _chatService.ensureConversationExists(widget.otherUserId);
-      final messages = await _chatService.getMessages(widget.otherUserId);
-
-      // دریافت conversation ID
-      final conversation = await _chatService.getConversationByUserId(
-        widget.otherUserId,
-      );
-      if (conversation != null) {
-        _conversationId = conversation.id;
+      List<ChatMessage> messages;
+      if (_conversationId != null && _conversationId!.isNotEmpty) {
+        messages = await _chatService.getMessagesByConversationId(
+          _conversationId!,
+          limit: _messagesPerPage,
+        );
+      } else {
+        await _chatService.ensureConversationExists(widget.otherUserId);
+        messages = await _chatService.getMessages(
+          widget.otherUserId,
+          limit: _messagesPerPage,
+        );
+        final conversation = await _chatService.getConversationByUserId(
+          widget.otherUserId,
+        );
+        if (conversation != null) {
+          _conversationId = conversation.id;
+        }
       }
 
       SafeSetState.call(this, () {
         _messages = messages;
+        _messageIds
+          ..clear()
+          ..addAll(messages.map((m) => m.id));
         _isLoading = false;
+        _errorMessage = null;
         _hasMoreMessages = messages.length >= _messagesPerPage;
       });
-      _scrollToBottom();
+      _syncMessagesCache();
+      _scrollToBottom(animate: !showLoading);
     } catch (_) {
       SafeSetState.call(this, () {
         _isLoading = false;
-        _errorMessage = 'خطا در بارگیری پیام‌ها';
+        if (_messages.isEmpty) {
+          _errorMessage = 'خطا در بارگیری پیام‌ها';
+        }
       });
     }
   }
@@ -291,20 +357,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     try {
       SafeSetState.call(this, () => _isLoadingMore = true);
 
-      final moreMessages = await _chatService.getMessages(widget.otherUserId);
+      final loadedCount = _messages.length;
+      List<ChatMessage> moreMessages;
+      if (_conversationId != null && _conversationId!.isNotEmpty) {
+        moreMessages = await _chatService.getMessagesByConversationId(
+          _conversationId!,
+          limit: _messagesPerPage,
+          loadedFromEnd: loadedCount,
+        );
+      } else {
+        moreMessages = await _chatService.getMessages(
+          widget.otherUserId,
+          limit: _messagesPerPage,
+          loadedFromEnd: loadedCount,
+        );
+      }
 
       if (moreMessages.isNotEmpty) {
         SafeSetState.call(this, () {
-          _messages.insertAll(0, moreMessages);
-          _hasMoreMessages = moreMessages.length >= _messagesPerPage;
+          final unique =
+              moreMessages.where((m) => _messageIds.add(m.id)).toList();
+          _messages.insertAll(0, unique);
+          _hasMoreMessages =
+              moreMessages.length >= _messagesPerPage && unique.isNotEmpty;
         });
+        _syncMessagesCache();
       } else {
-        SafeSetState.call(this, () {
-          _hasMoreMessages = false;
-        });
+        SafeSetState.call(this, () => _hasMoreMessages = false);
       }
     } catch (_) {
-      // ignore load-more errors; user can pull-to-refresh
+      // ignore
     } finally {
       SafeSetState.call(this, () => _isLoadingMore = false);
     }
@@ -314,41 +396,58 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _messageSubscription = _chatService
         .subscribeToMessages(widget.otherUserId)
         .listen((message) {
-          // فقط پیام‌های دیگران را اضافه کن، نه پیام‌های خود کاربر
           if (message.senderId != _currentUserId) {
-            _addMessageIfNotExists(message);
-            _scrollToBottom();
-            _markConversationAsRead();
+            final inserted = _addMessageIfNotExists(message);
+            if (inserted) {
+              _syncMessagesCache();
+              _scrollToBottom();
+              if (_shouldAutoMarkAsRead()) {
+                _markConversationAsRead();
+              }
+            }
           } else {
-            // برای پیام‌های خود کاربر، فقط آپدیت کن
             SafeSetState.call(this, () {
               final index = _messages.indexWhere((m) => m.id == message.id);
               if (index != -1) {
                 _messages[index] = message;
               }
             });
+            _syncMessagesCache();
           }
         }, onError: (_) {});
   }
 
   Future<void> _markConversationAsRead() async {
     try {
-      // ابتدا مکالمه را پیدا کن
-      final conversation = await _chatService.getConversationByUserId(
-        widget.otherUserId,
-      );
-      if (conversation != null) {
-        await _chatService.markConversationAsRead(conversation.id);
+      if (!_shouldAutoMarkAsRead()) return;
 
-        // به‌روزرسانی ChatUnreadNotifier
+      if (mounted) {
+        try {
+          final notifier =
+              Provider.of<ChatUnreadNotifier>(context, listen: false);
+          await notifier.ensureInitialized(SupabaseService());
+          notifier.markAsRead();
+        } catch (_) {}
+      }
+
+      var conversationId = _conversationId;
+      if (conversationId == null || conversationId.isEmpty) {
+        final conversation = await _chatService.getConversationByUserId(
+          widget.otherUserId,
+        );
+        conversationId = conversation?.id;
+        if (conversationId != null && conversationId.isNotEmpty) {
+          _conversationId = conversationId;
+        }
+      }
+
+      if (conversationId != null && conversationId.isNotEmpty) {
+        await _chatService.markConversationAsRead(conversationId);
+        ChatUnreadSyncBus.instance.ping();
         if (mounted) {
           try {
-            final notifier = Provider.of<ChatUnreadNotifier>(
-              context,
-              listen: false,
-            );
-            // initialize with an instance; notifier ignores it internally
-            await notifier.ensureInitialized(SupabaseService());
+            final notifier =
+                Provider.of<ChatUnreadNotifier>(context, listen: false);
             await notifier.refreshUnreadCount();
           } catch (_) {}
         }
@@ -399,6 +498,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         // مرتب‌سازی بر اساس زمان ایجاد (قدیمی‌ترین اول)
         _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       });
+      _syncMessagesCache();
     } catch (e) {
       // Remove temp message on error
       SafeSetState.call(this, () {
@@ -434,32 +534,30 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool animate = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        // With reverse: true, انتهای لیست در minScrollExtent است
-        final target = _scrollController.position.minScrollExtent;
+      if (!_scrollController.hasClients) return;
+      final target = _scrollController.position.minScrollExtent;
+      if (animate) {
         _scrollController.animateTo(
           target,
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
         );
+      } else {
+        _scrollController.jumpTo(target);
       }
     });
   }
 
-  // اضافه کردن پیام بدون تکرار و حفظ ترتیب زمانی
-  void _addMessageIfNotExists(ChatMessage message) {
-    // بررسی وجود پیام بر اساس ID
-    final exists = _messages.any((m) => m.id == message.id);
-
-    if (!exists) {
-      SafeSetState.call(this, () {
-        _messages.add(message);
-        // مرتب‌سازی بر اساس زمان ایجاد (قدیمی‌ترین اول)
-        _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      });
-    }
+  bool _addMessageIfNotExists(ChatMessage message) {
+    if (_messageIds.contains(message.id)) return false;
+    SafeSetState.call(this, () {
+      _messageIds.add(message.id);
+      _messages.add(message);
+      _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    });
+    return true;
   }
 
   Future<void> _refreshMessages() async {
@@ -550,21 +648,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Widget _buildMessagesList() {
     if (_isLoading) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: AppTheme.goldColor),
-            SizedBox(height: 16.h),
-            Text(
-              'در حال بارگذاری پیام‌ها...',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                color: context.textSecondary,
-              ),
-            ),
-          ],
-        ),
+      return const ChatHubLoadingView(
+        subtitle: 'پیام‌های شما از سرور به‌روز می‌شود',
       );
     }
 

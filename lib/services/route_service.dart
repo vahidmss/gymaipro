@@ -276,7 +276,7 @@ class RouteService {
                   0;
         return _integratedSocialTabRoute(
           settings: settings,
-          initialTab: initialTabIndex.clamp(0, 2),
+          initialTab: initialTabIndex.clamp(0, 1),
         );
 
       case '/chat':
@@ -448,7 +448,7 @@ class RouteService {
     required RouteSettings settings,
     required int initialTab,
   }) {
-    final tab = initialTab.clamp(0, 2);
+    final tab = initialTab.clamp(0, 1);
     return MaterialPageRoute(
       settings: settings,
       builder: (context) {

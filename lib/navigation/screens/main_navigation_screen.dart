@@ -247,7 +247,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                     )
                   : const MyClubMainScreen(),
 
-              // اجتماعی / چت‌ها (index 4) - گفتگوها، چت عمومی، مربیان
+              // اجتماعی / چت‌ها (index 4) - گفتگوها و چت همگانی
               ChatMainScreen(
                 initialTabIndex: _pendingSocialTabIndex ?? 0,
               ),
