@@ -121,9 +121,9 @@ class _FavoriteFoodsScreenState extends State<FavoriteFoodsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: context.backgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: context.backgroundColor,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(LucideIcons.arrowRight, color: Colors.white),
@@ -171,7 +171,7 @@ class _FavoriteFoodsScreenState extends State<FavoriteFoodsScreen> {
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           child: Shimmer.fromColors(
-            baseColor: AppTheme.cardColor,
+            baseColor: context.cardColor,
             highlightColor: Colors.grey[700]!,
             child: Container(
               height: 112.h,
@@ -272,7 +272,7 @@ class _FavoriteFoodsScreenState extends State<FavoriteFoodsScreen> {
       margin: EdgeInsets.all(16.w),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.3)),
       ),
@@ -353,7 +353,7 @@ class _FavoriteFoodsScreenState extends State<FavoriteFoodsScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
@@ -492,7 +492,7 @@ class _FavoriteFoodsScreenState extends State<FavoriteFoodsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.cardColor,
+        backgroundColor: context.cardColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16.r),
         ),

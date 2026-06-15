@@ -60,9 +60,9 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen>
           elevation: 0,
         ),
       ),
-      child: Container(
+      child: DecoratedBox(
         decoration: isDark
-            ? null
+            ? const BoxDecoration()
             : BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -93,7 +93,7 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen>
             centerTitle: true,
             bottom: PreferredSize(
               preferredSize: Size.fromHeight(56.h),
-              child: Container(
+              child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: isDark
                       ? context.backgroundColor
@@ -109,7 +109,6 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen>
                           : AppTheme.goldColor.withValues(alpha: 0.08),
                       blurRadius: 12.r,
                       offset: Offset(0, -2.h),
-                      spreadRadius: 0,
                     ),
                   ],
                   border: Border(
@@ -117,7 +116,6 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen>
                       color: isDark
                           ? Colors.transparent
                           : AppTheme.goldColor.withValues(alpha: 0.15),
-                      width: 1,
                     ),
                   ),
                 ),
@@ -145,7 +143,6 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen>
                             : context.textColor.withValues(alpha: 0.1),
                         blurRadius: 8.r,
                         offset: Offset(0, 2.h),
-                        spreadRadius: 0,
                       ),
                     ],
                   ),

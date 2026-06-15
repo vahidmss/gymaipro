@@ -59,7 +59,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     try {
       final leaderboard = await _rankingService.getLeagueLeaderboard(
         _selectedLeagueId,
-        limit: 20,
       );
 
       setState(() {
@@ -167,13 +166,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             ),
           ),
 
-          _isLoading
-              ? const SliverFillRemaining(
+          if (_isLoading) const SliverFillRemaining(
                   child: Center(
                     child: CircularProgressIndicator(color: AppTheme.goldColor),
                   ),
-                )
-              : _leaderboard.isEmpty
+                ) else _leaderboard.isEmpty
               ? SliverFillRemaining(child: _buildEmptyState(context))
               : SliverPadding(
                   padding: EdgeInsets.symmetric(horizontal: 16.w),

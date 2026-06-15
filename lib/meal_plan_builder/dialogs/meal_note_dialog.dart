@@ -158,7 +158,7 @@ class _MealNoteDialogState extends State<MealNoteDialog> {
                       padding: EdgeInsets.symmetric(vertical: 12.h),
                     ),
                     onPressed: () => Navigator.of(context).pop(),
-                    child: Text(
+                    child: const Text(
                       'انصراف',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
@@ -184,7 +184,7 @@ class _MealNoteDialogState extends State<MealNoteDialog> {
                         Navigator.of(context).pop(_controller.safeText.trim());
                       }
                     },
-                    child: Text(
+                    child: const Text(
                       'ثبت یادداشت',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,

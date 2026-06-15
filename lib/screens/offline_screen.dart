@@ -109,7 +109,7 @@ class _OfflineScreenState extends State<OfflineScreen> {
         await SystemNavigator.pop();
       },
       child: Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: context.backgroundColor,
         body: Center(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),

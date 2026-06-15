@@ -84,7 +84,7 @@ class _PurchaseSuccessDialogState extends State<PurchaseSuccessDialog>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
+    _pulseAnimation = Tween<double>(begin: 1, end: 1.08).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
@@ -214,12 +214,12 @@ class _PurchaseSuccessDialogState extends State<PurchaseSuccessDialog>
                     height: 80.w,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: LinearGradient(
+                      gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          const Color(0xFF4CAF50),
-                          const Color(0xFF2E7D32),
+                          Color(0xFF4CAF50),
+                          Color(0xFF2E7D32),
                         ],
                       ),
                       boxShadow: [

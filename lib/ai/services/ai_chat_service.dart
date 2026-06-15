@@ -5,6 +5,7 @@ import 'package:gymaipro/ai/models/ai_chat_message.dart';
 import 'package:gymaipro/ai/services/message_rate_limiter_service.dart';
 import 'package:gymaipro/ai/services/openai_service.dart';
 import 'package:gymaipro/ai/services/user_context_cache_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -468,11 +469,8 @@ class AIChatService {
         print('AI Chat: Cache not found, fetching from database');
       }
 
-      final profileResponse = await _supabase
-          .from('profiles')
-          .select()
-          .eq('id', userId)
-          .maybeSingle();
+      final profileResponse =
+          await ProfileRepository.instance.fetchProfile(userId);
 
       return {'profile': profileResponse};
     } catch (e) {

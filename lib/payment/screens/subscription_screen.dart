@@ -72,6 +72,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           reason: 'لغو توسط کاربر',
         );
 
+        if (!mounted) return;
         if (success) {
           WidgetSafetyUtils.safeShowSnackBar(
             context,
@@ -81,6 +82,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           _loadSubscriptionData();
         }
       } catch (e) {
+        if (!mounted) return;
         WidgetSafetyUtils.safeShowSnackBar(
           context,
           'خطا در لغو اشتراک: $e',
@@ -110,7 +112,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return WidgetSafetyUtils.safeShowDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
+        title: const Text(
           'لغو اشتراک',
           style: TextStyle(
     fontFamily: AppTheme.fontFamily,
@@ -118,7 +120,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             color: AppTheme.goldColor,
           ),
         ),
-        content: Text(
+        content: const Text(
           'آیا مطمئن هستید که می‌خواهید اشتراک خود را لغو کنید؟',
           style: TextStyle(
     fontFamily: AppTheme.fontFamily,),
@@ -126,7 +128,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         actions: [
           TextButton(
             onPressed: () => WidgetSafetyUtils.safePop(context, false),
-            child: Text(
+            child: const Text(
               'انصراف',
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,color: Colors.white70),
@@ -134,7 +136,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           ),
           TextButton(
             onPressed: () => WidgetSafetyUtils.safePop(context, true),
-            child: Text(
+            child: const Text(
               'لغو اشتراک',
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,color: Colors.red),
@@ -150,7 +152,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: context.backgroundColor,
         appBar: AppBar(
           title: Text(
             'اشتراک‌ها',
@@ -237,7 +239,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: plan.isPopular

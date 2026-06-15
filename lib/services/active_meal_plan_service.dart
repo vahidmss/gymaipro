@@ -1,11 +1,9 @@
 import 'package:flutter/foundation.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ActiveMealPlanService {
   ActiveMealPlanService();
-
-  final SupabaseClient _db = Supabase.instance.client;
 
   /// بررسی می‌کند که آیا خطا مربوط به شبکه است یا دیتابیس
   bool _isNetworkError(dynamic error) {
@@ -32,13 +30,8 @@ class ActiveMealPlanService {
       final userId = await AuthHelper.getCurrentUserId();
       if (userId == null) return null;
 
-      final row = await _db
-          .from('profiles')
-          .select('active_meal_plan_id')
-          .eq('id', userId)
-          .maybeSingle();
-
-      return row?['active_meal_plan_id'] as String?;
+      final profile = await SimpleProfileService.getCurrentProfile();
+      return profile?['active_meal_plan_id'] as String?;
     } catch (e) {
       if (kDebugMode) {
         if (_isNetworkError(e)) {
@@ -59,7 +52,6 @@ class ActiveMealPlanService {
           debugPrint('[ActiveMealPlan] getActiveMealPlanId error: $e');
         }
       }
-      // در صورت خطای شبکه یا ستون، null برمی‌گردانیم
       return null;
     }
   }
@@ -69,14 +61,9 @@ class ActiveMealPlanService {
       final userId = await AuthHelper.getCurrentUserId();
       if (userId == null) return false;
 
-      await _db
-          .from('profiles')
-          .update({
-            'active_meal_plan_id': mealPlanId,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', userId);
-      return true;
+      return await SimpleProfileService.updateProfile({
+        'active_meal_plan_id': mealPlanId,
+      });
     } catch (e) {
       if (kDebugMode) {
         if (_isNetworkError(e)) {
@@ -106,14 +93,9 @@ class ActiveMealPlanService {
       final userId = await AuthHelper.getCurrentUserId();
       if (userId == null) return false;
 
-      await _db
-          .from('profiles')
-          .update({
-            'active_meal_plan_id': null,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', userId);
-      return true;
+      return await SimpleProfileService.updateProfile({
+        'active_meal_plan_id': null,
+      });
     } catch (e) {
       if (kDebugMode) {
         if (_isNetworkError(e)) {

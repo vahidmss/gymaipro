@@ -190,7 +190,7 @@ class _LoginScreenState extends State<LoginScreen>
       }
     } catch (e) {
       if (!mounted) return;
-      print('Error in _sendOTP: $e');
+      debugPrint('Error in _sendOTP: $e');
       WidgetSafetyUtils.safeSetState(this, () {
         _error = 'خطا در ارسال کد تایید: $e';
       });

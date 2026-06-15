@@ -44,7 +44,7 @@ class PaymentDeeplinkService {
       ctx = _getNavigatorContext();
       attempts++;
     }
-    if (ctx != null) {
+    if (ctx != null && ctx.mounted) {
       await action(ctx);
     } else if (kDebugMode) {
       print('Navigator context still unavailable after retries.');
@@ -178,7 +178,8 @@ class PaymentDeeplinkService {
             await Future<void>.delayed(const Duration(milliseconds: 300));
           } catch (_) {}
         }
-        
+
+        if (!ctx.mounted) return;
         await showDialog<void>(
           context: ctx,
           builder: (d) => AlertDialog(
@@ -209,6 +210,7 @@ class PaymentDeeplinkService {
 
         final success = result['success'] == true;
 
+        if (!ctx.mounted) return;
         if (success) {
           // نمایش دیالوگ موفقیت خرید
           String serviceName = 'برنامه';
@@ -223,6 +225,7 @@ class PaymentDeeplinkService {
             trainerNameStr = (meta?['trainer_name'] as String?) ?? trainerNameStr;
           } catch (_) {}
 
+          if (!ctx.mounted) return;
           await PurchaseSuccessDialog.show(
             ctx,
             serviceName: serviceName,
@@ -333,6 +336,7 @@ class PaymentDeeplinkService {
       print('Navigating to /wallet after payment result');
     }
 
+    if (!ctx.mounted) return;
     // استفاده از NavigatorState از context
     try {
       Navigator.of(ctx).pushNamedAndRemoveUntil('/wallet', (route) {

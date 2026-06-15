@@ -133,7 +133,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
 
     if (_profile == null) {
-      return Center(
+      return const Center(
         child: Text(
           'پروفایل یافت نشد',
           style: TextStyle(fontFamily: AppTheme.fontFamily),
@@ -178,7 +178,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           borderRadius: BorderRadius.circular(20.r),
           border: Border.all(
             color: AppTheme.goldColor.withValues(alpha: 0.25),
-            width: 1,
           ),
           boxShadow: [
             BoxShadow(

@@ -317,7 +317,6 @@ class ArticleCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(8.r),
               border: Border.all(
                 color: AppTheme.goldColor.withValues(alpha: 0.4),
-                width: 1,
               ),
             ),
             child: Row(
@@ -353,7 +352,6 @@ class ArticleCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(8.r),
               border: Border.all(
                 color: Colors.pinkAccent.withValues(alpha: 0.4),
-                width: 1,
               ),
             ),
             child: Row(
@@ -385,7 +383,6 @@ class ArticleCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(8.r),
               border: Border.all(
                 color: AppTheme.goldColor.withValues(alpha: 0.4),
-                width: 1,
               ),
             ),
             child: Row(

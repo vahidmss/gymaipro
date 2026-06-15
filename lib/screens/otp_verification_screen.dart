@@ -208,20 +208,20 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
       }
 
       // اجرای diagnostics قبل از ثبت نام
-      print('=== OTP VERIFICATION: Running database diagnostics ===');
+      debugPrint('=== OTP VERIFICATION: Running database diagnostics ===');
       try {
         await DatabaseDebugService.runFullDiagnostics();
-        print('=== OTP VERIFICATION: Database diagnostics completed ===');
+        debugPrint('=== OTP VERIFICATION: Database diagnostics completed ===');
       } catch (diagError) {
-        print(
+        debugPrint(
           '=== OTP VERIFICATION: Database diagnostics failed: $diagError ===',
         );
       }
 
       // فقط تایید OTP - ثبت‌نام در صفحه تکمیل پروفایل انجام می‌شود
-      print('=== OTP VERIFICATION: OTP verified successfully ===');
-      print('=== OTP VERIFICATION: normalizedPhone=$normalizedPhone ===');
-      print('=== OTP VERIFICATION: username=${widget.username} ===');
+      debugPrint('=== OTP VERIFICATION: OTP verified successfully ===');
+      debugPrint('=== OTP VERIFICATION: normalizedPhone=$normalizedPhone ===');
+      debugPrint('=== OTP VERIFICATION: username=${widget.username} ===');
 
       // ابتدا انیمیشن‌ها و تایمرها را متوقف می‌کنیم
       _isActive = false;

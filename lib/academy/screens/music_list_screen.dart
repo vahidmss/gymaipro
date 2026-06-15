@@ -150,16 +150,12 @@ class _MusicListScreenState extends State<MusicListScreen>
         // Set playlist to filtered list
         final playerService = MusicPlayerService();
         playerService.setPlaylist(_musicList);
-        break;
       case 1: // مورد علاقه
         await _loadFavorites();
-        break;
       case 2: // مربی - فقط موزیک‌های مربی‌هایی که کاربر شاگرد آن‌هاست
         await _loadTrainerMusics();
-        break;
       case 3: // دانلود شده
         await _loadDownloaded();
-        break;
     }
   }
 
@@ -286,7 +282,7 @@ class _MusicListScreenState extends State<MusicListScreen>
   Widget build(BuildContext context) {
     return ChangeNotifierProvider.value(
       value: MusicPlayerService(),
-      child: Container(
+      child: ColoredBox(
         color: context.backgroundColor,
         child: _isLoading
             ? const Center(
@@ -302,8 +298,8 @@ class _MusicListScreenState extends State<MusicListScreen>
                   ),
                   slivers: [
                     // Main Player Widget
-                    SliverToBoxAdapter(
-                      child: const MusicPlayerWidget(compact: true),
+                    const SliverToBoxAdapter(
+                      child: MusicPlayerWidget(compact: true),
                     ),
 
                     // Minimal Tab Bar
@@ -323,7 +319,7 @@ class _MusicListScreenState extends State<MusicListScreen>
                                 final music = _musicList[index];
                                 return PlaylistItemWidget(
                                   key: ValueKey(
-                                    '${music.id}_${music.audioUrl}_${_selectedTab}',
+                                    '${music.id}_${music.audioUrl}_$_selectedTab',
                                   ),
                                   music: music,
                                   index: index, // Use index from filtered list
@@ -473,15 +469,12 @@ class _MusicListScreenState extends State<MusicListScreen>
       case 1:
         message = 'مورد علاقه‌ای وجود ندارد';
         icon = LucideIcons.heart;
-        break;
       case 2:
         message = 'موزیک مربی یافت نشد';
         icon = LucideIcons.user;
-        break;
       case 3:
         message = 'موزیک دانلود شده‌ای وجود ندارد';
         icon = LucideIcons.download;
-        break;
       default:
         message = 'موزیکی یافت نشد';
         icon = LucideIcons.music;

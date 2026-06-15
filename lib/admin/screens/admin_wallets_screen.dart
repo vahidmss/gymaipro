@@ -95,6 +95,7 @@ class _AdminWalletsScreenState extends State<AdminWalletsScreen> {
     );
 
     if (confirmed != true) return;
+    if (!mounted) return;
 
     final amount = int.tryParse(amountController.text) ?? 0;
     if (amount <= 0) {
@@ -194,6 +195,7 @@ class _AdminWalletsScreenState extends State<AdminWalletsScreen> {
     );
 
     if (confirmed != true) return;
+    if (!mounted) return;
 
     final newBalance = int.tryParse(balanceController.text) ?? 0;
     if (newBalance < 0) {
@@ -256,7 +258,7 @@ class _AdminWalletsScreenState extends State<AdminWalletsScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return _isLoading
-        ? Center(
+        ? const Center(
             child: CircularProgressIndicator(
               color: AppTheme.goldColor,
             ),
@@ -351,7 +353,7 @@ class _AdminWalletsScreenState extends State<AdminWalletsScreen> {
                             PopupMenuItem<void>(
                               child: Row(
                                 children: [
-                                  Icon(LucideIcons.edit, size: 18, color: AppTheme.goldColor),
+                                  const Icon(LucideIcons.edit, size: 18, color: AppTheme.goldColor),
                                   SizedBox(width: 8.w),
                                   const Text('اصلاح موجودی'),
                                 ],

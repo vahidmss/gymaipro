@@ -11,6 +11,16 @@ import 'package:gymaipro/utils/format_utils.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ModernProfileHeader extends StatelessWidget {
+
+  const ModernProfileHeader({
+    required this.profileData, required this.onImageTap, required this.onEditTap, required this.onSettingsTap, super.key,
+    this.avatarFile,
+    this.ranking,
+    this.avatarUploading = false,
+    this.avatarSuccess = false,
+    this.avatarError,
+    this.onRetryAvatar,
+  });
   final Map<String, dynamic> profileData;
   final File? avatarFile;
   final VoidCallback onImageTap;
@@ -21,20 +31,6 @@ class ModernProfileHeader extends StatelessWidget {
   final bool avatarSuccess;
   final String? avatarError;
   final VoidCallback? onRetryAvatar;
-
-  const ModernProfileHeader({
-    super.key,
-    required this.profileData,
-    this.avatarFile,
-    required this.onImageTap,
-    required this.onEditTap,
-    required this.onSettingsTap,
-    this.ranking,
-    this.avatarUploading = false,
-    this.avatarSuccess = false,
-    this.avatarError,
-    this.onRetryAvatar,
-  });
 
   @override
   Widget build(BuildContext context) {
@@ -134,16 +130,14 @@ class ModernProfileHeader extends StatelessWidget {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        avatarFile != null
-                            ? Image.file(avatarFile!, fit: BoxFit.cover)
-                            : (avatarUrl != null && avatarUrl.isNotEmpty
+                        if (avatarFile != null) Image.file(avatarFile!, fit: BoxFit.cover) else avatarUrl != null && avatarUrl.isNotEmpty
                                   ? Image.network(
                                       avatarUrl,
                                       fit: BoxFit.cover,
                                       errorBuilder: (_, __, ___) =>
                                           _buildPlaceholder(context),
                                     )
-                                  : _buildPlaceholder(context)),
+                                  : _buildPlaceholder(context),
                         if (avatarUploading) _buildAvatarOverlay(context, accentColor, loading: true),
                         if (avatarSuccess && !avatarUploading)
                           _buildAvatarOverlay(context, accentColor, success: true),
@@ -151,7 +145,7 @@ class ModernProfileHeader extends StatelessWidget {
                           _buildAvatarOverlay(
                             context,
                             accentColor,
-                            error: avatarError!,
+                            error: avatarError,
                             onRetry: onRetryAvatar,
                           ),
                       ],
@@ -299,7 +293,7 @@ class ModernProfileHeader extends StatelessWidget {
   }
 
   Widget _buildPlaceholder(BuildContext context) {
-    return Container(
+    return ColoredBox(
       color: context.cardColor,
       child: Icon(LucideIcons.user, size: 40.sp, color: context.textSecondary),
     );
@@ -415,16 +409,13 @@ class ModernProfileHeader extends StatelessWidget {
 }
 
 class ModernProfileActions extends StatelessWidget {
+
+  const ModernProfileActions({
+    required this.onFriendsTap, required this.onMessagesTap, required this.onRequestsTap, super.key,
+  });
   final VoidCallback onFriendsTap;
   final VoidCallback onMessagesTap;
   final VoidCallback onRequestsTap;
-
-  const ModernProfileActions({
-    super.key,
-    required this.onFriendsTap,
-    required this.onMessagesTap,
-    required this.onRequestsTap,
-  });
 
   @override
   Widget build(BuildContext context) {
@@ -475,7 +466,6 @@ class ModernProfileActions extends StatelessWidget {
           ],
           border: Border.all(
             color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
-            width: 1,
           ),
         ),
         child: Column(
@@ -499,16 +489,15 @@ class ModernProfileActions extends StatelessWidget {
 }
 
 class ModernGamificationStats extends StatelessWidget {
+
+  const ModernGamificationStats({
+    required this.onViewLeaderboard, super.key,
+    this.breakdown,
+    this.ranking,
+  });
   final RankingScoreBreakdown? breakdown;
   final UserRanking? ranking;
   final VoidCallback onViewLeaderboard;
-
-  const ModernGamificationStats({
-    super.key,
-    this.breakdown,
-    this.ranking,
-    required this.onViewLeaderboard,
-  });
 
   String _formatNumber(int n) {
     return n.toString().replaceAllMapped(
@@ -553,7 +542,6 @@ class ModernGamificationStats extends StatelessWidget {
           BoxShadow(
             color: Color(league.color).withValues(alpha: 0.05),
             blurRadius: 15,
-            spreadRadius: 0,
             offset: const Offset(0, 4),
           ),
         ],
@@ -749,9 +737,9 @@ class ModernGamificationStats extends StatelessWidget {
 }
 
 class ModernPhysicalStats extends StatelessWidget {
-  final Map<String, dynamic> profileData;
 
-  const ModernPhysicalStats({super.key, required this.profileData});
+  const ModernPhysicalStats({required this.profileData, super.key});
+  final Map<String, dynamic> profileData;
 
   @override
   Widget build(BuildContext context) {
@@ -903,9 +891,6 @@ class ModernTrainerKpiDashboard extends StatelessWidget {
     final role = (profileData['role'] ?? 'athlete').toString();
     if (role != 'trainer') return const SizedBox.shrink();
 
-    final rankingValue = (profileData['ranking'] as num?)?.toInt();
-    final rating = (profileData['rating'] as num?)?.toDouble() ?? 0.0;
-    final reviewCount = (profileData['review_count'] as num?)?.toInt() ?? 0;
     final experienceYears =
         (profileData['experience_years'] as num?)?.toInt() ?? 0;
     final certificates =

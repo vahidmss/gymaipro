@@ -18,7 +18,6 @@ class RelationshipStatsWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.1),
-          width: 1,
         ),
         boxShadow: [
           BoxShadow(
@@ -27,7 +26,6 @@ class RelationshipStatsWidget extends StatelessWidget {
                 : AppTheme.goldColor.withValues(alpha: 0.05),
             blurRadius: 8.r,
             offset: Offset(0, 2.h),
-            spreadRadius: 0,
           ),
         ],
       ),
@@ -98,7 +96,6 @@ class RelationshipStatsWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
           color: color.withValues(alpha: isDark ? 0.25 : 0.2),
-          width: 1,
         ),
       ),
       child: Column(

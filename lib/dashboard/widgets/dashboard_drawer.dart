@@ -2,7 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:gymaipro/guide/data/drawer_guide_data.dart';
 import 'package:gymaipro/guide/guide.dart';
 import 'package:gymaipro/notification/screens/notification_settings_screen.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
@@ -186,7 +185,7 @@ class _DashboardDrawerState extends State<DashboardDrawer>
           Navigator.pushNamed(context, '/profile');
         }
       },
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(
@@ -198,7 +197,7 @@ class _DashboardDrawerState extends State<DashboardDrawer>
             ? CircleAvatar(
                 radius: 40.r,
                 backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
-                child: CircularProgressIndicator(
+                child: const CircularProgressIndicator(
                   color: AppTheme.goldColor,
                   strokeWidth: 2,
                 ),
@@ -220,7 +219,7 @@ class _DashboardDrawerState extends State<DashboardDrawer>
                       placeholder: (context, url) => CircleAvatar(
                         radius: 40.r,
                         backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
-                        child: CircularProgressIndicator(
+                        child: const CircularProgressIndicator(
                           color: AppTheme.goldColor,
                           strokeWidth: 2,
                         ),
@@ -363,7 +362,7 @@ class _DashboardDrawerState extends State<DashboardDrawer>
             // اجرای navigation بعد از بستن drawer
             SchedulerBinding.instance.addPostFrameCallback((_) {
               // استفاده از Navigator اصلی برای دسترسی به navigation stack
-              final navigator = Navigator.of(context, rootNavigator: false);
+              final navigator = Navigator.of(context);
 
               // اگر در صفحه دیگری هستیم (مثل FoodLogScreen)، به داشبورد برگرد
               // با pop کردن تا به داشبورد برسیم
@@ -650,6 +649,7 @@ class _DashboardDrawerState extends State<DashboardDrawer>
               await guideService.resetGuide('dashboard_main_tour');
               // تاخیر کوتاه برای اطمینان از بسته شدن drawer
               await Future<void>.delayed(const Duration(milliseconds: 300));
+              if (!context.mounted) return;
               // شروع راهنما
               await startGuide(context, 'dashboard_main_tour');
             } catch (e) {
@@ -690,10 +690,7 @@ class _DashboardDrawerState extends State<DashboardDrawer>
 
   Widget _buildMenuItem(
     BuildContext context, {
-    Key? key,
-    required IconData icon,
-    required String title,
-    required VoidCallback? onTap,
+    required IconData icon, required String title, required VoidCallback? onTap, Key? key,
     bool isLocked = false,
     bool isActive = false,
   }) {

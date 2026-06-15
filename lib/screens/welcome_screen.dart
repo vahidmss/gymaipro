@@ -170,7 +170,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                                   '/login',
                                 );
                               },
-                              child: Text(
+                              child: const Text(
                                 'قبلاً ثبت‌نام کرده‌ام',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -283,7 +283,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   path: page.image,
                   height: 100.h,
                   width: 100.w,
-                  fit: BoxFit.contain,
                   errorWidget:
                       Icon(page.icon, size: 80.sp, color: AppTheme.goldColor),
                 ),

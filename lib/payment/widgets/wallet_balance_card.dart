@@ -303,7 +303,7 @@ class WalletBalanceCard extends StatelessWidget {
                     ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.goldColor,
-                      side: BorderSide(
+                      side: const BorderSide(
                         color: AppTheme.goldColor,
                         width: 2,
                       ),

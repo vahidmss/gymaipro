@@ -1,8 +1,15 @@
-﻿import 'package:gymaipro/models/comment_reaction.dart';
+import 'package:flutter/foundation.dart';
+import 'package:gymaipro/models/comment_reaction.dart';
 import 'package:gymaipro/models/exercise_comment.dart';
+import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class _CommentAuthor {
+  const _CommentAuthor({
+    required this.displayName,
+    this.username,
+    this.avatarUrl,
+  });
 
   factory _CommentAuthor.fromProfileRow(Map<String, dynamic> row) {
     final first = (row['first_name'] as String?)?.trim() ?? '';
@@ -25,11 +32,6 @@ class _CommentAuthor {
       avatarUrl: row['avatar_url'] as String?,
     );
   }
-  const _CommentAuthor({
-    required this.displayName,
-    this.username,
-    this.avatarUrl,
-  });
 
   final String displayName;
   final String? username;
@@ -249,41 +251,24 @@ class ExerciseCommentService {
     const select =
         'id, auth_user_id, first_name, last_name, username, avatar_url';
     final out = <String, _CommentAuthor>{};
-    final unresolved = Set<String>.from(userIds);
 
     try {
-      final byAuth = await _supabase
-          .from('profiles')
-          .select(select)
-          .inFilter('auth_user_id', userIds.toList());
+      final rows = await UserProfileService.fetchProfilesByIdentifiers(
+        userIds.toList(),
+        columns: select,
+      );
 
-      for (final row in List<Map<String, dynamic>>.from(byAuth as List)) {
+      for (final row in rows) {
         final authId = (row['auth_user_id'] as String?)?.trim();
-        if (authId == null || authId.isEmpty) continue;
-        out[authId] = _CommentAuthor.fromProfileRow(row);
-        unresolved.remove(authId);
-      }
-    } catch (e) {
-      // ignore: avoid_print
-      print('خطا در بارگذاری پروفایل (auth_user_id): $e');
-    }
-
-    if (unresolved.isNotEmpty) {
-      try {
-        final byId = await _supabase
-            .from('profiles')
-            .select(select)
-            .inFilter('id', unresolved.toList());
-
-        for (final row in List<Map<String, dynamic>>.from(byId as List)) {
-          final id = (row['id'] as String?)?.trim();
-          if (id == null || id.isEmpty) continue;
+        final id = (row['id'] as String?)?.trim();
+        if (authId != null && authId.isNotEmpty && userIds.contains(authId)) {
+          out[authId] = _CommentAuthor.fromProfileRow(row);
+        } else if (id != null && id.isNotEmpty && userIds.contains(id)) {
           out[id] = _CommentAuthor.fromProfileRow(row);
         }
-      } catch (e) {
-        // ignore: avoid_print
-        print('خطا در بارگذاری پروفایل (id): $e');
       }
+    } catch (e) {
+      debugPrint('خطا در بارگذاری پروفایل نویسندگان کامنت: $e');
     }
 
     return out;

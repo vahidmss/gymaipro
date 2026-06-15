@@ -43,14 +43,14 @@ class _MessageInputWidgetState extends State<MessageInputWidget> {
                 borderRadius: BorderRadius.circular(20.r),
               ),
               child: IconButton(
-                icon: Icon(LucideIcons.plus, color: AppTheme.goldColor),
+                icon: const Icon(LucideIcons.plus, color: AppTheme.goldColor),
                 onPressed: widget.onAttachmentPressed,
               ),
             ),
             SizedBox(width: 8.w),
             // Input
             Expanded(
-              child: Container(
+              child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: context.backgroundColor,
                   borderRadius: BorderRadius.circular(24.r),
@@ -123,7 +123,7 @@ class _MessageInputWidgetState extends State<MessageInputWidget> {
                     ? SizedBox(
                         width: 20.w,
                         height: 20.h,
-                        child: CircularProgressIndicator(
+                        child: const CircularProgressIndicator(
                           color: AppTheme.onGoldColor,
                           strokeWidth: 2,
                         ),

@@ -24,7 +24,7 @@ class ProgramSelectionCard extends StatelessWidget {
       margin: EdgeInsets.all(16.w),
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.2)),
       ),

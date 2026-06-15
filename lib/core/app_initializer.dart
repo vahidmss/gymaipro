@@ -11,6 +11,7 @@ import 'package:gymaipro/auth/services/auth_state_service.dart';
 import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/notification/notification_service.dart';
 import 'package:gymaipro/notification/services/private_message_notification_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/ai_exercise_read_service.dart';
 import 'package:gymaipro/services/backend_reachability_service.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
@@ -140,11 +141,16 @@ class AppInitializer {
   static Future<AppInitResult> _doInitialize() async {
     // ── Core SDK init (runs only once) ──
     if (!_coreInitialized) {
+      // dotenv must load first (Supabase needs the anon key from it).
       await _loadEnvironmentVariables();
       _configureSystemUI();
-      await _initializeFirebase();
       _initializeTimezone();
-      await _initializeSupabase();
+      // Firebase and Supabase are independent SDKs — initialize concurrently
+      // so the Firebase channel setup does not sit on the critical path.
+      await Future.wait([
+        _initializeFirebase(),
+        _initializeSupabase(),
+      ]);
       _coreInitialized = true;
     } else if (!dotenv.isInitialized) {
       // Hot restart: dotenv ریست می‌شود ولی _coreInitialized می‌ماند.
@@ -160,7 +166,7 @@ class AppInitializer {
     }
 
     // ── Retriable services (safe to call again on retry) ──
-    _initializeAppServices();
+    unawaited(_initializeAppServices());
 
     final initialRoute = _supabaseInitialized
         ? await _determineInitialRoute()
@@ -634,14 +640,9 @@ class AppInitializer {
   /// هیچ پروفایلی خودکار ساخته نمی‌شود - کاربر باید ثبت‌نام کند
   static Future<bool> _verifyUserProfile(String userId, User user) async {
     try {
-      // First, try the direct lookup by auth.user.id (newer schema expectation)
-      Map<String, dynamic>? profile = await Supabase.instance.client
-          .from('profiles')
-          .select('id, username')
-          .eq('id', userId)
-          .maybeSingle();
-
-      // If not found, fallback to our unified profile resolver (supports phone fallback)
+      // Unified lookup (profiles.id or auth_user_id), then phone fallback.
+      Map<String, dynamic>? profile =
+          await ProfileRepository.instance.fetchProfile(userId);
       profile ??= await SimpleProfileService.getCurrentProfile();
 
       if (profile == null) {

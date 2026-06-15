@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/utils/version_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -248,29 +249,28 @@ class AppAccessControlService {
           .order('changed_at', ascending: false)
           .limit(limit);
 
+      final rows = List<Map<String, dynamic>>.from(response as List);
+      final profilesById = await ProfileRepository.instance.fetchProfilesByIdsMap(
+        rows
+            .map((row) => row['changed_by'] as String?)
+            .whereType<String>()
+            .toList(),
+        columns: 'id, username, first_name, last_name',
+      );
+
       final logs = <AppAccessAuditLog>[];
-      for (final row in response) {
+      for (final row in rows) {
         final changedBy = row['changed_by'] as String?;
         final changedAt = _parseChangedAt(row['changed_at']);
-        String adminName = 'ادمین';
+        var adminName = 'ادمین';
         if (changedBy != null) {
-          try {
-            final p = await _supabase
-                .from('profiles')
-                .select('username, first_name, last_name')
-                .eq('id', changedBy)
-                .maybeSingle();
-            if (p != null) {
-              final first = p['first_name'] as String?;
-              final last = p['last_name'] as String?;
-              final user = p['username'] as String?;
-              final full = [first, last]
-                  .where((e) => e != null && e.trim().isNotEmpty)
-                  .join(' ')
-                  .trim();
-              adminName = full.isNotEmpty ? full : (user ?? 'ادمین');
-            }
-          } catch (_) {}
+          final profile = profilesById[changedBy];
+          if (profile != null) {
+            adminName = ProfileRepository.instance.displayNameFromMap(
+              profile,
+              fallback: 'ادمین',
+            );
+          }
         }
 
         logs.add(

@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
 
 /// یک اسکنر برای بررسی خودکار overflow در کد
 /// این کلاس فایل‌های Dart را اسکن می‌کند و مشکلات احتمالی overflow را پیدا می‌کند
@@ -152,19 +151,25 @@ class OverflowScanner {
   /// چاپ گزارش overflow
   static void printReport(Map<String, List<OverflowWarning>> results) {
     if (results.isEmpty) {
-      debugPrint('✅ هیچ مشکل overflow پیدا نشد!');
+      // ignore: avoid_print
+      print('✅ هیچ مشکل overflow پیدا نشد!');
       return;
     }
 
-    debugPrint('⚠️ ${results.length} فایل با مشکل overflow پیدا شد:\n');
+    // ignore: avoid_print
+    print('⚠️ ${results.length} فایل با مشکل overflow پیدا شد:\n');
 
     for (final entry in results.entries) {
-      debugPrint('📄 ${entry.key}:');
+      // ignore: avoid_print
+      print('📄 ${entry.key}:');
       for (final warning in entry.value) {
-        debugPrint('  ⚠️ خط ${warning.line}: ${warning.message}');
-        debugPrint('     کد: ${warning.code}');
+        // ignore: avoid_print
+        print('  ⚠️ خط ${warning.line}: ${warning.message}');
+        // ignore: avoid_print
+        print('     کد: ${warning.code}');
       }
-      debugPrint('');
+      // ignore: avoid_print
+      print('');
     }
   }
 }

@@ -55,13 +55,13 @@ class AppConfig {
     final trimmed = url.trim().replaceFirst(RegExp(r'/$'), '');
     if (RegExp(r'^https://[^/:]+$').hasMatch(trimmed)) {
       return trimmed.replaceFirstMapped(
-        RegExp(r'^https://([^/]+)'),
+        RegExp('^https://([^/]+)'),
         (match) => 'https://${match.group(1)}:443',
       );
     }
     if (RegExp(r'^http://[^/:]+$').hasMatch(trimmed)) {
       return trimmed.replaceFirstMapped(
-        RegExp(r'^http://([^/]+)'),
+        RegExp('^http://([^/]+)'),
         (match) => 'http://${match.group(1)}:80',
       );
     }

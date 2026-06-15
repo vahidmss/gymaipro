@@ -1,4 +1,5 @@
-﻿import 'package:supabase_flutter/supabase_flutter.dart';
+﻿import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TrainerClientService {
   factory TrainerClientService() => _instance;
@@ -99,7 +100,7 @@ class TrainerClientService {
   // دریافت لیست مربیان یک شاگرد
   Future<List<Map<String, dynamic>>> getClientTrainers(String clientId) async {
     try {
-      print('در حال دریافت مربی‌ها برای شاگرد: $clientId');
+      debugPrint('در حال دریافت مربی‌ها برای شاگرد: $clientId');
 
       final response = await _client
           .from('trainer_clients')
@@ -113,10 +114,10 @@ class TrainerClientService {
           .eq('client_id', clientId)
           .order('created_at', ascending: false);
 
-      print('پاسخ دریافت شده از دیتابیس: ${response.length} مربی');
+      debugPrint('پاسخ دریافت شده از دیتابیس: ${response.length} مربی');
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      print('خطا در دریافت مربی‌ها: $e');
+      debugPrint('خطا در دریافت مربی‌ها: $e');
       throw Exception('خطا در دریافت لیست مربیان: $e');
     }
   }

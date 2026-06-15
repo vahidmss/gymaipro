@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/payment/models/payout_request.dart';
 import 'package:gymaipro/payment/services/payout_service.dart';
-import 'package:gymaipro/payment/utils/card_encryption_helper.dart';
 import 'package:gymaipro/payment/utils/card_input_formatter.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -204,7 +203,7 @@ class _TrainerPayoutRequestScreenState
           backgroundColor: isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor,
         ),
         body: _isLoading
-            ? Center(
+            ? const Center(
                 child: CircularProgressIndicator(color: AppTheme.goldColor),
               )
             : RefreshIndicator(
@@ -432,9 +431,9 @@ class _TrainerPayoutRequestScreenState
                               ? SizedBox(
                                   height: 20.h,
                                   width: 20.w,
-                                  child: CircularProgressIndicator(
+                                  child: const CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: const AlwaysStoppedAnimation<Color>(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
                                       Colors.white,
                                     ),
                                   ),

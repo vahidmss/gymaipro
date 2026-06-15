@@ -134,7 +134,7 @@ class MealSection extends StatelessWidget {
                           if (hasFoods) ...[
                             Text(
                               MealLogUtils.convertToPersianNumbers(
-                                '${totalCalories.toStringAsFixed(0)}',
+                                totalCalories.toStringAsFixed(0),
                               ),
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
@@ -356,7 +356,6 @@ class MealSection extends StatelessWidget {
             color: AppTheme.goldColor.withValues(
               alpha: isDark ? 0.3 : 0.25,
             ),
-            width: 1,
           ),
         ),
         child: Icon(

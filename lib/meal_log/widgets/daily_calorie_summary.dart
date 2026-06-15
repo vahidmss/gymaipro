@@ -83,7 +83,6 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
         // محاسبه responsive margin بر اساس اندازه واقعی
         final verticalMargin = screenWidth > 600 ? 12.0 : 8.0;
         final containerMargin = EdgeInsets.symmetric(
-          horizontal: 0,
           vertical: verticalMargin,
         );
 
@@ -795,7 +794,7 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
                     height: 8.h,
                     width: progressWidth,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
+                      gradient: const LinearGradient(
                         colors: [AppTheme.darkGold, AppTheme.goldColor],
                       ),
                       borderRadius: BorderRadius.only(

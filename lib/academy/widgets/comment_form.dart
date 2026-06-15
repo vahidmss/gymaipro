@@ -105,7 +105,7 @@ class _CommentFormState extends State<CommentForm> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10.r),
-                borderSide: BorderSide(color: AppTheme.goldColor, width: 1.5),
+                borderSide: const BorderSide(color: AppTheme.goldColor, width: 1.5),
               ),
             ),
             style: AppTheme.bodyStyle.copyWith(fontSize: 13.sp, height: 1.5),

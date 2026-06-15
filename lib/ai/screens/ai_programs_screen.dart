@@ -105,9 +105,9 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
             elevation: 0,
           ),
         ),
-        child: Container(
+        child: DecoratedBox(
           decoration: isDark
-              ? null
+              ? const BoxDecoration()
               : BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -150,7 +150,7 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
               ],
             ),
             body: _isLoading
-                ? Center(
+                ? const Center(
                     child: CircularProgressIndicator(color: AppTheme.goldColor),
                   )
                 : _aiPrograms.isEmpty
@@ -162,7 +162,7 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
                     margin: EdgeInsets.only(bottom: 60.h),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [AppTheme.goldColor, AppTheme.darkGold],
@@ -254,7 +254,7 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
             // دکمه درخواست برنامه
             DecoratedBox(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [AppTheme.goldColor, AppTheme.darkGold],
@@ -325,7 +325,6 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
           color: isDark
               ? Colors.grey[700]!.withValues(alpha: 0.5)
               : AppTheme.lightDividerColor.withValues(alpha: 0.5),
-          width: 1,
         ),
         boxShadow: [
           BoxShadow(
@@ -435,7 +434,6 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
                           foregroundColor: AppTheme.goldColor,
                           side: BorderSide(
                             color: AppTheme.goldColor.withValues(alpha: 0.5),
-                            width: 1,
                           ),
                           padding: EdgeInsets.symmetric(
                             horizontal: 12.w,
@@ -460,7 +458,7 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
                     Expanded(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
+                          gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [AppTheme.goldColor, AppTheme.darkGold],
@@ -589,9 +587,9 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
   }
 
   void _requestNewProgram() {
-    print('=== شروع navigation به ProgramTypeSelectionScreen ===');
+    debugPrint('=== شروع navigation به ProgramTypeSelectionScreen ===');
     Navigator.pushNamed(context, '/program-type-selection').then((_) {
-      print('=== بازگشت از ProgramTypeSelectionScreen ===');
+      debugPrint('=== بازگشت از ProgramTypeSelectionScreen ===');
       // بعد از بازگشت، برنامه‌ها را دوباره بارگذاری کن
       if (mounted) {
         _loadAIPrograms();
@@ -686,7 +684,7 @@ class _ProgramDetailsDialogState extends State<_ProgramDetailsDialog> {
       }
 
       debugPrint(
-        'جمع‌بندی: ${totalExercises} تمرین کل، ${exerciseIds.length} با ID، ${exercisesToSearch.length} tag منحصر به فرد',
+        'جمع‌بندی: $totalExercises تمرین کل، ${exerciseIds.length} با ID، ${exercisesToSearch.length} tag منحصر به فرد',
       );
       debugPrint('تمام tag ها: ${exercisesToSearch.join(", ")}');
 
@@ -958,7 +956,6 @@ class _ProgramDetailsDialogState extends State<_ProgramDetailsDialog> {
             color: isDark
                 ? Colors.grey[700]!.withValues(alpha: 0.5)
                 : AppTheme.lightDividerColor.withValues(alpha: 0.5),
-            width: 1,
           ),
           boxShadow: [
             BoxShadow(
@@ -1026,7 +1023,7 @@ class _ProgramDetailsDialogState extends State<_ProgramDetailsDialog> {
                                 size: 16.sp,
                               ),
                               SizedBox(width: 8.w),
-                              Text(
+                              const Text(
                                 'برنامه کپی شد',
                                 style: TextStyle(
                                   fontFamily: AppTheme.fontFamily,
@@ -1082,7 +1079,6 @@ class _ProgramDetailsDialogState extends State<_ProgramDetailsDialog> {
               borderRadius: BorderRadius.circular(10.r),
               border: Border.all(
                 color: AppTheme.goldColor.withValues(alpha: 0.3),
-                width: 1,
               ),
             ),
             child: Row(
@@ -1102,7 +1098,7 @@ class _ProgramDetailsDialogState extends State<_ProgramDetailsDialog> {
                     color: context.textColor,
                   ),
                 ),
-                Spacer(),
+                const Spacer(),
                 Icon(
                   LucideIcons.dumbbell,
                   size: 16.sp,
@@ -1172,7 +1168,7 @@ class _ProgramDetailsDialogState extends State<_ProgramDetailsDialog> {
                           width: 36.w,
                           height: 36.h,
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
+                            gradient: const LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [AppTheme.goldColor, AppTheme.darkGold],
@@ -1260,7 +1256,6 @@ class _ProgramDetailsDialogState extends State<_ProgramDetailsDialog> {
                                 color: AppTheme.goldColor.withValues(
                                   alpha: 0.2,
                                 ),
-                                width: 1,
                               ),
                             ),
                             child: Row(
@@ -1309,7 +1304,7 @@ class _ProgramDetailsDialogState extends State<_ProgramDetailsDialog> {
                                 color: context.textSecondary,
                               ),
                             ),
-                            Spacer(),
+                            const Spacer(),
                             Container(
                               padding: EdgeInsets.symmetric(
                                 horizontal: 8.w,
@@ -1397,7 +1392,6 @@ class _ProgramDetailsDialogState extends State<_ProgramDetailsDialog> {
                                         : AppTheme.lightDividerColor.withValues(
                                             alpha: 0.3,
                                           ),
-                                    width: 1,
                                   ),
                                 ),
                                 child: Row(
@@ -1569,7 +1563,6 @@ class _ProgramDetailsDialogState extends State<_ProgramDetailsDialog> {
                 color: isDark
                     ? Colors.grey[700]!.withValues(alpha: 0.3)
                     : AppTheme.goldColor.withValues(alpha: 0.2),
-                width: 1,
               ),
             ),
             child: Row(

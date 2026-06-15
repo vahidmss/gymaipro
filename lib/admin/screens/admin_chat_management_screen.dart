@@ -237,7 +237,6 @@ class _AdminChatManagementScreenState extends State<AdminChatManagementScreen> {
               return SizedBox(
                 height: 500.h,
                 child: ListView.builder(
-                  reverse: false,
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index];
@@ -286,7 +285,7 @@ class _AdminChatManagementScreenState extends State<AdminChatManagementScreen> {
                                             : Colors.grey.shade200)),
                                 borderRadius: BorderRadius.circular(12.r),
                                 border: isAdminWarning
-                                    ? Border.all(color: Colors.orange, width: 1)
+                                    ? Border.all(color: Colors.orange)
                                     : null,
                               ),
                               child: Column(
@@ -411,7 +410,7 @@ class _AdminChatManagementScreenState extends State<AdminChatManagementScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return _isLoading
-        ? Center(
+        ? const Center(
             child: CircularProgressIndicator(
               color: AppTheme.goldColor,
             ),
@@ -503,9 +502,9 @@ class _AdminChatManagementScreenState extends State<AdminChatManagementScreen> {
                             PopupMenuItem<void>(
                               child: Row(
                                 children: [
-                                  Icon(LucideIcons.trash2, size: 18, color: Colors.red),
+                                  const Icon(LucideIcons.trash2, size: 18, color: Colors.red),
                                   SizedBox(width: 8.w),
-                                  Text(
+                                  const Text(
                                     'حذف مکالمه',
                                     style: TextStyle(color: Colors.red),
                                   ),

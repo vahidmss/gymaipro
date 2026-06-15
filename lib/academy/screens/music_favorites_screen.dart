@@ -80,7 +80,7 @@ class _MusicFavoritesScreenState extends State<MusicFavoritesScreen> {
                       ],
                     ),
                   );
-                  if (confirm == true) {
+                  if (confirm ?? false) {
                     await MusicFavoriteService().clearFavorites();
                     _loadFavorites();
                   }

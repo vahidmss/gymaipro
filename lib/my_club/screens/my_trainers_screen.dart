@@ -43,14 +43,14 @@ class _MyTrainersScreenState extends State<MyTrainersScreen> {
     try {
       final userId = await AuthHelper.getCurrentUserId();
       if (userId == null) {
-        print('خطا: کاربر احراز هویت نشده');
+        debugPrint('خطا: کاربر احراز هویت نشده');
         SafeSetState.call(this, () => _isLoading = false);
         return;
       }
 
-      print('در حال بارگذاری مربی‌ها برای کاربر: $userId');
+      debugPrint('در حال بارگذاری مربی‌ها برای کاربر: $userId');
       final trainers = await _trainerClientService.getClientTrainers(userId);
-      print('تعداد مربی‌های دریافت شده: ${trainers.length}');
+      debugPrint('تعداد مربی‌های دریافت شده: ${trainers.length}');
 
       SafeSetState.call(this, () {
         _trainers = trainers;
@@ -59,7 +59,7 @@ class _MyTrainersScreenState extends State<MyTrainersScreen> {
       // Update cache
       await CacheService.setJson('trainers_screen_cache', trainers);
     } catch (e) {
-      print('خطا در بارگذاری مربی‌ها: $e');
+      debugPrint('خطا در بارگذاری مربی‌ها: $e');
       SafeSetState.call(this, () => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -137,7 +137,7 @@ class _MyTrainersScreenState extends State<MyTrainersScreen> {
   }
 
   Widget _buildEmptyState() {
-    return UnifiedEmptyState(
+    return const UnifiedEmptyState(
       icon: LucideIcons.userX,
       title: 'هنوز مربی‌ای ندارید',
       subtitle: 'برای شروع سفر ورزشی خود، یک مربی حرفه‌ای انتخاب کنید',
@@ -148,7 +148,7 @@ class _MyTrainersScreenState extends State<MyTrainersScreen> {
     // Navigate to chat with trainer
     final trainerData = trainer['trainer'] as Map<String, dynamic>?;
     if (trainerData == null) {
-      print('خطا: اطلاعات مربی موجود نیست');
+      debugPrint('خطا: اطلاعات مربی موجود نیست');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('خطا در دریافت اطلاعات مربی'),
@@ -161,7 +161,7 @@ class _MyTrainersScreenState extends State<MyTrainersScreen> {
     final trainerId = trainerData['id'];
     final trainerName = _getTrainerName(trainer);
 
-    print('در حال باز کردن چت با مربی: $trainerName (ID: $trainerId)');
+    debugPrint('در حال باز کردن چت با مربی: $trainerName (ID: $trainerId)');
 
     Navigator.pushNamed(
       context,

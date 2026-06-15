@@ -118,9 +118,9 @@ class UnifiedEmptyState extends StatelessWidget {
             // دکمه اختیاری
             if (actionText != null && onAction != null) ...[
               SizedBox(height: 28.h),
-              Container(
+              DecoratedBox(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
+                  gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
@@ -134,7 +134,6 @@ class UnifiedEmptyState extends StatelessWidget {
                       color: AppTheme.goldColor.withValues(alpha: 0.4),
                       blurRadius: 12.r,
                       offset: Offset(0, 4.h),
-                      spreadRadius: 0,
                     ),
                   ],
                 ),

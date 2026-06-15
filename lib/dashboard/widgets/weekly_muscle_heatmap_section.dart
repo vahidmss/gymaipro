@@ -293,11 +293,10 @@ class _WeeklyMuscleHeatmapSectionState
         children: [
           SizedBox(
             width: 52.w,
-            child: Opacity(
+            child: const Opacity(
               opacity: 0.28,
               child: AppRemoteImage(
                 path: 'images/gymai_body_front_premium.png',
-                fit: BoxFit.contain,
               ),
             ),
           ),

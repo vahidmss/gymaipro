@@ -3,13 +3,11 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/config/app_config.dart';
-import 'package:gymaipro/models/custom_exercise.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/models/exercise_display_labels.dart';
 import 'package:gymaipro/models/exercise_rich_meta.dart';
 import 'package:gymaipro/models/muscle_targets.dart';
 import 'package:gymaipro/models/exercise_comment.dart';
-import 'package:gymaipro/network/wordpress_http.dart';
 import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/user_preferences_service.dart';
@@ -830,42 +828,6 @@ exercise_difficulty_score, estimated_1rm_formula, views_count, likes_count, sour
     }
   }
 
-  /// Update exercise from API in background (non-blocking)
-  Future<void> _updateExerciseFromApiInBackground(
-    int id,
-    Exercise cachedExercise,
-  ) async {
-    try {
-      final url =
-          '$apiUrl/$id?_embed=true&_fields=id,title,content,modified,meta,_embedded,featured_image';
-      final response = await wordpressGet(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-      )
-          .timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final exerciseData = jsonDecode(response.body) as Map<String, dynamic>;
-        final exercise = Exercise.fromJson(exerciseData);
-
-        // Always update cache (exercises don't change often)
-        await _saveExerciseToCache(exercise);
-        // Update in-memory cache if exists
-        if (_cachedExercises != null) {
-          final index = _cachedExercises!.indexWhere((e) => e.id == id);
-          if (index != -1) {
-            _cachedExercises![index] = exercise;
-          }
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error updating exercise from API in background: $e');
-      }
-      // Silently fail - cache is still valid
-    }
-  }
-
   // Filter exercises by muscle group
   Future<List<Exercise>> filterByMuscleGroup(String muscleGroup) async {
     if (muscleGroup.isEmpty) return getExercises();
@@ -1002,7 +964,7 @@ exercise_difficulty_score, estimated_1rm_formula, views_count, likes_count, sour
   Future<List<ExerciseComment>> getExerciseComments(int exerciseId) async {
     // کامنت‌ها فعلاً غیرفعال هستند چون جدول exercise_comments در Supabase وجود ندارد
     // و تمرینات از WordPress API دریافت می‌شود
-    print('کامنت‌ها فعلاً غیرفعال هستند');
+    debugPrint('کامنت‌ها فعلاً غیرفعال هستند');
     return [];
   }
 
@@ -1013,7 +975,7 @@ exercise_difficulty_score, estimated_1rm_formula, views_count, likes_count, sour
   ) async {
     // کامنت‌ها فعلاً غیرفعال هستند چون جدول exercise_comments در Supabase وجود ندارد
     // و تمرینات از WordPress API دریافت می‌شود
-    print('کامنت‌ها فعلاً غیرفعال هستند');
+    debugPrint('کامنت‌ها فعلاً غیرفعال هستند');
     return null;
   }
 
@@ -1021,7 +983,7 @@ exercise_difficulty_score, estimated_1rm_formula, views_count, likes_count, sour
   Future<bool> deleteComment(String commentId, int exerciseId) async {
     // کامنت‌ها فعلاً غیرفعال هستند چون جدول exercise_comments در Supabase وجود ندارد
     // و تمرینات از WordPress API دریافت می‌شود
-    print('کامنت‌ها فعلاً غیرفعال هستند');
+    debugPrint('کامنت‌ها فعلاً غیرفعال هستند');
     return false;
   }
 }

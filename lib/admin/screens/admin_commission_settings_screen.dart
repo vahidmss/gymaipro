@@ -138,7 +138,7 @@ class _AdminCommissionSettingsScreenState
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     if (_isLoading) {
-      return Center(
+      return const Center(
         child: CircularProgressIndicator(color: AppTheme.goldColor),
       );
     }
@@ -201,7 +201,7 @@ class _AdminCommissionSettingsScreenState
                   SizedBox(height: 8.h),
                   TextField(
                     controller: _percentageController,
-                    keyboardType: TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
                     ],
@@ -265,9 +265,9 @@ class _AdminCommissionSettingsScreenState
                           ? SizedBox(
                               height: 20.h,
                               width: 20.w,
-                              child: CircularProgressIndicator(
+                              child: const CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: const AlwaysStoppedAnimation<Color>(
+                                valueColor: AlwaysStoppedAnimation<Color>(
                                   Colors.white,
                                 ),
                               ),

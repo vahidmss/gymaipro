@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:gymaipro/meal_log/models/food_log.dart';
 import 'package:gymaipro/meal_log/models/food_log_item.dart';
 import 'package:gymaipro/meal_log/models/food_meal_log.dart';
@@ -86,11 +88,13 @@ class MealLogController {
     );
     meal.foods.add(newFoodItem);
 
-    _foodLogService.saveLogLocal(currentLog);
+    unawaited(_foodLogService.saveLogLocal(currentLog));
     // ذخیره در سرور در پس‌زمینه تا UI فوراً به‌روز شود
-    _foodLogService.saveLog(currentLog).catchError((e) {
-      // خطا فقط local ذخیره شده؛ در لاگ بی‌صدا نگه می‌داریم
-    });
+    unawaited(
+      _foodLogService.saveLog(currentLog).catchError((e) {
+        // خطا فقط local ذخیره شده؛ در لاگ بی‌صدا نگه می‌داریم
+      }),
+    );
     return currentLog;
   }
 
@@ -102,7 +106,7 @@ class MealLogController {
   }) async {
     final meal = currentLog.meals.firstWhere((m) => m.title == mealTitle);
     meal.foods.remove(foodItem);
-    _foodLogService.saveLogLocal(currentLog);
+    unawaited(_foodLogService.saveLogLocal(currentLog));
     // سعی در sync به دیتابیس (اگر آنلاین باشیم)
     try {
       await _foodLogService.saveLog(currentLog);
@@ -133,7 +137,7 @@ class MealLogController {
       );
     }
 
-    _foodLogService.saveLogLocal(currentLog);
+    unawaited(_foodLogService.saveLogLocal(currentLog));
     // سعی در sync به دیتابیس (اگر آنلاین باشیم)
     try {
       await _foodLogService.saveLog(currentLog);
@@ -168,7 +172,7 @@ class MealLogController {
       );
     }
 
-    _foodLogService.saveLogLocal(currentLog);
+    unawaited(_foodLogService.saveLogLocal(currentLog));
     // سعی در sync به دیتابیس (اگر آنلاین باشیم)
     try {
       await _foodLogService.saveLog(currentLog);
@@ -213,7 +217,7 @@ class MealLogController {
       );
     }
 
-    _foodLogService.saveLogLocal(currentLog);
+    unawaited(_foodLogService.saveLogLocal(currentLog));
     // سعی در sync به دیتابیس (اگر آنلاین باشیم)
     try {
       await _foodLogService.saveLog(currentLog);

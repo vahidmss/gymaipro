@@ -1,4 +1,3 @@
-﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
@@ -102,7 +101,6 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
             borderRadius: BorderRadius.circular(12.r),
             side: BorderSide(
               color: AppTheme.successColor.withValues(alpha: 0.5),
-              width: 1,
             ),
           ),
         ),
@@ -126,7 +124,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_isLoading) {
-      return Center(
+      return const Center(
         child: CircularProgressIndicator(
           color: AppTheme.goldColor,
           strokeWidth: 3,
@@ -235,13 +233,12 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
                 : AppTheme.goldColor.withValues(alpha: 0.08),
             blurRadius: 12.r,
             offset: Offset(0, 4.h),
-            spreadRadius: 0,
           ),
         ],
       ),
       child: Row(
         children: [
-          Container(
+          DecoratedBox(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
@@ -468,7 +465,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16.r),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: AppTheme.goldColor,
           width: 2,
         ),
@@ -482,7 +479,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16.r),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: AppTheme.errorColor,
           width: 2,
         ),
@@ -510,7 +507,6 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
                 : AppTheme.goldColor.withValues(alpha: 0.08),
             blurRadius: 12.r,
             offset: Offset(0, 4.h),
-            spreadRadius: 0,
           ),
         ],
       ),
@@ -595,7 +591,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
                 return Center(
                   child: Padding(
                     padding: EdgeInsets.all(32.h),
-                    child: CircularProgressIndicator(
+                    child: const CircularProgressIndicator(
                       color: AppTheme.goldColor,
                       strokeWidth: 3,
                     ),
@@ -755,7 +751,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
                       fit: BoxFit.contain,
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
-                        return Container(
+                        return ColoredBox(
                           color: context.cardColor,
                           child: Center(
                             child: CircularProgressIndicator(

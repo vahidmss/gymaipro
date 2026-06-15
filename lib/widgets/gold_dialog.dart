@@ -41,7 +41,6 @@ class GoldDialog extends StatefulWidget {
       barrierDismissible: barrierDismissible,
       barrierLabel: 'Dismiss',
       barrierColor: Colors.black54,
-      useRootNavigator: true, // جلوگیری از conflict با overlay
       transitionDuration: const Duration(milliseconds: 300),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         final curvedAnimation = CurvedAnimation(
@@ -144,7 +143,7 @@ class _GoldDialogState extends State<GoldDialog>
         return Container(
           constraints: BoxConstraints(maxWidth: effectiveMaxWidth),
           decoration: BoxDecoration(
-            color: AppTheme.cardColor,
+            color: context.cardColor,
             borderRadius: BorderRadius.circular(cornerRadius),
             boxShadow: [
               BoxShadow(

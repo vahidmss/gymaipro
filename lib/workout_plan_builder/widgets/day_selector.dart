@@ -36,7 +36,7 @@ class DaySelector extends StatelessWidget {
         // انتخابگر روزها
         Padding(
           padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
-          child: Container(
+          child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: isDark
                   ? null

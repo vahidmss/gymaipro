@@ -12,7 +12,7 @@ class ProfileBirthDateWidget {
     DateTime? currentBirthDate,
     void Function(String) onDateSelected,
   ) async {
-    DateTime? birthDate = currentBirthDate;
+    final DateTime? birthDate = currentBirthDate;
 
     int? selectedYear;
     int? selectedMonth;
@@ -404,13 +404,12 @@ class ProfileBirthDateWidget {
             borderRadius: BorderRadius.circular(12.r),
             border: Border.all(
               color: AppTheme.goldColor.withValues(alpha: 0.3),
-              width: 1,
             ),
           ),
           child: Row(
             textDirection: TextDirection.rtl,
             children: [
-              Icon(LucideIcons.calendar, color: AppTheme.goldColor),
+              const Icon(LucideIcons.calendar, color: AppTheme.goldColor),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

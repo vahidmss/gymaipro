@@ -130,7 +130,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   size: 20.sp,
                 ),
                 SizedBox(width: 8.w),
-                Text('خطا در ذخیره تنظیمات'),
+                const Text('خطا در ذخیره تنظیمات'),
               ],
             ),
             backgroundColor: AppTheme.errorColor,
@@ -153,7 +153,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       backgroundColor: context.backgroundColor,
       appBar: _buildAppBar(context, isDark),
       body: _isLoading
-          ? Center(
+          ? const Center(
               child: CircularProgressIndicator(
                 color: AppTheme.goldColor,
                 strokeWidth: 3,
@@ -417,7 +417,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
 
         // محتوای بخش
-        Container(
+        DecoratedBox(
           decoration: BoxDecoration(
             color: context.cardColor,
             borderRadius: BorderRadius.circular(16.r),
@@ -425,7 +425,6 @@ class _SettingsScreenState extends State<SettingsScreen>
               color: isDark
                   ? context.separatorColor
                   : context.separatorColor.withValues(alpha: 0.5),
-              width: 1,
             ),
             boxShadow: isDark
                 ? [
@@ -448,7 +447,6 @@ class _SettingsScreenState extends State<SettingsScreen>
               ...children.map((child) => Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: 16.w,
-                      vertical: 0,
                     ),
                     child: child,
                   )),
@@ -529,7 +527,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               child: Switch(
                 value: value,
                 onChanged: onChanged,
-                activeColor: AppTheme.goldColor,
+                activeThumbColor: AppTheme.goldColor,
                 activeTrackColor: AppTheme.goldColor.withValues(alpha: 0.3),
                 inactiveThumbColor: isDark
                     ? Colors.grey[600]

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/services/in_app_notification_delivery_service.dart';
+import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// اعلان درخواست دوستی: ردیف در notifications + نوتیف محلی + FCM اختیاری.
@@ -107,28 +108,8 @@ class FriendshipNotificationService {
   }
 
   /// نام نمایشی از profiles (auth id یا profile id).
-  static Future<String> displayNameForUser(String userId) async {
-    try {
-      var row = await _client
-          .from('profiles')
-          .select('username, first_name, last_name, auth_user_id')
-          .eq('auth_user_id', userId)
-          .maybeSingle();
-      row ??= await _client
-          .from('profiles')
-          .select('username, first_name, last_name')
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (row == null) return 'کاربر';
-      final first = (row['first_name'] as String?)?.trim() ?? '';
-      final last = (row['last_name'] as String?)?.trim() ?? '';
-      final combined = '$first $last'.trim();
-      if (combined.isNotEmpty) return combined;
-      final username = (row['username'] as String?)?.trim() ?? '';
-      return username.isNotEmpty ? username : 'کاربر';
-    } catch (_) {
-      return 'کاربر';
-    }
-  }
+  static Future<String> displayNameForUser(String userId) =>
+      UserProfileService.getDisplayName(userId).then(
+        (name) => name == 'کاربر ناشناس' ? 'کاربر' : name,
+      );
 }

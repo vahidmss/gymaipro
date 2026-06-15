@@ -1384,6 +1384,7 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
         });
       }
     } catch (e) {
+      if (!mounted) return;
       WidgetSafetyUtils.safeShowSnackBar(
         context,
         'خطا در انتخاب ویدیو: $e',
@@ -1404,6 +1405,7 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
         }
       });
     } catch (e) {
+      if (!mounted) return;
       WidgetSafetyUtils.safeShowSnackBar(
         context,
         'خطا در انتخاب تصویر: $e',

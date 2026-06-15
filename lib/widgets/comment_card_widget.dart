@@ -34,7 +34,7 @@ class _CommentCardWidgetState extends State<CommentCardWidget> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
@@ -367,7 +367,7 @@ class _CommentCardWidgetState extends State<CommentCardWidget> {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.cardColor,
+        backgroundColor: context.cardColor,
         title: const Text('??? ???', style: TextStyle(color: Colors.white)),
         content: const Text(
           '??? ????? ????? ?? ????????? ??? ??? ?? ??? ?????',

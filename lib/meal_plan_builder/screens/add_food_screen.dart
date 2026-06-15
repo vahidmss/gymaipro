@@ -205,7 +205,6 @@ class _AddFoodScreenMealPlanBuilderState
             color: isDark
                 ? AppTheme.darkGreySeparator
                 : AppTheme.lightDividerColor,
-            width: 1,
           ),
         ),
       ),
@@ -224,7 +223,7 @@ class _AddFoodScreenMealPlanBuilderState
           // Title
           Expanded(
             child: Text(
-              widget.customTitle ?? 'افزودن ${_selectedMealTitle}',
+              widget.customTitle ?? 'افزودن $_selectedMealTitle',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: isDark ? AppTheme.goldColor : context.textColor,
@@ -406,7 +405,6 @@ class _AddFoodScreenMealPlanBuilderState
           color: isDark
               ? AppTheme.darkGreySeparator
               : AppTheme.lightDividerColor,
-          width: 1,
         ),
       ),
       child: Material(
@@ -511,7 +509,7 @@ class _AddFoodScreenMealPlanBuilderState
                   ),
                   onPressed: () => _toggleFavorite(food),
                   padding: EdgeInsets.zero,
-                  constraints: BoxConstraints(),
+                  constraints: const BoxConstraints(),
                 ),
               ],
             ),
@@ -536,7 +534,7 @@ class _AddFoodScreenMealPlanBuilderState
           children: [
             // نوع مکمل/دارو
             DropdownButtonFormField<String>(
-              value: _supplementType,
+              initialValue: _supplementType,
               decoration: InputDecoration(
                 labelText: 'نوع',
                 labelStyle: TextStyle(
@@ -712,7 +710,7 @@ class _AddFoodScreenMealPlanBuilderState
                 SizedBox(width: 12.w),
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _supplementUnit,
+                    initialValue: _supplementUnit,
                     decoration: InputDecoration(
                       labelText: 'واحد',
                       labelStyle: TextStyle(
@@ -1124,7 +1122,7 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
                         size: 20.sp,
                       ),
                       padding: EdgeInsets.zero,
-                      constraints: BoxConstraints(),
+                      constraints: const BoxConstraints(),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
@@ -1246,7 +1244,7 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _selectedUnit,
+                        initialValue: _selectedUnit,
                         decoration: InputDecoration(
                           labelText: 'واحد',
                           labelStyle: TextStyle(

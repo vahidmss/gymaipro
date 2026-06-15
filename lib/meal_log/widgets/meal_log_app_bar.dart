@@ -76,7 +76,6 @@ class MealLogAppBar extends StatelessWidget implements PreferredSizeWidget {
               onPressed: () async {
                 await showDialog<void>(
                   context: context,
-                  barrierDismissible: true,
                   barrierColor: isDark
                       ? Colors.black.withValues(alpha: 0.7)
                       : AppTheme.lightTextColor.withValues(alpha: 0.5),

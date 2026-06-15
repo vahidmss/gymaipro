@@ -65,6 +65,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
   Future<void> _toggleFavorite() async {
     try {
       await _foodService.toggleFavorite(widget.food.id);
+      if (!mounted) return;
       setState(() {
         _isFavorite = !_isFavorite;
       });
@@ -81,6 +82,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -97,6 +99,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
   Future<void> _toggleLike() async {
     try {
       await _foodService.toggleLike(widget.food.id);
+      if (!mounted) return;
       setState(() {
         _isLiked = !_isLiked;
         _likes += _isLiked ? 1 : -1;
@@ -116,6 +119,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -134,7 +138,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
     return Theme(
       data: AppTheme.darkTheme,
       child: Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: context.backgroundColor,
         body: CustomScrollView(
           slivers: [
             // App Bar with Image
@@ -181,7 +185,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
     return SliverAppBar(
       expandedHeight: 300,
       pinned: true,
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: context.backgroundColor,
       leading: IconButton(
         icon: const Icon(LucideIcons.arrowRight, color: Colors.white),
         onPressed: () => NavigationService.safePop(context),
@@ -211,14 +215,14 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
               CachedNetworkImage(
                 imageUrl: widget.food.imageUrl,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => const ColoredBox(
-                  color: AppTheme.cardColor,
-                  child: Center(
+                placeholder: (context, url) => ColoredBox(
+                  color: context.cardColor,
+                  child: const Center(
                     child: CircularProgressIndicator(color: AppTheme.goldColor),
                   ),
                 ),
                 errorWidget: (context, url, error) => ColoredBox(
-                  color: AppTheme.cardColor,
+                  color: context.cardColor,
                   child: Icon(
                     LucideIcons.utensils,
                     color: AppTheme.goldColor,
@@ -228,7 +232,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
               )
             else
               ColoredBox(
-                color: AppTheme.cardColor,
+                color: context.cardColor,
                 child: Icon(
                   LucideIcons.utensils,
                   color: AppTheme.goldColor,
@@ -326,7 +330,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.15)),
       ),
@@ -483,7 +487,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
       ),
       child: _buildRichContent(widget.food.content),
@@ -693,6 +697,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
               if (await canLaunchUrl(url)) {
                 await launchUrl(url, mode: LaunchMode.externalApplication);
               } else {
+                if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text(
@@ -705,6 +710,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
                 );
               }
             } catch (e) {
+              if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
@@ -719,7 +725,7 @@ class _FoodDetailScreenState extends State<FoodDetailScreen>
           }
         },
         icon: const Icon(LucideIcons.externalLink),
-        label: Text(
+        label: const Text(
           'مشاهده در وب',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

@@ -5,20 +5,18 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// دیالوگ جذاب برای نمایش پیشرفت آپلود
 class UploadProgressDialog extends StatefulWidget {
+
+  const UploadProgressDialog({
+    required this.title, required this.progress, super.key,
+    this.fileName,
+    this.statusText,
+    this.isIndeterminate = false,
+  });
   final String title;
   final String? fileName;
   final double progress;
   final String? statusText;
   final bool isIndeterminate;
-
-  const UploadProgressDialog({
-    super.key,
-    required this.title,
-    this.fileName,
-    required this.progress,
-    this.statusText,
-    this.isIndeterminate = false,
-  });
 
   @override
   State<UploadProgressDialog> createState() => _UploadProgressDialogState();
@@ -37,7 +35,7 @@ class _UploadProgressDialogState extends State<UploadProgressDialog>
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
 
-    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+    _pulseAnimation = Tween<double>(begin: 0.8, end: 1).animate(
       CurvedAnimation(
         parent: _animationController,
         curve: Curves.easeInOut,
@@ -154,7 +152,7 @@ class _UploadProgressDialogState extends State<UploadProgressDialog>
                   backgroundColor: isDark
                       ? Colors.grey[800]
                       : Colors.grey[200],
-                  valueColor: AlwaysStoppedAnimation<Color>(
+                  valueColor: const AlwaysStoppedAnimation<Color>(
                     AppTheme.goldColor,
                   ),
                 ),
@@ -206,7 +204,7 @@ class UploadProgressHelper {
   static BuildContext? _context;
   static String _title = '';
   static String? _fileName;
-  static double _progress = 0.0;
+  static double _progress = 0;
   static String? _statusText;
   static bool _isIndeterminate = false;
 

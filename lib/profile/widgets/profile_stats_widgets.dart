@@ -187,7 +187,6 @@ class ProfileStatsWidgets {
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: AppTheme.goldColor.withValues(alpha: 0.3),
-              width: 1,
             ),
             boxShadow: [
               BoxShadow(

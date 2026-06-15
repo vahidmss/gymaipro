@@ -289,20 +289,20 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
               )
             : Column(
                 children: [
-                  Container(
+                  ColoredBox(
                     color: context.cardColor,
                     child: TabBar(
-                      controller: _tabController!,
+                      controller: _tabController,
                       indicatorColor: AppTheme.goldColor,
                       labelColor: AppTheme.goldColor,
                       unselectedLabelColor: isDark
                           ? Colors.white.withValues(alpha: 0.5)
                           : AppTheme.lightTextSecondary.withValues(alpha: 0.6),
-                      labelStyle: TextStyle(
+                      labelStyle: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontFamily: AppTheme.fontFamily,
                       ),
-                      unselectedLabelStyle: TextStyle(
+                      unselectedLabelStyle: const TextStyle(
                         fontWeight: FontWeight.w500,
                         fontFamily: AppTheme.fontFamily,
                       ),
@@ -363,7 +363,7 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
                   ),
                   Expanded(
                     child: TabBarView(
-                      controller: _tabController!,
+                      controller: _tabController,
                       children: [
                         _buildFriendsList(),
                         _buildRequestsTab(),
@@ -388,7 +388,7 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
               itemBuilder: (context, index) {
                 if (index == _friends.length && _isRefreshing) {
                   return const Padding(
-                    padding: EdgeInsets.all(16.0),
+                    padding: EdgeInsets.all(16),
                     child: Center(
                       child: CircularProgressIndicator(
                         color: AppTheme.goldColor,
@@ -420,7 +420,7 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
               physics: const AlwaysScrollableScrollPhysics(),
               child: SizedBox(
                 height: MediaQuery.of(context).size.height * 0.75,
-                child: UnifiedEmptyState(
+                child: const UnifiedEmptyState(
                   icon: LucideIcons.userPlus,
                   title: 'درخواست دوستی ندارید',
                   subtitle:
@@ -428,46 +428,78 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
                 ),
               ),
             )
-          : ListView(
+          : ListView.builder(
               padding: EdgeInsets.all(16.w),
-              children: [
-                if (_receivedRequests.isNotEmpty) ...[
-                  _sectionHeader('درخواست‌های ورودی'),
-                  SizedBox(height: 8.h),
-                  ..._receivedRequests.map(
-                    (request) => Padding(
-                      padding: EdgeInsets.only(bottom: 12.h),
-                      child: _PendingRequestCard(
-                        request: request,
-                        onAccept: () => _acceptRequest(request),
-                        onReject: () => _rejectRequest(request),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 20.h),
-                ],
-                if (_sentRequests.isNotEmpty) ...[
-                  _sectionHeader('ارسال‌شده'),
-                  SizedBox(height: 8.h),
-                  ..._sentRequests.map(
-                    (request) => Padding(
-                      padding: EdgeInsets.only(bottom: 12.h),
-                      child: _SentRequestCard(
-                        request: request,
-                        onCancel: () => _cancelRequest(request),
-                      ),
-                    ),
-                  ),
-                ],
-                if (_isRefreshing)
-                  const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(
-                      child: CircularProgressIndicator(color: AppTheme.goldColor),
-                    ),
-                  ),
-              ],
+              itemCount: _requestsListItemCount(),
+              itemBuilder: _buildRequestsListItem,
             ),
+    );
+  }
+
+  int _requestsListItemCount() {
+    var count = 0;
+    final hasReceived = _receivedRequests.isNotEmpty;
+    final hasSent = _sentRequests.isNotEmpty;
+    if (hasReceived) {
+      count += 2 + _receivedRequests.length;
+      if (hasSent) count += 1;
+    }
+    if (hasSent) {
+      count += 2 + _sentRequests.length;
+    }
+    if (_isRefreshing) count += 1;
+    return count;
+  }
+
+  Widget _buildRequestsListItem(BuildContext context, int index) {
+    var cursor = index;
+    final hasReceived = _receivedRequests.isNotEmpty;
+    final hasSent = _sentRequests.isNotEmpty;
+
+    if (hasReceived) {
+      if (cursor == 0) return _sectionHeader('درخواست‌های ورودی');
+      cursor--;
+      if (cursor == 0) return SizedBox(height: 8.h);
+      cursor--;
+      if (cursor < _receivedRequests.length) {
+        final request = _receivedRequests[cursor];
+        return Padding(
+          padding: EdgeInsets.only(bottom: 12.h),
+          child: _PendingRequestCard(
+            request: request,
+            onAccept: () => _acceptRequest(request),
+            onReject: () => _rejectRequest(request),
+          ),
+        );
+      }
+      cursor -= _receivedRequests.length;
+      if (hasSent && cursor == 0) return SizedBox(height: 20.h);
+      if (hasSent) cursor--;
+    }
+
+    if (hasSent) {
+      if (cursor == 0) return _sectionHeader('ارسال‌شده');
+      cursor--;
+      if (cursor == 0) return SizedBox(height: 8.h);
+      cursor--;
+      if (cursor < _sentRequests.length) {
+        final request = _sentRequests[cursor];
+        return Padding(
+          padding: EdgeInsets.only(bottom: 12.h),
+          child: _SentRequestCard(
+            request: request,
+            onCancel: () => _cancelRequest(request),
+          ),
+        );
+      }
+      cursor -= _sentRequests.length;
+    }
+
+    return const Padding(
+      padding: EdgeInsets.all(16),
+      child: Center(
+        child: CircularProgressIndicator(color: AppTheme.goldColor),
+      ),
     );
   }
 
@@ -575,8 +607,7 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
 
       // رفرش داده‌ها با retry mechanism
       await _refreshDataWithRetry(
-        maxRetries: 3,
-        retryDelay: const Duration(milliseconds: 500),
+        
       );
 
       // هدایت به تب دوستان برای نمایش دوست جدید
@@ -727,7 +758,6 @@ class _FriendCard extends StatelessWidget {
               : isDark
                   ? Colors.grey[700]!
                   : AppTheme.lightDividerColor.withValues(alpha: 0.5),
-          width: 1,
         ),
         boxShadow: [
           BoxShadow(

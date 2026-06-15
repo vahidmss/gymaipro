@@ -52,7 +52,7 @@ class _AchievementCardState extends State<AchievementCard>
       onTapCancel: () => _controller.safeReverse(),
       child: ScaleTransition(
         scale: _scaleAnimation,
-        child: Container(
+        child: DecoratedBox(
           decoration: BoxDecoration(
             color: context.cardColor,
             borderRadius: BorderRadius.circular(16.r),

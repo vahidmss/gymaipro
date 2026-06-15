@@ -12,7 +12,6 @@ class ArticleContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = context.textColor;
-    final textSecondary = context.textSecondary;
     return Container(
       decoration: BoxDecoration(
         color: Colors.transparent,

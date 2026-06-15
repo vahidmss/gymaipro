@@ -1,24 +1,22 @@
 ﻿import 'package:flutter/foundation.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ActiveProgramService {
   ActiveProgramService();
-
-  final SupabaseClient _db = Supabase.instance.client;
 
   Future<Map<String, dynamic>?> getActiveProgramState() async {
     try {
       final userId = await AuthHelper.getCurrentUserId();
       if (userId == null) return null;
 
-      final row = await _db
-          .from('profiles')
-          .select('active_program_id, active_session_date')
-          .eq('id', userId)
-          .maybeSingle();
+      final profile = await SimpleProfileService.getCurrentProfile();
+      if (profile == null) return null;
 
-      return row;
+      return {
+        'active_program_id': profile['active_program_id'],
+        'active_session_date': profile['active_session_date'],
+      };
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[ActiveProgram] getActiveProgramState error: $e');
@@ -32,16 +30,11 @@ class ActiveProgramService {
       final userId = await AuthHelper.getCurrentUserId();
       if (userId == null) return false;
 
-      await _db
-          .from('profiles')
-          .update({
-            'active_program_id': programId,
-            // تغییر برنامه: تاریخ جلسه فعال پاک می‌شود تا برای امروز دوباره تعیین شود
-            'active_session_date': null,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', userId);
-      return true;
+      return await SimpleProfileService.updateProfile({
+        'active_program_id': programId,
+        // تغییر برنامه: تاریخ جلسه فعال پاک می‌شود تا برای امروز دوباره تعیین شود
+        'active_session_date': null,
+      });
     } catch (e) {
       if (kDebugMode) debugPrint('[ActiveProgram] setActiveProgram error: $e');
       return false;
@@ -53,15 +46,10 @@ class ActiveProgramService {
       final userId = await AuthHelper.getCurrentUserId();
       if (userId == null) return false;
 
-      await _db
-          .from('profiles')
-          .update({
-            'active_program_id': null,
-            'active_session_date': null,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', userId);
-      return true;
+      return await SimpleProfileService.updateProfile({
+        'active_program_id': null,
+        'active_session_date': null,
+      });
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[ActiveProgram] clearActiveProgram error: $e');
@@ -77,14 +65,9 @@ class ActiveProgramService {
       final today = DateTime.now();
       final todayDate = DateTime.utc(today.year, today.month, today.day);
 
-      await _db
-          .from('profiles')
-          .update({
-            'active_session_date': todayDate.toIso8601String().split('T').first,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', userId);
-      return true;
+      return await SimpleProfileService.updateProfile({
+        'active_session_date': todayDate.toIso8601String().split('T').first,
+      });
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[ActiveProgram] lockTodaySessionDate error: $e');

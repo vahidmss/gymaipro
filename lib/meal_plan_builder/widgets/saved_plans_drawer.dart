@@ -26,7 +26,7 @@ class SavedPlansDrawerMealPlanBuilder extends StatelessWidget {
       child: Container(
         width: 320.w,
         decoration: BoxDecoration(
-          color: AppTheme.cardColor,
+          color: context.cardColor,
           borderRadius: BorderRadius.horizontal(left: Radius.circular(20.r)),
           border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.1)),
           boxShadow: [
@@ -104,12 +104,12 @@ class SavedPlansDrawerMealPlanBuilder extends StatelessWidget {
                               vertical: 4.h,
                             ),
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
+                              gradient: LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                                 colors: [
-                                  AppTheme.cardColor,
-                                  AppTheme.backgroundColor,
+                                  context.cardColor,
+                                  context.backgroundColor,
                                 ],
                               ),
                               borderRadius: BorderRadius.circular(14.r),

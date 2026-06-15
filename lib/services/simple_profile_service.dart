@@ -18,7 +18,7 @@ class SimpleProfileService {
     if (kDebugMode) {
       // Using print for consistency with existing logs
       // ignore: avoid_print
-      print(msg);
+      debugPrint(msg);
     }
   }
 
@@ -264,12 +264,12 @@ class SimpleProfileService {
       final currentProfile = await getCurrentProfile();
       final profileId = currentProfile?['id'] as String?;
       if (profileId == null || profileId.isEmpty) {
-        print('No profile found to update');
+        debugPrint('No profile found to update');
         return false;
       }
 
-      print('Updating profile for profileId: $profileId');
-      print('Updates: $updates');
+      debugPrint('Updating profile for profileId: $profileId');
+      debugPrint('Updates: $updates');
 
       // حذف فیلدهای غیرضروری از updates
       final cleanUpdates = Map<String, dynamic>.from(updates);
@@ -299,7 +299,7 @@ class SimpleProfileService {
             try {
               cleanUpdates[key] = double.parse(value);
             } catch (e) {
-              print('Error parsing $key as double: $e');
+              debugPrint('Error parsing $key as double: $e');
               cleanUpdates.remove(key);
             }
           } else if (value == '' || value == null) {
@@ -310,7 +310,7 @@ class SimpleProfileService {
 
       cleanUpdates['updated_at'] = DateTime.now().toUtc().toIso8601String();
 
-      print('Clean updates: $cleanUpdates');
+      debugPrint('Clean updates: $cleanUpdates');
 
       // ابتدا بررسی کن که کاربر وجود دارد
       final checkResponse = await client
@@ -319,10 +319,10 @@ class SimpleProfileService {
           .eq('id', profileId)
           .maybeSingle();
 
-      print('User check response: $checkResponse');
+      debugPrint('User check response: $checkResponse');
 
       if (checkResponse == null) {
-        print('User not found in database!');
+        debugPrint('User not found in database!');
         return false;
       }
 
@@ -332,7 +332,7 @@ class SimpleProfileService {
           .eq('id', profileId)
           .select();
 
-      print('Profile update response: $response');
+      debugPrint('Profile update response: $response');
 
       if (response.isNotEmpty) {
         _log('Profile updated successfully');
@@ -353,6 +353,13 @@ class SimpleProfileService {
     }
   }
 
+  /// به‌روزرسانی زمان آخرین فعالیت کاربر جاری.
+  static Future<void> updateLastActiveAt() async {
+    await updateProfile({
+      'last_active_at': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
+
   // ذخیره نام و نام خانوادگی
   static Future<bool> updateName(String firstName, String lastName) async {
     try {
@@ -360,7 +367,7 @@ class SimpleProfileService {
 
       return await updateProfile(updates);
     } catch (e) {
-      print('Error updating name: $e');
+      debugPrint('Error updating name: $e');
       return false;
     }
   }
@@ -386,7 +393,7 @@ class SimpleProfileService {
 
       return await updateProfile(updates);
     } catch (e) {
-      print('Error updating personal info: $e');
+      debugPrint('Error updating personal info: $e');
       return false;
     }
   }
@@ -416,7 +423,7 @@ class SimpleProfileService {
 
       return await updateProfile(updates);
     } catch (e) {
-      print('Error updating physical info: $e');
+      debugPrint('Error updating physical info: $e');
       return false;
     }
   }
@@ -426,7 +433,7 @@ class SimpleProfileService {
     try {
       return await updateProfile({'fitness_goals': goals});
     } catch (e) {
-      print('Error updating fitness goals: $e');
+      debugPrint('Error updating fitness goals: $e');
       return false;
     }
   }
@@ -436,7 +443,7 @@ class SimpleProfileService {
     try {
       return await updateProfile({'medical_conditions': conditions});
     } catch (e) {
-      print('Error updating medical conditions: $e');
+      debugPrint('Error updating medical conditions: $e');
       return false;
     }
   }
@@ -446,7 +453,7 @@ class SimpleProfileService {
     try {
       return await updateProfile({'dietary_preferences': preferences});
     } catch (e) {
-      print('Error updating dietary preferences: $e');
+      debugPrint('Error updating dietary preferences: $e');
       return false;
     }
   }
@@ -456,7 +463,7 @@ class SimpleProfileService {
     try {
       return await updateProfile({'experience_level': level});
     } catch (e) {
-      print('Error updating experience level: $e');
+      debugPrint('Error updating experience level: $e');
       return false;
     }
   }
@@ -466,7 +473,7 @@ class SimpleProfileService {
     try {
       return await updateProfile({'preferred_training_days': days});
     } catch (e) {
-      print('Error updating preferred training days: $e');
+      debugPrint('Error updating preferred training days: $e');
       return false;
     }
   }
@@ -476,7 +483,7 @@ class SimpleProfileService {
     try {
       return await updateProfile({'preferred_training_time': time});
     } catch (e) {
-      print('Error updating preferred training time: $e');
+      debugPrint('Error updating preferred training time: $e');
       return false;
     }
   }

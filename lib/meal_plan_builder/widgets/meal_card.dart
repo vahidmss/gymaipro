@@ -96,7 +96,6 @@ class MealCardMealPlanBuilder extends StatelessWidget {
           Padding(
             padding: EdgeInsets.fromLTRB(14.w, 14.h, 14.w, 10.h),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // خط اول: آیکون + اسم وعده + مقدار کالری
                 Row(
@@ -157,9 +156,9 @@ class MealCardMealPlanBuilder extends StatelessWidget {
                               fontSize: 12.sp,
                             ),
                             decoration: BoxDecoration(
-                              color: isDark
-                                  ? AppTheme.backgroundColor
-                                  : AppTheme.cardColor,
+              color: isDark
+                  ? context.backgroundColor
+                  : context.cardColor,
                               borderRadius: BorderRadius.circular(8.r),
                               border: Border.all(
                                 color: AppTheme.goldColor.withValues(
@@ -314,7 +313,7 @@ class MealCardMealPlanBuilder extends StatelessWidget {
                           tooltip: 'افزودن ${meal.title}',
                           onPressed: onAddFood,
                           padding: EdgeInsets.zero,
-                          constraints: BoxConstraints(),
+                          constraints: const BoxConstraints(),
                         ),
                         Text(
                           'افزودن ${meal.title}',
@@ -345,7 +344,7 @@ class MealCardMealPlanBuilder extends StatelessWidget {
                           : 'افزودن یادداشت',
                       onPressed: onNote,
                       padding: EdgeInsets.zero,
-                      constraints: BoxConstraints(),
+                      constraints: const BoxConstraints(),
                     ),
                   ],
                 ),
@@ -552,7 +551,7 @@ class MealCardMealPlanBuilder extends StatelessWidget {
                                       onPressed: () =>
                                           onAddAlternative(foodIdx),
                                       padding: EdgeInsets.zero,
-                                      constraints: BoxConstraints(),
+                                      constraints: const BoxConstraints(),
                                     ),
                                     // دکمه حذف
                                     IconButton(
@@ -563,9 +562,9 @@ class MealCardMealPlanBuilder extends StatelessWidget {
                                       ),
                                       tooltip: 'حذف',
                                       onPressed: () async =>
-                                          await onDeleteFood(foodIdx),
+                                          onDeleteFood(foodIdx),
                                       padding: EdgeInsets.zero,
-                                      constraints: BoxConstraints(),
+                                      constraints: const BoxConstraints(),
                                     ),
                                   ],
                                 )
@@ -579,9 +578,9 @@ class MealCardMealPlanBuilder extends StatelessWidget {
                                   ),
                                   tooltip: 'حذف',
                                   onPressed: () async =>
-                                      await onDeleteFood(foodIdx),
+                                      onDeleteFood(foodIdx),
                                   padding: EdgeInsets.zero,
-                                  constraints: BoxConstraints(),
+                                  constraints: const BoxConstraints(),
                                 ),
                             ],
                           ),
@@ -766,7 +765,7 @@ class MealCardMealPlanBuilder extends StatelessWidget {
                   ),
                 ];
               }
-            }).toList(),
+            }),
             // یادداشت وعده (قبل از مجموع کالری)
             if (meal.note != null && meal.note!.isNotEmpty) ...[
               Padding(

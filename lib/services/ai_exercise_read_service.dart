@@ -15,7 +15,6 @@ class AIExerciseReadService {
       );
 
       return rows.map<Exercise>(_mapRowToExercise).toList();
-      return [];
     } catch (e) {
       if (kDebugMode) debugPrint('[AIExerciseRead] Error: $e');
       return [];

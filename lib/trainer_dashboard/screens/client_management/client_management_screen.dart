@@ -93,7 +93,6 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
               borderRadius: BorderRadius.circular(12.r),
               side: BorderSide(
                 color: AppTheme.errorColor.withValues(alpha: 0.5),
-                width: 1,
               ),
             ),
           ),
@@ -154,7 +153,6 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
                   color: status == 'pending'
                       ? Colors.orange.withValues(alpha: 0.5)
                       : AppTheme.errorColor.withValues(alpha: 0.5),
-                  width: 1,
                 ),
               ),
             ),
@@ -189,7 +187,6 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
               borderRadius: BorderRadius.circular(12.r),
               side: BorderSide(
                 color: AppTheme.successColor.withValues(alpha: 0.5),
-                width: 1,
               ),
             ),
           ),
@@ -217,7 +214,6 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
               borderRadius: BorderRadius.circular(12.r),
               side: BorderSide(
                 color: AppTheme.errorColor.withValues(alpha: 0.5),
-                width: 1,
               ),
             ),
           ),
@@ -261,7 +257,6 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
               borderRadius: BorderRadius.circular(12.r),
               side: BorderSide(
                 color: AppTheme.successColor.withValues(alpha: 0.5),
-                width: 1,
               ),
             ),
           ),
@@ -289,7 +284,6 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
               borderRadius: BorderRadius.circular(12.r),
               side: BorderSide(
                 color: AppTheme.errorColor.withValues(alpha: 0.5),
-                width: 1,
               ),
             ),
           ),
@@ -328,7 +322,6 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
               borderRadius: BorderRadius.circular(12.r),
               side: BorderSide(
                 color: AppTheme.errorColor.withValues(alpha: 0.5),
-                width: 1,
               ),
             ),
           ),
@@ -356,7 +349,6 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
               borderRadius: BorderRadius.circular(12.r),
               side: BorderSide(
                 color: AppTheme.errorColor.withValues(alpha: 0.5),
-                width: 1,
               ),
             ),
           ),
@@ -395,7 +387,6 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
               borderRadius: BorderRadius.circular(12.r),
               side: BorderSide(
                 color: AppTheme.successColor.withValues(alpha: 0.5),
-                width: 1,
               ),
             ),
           ),
@@ -423,7 +414,6 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
               borderRadius: BorderRadius.circular(12.r),
               side: BorderSide(
                 color: AppTheme.errorColor.withValues(alpha: 0.5),
-                width: 1,
               ),
             ),
           ),
@@ -453,7 +443,6 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
             borderRadius: BorderRadius.circular(12.r),
             side: BorderSide(
               color: AppTheme.errorColor.withValues(alpha: 0.5),
-              width: 1,
             ),
           ),
         ),
@@ -466,7 +455,7 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Center(
+      return const Center(
         child: CircularProgressIndicator(
           color: AppTheme.goldColor,
           strokeWidth: 3,
@@ -638,7 +627,6 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
                   color: isActive
                       ? AppTheme.successColor.withValues(alpha: isDark ? 0.25 : 0.15)
                       : AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.1),
-                  width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -647,7 +635,6 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
                         : AppTheme.goldColor.withValues(alpha: 0.05),
                     blurRadius: 8.r,
                     offset: Offset(0, 2.h),
-                    spreadRadius: 0,
                   ),
                 ],
               ),
@@ -841,7 +828,7 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
       ),
       isScrollControlled: true,
       builder: (context) {
-        return Container(
+        return DecoratedBox(
           decoration: BoxDecoration(
             color: context.cardColor,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
@@ -956,13 +943,13 @@ class _ClientAvatar extends StatelessWidget {
                 errorBuilder: (_, __, ___) => _Initials(initials: initials),
                 loadingBuilder: (ctx, child, progress) => progress == null
                     ? child
-                    : Container(
+                    : ColoredBox(
                         color: context.cardColor,
                         child: Center(
                           child: SizedBox(
                             width: 18.w,
                             height: 18.h,
-                            child: CircularProgressIndicator(
+                            child: const CircularProgressIndicator(
                               strokeWidth: 2,
                               color: AppTheme.goldColor,
                             ),
@@ -995,7 +982,7 @@ class _Initials extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: AppTheme.goldColor.withValues(alpha: 0.15),
       ),

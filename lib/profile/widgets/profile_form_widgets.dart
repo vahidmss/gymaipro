@@ -130,14 +130,12 @@ class ProfileFormWidgets {
                 borderRadius: BorderRadius.circular(12.r),
                 borderSide: BorderSide(
                   color: context.separatorColor,
-                  width: 1,
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
                 borderSide: BorderSide(
                   color: context.separatorColor,
-                  width: 1,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
@@ -188,14 +186,12 @@ class ProfileFormWidgets {
                 borderRadius: BorderRadius.circular(12.r),
                 borderSide: BorderSide(
                   color: context.separatorColor,
-                  width: 1,
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
                 borderSide: BorderSide(
                   color: context.separatorColor,
-                  width: 1,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
@@ -250,14 +246,12 @@ class ProfileFormWidgets {
                 borderRadius: BorderRadius.circular(12.r),
                 borderSide: BorderSide(
                   color: context.separatorColor,
-                  width: 1,
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
                 borderSide: BorderSide(
                   color: context.separatorColor,
-                  width: 1,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
@@ -313,14 +307,12 @@ class ProfileFormWidgets {
                 borderRadius: BorderRadius.circular(12.r),
                 borderSide: BorderSide(
                   color: context.separatorColor,
-                  width: 1,
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
                 borderSide: BorderSide(
                   color: context.separatorColor,
-                  width: 1,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
@@ -388,7 +380,6 @@ class ProfileFormWidgets {
                 borderRadius: BorderRadius.circular(12.r),
                 border: Border.all(
                   color: AppTheme.goldColor.withValues(alpha: 0.3),
-                  width: 1,
                 ),
               ),
               child: Row(
@@ -527,7 +518,6 @@ class _MultiSelectFieldState extends State<_MultiSelectField> {
               borderRadius: BorderRadius.circular(12.r),
               border: Border.all(
                 color: AppTheme.goldColor.withValues(alpha: 0.3),
-                width: 1,
               ),
             ),
             child: Column(

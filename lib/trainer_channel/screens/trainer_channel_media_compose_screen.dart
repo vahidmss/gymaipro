@@ -219,6 +219,7 @@ class _TrainerChannelMediaComposeScreenState
       canPop: !_sending,
       child: Scaffold(
         backgroundColor: Colors.black,
+        // ui-health: keyboard-inset-ok — caption bar uses viewInsets.bottom manually
         resizeToAvoidBottomInset: false,
         body: Stack(
           fit: StackFit.expand,

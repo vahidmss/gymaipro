@@ -22,7 +22,7 @@ class SubscriptionCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: subscription.isActive
@@ -246,7 +246,7 @@ class SubscriptionCard extends StatelessWidget {
                         child: OutlinedButton.icon(
                           onPressed: onCancel,
                           icon: const Icon(LucideIcons.x, size: 16),
-                          label: Text(
+                          label: const Text(
                             'لغو اشتراک',
                             style: TextStyle(
     fontFamily: AppTheme.fontFamily,fontSize: 12),
@@ -266,7 +266,7 @@ class SubscriptionCard extends StatelessWidget {
                         child: ElevatedButton.icon(
                           onPressed: onRenew,
                           icon: const Icon(LucideIcons.refreshCw, size: 16),
-                          label: Text(
+                          label: const Text(
                             'تمدید',
                             style: TextStyle(
     fontFamily: AppTheme.fontFamily,fontSize: 12),

@@ -20,6 +20,7 @@ class AchievementNotification {
       hide();
       // کمی صبر کن تا بسته شود
       Future.delayed(const Duration(milliseconds: 200), () {
+        if (!context.mounted) return;
         _showNotification(context, achievement);
       });
       return;
@@ -49,9 +50,7 @@ class AchievementNotification {
     overlayState.insert(_overlayEntry!);
 
     // خودکار بستن بعد از 4.5 ثانیه
-    Future.delayed(const Duration(milliseconds: 4500), () {
-      hide();
-    });
+    Future.delayed(const Duration(milliseconds: 4500), hide);
   }
 
   /// بستن نوتیفیکیشن
@@ -100,13 +99,13 @@ class _AchievementNotificationWidgetState
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
     _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
+      begin: 0,
+      end: 1,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _scaleAnimation = Tween<double>(
       begin: 0.95,
-      end: 1.0,
+      end: 1,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _controller.safeForward();
@@ -285,7 +284,7 @@ class _AchievementNotificationWidgetState
                             child: Container(
                               width: 24.w,
                               height: 24.w,
-                              decoration: BoxDecoration(
+                              decoration: const BoxDecoration(
                                 color: Colors.transparent,
                                 shape: BoxShape.circle,
                               ),

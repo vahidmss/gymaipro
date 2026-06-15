@@ -52,7 +52,7 @@ class ErrorBoundaryWidget extends StatelessWidget {
                     label: const Text('تلاش مجدد'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.goldColor,
-                      foregroundColor: AppTheme.textColor,
+                      foregroundColor: context.textColor,
                     ),
                   ),
                 ],

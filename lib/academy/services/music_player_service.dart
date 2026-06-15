@@ -11,9 +11,9 @@ import 'package:gymaipro/academy/services/music_notification_service.dart';
 enum MusicRepeatMode { none, one, all }
 
 class MusicPlayerService extends ChangeNotifier {
-  static final MusicPlayerService _instance = MusicPlayerService._internal();
   factory MusicPlayerService() => _instance;
   MusicPlayerService._internal();
+  static final MusicPlayerService _instance = MusicPlayerService._internal();
 
   final AudioPlayer _audioPlayer = AudioPlayer(
     playerId: 'gymaipro_music_player',
@@ -197,9 +197,7 @@ class MusicPlayerService extends ChangeNotifier {
 
   void _debouncedNotificationUpdate() {
     _notificationUpdateTimer?.cancel();
-    _notificationUpdateTimer = Timer(_notificationUpdateInterval, () {
-      _updateNotification();
-    });
+    _notificationUpdateTimer = Timer(_notificationUpdateInterval, _updateNotification);
   }
 
   void _updateNotification() {
@@ -592,7 +590,7 @@ class MusicPlayerService extends ChangeNotifier {
                 await randomAccessFile.setPosition(0);
                 await randomAccessFile.read(1024); // Read first 1KB
                 await randomAccessFile.close();
-                debugPrint('✅ File validated: $sourcePath (${fileSize} bytes)');
+                debugPrint('✅ File validated: $sourcePath ($fileSize bytes)');
               } catch (e) {
                 debugPrint('⚠️ File is not readable: $sourcePath - $e');
                 useLocalFile = false;
@@ -655,7 +653,7 @@ class MusicPlayerService extends ChangeNotifier {
       // Second priority: stream from URL (no download before play)
       if (!sourceLoaded) {
         debugPrint('🌐 Streaming from URL: ${music.title} ($normalizedUrl)');
-        int maxRetries = 2;
+        const int maxRetries = 2;
         for (int retry = 0; retry <= maxRetries && !sourceLoaded; retry++) {
           try {
             if (retry > 0) {
@@ -1203,13 +1201,10 @@ class MusicPlayerService extends ChangeNotifier {
     switch (_repeatMode) {
       case MusicRepeatMode.none:
         _repeatMode = MusicRepeatMode.all;
-        break;
       case MusicRepeatMode.all:
         _repeatMode = MusicRepeatMode.one;
-        break;
       case MusicRepeatMode.one:
         _repeatMode = MusicRepeatMode.none;
-        break;
     }
     notifyListeners();
   }

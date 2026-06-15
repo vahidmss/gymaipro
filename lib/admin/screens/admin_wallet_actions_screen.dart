@@ -96,16 +96,15 @@ class _AdminWalletActionsScreenState extends State<AdminWalletActionsScreen> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String?>(
-                  value: _selectedActionType,
+                  initialValue: _selectedActionType,
                   decoration: InputDecoration(
                     labelText: 'نوع عملیات',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                   ),
                   items: const [
                     DropdownMenuItem<String?>(
-                      value: null,
                       child: Text('همه'),
                     ),
                     DropdownMenuItem<String?>(
@@ -142,7 +141,7 @@ class _AdminWalletActionsScreenState extends State<AdminWalletActionsScreen> {
         // لیست عملیات
         Expanded(
           child: _isLoading
-              ? Center(
+              ? const Center(
                   child: CircularProgressIndicator(
                     color: AppTheme.goldColor,
                   ),
@@ -277,7 +276,7 @@ class _AdminWalletActionsScreenState extends State<AdminWalletActionsScreen> {
                                       ],
                                       if (description.isNotEmpty) ...[
                                         SizedBox(height: 8.h),
-                                        Divider(),
+                                        const Divider(),
                                         SizedBox(height: 8.h),
                                         Text(
                                           'توضیحات:',

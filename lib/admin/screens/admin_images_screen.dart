@@ -153,7 +153,7 @@ class _AdminImagesScreenState extends State<AdminImagesScreen> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: _selectedFilter,
+                  initialValue: _selectedFilter,
                   decoration: InputDecoration(
                     labelText: 'فیلتر نوع',
                     border: OutlineInputBorder(
@@ -180,7 +180,7 @@ class _AdminImagesScreenState extends State<AdminImagesScreen> {
         // گرید عکس‌ها
         Expanded(
           child: _isLoading
-              ? Center(
+              ? const Center(
                   child: CircularProgressIndicator(
                     color: AppTheme.goldColor,
                   ),
@@ -231,15 +231,15 @@ class _AdminImagesScreenState extends State<AdminImagesScreen> {
                                         imageUrl: imageUrl,
                                         fit: BoxFit.cover,
                                         width: double.infinity,
-                                        placeholder: (context, url) => Container(
+                                        placeholder: (context, url) => ColoredBox(
                                           color: AppTheme.goldColor.withValues(alpha: 0.1),
-                                          child: Center(
+                                          child: const Center(
                                             child: CircularProgressIndicator(
                                               color: AppTheme.goldColor,
                                             ),
                                           ),
                                         ),
-                                        errorWidget: (context, url, error) => Container(
+                                        errorWidget: (context, url, error) => ColoredBox(
                                           color: Colors.grey.withValues(alpha: 0.2),
                                           child: const Icon(
                                             LucideIcons.imageOff,

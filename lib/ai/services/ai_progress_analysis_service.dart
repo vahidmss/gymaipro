@@ -8,6 +8,7 @@ import 'package:gymaipro/ai/services/openai_service.dart';
 import 'package:gymaipro/ai/services/rule_based_progress_analysis_engine.dart';
 import 'package:gymaipro/ai/services/progress_analysis_limit_service.dart';
 import 'package:gymaipro/ai/services/progress_analysis_storage_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
 import 'package:gymaipro/workout_log/models/workout_program_log.dart';
 import 'package:gymaipro/workout_log/services/workout_program_log_service.dart';
@@ -187,16 +188,8 @@ class AIProgressAnalysisService {
   /// دریافت اطلاعات پروفایل کاربر
   Future<Map<String, dynamic>> _getUserProfile(String userId) async {
     try {
-      final response = await Supabase.instance.client
-          .from('profiles')
-          .select()
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (response != null) {
-        return Map<String, dynamic>.from(response);
-      }
-      return {};
+      final response = await ProfileRepository.instance.fetchProfile(userId);
+      return response ?? {};
     } catch (e) {
       if (kDebugMode) {
         print('خطا در دریافت پروفایل: $e');

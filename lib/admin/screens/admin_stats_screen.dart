@@ -52,7 +52,7 @@ class _AdminStatsScreenState extends State<AdminStatsScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (_isLoading) {
-      return Center(
+      return const Center(
         child: CircularProgressIndicator(
           color: AppTheme.goldColor,
         ),
@@ -284,7 +284,6 @@ class _AdminStatsScreenState extends State<AdminStatsScreen> {
     required String title,
     required String value,
     required Color color,
-    bool isAmount = false,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(

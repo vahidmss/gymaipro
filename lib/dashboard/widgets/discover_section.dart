@@ -4,25 +4,20 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
+import 'package:gymaipro/models/custom_exercise.dart';
 import 'package:gymaipro/models/food.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
 import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/services/trainer_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/auth_helper.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// آیتم یکپارچه برای نمایش در کاروسل (تمرین یا غذا)
 class _DiscoverItem {
-  final String title;
-  final String imageUrl;
-  final String subtitle;
-  final IconData subtitleIcon;
-  final bool showLock;
-  final VoidCallback onTap;
-  final DateTime date;
 
   _DiscoverItem({
     required this.title,
@@ -33,6 +28,13 @@ class _DiscoverItem {
     required this.onTap,
     required this.date,
   });
+  final String title;
+  final String imageUrl;
+  final String subtitle;
+  final IconData subtitleIcon;
+  final bool showLock;
+  final VoidCallback onTap;
+  final DateTime date;
 }
 
 /// بخش "کشف جدیدها" - ترکیب تمرینات و تغذیه در یک کاروسل واحد با تب‌سوئیچر
@@ -73,13 +75,13 @@ class _DiscoverSectionState extends State<DiscoverSection>
   @override
   void initState() {
     super.initState();
-    _currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    _currentUserId = AuthHelper.currentUserIdSync;
 
     _tabAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _tabFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _tabFadeAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _tabAnimController, curve: Curves.easeOut),
     );
     _tabAnimController.forward();
@@ -109,17 +111,31 @@ class _DiscoverSectionState extends State<DiscoverSection>
 
       final publicExercises = await _customExerciseService.getPublicExercises(
         limit: 20,
-        requireApproval: false,
       );
 
+      var trainerExercises = <CustomExercise>[];
       if (_currentUserId != null && _currentUserId!.isNotEmpty) {
-        final trainerExercises = await _customExerciseService
+        trainerExercises = await _customExerciseService
             .getTrainerExercisesForClient(_currentUserId!);
+      }
 
+      final creatorIds = <String>{
+        ...trainerExercises.map((e) => e.createdBy),
+        ...publicExercises.take(10).map((e) => e.createdBy),
+      }.where((id) => id.isNotEmpty).toList();
+
+      final profilesById = creatorIds.isEmpty
+          ? <String, Map<String, dynamic>>{}
+          : await ProfileRepository.instance.fetchProfilesByIdsMap(
+              creatorIds,
+              columns: 'id, username, first_name, last_name',
+            );
+
+      if (_currentUserId != null && _currentUserId!.isNotEmpty) {
         for (final customEx in trainerExercises) {
           final exercise = await _customExerciseService
               .customExerciseToExercise(customEx);
-          final trainerProfile = await _fetchProfile(customEx.createdBy);
+          final trainerProfile = profilesById[customEx.createdBy];
           final trainerName = _getTrainerName(trainerProfile);
           final isUserTrainer = await _trainerService.isClientOfTrainer(
             _currentUserId!,
@@ -152,15 +168,13 @@ class _DiscoverSectionState extends State<DiscoverSection>
         final exercise = await _customExerciseService.customExerciseToExercise(
           customEx,
         );
-        final trainerProfile = await _fetchProfile(customEx.createdBy);
+        final trainerProfile = profilesById[customEx.createdBy];
         final trainerName = _getTrainerName(trainerProfile);
         final isUserTrainer =
-            _currentUserId != null && _currentUserId!.isNotEmpty
-            ? await _trainerService.isClientOfTrainer(
+            (_currentUserId != null && _currentUserId!.isNotEmpty) && await _trainerService.isClientOfTrainer(
                 _currentUserId!,
                 customEx.createdBy,
-              )
-            : false;
+              );
 
         allExercises.add(
           _DiscoverItem(
@@ -285,21 +299,6 @@ class _DiscoverSectionState extends State<DiscoverSection>
     } catch (e) {
       debugPrint('Error loading foods for discover: $e');
       if (mounted) setState(() => _isLoadingFoods = false);
-    }
-  }
-
-  Future<Map<String, dynamic>?> _fetchProfile(String userId) async {
-    try {
-      final response = await Supabase.instance.client
-          .from('profiles')
-          .select('username, first_name, last_name')
-          .eq('id', userId)
-          .maybeSingle();
-      return response != null
-          ? Map<String, dynamic>.from(response as Map)
-          : null;
-    } catch (e) {
-      return null;
     }
   }
 
@@ -432,7 +431,6 @@ class _DiscoverSectionState extends State<DiscoverSection>
             decoration: BoxDecoration(
               border: Border.all(
                 color: AppTheme.goldColor.withValues(alpha: 0.4),
-                width: 1,
               ),
               borderRadius: BorderRadius.circular(20.r),
             ),
@@ -636,7 +634,6 @@ class _DiscoverSectionState extends State<DiscoverSection>
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: 0.15),
-          width: 1,
         ),
       ),
       child: Center(
@@ -711,11 +708,10 @@ class _DiscoverCard extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     // تصویر اصلی
-                    item.imageUrl.isNotEmpty
-                        ? CachedNetworkImage(
+                    if (item.imageUrl.isNotEmpty) CachedNetworkImage(
                             imageUrl: item.imageUrl,
                             fit: BoxFit.cover,
-                            placeholder: (context, url) => Container(
+                            placeholder: (context, url) => ColoredBox(
                               color: context.placeholderColor,
                               child: const Center(
                                 child: CircularProgressIndicator(
@@ -724,7 +720,7 @@ class _DiscoverCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            errorWidget: (context, url, error) => Container(
+                            errorWidget: (context, url, error) => ColoredBox(
                               color: context.placeholderColor,
                               child: Icon(
                                 isFood
@@ -734,8 +730,7 @@ class _DiscoverCard extends StatelessWidget {
                                 color: context.placeholderIconColor,
                               ),
                             ),
-                          )
-                        : Container(
+                          ) else ColoredBox(
                             color: context.placeholderColor,
                             child: Icon(
                               isFood

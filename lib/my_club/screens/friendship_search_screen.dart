@@ -108,7 +108,7 @@ class _FriendshipSearchScreenState extends State<FriendshipSearchScreen> {
           ),
           centerTitle: true,
           leading: IconButton(
-            icon: Icon(
+            icon: const Icon(
               LucideIcons.arrowRight,
               color: AppTheme.goldColor,
             ),
@@ -436,7 +436,7 @@ class _UserCardState extends State<_UserCard> {
                             ? NetworkImage(widget.user.avatarUrl!)
                             : null,
                         child: widget.user.avatarUrl == null
-                            ? Icon(
+                            ? const Icon(
                                 LucideIcons.user,
                                 color: AppTheme.onGoldColor,
                               )

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -81,7 +82,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error loading last backup date: $e');
+        debugPrint('Error loading last backup date: $e');
       }
     }
   }
@@ -97,7 +98,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error loading rate limit stats: $e');
+        debugPrint('Error loading rate limit stats: $e');
       }
     }
   }
@@ -178,7 +179,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       // اگر پیامی وجود ندارد و هنوز پیام خوش‌آمدگویی اضافه نشده، اضافه کن
       if (_messages.isEmpty && !_welcomeMessageAdded) {
         _welcomeMessageAdded = true;
-        _addWelcomeMessage();
+        unawaited(_addWelcomeMessage());
         _scrollToBottom();
       }
     } catch (e) {
@@ -261,6 +262,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       final limitCheck = await _chatService.checkMessageLimit(
         _currentSessionId!,
       );
+      if (!mounted) return;
       if (!limitCheck.canSend) {
         // نمایش پیام خطای محدودیت
         WidgetSafetyUtils.safeShowSnackBar(
@@ -275,7 +277,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error checking rate limit: $e');
+        debugPrint('Error checking rate limit: $e');
       }
       // در صورت خطا، ادامه بده
     }
@@ -337,12 +339,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           _saveAIProgram(programJson)
               .then((_) {
                 if (kDebugMode) {
-                  print('AI plan: program saved successfully');
+                  debugPrint('AI plan: program saved successfully');
                 }
               })
               .catchError((Object e) {
                 if (kDebugMode) {
-                  print('AI plan: error while saving plan: $e');
+                  debugPrint('AI plan: error while saving plan: $e');
                 }
                 if (mounted) {
                   setState(() {
@@ -677,7 +679,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   Future<void> _showBackupDialog() async {
     if (_currentSessionId == null) return;
 
-    showDialog<void>(
+    await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: context.cardColor,
@@ -873,7 +875,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       final backupDate = backupInfo['backup_date'] as DateTime;
       final totalMessages = backupInfo['total_messages'] as int;
 
-      WidgetSafetyUtils.safeShowDialog<void>(
+      await WidgetSafetyUtils.safeShowDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: context.cardColor,
@@ -1097,14 +1099,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       await _chatService.deleteChatSession(_currentSessionId!);
 
       if (kDebugMode) {
-        print('Session deleted: $_currentSessionId');
+        debugPrint('Session deleted: $_currentSessionId');
       }
 
       // ایجاد session جدید
       _currentSessionId = await _getOrCreateCurrentSession();
 
       if (kDebugMode) {
-        print('New session created: $_currentSessionId');
+        debugPrint('New session created: $_currentSessionId');
       }
 
       SafeSetState.call(this, () {
@@ -1115,11 +1117,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
       if (!_welcomeMessageAdded) {
         _welcomeMessageAdded = true;
-        _addWelcomeMessage();
+        unawaited(_addWelcomeMessage());
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error in _clearChat: $e');
+        debugPrint('Error in _clearChat: $e');
       }
 
       // در صورت خطا، session جدید ایجاد کن
@@ -1127,7 +1129,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _currentSessionId = await _getOrCreateCurrentSession();
       } catch (e2) {
         if (kDebugMode) {
-          print('Error creating new session: $e2');
+          debugPrint('Error creating new session: $e2');
         }
       }
 
@@ -1138,7 +1140,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       });
       if (!_welcomeMessageAdded) {
         _welcomeMessageAdded = true;
-        _addWelcomeMessage();
+        unawaited(_addWelcomeMessage());
       }
     }
   }
@@ -1476,8 +1478,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final match = programJsonRegex.firstMatch(text);
     if (match != null && match.group(1) != null) {
       if (kDebugMode) {
-        print('AI plan: detected program_json tags');
-        print('AI plan: extracted JSON: ${match.group(1)!.trim()}');
+        debugPrint('AI plan: detected program_json tags');
+        debugPrint('AI plan: extracted JSON: ${match.group(1)!.trim()}');
       }
       return match.group(1)!.trim();
     }
@@ -1490,7 +1492,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
     final codeMatch = codeFenceJsonRegex.firstMatch(text);
     if (codeMatch != null && codeMatch.group(1) != null) {
-      if (kDebugMode) print('AI plan: detected JSON inside code fences');
+      if (kDebugMode) debugPrint('AI plan: detected JSON inside code fences');
       return codeMatch.group(1)!.trim();
     }
 
@@ -1501,7 +1503,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
     final bareMatch = bareJsonRegex.firstMatch(text);
     if (bareMatch != null && bareMatch.group(1) != null) {
-      if (kDebugMode) print('AI plan: detected bare JSON with sessions');
+      if (kDebugMode) debugPrint('AI plan: detected bare JSON with sessions');
       return bareMatch.group(1)!.trim();
     }
 
@@ -1558,7 +1560,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
 
     if (kDebugMode && fixed != jsonText) {
-      print(
+      debugPrint(
         'AI plan: Fixed incomplete JSON by adding $openBrackets ] and $openBraces }',
       );
     }
@@ -1569,14 +1571,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool _isValidJsonStructure(String jsonText) {
     try {
       if (kDebugMode) {
-        print('AI plan: Validating JSON structure...');
+        debugPrint('AI plan: Validating JSON structure...');
       }
 
       // Basic validation - check if it has required fields
       if (!jsonText.contains('"program_name"') ||
           !jsonText.contains('"sessions"')) {
         if (kDebugMode) {
-          print('AI plan: Missing required fields - program_name or sessions');
+          debugPrint('AI plan: Missing required fields - program_name or sessions');
         }
         return false;
       }
@@ -1585,7 +1587,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       final data = jsonDecode(jsonText);
       if (data is! Map<String, dynamic>) {
         if (kDebugMode) {
-          print('AI plan: JSON is not a Map');
+          debugPrint('AI plan: JSON is not a Map');
         }
         return false;
       }
@@ -1593,7 +1595,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       // Check required fields
       if (!data.containsKey('program_name') || !data.containsKey('sessions')) {
         if (kDebugMode) {
-          print('AI plan: Missing required keys in parsed data');
+          debugPrint('AI plan: Missing required keys in parsed data');
         }
         return false;
       }
@@ -1601,7 +1603,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       final sessions = data['sessions'];
       if (sessions is! List || sessions.isEmpty) {
         if (kDebugMode) {
-          print('AI plan: Sessions is not a valid list or is empty');
+          debugPrint('AI plan: Sessions is not a valid list or is empty');
         }
         return false;
       }
@@ -1610,7 +1612,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       final firstSession = sessions[0];
       if (firstSession is! Map<String, dynamic>) {
         if (kDebugMode) {
-          print('AI plan: First session is not a Map');
+          debugPrint('AI plan: First session is not a Map');
         }
         return false;
       }
@@ -1622,19 +1624,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
       if (!hasSessionName || !firstSession.containsKey('exercises')) {
         if (kDebugMode) {
-          print('AI plan: First session missing session_name/day or exercises');
-          print('AI plan: Available keys: ${firstSession.keys.toList()}');
+          debugPrint('AI plan: First session missing session_name/day or exercises');
+          debugPrint('AI plan: Available keys: ${firstSession.keys.toList()}');
         }
         return false;
       }
 
       if (kDebugMode) {
-        print('AI plan: JSON structure is valid');
+        debugPrint('AI plan: JSON structure is valid');
       }
       return true;
     } catch (e) {
       if (kDebugMode) {
-        print('AI plan: JSON validation error: $e');
+        debugPrint('AI plan: JSON validation error: $e');
       }
       return false;
     }
@@ -1653,12 +1655,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       final Map<String, dynamic> data =
           jsonDecode(fixedJson) as Map<String, dynamic>;
       if (kDebugMode) {
-        print('AI plan: JSON parsed successfully for saving');
+        debugPrint('AI plan: JSON parsed successfully for saving');
       }
       // Map exercise_name -> exercise_id using ExerciseService list
       final exercises = await ExerciseService().getExercises();
       if (kDebugMode) {
-        print('AI plan: loaded ${exercises.length} exercises for mapping');
+        debugPrint('AI plan: loaded ${exercises.length} exercises for mapping');
       }
       int? lookupId(String name) {
         String norm(String s) => s
@@ -1769,7 +1771,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       );
 
       if (kDebugMode) {
-        print(
+        debugPrint(
           'AI plan: program saved with id ${saved.id} by trainer ${aiTrainerId ?? "user"}',
         );
       }
@@ -1781,7 +1783,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       // Program saved successfully - no navigation needed
     } catch (e) {
       if (kDebugMode) {
-        print('AI plan: error while saving plan: $e');
+        debugPrint('AI plan: error while saving plan: $e');
       }
       // Ignore if not valid JSON
     }

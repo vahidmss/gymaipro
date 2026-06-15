@@ -80,6 +80,7 @@ class PaymentIntegrationHelper {
       featureName: featureName,
     );
 
+    if (!context.mounted) return false;
     if (!hasAccess) {
       showAccessLimitDialog(
         context,

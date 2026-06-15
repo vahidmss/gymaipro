@@ -36,7 +36,7 @@ class _DashboardStoriesSectionState extends State<DashboardStoriesSection> {
     setState(() => _isLoading = true);
 
     try {
-      List<Article>? cachedArticles = _cacheService.getArticles();
+      final List<Article>? cachedArticles = _cacheService.getArticles();
       List<Article> rawArticles;
       if (cachedArticles != null && cachedArticles.isNotEmpty) {
         rawArticles = cachedArticles;
@@ -272,7 +272,7 @@ class _StoryCircle extends StatelessWidget {
   }
 
   Widget _buildPlaceholder(BuildContext context) {
-    return Container(
+    return ColoredBox(
       color: context.placeholderColor,
       child: Icon(
         LucideIcons.bookOpen,

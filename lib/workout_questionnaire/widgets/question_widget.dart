@@ -524,10 +524,10 @@ class _QuestionWidgetState extends State<QuestionWidget> {
     required bool isDark,
     bool isPrimary = false,
   }) {
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: isPrimary
-            ? LinearGradient(
+            ? const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [AppTheme.goldColor, AppTheme.darkGold],

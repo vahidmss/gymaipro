@@ -30,7 +30,7 @@ class SubstituteFoodDialog extends StatelessWidget {
         ),
         padding: ResponsiveDialogUtils.getStandardDialogPadding(context),
         decoration: BoxDecoration(
-          color: AppTheme.cardColor,
+          color: context.cardColor,
           borderRadius: BorderRadius.circular(
             ResponsiveDialogUtils.getStandardBorderRadius(context),
           ),
@@ -53,7 +53,7 @@ class SubstituteFoodDialog extends StatelessWidget {
               return GestureDetector(
                 onTap: () => Navigator.of(context).pop(alt),
                 child: Card(
-                  color: AppTheme.cardColor,
+                  color: context.cardColor,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14.r),
                   ),

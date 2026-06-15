@@ -36,7 +36,7 @@ class AcademyStoryCard extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppTheme.cardColor,
+                    color: context.cardColor,
                     border: Border.all(color: AppTheme.goldColor, width: 2.w),
                   ),
                   clipBehavior: Clip.antiAlias,

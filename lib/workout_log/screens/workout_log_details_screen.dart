@@ -77,7 +77,7 @@ class WorkoutLogDetailsScreen extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: context.backgroundColor,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -165,7 +165,7 @@ class WorkoutLogDetailsScreen extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             AppTheme.goldColor.withValues(alpha: 0.7),
-            AppTheme.cardColor,
+            context.cardColor,
           ],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
@@ -239,7 +239,7 @@ class WorkoutLogDetailsScreen extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18.r),
         ),
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 18.h, horizontal: 8),
           child: Row(
@@ -319,7 +319,7 @@ class WorkoutLogDetailsScreen extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14.r),
         ),
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         child: Padding(
           padding: EdgeInsets.all(14.w),
           child: Column(

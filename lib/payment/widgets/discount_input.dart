@@ -95,7 +95,7 @@ class _DiscountInputState extends State<DiscountInput> {
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
           color: _hasDiscount
@@ -138,7 +138,7 @@ class _DiscountInputState extends State<DiscountInput> {
                     ),
                     decoration: InputDecoration(
                       hintText: 'کد تخفیف را وارد کنید',
-                      hintStyle: TextStyle(
+                      hintStyle: const TextStyle(
     fontFamily: AppTheme.fontFamily,color: Colors.white54),
                       filled: true,
                       fillColor: Colors.white.withValues(alpha: 0.05),

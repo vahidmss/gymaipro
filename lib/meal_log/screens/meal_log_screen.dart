@@ -175,7 +175,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     final cacheService = DashboardCacheService();
     try {
       // بررسی کش برای profile data
-      Map<String, dynamic>? cachedProfileData = cacheService.getProfileData();
+      final Map<String, dynamic>? cachedProfileData = cacheService.getProfileData();
       if (cachedProfileData != null) {
         SafeSetState.call(this, () {
           _profileData = cachedProfileData;
@@ -254,7 +254,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
   }
 
   Future<void> _syncAllLocalLogsAndLoad() async {
-    _foodLogService.syncAllLocalLogsToDatabase();
+    unawaited(_foodLogService.syncAllLocalLogsToDatabase());
     await _loadData();
   }
 
@@ -304,7 +304,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       final now = DateTime.now();
       final gregorian = Gregorian.fromDateTime(now);
       final jalali = gregorian.toJalali();
-      final startJalali = Jalali(jalali.year, jalali.month, 1);
+      final startJalali = Jalali(jalali.year, jalali.month);
       final endJalali = Jalali(
         jalali.year,
         jalali.month,
@@ -486,7 +486,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     );
     SafeSetState.call(this, () => _currentLog = newLog);
     await _foodLogService.saveLogLocal(newLog);
-    _foodLogService.saveLog(newLog).catchError((_) {});
+    unawaited(_foodLogService.saveLog(newLog).catchError((_) {}));
     await _ensureStandardMeals();
   }
 
@@ -540,7 +540,6 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      isDismissible: true,
       barrierColor: isDark
           ? Colors.black.withValues(alpha: 0.7)
           : AppTheme.lightTextColor.withValues(alpha: 0.5),
@@ -657,9 +656,9 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
             elevation: 0,
           ),
         ),
-        child: Container(
+        child: DecoratedBox(
           decoration: isDark
-              ? null
+              ? const BoxDecoration()
               : BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -719,14 +718,12 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
 
                   return Stack(
                     children: [
-                      _isLoading
-                          ? Center(
+                      if (_isLoading) Center(
                               child: CircularProgressIndicator(
                                 color: AppTheme.goldColor,
                                 strokeWidth: 3.w,
                               ),
-                            )
-                          : SingleChildScrollView(
+                            ) else SingleChildScrollView(
                               padding: EdgeInsets.symmetric(
                                 horizontal: horizontalPadding,
                                 vertical: verticalPadding,
@@ -788,9 +785,12 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                                             // غیرفعال کردن active meal plan
                                             await _activeMealPlanService
                                                 .clearActiveMealPlan();
-                                            Navigator.pushReplacementNamed(
-                                              context,
-                                              '/meal-log',
+                                            if (!context.mounted) return;
+                                            unawaited(
+                                              Navigator.pushReplacementNamed(
+                                                context,
+                                                '/meal-log',
+                                              ),
                                             );
                                           },
                                           icon: Icon(
@@ -885,7 +885,6 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     await showDialog<void>(
       context: context,
-      barrierDismissible: true,
       barrierColor: isDark
           ? Colors.black.withValues(alpha: 0.7)
           : AppTheme.lightTextColor.withValues(alpha: 0.5),
@@ -915,7 +914,6 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     final result =
         await WidgetSafetyUtils.safeShowModalBottomSheet<Map<String, dynamic>>(
           context: context,
-          isDismissible: true,
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
           barrierColor: isDark
@@ -931,7 +929,6 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
             ),
           ),
           enableDrag: false,
-          useSafeArea: false,
         );
     if (result != null) {
       // Initialize log if it doesn't exist (سریع: اول auth، بعد در پس‌زمینه sync)
@@ -951,8 +948,8 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
         WidgetSafetyUtils.safeSetState(this, () {
           _currentLog = newLog;
         });
-        _foodLogService.saveLogLocal(newLog);
-        _foodLogService.saveLog(newLog).catchError((_) {});
+        unawaited(_foodLogService.saveLogLocal(newLog));
+        unawaited(_foodLogService.saveLog(newLog).catchError((_) {}));
       }
 
       // Get meal title from result or use the original
@@ -1017,8 +1014,6 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Colors.transparent,
-      isDismissible: true,
-      enableDrag: true,
       builder: (context) => AmountKeypadSheet(foodItem: foodItem),
     );
 
@@ -1056,9 +1051,9 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
         });
         _afterLogUpdated();
       case 'substitute':
-        _showSubstituteFoodDialog(foodItem, mealTitle);
+        unawaited(_showSubstituteFoodDialog(foodItem, mealTitle));
       case 'delete':
-        _removeFoodFromMeal(foodItem, mealTitle);
+        unawaited(_removeFoodFromMeal(foodItem, mealTitle));
     }
   }
 
@@ -1072,7 +1067,6 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     final selected =
         await WidgetSafetyUtils.safeShowDialog<Map<String, dynamic>>(
           context: context,
-          barrierDismissible: true,
           builder: (context) =>
               SubstituteFoodDialog(foodItem: foodItem, allFoods: _allFoods),
         );

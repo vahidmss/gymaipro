@@ -247,7 +247,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             color: AppTheme.goldColor,
           ),
         ),
-        content: Text(message, style: TextStyle(
+        content: Text(message, style: const TextStyle(
     fontFamily: AppTheme.fontFamily,fontSize: 14)),
         actions: [
           TextButton(
@@ -255,7 +255,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
               WidgetSafetyUtils.safePop(context);
               WidgetSafetyUtils.safePop(context); // بازگشت به صفحه قبلی
             },
-            child: Text(
+            child: const Text(
               'باشه',
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,color: AppTheme.goldColor),
@@ -279,12 +279,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
             color: AppTheme.goldColor,
           ),
         ),
-        content: Text(message, style: TextStyle(
+        content: Text(message, style: const TextStyle(
     fontFamily: AppTheme.fontFamily,fontSize: 14)),
         actions: [
           TextButton(
             onPressed: () => WidgetSafetyUtils.safePop(context),
-            child: Text(
+            child: const Text(
               'متوجه شدم',
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,color: AppTheme.goldColor),
@@ -300,7 +300,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: context.backgroundColor,
         appBar: AppBar(
           title: Text(
             'پرداخت',
@@ -361,7 +361,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.3)),
       ),
@@ -572,7 +572,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         decoration: BoxDecoration(
           color: isSelected
               ? AppTheme.goldColor.withValues(alpha: 0.1)
-              : AppTheme.cardColor,
+              : context.cardColor,
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
             color: isSelected ? AppTheme.goldColor : Colors.white24,

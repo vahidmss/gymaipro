@@ -1,5 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/exercise.dart';
@@ -32,7 +31,6 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
 
   List<Exercise> _exercises = [];
   List<Exercise> _filteredExercises = [];
-  List<String> _muscleGroups = []; // reserved for future chips
   String _selectedMuscleGroup = '';
   String _searchQuery = '';
   bool _isLoading = true;
@@ -102,7 +100,6 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
     try {
       await _exerciseService.init();
       final exercises = await _exerciseService.getExercises(forceRefresh: forceRefresh);
-      final muscleGroups = await _exerciseService.getMuscleGroups();
       final availableFilters = await _exerciseService.getAvailableFilters();
 
       if (mounted) {
@@ -111,7 +108,6 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
         WidgetSafetyUtils.safeSetState(this, () {
           _exercises = exercises;
           _filteredExercises = exercises;
-          _muscleGroups = muscleGroups;
           _availableFilters = availableFilters;
           _isLoading = false;
         });
@@ -134,12 +130,10 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
   /// بارگذاری فیلترها در background
   Future<void> _loadFiltersInBackground() async {
     try {
-      final muscleGroups = await _exerciseService.getMuscleGroups();
       final availableFilters = await _exerciseService.getAvailableFilters();
-      
+
       if (mounted) {
         WidgetSafetyUtils.safeSetState(this, () {
-          _muscleGroups = muscleGroups;
           _availableFilters = availableFilters;
         });
       }
@@ -151,7 +145,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
   /// به‌روزرسانی داده‌ها در background
   Future<void> _refreshDataInBackground() async {
     try {
-      final exercises = await _exerciseService.getExercises(forceRefresh: false);
+      final exercises = await _exerciseService.getExercises();
       
       if (mounted && exercises.isNotEmpty) {
         exercises.sort((a, b) => b.likes.compareTo(a.likes));
@@ -229,34 +223,6 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
     }
   }
 
-  /// جستجوی هوشمند
-  @Deprecated('Not used')
-  Future<void> _performSmartSearch(String query) async {
-    // in use via onChanged filter
-    if (!mounted) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final searchResults = await _exerciseService.searchExercises(query);
-
-      if (mounted) {
-        setState(() {
-          _filteredExercises = searchResults;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
   /// پاک کردن همه فیلترها
   void _clearAllFilters() {
     setState(() {
@@ -270,19 +236,6 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
       _searchController.clear();
       _filteredExercises = _exercises;
     });
-  }
-
-  /// نمایش تعداد نتایج
-  String _getResultsCountText() {
-    if (_filteredExercises.isEmpty) {
-      return 'نتیجه‌ای یافت نشد';
-    }
-
-    if (_filteredExercises.length == _exercises.length) {
-      return 'همه تمرینات (${_exercises.length})';
-    }
-
-    return '${_filteredExercises.length} تمرین از ${_exercises.length}';
   }
 
   /// نمایش دیالوگ ترتیب‌بندی
@@ -650,7 +603,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                 style: ElevatedButton.styleFrom(
                   foregroundColor: AppTheme.goldColor,
                   backgroundColor: Colors.transparent,
-                  side: BorderSide(
+                  side: const BorderSide(
                     color: AppTheme.goldColor,
                     width: 1.5,
                   ),
@@ -866,7 +819,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                     } else {
                       // Focus on search field when entering search mode
                       Future.delayed(const Duration(milliseconds: 100), () {
-                        if (mounted) {
+                        if (context.mounted) {
                           FocusScope.of(context).requestFocus(FocusNode());
                         }
                       });
@@ -902,7 +855,6 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
           ],
           bottom: TabBar(
             controller: _tabController,
-            isScrollable: false,
             indicatorColor: AppTheme.goldColor,
             indicatorWeight: 3.5,
             labelColor: AppTheme.goldColor,
@@ -1263,7 +1215,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
         // فقط برای مربی‌ها نمایش داده می‌شود
         if (snapshot.data != 'trainer') return const SizedBox.shrink();
         
-        return Container(
+        return DecoratedBox(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: LinearGradient(
@@ -1451,7 +1403,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
 
   /// ساخت placeholder یکسان و زیبا برای عکس‌های تمرین
   Widget _buildImagePlaceholder(bool isDark) {
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,

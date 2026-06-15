@@ -77,7 +77,7 @@ class _PersianFoodLogDatePickerDialogState
       // محاسبه محدوده تاریخ ماه جاری
       final gregorian = Gregorian.fromDateTime(_currentMonth);
       final jalali = gregorian.toJalali();
-      final startJalali = Jalali(jalali.year, jalali.month, 1);
+      final startJalali = Jalali(jalali.year, jalali.month);
       final endJalali = Jalali(
         jalali.year,
         jalali.month,
@@ -287,13 +287,12 @@ class _PersianFoodLogDatePickerDialogState
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.15),
-          width: 1,
         ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
+          DecoratedBox(
             decoration: BoxDecoration(
               color: AppTheme.goldColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
@@ -315,7 +314,7 @@ class _PersianFoodLogDatePickerDialogState
                     newMonth = 12;
                     newYear--;
                   }
-                  final newJalali = Jalali(newYear, newMonth, 1);
+                  final newJalali = Jalali(newYear, newMonth);
                   _currentMonth = newJalali.toGregorian().toDateTime();
                 });
                 _loadFoodLogDates();
@@ -346,7 +345,7 @@ class _PersianFoodLogDatePickerDialogState
               ),
             ],
           ),
-          Container(
+          DecoratedBox(
             decoration: BoxDecoration(
               color: AppTheme.goldColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
@@ -368,7 +367,7 @@ class _PersianFoodLogDatePickerDialogState
                     newMonth = 1;
                     newYear++;
                   }
-                  final newJalali = Jalali(newYear, newMonth, 1);
+                  final newJalali = Jalali(newYear, newMonth);
                   _currentMonth = newJalali.toGregorian().toDateTime();
                 });
                 _loadFoodLogDates();
@@ -491,7 +490,7 @@ class _PersianFoodLogDatePickerDialogState
                 height: hasFoodLog ? 56.h : 44.h,
                 decoration: BoxDecoration(
                   gradient: isSelected
-                      ? LinearGradient(
+                      ? const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [AppTheme.goldColor, AppTheme.darkGold],

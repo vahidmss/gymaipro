@@ -1,6 +1,7 @@
 import 'package:gymaipro/widgets/gymai_trainer_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/workout_log/viewmodels/workout_log_viewmodel.dart';
 import 'package:gymaipro/workout_log/widgets/session_heatmap_trainer_chip.dart';
@@ -101,15 +102,12 @@ class _WorkoutTrainerSupervisionCardState
       final targetTrainerId = trainerId ?? userId;
 
       if (targetTrainerId != null && targetTrainerId.isNotEmpty) {
-        final trainerProfile = await client
-            .from('profiles')
-            .select('id, username, first_name, last_name, avatar_url')
-            .eq('id', targetTrainerId)
-            .maybeSingle();
+        final trainerProfile =
+            await ProfileRepository.instance.fetchProfile(targetTrainerId);
 
         if (trainerProfile != null && mounted) {
           setState(() {
-            _trainerInfo = Map<String, dynamic>.from(trainerProfile as Map);
+            _trainerInfo = trainerProfile;
             _isLoading = false;
           });
         } else {

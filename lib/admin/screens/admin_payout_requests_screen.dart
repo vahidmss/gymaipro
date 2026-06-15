@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/payment/models/payout_request.dart';
 import 'package:gymaipro/payment/services/payout_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// صفحه مدیریت درخواست‌های برداشت
 class AdminPayoutRequestsScreen extends StatefulWidget {
@@ -48,44 +48,13 @@ class _AdminPayoutRequestsScreenState
       final trainerIds = _requests.map((r) => r.trainerId).toSet().toList();
       if (trainerIds.isEmpty) return;
 
-      // استفاده از or برای گرفتن چند profile
-      if (trainerIds.length == 1) {
-        final profile = await Supabase.instance.client
-            .from('profiles')
-            .select('id, username, first_name, last_name')
-            .eq('id', trainerIds.first)
-            .maybeSingle();
-        
-        if (profile != null) {
-          final id = profile['id'] as String?;
-          if (id != null) {
-            setState(() {
-              _trainerProfiles[id] = Map<String, dynamic>.from(
-                profile as Map<dynamic, dynamic>,
-              );
-            });
-          }
-        }
-      } else {
-        // برای چند profile، از or استفاده می‌کنیم
-        final orExpr = trainerIds.map((id) => 'id.eq.$id').join(',');
-        final profiles = await Supabase.instance.client
-            .from('profiles')
-            .select('id, username, first_name, last_name')
-            .or(orExpr);
-
-        final Map<String, Map<String, dynamic>> profilesMap = {};
-        for (final profile in (profiles as List)) {
-          final id = profile['id'] as String?;
-          if (id != null) {
-            profilesMap[id] = Map<String, dynamic>.from(
-              profile as Map<dynamic, dynamic>,
-            );
-          }
-        }
-        setState(() => _trainerProfiles = profilesMap);
-      }
-    } catch (e) {
+      final profilesMap = await ProfileRepository.instance.fetchProfilesByIdsMap(
+        trainerIds,
+        columns: 'id, username, first_name, last_name',
+      );
+      if (!mounted) return;
+      setState(() => _trainerProfiles = profilesMap);
+    } catch (_) {
       // خطا در بارگذاری پروفایل‌ها نباید جریان اصلی را متوقف کند
     }
   }
@@ -235,7 +204,7 @@ class _AdminPayoutRequestsScreenState
       ),
     );
 
-    if (result == true) {
+    if (result ?? false) {
       final penaltyAmount = hasPenalty
           ? (int.tryParse(penaltyController.text) ?? 0) * 10
           : null;
@@ -306,7 +275,7 @@ class _AdminPayoutRequestsScreenState
       ),
     );
 
-    if (result == true) {
+    if (result ?? false) {
       final rejectResult = await _payoutService.rejectPayoutRequest(
         requestId: request.id,
         reason: reasonController.text,
@@ -358,7 +327,7 @@ class _AdminPayoutRequestsScreenState
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed ?? false) {
       final completeResult = await _payoutService.completePayout(
         requestId: request.id,
       );
@@ -405,9 +374,7 @@ class _AdminPayoutRequestsScreenState
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(LucideIcons.x),
-                          onPressed: () {
-                            _searchController.clear();
-                          },
+                          onPressed: _searchController.clear,
                         )
                       : null,
                   border: OutlineInputBorder(
@@ -430,7 +397,6 @@ class _AdminPayoutRequestsScreenState
                       hint: const Text('وضعیت'),
                       items: [
                         const DropdownMenuItem(
-                          value: null,
                           child: Text('همه وضعیت‌ها'),
                         ),
                         ...PayoutRequestStatus.values.map(
@@ -507,7 +473,7 @@ class _AdminPayoutRequestsScreenState
         // لیست درخواست‌ها
         Expanded(
           child: _isLoading
-              ? Center(
+              ? const Center(
                   child: CircularProgressIndicator(color: AppTheme.goldColor),
                 )
               : _filteredRequests.isEmpty

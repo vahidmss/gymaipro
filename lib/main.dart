@@ -9,6 +9,7 @@ import 'package:gymaipro/chat/services/chat_unread_notifier.dart';
 import 'package:gymaipro/core/app_error_handler.dart';
 import 'package:gymaipro/core/app_initializer.dart';
 import 'package:gymaipro/core/lifecycle_observer.dart';
+import 'package:gymaipro/core/performance_monitor.dart';
 import 'package:gymaipro/debug/global_key_debugger.dart';
 import 'package:gymaipro/guide/guide.dart';
 import 'package:gymaipro/payment/services/payment_deeplink_service.dart';
@@ -227,7 +228,7 @@ class _SplashScreenState extends State<_SplashScreen>
               children: [
                 FadeTransition(
                   opacity: isFailed
-                      ? const AlwaysStoppedAnimation(1.0)
+                      ? const AlwaysStoppedAnimation(1)
                       : _fadeAnimation,
                   child: const Image(
                     image: AssetImage('images/mainlogo_no_bg.png'),
@@ -367,6 +368,7 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _chatUnreadNotifier = ChatUnreadNotifier();
+    PerformanceMonitor.instance.start();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ConnectivityService.instance.initialize();
@@ -415,6 +417,7 @@ class _MyAppState extends State<MyApp> {
     Future<void>.delayed(const Duration(milliseconds: 300), () async {
       if (!mounted) return;
       final navContext = MyApp.navigatorKey.currentContext ?? context;
+      if (!navContext.mounted) return;
 
       try {
         await NotificationNavigationService.checkPendingNavigation(navContext);
@@ -423,6 +426,7 @@ class _MyAppState extends State<MyApp> {
         Future<void>.delayed(const Duration(seconds: 1), () async {
           if (!mounted) return;
           final retryNavContext = MyApp.navigatorKey.currentContext ?? context;
+          if (!retryNavContext.mounted) return;
           try {
             await NotificationNavigationService.checkPendingNavigation(
               retryNavContext,
@@ -436,6 +440,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _checkGlobalKeyStatus() {
+    if (!kDebugMode) return;
     if (GlobalKeyDebugger.hasGlobalKeyIssue()) {
       debugPrint('⚠️ GlobalKey issue detected!');
       GlobalKeyDebugger.printStatus();
@@ -444,6 +449,7 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
+    PerformanceMonitor.instance.stop();
     _deeplinkService.dispose();
     _chatUnreadNotifier.dispose();
     super.dispose();

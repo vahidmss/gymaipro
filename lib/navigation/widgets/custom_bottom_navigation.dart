@@ -50,7 +50,6 @@ class CustomBottomNavigation extends StatelessWidget {
             color: isDark
                 ? Colors.transparent
                 : AppTheme.goldColor.withValues(alpha: 0.2),
-            width: 1,
           ),
         ),
       ),

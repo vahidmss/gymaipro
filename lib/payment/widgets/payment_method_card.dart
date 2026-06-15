@@ -30,7 +30,7 @@ class PaymentMethodCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? AppTheme.goldColor.withValues(alpha: 0.1)
-              : AppTheme.cardColor,
+              : context.cardColor,
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
             color: isSelected

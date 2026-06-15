@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:gymaipro/ranking/models/league.dart';
 import 'package:gymaipro/ranking/models/user_ranking.dart';
 import 'package:gymaipro/ranking/services/ranking_score_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -36,15 +37,10 @@ class RankingService {
   /// به‌روزرسانی رتبه‌های همه کاربران
   Future<void> updateAllRankings() async {
     try {
-      // دریافت همه کاربران فعال (آخرین فعالیت در 30 روز گذشته)
-      final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
-      final activeUsers = await _client
-          .from('profiles')
-          .select('id')
-          .gte('last_active_at', thirtyDaysAgo.toIso8601String());
+      final activeUserIds =
+          await ProfileRepository.instance.fetchActiveProfileIds();
 
-      for (final user in activeUsers) {
-        final userId = user['id'] as String;
+      for (final userId in activeUserIds) {
         await _scoreService.updateUserScore(userId);
       }
 
@@ -159,16 +155,9 @@ class RankingService {
         }
       }
 
-      // اگر profile وجود نداشت، از دیتابیس بگیر
       if (profile == null) {
-        final profileResponse = await _client
-            .from('profiles')
-            .select('username, avatar_url, first_name, last_name, role')
-            .eq('id', userId)
-            .maybeSingle();
-        
-        if (profileResponse == null) return null;
-        profile = profileResponse;
+        profile = await ProfileRepository.instance.fetchProfile(userId);
+        if (profile == null) return null;
       }
 
       // چک کن که athlete باشه

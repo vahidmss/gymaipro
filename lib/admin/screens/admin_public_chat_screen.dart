@@ -330,7 +330,7 @@ class _AdminPublicChatScreenState extends State<AdminPublicChatScreen> {
                     // لیست پیام‌ها
                     Expanded(
                       child: _isLoading
-                          ? Center(
+                          ? const Center(
                               child: CircularProgressIndicator(
                                 color: AppTheme.goldColor,
                               ),
@@ -445,7 +445,7 @@ class _AdminPublicChatScreenState extends State<AdminPublicChatScreen> {
                                               PopupMenuItem<void>(
                                                 child: Row(
                                                   children: [
-                                                    Icon(
+                                                    const Icon(
                                                       LucideIcons.userX,
                                                       size: 18,
                                                       color: Colors.orange,
@@ -481,13 +481,13 @@ class _AdminPublicChatScreenState extends State<AdminPublicChatScreen> {
                                                 PopupMenuItem<void>(
                                                   child: Row(
                                                     children: [
-                                                      Icon(
+                                                      const Icon(
                                                         LucideIcons.trash2,
                                                         size: 18,
                                                         color: Colors.red,
                                                       ),
                                                       SizedBox(width: 8.w),
-                                                      Text(
+                                                      const Text(
                                                         'حذف',
                                                         style: TextStyle(
                                                           color: Colors.red,
@@ -510,13 +510,11 @@ class _AdminPublicChatScreenState extends State<AdminPublicChatScreen> {
                   ],
                 ),
                 // تب کاربران مسدود
-                _isLoadingBlocked
-                    ? Center(
+                if (_isLoadingBlocked) const Center(
                         child: CircularProgressIndicator(
                           color: AppTheme.goldColor,
                         ),
-                      )
-                    : _blockedUsers.isEmpty
+                      ) else _blockedUsers.isEmpty
                         ? Center(
                             child: Text(
                               'کاربر مسدودی یافت نشد',
@@ -582,7 +580,7 @@ class _AdminPublicChatScreenState extends State<AdminPublicChatScreen> {
                                     leading: CircleAvatar(
                                       backgroundColor: Colors.red
                                           .withValues(alpha: 0.15),
-                                      child: Icon(
+                                      child: const Icon(
                                         LucideIcons.userX,
                                         color: Colors.red,
                                       ),
@@ -634,7 +632,7 @@ class _AdminPublicChatScreenState extends State<AdminPublicChatScreen> {
                                                 .unblockUserInPublicChat(
                                           user['id'] as String,
                                         );
-                                        if (!mounted) return;
+                                        if (!context.mounted) return;
                                         if (success) {
                                           ScaffoldMessenger.of(context)
                                               .showSnackBar(

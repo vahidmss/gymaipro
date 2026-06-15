@@ -50,9 +50,9 @@ class WorkoutProgramAppBar extends StatelessWidget
         if (showConfirmButton)
           Padding(
             padding: EdgeInsets.only(left: 8.w),
-            child: Container(
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   colors: [AppTheme.goldColor, AppTheme.darkGold],
                 ),
                 borderRadius: BorderRadius.circular(12.r),

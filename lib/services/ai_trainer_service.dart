@@ -1,4 +1,6 @@
-﻿import 'package:gymaipro/config/app_config.dart';
+﻿import 'package:flutter/foundation.dart';
+import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// سرویس مدیریت AI Trainer
@@ -14,56 +16,35 @@ class AITrainerService {
   /// دریافت شناسه AI Trainer
   static Future<String?> getAITrainerId() async {
     if (_aiTrainerId != null) {
-      print('AI Trainer ID از cache: $_aiTrainerId');
+      debugPrint('AI Trainer ID از cache: $_aiTrainerId');
       return _aiTrainerId;
     }
 
     try {
-      print('جستجوی AI Trainer در دیتابیس...');
+      debugPrint('جستجوی AI Trainer در دیتابیس...');
 
-      // ابتدا بررسی کنیم آیا AI Trainer وجود دارد
-      final allTrainers = await _client
-          .from('profiles')
-          .select('id, username, first_name, role')
-          .eq('role', 'trainer');
-
-      print('تمام مربیان موجود: $allTrainers');
-
-      // جستجوی مستقیم با ID
-      final response = await _client
-          .from('profiles')
-          .select('id, username, first_name, role')
-          .eq('id', 'ddb977b5-0d39-4d9f-9a11-8dabbf301c02')
-          .maybeSingle();
-
-      print('نتیجه جستجوی AI Trainer با ID: $response');
-
-      // اگر با ID پیدا نشد، با username جستجو کن
-      if (response == null) {
-        final responseByUsername = await _client
-            .from('profiles')
-            .select('id, username, first_name, role')
-            .eq('username', 'gymai_trainer')
-            .eq('role', 'trainer')
-            .maybeSingle();
-
-        print('نتیجه جستجوی AI Trainer با username: $responseByUsername');
-
-        if (responseByUsername != null) {
-          _aiTrainerId = responseByUsername['id'] as String;
-          print('AI Trainer ID پیدا شد با username: $_aiTrainerId');
+      final configuredId = AppConfig.aiTrainerProfileId.trim();
+      if (configuredId.isNotEmpty) {
+        final byId = await ProfileRepository.instance.fetchProfile(configuredId);
+        if (byId != null && byId['role'] == 'trainer') {
+          _aiTrainerId = byId['id'] as String;
+          debugPrint('AI Trainer ID پیدا شد با config: $_aiTrainerId');
           return _aiTrainerId;
         }
-      } else {
-        _aiTrainerId = response['id'] as String;
-        print('AI Trainer ID پیدا شد با ID: $_aiTrainerId');
+      }
+
+      final byUsername =
+          await ProfileRepository.instance.fetchProfileByUsername(systemUsername);
+      if (byUsername != null && byUsername['role'] == 'trainer') {
+        _aiTrainerId = byUsername['id'] as String;
+        debugPrint('AI Trainer ID پیدا شد با username: $_aiTrainerId');
         return _aiTrainerId;
       }
 
-      print('AI Trainer پیدا نشد!');
+      debugPrint('AI Trainer پیدا نشد!');
       return null;
     } catch (e) {
-      print('خطا در دریافت شناسه AI Trainer: $e');
+      debugPrint('خطا در دریافت شناسه AI Trainer: $e');
       return null;
     }
   }
@@ -79,18 +60,18 @@ class AITrainerService {
     // ابتدا بررسی کنیم آیا وجود دارد
     final existingId = await getAITrainerId();
     if (existingId != null) {
-      print('AI Trainer موجود است: $existingId');
+      debugPrint('AI Trainer موجود است: $existingId');
       return existingId;
     }
 
     // اگر وجود ندارد، آن را ایجاد کنیم
-    print('AI Trainer وجود ندارد - تلاش برای ایجاد...');
+    debugPrint('AI Trainer وجود ندارد - تلاش برای ایجاد...');
     final success = await createAITrainerIfNotExists();
     if (success) {
-      print('AI Trainer با موفقیت ایجاد شد');
+      debugPrint('AI Trainer با موفقیت ایجاد شد');
       return getAITrainerId();
     } else {
-      print('خطا در ایجاد AI Trainer');
+      debugPrint('خطا در ایجاد AI Trainer');
       return null;
     }
   }
@@ -141,10 +122,10 @@ class AITrainerService {
       await _client.from('profiles').insert(profileData);
 
       _aiTrainerId = '00000000-0000-0000-0000-000000000001';
-      print('AI Trainer با موفقیت ایجاد شد');
+      debugPrint('AI Trainer با موفقیت ایجاد شد');
       return true;
     } catch (e) {
-      print('خطا در ایجاد AI Trainer: $e');
+      debugPrint('خطا در ایجاد AI Trainer: $e');
       return false;
     }
   }
@@ -152,16 +133,9 @@ class AITrainerService {
   /// دریافت اطلاعات AI Trainer
   static Future<Map<String, dynamic>?> getAITrainerProfile() async {
     try {
-      final response = await _client
-          .from('profiles')
-          .select()
-          .eq('username', 'gymai_trainer')
-          .eq('role', 'trainer')
-          .maybeSingle();
-
-      return response;
+      return ProfileRepository.instance.fetchProfileByUsername(systemUsername);
     } catch (e) {
-      print('خطا در دریافت پروفایل AI Trainer: $e');
+      debugPrint('خطا در دریافت پروفایل AI Trainer: $e');
       return null;
     }
   }
@@ -203,7 +177,7 @@ class AITrainerService {
         await _client.from('profiles').update(updateData).eq('id', aiTrainerId);
       }
     } catch (e) {
-      print('خطا در به‌روزرسانی آمار AI Trainer: $e');
+      debugPrint('خطا در به‌روزرسانی آمار AI Trainer: $e');
     }
   }
 
@@ -291,7 +265,7 @@ class AITrainerService {
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', trainerId);
     } catch (e) {
-      print('خطا در syncActiveStudentCount: $e');
+      debugPrint('خطا در syncActiveStudentCount: $e');
     }
   }
 }

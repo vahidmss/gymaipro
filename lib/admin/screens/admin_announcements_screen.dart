@@ -52,7 +52,7 @@ class _AdminAnnouncementsScreenState extends State<AdminAnnouncementsScreen> {
       context: context,
       builder: (context) => _AnnouncementFormDialog(current: current),
     );
-    if (result == true) {
+    if (result ?? false) {
       await _loadAnnouncements();
     }
   }
@@ -106,14 +106,14 @@ class _AdminAnnouncementsScreenState extends State<AdminAnnouncementsScreen> {
           ? AppTheme.darkBackgroundColor
           : AppTheme.lightBackgroundColor,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAnnouncementForm(),
+        onPressed: _showAnnouncementForm,
         backgroundColor: AppTheme.goldColor,
         foregroundColor: AppTheme.onGoldColor,
         icon: const Icon(LucideIcons.plus),
         label: const Text('اطلاعیه جدید'),
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: AppTheme.goldColor))
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.goldColor))
           : RefreshIndicator(
               onRefresh: _loadAnnouncements,
               child: _announcements.isEmpty
@@ -355,9 +355,6 @@ class _AnnouncementFormDialogState extends State<_AnnouncementFormDialog> {
           selected.year,
           selected.month,
           selected.day,
-          0,
-          0,
-          0,
         );
       } else {
         _endAt = DateTime(
@@ -477,7 +474,6 @@ class _AnnouncementFormDialogState extends State<_AnnouncementFormDialog> {
         type: _mediaType == AnnouncementMediaType.video
             ? FileType.video
             : FileType.image,
-        allowMultiple: false,
       );
       final selectedPath = result?.files.single.path;
       if (selectedPath == null || selectedPath.trim().isEmpty) return;
@@ -487,6 +483,7 @@ class _AnnouncementFormDialogState extends State<_AnnouncementFormDialog> {
       final fileSize = await selectedFile.length();
       final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
 
+      if (!mounted) return;
       setState(() => _isUploadingMedia = true);
       UploadProgressHelper.show(
         context: context,
@@ -494,7 +491,6 @@ class _AnnouncementFormDialogState extends State<_AnnouncementFormDialog> {
             ? 'در حال آپلود ویدیو...'
             : 'در حال آپلود تصویر...',
         fileName: fileName,
-        progress: 0,
         statusText: 'شروع آپلود',
       );
 
@@ -567,7 +563,7 @@ class _AnnouncementFormDialogState extends State<_AnnouncementFormDialog> {
           : AppTheme.lightCardColor,
       title: Row(
         children: [
-          Icon(LucideIcons.megaphone, color: AppTheme.goldColor),
+          const Icon(LucideIcons.megaphone, color: AppTheme.goldColor),
           SizedBox(width: 8.w),
           Text(_isEditing ? 'ویرایش اطلاعیه' : 'ایجاد اطلاعیه جدید'),
         ],

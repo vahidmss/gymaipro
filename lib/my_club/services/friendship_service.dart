@@ -4,34 +4,44 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/models/friendship_models.dart';
 import 'package:gymaipro/my_club/services/friendship_notification_service.dart';
+import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FriendshipService {
   static final SupabaseClient _supabase = Supabase.instance.client;
 
   /// تبدیل profile id به auth.users id (برای جداول دوستی).
-  static Future<String> resolveAuthUserId(String profileOrAuthId) async {
-    if (profileOrAuthId.isEmpty) return profileOrAuthId;
-    try {
-      final byAuth = await _supabase
-          .from('profiles')
-          .select('auth_user_id')
-          .eq('auth_user_id', profileOrAuthId)
-          .maybeSingle();
-      if (byAuth != null) return profileOrAuthId;
+  static Future<String> resolveAuthUserId(String profileOrAuthId) =>
+      UserProfileService.resolveAuthUserId(profileOrAuthId);
 
-      final row = await _supabase
-          .from('profiles')
-          .select('auth_user_id, id')
-          .eq('id', profileOrAuthId)
-          .maybeSingle();
-      if (row == null) return profileOrAuthId;
-      final authId = (row['auth_user_id'] as String?)?.trim();
-      if (authId != null && authId.isNotEmpty) return authId;
-      return (row['id'] as String?) ?? profileOrAuthId;
-    } catch (_) {
-      return profileOrAuthId;
+  static UserProfile _userProfileFromRow(Map<String, dynamic> user) {
+    final authId =
+        (user['auth_user_id'] as String?)?.trim().isNotEmpty ?? false
+        ? (user['auth_user_id'] as String).trim()
+        : (user['id'] as String?) ?? '';
+    return UserProfile.fromJson({...user, 'id': authId});
+  }
+
+  static List<UserProfile> _profilesFromRows(
+    List<Map<String, dynamic>> rows, {
+    String? excludeAuthUserId,
+  }) {
+    final results = <UserProfile>[];
+    final seen = <String>{};
+    for (final user in rows) {
+      final authId =
+          (user['auth_user_id'] as String?)?.trim().isNotEmpty ?? false
+          ? (user['auth_user_id'] as String).trim()
+          : (user['id'] as String?) ?? '';
+      if (authId.isEmpty ||
+          authId == excludeAuthUserId ||
+          seen.contains(authId)) {
+        continue;
+      }
+      seen.add(authId);
+      results.add(_userProfileFromRow(user));
     }
+    return results;
   }
 
   static Future<bool> _isBlockedBetween(String userA, String userB) async {
@@ -55,28 +65,16 @@ class FriendshipService {
     try {
       final currentUserId = _supabase.auth.currentUser?.id ?? '';
 
-      final response = await _supabase
-          .from('profiles')
-          .select(
-            'id, auth_user_id, username, first_name, last_name, avatar_url, is_online',
-          )
-          .ilike('username', '%$query%')
-          .limit(25);
+      final rows = await UserProfileService.searchByUsername(query);
 
       final results = <UserProfile>[];
-      for (final raw in response as List<dynamic>) {
-        final user = raw as Map<String, dynamic>;
+      for (final user in rows) {
         final authId =
             (user['auth_user_id'] as String?)?.trim().isNotEmpty ?? false
             ? (user['auth_user_id'] as String).trim()
             : (user['id'] as String?) ?? '';
         if (authId.isEmpty || authId == currentUserId) continue;
-        results.add(
-          UserProfile.fromJson({
-            ...user,
-            'id': authId,
-          }),
-        );
+        results.add(_userProfileFromRow(user));
         if (results.length >= 20) break;
       }
       return results;
@@ -589,47 +587,9 @@ class FriendshipService {
 
       if (blockedIds.isEmpty) return [];
 
-      final byAuth = await _supabase
-          .from('profiles')
-          .select(
-            'id, auth_user_id, username, first_name, last_name, avatar_url, is_online',
-          )
-          .inFilter('auth_user_id', blockedIds);
-
-      final results = <UserProfile>[];
-      final seen = <String>{};
-      for (final raw in byAuth as List<dynamic>) {
-        final map = raw as Map<String, dynamic>;
-        final authId =
-            (map['auth_user_id'] as String?)?.trim().isNotEmpty ?? false
-            ? (map['auth_user_id'] as String).trim()
-            : (map['id'] as String?) ?? '';
-        if (authId.isEmpty || seen.contains(authId)) continue;
-        seen.add(authId);
-        results.add(UserProfile.fromJson({...map, 'id': authId}));
-      }
-
-      final missing = blockedIds.where((id) => !seen.contains(id)).toList();
-      if (missing.isEmpty) return results;
-
-      final byId = await _supabase
-          .from('profiles')
-          .select(
-            'id, auth_user_id, username, first_name, last_name, avatar_url, is_online',
-          )
-          .inFilter('id', missing);
-
-      for (final raw in byId as List<dynamic>) {
-        final map = raw as Map<String, dynamic>;
-        final authId =
-            (map['auth_user_id'] as String?)?.trim().isNotEmpty ?? false
-            ? (map['auth_user_id'] as String).trim()
-            : (map['id'] as String?) ?? '';
-        if (authId.isEmpty || seen.contains(authId)) continue;
-        seen.add(authId);
-        results.add(UserProfile.fromJson({...map, 'id': authId}));
-      }
-      return results;
+      final rows =
+          await UserProfileService.fetchProfilesByIdentifiers(blockedIds);
+      return _profilesFromRows(rows);
     } catch (e) {
       throw Exception('خطا در دریافت لیست کاربران بلاک شده: $e');
     }

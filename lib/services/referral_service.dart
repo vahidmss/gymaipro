@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -9,6 +10,7 @@ class ReferralService {
   ReferralService._internal();
   static final ReferralService _instance = ReferralService._internal();
   final SupabaseClient _client = Supabase.instance.client;
+  final ProfileRepository _profiles = ProfileRepository.instance;
 
   /// ثبت کد معرف هنگام ثبت‌نام
   /// [referrerUsername] نام کاربری شخصی که دعوت کرده است
@@ -18,12 +20,8 @@ class ReferralService {
     required String newUserId,
   }) async {
     try {
-      // بررسی اینکه referrer وجود دارد
-      final referrerProfile = await _client
-          .from('profiles')
-          .select('id, username')
-          .eq('username', referrerUsername)
-          .maybeSingle();
+      final referrerProfile =
+          await _profiles.fetchProfileByUsername(referrerUsername);
 
       if (referrerProfile == null) {
         debugPrint('⚠️ Referrer not found: $referrerUsername');
@@ -32,19 +30,12 @@ class ReferralService {
 
       final referrerId = referrerProfile['id'] as String;
 
-      // بررسی اینکه کاربر خودش را دعوت نکرده باشد
       if (referrerId == newUserId) {
         debugPrint('⚠️ User cannot refer themselves');
         return false;
       }
 
-      // بررسی اینکه کاربر قبلاً کد معرف نداشته باشد
-      final newUserProfile = await _client
-          .from('profiles')
-          .select('referrer_username')
-          .eq('id', newUserId)
-          .maybeSingle();
-
+      final newUserProfile = await _profiles.fetchProfile(newUserId);
       if (newUserProfile != null) {
         final existingReferrer = newUserProfile['referrer_username'] as String?;
         if (existingReferrer != null && existingReferrer.isNotEmpty) {
@@ -53,7 +44,6 @@ class ReferralService {
         }
       }
 
-      // ثبت referral در پروفایل کاربر جدید
       await _client
           .from('profiles')
           .update({
@@ -62,10 +52,7 @@ class ReferralService {
           })
           .eq('id', newUserId);
 
-      // افزایش تعداد referrals کاربر دعوت‌کننده (در پروفایل او در DB ذخیره می‌شود)
       await _incrementReferralCount(referrerId);
-
-      // دستاوردهای invite برای معرف وقتی اپ را باز کند از total_referrals پروفایلش سینک می‌شود (در AchievementService)
 
       debugPrint('✅ Referral registered: $referrerUsername -> $newUserId');
       return true;
@@ -78,25 +65,17 @@ class ReferralService {
   /// افزایش تعداد referrals کاربر
   Future<void> _incrementReferralCount(String userId) async {
     try {
-      // استفاده از RPC یا update با increment
       try {
         await _client.rpc<dynamic>(
           'increment_referral_count',
           params: {'user_id': userId},
         );
       } catch (_) {
-        // اگر RPC وجود نداشت، از روش fallback استفاده می‌کنیم
         throw Exception('RPC not available');
       }
     } catch (e) {
-      // Fallback: استفاده از select + update
       try {
-        final profile = await _client
-            .from('profiles')
-            .select('total_referrals')
-            .eq('id', userId)
-            .maybeSingle();
-
+        final profile = await _profiles.fetchProfile(userId);
         if (profile != null) {
           final currentCount = (profile['total_referrals'] as int?) ?? 0;
           await _client
@@ -141,13 +120,8 @@ class ReferralService {
     try {
       if (username.isEmpty) return false;
 
-      final profile = await _client
-          .from('profiles')
-          .select('id')
-          .eq('username', username)
-          .maybeSingle();
+      final profile = await _profiles.fetchProfileByUsername(username);
 
-      // بررسی اینکه کاربر خودش را دعوت نکند
       final currentUser = _client.auth.currentUser;
       if (currentUser != null && profile != null) {
         final profileId = profile['id'] as String;
@@ -175,15 +149,7 @@ class ReferralService {
       final username = profile['username'] as String?;
       if (username == null || username.isEmpty) return [];
 
-      final response = await _client
-          .from('profiles')
-          .select(
-            'id, username, first_name, last_name, avatar_url, referred_at',
-          )
-          .eq('referrer_username', username)
-          .order('referred_at', ascending: false);
-
-      return List<Map<String, dynamic>>.from(response);
+      return _profiles.fetchProfilesByReferrerUsername(username);
     } catch (e) {
       debugPrint('❌ Error getting referred users: $e');
       return [];

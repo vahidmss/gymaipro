@@ -129,7 +129,7 @@ class _AdminTrainerClientsScreenState extends State<AdminTrainerClientsScreen> {
           padding: EdgeInsets.all(16.w),
           color: isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor,
           child: DropdownButtonFormField<String>(
-            value: _selectedStatusFilter,
+            initialValue: _selectedStatusFilter,
             decoration: InputDecoration(
               labelText: 'فیلتر وضعیت',
               border: OutlineInputBorder(
@@ -153,7 +153,7 @@ class _AdminTrainerClientsScreenState extends State<AdminTrainerClientsScreen> {
         ),
         Expanded(
           child: _isLoading
-              ? Center(
+              ? const Center(
                   child: CircularProgressIndicator(
                     color: AppTheme.goldColor,
                   ),
@@ -231,9 +231,9 @@ class _AdminTrainerClientsScreenState extends State<AdminTrainerClientsScreen> {
                                     PopupMenuItem<void>(
                                       child: Row(
                                         children: [
-                                          Icon(LucideIcons.x, size: 18, color: Colors.red),
+                                          const Icon(LucideIcons.x, size: 18, color: Colors.red),
                                           SizedBox(width: 8.w),
-                                          Text(
+                                          const Text(
                                             'رد کردن',
                                             style: TextStyle(color: Colors.red),
                                           ),
@@ -248,9 +248,9 @@ class _AdminTrainerClientsScreenState extends State<AdminTrainerClientsScreen> {
                                     PopupMenuItem<void>(
                                       child: Row(
                                         children: [
-                                          Icon(LucideIcons.stopCircle, size: 18, color: Colors.orange),
+                                          const Icon(LucideIcons.stopCircle, size: 18, color: Colors.orange),
                                           SizedBox(width: 8.w),
-                                          Text(
+                                          const Text(
                                             'پایان دادن',
                                             style: TextStyle(color: Colors.orange),
                                           ),

@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -37,9 +39,9 @@ class VideoCacheService {
         await _cacheDir!.create(recursive: true);
       }
 
-      print('سرویس کش ویدیو اولیه‌سازی شد: ${_cacheDir!.path}');
+      debugPrint('سرویس کش ویدیو اولیه‌سازی شد: ${_cacheDir!.path}');
     } catch (e) {
-      print('خطا در اولیه‌سازی سرویس کش ویدیو: $e');
+      debugPrint('خطا در اولیه‌سازی سرویس کش ویدیو: $e');
     }
   }
 
@@ -98,14 +100,14 @@ class VideoCacheService {
 
     // جلوگیری از دانلود همزمان همان ویدیو
     if (_downloadingVideos[url] ?? false) {
-      print('ویدیو در حال دانلود است: $url');
+      debugPrint('ویدیو در حال دانلود است: $url');
       return false;
     }
 
     try {
       // بررسی وجود در کش
       if (await isVideoCached(url)) {
-        print('ویدیو قبلاً در کش موجود است: $url');
+        debugPrint('ویدیو قبلاً در کش موجود است: $url');
         return true;
       }
 
@@ -115,7 +117,7 @@ class VideoCacheService {
       final fileName = _getCacheFileName(url);
       final file = File('${_cacheDir!.path}/$fileName');
 
-      print('شروع دانلود ویدیو برای کش: $url');
+      debugPrint('شروع دانلود ویدیو برای کش: $url');
       _downloadingVideos[url] = true;
 
       // دانلود ویدیو با timeout و retry
@@ -128,7 +130,7 @@ class VideoCacheService {
           if (success) break;
         } catch (e) {
           retryCount++;
-          print('تلاش $retryCount ناموفق برای دانلود $url: $e');
+          debugPrint('تلاش $retryCount ناموفق برای دانلود $url: $e');
           if (retryCount < _maxRetries) {
             await Future<void>.delayed(
               Duration(seconds: retryCount * 2),
@@ -141,10 +143,10 @@ class VideoCacheService {
 
       if (success) {
         _accessTimes[url] = DateTime.now();
-        print('ویدیو با موفقیت کش شد: ${file.path}');
+        debugPrint('ویدیو با موفقیت کش شد: ${file.path}');
         return true;
       } else {
-        print('دانلود ویدیو پس از $retryCount تلاش ناموفق بود: $url');
+        debugPrint('دانلود ویدیو پس از $retryCount تلاش ناموفق بود: $url');
         // حذف فایل ناقص
         if (await file.exists()) {
           await file.delete();
@@ -153,7 +155,7 @@ class VideoCacheService {
       }
     } catch (e) {
       _downloadingVideos[url] = false;
-      print('خطا در کش کردن ویدیو: $e');
+      debugPrint('خطا در کش کردن ویدیو: $e');
       return false;
     }
   }
@@ -171,7 +173,7 @@ class VideoCacheService {
             .timeout(_downloadTimeout);
 
         if (headResponse.statusCode != 200) {
-          print('خطا در دریافت اطلاعات فایل: ${headResponse.statusCode}');
+          debugPrint('خطا در دریافت اطلاعات فایل: ${headResponse.statusCode}');
           return false;
         }
 
@@ -181,7 +183,7 @@ class VideoCacheService {
             : null;
 
         if (totalSize != null) {
-          print(
+          debugPrint(
             'اندازه فایل: ${(totalSize / (1024 * 1024)).toStringAsFixed(2)}MB',
           );
         }
@@ -198,13 +200,13 @@ class VideoCacheService {
           // بررسی صحت فایل
           final downloadedSize = await file.length();
           if (totalSize != null && downloadedSize < totalSize * 0.9) {
-            print('فایل ناقص دانلود شده: $downloadedSize از $totalSize');
+            debugPrint('فایل ناقص دانلود شده: $downloadedSize از $totalSize');
             return false;
           }
 
           return true;
         } else {
-          print('خطا در دانلود ویدیو: ${response.statusCode}');
+          debugPrint('خطا در دانلود ویدیو: ${response.statusCode}');
           return false;
         }
       } finally {
@@ -212,9 +214,9 @@ class VideoCacheService {
       }
     } catch (e) {
       if (e is TimeoutException) {
-        print('دانلود ویدیو timeout شد: $url');
+        debugPrint('دانلود ویدیو timeout شد: $url');
       } else {
-        print('خطا در دانلود ویدیو: $e');
+        debugPrint('خطا در دانلود ویدیو: $e');
       }
       return false;
     }
@@ -228,7 +230,7 @@ class VideoCacheService {
     if (_cacheDir == null) return false;
 
     if (_downloadingVideos[url] ?? false) {
-      print('ویدیو در حال دانلود است: $url');
+      debugPrint('ویدیو در حال دانلود است: $url');
       return false;
     }
 
@@ -243,7 +245,7 @@ class VideoCacheService {
       final fileName = _getCacheFileName(url);
       final file = File('${_cacheDir!.path}/$fileName');
 
-      print('شروع دانلود ویدیو با progress tracking: $url');
+      debugPrint('شروع دانلود ویدیو با progress tracking: $url');
       _downloadingVideos[url] = true;
 
       final success = await _downloadVideoWithProgress(url, file, onProgress);
@@ -262,7 +264,7 @@ class VideoCacheService {
       }
     } catch (e) {
       _downloadingVideos[url] = false;
-      print('خطا در کش کردن ویدیو: $e');
+      debugPrint('خطا در کش کردن ویدیو: $e');
       return false;
     }
   }
@@ -285,7 +287,7 @@ class VideoCacheService {
           .timeout(_downloadTimeout);
 
       if (headResponse.statusCode != 200 && headResponse.statusCode != 206) {
-        print('خطا در دریافت اطلاعات فایل: ${headResponse.statusCode}');
+        debugPrint('خطا در دریافت اطلاعات فایل: ${headResponse.statusCode}');
         return false;
       }
 
@@ -296,7 +298,7 @@ class VideoCacheService {
 
       if (totalSize == null || totalSize == 0) {
         // اگر اندازه فایل مشخص نیست، دانلود معمولی
-        print('اندازه فایل مشخص نیست، دانلود معمولی...');
+        debugPrint('اندازه فایل مشخص نیست، دانلود معمولی...');
         final response = await client
             .get(Uri.parse(url))
             .timeout(_downloadTimeout);
@@ -335,7 +337,7 @@ class VideoCacheService {
         return false;
       }
 
-      print(
+      debugPrint(
         'شروع دانلود ویدیو - اندازه: ${(totalSize / (1024 * 1024)).toStringAsFixed(2)}MB',
       );
 
@@ -373,19 +375,19 @@ class VideoCacheService {
         // بررسی صحت فایل
         final finalSize = await file.length();
         if (finalSize < totalSize * 0.95) {
-          print('فایل ناقص دانلود شده: $finalSize از $totalSize');
+          debugPrint('فایل ناقص دانلود شده: $finalSize از $totalSize');
           onProgress(0); // Reset progress on failure
           return false;
         }
 
         onProgress(1);
-        print('دانلود کامل شد: $finalSize بایت');
+        debugPrint('دانلود کامل شد: $finalSize بایت');
         return true;
       }
 
       return false;
     } catch (e) {
-      print('خطا در دانلود با progress: $e');
+      debugPrint('خطا در دانلود با progress: $e');
       return false;
     } finally {
       await sink?.close();
@@ -411,7 +413,7 @@ class VideoCacheService {
 
       // اگر اندازه کش از حد مجاز بیشتر است
       if (totalSize > _maxCacheSize) {
-        print(
+        debugPrint(
           'پاک‌سازی کش ویدیو - اندازه فعلی: ${totalSize ~/ (1024 * 1024)}MB',
         );
 
@@ -436,10 +438,10 @@ class VideoCacheService {
           _accessTimes.remove(url);
         }
 
-        print('کش پاک‌سازی شد - اندازه جدید: ${totalSize ~/ (1024 * 1024)}MB');
+        debugPrint('کش پاک‌سازی شد - اندازه جدید: ${totalSize ~/ (1024 * 1024)}MB');
       }
     } catch (e) {
-      print('خطا در پاک‌سازی کش: $e');
+      debugPrint('خطا در پاک‌سازی کش: $e');
     }
   }
 
@@ -465,7 +467,7 @@ class VideoCacheService {
 
       return totalSize;
     } catch (e) {
-      print('خطا در محاسبه اندازه کش: $e');
+      debugPrint('خطا در محاسبه اندازه کش: $e');
       return 0;
     }
   }
@@ -482,9 +484,9 @@ class VideoCacheService {
       }
 
       _accessTimes.clear();
-      print('کش ویدیو کاملاً پاک شد');
+      debugPrint('کش ویدیو کاملاً پاک شد');
     } catch (e) {
-      print('خطا در پاک‌سازی کامل کش: $e');
+      debugPrint('خطا در پاک‌سازی کامل کش: $e');
     }
   }
 
@@ -496,7 +498,7 @@ class VideoCacheService {
       final files = await _cacheDir!.list().toList();
       return files.whereType<File>().length;
     } catch (e) {
-      print('خطا در شمارش فایل‌های کش: $e');
+      debugPrint('خطا در شمارش فایل‌های کش: $e');
       return 0;
     }
   }
@@ -513,13 +515,13 @@ class VideoCacheService {
         await file.delete();
         _accessTimes.remove(url);
         _downloadingVideos.remove(url);
-        print('ویدیو از کش حذف شد: $url');
+        debugPrint('ویدیو از کش حذف شد: $url');
         return true;
       }
 
       return false;
     } catch (e) {
-      print('خطا در حذف ویدیو از کش: $e');
+      debugPrint('خطا در حذف ویدیو از کش: $e');
       return false;
     }
   }

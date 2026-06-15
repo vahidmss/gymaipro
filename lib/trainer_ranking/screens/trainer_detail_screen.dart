@@ -11,6 +11,7 @@ import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/payment/widgets/purchase_success_dialog.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_ranking/models/certificate.dart';
 import 'package:gymaipro/trainer_ranking/models/trainer_ranking_model.dart'
@@ -356,13 +357,8 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         return;
       }
 
-      final json = await Supabase.instance.client
-          .from('profiles')
-          .select(
-            'monthly_training_cost, monthly_diet_cost, package_discount_pct, service_training_enabled, service_diet_enabled, service_consulting_enabled',
-          )
-          .eq('id', widget.trainer.id!)
-          .maybeSingle();
+      final json =
+          await ProfileRepository.instance.fetchProfile(widget.trainer.id!);
       if (mounted) {
         SafeSetState.call(this, () {
           _trainingCost = (json?['monthly_training_cost'] as num?) ?? 0;

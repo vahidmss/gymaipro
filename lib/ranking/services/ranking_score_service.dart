@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:gymaipro/ranking/models/league.dart';
 import 'package:gymaipro/ranking/models/ranking_score_breakdown.dart';
 import 'package:gymaipro/ranking/services/activity_tracking_service.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/streak_service.dart';
+import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// سرویس محاسبه امتیاز رتبه‌بندی بر اساس فعالیت‌های خودکار
@@ -136,38 +138,27 @@ class RankingScoreService {
     if (userIdOrProfileId.isEmpty) return null;
     final currentAuthId = _client.auth.currentUser?.id;
     try {
-      final profile = await _client
-          .from('profiles')
-          .select('id, auth_user_id')
-          .eq('id', userIdOrProfileId)
-          .maybeSingle();
+      final profile = await UserProfileService.fetchProfile(userIdOrProfileId);
       if (profile != null) {
-        final authUserId = profile['auth_user_id'];
-        final authStr = authUserId != null ? authUserId.toString().trim() : '';
+        final authStr = (profile['auth_user_id'] as String?)?.trim() ?? '';
         if (authStr.isNotEmpty) return authStr;
         final profileId = profile['id']?.toString() ?? '';
         if (profileId.isEmpty) return userIdOrProfileId;
         if (currentAuthId != null) {
-          final currentProfile = await _client
-              .from('profiles')
-              .select('id')
-              .or('id.eq.$currentAuthId,auth_user_id.eq.$currentAuthId')
-              .maybeSingle();
+          final currentProfile = await SimpleProfileService.getCurrentProfile();
           final currentProfileId = currentProfile?['id']?.toString();
           if (currentProfileId == profileId) return currentAuthId;
         }
         return profileId;
       }
-      if (currentAuthId != null && userIdOrProfileId == currentAuthId) return currentAuthId;
-      final byAuth = await _client
-          .from('profiles')
-          .select('id')
-          .eq('auth_user_id', userIdOrProfileId)
-          .maybeSingle();
-      if (byAuth != null) return userIdOrProfileId;
+      if (currentAuthId != null && userIdOrProfileId == currentAuthId) {
+        return currentAuthId;
+      }
       return userIdOrProfileId;
     } catch (_) {
-      if (currentAuthId != null && userIdOrProfileId == currentAuthId) return currentAuthId;
+      if (currentAuthId != null && userIdOrProfileId == currentAuthId) {
+        return currentAuthId;
+      }
       return userIdOrProfileId;
     }
   }
@@ -205,19 +196,10 @@ class RankingScoreService {
   /// فقط برای ورزشکاران (athletes) اجرا می‌شود - مربیان حذف می‌شوند
   Future<void> updateUserScore(String userId) async {
     try {
-      // چک کن که کاربر athlete باشه
-      final profile = await _client
-          .from('profiles')
-          .select('role')
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (profile == null) return;
-
-      final role = (profile['role'] ?? 'athlete').toString();
+      final role = await UserProfileService.getUserRole(userId);
       if (role != 'athlete') {
         debugPrint('⚠️ Skipping score update for non-athlete user: $userId (role: $role)');
-        return; // فقط برای athletes
+        return;
       }
 
       final totalScore = await calculateTotalScore(userId);

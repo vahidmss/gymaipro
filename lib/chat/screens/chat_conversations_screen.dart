@@ -11,6 +11,7 @@ import 'package:gymaipro/chat/services/chat_unread_sync_bus.dart';
 import 'package:gymaipro/chat/widgets/chat_hub_ui.dart';
 import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
 import 'package:gymaipro/my_club/services/friendship_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
@@ -141,6 +142,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen>
       final msg = isOffline
           ? 'اتصال اینترنت برقرار نیست. لطفاً اینترنت را بررسی کنید.'
           : 'خطا در بارگذاری گفتگوها. لطفاً دوباره تلاش کنید.';
+      if (!mounted) return;
       WidgetSafetyUtils.safeShowSnackBar(context, msg);
     }
   }
@@ -775,6 +777,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen>
     try {
       await FriendshipService.blockUser(otherUserId);
 
+      if (!mounted) return;
       SafeSetState.call(this, () {
         _conversations.removeWhere((c) => c.id == conversation.id);
         _filterConversations();
@@ -785,6 +788,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen>
         'کاربر "$otherUserName" بلاک شد و گفتگو حذف شد',
       );
     } catch (e) {
+      if (!mounted) return;
       WidgetSafetyUtils.safeShowSnackBar(
         context,
         'خطا در بلاک کردن کاربر: $e',
@@ -844,6 +848,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen>
 
     try {
       await _chatService.deleteConversation(conversation.id);
+      if (!mounted) return;
       // حذف از لیست‌های داخلی و رفرش UI
       SafeSetState.call(this, () {
         _conversations.removeWhere((c) => c.id == conversation.id);
@@ -855,6 +860,7 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen>
         'گفتگو با موفقیت حذف شد',
       );
     } catch (e) {
+      if (!mounted) return;
       WidgetSafetyUtils.safeShowSnackBar(
         context,
         'خطا در حذف گفتگو: $e',
@@ -894,19 +900,8 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen>
   }
 
   // بارگذاری آواتار کاربر
-  Future<String?> _loadUserAvatar(String userId) async {
-    try {
-      final response = await Supabase.instance.client
-          .from('profiles')
-          .select('avatar_url')
-          .or('id.eq.$userId,auth_user_id.eq.$userId')
-          .maybeSingle();
-
-      return response?['avatar_url'] as String?;
-    } catch (_) {
-      return null;
-    }
-  }
+  Future<String?> _loadUserAvatar(String userId) =>
+      ProfileRepository.instance.getUserAvatar(userId);
 
   // پیش‌لود نام و نقش کاربرانِ طرف مکالمه‌ها تا بدون فلیکر نمایش داده شوند
   Future<void> _preloadUserMeta(List<ChatConversation> conversations) async {
@@ -920,38 +915,18 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen>
       }
       if (userIds.isEmpty) return;
 
-      final response = await Supabase.instance.client
-          .from('profiles')
-          .select(
-            'auth_user_id, first_name, last_name, username, phone_number, role',
-          )
-          .inFilter('auth_user_id', userIds.toList());
+      final profiles = await ProfileRepository.instance.fetchProfilesByAuthUserIds(
+        userIds.toList(),
+      );
 
-      for (final row in response) {
+      for (final row in profiles) {
         final authUserId = (row['auth_user_id'] as String?)?.trim();
         if (authUserId == null || authUserId.isEmpty) continue;
 
-        final firstName = (row['first_name'] as String? ?? '').trim();
-        final lastName = (row['last_name'] as String? ?? '').trim();
-        final username = (row['username'] as String? ?? '').trim();
-        final phone = (row['phone_number'] as String? ?? '').trim();
-
-        String name;
-        if (firstName.isNotEmpty && lastName.isNotEmpty) {
-          name = '$firstName $lastName';
-        } else if (firstName.isNotEmpty) {
-          name = firstName;
-        } else if (lastName.isNotEmpty) {
-          name = lastName;
-        } else if (username.isNotEmpty) {
-          name = username;
-        } else if (phone.isNotEmpty) {
-          name = phone.length > 7 ? phone.replaceRange(0, 7, '***') : phone;
-        } else {
-          name = 'کاربر';
-        }
-
-        _nameCache[authUserId] = name;
+        _nameCache[authUserId] = ProfileRepository.instance.displayNameFromMap(
+          row,
+          fallback: 'کاربر',
+        );
 
         final role = (row['role'] as String?)?.trim();
         if (role != null && role.isNotEmpty) {

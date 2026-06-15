@@ -46,7 +46,7 @@ class _TopRankingsSectionState extends State<TopRankingsSection> {
     try {
       final results = await Future.wait<dynamic>([
         _rankingService.getGlobalLeaderboard(limit: 3),
-        _trainerService.getTopTrainersByLeagueScores(limit: 3, candidatePool: 40),
+        _trainerService.getTopTrainersByLeagueScores(),
       ]);
 
       if (!mounted) return;

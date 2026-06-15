@@ -30,7 +30,7 @@ class DailyNutritionChartMealPlanBuilder extends StatelessWidget {
       return Container(
         padding: EdgeInsets.all(20.w),
         decoration: BoxDecoration(
-          color: AppTheme.cardColor,
+          color: context.cardColor,
           borderRadius: BorderRadius.circular(16.r),
           border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.12)),
         ),
@@ -45,7 +45,7 @@ class DailyNutritionChartMealPlanBuilder extends StatelessWidget {
             Text(
               'هیچ غذایی اضافه نشده',
               style: TextStyle(
-                color: AppTheme.textColor.withValues(alpha: 0.7),
+                color: context.textColor.withValues(alpha: 0.7),
                 fontSize: 16,
               ),
             ),
@@ -101,7 +101,7 @@ class DailyNutritionChartMealPlanBuilder extends StatelessWidget {
                 child: Text(
                   'خلاصه تغذیه روزانه',
                   style: TextStyle(
-                    color: AppTheme.textColor,
+                    color: context.textColor,
                     fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
                   ),
@@ -127,7 +127,7 @@ class DailyNutritionChartMealPlanBuilder extends StatelessWidget {
                           titleStyle: TextStyle(
                             fontSize: 12.sp,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.textColor,
+                            color: context.textColor,
                           ),
                         ),
                         PieChartSectionData(
@@ -138,7 +138,7 @@ class DailyNutritionChartMealPlanBuilder extends StatelessWidget {
                           titleStyle: TextStyle(
                             fontSize: 12.sp,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.textColor,
+                            color: context.textColor,
                           ),
                         ),
                         PieChartSectionData(
@@ -149,7 +149,7 @@ class DailyNutritionChartMealPlanBuilder extends StatelessWidget {
                           titleStyle: TextStyle(
                             fontSize: 12.sp,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.textColor,
+                            color: context.textColor,
                           ),
                         ),
                       ],
@@ -180,7 +180,7 @@ class DailyNutritionChartMealPlanBuilder extends StatelessWidget {
                           Text(
                             totalCalories.toStringAsFixed(0),
                             style: TextStyle(
-                              color: AppTheme.textColor,
+                              color: context.textColor,
                               fontSize: 24.sp,
                               fontWeight: FontWeight.bold,
                             ),

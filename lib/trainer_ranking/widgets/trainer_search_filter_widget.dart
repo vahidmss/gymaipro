@@ -60,7 +60,7 @@ class _TrainerSearchFilterWidgetState extends State<TrainerSearchFilterWidget> {
           TextField(
             controller: widget.searchController,
             onChanged: widget.onSearchChanged,
-            style: TextStyle(
+            style: const TextStyle(
     fontFamily: AppTheme.fontFamily,color: Colors.white),
             decoration: InputDecoration(
               hintText: 'جستجوی مربی...',
@@ -109,7 +109,7 @@ class _TrainerSearchFilterWidgetState extends State<TrainerSearchFilterWidget> {
                     _showFilters ? LucideIcons.chevronUp : LucideIcons.filter,
                     color: Colors.white,
                   ),
-                  label: Text(
+                  label: const Text(
                     'فیلترها',
                     style: TextStyle(
     fontFamily: AppTheme.fontFamily,color: Colors.white),
@@ -126,7 +126,7 @@ class _TrainerSearchFilterWidgetState extends State<TrainerSearchFilterWidget> {
               ElevatedButton.icon(
                 onPressed: _clearFilters,
                 icon: const Icon(LucideIcons.refreshCw, color: Colors.white),
-                label: Text(
+                label: const Text(
                   'پاک کردن',
                   style: TextStyle(
     fontFamily: AppTheme.fontFamily,color: Colors.white),

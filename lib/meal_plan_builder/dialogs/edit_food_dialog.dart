@@ -76,7 +76,7 @@ class _EditFoodDialogState extends State<EditFoodDialog> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _selectedUnit,
+                      initialValue: _selectedUnit,
                       decoration: InputDecoration(
                         labelText: 'واحد',
                         labelStyle: TextStyle(
@@ -197,11 +197,11 @@ class _EditFoodDialogState extends State<EditFoodDialog> {
                     child: OutlinedButton(
                       onPressed: () => Navigator.of(context).pop(),
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: AppTheme.goldColor),
+                        side: const BorderSide(color: AppTheme.goldColor),
                         foregroundColor: AppTheme.goldColor,
                         padding: EdgeInsets.symmetric(vertical: 12.h),
                       ),
-                      child: Text(
+                      child: const Text(
                         'انصراف',
                         style: TextStyle(fontFamily: AppTheme.fontFamily),
                       ),
@@ -224,7 +224,7 @@ class _EditFoodDialogState extends State<EditFoodDialog> {
                           ).pop({'amount': newAmount, 'unit': _selectedUnit});
                         }
                       },
-                      child: Text(
+                      child: const Text(
                         'تأیید',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,

@@ -297,7 +297,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _selectedRoleFilter,
+                      initialValue: _selectedRoleFilter,
                       decoration: InputDecoration(
                         labelText: 'فیلتر نقش',
                         border: OutlineInputBorder(
@@ -326,7 +326,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         // لیست کاربران
         Expanded(
           child: _isLoading && _users.isEmpty
-              ? Center(
+              ? const Center(
                   child: CircularProgressIndicator(
                     color: AppTheme.goldColor,
                   ),
@@ -352,7 +352,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                             return Center(
                               child: Padding(
                                 padding: EdgeInsets.all(16.w),
-                                child: CircularProgressIndicator(
+                                child: const CircularProgressIndicator(
                                   color: AppTheme.goldColor,
                                 ),
                               ),
@@ -379,7 +379,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
           child: Text(
             user.username.isNotEmpty ? user.username[0].toUpperCase() : 'U',
-            style: TextStyle(
+            style: const TextStyle(
               color: AppTheme.goldColor,
               fontWeight: FontWeight.bold,
             ),
@@ -441,9 +441,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             PopupMenuItem<void>(
               child: Row(
                 children: [
-                  Icon(LucideIcons.trash2, size: 18, color: Colors.red),
+                  const Icon(LucideIcons.trash2, size: 18, color: Colors.red),
                   SizedBox(width: 8.w),
-                  Text(
+                  const Text(
                     'حذف اکانت',
                     style: TextStyle(color: Colors.red),
                   ),

@@ -121,7 +121,6 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
                 ? null
                 : _imageUrlController.text.trim(),
           );
-          break;
         case 'inactive_7d':
           result = await _broadcastService.sendToInactiveUsers(
             title: _titleController.text.trim(),
@@ -131,7 +130,6 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
                 ? null
                 : _imageUrlController.text.trim(),
           );
-          break;
         case 'topic':
           result = await _broadcastService.sendToTopic(
             topic: _topicController.text.trim(),
@@ -142,7 +140,6 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
                 ? null
                 : _imageUrlController.text.trim(),
           );
-          break;
         default:
           result = {'success': false, 'error': 'نوع ارسال نامعتبر'};
       }
@@ -308,7 +305,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(color: AppTheme.goldColor, width: 2),
+                borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
               ),
             ),
           ),
@@ -355,7 +352,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(color: AppTheme.goldColor, width: 2),
+                borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
               ),
             ),
           ),
@@ -497,7 +494,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
                   ? SizedBox(
                       width: 24.w,
                       height: 24.w,
-                      child: CircularProgressIndicator(
+                      child: const CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(
                           AppTheme.onGoldColor,
@@ -657,7 +654,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
 
   Widget _buildHistoryTab(bool isDark) {
     if (_isLoadingHistory) {
-      return Center(
+      return const Center(
         child: CircularProgressIndicator(color: AppTheme.goldColor),
       );
     }

@@ -7,6 +7,7 @@ import 'package:gymaipro/payment/models/wallet.dart';
 import 'package:gymaipro/payment/services/commission_service.dart';
 import 'package:gymaipro/payment/utils/card_encryption_helper.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// سرویس مدیریت درخواست‌های برداشت
@@ -170,12 +171,10 @@ class PayoutService {
 
       // ارسال اعلان به ادمین‌ها
       try {
-        final adminProfiles = await _client
-            .from('profiles')
-            .select('id')
-            .eq('role', 'admin');
+        final adminProfiles =
+            await ProfileRepository.instance.fetchProfilesByRole('admin');
 
-        for (final admin in (adminProfiles as List<dynamic>)) {
+        for (final admin in adminProfiles) {
           final adminId = admin['id'] as String?;
           if (adminId != null) {
             await NotificationDataService.createNotification(

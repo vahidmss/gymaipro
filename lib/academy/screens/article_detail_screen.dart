@@ -10,6 +10,7 @@ import 'package:gymaipro/academy/widgets/article_image.dart';
 import 'package:gymaipro/academy/widgets/comment_card.dart';
 import 'package:gymaipro/academy/widgets/comment_form.dart';
 import 'package:gymaipro/academy/widgets/rating_stars.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/ranking/services/ranking_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
@@ -116,15 +117,17 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         .toSet()
         .toList();
     if (ids.isEmpty) return;
-    final rows = await Supabase.instance.client
-        .from('profiles')
-        .select('id, username, first_name, last_name, avatar_url')
-        .inFilter('id', ids);
+    final rows = await ProfileRepository.instance.fetchProfilesByIdentifiers(ids);
     final map = <String, Map<String, dynamic>>{};
-    for (final r in (rows as List)) {
-      final m = r as Map<String, dynamic>;
-      final id = (m['id'] ?? '').toString();
-      if (id.isNotEmpty) map[id] = m;
+    for (final row in rows) {
+      final profileId = row['id']?.toString();
+      final authId = row['auth_user_id']?.toString();
+      if (profileId != null && profileId.isNotEmpty) {
+        map[profileId] = row;
+      }
+      if (authId != null && authId.isNotEmpty) {
+        map[authId] = row;
+      }
     }
     _profilesByUserId = map;
   }
@@ -147,7 +150,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
       if (user == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text(
               'برای ثبت نظر وارد شوید',
               maxLines: 2,
@@ -237,7 +240,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           ),
         ),
         body: _loadingStats
-            ? Center(
+            ? const Center(
                 child: CircularProgressIndicator(color: AppTheme.goldColor),
               )
             : SingleChildScrollView(
@@ -290,7 +293,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                                   ),
                                   blurRadius: 12.r,
                                   offset: Offset(0, 4.h),
-                                  spreadRadius: 0,
                                 ),
                               ],
                             ),
@@ -415,7 +417,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                                               await ArticleReadSupabaseService.markAsRead(
                                                 widget.article.id,
                                               );
-                                              if (!mounted) return;
+                                              if (!context.mounted) return;
                                               setState(() {
                                                 _isRead = true;
                                                 _markedReadLocally = true;
@@ -425,8 +427,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                                               ScaffoldMessenger.of(
                                                 context,
                                               ).showSnackBar(
-                                                SnackBar(
-                                                  content: const Row(
+                                                const SnackBar(
+                                                  content: Row(
                                                     children: [
                                                       Icon(
                                                         LucideIcons
@@ -453,7 +455,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                                                 ),
                                               );
                                             } catch (e) {
-                                              if (!mounted) return;
+                                              if (!context.mounted) return;
                                               ScaffoldMessenger.of(
                                                 context,
                                               ).showSnackBar(
@@ -565,7 +567,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     }
 
     // Card container برای کل بخش نظرات
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: context.cardColor,
         borderRadius: BorderRadius.circular(12.r),
@@ -611,7 +613,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
             SizedBox(height: 8.h),
             if (_comments.isEmpty)
               Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Icon(
                     LucideIcons.info,

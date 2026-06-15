@@ -26,9 +26,9 @@ class ProgramTypeSelectionScreen extends StatelessWidget {
             elevation: 0,
           ),
         ),
-        child: Container(
+        child: DecoratedBox(
           decoration: isDark
-              ? null
+              ? const BoxDecoration()
               : BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -231,7 +231,7 @@ class ProgramTypeSelectionScreen extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14.r),
-        child: Container(
+        child: DecoratedBox(
           decoration: BoxDecoration(
             color: isDark ? context.cardColor : Colors.white,
             borderRadius: BorderRadius.circular(14.r),
@@ -248,7 +248,6 @@ class ProgramTypeSelectionScreen extends StatelessWidget {
                     : Colors.black.withValues(alpha: 0.04),
                 blurRadius: 8.r,
                 offset: Offset(0.w, 2.h),
-                spreadRadius: 0,
               ),
             ],
           ),

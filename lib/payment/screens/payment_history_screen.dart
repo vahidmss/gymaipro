@@ -68,8 +68,9 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
     if (_selectedType != null) {
       if (_selectedType == WalletTransactionType.payment) {
         combined = combined.where((e) {
-          if (e.wallet != null)
+          if (e.wallet != null) {
             return e.wallet!.type == WalletTransactionType.payment;
+          }
           if (e.payment != null) return true; // همهٔ پرداخت‌های درگاهی
           return false;
         }).toList();
@@ -99,7 +100,6 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
       );
       final paymentList = await _paymentHistoryService.getDirectPayments(
         limit: 100,
-        offset: 0,
       );
 
       if (mounted) {
@@ -218,7 +218,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
           ],
         ),
         body: _isLoading
-            ? Center(
+            ? const Center(
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(AppTheme.goldColor),
                 ),
@@ -316,7 +316,6 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
               iconEnabledColor: AppTheme.goldColor,
               items: [
                 const DropdownMenuItem<WalletTransactionType?>(
-                  value: null,
                   child: Text('همه'),
                 ),
                 ...WalletTransactionType.values.map(
@@ -1045,7 +1044,6 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                       borderRadius: BorderRadius.circular(8.r),
                       border: Border.all(
                         color: amountColor.withValues(alpha: 0.25),
-                        width: 1,
                       ),
                     ),
                     child: Text(

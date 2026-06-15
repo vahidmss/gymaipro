@@ -59,7 +59,7 @@ class _ProgressAnalysisHistoryScreenState
           SnackBar(
             content: Text(
               'خطا در بارگذاری تحلیل‌ها: $e',
-              style: TextStyle(fontFamily: AppTheme.fontFamily),
+              style: const TextStyle(fontFamily: AppTheme.fontFamily),
             ),
             backgroundColor: Colors.red,
           ),
@@ -93,7 +93,7 @@ class _ProgressAnalysisHistoryScreenState
       ),
       body: SafeArea(
         child: _isLoading
-            ? Center(
+            ? const Center(
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(AppTheme.goldColor),
                 ),

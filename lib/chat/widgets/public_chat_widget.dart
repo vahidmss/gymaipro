@@ -38,6 +38,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
   bool _isAdmin = false;
   List<PublicChatMessage> _messages = [];
   late Stream<PublicChatMessage> _subscription;
+  StreamSubscription<PublicChatMessage>? _messageSub;
 
   // برای مدیریت اسکرول و کیبورد
   Timer? _scrollDebounceTimer;
@@ -75,7 +76,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
 
   void _setupSubscription() {
     _subscription = _service.subscribeMessages();
-    _subscription.listen(
+    _messageSub = _subscription.listen(
       (msg) {
         // اگر پیام به‌روزرسانی شده و حذف شده باشد، آن را از لیست همه کاربران حذف کن (real-time delete)
         if (msg.isDeleted) {
@@ -184,9 +185,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
           final position = _scrollController.position;
           if (position.isScrollingNotifier.value) {
             // اگر در حال اسکرول است، صبر کن
-            _scrollDebounceTimer = Timer(const Duration(milliseconds: 100), () {
-              _scrollToBottom();
-            });
+            _scrollDebounceTimer = Timer(const Duration(milliseconds: 100), _scrollToBottom);
             return;
           }
 
@@ -303,7 +302,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
             content: Text(
               // فقط متن خطا، بدون "Exception:"
               errorText.isEmpty ? 'خطا در ارسال پیام' : errorText,
-              style: TextStyle(fontFamily: AppTheme.fontFamily),
+              style: const TextStyle(fontFamily: AppTheme.fontFamily),
             ),
             backgroundColor: context.cardColor,
             // برای خطای بلاک، فقط دکمه بستن (بدون تلاش مجدد)
@@ -342,6 +341,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _messageSub?.cancel();
     _scrollDebounceTimer?.cancel();
     _focusNode.removeListener(_onFocusChange);
     _controller.dispose();
@@ -388,7 +388,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
                   subtitle: 'پیام‌های اخیر همگانی از سرور می‌آید',
                 )
               : _messages.isEmpty
-                  ? ChatHubEmptyView(
+                  ? const ChatHubEmptyView(
                       icon: LucideIcons.messagesSquare,
                       title: 'اتاق هنوز ساکت است',
                       subtitle:
@@ -399,7 +399,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
                       color: AppTheme.goldColor,
                       edgeOffset: 8,
                       child: GestureDetector(
-                        onTap: () => _focusNode.unfocus(),
+                        onTap: _focusNode.unfocus,
                         behavior: HitTestBehavior.translucent,
                         child: ListView.builder(
                           controller: _scrollController,
@@ -905,7 +905,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
   }
 
   Widget _buildAvatarFallback(String name) {
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(colors: context.goldGradientColors),
         shape: BoxShape.circle,
@@ -977,7 +977,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
+      builder: (context) => DecoratedBox(
         decoration: BoxDecoration(
           color: context.cardColor,
           borderRadius: BorderRadius.only(
@@ -1134,8 +1134,8 @@ class PublicChatWidgetState extends State<PublicChatWidget>
     final senderId = msg.senderId;
     if (senderId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('شناسه فرستنده برای بلاک کردن پیدا نشد'),
+        const SnackBar(
+          content: Text('شناسه فرستنده برای بلاک کردن پیدا نشد'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -1228,10 +1228,10 @@ class PublicChatWidgetState extends State<PublicChatWidget>
                 controller: reasonController,
                 maxLines: 4,
                 textDirection: TextDirection.rtl,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'متن پیام / دلیل بلاک',
                   alignLabelWithHint: true,
-                  border: const OutlineInputBorder(),
+                  border: OutlineInputBorder(),
                 ),
               ),
             ],
@@ -1256,7 +1256,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
                 borderRadius: BorderRadius.circular(8.r),
               ),
             ),
-            child: Text(
+            child: const Text(
               'مسدود کن',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
@@ -1280,16 +1280,16 @@ class PublicChatWidgetState extends State<PublicChatWidget>
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('کاربر در چت عمومی مسدود شد'),
+        const SnackBar(
+          content: Text('کاربر در چت عمومی مسدود شد'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('خطا در مسدود کردن کاربر'),
+        const SnackBar(
+          content: Text('خطا در مسدود کردن کاربر'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -1355,7 +1355,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
                 borderRadius: BorderRadius.circular(8.r),
               ),
             ),
-            child: Text(
+            child: const Text(
               'حذف',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
@@ -1400,7 +1400,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
                   size: 20.sp,
                 ),
                 SizedBox(width: 12.w),
-                Text(
+                const Text(
                   'پیام با موفقیت حذف شد',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
@@ -1432,7 +1432,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
                 Expanded(
                   child: Text(
                     'خطا در حذف پیام: $e',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       color: Colors.white,
                     ),

@@ -377,6 +377,7 @@ class _FoodListScreenState extends State<FoodListScreen> {
           decoration: context.pageDecoration,
           child: Scaffold(
             backgroundColor: context.backgroundColor,
+            // ui-health: keyboard-inset-ok — search bar only; list stays full height
             resizeToAvoidBottomInset: false,
             appBar: AppBar(
               backgroundColor: context.backgroundColor,

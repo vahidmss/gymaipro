@@ -201,13 +201,11 @@ class _AdminProgramsScreenState extends State<AdminProgramsScreen>
             controller: _tabController,
             children: [
               // تب برنامه‌های تمرینی
-              _isLoading
-                  ? Center(
+              if (_isLoading) const Center(
                       child: CircularProgressIndicator(
                         color: AppTheme.goldColor,
                       ),
-                    )
-                  : _workoutPrograms.isEmpty
+                    ) else _workoutPrograms.isEmpty
                       ? Center(
                           child: Text(
                             'برنامه تمرینی یافت نشد',
@@ -285,10 +283,10 @@ class _AdminProgramsScreenState extends State<AdminProgramsScreen>
                                             PopupMenuItem<void>(
                                               child: Row(
                                                 children: [
-                                                  Icon(LucideIcons.trash2,
+                                                  const Icon(LucideIcons.trash2,
                                                       size: 18, color: Colors.red),
                                                   SizedBox(width: 8.w),
-                                                  Text(
+                                                  const Text(
                                                     'حذف',
                                                     style: TextStyle(color: Colors.red),
                                                   ),
@@ -307,8 +305,7 @@ class _AdminProgramsScreenState extends State<AdminProgramsScreen>
                           ),
                         ),
               // تب برنامه‌های رژیمی
-              _mealPlans.isEmpty
-                  ? Center(
+              if (_mealPlans.isEmpty) Center(
                       child: Text(
                         'برنامه رژیمی یافت نشد',
                         style: TextStyle(
@@ -317,8 +314,7 @@ class _AdminProgramsScreenState extends State<AdminProgramsScreen>
                               : AppTheme.lightTextSecondary,
                         ),
                       ),
-                    )
-                  : RefreshIndicator(
+                    ) else RefreshIndicator(
                       onRefresh: _loadMealPlans,
                       color: AppTheme.goldColor,
                       child: ListView.builder(
@@ -398,10 +394,10 @@ class _AdminProgramsScreenState extends State<AdminProgramsScreen>
                                         PopupMenuItem<void>(
                                           child: Row(
                                             children: [
-                                              Icon(LucideIcons.trash2,
+                                              const Icon(LucideIcons.trash2,
                                                   size: 18, color: Colors.red),
                                               SizedBox(width: 8.w),
-                                              Text(
+                                              const Text(
                                                 'حذف',
                                                 style: TextStyle(color: Colors.red),
                                               ),

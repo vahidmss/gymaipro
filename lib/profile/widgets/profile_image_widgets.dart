@@ -24,7 +24,6 @@ class ProfileImageWidgets {
               borderRadius: BorderRadius.circular(12.r),
               border: Border.all(
                 color: AppTheme.goldColor.withValues(alpha: 0.3),
-                width: 1,
               ),
             ),
             child: Column(
@@ -103,6 +102,7 @@ class ProfileImageWidgets {
       );
 
       if (image != null) {
+        if (!context.mounted) return;
         // Crop the image
         // Crop the image to circle
         final croppedFile = await _cropImage(image.path, context);
@@ -130,7 +130,6 @@ class ProfileImageWidgets {
               borderRadius: BorderRadius.circular(12.r),
               side: BorderSide(
                 color: AppTheme.errorColor.withValues(alpha: 0.3),
-                width: 1,
               ),
             ),
           ),
@@ -199,7 +198,6 @@ class ProfileImageWidgets {
               borderRadius: BorderRadius.circular(12.r),
               side: BorderSide(
                 color: AppTheme.errorColor.withValues(alpha: 0.3),
-                width: 1,
               ),
             ),
           ),

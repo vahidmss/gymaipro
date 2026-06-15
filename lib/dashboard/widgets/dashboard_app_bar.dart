@@ -277,7 +277,7 @@ class _AppBarAvatarButtonState extends State<_AppBarAvatarButton> {
                       fit: BoxFit.cover,
                       memCacheWidth: 80,
                       memCacheHeight: 80,
-                      placeholder: (context, url) => Container(
+                      placeholder: (context, url) => ColoredBox(
                         color: AppTheme.goldColor.withValues(alpha: 0.1),
                         child: Icon(
                           LucideIcons.user,
@@ -285,7 +285,7 @@ class _AppBarAvatarButtonState extends State<_AppBarAvatarButton> {
                           size: 20.sp,
                         ),
                       ),
-                      errorWidget: (context, url, error) => Container(
+                      errorWidget: (context, url, error) => ColoredBox(
                         color: AppTheme.goldColor.withValues(alpha: 0.1),
                         child: Icon(
                           LucideIcons.user,
@@ -295,7 +295,7 @@ class _AppBarAvatarButtonState extends State<_AppBarAvatarButton> {
                       ),
                     ),
                   )
-                : Container(
+                : DecoratedBox(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: AppTheme.goldColor.withValues(alpha: 0.1),

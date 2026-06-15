@@ -34,13 +34,13 @@ class PaymentResumeTracker {
       final status = (session['status'] as String?)?.toLowerCase() ?? '';
       if (status == 'completed') {
         await _walletService.refreshUserWallet();
-        final result = PaymentResumeResult.success;
+        const result = PaymentResumeResult.success;
         onResult?.call(result);
         clear();
         return result;
       }
       if (status == 'failed' || status == 'cancelled') {
-        final result = PaymentResumeResult.failed;
+        const result = PaymentResumeResult.failed;
         onResult?.call(result);
         clear();
         return result;

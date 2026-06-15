@@ -6,8 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class NotificationCard extends StatelessWidget {
   const NotificationCard({
-    super.key,
-    required this.notification,
+    required this.notification, super.key,
     this.onTap,
     this.onMarkAsRead,
     this.onDelete,
@@ -55,7 +54,7 @@ class NotificationCard extends StatelessWidget {
       ),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.endToStart) {
-          return await _showDeleteConfirmation(context);
+          return _showDeleteConfirmation(context);
         } else {
           if (!notification.isRead) {
             onMarkAsRead?.call();
@@ -92,7 +91,6 @@ class NotificationCard extends StatelessWidget {
                 color: typeColor.withValues(alpha: 0.15),
                 blurRadius: 8.r,
                 offset: Offset(0.w, 2.h),
-                spreadRadius: 0,
               ),
             BoxShadow(
               color: isDark
@@ -100,7 +98,6 @@ class NotificationCard extends StatelessWidget {
                   : Colors.black.withValues(alpha: 0.04),
               blurRadius: 4.r,
               offset: Offset(0.w, 1.h),
-              spreadRadius: 0,
             ),
           ],
         ),
@@ -171,7 +168,6 @@ class NotificationCard extends StatelessWidget {
                                     BoxShadow(
                                       color: typeColor.withValues(alpha: 0.5),
                                       blurRadius: 4.r,
-                                      spreadRadius: 0,
                                     ),
                                   ],
                                 ),
@@ -364,7 +360,7 @@ class NotificationCard extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(
+            child: const Text(
               'حذف',
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,

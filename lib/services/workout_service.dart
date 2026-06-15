@@ -1,4 +1,5 @@
-﻿import 'package:gymaipro/models/exercise.dart' as exercise_model;
+﻿import 'package:flutter/foundation.dart';
+import 'package:gymaipro/models/exercise.dart' as exercise_model;
 import 'package:gymaipro/models/workout.dart';
 import 'package:gymaipro/workout_log/models/workout_log.dart' hide WorkoutSet;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -23,7 +24,7 @@ class WorkoutService {
           .map((workout) => Workout.fromJson(workout as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      print('Error getting user workouts: $e');
+      debugPrint('Error getting user workouts: $e');
       rethrow;
     }
   }
@@ -58,7 +59,7 @@ class WorkoutService {
 
       return Workout.fromJson(workout);
     } catch (e) {
-      print('Error creating workout: $e');
+      debugPrint('Error creating workout: $e');
       rethrow;
     }
   }
@@ -87,7 +88,7 @@ class WorkoutService {
         });
       }
     } catch (e) {
-      print('Error updating workout: $e');
+      debugPrint('Error updating workout: $e');
       rethrow;
     }
   }
@@ -99,7 +100,7 @@ class WorkoutService {
           .delete()
           .eq('id', workoutId);
     } catch (e) {
-      print('Error deleting workout: $e');
+      debugPrint('Error deleting workout: $e');
       rethrow;
     }
   }
@@ -119,7 +120,7 @@ class WorkoutService {
           )
           .toList();
     } catch (e) {
-      print('Error getting exercises: $e');
+      debugPrint('Error getting exercises: $e');
       rethrow;
     }
   }
@@ -140,7 +141,7 @@ class WorkoutService {
           )
           .toList();
     } catch (e) {
-      print('Error searching exercises: $e');
+      debugPrint('Error searching exercises: $e');
       rethrow;
     }
   }
@@ -163,7 +164,7 @@ class WorkoutService {
           )
           .toList();
     } catch (e) {
-      print('Error getting exercises by muscle group: $e');
+      debugPrint('Error getting exercises by muscle group: $e');
       rethrow;
     }
   }
@@ -182,7 +183,7 @@ class WorkoutService {
 
       return WorkoutLog.fromJson(response);
     } catch (e) {
-      print('Error starting workout: $e');
+      debugPrint('Error starting workout: $e');
       rethrow;
     }
   }
@@ -194,7 +195,7 @@ class WorkoutService {
           .update({'end_time': DateTime.now().toIso8601String()})
           .eq('id', logId);
     } catch (e) {
-      print('Error ending workout: $e');
+      debugPrint('Error ending workout: $e');
       rethrow;
     }
   }
@@ -205,7 +206,7 @@ class WorkoutService {
           .from('workout_sets')
           .insert(set.toJson()..addAll({'log_id': logId}));
     } catch (e) {
-      print('Error logging set: $e');
+      debugPrint('Error logging set: $e');
       rethrow;
     }
   }
@@ -222,7 +223,7 @@ class WorkoutService {
           .map((log) => WorkoutLog.fromJson(log as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      print('Error getting workout history: $e');
+      debugPrint('Error getting workout history: $e');
       rethrow;
     }
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/date_utils.dart' as du;
 import 'package:gymaipro/utils/widget_safety_utils.dart';
@@ -58,6 +59,25 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
     return '${isNegative ? '-' : ''}$result تومان';
   }
 
+  Future<Map<String, Map<String, dynamic>>> _loadProfilesByUserIds(
+    List<String> userIds,
+  ) async {
+    if (userIds.isEmpty) return {};
+    final raw = await ProfileRepository.instance.fetchProfilesByIdsMap(
+      userIds,
+      columns: 'id, first_name, last_name, username, avatar_url',
+    );
+    final profilesById = <String, Map<String, dynamic>>{};
+    for (final entry in raw.entries) {
+      final map = Map<String, dynamic>.from(entry.value);
+      final rawAvatar = (map['avatar_url'] as String?)?.trim();
+      final resolved = await _resolveAvatarUrl(rawAvatar);
+      map['avatar_resolved_url'] = resolved ?? rawAvatar;
+      profilesById[entry.key] = map;
+    }
+    return profilesById;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -95,28 +115,7 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
               .toSet()
               .toList();
 
-          final Map<String, Map<String, dynamic>> profilesById = {};
-          if (userIds.isNotEmpty) {
-            try {
-              final orExpr = userIds.map((id) => 'id.eq.$id').join(',');
-              final profs = await _client
-                  .from('profiles')
-                  .select('id, first_name, last_name, username, avatar_url')
-                  .or(orExpr);
-              for (final p in (profs as List)) {
-                final id = p['id'] as String?;
-                if (id != null) {
-                  final map = Map<String, dynamic>.from(
-                    p as Map<dynamic, dynamic>,
-                  );
-                  final raw = (map['avatar_url'] as String?)?.trim();
-                  final resolved = await _resolveAvatarUrl(raw);
-                  map['avatar_resolved_url'] = resolved ?? raw;
-                  profilesById[id] = map;
-                }
-              }
-            } catch (_) {}
-          }
+          final profilesById = await _loadProfilesByUserIds(userIds);
 
           // Optional: resolve any avatar present on items themselves
           final resolvedItems = <Map<String, dynamic>>[];
@@ -162,32 +161,12 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
 
       final items = List<Map<String, dynamic>>.from(subs as List);
 
-      // 2) دریافت پروفایل‌ها به صورت جدا برای پرهیز از مشکلات RLS در join
-      final Map<String, Map<String, dynamic>> profilesById = {};
       final userIds = items
           .map((e) => e['user_id'] as String?)
           .whereType<String>()
           .toSet()
           .toList();
-      if (userIds.isNotEmpty) {
-        try {
-          final orExpr = userIds.map((id) => 'id.eq.$id').join(',');
-          final profs = await _client
-              .from('profiles')
-              .select('id, first_name, last_name, username, avatar_url')
-              .or(orExpr);
-          for (final p in (profs as List)) {
-            final id = p['id'] as String?;
-            if (id != null) {
-              final map = Map<String, dynamic>.from(p as Map<dynamic, dynamic>);
-              final raw = (map['avatar_url'] as String?)?.trim();
-              final resolved = await _resolveAvatarUrl(raw);
-              map['avatar_resolved_url'] = resolved ?? raw;
-              profilesById[id] = map;
-            }
-          }
-        } catch (_) {}
-      }
+      final profilesById = await _loadProfilesByUserIds(userIds);
 
       WidgetSafetyUtils.safeSetState(this, () {
         _items = items;

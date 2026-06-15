@@ -371,7 +371,7 @@ class ProfileRankingSection extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(title, style: TextStyle(fontFamily: AppTheme.fontFamily)),
+        title: Text(title, style: const TextStyle(fontFamily: AppTheme.fontFamily)),
         content: SingleChildScrollView(
           child: Text(
             body,

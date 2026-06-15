@@ -267,7 +267,6 @@ class _TrainerCardWidgetState extends State<TrainerCardWidget> {
                                               border: Border.all(
                                                 color: AppTheme.goldColor
                                                     .withValues(alpha: 0.3),
-                                                width: 1,
                                               ),
                                             ),
                                             child: Text(
@@ -352,7 +351,6 @@ class _TrainerCardWidgetState extends State<TrainerCardWidget> {
                                 color: AppTheme.goldColor.withValues(
                                   alpha: 0.3,
                                 ),
-                                width: 1,
                               ),
                             ),
                             child: Icon(
@@ -490,7 +488,7 @@ class _TrainerCardWidgetState extends State<TrainerCardWidget> {
   }
 
   Widget _buildDefaultAvatar() {
-    return Container(
+    return ColoredBox(
       color: context.separatorColor,
       child: Icon(LucideIcons.user, color: context.textSecondary, size: 32.sp),
     );

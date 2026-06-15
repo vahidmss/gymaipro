@@ -7,6 +7,7 @@ import 'package:gymaipro/auth/services/auth_state_service.dart';
 import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart' as auth_supabase;
 import 'package:gymaipro/auth/widgets/profile_completion_widgets.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/referral_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
@@ -312,6 +313,7 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.lightBackgroundColor,
+      // ui-health: keyboard-inset-ok — PageView steps + manual scroll per step
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: Row(
@@ -1124,12 +1126,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
     });
 
     try {
-      final client = Supabase.instance.client;
-      final response = await client
-          .from('profiles')
-          .select('first_name, last_name, username')
-          .eq('username', code)
-          .maybeSingle();
+      final response =
+          await ProfileRepository.instance.fetchProfileByUsername(code);
 
       if (response == null) {
         setState(() {
@@ -1341,6 +1339,7 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
           _isSuccess = true;
         });
         await Future<void>.delayed(const Duration(milliseconds: 600));
+        if (!mounted) return;
         goToMainApp(context);
       }
     } catch (e) {
@@ -1352,6 +1351,7 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
           _errorMessage = 'خطا: $e';
         });
         await Future<void>.delayed(const Duration(seconds: 3));
+        if (!mounted) return;
         WidgetSafetyUtils.safePop(context);
       }
     }

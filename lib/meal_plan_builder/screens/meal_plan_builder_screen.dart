@@ -1,4 +1,5 @@
 // import removed: fl_chart now used via DailyNutritionChartMealPlanBuilder
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -156,7 +157,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
             _mealPlan = existingPlan;
           });
           // خواندن editable_until از دیتابیس
-          print('📥 برنامه موجود بارگذاری شد، در حال خواندن editable_until...');
+          debugPrint('📥 برنامه موجود بارگذاری شد، در حال خواندن editable_until...');
           await _loadEditableUntil();
         } else {
           // برنامه جدید بساز با نام خودکار
@@ -195,6 +196,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
 
       SafeSetState.call(this, () => _isLoading = false);
     } catch (e) {
+      if (!mounted) return;
       WidgetSafetyUtils.safeShowSnackBar(
         context,
         'خطا در بارگذاری: $e',
@@ -206,7 +208,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
   // خواندن editable_until از دیتابیس
   Future<void> _loadEditableUntil() async {
     if (_mealPlan.id.isEmpty || widget.targetUserId == null) {
-      print(
+      debugPrint(
         '⚠️ _loadEditableUntil: برنامه ID خالی است یا targetUserId null است',
       );
       return;
@@ -214,26 +216,26 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
 
     try {
       final client = Supabase.instance.client;
-      print('🔍 در حال خواندن editable_until برای برنامه: ${_mealPlan.id}');
+      debugPrint('🔍 در حال خواندن editable_until برای برنامه: ${_mealPlan.id}');
       final planData = await client
           .from('meal_plans')
           .select('editable_until, sent_at')
           .eq('id', _mealPlan.id)
           .maybeSingle();
 
-      print('📊 داده‌های خوانده شده: $planData');
+      debugPrint('📊 داده‌های خوانده شده: $planData');
 
       if (planData != null && planData['editable_until'] != null) {
         final editableUntilStr = planData['editable_until'] as String;
-        print('✅ editable_until پیدا شد: $editableUntilStr');
+        debugPrint('✅ editable_until پیدا شد: $editableUntilStr');
         SafeSetState.call(this, () {
           _editableUntil = DateTime.parse(editableUntilStr);
-          print('✅ _editableUntil تنظیم شد: $_editableUntil');
+          debugPrint('✅ _editableUntil تنظیم شد: $_editableUntil');
         });
       } else {
         // editable_until و expiry_date فقط بعد از ارسال برنامه (sendPlan) ثبت می‌شوند
         // تا زمانی که مربی روی دکمه ارسال نزده، این فیلدها null هستند
-        print('⚠️ برنامه هنوز ارسال نشده است (editable_until null)');
+        debugPrint('⚠️ برنامه هنوز ارسال نشده است (editable_until null)');
         SafeSetState.call(this, () {
           _editableUntil = null;
         });
@@ -244,15 +246,15 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
       if (errorStr.contains('editable_until') ||
           errorStr.contains('does not exist') ||
           errorStr.contains('42703')) {
-        print('⚠️ ستون editable_until در دیتابیس وجود ندارد.');
-        print(
+        debugPrint('⚠️ ستون editable_until در دیتابیس وجود ندارد.');
+        debugPrint(
           '📄 لطفاً فایل SQL را اجرا کنید: sql/add_all_meal_plan_columns.sql',
         );
         SafeSetState.call(this, () {
           _editableUntil = null;
         });
       } else {
-        print('❌ خطا در خواندن editable_until: $e');
+        debugPrint('❌ خطا در خواندن editable_until: $e');
         SafeSetState.call(this, () {
           _editableUntil = null;
         });
@@ -263,19 +265,19 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
   // محاسبه ساعت‌های باقیمانده تا editable_until
   int? _getRemainingHours() {
     if (_editableUntil == null) {
-      print('⚠️ _getRemainingHours: _editableUntil null است');
+      debugPrint('⚠️ _getRemainingHours: _editableUntil null است');
       return null;
     }
     final now = DateTime.now();
     if (now.isAfter(_editableUntil!)) {
-      print('⏰ زمان ویرایش به پایان رسیده است');
+      debugPrint('⏰ زمان ویرایش به پایان رسیده است');
       return 0;
     }
     final difference = _editableUntil!.difference(now);
     // محاسبه دقیق ساعت‌ها: فقط ساعت‌های کامل (بدون رند کردن)
     final hours = difference.inHours;
-    print(
-      '⏳ ساعت‌های باقیمانده: $hours (از ${difference.inDays} روز و ${(difference.inHours % 24)} ساعت)',
+    debugPrint(
+      '⏳ ساعت‌های باقیمانده: $hours (از ${difference.inDays} روز و ${difference.inHours % 24} ساعت)',
     );
     return hours;
   }
@@ -303,7 +305,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
         }
       }
     } catch (e) {
-      print('خطا در دریافت اطلاعات کاربر برای ساخت نام: $e');
+      debugPrint('خطا در دریافت اطلاعات کاربر برای ساخت نام: $e');
     }
 
     // در صورت خطا، از نام کاربر از widget استفاده کن
@@ -350,7 +352,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
           _mealPlan = updatedPlan;
         });
         // خواندن editable_until از دیتابیس
-        print(
+        debugPrint(
           '🔄 برنامه موجود به‌روزرسانی شد، در حال خواندن editable_until...',
         );
         await _loadEditableUntil();
@@ -375,11 +377,11 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
         });
         
         // خواندن editable_until از دیتابیس
-        print('💾 برنامه جدید ذخیره شد، در حال خواندن editable_until...');
+        debugPrint('💾 برنامه جدید ذخیره شد، در حال خواندن editable_until...');
         await _loadEditableUntil();
       }
     } catch (e) {
-      print('خطا در ذخیره خودکار برنامه: $e');
+      debugPrint('خطا در ذخیره خودکار برنامه: $e');
     } finally {
       SafeSetState.call(this, () => _isAutoSaving = false);
     }
@@ -426,7 +428,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
               style: TextButton.styleFrom(foregroundColor: AppTheme.goldColor),
-              child: Text(
+              child: const Text(
                 'انصراف',
                 style: TextStyle(fontFamily: AppTheme.fontFamily),
               ),
@@ -440,7 +442,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
                   borderRadius: BorderRadius.circular(12.r),
                 ),
               ),
-              child: Text(
+              child: const Text(
                 'تأیید و ارسال',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
@@ -453,7 +455,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed ?? false) {
       // ذخیره نهایی
       await _autoSavePlan();
 
@@ -474,7 +476,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
             await _loadEditableUntil();
           }
         } catch (e) {
-          print('خطا در ارسال برنامه: $e');
+          debugPrint('خطا در ارسال برنامه: $e');
           if (mounted) {
             ScaffoldMessenger.of(
               context,
@@ -512,7 +514,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
       final birthDateStr = profile['birth_date']?.toString();
       final isMale = (profile['gender']?.toString() ?? 'male') == 'male';
       final activityLevelStr =
-          (profile['activity_level']?.toString() ?? 'moderate');
+          profile['activity_level']?.toString() ?? 'moderate';
 
       if (height == null || weight == null || height <= 0 || weight <= 0) {
         return;
@@ -544,7 +546,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
       final activityLevel = activityLevelStr.toActivityLevel();
       _dailyCalorieTarget = FitnessCalculator.calculateTDEE(bmr, activityLevel);
     } catch (e) {
-      print('خطا در محاسبه TDEE: $e');
+      debugPrint('خطا در محاسبه TDEE: $e');
     }
   }
 
@@ -572,12 +574,12 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
       isSupplement: foodData.type == 'supplement',
     );
 
-    if (confirmed == true && mounted) {
+    if ((confirmed ?? false) && mounted) {
       setState(() {
         item.foods.removeAt(foodIndex);
       });
       // ذخیره خودکار
-      _autoSavePlan();
+      unawaited(_autoSavePlan());
     }
   }
 
@@ -589,7 +591,6 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      isDismissible: true,
       builder: (context) => AddFoodScreenMealPlanBuilder(
         foods: _allFoods,
         initialMealTitle: item.title,
@@ -604,7 +605,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
           final int tempFoodId = -DateTime.now().millisecondsSinceEpoch;
           final double protein = supp.protein ?? 0;
           final double carbs = supp.carbs ?? 0;
-          final double fat = 0; // فعلاً بدون چربی
+          const double fat = 0; // فعلاً بدون چربی
           // فقط اگر کالری وارد شده باشد استفاده می‌شود، در غیر این صورت 0
           final double calories = supp.calories ?? 0;
           // ذخیره یادداشت در content
@@ -646,7 +647,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
           );
         });
         // ذخیره خودکار
-        _autoSavePlan();
+        unawaited(_autoSavePlan());
         return;
       }
       setState(() {
@@ -656,7 +657,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
         item.foods.add(MealFood(foodId: food.id, amount: amount, unit: unit));
       });
       // ذخیره خودکار
-      _autoSavePlan();
+      unawaited(_autoSavePlan());
     }
   }
 
@@ -702,9 +703,9 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
             elevation: 0,
           ),
         ),
-        child: Container(
+        child: DecoratedBox(
           decoration: isDark
-              ? null
+              ? const BoxDecoration()
               : BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -784,7 +785,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
                                                   Container(
                                                     width: 6.w,
                                                     height: 6.h,
-                                                    decoration: BoxDecoration(
+                                                    decoration: const BoxDecoration(
                                                       color: AppTheme.goldColor,
                                                       shape: BoxShape.circle,
                                                     ),
@@ -1005,7 +1006,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
                                                           altFoodId,
                                                         ),
                                                 onDeleteFood: (foodIdx) async =>
-                                                    await _removeFood(
+                                                    _removeFood(
                                                       _selectedDay,
                                                       itemIdx,
                                                       foodIdx,
@@ -1292,7 +1293,6 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      isDismissible: true,
       builder: (context) => AddFoodScreenMealPlanBuilder(
         foods: availableFoods,
         initialMealTitle: item.title,
@@ -1320,7 +1320,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
         );
       });
       // ذخیره خودکار
-      _autoSavePlan();
+      unawaited(_autoSavePlan());
     }
   }
 
@@ -1341,7 +1341,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
         );
       });
       // ذخیره خودکار
-      _autoSavePlan();
+      unawaited(_autoSavePlan());
     }
   }
 
@@ -1366,7 +1366,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
         );
       });
       // ذخیره خودکار
-      _autoSavePlan();
+      unawaited(_autoSavePlan());
     }
   }
 
@@ -1504,7 +1504,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
                         height: 8.h,
                         width: progressWidth,
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
+                          gradient: const LinearGradient(
                             colors: [AppTheme.goldColor, AppTheme.darkGold],
                           ),
                           borderRadius: BorderRadius.only(

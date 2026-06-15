@@ -80,13 +80,12 @@ class _ClientSearchWidgetState extends State<ClientSearchWidget> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         color: context.cardColor,
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.1),
-          width: 1,
         ),
         boxShadow: [
           BoxShadow(
@@ -95,7 +94,6 @@ class _ClientSearchWidgetState extends State<ClientSearchWidget> {
                 : AppTheme.goldColor.withValues(alpha: 0.04),
             blurRadius: 6.r,
             offset: Offset(0, 2.h),
-            spreadRadius: 0,
           ),
         ],
       ),
@@ -125,9 +123,7 @@ class _ClientSearchWidgetState extends State<ClientSearchWidget> {
                     color: context.textSecondary,
                     size: 16.sp,
                   ),
-                  onPressed: () {
-                    _searchController.clear();
-                  },
+                  onPressed: _searchController.clear,
                 )
               : null,
           filled: true,
@@ -140,7 +136,7 @@ class _ClientSearchWidgetState extends State<ClientSearchWidget> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12.r),
-            borderSide: BorderSide(color: AppTheme.goldColor, width: 1.5),
+            borderSide: const BorderSide(color: AppTheme.goldColor, width: 1.5),
           ),
           contentPadding: EdgeInsets.symmetric(
             horizontal: 16.w,

@@ -166,7 +166,7 @@ class _WelcomeCardState extends State<WelcomeCard> {
 
     return Container(
       height: 32.h,
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 0),
+      padding: EdgeInsets.symmetric(horizontal: 8.w),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -186,7 +186,6 @@ class _WelcomeCardState extends State<WelcomeCard> {
           color: AppTheme.goldColor.withValues(
             alpha: isDark ? 0.5 : 0.6,
           ),
-          width: 1,
         ),
         boxShadow: [
           BoxShadow(
@@ -261,7 +260,6 @@ class _WelcomeCardState extends State<WelcomeCard> {
               borderRadius: BorderRadius.circular(16.r),
               border: Border.all(
                 color: AppTheme.goldColor.withValues(alpha: 0.3),
-                width: 1,
               ),
               boxShadow: [
                 BoxShadow(
@@ -527,7 +525,7 @@ class _WelcomeCardState extends State<WelcomeCard> {
                 onTap: () async {
                   await Navigator.pushNamed(context, '/notifications');
                   // Refresh notification status when returning
-                  if (mounted) {
+                  if (context.mounted) {
                     context.read<NotificationProvider>().refreshUnreadCount();
                   }
                 },

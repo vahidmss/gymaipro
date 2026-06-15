@@ -141,6 +141,7 @@ class NotificationNavigationService {
       _pendingNavigation = null;
       _clearPendingNavigation();
 
+      if (!context.mounted) return;
       // بررسی آماده بودن GlobalKey قبل از تلاش navigation
       if (MyApp.navigatorKey.currentState != null) {
         debugPrint(
@@ -198,6 +199,7 @@ class NotificationNavigationService {
     }
 
     Future.delayed(Duration(milliseconds: delayMs * (attempt + 1)), () {
+      if (!context.mounted) return;
       try {
         // بررسی آماده بودن GlobalKey
         final navigatorState = MyApp.navigatorKey.currentState;

@@ -1,5 +1,7 @@
 ﻿import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -29,7 +31,7 @@ class NotificationSettingsService {
         );
       }
     } catch (e) {
-      print('Error loading notification settings: $e');
+      debugPrint('Error loading notification settings: $e');
     }
 
     // Return default settings if loading fails
@@ -55,7 +57,7 @@ class NotificationSettingsService {
       );
       return true;
     } catch (e) {
-      print('Error saving notification settings: $e');
+      debugPrint('Error saving notification settings: $e');
       return false;
     }
   }

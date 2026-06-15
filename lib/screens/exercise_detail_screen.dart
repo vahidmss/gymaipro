@@ -46,7 +46,6 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen>
   bool _videoBusy = false;
   int _activeVideoIndex = 0;
   late TabController _tabController;
-  bool _isLoadingComments = false;
   bool _isSubmittingComment = false;
   List<ExerciseComment> _comments = [];
   Timer? _downloadStatusTimer;
@@ -189,6 +188,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen>
           }
         }
 
+        if (!mounted) return;
         final isDark = Theme.of(context).brightness == Brightness.dark;
         _chewieController = ChewieController(
           videoPlayerController: _videoPlayerController!,
@@ -1407,7 +1407,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen>
                             SizedBox(width: 8.w),
                             Expanded(
                               child: Text(
-                                m.toString(),
+                                m,
                                 style: TextStyle(
                                   color: context.textColor,
                                   fontSize: 14.sp,
@@ -1939,6 +1939,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen>
         rating: rating,
       );
 
+      if (!mounted) return false;
       if (newComment != null) {
         WidgetSafetyUtils.safeSetState(this, () {
           _comments.insert(0, newComment);
@@ -1954,6 +1955,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen>
       }
       return false;
     } catch (e) {
+      if (!mounted) return false;
       WidgetSafetyUtils.safeShowSnackBar(
         context,
         'ثبت نظر انجام نشد. اتصال اینترنت را بررسی کن.',
@@ -1970,6 +1972,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen>
   Future<void> _deleteComment(String commentId) async {
     try {
       final success = await ExerciseCommentService.deleteComment(commentId);
+      if (!mounted) return;
       if (success) {
         WidgetSafetyUtils.safeSetState(this, () {
           _comments.removeWhere((comment) => comment.id == commentId);
@@ -1982,6 +1985,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen>
         );
       }
     } catch (e) {
+      if (!mounted) return;
       WidgetSafetyUtils.safeShowSnackBar(
         context,
         'خطا در حذف نظر: $e',
@@ -1991,12 +1995,6 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen>
   }
 
   Future<void> _loadComments({bool silent = false}) async {
-    if (!silent) {
-      WidgetSafetyUtils.safeSetState(this, () {
-        _isLoadingComments = true;
-      });
-    }
-
     try {
       final comments = await ExerciseCommentService.getExerciseComments(
         ex.id.toString(),
@@ -2012,12 +2010,6 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen>
           'بارگذاری نظرات ناموفق بود',
           backgroundColor: Colors.redAccent,
         );
-      }
-    } finally {
-      if (!silent) {
-        WidgetSafetyUtils.safeSetState(this, () {
-          _isLoadingComments = false;
-        });
       }
     }
   }
@@ -2056,6 +2048,7 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen>
         }
       }
     } catch (e) {
+      if (!mounted) return;
       WidgetSafetyUtils.safeShowSnackBar(
         context,
         'خطا: $e',

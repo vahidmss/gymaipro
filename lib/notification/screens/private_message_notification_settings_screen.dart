@@ -56,8 +56,8 @@ class _PrivateMessageNotificationSettingsScreenState
       return Scaffold(
         appBar: AppBar(
           title: const Text('تنظیمات نوتیفیکیشن پیام‌ها'),
-          backgroundColor: AppTheme.backgroundColor,
-          foregroundColor: AppTheme.textColor,
+          backgroundColor: context.backgroundColor,
+          foregroundColor: context.textColor,
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -66,8 +66,8 @@ class _PrivateMessageNotificationSettingsScreenState
     return Scaffold(
       appBar: AppBar(
         title: const Text('تنظیمات نوتیفیکیشن پیام‌ها'),
-        backgroundColor: AppTheme.backgroundColor,
-        foregroundColor: AppTheme.textColor,
+        backgroundColor: context.backgroundColor,
+        foregroundColor: context.textColor,
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),
@@ -96,7 +96,7 @@ class _PrivateMessageNotificationSettingsScreenState
 
   Widget _buildMainToggle() {
     return Card(
-      color: AppTheme.cardColor,
+      color: context.cardColor,
       child: SwitchListTile(
         title: const Text(
           'نوتیفیکیشن پیام‌های شخصی',
@@ -118,7 +118,7 @@ class _PrivateMessageNotificationSettingsScreenState
 
   Widget _buildUserTypeSection() {
     return Card(
-      color: AppTheme.cardColor,
+      color: context.cardColor,
       child: Padding(
         padding: EdgeInsets.all(16.w),
         child: Column(
@@ -163,7 +163,7 @@ class _PrivateMessageNotificationSettingsScreenState
 
   Widget _buildMessageTypeSection() {
     return Card(
-      color: AppTheme.cardColor,
+      color: context.cardColor,
       child: Padding(
         padding: EdgeInsets.all(16.w),
         child: Column(
@@ -234,7 +234,7 @@ class _PrivateMessageNotificationSettingsScreenState
 
   Widget _buildQuietHoursSection() {
     return Card(
-      color: AppTheme.cardColor,
+      color: context.cardColor,
       child: Padding(
         padding: EdgeInsets.all(16.w),
         child: Column(
@@ -272,7 +272,7 @@ class _PrivateMessageNotificationSettingsScreenState
                 child: Text(
                   'در این ساعات نوتیفیکیشن دریافت نمی‌کنید',
                   style: TextStyle(
-                    color: AppTheme.textColor.withValues(alpha: 0.1),
+                    color: context.textColor.withValues(alpha: 0.1),
                     fontSize: 12.sp,
                   ),
                 ),
@@ -285,7 +285,7 @@ class _PrivateMessageNotificationSettingsScreenState
 
   Widget _buildAdvancedSection() {
     return Card(
-      color: AppTheme.cardColor,
+      color: context.cardColor,
       child: Padding(
         padding: EdgeInsets.all(16.w),
         child: Column(
@@ -352,7 +352,7 @@ class _PrivateMessageNotificationSettingsScreenState
 
   Widget _buildPreviewSection() {
     return Card(
-      color: AppTheme.cardColor,
+      color: context.cardColor,
       child: Padding(
         padding: EdgeInsets.all(16.w),
         child: Column(

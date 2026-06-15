@@ -1,4 +1,5 @@
-﻿import 'package:gymaipro/notification/models/notification_model.dart';
+﻿import 'package:flutter/foundation.dart';
+import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/services/notification_settings_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -10,13 +11,13 @@ class NotificationSyncService {
     try {
       final user = _client.auth.currentUser;
       if (user == null) {
-        print('❌ No user found for sync');
+        debugPrint('❌ No user found for sync');
         return false;
       }
 
       // دریافت تنظیمات از SharedPreferences
       final settings = await NotificationSettingsService.getSettings();
-      print(
+      debugPrint(
         '📱 Local settings: chat_notifications=${settings.chatNotifications}',
       );
 
@@ -37,14 +38,14 @@ class NotificationSyncService {
           .timeout(const Duration(seconds: 5));
 
       if (response != null && response.error != null) {
-        print('❌ Database sync error: ${response.error}');
+        debugPrint('❌ Database sync error: ${response.error}');
         return false;
       }
 
-      print('✅ Settings synced to database successfully');
+      debugPrint('✅ Settings synced to database successfully');
       return true;
     } catch (e) {
-      print('❌ Error syncing notification settings: $e');
+      debugPrint('❌ Error syncing notification settings: $e');
       return false;
     }
   }
@@ -82,7 +83,7 @@ class NotificationSyncService {
       await NotificationSettingsService.saveSettings(settings);
       return true;
     } catch (e) {
-      print('Error syncing settings from database: $e');
+      debugPrint('Error syncing settings from database: $e');
     }
     return false;
   }
@@ -101,7 +102,7 @@ class NotificationSyncService {
 
       return response != null;
     } catch (e) {
-      print('Error checking database settings: $e');
+      debugPrint('Error checking database settings: $e');
       return false;
     }
   }
@@ -111,7 +112,7 @@ class NotificationSyncService {
     try {
       final user = _client.auth.currentUser;
       if (user == null) {
-        print('❌ No user found for clear');
+        debugPrint('❌ No user found for clear');
         return false;
       }
 
@@ -124,14 +125,14 @@ class NotificationSyncService {
 
       // delete در Supabase ممکن است null برگرداند
       if (response != null && response.error != null) {
-        print('❌ Clear settings error: ${response.error}');
+        debugPrint('❌ Clear settings error: ${response.error}');
         return false;
       }
 
-      print('✅ Settings cleared from database successfully');
+      debugPrint('✅ Settings cleared from database successfully');
       return true;
     } catch (e) {
-      print('❌ Error clearing settings: $e');
+      debugPrint('❌ Error clearing settings: $e');
       return false;
     }
   }
@@ -141,13 +142,13 @@ class NotificationSyncService {
     try {
       final user = _client.auth.currentUser;
       if (user == null) {
-        print('❌ No user found for force sync');
+        debugPrint('❌ No user found for force sync');
         return false;
       }
 
       // دریافت تنظیمات از SharedPreferences
       final settings = await NotificationSettingsService.getSettings();
-      print(
+      debugPrint(
         '📱 Force sync - Local settings: chat_notifications=${settings.chatNotifications}',
       );
 
@@ -168,14 +169,14 @@ class NotificationSyncService {
           .timeout(const Duration(seconds: 5));
 
       if (response != null && response.error != null) {
-        print('❌ Force sync error: ${response.error}');
+        debugPrint('❌ Force sync error: ${response.error}');
         return false;
       }
 
-      print('✅ Force sync completed successfully');
+      debugPrint('✅ Force sync completed successfully');
       return true;
     } catch (e) {
-      print('❌ Error in force sync: $e');
+      debugPrint('❌ Error in force sync: $e');
       return false;
     }
   }

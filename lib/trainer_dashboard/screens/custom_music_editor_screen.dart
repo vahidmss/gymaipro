@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/custom_music.dart';
@@ -16,9 +15,9 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// صفحه ساخت/ویرایش موزیک اختصاصی
 class CustomMusicEditorScreen extends StatefulWidget {
-  final CustomMusic? music;
 
   const CustomMusicEditorScreen({super.key, this.music});
+  final CustomMusic? music;
 
   @override
   State<CustomMusicEditorScreen> createState() =>
@@ -42,7 +41,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
   // State
   String _visibility = 'private';
   bool _isLoading = false;
-  double _uploadProgress = 0.0;
+  final double _uploadProgress = 0;
 
   File? _selectedAudio;
   XFile? _selectedImage;
@@ -111,7 +110,6 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.audio,
-        allowMultiple: false,
       );
 
       if (result != null && result.files.single.path != null) {
@@ -125,76 +123,6 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
           'خطا در انتخاب فایل: $e',
-          backgroundColor: Colors.red,
-        );
-      }
-    }
-  }
-
-  Future<void> _uploadAudio() async {
-    if (_selectedAudio == null) {
-      WidgetSafetyUtils.safeShowSnackBar(
-        context,
-        'لطفاً ابتدا فایل موزیک را انتخاب کنید',
-        backgroundColor: Colors.red,
-      );
-      return;
-    }
-
-    final fileName = _selectedAudio!.path.split('/').last;
-    final fileSize = await _selectedAudio!.length();
-    final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
-
-    // نمایش دیالوگ آپلود
-    UploadProgressHelper.show(
-      context: context,
-      title: 'در حال آپلود موزیک...',
-      fileName: fileName,
-      progress: 0.0,
-      statusText: 'شروع آپلود',
-    );
-
-    try {
-      _uploadedAudioUrl = await _uploadService.uploadMusic(
-        _selectedAudio!,
-        onProgress: (progress) {
-          String statusText;
-          if (progress < 0.3) {
-            statusText = 'در حال ارسال فایل...';
-          } else if (progress < 0.7) {
-            statusText = 'در حال آپلود ($fileSizeMB MB)...';
-          } else if (progress < 0.9) {
-            statusText = 'در حال پردازش...';
-          } else {
-            statusText = 'در حال نهایی‌سازی...';
-          }
-
-          UploadProgressHelper.update(
-            progress: progress,
-            statusText: statusText,
-          );
-        },
-      );
-
-      // تخمین مدت زمان (می‌توانید از یک کتابخانه برای خواندن metadata استفاده کنید)
-      // فعلاً 0 می‌گذاریم و بعداً می‌تواند از metadata فایل خوانده شود
-      _duration = 0;
-
-      UploadProgressHelper.hide();
-
-      if (mounted) {
-        WidgetSafetyUtils.safeShowSnackBar(
-          context,
-          'موزیک با موفقیت آپلود شد',
-          backgroundColor: Colors.green,
-        );
-      }
-    } catch (e) {
-      UploadProgressHelper.hide();
-      if (mounted) {
-        WidgetSafetyUtils.safeShowSnackBar(
-          context,
-          'خطا در آپلود موزیک: $e',
           backgroundColor: Colors.red,
         );
       }
@@ -225,78 +153,6 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
   }
 
 
-  Future<void> _uploadImage() async {
-    if (_selectedImage == null) {
-      debugPrint('CustomMusicEditor: _uploadImage - No image selected');
-      return;
-    }
-
-    final fileName = _selectedImage!.path.split('/').last;
-    final imageFile = File(_selectedImage!.path);
-    final fileSize = await imageFile.length();
-    final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
-
-    // نمایش دیالوگ آپلود
-    UploadProgressHelper.show(
-      context: context,
-      title: 'در حال آپلود تصویر کاور...',
-      fileName: fileName,
-      progress: 0.0,
-      statusText: 'شروع آپلود',
-    );
-
-    try {
-      debugPrint('CustomMusicEditor: Starting cover image upload to download host...');
-      
-      _uploadedImageUrl = await _coverUploadService.uploadCover(
-        imageFile,
-        onProgress: (progress) {
-          String statusText;
-          if (progress < 0.3) {
-            statusText = 'در حال ارسال فایل...';
-          } else if (progress < 0.7) {
-            statusText = 'در حال آپلود ($fileSizeMB MB)...';
-          } else if (progress < 0.9) {
-            statusText = 'در حال پردازش...';
-          } else {
-            statusText = 'در حال نهایی‌سازی...';
-          }
-
-          UploadProgressHelper.update(
-            progress: progress,
-            statusText: statusText,
-          );
-        },
-      );
-
-      debugPrint('CustomMusicEditor: Cover image uploaded successfully');
-      debugPrint('CustomMusicEditor: Image URL: $_uploadedImageUrl');
-
-      UploadProgressHelper.hide();
-
-      if (mounted) {
-        WidgetSafetyUtils.safeShowSnackBar(
-          context,
-          'تصویر با موفقیت آپلود شد',
-          backgroundColor: Colors.green,
-        );
-      }
-    } catch (e, stackTrace) {
-      debugPrint('CustomMusicEditor: Error uploading image: $e');
-      debugPrint('CustomMusicEditor: Stack trace: $stackTrace');
-      
-      UploadProgressHelper.hide();
-      
-      if (mounted) {
-        WidgetSafetyUtils.safeShowSnackBar(
-          context,
-          'خطا در آپلود تصویر: $e',
-          backgroundColor: Colors.red,
-        );
-      }
-    }
-  }
-
   Future<void> _saveMusic() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -313,11 +169,11 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
         final fileSize = await imageFile.length();
         final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
 
+        if (!mounted) return;
         UploadProgressHelper.show(
           context: context,
           title: 'در حال آپلود تصویر کاور...',
           fileName: fileName,
-          progress: 0.0,
           statusText: 'شروع آپلود',
         );
 
@@ -366,11 +222,11 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
         final fileSize = await _selectedAudio!.length();
         final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
 
+        if (!mounted) return;
         UploadProgressHelper.show(
           context: context,
           title: 'در حال آپلود موزیک...',
           fileName: fileName,
-          progress: 0.0,
           statusText: 'شروع آپلود',
         );
 
@@ -402,6 +258,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
         }
       }
 
+      if (!mounted) return;
       if (finalAudioUrl == null || finalAudioUrl.isEmpty) {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
@@ -422,7 +279,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
           title: _titleController.text.trim(),
           artist: _artistController.text.trim(),
           audioUrl: finalAudioUrl,
-          coverImageUrl: finalImageUrl ?? '',
+          coverImageUrl: finalImageUrl,
           duration: _duration,
           category: _categoryController.text.trim().isEmpty
               ? null
@@ -502,7 +359,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
       appBar: AppBar(
         title: Text(
           widget.music == null ? 'موزیک جدید' : 'ویرایش موزیک',
-          style: TextStyle(
+          style: const TextStyle(
             fontFamily: AppTheme.fontFamily,
             fontWeight: FontWeight.bold,
           ),
@@ -582,7 +439,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
 
                   // دسته‌بندی
                   DropdownButtonFormField<String>(
-                    value: _categoryController.text.isEmpty
+                    initialValue: _categoryController.text.isEmpty
                         ? null
                         : _categoryController.text,
                     decoration: InputDecoration(
@@ -899,7 +756,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
           ),
           if (hasFile)
             IconButton(
-              icon: Icon(LucideIcons.trash2, color: Colors.red),
+              icon: const Icon(LucideIcons.trash2, color: Colors.red),
               onPressed: onRemove,
             ),
           TextButton.icon(
@@ -918,11 +775,11 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
 
 /// Dialog برای وارد کردن URL موزیک
 class _AudioUrlDialog extends StatefulWidget {
-  final void Function(String) onUrlEntered;
 
   const _AudioUrlDialog({
     required this.onUrlEntered,
   });
+  final void Function(String) onUrlEntered;
 
   @override
   State<_AudioUrlDialog> createState() => _AudioUrlDialogState();
@@ -949,7 +806,7 @@ class _AudioUrlDialogState extends State<_AudioUrlDialog> {
 
     return AlertDialog(
       backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
-      title: Text(
+      title: const Text(
         'وارد کردن URL موزیک',
         style: TextStyle(
           fontFamily: AppTheme.fontFamily,

@@ -71,7 +71,7 @@ class _AdminDiscountCodesScreenState extends State<AdminDiscountCodesScreen> {
                 ),
                 SizedBox(height: 16.h),
                 DropdownButtonFormField<String>(
-                  value: selectedType,
+                  initialValue: selectedType,
                   decoration: const InputDecoration(
                     labelText: 'نوع تخفیف',
                     border: OutlineInputBorder(),
@@ -260,7 +260,7 @@ class _AdminDiscountCodesScreenState extends State<AdminDiscountCodesScreen> {
         ),
         Expanded(
           child: _isLoading
-              ? Center(
+              ? const Center(
                   child: CircularProgressIndicator(
                     color: AppTheme.goldColor,
                   ),
@@ -362,9 +362,9 @@ class _AdminDiscountCodesScreenState extends State<AdminDiscountCodesScreen> {
                                   PopupMenuItem<void>(
                                     child: Row(
                                       children: [
-                                        Icon(LucideIcons.trash2, size: 18, color: Colors.red),
+                                        const Icon(LucideIcons.trash2, size: 18, color: Colors.red),
                                         SizedBox(width: 8.w),
-                                        Text(
+                                        const Text(
                                           'حذف',
                                           style: TextStyle(color: Colors.red),
                                         ),

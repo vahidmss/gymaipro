@@ -3,6 +3,7 @@ import 'package:gymaipro/models/trainer_client.dart';
 import 'package:gymaipro/models/trainer_detail.dart';
 import 'package:gymaipro/models/trainer_review.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -12,13 +13,11 @@ class TrainerService {
   // Fetch all trainers
   Future<List<UserProfile>> getAllTrainers() async {
     try {
-      final response = await _client
-          .from('profiles')
-          .select()
-          .eq('role', 'trainer')
-          .order('created_at', ascending: false);
-
-      return response.map(UserProfile.fromJson).toList();
+      final rows = await ProfileRepository.instance.fetchTrainers(
+        limit: null,
+        orderByCreatedAtDesc: true,
+      );
+      return rows.map(UserProfile.fromJson).toList();
     } catch (e) {
       debugPrint('Error fetching trainers: $e');
       return [];
@@ -293,10 +292,8 @@ class TrainerService {
           .toList();
 
       // Then fetch the actual profile data for these clients
-      final clientProfiles = await _client
-          .from('profiles')
-          .select()
-          .inFilter('id', clientIds);
+      final clientProfiles =
+          await ProfileRepository.instance.fetchProfilesByIds(clientIds);
 
       return clientProfiles.map(UserProfile.fromJson).toList();
     } catch (e) {

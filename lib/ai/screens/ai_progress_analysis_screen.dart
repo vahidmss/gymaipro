@@ -946,6 +946,7 @@ class _AIProgressAnalysisScreenState extends State<AIProgressAnalysisScreen>
 
     // بررسی محدودیت قبل از شروع
     final limitCheck = await _analysisService.checkLimit();
+    if (!mounted) return;
     if (!limitCheck.canUse) {
       // نمایش دیالوگ پرداخت
       PaymentIntegrationHelper.showAccessLimitDialog(

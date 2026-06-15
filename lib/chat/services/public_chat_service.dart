@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:gymaipro/chat/models/public_chat_message.dart';
-import 'package:gymaipro/services/user_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PublicChatService {
   final SupabaseClient _supabase = Supabase.instance.client;
-  final UserService _userService = UserService();
+  final ProfileRepository _profiles = ProfileRepository.instance;
 
   // دریافت آخرین پیام‌ها (با ترتیب زمانی)
   Future<List<PublicChatMessage>> getMessages({
@@ -148,9 +148,9 @@ class PublicChatService {
         });
       } catch (_) {
         // اگر نتوانستیم از view اطلاعات بگیریم، از UserService استفاده کن
-        final displayName = await _userService.getDisplayName(user.id);
-        final avatar = await _userService.getUserAvatar(user.id);
-        final role = await _userService.getUserRole(user.id);
+        final displayName = await _profiles.getDisplayName(user.id);
+        final avatar = await _profiles.getUserAvatar(user.id);
+        final role = await _profiles.getUserRole(user.id);
 
         return PublicChatMessage.fromJson({
           ...response,
@@ -178,11 +178,11 @@ class PublicChatService {
 
         // اگر اطلاعات کاربر موجود نباشد، آن را دریافت کن
         if (msg.senderName == null) {
-          final displayName = await _userService.getDisplayName(
+          final displayName = await _profiles.getDisplayName(
             msg.senderId,
           );
-          final avatar = await _userService.getUserAvatar(msg.senderId);
-          final role = await _userService.getUserRole(msg.senderId);
+          final avatar = await _profiles.getUserAvatar(msg.senderId);
+          final role = await _profiles.getUserRole(msg.senderId);
 
           final updatedMsg = msg.copyWith(
             senderName: displayName,
@@ -206,11 +206,11 @@ class PublicChatService {
 
         // برای آپدیت هم همان منطق تکمیل اطلاعات کاربر را حفظ می‌کنیم
         if (msg.senderName == null) {
-          final displayName = await _userService.getDisplayName(
+          final displayName = await _profiles.getDisplayName(
             msg.senderId,
           );
-          final avatar = await _userService.getUserAvatar(msg.senderId);
-          final role = await _userService.getUserRole(msg.senderId);
+          final avatar = await _profiles.getUserAvatar(msg.senderId);
+          final role = await _profiles.getUserRole(msg.senderId);
 
           final updatedMsg = msg.copyWith(
             senderName: displayName,

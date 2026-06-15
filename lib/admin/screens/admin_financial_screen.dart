@@ -167,7 +167,7 @@ class _AdminFinancialScreenState extends State<AdminFinancialScreen> {
         ),
         Expanded(
           child: _isLoading
-              ? Center(
+              ? const Center(
                   child: CircularProgressIndicator(
                     color: AppTheme.goldColor,
                   ),

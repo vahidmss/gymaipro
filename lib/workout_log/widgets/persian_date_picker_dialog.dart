@@ -41,7 +41,7 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
 
     final gregorian = Gregorian.fromDateTime(_currentMonth);
     final jalali = gregorian.toJalali();
-    final startJalali = Jalali(jalali.year, jalali.month, 1);
+    final startJalali = Jalali(jalali.year, jalali.month);
     final endJalali = Jalali(
       jalali.year,
       jalali.month,
@@ -90,7 +90,7 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
       backgroundColor: Colors.transparent,
       insetPadding: EdgeInsets.symmetric(horizontal: 16.w),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: isDark
               ? context.backgroundColor
@@ -194,13 +194,12 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.15),
-          width: 1,
         ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
+          DecoratedBox(
             decoration: BoxDecoration(
               color: AppTheme.goldColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
@@ -222,7 +221,7 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
                     newMonth = 12;
                     newYear--;
                   }
-                  final newJalali = Jalali(newYear, newMonth, 1);
+                  final newJalali = Jalali(newYear, newMonth);
                   _currentMonth = newJalali.toGregorian().toDateTime();
                 });
                 _loadWorkoutLogDates();
@@ -247,7 +246,7 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
               ),
             ],
           ),
-          Container(
+          DecoratedBox(
             decoration: BoxDecoration(
               color: AppTheme.goldColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
@@ -269,7 +268,7 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
                     newMonth = 1;
                     newYear++;
                   }
-                  final newJalali = Jalali(newYear, newMonth, 1);
+                  final newJalali = Jalali(newYear, newMonth);
                   _currentMonth = newJalali.toGregorian().toDateTime();
                 });
                 _loadWorkoutLogDates();
@@ -386,7 +385,7 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
                 height: hasWorkoutLog ? 56.h : 44.h,
                 decoration: BoxDecoration(
                   gradient: isSelected
-                      ? LinearGradient(
+                      ? const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [AppTheme.goldColor, AppTheme.darkGold],

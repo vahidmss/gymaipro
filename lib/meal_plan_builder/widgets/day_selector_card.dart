@@ -33,7 +33,7 @@ class DaySelectorCardMealPlanBuilder extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: isDark
               ? null

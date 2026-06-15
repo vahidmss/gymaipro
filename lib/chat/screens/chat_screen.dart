@@ -14,7 +14,9 @@ import 'package:gymaipro/chat/widgets/chat_hub_ui.dart';
 import 'package:gymaipro/chat/widgets/chat_message_bubble.dart';
 import 'package:gymaipro/chat/widgets/error_boundary_widget.dart';
 import 'package:gymaipro/chat/widgets/message_input_widget.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/supabase_service.dart';
+import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/utils/text_controller_utils.dart';
@@ -238,21 +240,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _loadOtherUserInfo() async {
     try {
-      // بارگذاری اطلاعات کاربر مقابل
-      final otherUserResponse = await Supabase.instance.client
-          .from('profiles')
-          .select('role, last_seen_at, avatar_url')
-          // در این پروژه ممکن است profiles.id با auth.users.id برابر نباشد،
-          // پس هم بر اساس id و هم auth_user_id جستجو می‌کنیم.
-          .or(
-            'id.eq.${widget.otherUserId},auth_user_id.eq.${widget.otherUserId}',
-          )
-          .maybeSingle();
+      final otherUserResponse =
+          await UserProfileService.fetchProfile(widget.otherUserId);
 
       if (otherUserResponse == null) return;
-
-      // بارگذاری آواتار کاربر فعلی (در حال حاضر استفاده نمی‌شود)
-      // Current user avatar loading not needed for now
 
       SafeSetState.call(this, () {
         _otherUserRole = otherUserResponse['role'] as String?;
@@ -290,13 +281,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<void> _updateUserPresence(bool isOnline) async {
     try {
       if (_currentUserId != null) {
-        await Supabase.instance.client
-            .from('profiles')
-            .update({
-              'last_seen_at': DateTime.now().toIso8601String(),
-              'is_online': isOnline,
-            })
-            .eq('id', _currentUserId!);
+        await SimpleProfileService.updateProfile({
+          'last_seen_at': DateTime.now().toIso8601String(),
+          'is_online': isOnline,
+        });
       }
     } catch (_) {}
   }
@@ -517,7 +505,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
             ),
             backgroundColor: Colors.red.shade700,
-            duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'تلاش مجدد',
               textColor: Colors.white,
@@ -573,6 +560,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _messages.removeWhere((m) => m.id == message.id);
       });
     } catch (e) {
+      if (!mounted) return;
       WidgetSafetyUtils.safeShowSnackBar(
         context,
         'خطا در حذف پیام: $e',
@@ -595,6 +583,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       });
     } catch (e) {
+      if (!mounted) return;
       WidgetSafetyUtils.safeShowSnackBar(
         context,
         'خطا در ویرایش پیام: $e',
@@ -677,8 +666,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             SizedBox(height: 16.h),
             ElevatedButton.icon(
               onPressed: _loadMessages,
-              icon: Icon(LucideIcons.refreshCw),
-              label: Text('تلاش مجدد'),
+              icon: const Icon(LucideIcons.refreshCw),
+              label: const Text('تلاش مجدد'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.goldColor,
                 foregroundColor: AppTheme.onGoldColor,
@@ -810,7 +799,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(LucideIcons.search, color: AppTheme.goldColor),
+                leading: const Icon(LucideIcons.search, color: AppTheme.goldColor),
                 title: Text(
                   'جستجو در گفتگو',
                   style: TextStyle(
@@ -827,7 +816,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(LucideIcons.bell, color: AppTheme.goldColor),
+                leading: const Icon(LucideIcons.bell, color: AppTheme.goldColor),
                 title: Text(
                   'تنظیمات اعلان',
                   style: TextStyle(
@@ -844,8 +833,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(LucideIcons.trash2, color: AppTheme.goldColor),
-                title: Text(
+                leading: const Icon(LucideIcons.trash2, color: AppTheme.goldColor),
+                title: const Text(
                   'حذف گفتگو',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
@@ -891,7 +880,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(LucideIcons.edit, color: AppTheme.goldColor),
+                leading: const Icon(LucideIcons.edit, color: AppTheme.goldColor),
                 title: Text(
                   'ویرایش',
                   style: TextStyle(
@@ -908,7 +897,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(LucideIcons.copy, color: AppTheme.goldColor),
+                leading: const Icon(LucideIcons.copy, color: AppTheme.goldColor),
                 title: Text(
                   'کپی',
                   style: TextStyle(
@@ -925,8 +914,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(LucideIcons.trash2, color: AppTheme.goldColor),
-                title: Text(
+                leading: const Icon(LucideIcons.trash2, color: AppTheme.goldColor),
+                title: const Text(
                   'حذف',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
@@ -990,7 +979,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12.r),
-                  borderSide: BorderSide(color: AppTheme.goldColor, width: 2),
+                  borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
                 ),
               ),
             ),
@@ -1024,7 +1013,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     editController.dispose();
                   }
                 },
-                child: Text(
+                child: const Text(
                   'ذخیره',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
@@ -1064,7 +1053,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(LucideIcons.image, color: AppTheme.goldColor),
+                leading: const Icon(LucideIcons.image, color: AppTheme.goldColor),
                 title: Text(
                   'عکس',
                   style: TextStyle(
@@ -1081,7 +1070,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(LucideIcons.file, color: AppTheme.goldColor),
+                leading: const Icon(LucideIcons.file, color: AppTheme.goldColor),
                 title: Text(
                   'فایل',
                   style: TextStyle(
@@ -1098,7 +1087,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(LucideIcons.mic, color: AppTheme.goldColor),
+                leading: const Icon(LucideIcons.mic, color: AppTheme.goldColor),
                 title: Text(
                   'صوت',
                   style: TextStyle(
@@ -1151,7 +1140,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
+              final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
+              final cardColor = context.cardColor;
+              navigator.pop();
               try {
                 final conversation = await _chatService.getConversationByUserId(
                   widget.otherUserId,
@@ -1160,26 +1152,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   await _chatService.deleteConversation(conversation.id);
                 }
               } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'خطا در حذف گفتگو: $e',
-                        style: TextStyle(fontFamily: AppTheme.fontFamily),
-                      ),
-                      backgroundColor: context.cardColor,
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'خطا در حذف گفتگو: $e',
+                      style: const TextStyle(fontFamily: AppTheme.fontFamily),
                     ),
-                  );
-                }
+                    backgroundColor: cardColor,
+                  ),
+                );
               } finally {
-                if (mounted) Navigator.of(context).pop();
+                navigator.pop();
               }
             },
-            child: Text(
+            child: const Text(
               'حذف',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                color: const Color.fromRGBO(212, 175, 55, 1),
+                color: Color.fromRGBO(212, 175, 55, 1),
                 fontWeight: FontWeight.bold,
               ),
             ),

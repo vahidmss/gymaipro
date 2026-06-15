@@ -19,10 +19,6 @@ class ExternalUrlLauncher {
       final launched = await launchUrl(
         uri,
         mode: LaunchMode.inAppBrowserView,
-        webViewConfiguration: const WebViewConfiguration(
-          enableJavaScript: true,
-          enableDomStorage: true,
-        ),
       );
       if (launched) {
         _paymentBrowserOpen = true;
@@ -39,7 +35,6 @@ class ExternalUrlLauncher {
 
     final fallback = await open(
       uri,
-      preferredMode: LaunchMode.externalApplication,
     );
     if (fallback) {
       _paymentBrowserOpen = true;

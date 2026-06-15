@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class WeeklyWeightService {
@@ -63,8 +64,8 @@ class WeeklyWeightService {
         );
       }
 
-      // به‌روزرسانی وزن در جدول پروفایل
-      await _updateProfileWeight(userId, weight);
+      // به‌روزرسانی وزن در جدول پروفایل (همیشه پروفایل جاری)
+      await _updateProfileWeight(weight);
       return true;
     } catch (e) {
       debugPrint('خطا در ثبت وزن هفتگی: $e');
@@ -73,12 +74,9 @@ class WeeklyWeightService {
   }
 
   // به‌روزرسانی وزن در جدول پروفایل
-  static Future<void> _updateProfileWeight(String userId, double weight) async {
+  static Future<void> _updateProfileWeight(double weight) async {
     try {
-      await Supabase.instance.client
-          .from('profiles')
-          .update({'weight': weight})
-          .eq('id', userId);
+      await SimpleProfileService.updateProfile({'weight': weight});
 
       debugPrint('وزن در جدول پروفایل به‌روزرسانی شد: $weight');
     } catch (e) {

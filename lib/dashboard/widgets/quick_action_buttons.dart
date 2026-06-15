@@ -66,7 +66,6 @@ class QuickActionButtons extends StatelessWidget {
                       ? 0.3
                       : 0.4,
                 ),
-                width: 1,
               ),
               boxShadow: [
                 BoxShadow(
@@ -76,7 +75,6 @@ class QuickActionButtons extends StatelessWidget {
                         : 0.4,
                   ),
                   blurRadius: 8,
-                  spreadRadius: 0,
                   offset: const Offset(0, 2),
                 ),
               ],
@@ -85,12 +83,11 @@ class QuickActionButtons extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
               child: Row(
                 children: [
-                  Container(
+                  SizedBox(
                     width: 40.w,
                     height: 48.h,
-                    child: AppRemoteImage(
+                    child: const AppRemoteImage(
                       path: 'images/ai_robot.png',
-                      fit: BoxFit.contain,
                       filterQuality: FilterQuality.high,
                     ),
                   ),
@@ -156,7 +153,6 @@ class QuickActionButtons extends StatelessWidget {
                       ? 0.3
                       : 0.4,
                 ),
-                width: 1,
               ),
               boxShadow: [
                 BoxShadow(
@@ -166,7 +162,6 @@ class QuickActionButtons extends StatelessWidget {
                         : 0.4,
                   ),
                   blurRadius: 8,
-                  spreadRadius: 0,
                   offset: const Offset(0, 2),
                 ),
               ],
@@ -200,7 +195,7 @@ class QuickActionButtons extends StatelessWidget {
                       SizedBox(width: 6.w),
                       Padding(
                         padding: EdgeInsets.only(right: 22.w),
-                        child: Container(
+                        child: SizedBox(
                           width: 36.w,
                           height: 36.h,
                           child: Image.asset(
@@ -214,7 +209,6 @@ class QuickActionButtons extends StatelessWidget {
                   ),
                   SizedBox(height: 3.h),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: List.generate(
                       5,
@@ -276,7 +270,6 @@ class QuickActionButtons extends StatelessWidget {
                       ? 0.3
                       : 0.4,
                 ),
-                width: 1,
               ),
               boxShadow: [
                 BoxShadow(
@@ -286,7 +279,6 @@ class QuickActionButtons extends StatelessWidget {
                         : 0.4,
                   ),
                   blurRadius: 8,
-                  spreadRadius: 0,
                   offset: const Offset(0, 2),
                 ),
               ],
@@ -363,7 +355,6 @@ class QuickActionButtons extends StatelessWidget {
                       ? 0.3
                       : 0.4,
                 ),
-                width: 1,
               ),
               boxShadow: [
                 BoxShadow(
@@ -373,7 +364,6 @@ class QuickActionButtons extends StatelessWidget {
                         : 0.4,
                   ),
                   blurRadius: 8,
-                  spreadRadius: 0,
                   offset: const Offset(0, 2),
                 ),
               ],
@@ -399,7 +389,7 @@ class QuickActionButtons extends StatelessWidget {
                     ),
                   ),
                   SizedBox(width: 6.w),
-                  Container(
+                  SizedBox(
                     width: 36.w,
                     height: 36.h,
                     child: Image.asset(
@@ -444,7 +434,7 @@ class _TapScaleButtonState extends State<_TapScaleButton>
       duration: const Duration(milliseconds: 100),
       vsync: this,
     );
-    _scale = Tween<double>(begin: 1.0, end: 0.96).animate(
+    _scale = Tween<double>(begin: 1, end: 0.96).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
   }

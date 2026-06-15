@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:gymaipro/models/meal_plan.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/services/notification_data_service.dart';
 import 'package:gymaipro/payment/services/payout_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/supabase_service.dart' as supabase_service;
 
@@ -45,10 +47,10 @@ class MealPlanService {
     MealPlan plan, {
     String? trainerId,
   }) async {
-    print('=== MEAL PLAN SERVICE SAVE ===');
-    print('Plan userId: ${plan.userId}');
-    print('Trainer ID: $trainerId');
-    print('Plan toJson: ${plan.toJson()}');
+    debugPrint('=== MEAL PLAN SERVICE SAVE ===');
+    debugPrint('Plan userId: ${plan.userId}');
+    debugPrint('Trainer ID: $trainerId');
+    debugPrint('Plan toJson: ${plan.toJson()}');
     final client = supabase_service.SupabaseService.client;
 
     try {
@@ -86,29 +88,29 @@ class MealPlanService {
 
           if (existing != null && existing['id'] != null) {
             // If exists, update it
-            print('Plan with same name exists, updating instead of inserting...');
+            debugPrint('Plan with same name exists, updating instead of inserting...');
             await client
                 .from('meal_plans')
                 .update(dataToSave)
                 .eq('id', existing['id'] as String);
           } else {
             // If not, insert new
-            print('Inserting new meal plan...');
+            debugPrint('Inserting new meal plan...');
             await client.from('meal_plans').insert(dataToSave);
           }
         } else {
           // Update existing by id
-          print('Updating existing meal plan...');
+          debugPrint('Updating existing meal plan...');
           await client.from('meal_plans').update(dataToSave).eq('id', plan.id);
         }
-        print('Meal plan saved successfully');
+        debugPrint('Meal plan saved successfully');
       } catch (e) {
         // اگر خطا مربوط به ستون‌های missing بود، بدون آن‌ها دوباره تلاش می‌کنیم
         final errorMessage = e.toString();
         if (errorMessage.contains('editable_until') || 
             errorMessage.contains('expiry_date') ||
             errorMessage.contains('PGRST204')) {
-          print('ستون‌های expiry_date یا editable_until در دیتابیس وجود ندارند. ذخیره بدون آن‌ها...');
+          debugPrint('ستون‌های expiry_date یا editable_until در دیتابیس وجود ندارند. ذخیره بدون آن‌ها...');
           
           // حذف فیلدهای مشکل‌دار از dataToSave
           final dataToSaveWithoutOptionalFields = Map<String, dynamic>.from(dataToSave);
@@ -135,14 +137,14 @@ class MealPlanService {
           } else {
             await client.from('meal_plans').update(dataToSaveWithoutOptionalFields).eq('id', plan.id);
           }
-          print('Meal plan saved successfully (without optional date fields)');
+          debugPrint('Meal plan saved successfully (without optional date fields)');
         } else {
           // اگر خطا مربوط به چیز دیگری بود، دوباره throw می‌کنیم
           rethrow;
         }
       }
     } catch (e) {
-      print('Error saving meal plan: $e');
+      debugPrint('Error saving meal plan: $e');
       rethrow; // Re-throw so the UI can handle the error
     }
   }
@@ -246,10 +248,10 @@ class MealPlanService {
                 })
                 .eq('id', sub['id'] as String);
             
-            print('زمان انتظار تا ارسال برنامه: $responseTimeSeconds ثانیه (${(responseTimeSeconds / 3600).toStringAsFixed(2)} ساعت)');
+            debugPrint('زمان انتظار تا ارسال برنامه: $responseTimeSeconds ثانیه (${(responseTimeSeconds / 3600).toStringAsFixed(2)} ساعت)');
           }
         } catch (e) {
-          print('⚠️ خطا در محاسبه زمان انتظار: $e');
+          debugPrint('⚠️ خطا در محاسبه زمان انتظار: $e');
           // خطا در محاسبه زمان انتظار نباید جریان اصلی را متوقف کند
         }
 
@@ -260,16 +262,16 @@ class MealPlanService {
             trainerId: trainerId,
           );
         } catch (e) {
-          print('⚠️ خطا در ارسال نوتیفیکیشن: $e');
+          debugPrint('⚠️ خطا در ارسال نوتیفیکیشن: $e');
         }
       }
       
-      print('Plan sent successfully');
-      print('sent_at: $sentAt');
-      print('editable_until: $editableUntil');
-      print('expiry_date: $expiryDate');
+      debugPrint('Plan sent successfully');
+      debugPrint('sent_at: $sentAt');
+      debugPrint('editable_until: $editableUntil');
+      debugPrint('expiry_date: $expiryDate');
     } catch (e) {
-      print('Error sending meal plan: $e');
+      debugPrint('Error sending meal plan: $e');
       rethrow;
     }
   }
@@ -302,7 +304,7 @@ class MealPlanService {
 
       return null;
     } catch (e) {
-      print('Error getting meal plan for date: $e');
+      debugPrint('Error getting meal plan for date: $e');
       return null;
     }
   }
@@ -333,7 +335,7 @@ class MealPlanService {
 
       return null;
     } catch (e) {
-      print('Error getting existing plan for trainer and user: $e');
+      debugPrint('Error getting existing plan for trainer and user: $e');
       return null;
     }
   }
@@ -355,7 +357,7 @@ class MealPlanService {
           .map((json) => MealPlan.fromJson(json as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      print('Error getting plans created by trainer: $e');
+      debugPrint('Error getting plans created by trainer: $e');
       return [];
     }
   }
@@ -408,7 +410,7 @@ class MealPlanService {
             .maybeSingle();
 
         if (existing != null) {
-          print(
+          debugPrint(
             'برنامه با شناسه ${planToSave.id} از قبل وجود دارد. انجام به‌روزرسانی به جای ایجاد...',
           );
           return await updatePlan(planToSave, trainerId: trainerId);
@@ -418,14 +420,14 @@ class MealPlanService {
       // Insert into Supabase
       try {
         await client.from('meal_plans').insert(dataToSave);
-        print('Meal plan created successfully');
+        debugPrint('Meal plan created successfully');
       } catch (e) {
         // اگر خطا مربوط به ستون‌های missing بود، بدون آن‌ها دوباره تلاش می‌کنیم
         final errorMessage = e.toString();
         if (errorMessage.contains('editable_until') || 
             errorMessage.contains('expiry_date') ||
             errorMessage.contains('PGRST204')) {
-          print('ستون‌های expiry_date یا editable_until در دیتابیس وجود ندارند. ذخیره بدون آن‌ها...');
+          debugPrint('ستون‌های expiry_date یا editable_until در دیتابیس وجود ندارند. ذخیره بدون آن‌ها...');
           
           // حذف فیلدهای مشکل‌دار از dataToSave
           final dataToSaveWithoutOptionalFields = Map<String, dynamic>.from(dataToSave);
@@ -433,7 +435,7 @@ class MealPlanService {
           dataToSaveWithoutOptionalFields.remove('editable_until');
           
           await client.from('meal_plans').insert(dataToSaveWithoutOptionalFields);
-          print('Meal plan created successfully (without optional date fields)');
+          debugPrint('Meal plan created successfully (without optional date fields)');
         } else {
           rethrow;
         }
@@ -467,7 +469,7 @@ class MealPlanService {
               // نوتیفیکیشن فقط در sendPlan ارسال می‌شود
             }
           } catch (e) {
-            print(
+            debugPrint(
               '⚠️ خطا در به‌روزرسانی اشتراک/ارسال اعلان پس از ایجاد برنامه: $e',
             );
           }
@@ -493,7 +495,7 @@ class MealPlanService {
             // نوتیفیکیشن فقط در sendPlan ارسال می‌شود
           }
         } catch (e) {
-          print(
+          debugPrint(
             '⚠️ خطا در به‌روزرسانی اشتراک/ارسال اعلان پس از ایجاد برنامه: $e',
           );
         }
@@ -501,7 +503,7 @@ class MealPlanService {
 
       return planToSave;
     } catch (e) {
-      print('Error creating meal plan: $e');
+      debugPrint('Error creating meal plan: $e');
       rethrow;
     }
   }
@@ -570,14 +572,14 @@ class MealPlanService {
             .from('meal_plans')
             .update(dataToSave)
             .eq('id', plan.id);
-        print('Meal plan updated successfully');
+        debugPrint('Meal plan updated successfully');
       } catch (e) {
         // اگر خطا مربوط به ستون‌های missing بود، بدون آن‌ها دوباره تلاش می‌کنیم
         final errorMessage = e.toString();
         if (errorMessage.contains('editable_until') || 
             errorMessage.contains('expiry_date') ||
             errorMessage.contains('PGRST204')) {
-          print('ستون‌های expiry_date یا editable_until در دیتابیس وجود ندارند. ذخیره بدون آن‌ها...');
+          debugPrint('ستون‌های expiry_date یا editable_until در دیتابیس وجود ندارند. ذخیره بدون آن‌ها...');
           
           // حذف فیلدهای مشکل‌دار از dataToSave
           final dataToSaveWithoutOptionalFields = Map<String, dynamic>.from(dataToSave);
@@ -588,7 +590,7 @@ class MealPlanService {
               .from('meal_plans')
               .update(dataToSaveWithoutOptionalFields)
               .eq('id', plan.id);
-          print('Meal plan updated successfully (without optional date fields)');
+          debugPrint('Meal plan updated successfully (without optional date fields)');
         } else {
           rethrow;
         }
@@ -596,7 +598,7 @@ class MealPlanService {
 
       return planToSave;
     } catch (e) {
-      print('Error updating meal plan: $e');
+      debugPrint('Error updating meal plan: $e');
       rethrow;
     }
   }
@@ -651,7 +653,7 @@ class MealPlanService {
 
       // در صورتی که هیچ اشتراک معتبری پیدا نشد، از به‌روزرسانی صرف‌نظر کن
       if (sub == null || sub['id'] == null) {
-        print(
+        debugPrint(
           '⚠️ اشتراک معتبری برای به‌روزرسانی پیدا نشد (trainer_id=$trainerId, user_id=$userId)',
         );
         return;
@@ -678,11 +680,11 @@ class MealPlanService {
         final payoutService = PayoutService();
         await payoutService.updateTrainerWithdrawable(trainerId);
       } catch (e) {
-        print('⚠️ خطا در به‌روزرسانی موجودی قابل برداشت: $e');
+        debugPrint('⚠️ خطا در به‌روزرسانی موجودی قابل برداشت: $e');
         // خطا در به‌روزرسانی نباید جریان اصلی را متوقف کند
       }
     } catch (e) {
-      print('خطا در به‌روزرسانی وضعیت اشتراک پس از ایجاد برنامه: $e');
+      debugPrint('خطا در به‌روزرسانی وضعیت اشتراک پس از ایجاد برنامه: $e');
     }
   }
 
@@ -694,27 +696,15 @@ class MealPlanService {
     try {
       final client = supabase_service.SupabaseService.client;
       String trainerName = 'مربی شما';
-      // واکشی نام مربی (با فیلدهای امن)
       try {
-        final trainerProfile = await client
-            .from('profiles')
-            .select('first_name,last_name,username')
-            .eq('id', trainerId)
-            .maybeSingle();
-        if (trainerProfile != null) {
-          final first = (trainerProfile['first_name'] as String?)?.trim() ?? '';
-          final last = (trainerProfile['last_name'] as String?)?.trim() ?? '';
-          final username =
-              (trainerProfile['username'] as String?)?.trim() ?? '';
-          if ((first + last).trim().isNotEmpty) {
-            trainerName = '$first $last'.trim();
-          } else if (username.isNotEmpty) {
-            trainerName = username;
-          }
-        }
+        final trainerProfile =
+            await ProfileRepository.instance.fetchProfile(trainerId);
+        trainerName = ProfileRepository.instance.displayNameFromMap(
+          trainerProfile,
+          fallback: trainerName,
+        );
       } catch (e) {
-        // در صورت خطا در خواندن پروفایل، از عنوان پیش‌فرض استفاده می‌کنیم و ادامه می‌دهیم
-        print('⚠️ خطا در واکشی نام مربی: $e');
+        debugPrint('⚠️ خطا در واکشی نام مربی: $e');
       }
 
       const title = 'برنامه جدید آماده شد';
@@ -764,10 +754,10 @@ class MealPlanService {
           );
         }
       } catch (e) {
-        print('⚠️ خطا در ارسال پوش نوتیفیکیشن: $e');
+        debugPrint('⚠️ خطا در ارسال پوش نوتیفیکیشن: $e');
       }
     } catch (e) {
-      print('⚠️ خطا در ایجاد اعلان ارسال برنامه: $e');
+      debugPrint('⚠️ خطا در ایجاد اعلان ارسال برنامه: $e');
     }
   }
 }

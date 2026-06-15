@@ -192,7 +192,7 @@ class _ComprehensiveCacheInfoWidgetState
                   borderRadius: BorderRadius.circular(12.r),
                 ),
               ),
-              child: Text(
+              child: const Text(
                 'پاک کردن',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
@@ -354,7 +354,7 @@ class _ComprehensiveCacheInfoWidgetState
                       ? SizedBox(
                           width: 18.w,
                           height: 18.w,
-                          child: CircularProgressIndicator(
+                          child: const CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor: AlwaysStoppedAnimation<Color>(
                               AppTheme.errorColor,
@@ -378,7 +378,7 @@ class _ComprehensiveCacheInfoWidgetState
           Center(
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 16.h),
-              child: CircularProgressIndicator(
+              child: const CircularProgressIndicator(
                 color: AppTheme.goldColor,
                 strokeWidth: 2,
               ),
@@ -394,7 +394,6 @@ class _ComprehensiveCacheInfoWidgetState
               borderRadius: BorderRadius.circular(12.r),
               border: Border.all(
                 color: context.separatorColor.withValues(alpha: 0.3),
-                width: 1,
               ),
             ),
             child: Row(
@@ -430,7 +429,6 @@ class _ComprehensiveCacheInfoWidgetState
                   borderRadius: BorderRadius.circular(12.r),
                   border: Border.all(
                     color: AppTheme.goldColor.withValues(alpha: 0.3),
-                    width: 1,
                   ),
                 ),
                 child: Row(
@@ -527,7 +525,6 @@ class _ComprehensiveCacheInfoWidgetState
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
           color: context.separatorColor.withValues(alpha: 0.3),
-          width: 1,
         ),
       ),
       child: Column(
@@ -640,7 +637,7 @@ class _ComprehensiveCacheInfoWidgetState
                             ? SizedBox(
                                 width: 16.w,
                                 height: 16.w,
-                                child: CircularProgressIndicator(
+                                child: const CircularProgressIndicator(
                                   strokeWidth: 2,
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                     AppTheme.errorColor,
@@ -661,7 +658,7 @@ class _ComprehensiveCacheInfoWidgetState
 
           // لیست فایل‌ها (expandable)
           if (isExpanded && canExpand)
-            Container(
+            DecoratedBox(
               decoration: BoxDecoration(
                 color: isDark
                     ? context.backgroundColor
@@ -679,7 +676,7 @@ class _ComprehensiveCacheInfoWidgetState
                   if (isLoadingFiles)
                     Padding(
                       padding: EdgeInsets.all(16.w),
-                      child: Center(
+                      child: const Center(
                         child: CircularProgressIndicator(
                           color: AppTheme.goldColor,
                           strokeWidth: 2,
@@ -713,13 +710,13 @@ class _ComprehensiveCacheInfoWidgetState
     );
   }
 
-  void _toggleExpand(String type) async {
+  Future<void> _toggleExpand(String type) async {
     setState(() {
       _expandedSections[type] = !(_expandedSections[type] ?? false);
     });
 
     // اگر باز شد و فایل‌ها هنوز لود نشده‌اند، لود کن
-    if (_expandedSections[type] == true && _cachedFiles[type] == null) {
+    if ((_expandedSections[type] ?? false) && _cachedFiles[type] == null) {
       await _loadFiles(type);
     }
   }
@@ -734,13 +731,10 @@ class _ComprehensiveCacheInfoWidgetState
       switch (type) {
         case 'video':
           files = await _cacheService.getVideoFiles();
-          break;
         case 'music_cache':
           files = await _cacheService.getMusicCacheFiles();
-          break;
         case 'music_downloads':
           files = await _cacheService.getMusicDownloadFiles();
-          break;
       }
 
       if (mounted) {
@@ -769,7 +763,6 @@ class _ComprehensiveCacheInfoWidgetState
         border: Border(
           bottom: BorderSide(
             color: context.separatorColor.withValues(alpha: 0.2),
-            width: 1,
           ),
         ),
       ),
@@ -954,7 +947,7 @@ class _ComprehensiveCacheInfoWidgetState
                   borderRadius: BorderRadius.circular(12.r),
                 ),
               ),
-              child: Text(
+              child: const Text(
                 'حذف',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,

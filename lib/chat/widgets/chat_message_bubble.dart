@@ -25,7 +25,6 @@ class ChatMessageBubble extends StatelessWidget {
       return Container(
         margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
               constraints: BoxConstraints(
@@ -48,7 +47,6 @@ class ChatMessageBubble extends StatelessWidget {
                 ],
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // آیکون و عنوان ادمین
@@ -151,7 +149,6 @@ class ChatMessageBubble extends StatelessWidget {
                               color: AppTheme.goldColor.withValues(
                                 alpha: isDark ? 0.2 : 0.3,
                               ),
-                              width: 1,
                             ),
                       boxShadow: [
                         BoxShadow(

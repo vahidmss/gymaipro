@@ -10,6 +10,7 @@ import 'package:gymaipro/payment/services/discount_service.dart';
 import 'package:gymaipro/payment/services/payment_gateway_service.dart';
 import 'package:gymaipro/payment/services/trainer_subscription_service.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/trainer_dashboard/services/trainer_client_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -28,6 +29,7 @@ class TrainerPaymentService {
       TrainerSubscriptionService();
   final CommissionService _commissionService = CommissionService();
   final SupabaseClient _client = Supabase.instance.client;
+  final ProfileRepository _profiles = ProfileRepository.instance;
   final TrainerClientService _trainerClientService = TrainerClientService();
 
   /// پردازش خرید اشتراک مربی
@@ -652,19 +654,19 @@ class TrainerPaymentService {
   }
 
   /// بر اساس profile id، auth user id را برمی‌گرداند (برای اعلان و device_tokens که با auth.uid کار می‌کنند)
-  Future<String> _getAuthUserIdForProfileId(String profileId) async {
-    try {
-      final row = await _client
-          .from('profiles')
-          .select('auth_user_id')
-          .eq('id', profileId)
-          .maybeSingle();
-      final authId = row?['auth_user_id'] as String?;
-      return (authId != null && authId.isNotEmpty) ? authId : profileId;
-    } catch (_) {
-      return profileId;
-    }
+  Future<String> _getAuthUserIdForProfileId(String profileId) =>
+      _profiles.resolveAuthUserId(profileId);
+
+  String _buyerNameFromProfile(
+    Map<String, dynamic>? profile, {
+    String fallback = 'یک کاربر',
+  }) {
+    if (profile == null) return fallback;
+    return _profiles.displayNameFromMap(profile, fallback: fallback);
   }
+
+  Future<Map<String, dynamic>?> _fetchBuyerProfile(String buyerUserId) =>
+      _profiles.fetchProfile(buyerUserId);
 
   /// ارسال اعلان به مربی پس از خرید اشتراک
   Future<void> _notifyTrainerNewRequest({
@@ -683,27 +685,10 @@ class TrainerPaymentService {
       if (buyerName == 'یک کاربر') {
         buyerName = '';
       }
+      Map<String, dynamic>? buyerProfile;
       if (buyerName.isEmpty) {
-        try {
-          final p = await _client
-              .from('profiles')
-              .select('first_name, last_name, username, phone_number')
-              .eq('id', buyerUserId)
-              .maybeSingle();
-          if (p != null) {
-            final firstName = (p['first_name'] as String?)?.trim() ?? '';
-            final lastName = (p['last_name'] as String?)?.trim() ?? '';
-            final combined = '$firstName $lastName'.trim();
-            final username = (p['username'] as String?)?.trim() ?? '';
-            final phone = (p['phone_number'] as String?)?.trim() ?? '';
-            if (combined.isNotEmpty) {
-              buyerName = combined;
-            } else if (username.isNotEmpty)
-              buyerName = username;
-            else if (phone.isNotEmpty)
-              buyerName = phone;
-          }
-        } catch (_) {}
+        buyerProfile = await _fetchBuyerProfile(buyerUserId);
+        buyerName = _buyerNameFromProfile(buyerProfile, fallback: '');
       }
       if (buyerName.isEmpty) buyerName = 'یک کاربر';
 
@@ -712,13 +697,9 @@ class TrainerPaymentService {
       // یوزرنیم را فقط وقتی اضافه می‌کنیم که نام کامل در دسترس نباشد
       String usernameSuffix = '';
       try {
-        final p = await _client
-            .from('profiles')
-            .select('username, phone_number')
-            .eq('id', buyerUserId)
-            .maybeSingle();
-        final uname = (p?['username'] as String?)?.trim();
-        final phone = (p?['phone_number'] as String?)?.trim();
+        buyerProfile ??= await _fetchBuyerProfile(buyerUserId);
+        final uname = (buyerProfile?['username'] as String?)?.trim();
+        final phone = (buyerProfile?['phone_number'] as String?)?.trim();
         final shouldAppend =
             uname != null &&
             uname.isNotEmpty &&
@@ -795,27 +776,8 @@ class TrainerPaymentService {
       final trainerAuthId = await _getAuthUserIdForProfileId(trainerId);
 
       // نام خریدار
-      String buyerName = '';
-      try {
-        final p = await _client
-            .from('profiles')
-            .select('first_name, last_name, username, phone_number')
-            .eq('id', buyerUserId)
-            .maybeSingle();
-        if (p != null) {
-          final first = (p['first_name'] as String?)?.trim() ?? '';
-          final last = (p['last_name'] as String?)?.trim() ?? '';
-          final combined = '$first $last'.trim();
-          final username = (p['username'] as String?)?.trim() ?? '';
-          final phone = (p['phone_number'] as String?)?.trim() ?? '';
-          if (combined.isNotEmpty) {
-            buyerName = combined;
-          } else if (username.isNotEmpty)
-            buyerName = username;
-          else if (phone.isNotEmpty)
-            buyerName = phone;
-        }
-      } catch (_) {}
+      final buyerProfile = await _fetchBuyerProfile(buyerUserId);
+      var buyerName = _buyerNameFromProfile(buyerProfile, fallback: '');
       if (buyerName.isEmpty) buyerName = 'یک کاربر';
 
       const title = 'شاگرد جدید';

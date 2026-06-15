@@ -197,7 +197,7 @@ class _AdminExerciseSyncScreenState extends State<AdminExerciseSyncScreen> {
                   ? SizedBox(
                       width: 20.w,
                       height: 20.h,
-                      child: CircularProgressIndicator(
+                      child: const CircularProgressIndicator(
                         strokeWidth: 2,
                         color: Colors.black,
                       ),

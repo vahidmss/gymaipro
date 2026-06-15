@@ -53,7 +53,6 @@ class _EditSessionNotesDialogState extends State<EditSessionNotesDialog> {
           borderRadius: BorderRadius.circular(16.r),
           border: Border.all(
             color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.4),
-            width: 1,
           ),
         ),
         child: Padding(
@@ -193,7 +192,7 @@ class _EditSessionNotesDialogState extends State<EditSessionNotesDialog> {
                           ? SizedBox(
                               width: 18.w,
                               height: 18.h,
-                              child: CircularProgressIndicator(
+                              child: const CircularProgressIndicator(
                                 color: AppTheme.onGoldColor,
                                 strokeWidth: 2,
                               ),

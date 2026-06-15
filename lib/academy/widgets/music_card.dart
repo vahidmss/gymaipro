@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -16,6 +18,7 @@ class MusicCard extends StatefulWidget {
 
 class _MusicCardState extends State<MusicCard> {
   final AudioPlayer _audioPlayer = AudioPlayer();
+  final List<StreamSubscription<dynamic>> _playerSubs = [];
   bool _isPlaying = false;
   bool _isLoading = false;
   Duration _duration = Duration.zero;
@@ -24,31 +27,34 @@ class _MusicCardState extends State<MusicCard> {
   @override
   void initState() {
     super.initState();
-    _audioPlayer.onPlayerStateChanged.listen((state) {
+    _playerSubs.add(_audioPlayer.onPlayerStateChanged.listen((state) {
       if (mounted) {
         setState(() {
           _isPlaying = state == PlayerState.playing;
         });
       }
-    });
-    _audioPlayer.onDurationChanged.listen((duration) {
+    }));
+    _playerSubs.add(_audioPlayer.onDurationChanged.listen((duration) {
       if (mounted) {
         setState(() {
           _duration = duration;
         });
       }
-    });
-    _audioPlayer.onPositionChanged.listen((position) {
+    }));
+    _playerSubs.add(_audioPlayer.onPositionChanged.listen((position) {
       if (mounted) {
         setState(() {
           _position = position;
         });
       }
-    });
+    }));
   }
 
   @override
   void dispose() {
+    for (final sub in _playerSubs) {
+      sub.cancel();
+    }
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -84,7 +90,7 @@ class _MusicCardState extends State<MusicCard> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: isDark
             ? null
@@ -136,18 +142,18 @@ class _MusicCardState extends State<MusicCard> {
                           widget.music.coverImageUrl,
                           fit: BoxFit.cover,
                           width: double.infinity,
-                          errorBuilder: (c, e, s) => Container(
+                          errorBuilder: (c, e, s) => const ColoredBox(
                             color: Colors.black26,
-                            child: const Icon(
+                            child: Icon(
                               LucideIcons.music,
                               color: Colors.white54,
                               size: 48,
                             ),
                           ),
                         )
-                      : Container(
+                      : const ColoredBox(
                           color: Colors.black26,
-                          child: const Icon(
+                          child: Icon(
                             LucideIcons.music,
                             color: Colors.white54,
                             size: 48,

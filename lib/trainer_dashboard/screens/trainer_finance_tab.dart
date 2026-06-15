@@ -161,6 +161,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
 
     if (result['success'] == true) {
       await _load();
+      if (!mounted) return;
       WidgetSafetyUtils.safeShowSnackBar(
         context,
         result['message'] as String? ?? 'انتقال انجام شد',

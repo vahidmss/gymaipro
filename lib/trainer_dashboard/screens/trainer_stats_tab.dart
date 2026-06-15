@@ -42,7 +42,7 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     if (_loading) {
-      return Center(
+      return const Center(
         child: CircularProgressIndicator(
           color: AppTheme.goldColor,
         ),

@@ -249,7 +249,7 @@ class CoverUploadService {
               debugPrint(
                 'CoverUploadService: Upload successful! URL: $coverUrl',
               );
-              onProgress?.call(1.0);
+              onProgress?.call(1);
               return coverUrl;
             }
           }

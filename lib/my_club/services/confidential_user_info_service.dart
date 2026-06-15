@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/foundation.dart';
 import 'package:gymaipro/achievements/services/achievement_service.dart';
 import 'package:gymaipro/main.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ConfidentialUserInfoService {
@@ -24,13 +25,10 @@ class ConfidentialUserInfoService {
       // try to fetch username from profiles for snapshot
       String? username;
       try {
-        final p = await _client
-            .from('profiles')
-            .select('username')
-            .eq('id', userId)
-            .maybeSingle();
-        if (p != null && p['username'] != null) {
-          username = p['username'].toString();
+        final profile = await SimpleProfileService.getCurrentProfile();
+        final value = profile?['username']?.toString().trim();
+        if (value != null && value.isNotEmpty) {
+          username = value;
         }
       } catch (_) {}
 
@@ -230,7 +228,7 @@ class ConfidentialUserInfoService {
             <String, dynamic>{},
       };
     } catch (e) {
-      print('Error loading user data: $e');
+      debugPrint('Error loading user data: $e');
       return null;
     }
   }

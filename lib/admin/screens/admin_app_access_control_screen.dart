@@ -76,6 +76,7 @@ class _AdminAppAccessControlScreenState
     if (!mounted) return;
     if (success) {
       _auditLogs = await _service.getAuditLogs();
+      if (!mounted) return;
     }
     setState(() => _isSaving = false);
     ScaffoldMessenger.of(context).showSnackBar(

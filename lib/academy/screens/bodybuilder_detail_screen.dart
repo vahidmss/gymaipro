@@ -55,9 +55,9 @@ class BodybuilderDetailScreen extends StatelessWidget {
                     width: double.infinity,
                     height: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) => Container(
+                    errorBuilder: (c, e, s) => const ColoredBox(
                       color: Colors.black26,
-                      child: const Icon(
+                      child: Icon(
                         LucideIcons.user,
                         color: Colors.white54,
                         size: 64,
@@ -154,7 +154,6 @@ class BodybuilderDetailScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12.r),
                       border: Border.all(
                         color: context.separatorColor,
-                        width: 1,
                       ),
                     ),
                     child: Text(
@@ -181,7 +180,7 @@ class BodybuilderDetailScreen extends StatelessWidget {
                                 margin: EdgeInsets.only(top: 6.h, left: 8.w),
                                 width: 6.w,
                                 height: 6.w,
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: AppTheme.goldColor,
                                   shape: BoxShape.circle,
                                 ),
@@ -301,7 +300,6 @@ class BodybuilderDetailScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(12.r),
           border: Border.all(
             color: context.separatorColor,
-            width: 1,
           ),
         ),
         child: Row(

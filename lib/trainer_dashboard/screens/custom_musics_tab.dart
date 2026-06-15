@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/custom_music.dart';
@@ -92,7 +91,7 @@ class _CustomMusicsTabState extends State<CustomMusicsTab> {
           // لیست موزیک‌ها
           Expanded(
             child: _isLoading
-                ? Center(
+                ? const Center(
                     child: CircularProgressIndicator(color: AppTheme.goldColor),
                   )
                 : _filteredMusics.isEmpty

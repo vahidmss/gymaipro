@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_plan_builder/services/meal_plan_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/date_utils.dart' as du;
 import 'package:gymaipro/utils/widget_safety_utils.dart';
@@ -65,25 +66,13 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
           .toSet()
           .toList();
 
-      final Map<String, Map<String, dynamic>> profilesById = {};
-      if (userIds.isNotEmpty) {
-        try {
-          // Supabase dart: به‌جای in_ از or استفاده می‌کنیم برای سازگاری
-          final orExpr = userIds.map((id) => 'id.eq.$id').join(',');
-          final profs = await _client
-              .from('profiles')
-              .select('id, first_name, last_name, username, avatar_url')
-              .or(orExpr);
-          for (final p in (profs as List)) {
-            final id = p['id'] as String?;
-            if (id != null) {
-              profilesById[id] = Map<String, dynamic>.from(
-                p as Map<dynamic, dynamic>,
-              );
-            }
-          }
-        } catch (_) {}
-      }
+      final Map<String, Map<String, dynamic>> profilesById =
+          userIds.isEmpty
+              ? {}
+              : await ProfileRepository.instance.fetchProfilesByIdsMap(
+                  userIds,
+                  columns: 'id, first_name, last_name, username, avatar_url',
+                );
 
       _items = items;
       _userProfiles = profilesById;

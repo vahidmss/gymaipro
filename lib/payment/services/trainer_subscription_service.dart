@@ -4,6 +4,7 @@ import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/services/notification_data_service.dart';
 import 'package:gymaipro/payment/models/trainer_subscription.dart';
 import 'package:gymaipro/payment/services/payout_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/trainer_dashboard/services/trainer_client_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -16,6 +17,7 @@ class TrainerSubscriptionService {
 
   final SupabaseClient _client = Supabase.instance.client;
   final PayoutService _payoutService = PayoutService();
+  final ProfileRepository _profiles = ProfileRepository.instance;
 
   /// ایجاد اشتراک جدید
   Future<TrainerSubscription?> createSubscription({
@@ -491,19 +493,8 @@ class TrainerSubscriptionService {
   }
 
   /// بر اساس profile id مربی، auth user id را برمی‌گرداند (برای اعلان و device_tokens که با auth.uid کار می‌کنند)
-  Future<String> _getAuthUserIdForProfileId(String profileId) async {
-    try {
-      final row = await _client
-          .from('profiles')
-          .select('auth_user_id')
-          .eq('id', profileId)
-          .maybeSingle();
-      final authId = row?['auth_user_id'] as String?;
-      return (authId != null && authId.isNotEmpty) ? authId : profileId;
-    } catch (_) {
-      return profileId;
-    }
-  }
+  Future<String> _getAuthUserIdForProfileId(String profileId) =>
+      _profiles.resolveAuthUserId(profileId);
 
   /// ارسال اعلان: شاگرد جدید به مربی اضافه شد
   Future<void> _notifyTrainerNewStudent({
@@ -513,28 +504,8 @@ class TrainerSubscriptionService {
     try {
       final trainerAuthId = await _getAuthUserIdForProfileId(trainerId);
 
-      // نام خریدار
-      String buyerName = '';
-      try {
-        final p = await _client
-            .from('profiles')
-            .select('first_name, last_name, username, phone_number')
-            .eq('id', buyerUserId)
-            .maybeSingle();
-        if (p != null) {
-          final first = (p['first_name'] as String?)?.trim() ?? '';
-          final last = (p['last_name'] as String?)?.trim() ?? '';
-          final combined = '$first $last'.trim();
-          final username = (p['username'] as String?)?.trim() ?? '';
-          final phone = (p['phone_number'] as String?)?.trim() ?? '';
-          if (combined.isNotEmpty) {
-            buyerName = combined;
-          } else if (username.isNotEmpty)
-            buyerName = username;
-          else if (phone.isNotEmpty)
-            buyerName = phone;
-        }
-      } catch (_) {}
+      final buyerProfile = await _profiles.fetchProfile(buyerUserId);
+      var buyerName = _profiles.displayNameFromMap(buyerProfile, fallback: '');
       if (buyerName.isEmpty) buyerName = 'یک کاربر';
 
       const title = 'شاگرد جدید';

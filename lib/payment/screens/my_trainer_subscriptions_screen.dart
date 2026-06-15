@@ -25,7 +25,6 @@ class _MyTrainerSubscriptionsScreenState
 
   List<TrainerSubscription> _subscriptions = [];
   bool _isLoading = true;
-  final String _selectedFilter = 'all';
 
   @override
   void initState() {
@@ -65,27 +64,13 @@ class _MyTrainerSubscriptionsScreenState
           SnackBar(
             content: Text(
               'خطا در بارگذاری اشتراک‌ها: $e',
-              style: TextStyle(
+              style: const TextStyle(
     fontFamily: AppTheme.fontFamily,),
             ),
             backgroundColor: Colors.red,
           ),
         );
       }
-    }
-  }
-
-  @Deprecated('Not used')
-  List<TrainerSubscription> get _filteredSubscriptions {
-    switch (_selectedFilter) {
-      case 'active':
-        return _subscriptions.where((s) => s.isActive).toList();
-      case 'expired':
-        return _subscriptions.where((s) => s.isExpired).toList();
-      case 'pending':
-        return _subscriptions.where((s) => s.isPending).toList();
-      default:
-        return _subscriptions;
     }
   }
 
@@ -113,7 +98,7 @@ class _MyTrainerSubscriptionsScreenState
           indicatorColor: AppTheme.goldColor,
           labelColor: AppTheme.goldColor,
           unselectedLabelColor: Colors.grey[400],
-          tabs: [
+          tabs: const [
             Tab(child: Text('همه', style: TextStyle(
     fontFamily: AppTheme.fontFamily,fontSize: 12))),
             Tab(
@@ -239,7 +224,7 @@ class _MyTrainerSubscriptionsScreenState
           ElevatedButton.icon(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(LucideIcons.search),
-            label: Text('جستجوی مربی', style: TextStyle(
+            label: const Text('جستجوی مربی', style: TextStyle(
     fontFamily: AppTheme.fontFamily,)),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.goldColor,
@@ -308,7 +293,7 @@ class _MyTrainerSubscriptionsScreenState
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(
+            child: const Text(
               'بستن',
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,color: AppTheme.goldColor),

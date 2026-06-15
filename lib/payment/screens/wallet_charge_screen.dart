@@ -206,12 +206,12 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
     WidgetSafetyUtils.safeShowDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
+        title: const Text(
           'هدایت به پرداخت',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        content: Text(
+        content: const Text(
           'صفحه پرداخت در مرورگر باز شد. پس از تکمیل پرداخت، به اپلیکیشن بازگردید.',
           maxLines: 4,
           overflow: TextOverflow.ellipsis,
@@ -222,7 +222,7 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
               WidgetSafetyUtils.safePop(context);
               WidgetSafetyUtils.safePop(context); // بازگشت به صفحه قبلی
             },
-            child: Text('باشه', maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: const Text('باشه', maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -233,12 +233,12 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
     WidgetSafetyUtils.safeShowDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('خطا', maxLines: 1, overflow: TextOverflow.ellipsis),
+        title: const Text('خطا', maxLines: 1, overflow: TextOverflow.ellipsis),
         content: Text(error, maxLines: 5, overflow: TextOverflow.ellipsis),
         actions: [
           TextButton(
             onPressed: () => WidgetSafetyUtils.safePop(context),
-            child: Text('باشه', maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: const Text('باشه', maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -248,7 +248,7 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: context.backgroundColor,
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -256,8 +256,8 @@ class _WalletChargeScreenState extends State<WalletChargeScreen> {
             end: Alignment.bottomLeft,
             colors: [
               AppTheme.primaryColor.withValues(alpha: 0.1),
-              AppTheme.backgroundColor,
-              AppTheme.backgroundColor,
+              context.backgroundColor,
+              context.backgroundColor,
             ],
           ),
         ),

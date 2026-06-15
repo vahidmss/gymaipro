@@ -67,7 +67,6 @@ class LeagueCard extends StatelessWidget {
                 path: imagePathForLeague(league),
                 width: 56.w,
                 height: 56.w,
-                fit: BoxFit.contain,
                 errorWidget: Container(
                   width: 56.w,
                   height: 56.w,

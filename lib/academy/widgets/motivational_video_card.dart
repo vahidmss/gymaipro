@@ -61,10 +61,10 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
   Future<void> _togglePlay() async {
     if (_isInitialized && _chewieController != null) {
       if (_isPlaying) {
-        _chewieController!.pause();
+        unawaited(_chewieController!.pause());
         setState(() => _isPlaying = false);
       } else {
-        _chewieController!.play();
+        unawaited(_chewieController!.play());
         setState(() => _isPlaying = true);
       }
       return;
@@ -75,7 +75,7 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
     }
 
     if (_isInitialized && _chewieController != null) {
-      _chewieController!.play();
+      unawaited(_chewieController!.play());
       setState(() => _isPlaying = true);
     }
   }
@@ -88,7 +88,7 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
     try {
       // Dispose previous controllers if any
       _chewieController?.dispose();
-      _videoPlayerController?.dispose();
+      unawaited(_videoPlayerController?.dispose());
       _chewieController = null;
       _videoPlayerController = null;
 
@@ -109,26 +109,20 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
       _chewieController = ChewieController(
         videoPlayerController: controller,
         aspectRatio: controller.value.aspectRatio,
-        autoPlay: false,
-        looping: false,
-        showControls: true,
-        allowFullScreen: true,
-        allowMuting: true,
-        allowPlaybackSpeedChanging: true,
         materialProgressColors: ChewieProgressColors(
           playedColor: AppTheme.goldColor,
           handleColor: AppTheme.goldColor,
           backgroundColor: Colors.grey[800]!,
           bufferedColor: AppTheme.goldColor.withValues(alpha: 0.3),
         ),
-        placeholder: Container(
+        placeholder: const ColoredBox(
           color: Colors.black,
-          child: const Center(
+          child: Center(
             child: CircularProgressIndicator(color: AppTheme.goldColor),
           ),
         ),
         errorBuilder: (context, errorMessage) {
-          return Container(
+          return ColoredBox(
             color: Colors.black,
             child: Center(
               child: Column(
@@ -221,15 +215,15 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
 
     try {
       // Start download in background
-      downloadManager
+      unawaited(downloadManager
           .downloadVideo(widget.video.videoUrl)
           .then((success) {
             if (mounted) {
               if (success) {
                 _checkCacheStatus();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Row(
+                  const SnackBar(
+                    content: Row(
                       children: [
                         Icon(Icons.check_circle, color: Colors.white),
                         SizedBox(width: 8),
@@ -243,8 +237,8 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Row(
+                  const SnackBar(
+                    content: Row(
                       children: [
                         Icon(Icons.error, color: Colors.white),
                         SizedBox(width: 8),
@@ -278,11 +272,10 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                   ),
                   backgroundColor: Colors.red,
                   behavior: SnackBarBehavior.floating,
-                  duration: const Duration(seconds: 4),
                 ),
               );
             }
-          });
+          }));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -302,7 +295,6 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
             ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -345,7 +337,7 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text(
+            child: const Text(
               'حذف',
               style: TextStyle(
                 color: Colors.red,
@@ -358,16 +350,16 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed ?? false) {
       try {
         // اگر ویدیو در حال پخش است، آن را متوقف کن
         if (_isInitialized && _chewieController != null) {
-          _chewieController!.pause();
+          unawaited(_chewieController!.pause());
           _chewieController!.dispose();
           _chewieController = null;
         }
         if (_videoPlayerController != null) {
-          _videoPlayerController!.dispose();
+          unawaited(_videoPlayerController!.dispose());
           _videoPlayerController = null;
         }
         if (mounted) {
@@ -387,14 +379,15 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
             widget.video.videoUrl,
           );
 
+          if (!mounted) return;
           setState(() {
             _isCached = stillCached;
           });
 
           if (success) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Row(
+              const SnackBar(
+                content: Row(
                   children: [
                     Icon(Icons.check_circle, color: Colors.white),
                     SizedBox(width: 8),
@@ -409,7 +402,7 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                 ),
                 backgroundColor: Colors.green,
                 behavior: SnackBarBehavior.floating,
-                duration: const Duration(seconds: 2),
+                duration: Duration(seconds: 2),
               ),
             );
           } else if (!stillCached) {
@@ -568,7 +561,7 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                           fit: BoxFit.cover,
                           loadingBuilder: (context, child, loadingProgress) {
                             if (loadingProgress == null) return child;
-                            return Container(
+                            return ColoredBox(
                               color: Colors.black26,
                               child: Center(
                                 child: CircularProgressIndicator(
@@ -582,9 +575,9 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                               ),
                             );
                           },
-                          errorBuilder: (c, e, s) => Container(
+                          errorBuilder: (c, e, s) => const ColoredBox(
                             color: Colors.black26,
-                            child: const Icon(
+                            child: Icon(
                               LucideIcons.video,
                               color: Colors.white54,
                               size: 48,
@@ -598,7 +591,7 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                 Positioned.fill(
                   child: GestureDetector(
                     onTap: _togglePlay,
-                    child: Container(
+                    child: DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
@@ -711,7 +704,7 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
               // Download Progress
               if (isDownloading && downloadProgress > 0)
                 Positioned.fill(
-                  child: Container(
+                  child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.only(
@@ -735,7 +728,7 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                                   backgroundColor: Colors.white.withValues(
                                     alpha: 0.2,
                                   ),
-                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                  valueColor: const AlwaysStoppedAnimation<Color>(
                                     AppTheme.goldColor,
                                   ),
                                 ),
@@ -798,7 +791,7 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                         child: CircularProgressIndicator(
                           value: downloadProgress,
                           strokeWidth: 2.w,
-                          valueColor: AlwaysStoppedAnimation<Color>(
+                          valueColor: const AlwaysStoppedAnimation<Color>(
                             AppTheme.goldColor,
                           ),
                         ),

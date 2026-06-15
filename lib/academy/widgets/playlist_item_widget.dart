@@ -110,6 +110,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
         // Refresh cache status after download
         await _checkCache();
         final isDownloaded = await _cacheService.isDownloaded(normalizedUrl);
+        if (!mounted) return;
         if (isDownloaded) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -143,7 +144,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
+        title: const Text(
           'حذف از حافظه',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -156,18 +157,18 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('لغو', maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: const Text('لغو', maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text('حذف', maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: const Text('حذف', maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
     );
 
-    if (confirm == true && mounted) {
+    if ((confirm ?? false) && mounted) {
       // Normalize URL before deleting download
       final normalizedUrl = WorkoutMusic.normalizeAudioUrl(
         widget.music.audioUrl,
@@ -361,7 +362,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                             ? Image.network(
                                 widget.music.coverImageUrl,
                                 fit: BoxFit.cover,
-                                errorBuilder: (c, e, s) => Container(
+                                errorBuilder: (c, e, s) => ColoredBox(
                                   color: Colors.black26,
                                   child: Icon(
                                     LucideIcons.music,
@@ -370,7 +371,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                                   ),
                                 ),
                               )
-                            : Container(
+                            : ColoredBox(
                                 color: Colors.black26,
                                 child: Icon(
                                   LucideIcons.music,
@@ -459,7 +460,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                         return FadeTransition(
                           opacity: animation,
                           child: ScaleTransition(
-                            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                            scale: Tween<double>(begin: 0.8, end: 1).animate(
                               CurvedAnimation(
                                 parent: animation,
                                 curve: Curves.easeOut,
@@ -471,13 +472,13 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                       },
                       child: IconButton(
                         key: ValueKey(
-                          'cache_${_isCached}_${_isDownloading}_${_isCheckingCache}',
+                          'cache_${_isCached}_${_isDownloading}_$_isCheckingCache',
                         ),
                         icon: _isDownloading || _isCheckingCache
                             ? SizedBox(
                                 width: 16.w,
                                 height: 16.w,
-                                child: CircularProgressIndicator(
+                                child: const CircularProgressIndicator(
                                   strokeWidth: 1.5,
                                   color: AppTheme.goldColor,
                                 ),
@@ -509,7 +510,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                         return FadeTransition(
                           opacity: animation,
                           child: ScaleTransition(
-                            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                            scale: Tween<double>(begin: 0.8, end: 1).animate(
                               CurvedAnimation(
                                 parent: animation,
                                 curve: Curves.easeOut,
@@ -520,21 +521,19 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                         );
                       },
                       child: GestureDetector(
-                        key: ValueKey('like_${_isLiked}_${_isLoadingLike}'),
+                        key: ValueKey('like_${_isLiked}_$_isLoadingLike'),
                         onTap: _isLoadingLike ? null : _toggleLike,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            _isLoadingLike
-                                ? SizedBox(
+                            if (_isLoadingLike) SizedBox(
                                     width: 16.w,
                                     height: 16.w,
-                                    child: CircularProgressIndicator(
+                                    child: const CircularProgressIndicator(
                                       strokeWidth: 1.5,
                                       color: AppTheme.goldColor,
                                     ),
-                                  )
-                                : Icon(
+                                  ) else Icon(
                                     _isLiked
                                         ? LucideIcons.heart
                                         : LucideIcons.heartOff,
@@ -578,7 +577,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                         return FadeTransition(
                           opacity: animation,
                           child: ScaleTransition(
-                            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                            scale: Tween<double>(begin: 0.8, end: 1).animate(
                               CurvedAnimation(
                                 parent: animation,
                                 curve: Curves.easeOut,
@@ -590,13 +589,13 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                       },
                       child: IconButton(
                         key: ValueKey(
-                          'favorite_${_isFavorite}_${_isLoadingFavorite}',
+                          'favorite_${_isFavorite}_$_isLoadingFavorite',
                         ),
                         icon: _isLoadingFavorite
                             ? SizedBox(
                                 width: 16.w,
                                 height: 16.w,
-                                child: CircularProgressIndicator(
+                                child: const CircularProgressIndicator(
                                   strokeWidth: 1.5,
                                   color: AppTheme.goldColor,
                                 ),
@@ -635,7 +634,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                           child: SizedBox(
                             width: 12.w,
                             height: 12.w,
-                            child: CircularProgressIndicator(
+                            child: const CircularProgressIndicator(
                               strokeWidth: 1.5,
                               valueColor: AlwaysStoppedAnimation<Color>(
                                 AppTheme.goldColor,
@@ -648,7 +647,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                       Container(
                         width: 24.w,
                         height: 24.w,
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: AppTheme.goldColor,
                           shape: BoxShape.circle,
                         ),

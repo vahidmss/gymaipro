@@ -213,7 +213,7 @@ class _ConfidentialUserInfoScreenState
 
     if (ok) {
       // نمایش feedback موفق با SnackBar
-      HapticFeedback.lightImpact();
+      unawaited(HapticFeedback.lightImpact());
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -253,7 +253,7 @@ class _ConfidentialUserInfoScreenState
         ),
       );
     } else {
-      HapticFeedback.heavyImpact();
+      unawaited(HapticFeedback.heavyImpact());
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -365,7 +365,6 @@ class _ConfidentialUserInfoScreenState
               borderRadius: BorderRadius.circular(12.r),
               border: Border.all(
                 color: AppTheme.errorColor.withValues(alpha: 0.3),
-                width: 1,
               ),
             ),
             child: Row(
@@ -413,7 +412,6 @@ class _ConfidentialUserInfoScreenState
               borderRadius: BorderRadius.circular(12.r),
               border: Border.all(
                 color: AppTheme.goldColor.withValues(alpha: 0.2),
-                width: 1,
               ),
             ),
             child: Column(
@@ -502,7 +500,6 @@ class _ConfidentialUserInfoScreenState
               borderRadius: BorderRadius.circular(12.r),
               border: Border.all(
                 color: AppTheme.goldColor.withValues(alpha: 0.2),
-                width: 1,
               ),
             ),
             child: Row(
@@ -579,7 +576,7 @@ class _ConfidentialUserInfoScreenState
                       ? SizedBox(
                           height: 20.h,
                           width: 20.w,
-                          child: CircularProgressIndicator(
+                          child: const CircularProgressIndicator(
                             color: AppTheme.onGoldColor,
                             strokeWidth: 2,
                           ),
@@ -612,7 +609,7 @@ class _ConfidentialUserInfoScreenState
             margin: EdgeInsets.only(top: 6.h, left: 8.w),
             width: 4.w,
             height: 4.h,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppTheme.goldColor,
               shape: BoxShape.circle,
             ),
@@ -664,7 +661,6 @@ class _ConfidentialUserInfoScreenState
               borderRadius: BorderRadius.circular(10.r),
               border: Border.all(
                 color: AppTheme.goldColor.withValues(alpha: 0.3),
-                width: 1,
               ),
             ),
             child: Column(
@@ -808,7 +804,6 @@ class _ConfidentialUserInfoScreenState
                 BoxShadow(
                   color: AppTheme.goldColor.withValues(alpha: 0.15),
                   blurRadius: 8.r,
-                  spreadRadius: 0,
                   offset: Offset(0, 2.h),
                 ),
               ]
@@ -816,7 +811,6 @@ class _ConfidentialUserInfoScreenState
                 BoxShadow(
                   color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
                   blurRadius: 2.r,
-                  spreadRadius: 0,
                   offset: Offset(0, 1.h),
                 ),
               ],
@@ -1088,7 +1082,6 @@ class _ConfidentialUserInfoScreenState
         borderRadius: BorderRadius.circular(10.r),
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: 0.2),
-          width: 1,
         ),
       ),
       child: Column(
@@ -1147,6 +1140,7 @@ class _ConfidentialUserInfoScreenState
                   await ConfidentialUserInfoService.updatePhotosVisibility(
                     newVal,
                   );
+              if (!mounted) return;
               if (ok) {
                 setState(() => _photosVisibleToTrainer = newVal);
               } else {
@@ -1165,7 +1159,6 @@ class _ConfidentialUserInfoScreenState
                       borderRadius: BorderRadius.circular(12.r),
                       side: BorderSide(
                         color: AppTheme.errorColor.withValues(alpha: 0.3),
-                        width: 1,
                       ),
                     ),
                   ),
@@ -1203,7 +1196,6 @@ class _ConfidentialUserInfoScreenState
               borderRadius: BorderRadius.circular(8.r),
               border: Border.all(
                 color: Colors.orange.withValues(alpha: 0.3),
-                width: 1,
               ),
             ),
             child: Row(
@@ -1279,7 +1271,7 @@ class _ConfidentialUserInfoScreenState
     final bool selected = _selectedType == type;
     return Padding(
       padding: EdgeInsets.only(right: 8.w),
-      child: Container(
+      child: DecoratedBox(
         decoration: selected
             ? BoxDecoration(
                 borderRadius: BorderRadius.circular(20.r),
@@ -1287,12 +1279,11 @@ class _ConfidentialUserInfoScreenState
                   BoxShadow(
                     color: AppTheme.goldColor.withValues(alpha: 0.4),
                     blurRadius: 8.r,
-                    spreadRadius: 0,
                     offset: Offset(0, 2.h),
                   ),
                 ],
               )
-            : null,
+            : const BoxDecoration(),
         child: ChoiceChip(
           label: Text(
             label,
@@ -1387,7 +1378,7 @@ class _ConfidentialUserInfoScreenState
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(color: AppTheme.goldColor, width: 2.5),
+                borderSide: const BorderSide(color: AppTheme.goldColor, width: 2.5),
               ),
             ),
           ),
@@ -1503,7 +1494,7 @@ class _ConfidentialUserInfoScreenState
               }).toList(),
             )
           else
-            Container(
+            DecoratedBox(
               decoration: BoxDecoration(
                 color: isDark
                     ? context.veryDarkBackground
@@ -1520,14 +1511,13 @@ class _ConfidentialUserInfoScreenState
                         BoxShadow(
                           color: AppTheme.goldColor.withValues(alpha: 0.1),
                           blurRadius: 4.r,
-                          spreadRadius: 0,
                           offset: Offset(0, 1.h),
                         ),
                       ]
                     : null,
               ),
               child: DropdownButtonFormField<String>(
-                value: currentValue.isNotEmpty && options.contains(currentValue)
+                initialValue: currentValue.isNotEmpty && options.contains(currentValue)
                     ? currentValue
                     : null,
                 decoration: InputDecoration(
@@ -1560,7 +1550,6 @@ class _ConfidentialUserInfoScreenState
                 ),
                 items: [
                   DropdownMenuItem<String>(
-                    value: null,
                     child: Text(
                       hint ?? 'انتخاب کنید',
                       style: TextStyle(
@@ -1659,7 +1648,7 @@ class _ConfidentialUserInfoScreenState
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(color: AppTheme.goldColor, width: 2.5),
+                borderSide: const BorderSide(color: AppTheme.goldColor, width: 2.5),
               ),
             ),
           ),
@@ -1697,11 +1686,12 @@ class _ConfidentialUserInfoScreenState
       // نمایش صفحه پردازش عکس
       final processedImage = await _showImageProcessingDialog(picked);
       if (processedImage == null) return;
+      if (!mounted) return;
 
       final userId = Supabase.instance.client.auth.currentUser?.id;
       if (userId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text(
               'برای آپلود لازم است وارد حساب شوید',
               style: TextStyle(fontFamily: AppTheme.fontFamily),
@@ -1737,14 +1727,14 @@ class _ConfidentialUserInfoScreenState
               );
         } catch (e2) {
           if (mounted) {
-            Navigator.of(context, rootNavigator: true).maybePop();
+            unawaited(Navigator.of(context, rootNavigator: true).maybePop());
           }
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
                   'آپلود ناموفق بود: $e2',
-                  style: TextStyle(fontFamily: AppTheme.fontFamily),
+                  style: const TextStyle(fontFamily: AppTheme.fontFamily),
                 ),
                 backgroundColor: Colors.red,
               ),
@@ -1754,7 +1744,7 @@ class _ConfidentialUserInfoScreenState
         }
       }
       if (mounted) {
-        Navigator.of(context, rootNavigator: true).maybePop();
+        unawaited(Navigator.of(context, rootNavigator: true).maybePop());
       }
 
       final publicUrl = Supabase.instance.client.storage
@@ -1786,7 +1776,7 @@ class _ConfidentialUserInfoScreenState
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
+            content: const Text(
               'ثبت عکس در دیتابیس ناموفق بود',
               style: TextStyle(fontFamily: AppTheme.fontFamily),
             ),
@@ -1796,7 +1786,6 @@ class _ConfidentialUserInfoScreenState
               borderRadius: BorderRadius.circular(12.r),
               side: BorderSide(
                 color: Colors.red.withValues(alpha: 0.3),
-                width: 1,
               ),
             ),
           ),
@@ -1804,13 +1793,13 @@ class _ConfidentialUserInfoScreenState
       }
     } catch (e) {
       if (mounted) {
-        Navigator.of(context, rootNavigator: true).maybePop();
+        unawaited(Navigator.of(context, rootNavigator: true).maybePop());
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             'خطا در انتخاب یا آپلود عکس: $e',
-            style: TextStyle(fontFamily: AppTheme.fontFamily),
+            style: const TextStyle(fontFamily: AppTheme.fontFamily),
           ),
           backgroundColor: context.cardColor,
           behavior: SnackBarBehavior.floating,
@@ -1818,7 +1807,6 @@ class _ConfidentialUserInfoScreenState
             borderRadius: BorderRadius.circular(12.r),
             side: BorderSide(
               color: Colors.red.withValues(alpha: 0.3),
-              width: 1,
             ),
           ),
         ),
@@ -1891,7 +1879,7 @@ class _ConfidentialUserInfoScreenState
                             Container(
                               color: Colors.black.withValues(alpha: 0.1),
                             ),
-                            Center(
+                            const Center(
                               child: CircularProgressIndicator(
                                 color: AppTheme.goldColor,
                               ),
@@ -1949,7 +1937,6 @@ class _AlbumPhoto {
     required this.takenAt,
     this.label,
     this.type = _PhotoType.front,
-    this.isAsset = false,
   });
 
   /// URL عکس
@@ -1962,7 +1949,7 @@ class _AlbumPhoto {
   final String? label;
 
   /// آیا عکس از assets است
-  final bool isAsset;
+  final bool isAsset = false;
 
   /// نوع عکس
   final _PhotoType type;
@@ -1984,7 +1971,6 @@ class _PhotoCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: 0.2),
-          width: 1,
         ),
       ),
       child: ClipRRect(
@@ -2180,7 +2166,6 @@ class _ImageProcessingDialogState extends State<_ImageProcessingDialog> {
                       borderRadius: BorderRadius.circular(12.r),
                       border: Border.all(
                         color: AppTheme.goldColor.withValues(alpha: 0.3),
-                        width: 1,
                       ),
                     ),
                     child: ClipRRect(
@@ -2221,7 +2206,6 @@ class _ImageProcessingDialogState extends State<_ImageProcessingDialog> {
                     borderRadius: BorderRadius.circular(12.r),
                     border: Border.all(
                       color: AppTheme.goldColor.withValues(alpha: 0.2),
-                      width: 1,
                     ),
                   ),
                   child: Column(
@@ -2436,6 +2420,7 @@ class _ImageProcessingDialogState extends State<_ImageProcessingDialog> {
       final byteData = await combinedImage.toByteData(
         format: ui.ImageByteFormat.png,
       );
+      if (!mounted) return;
       if (byteData == null) {
         Navigator.of(context).pop(_processedImage);
         return;
@@ -2447,6 +2432,7 @@ class _ImageProcessingDialogState extends State<_ImageProcessingDialog> {
         '${DateTime.now().millisecondsSinceEpoch}.png',
       );
       await file.writeAsBytes(byteData.buffer.asUint8List());
+      if (!mounted) return;
       final editedXFile = XFile(
         file.path,
         mimeType: 'image/png',
@@ -2455,6 +2441,7 @@ class _ImageProcessingDialogState extends State<_ImageProcessingDialog> {
 
       Navigator.of(context).pop(editedXFile);
     } catch (_) {
+      if (!mounted) return;
       Navigator.of(context).pop(_processedImage);
     }
   }
@@ -2577,7 +2564,6 @@ class _AddPhotoTile extends StatelessWidget {
                   color: enabled
                       ? AppTheme.goldColor.withValues(alpha: 0.5)
                       : context.separatorColor,
-                  width: 1,
                 ),
               ),
               child: Center(
@@ -2724,7 +2710,7 @@ class _PhotoGridItem extends StatelessWidget {
                                     fit: BoxFit.contain,
                                     loadingBuilder: (context, child, progress) {
                                       if (progress == null) return child;
-                                      return Center(
+                                      return const Center(
                                         child: CircularProgressIndicator(
                                           color: AppTheme.goldColor,
                                         ),

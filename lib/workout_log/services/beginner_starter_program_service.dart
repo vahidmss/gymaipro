@@ -588,7 +588,6 @@ class _ExerciseSpec {
   const _ExerciseSpec({
     required this.patterns,
     required this.tag,
-    this.sets = 3,
     this.preferredIds = const [],
     this.slugs = const [],
     this.reps = 10,
@@ -629,7 +628,7 @@ class _ExerciseSpec {
   final List<String> patterns;
   final List<String> slugs;
   final String tag;
-  final int sets;
+  final int sets = 3;
   final int reps;
   final int? timeSeconds;
   final String? note;

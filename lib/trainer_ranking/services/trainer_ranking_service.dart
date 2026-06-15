@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/trainer_ranking/models/trainer_ranking_model.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_league_points_service.dart';
 import 'package:gymaipro/utils/cache_service.dart';
@@ -17,6 +18,7 @@ class TrainerTopLeagueEntry {
 
 class TrainerRankingService {
   final SupabaseClient _supabase = Supabase.instance.client;
+  final ProfileRepository _profiles = ProfileRepository.instance;
   static const String _cacheKey = 'trainer_rankings';
   static const Duration _cacheExpiry = Duration(minutes: 10);
 
@@ -57,13 +59,7 @@ class TrainerRankingService {
       // ابتدا ranking همه مربیان را محاسبه و به‌روزرسانی کنیم
       await _updateAllTrainerRankings();
 
-      final query = _supabase
-          .from('profiles')
-          .select()
-          .eq('role', 'trainer')
-          .order('ranking', ascending: true);
-
-      final response = await query;
+      final response = await _profiles.fetchTrainersByRanking();
       final trainers = response.map(_convertTrainerToUserProfile).toList();
 
       // --- محاسبه تعداد شاگردان ---
@@ -118,7 +114,7 @@ class TrainerRankingService {
 
       return updated;
     } catch (e) {
-      print('خطا در دریافت رتبه‌بندی مربیان: $e');
+      debugPrint('خطا در دریافت رتبه‌بندی مربیان: $e');
       return [];
     }
   }
@@ -126,12 +122,8 @@ class TrainerRankingService {
   // دریافت جزئیات یک مربی
   Future<UserProfile?> getTrainerDetails(String trainerId) async {
     try {
-      final response = await _supabase
-          .from('profiles')
-          .select()
-          .eq('id', trainerId)
-          .eq('role', 'trainer')
-          .single();
+      final response = await _profiles.fetchProfile(trainerId);
+      if (response == null || response['role'] != 'trainer') return null;
 
       final trainer = _convertTrainerToUserProfile(response);
 
@@ -144,7 +136,7 @@ class TrainerRankingService {
         activeStudentCount: activeStudentCount,
       );
     } catch (e) {
-      print('خطا در دریافت جزئیات مربی: $e');
+      debugPrint('خطا در دریافت جزئیات مربی: $e');
       return null;
     }
   }
@@ -152,7 +144,7 @@ class TrainerRankingService {
   // محاسبه تعداد کل شاگردان (همه شاگردان - فعال و منقضی شده)
   Future<int> _getStudentCount(String trainerId) async {
     try {
-      print('🔍 محاسبه تعداد کل شاگردان برای مربی: $trainerId');
+      debugPrint('🔍 محاسبه تعداد کل شاگردان برای مربی: $trainerId');
 
       // همه شاگردان از جدول trainer_clients (فعال و منقضی شده)
       final trainerClients = await _supabase
@@ -160,10 +152,10 @@ class TrainerRankingService {
           .select('client_id')
           .eq('trainer_id', trainerId);
 
-      print('🔍 تعداد کل شاگردان: ${trainerClients.length}');
+      debugPrint('🔍 تعداد کل شاگردان: ${trainerClients.length}');
       return trainerClients.length;
     } catch (e) {
-      print('خطا در محاسبه تعداد کل شاگردان: $e');
+      debugPrint('خطا در محاسبه تعداد کل شاگردان: $e');
       return 0;
     }
   }
@@ -171,7 +163,7 @@ class TrainerRankingService {
   // محاسبه تعداد شاگردان فعال
   Future<int> _getActiveStudentCount(String trainerId) async {
     try {
-      print('🔍 محاسبه تعداد شاگردان فعال برای مربی: $trainerId');
+      debugPrint('🔍 محاسبه تعداد شاگردان فعال برای مربی: $trainerId');
 
       // شاگردان فعال از جدول trainer_clients
       final trainerClients = await _supabase
@@ -180,10 +172,10 @@ class TrainerRankingService {
           .eq('trainer_id', trainerId)
           .eq('status', 'active');
 
-      print('🔍 تعداد شاگردان فعال: ${trainerClients.length}');
+      debugPrint('🔍 تعداد شاگردان فعال: ${trainerClients.length}');
       return trainerClients.length;
     } catch (e) {
-      print('خطا در محاسبه تعداد شاگردان فعال: $e');
+      debugPrint('خطا در محاسبه تعداد شاگردان فعال: $e');
       return 0;
     }
   }
@@ -245,7 +237,7 @@ class TrainerRankingService {
 
       return reviews;
     } catch (e) {
-      print('خطا در دریافت نظرات مربی: $e');
+      debugPrint('خطا در دریافت نظرات مربی: $e');
       return [];
     }
   }
@@ -264,7 +256,7 @@ class TrainerRankingService {
 
       return subscriptionCheck.isNotEmpty;
     } catch (e) {
-      print('خطا در بررسی شاگرد بودن: $e');
+      debugPrint('خطا در بررسی شاگرد بودن: $e');
       return false;
     }
   }
@@ -292,7 +284,7 @@ class TrainerRankingService {
 
       return true;
     } catch (e) {
-      print('خطا در افزودن نظر: $e');
+      debugPrint('خطا در افزودن نظر: $e');
       return false;
     }
   }
@@ -325,7 +317,7 @@ class TrainerRankingService {
           .eq('id', trainerId)
           .eq('role', 'trainer');
     } catch (e) {
-      print('خطا در به‌روزرسانی آمار مربی: $e');
+      debugPrint('خطا در به‌روزرسانی آمار مربی: $e');
     }
   }
 
@@ -333,12 +325,11 @@ class TrainerRankingService {
   Future<void> _updateAllTrainerRankings() async {
     try {
       // دریافت همه مربیان
-      final trainersResponse = await _supabase
-          .from('profiles')
-          .select(
+      final trainersResponse = await _profiles.fetchProfilesByRole(
+        'trainer',
+        columns:
             'id, rating, review_count, experience_years, ranking, is_online, last_active_at',
-          )
-          .eq('role', 'trainer');
+      );
 
       if (trainersResponse.isEmpty) return;
 
@@ -457,9 +448,9 @@ class TrainerRankingService {
             .eq('role', 'trainer');
       }
 
-      print('✅ Ranking همه مربیان به‌روزرسانی شد');
+      debugPrint('✅ Ranking همه مربیان به‌روزرسانی شد');
     } catch (e) {
-      print('خطا در به‌روزرسانی ranking مربیان: $e');
+      debugPrint('خطا در به‌روزرسانی ranking مربیان: $e');
     }
   }
 
@@ -471,7 +462,7 @@ class TrainerRankingService {
 
     // Debug: Print gym owner status
     if (trainer['is_gym_owner'] == true) {
-      print(
+      debugPrint(
         '🏢 Gym Owner Found: ${trainer['username']} - is_gym_owner: ${trainer['is_gym_owner']}',
       );
     }
@@ -566,7 +557,7 @@ class TrainerRankingService {
           return value.cast<T>().toList();
         }
       } catch (e) {
-        print('خطا در تبدیل آرایه: $e, value: $value');
+        debugPrint('خطا در تبدیل آرایه: $e, value: $value');
         return null;
       }
     }
@@ -633,18 +624,10 @@ class TrainerRankingService {
   // جستجوی مربیان
   Future<List<UserProfile>> searchTrainers(String query) async {
     try {
-      final response = await _supabase
-          .from('profiles')
-          .select()
-          .eq('role', 'trainer')
-          .or(
-            'username.ilike.%$query%,first_name.ilike.%$query%,last_name.ilike.%$query%,bio.ilike.%$query%',
-          )
-          .order('ranking', ascending: true);
-
+      final response = await _profiles.searchTrainers(query);
       return response.map(_convertTrainerToUserProfile).toList();
     } catch (e) {
-      print('خطا در جستجوی مربیان: $e');
+      debugPrint('خطا در جستجوی مربیان: $e');
       return [];
     }
   }
@@ -652,16 +635,10 @@ class TrainerRankingService {
   // دریافت مربیان آنلاین
   Future<List<UserProfile>> getOnlineTrainers() async {
     try {
-      final response = await _supabase
-          .from('profiles')
-          .select()
-          .eq('role', 'trainer')
-          .eq('is_online', true)
-          .order('ranking', ascending: true);
-
+      final response = await _profiles.fetchOnlineTrainers();
       return response.map(_convertTrainerToUserProfile).toList();
     } catch (e) {
-      print('خطا در دریافت مربیان آنلاین: $e');
+      debugPrint('خطا در دریافت مربیان آنلاین: $e');
       return [];
     }
   }
@@ -669,16 +646,10 @@ class TrainerRankingService {
   // دریافت مربیان برتر
   Future<List<UserProfile>> getTopTrainers({int limit = 10}) async {
     try {
-      final response = await _supabase
-          .from('profiles')
-          .select()
-          .eq('role', 'trainer')
-          .order('rating', ascending: false)
-          .limit(limit);
-
+      final response = await _profiles.fetchTopTrainers(limit: limit);
       return response.map(_convertTrainerToUserProfile).toList();
     } catch (e) {
-      print('خطا در دریافت مربیان برتر: $e');
+      debugPrint('خطا در دریافت مربیان برتر: $e');
       return [];
     }
   }
@@ -700,7 +671,7 @@ class TrainerRankingService {
         'nutrition_programs': nutritionPrograms,
       };
     } catch (e) {
-      print('خطا در دریافت آمار برنامه‌های مربی: $e');
+      debugPrint('خطا در دریافت آمار برنامه‌های مربی: $e');
       return {'workout_programs': 0, 'nutrition_programs': 0};
     }
   }
@@ -708,10 +679,10 @@ class TrainerRankingService {
   // دریافت آمار کلی مربیان
   Future<Map<String, dynamic>> getTrainerStats() async {
     try {
-      final response = await _supabase
-          .from('profiles')
-          .select('rating, review_count, is_online')
-          .eq('role', 'trainer');
+      final response = await _profiles.fetchProfilesByRole(
+        'trainer',
+        columns: 'rating, review_count, is_online',
+      );
 
       final int totalTrainers = response.length;
       final int onlineTrainers = response
@@ -736,7 +707,7 @@ class TrainerRankingService {
         'average_rating': avgRating,
       };
     } catch (e) {
-      print('خطا در دریافت آمار مربیان: $e');
+      debugPrint('خطا در دریافت آمار مربیان: $e');
       return {'total_trainers': 0, 'online_trainers': 0, 'average_rating': 0.0};
     }
   }
@@ -744,11 +715,7 @@ class TrainerRankingService {
   // دریافت تخصص‌های موجود
   Future<List<String>> getAvailableSpecializations() async {
     try {
-      final response = await _supabase
-          .from('profiles')
-          .select('specializations')
-          .eq('role', 'trainer')
-          .not('specializations', 'is', null);
+      final response = await _profiles.fetchTrainerSpecializationRows();
 
       final Set<String> specializations = {};
       for (final item in response) {
@@ -762,7 +729,7 @@ class TrainerRankingService {
 
       return specializations.toList()..sort();
     } catch (e) {
-      print('خطا در دریافت تخصص‌ها: $e');
+      debugPrint('خطا در دریافت تخصص‌ها: $e');
       return [];
     }
   }

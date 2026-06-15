@@ -192,7 +192,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
 
     // اگر روی تب داشبورد هستیم، از NavigationGuard استفاده کن
-    return await NavigationGuard.handleBackPress(context);
+    return NavigationGuard.handleBackPress(context);
   }
 
   @override
@@ -201,9 +201,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final hideBottomNav = _currentIndex == NavigationConstants.socialIndex;
     return WillPopScope(
       onWillPop: _handleBackPress,
-      child: Container(
+      child: DecoratedBox(
         decoration: isDark
-            ? null
+            ? const BoxDecoration()
             : BoxDecoration(
                 // بالا پررنگ‌تر (نوار ساعت خوانا) → پایین روشن
                 gradient: LinearGradient(
@@ -238,14 +238,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               ),
 
               // داشبورد (index 2)
-              DashboardScreen(),
+              const DashboardScreen(),
 
               // باشگاه من / داشبورد مربی (index 3) - بر اساس نقش کاربر
-              _userRole == 'trainer'
-                  ? TrainerDashboardScreen(
+              if (_userRole == 'trainer') TrainerDashboardScreen(
                       initialTabIndex: _pendingTrainerDashboardTabIndex ?? 0,
-                    )
-                  : const MyClubMainScreen(),
+                    ) else MyClubMainScreen(
+                      initialTabIndex: _pendingMyClubTabIndex,
+                    ),
 
               // اجتماعی / چت‌ها (index 4) - گفتگوها و چت همگانی
               ChatMainScreen(

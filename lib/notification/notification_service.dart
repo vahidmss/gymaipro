@@ -311,17 +311,8 @@ class NotificationService {
 
   Future<void> _updateLastActiveAt() async {
     try {
-      final profile = await SimpleProfileService.getCurrentProfile();
-      if (profile != null) {
-        final profileId = profile['id'] as String?;
-        if (profileId != null && profileId.isNotEmpty) {
-          await Supabase.instance.client
-              .from('profiles')
-              .update({'last_active_at': DateTime.now().toIso8601String()})
-              .eq('id', profileId);
-          debugPrint('🕒 Updated last_active_at for user');
-        }
-      }
+      await SimpleProfileService.updateLastActiveAt();
+      debugPrint('🕒 Updated last_active_at for user');
     } catch (e) {
       debugPrint('❌ Error updating last_active_at: $e');
     }

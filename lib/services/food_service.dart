@@ -1,5 +1,7 @@
 ﻿import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/user_preferences_service.dart';
@@ -29,7 +31,7 @@ class FoodService {
   void clearCache() {
     _cachedFoods = null;
     _commentsCache.clear();
-    print('Food cache cleared');
+    debugPrint('Food cache cleared');
   }
 
   static Future<void> initAll() async {
@@ -37,7 +39,7 @@ class FoodService {
   }
 
   Future<void> init() async {
-    print('Food service initialized successfully');
+    debugPrint('Food service initialized successfully');
 
     // Clear cache to apply title cleaning changes
     clearCache();
@@ -100,7 +102,7 @@ class FoodService {
       // Create policies
       await _createFoodPolicies();
     } catch (e) {
-      print('Error creating food tables: $e');
+      debugPrint('Error creating food tables: $e');
     }
   }
 
@@ -180,7 +182,7 @@ class FoodService {
         },
       );
     } catch (e) {
-      print('Error creating food policies: $e');
+      debugPrint('Error creating food policies: $e');
     }
   }
 
@@ -202,7 +204,7 @@ class FoodService {
       }
       final foods = await _fetchAllFoodsFromApi();
         _cachedFoods = foods;
-        print(
+        debugPrint(
           'Foods loaded: ${foods.length} items',
         );
         return await _applyUserData(foods);
@@ -276,7 +278,7 @@ class FoodService {
       }
       return foods;
     } catch (e) {
-      print('Error applying user data from database: $e');
+      debugPrint('Error applying user data from database: $e');
       return foods;
     }
   }

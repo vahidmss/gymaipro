@@ -106,7 +106,6 @@ class _TrainerRankingScreenState extends State<TrainerRankingScreen> {
               borderRadius: BorderRadius.circular(12.r),
               side: BorderSide(
                 color: AppTheme.errorColor.withValues(alpha: 0.5),
-                width: 1,
               ),
             ),
           ),
@@ -171,7 +170,7 @@ class _TrainerRankingScreenState extends State<TrainerRankingScreen> {
       decoration: BoxDecoration(
         color: context.cardColor,
         border: Border(
-          bottom: BorderSide(color: context.separatorColor, width: 1),
+          bottom: BorderSide(color: context.separatorColor),
         ),
         boxShadow: [
           BoxShadow(
@@ -217,7 +216,6 @@ class _TrainerRankingScreenState extends State<TrainerRankingScreen> {
                 borderRadius: BorderRadius.circular(10.r),
                 border: Border.all(
                   color: AppTheme.goldColor.withValues(alpha: 0.3),
-                  width: 1,
                 ),
               ),
               child: Icon(
@@ -276,9 +274,7 @@ class _TrainerRankingScreenState extends State<TrainerRankingScreen> {
           ),
           suffixIcon: _searchController.text.isNotEmpty
               ? GestureDetector(
-                  onTap: () {
-                    _searchController.clear();
-                  },
+                  onTap: _searchController.clear,
                   child: Icon(
                     LucideIcons.x,
                     color: context.textSecondary,
@@ -564,7 +560,7 @@ class _TrainerRankingScreenState extends State<TrainerRankingScreen> {
   }
 
   Widget _buildDefaultAvatar() {
-    return Container(
+    return ColoredBox(
       color: context.separatorColor,
       child: Icon(LucideIcons.user, color: context.textSecondary, size: 30.sp),
     );

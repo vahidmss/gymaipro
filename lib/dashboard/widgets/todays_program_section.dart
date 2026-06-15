@@ -189,9 +189,7 @@ class _TodaysProgramSectionState extends State<TodaysProgramSection> {
             ), // برای جلوگیری از overflow
             height: 110.h,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
+              gradient: const LinearGradient(
                 colors: [AppTheme.lightGoldGradient, AppTheme.goldColor],
               ),
               borderRadius: BorderRadius.circular(15.r),

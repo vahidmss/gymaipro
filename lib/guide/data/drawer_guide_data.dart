@@ -25,10 +25,9 @@ class DrawerGuideData {
       id: 'drawer_guide',
       name: 'راهنمای منو',
       description: 'آشنایی با منوی اصلی',
-      showOnce: true, // بعد از یک بار اتمام، پیشنهاد خودکار متوقف می‌شود (ریست از منو)
       steps: [
         // مرحله ۱: معرفی
-        GuideStep(
+        const GuideStep(
           id: 'drawer_intro',
           title: '📱 منوی اصلی',
           description:
@@ -48,8 +47,6 @@ class DrawerGuideData {
           icon: Icons.account_circle,
           primaryColor: AppTheme.goldColor,
           targetKey: keys['drawer_header'],
-          tooltipPosition: TooltipPosition.bottom,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۳: خانه
@@ -62,7 +59,6 @@ class DrawerGuideData {
           primaryColor: const Color(0xFF6C63FF),
           targetKey: keys['menu_home'],
           tooltipPosition: TooltipPosition.right,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۴: باشگاه من
@@ -75,7 +71,6 @@ class DrawerGuideData {
           primaryColor: const Color(0xFF26C281),
           targetKey: keys['menu_my_club'],
           tooltipPosition: TooltipPosition.right,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۵: میز کار مربی (اگر مربی باشد)
@@ -88,7 +83,6 @@ class DrawerGuideData {
           primaryColor: const Color(0xFFFF6B6B),
           targetKey: keys['menu_trainer_dashboard'],
           tooltipPosition: TooltipPosition.right,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۶: تنظیمات اعلان‌ها
@@ -101,7 +95,6 @@ class DrawerGuideData {
           primaryColor: const Color(0xFFF39C12),
           targetKey: keys['menu_notifications'],
           tooltipPosition: TooltipPosition.top,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۷: تنظیمات عمومی
@@ -114,7 +107,6 @@ class DrawerGuideData {
           primaryColor: const Color(0xFF6C63FF),
           targetKey: keys['menu_settings'],
           tooltipPosition: TooltipPosition.top,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۸: دعوت دوستان
@@ -127,7 +119,6 @@ class DrawerGuideData {
           primaryColor: const Color(0xFF26C281),
           targetKey: keys['menu_referral'],
           tooltipPosition: TooltipPosition.top,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۹: راهنما
@@ -140,7 +131,6 @@ class DrawerGuideData {
           primaryColor: const Color(0xFF6C63FF),
           targetKey: keys['menu_help'],
           tooltipPosition: TooltipPosition.top,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۱۰: تور راهنما
@@ -153,7 +143,6 @@ class DrawerGuideData {
           primaryColor: AppTheme.goldColor,
           targetKey: keys['menu_guide_tour'],
           tooltipPosition: TooltipPosition.top,
-          usePulseAnimation: true,
         ),
 
         // مرحله ۱۱: خروج
@@ -166,17 +155,16 @@ class DrawerGuideData {
           primaryColor: const Color(0xFFFF6B6B),
           targetKey: keys['menu_logout'],
           tooltipPosition: TooltipPosition.top,
-          usePulseAnimation: true,
         ),
 
         // مرحله آخر
-        GuideStep(
+        const GuideStep(
           id: 'drawer_complete',
           title: '✅ تمام شد!',
           description:
               'حالا با منوی اصلی آشنا شدید!\nهر وقت نیاز داشتید، از سمت راست صفحه بکشید تا منو باز بشه.',
           icon: Icons.check_circle,
-          primaryColor: const Color(0xFF26C281),
+          primaryColor: Color(0xFF26C281),
           tooltipPosition: TooltipPosition.center,
           usePulseAnimation: false,
         ),

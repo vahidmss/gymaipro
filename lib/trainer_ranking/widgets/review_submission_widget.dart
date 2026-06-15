@@ -190,7 +190,7 @@ class _ReviewSubmissionWidgetState extends State<ReviewSubmissionWidget> {
                   Container(
                     padding: EdgeInsets.all(10.w),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
+                      gradient: const LinearGradient(
                         colors: [
                           AppTheme.goldColor,
                           AppTheme.darkGold,
@@ -273,7 +273,7 @@ class _ReviewSubmissionWidgetState extends State<ReviewSubmissionWidget> {
                     vertical: 8.h,
                   ),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
+                    gradient: const LinearGradient(
                       colors: [
                         AppTheme.goldColor,
                         AppTheme.darkGold,
@@ -367,7 +367,7 @@ class _ReviewSubmissionWidgetState extends State<ReviewSubmissionWidget> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16.r),
-                    borderSide: BorderSide(
+                    borderSide: const BorderSide(
                       color: AppTheme.goldColor,
                       width: 2,
                     ),
@@ -423,9 +423,9 @@ class _ReviewSubmissionWidgetState extends State<ReviewSubmissionWidget> {
                   SizedBox(width: 12.w),
                   Expanded(
                     flex: 2,
-                    child: Container(
+                    child: DecoratedBox(
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           colors: [
                             AppTheme.goldColor,
                             AppTheme.darkGold,
@@ -437,7 +437,6 @@ class _ReviewSubmissionWidgetState extends State<ReviewSubmissionWidget> {
                             color: AppTheme.goldColor.withValues(alpha: 0.4),
                             blurRadius: 12.r,
                             offset: Offset(0, 4.h),
-                            spreadRadius: 0,
                           ),
                         ],
                       ),
@@ -457,7 +456,7 @@ class _ReviewSubmissionWidgetState extends State<ReviewSubmissionWidget> {
                             ? SizedBox(
                                 width: 20.w,
                                 height: 20.h,
-                                child: CircularProgressIndicator(
+                                child: const CircularProgressIndicator(
                                   color: AppTheme.onGoldColor,
                                   strokeWidth: 2.5,
                                 ),

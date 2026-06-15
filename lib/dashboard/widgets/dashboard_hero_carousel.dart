@@ -254,7 +254,6 @@ class _DashboardHeroCarouselState extends State<DashboardHeroCarousel> {
         } else {
           MainNavigationScreen.navigateToTab(NavigationConstants.academyIndex);
         }
-        break;
       case HeroSlideType.article:
         if (slide.article != null) {
           Navigator.pushNamed(
@@ -265,17 +264,14 @@ class _DashboardHeroCarouselState extends State<DashboardHeroCarousel> {
         } else {
           MainNavigationScreen.navigateToTab(NavigationConstants.academyIndex);
         }
-        break;
       case HeroSlideType.music:
         if (slide.music != null) {
           MainNavigationScreen.navigateToAcademyWithMusic(slide.music!);
         } else {
           MainNavigationScreen.navigateToTab(NavigationConstants.academyIndex);
         }
-        break;
       case HeroSlideType.poster:
         MainNavigationScreen.navigateToTab(NavigationConstants.academyIndex);
-        break;
     }
   }
 
@@ -290,7 +286,7 @@ class _DashboardHeroCarouselState extends State<DashboardHeroCarousel> {
           child: SizedBox(
             width: 32.w,
             height: 32.w,
-            child: CircularProgressIndicator(
+            child: const CircularProgressIndicator(
               color: AppTheme.goldColor,
               strokeWidth: 2,
             ),
@@ -359,7 +355,7 @@ class _DashboardHeroCarouselState extends State<DashboardHeroCarousel> {
                     vertical: 5.h,
                   ),
                   decoration: BoxDecoration(
-                    border: Border.all(color: context.textColor, width: 1),
+                    border: Border.all(color: context.textColor),
                     borderRadius: BorderRadius.circular(20.r),
                   ),
                   child: Row(
@@ -456,7 +452,6 @@ class _HeroSlideCard extends StatelessWidget {
               color: AppTheme.goldColor.withValues(alpha: 0.25),
               blurRadius: 12.r,
               offset: Offset(0.w, 4.h),
-              spreadRadius: 0,
             ),
           ],
         ),
@@ -582,7 +577,7 @@ class _HeroSlideCard extends StatelessWidget {
     if (slide.type == HeroSlideType.video) icon = LucideIcons.video;
     if (slide.type == HeroSlideType.article) icon = LucideIcons.fileText;
     if (slide.type == HeroSlideType.music) icon = LucideIcons.music;
-    return Container(
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -610,19 +605,15 @@ class _HeroSlideCard extends StatelessWidget {
       case HeroSlideType.video:
         icon = LucideIcons.video;
         label = 'ویدیو';
-        break;
       case HeroSlideType.article:
         icon = LucideIcons.fileText;
         label = 'مقاله';
-        break;
       case HeroSlideType.music:
         icon = LucideIcons.music;
         label = 'موزیک';
-        break;
       case HeroSlideType.poster:
         icon = LucideIcons.sparkles;
         label = 'پیشنهاد';
-        break;
     }
 
     return Container(
@@ -632,7 +623,6 @@ class _HeroSlideCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20.r),
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: 0.5),
-          width: 1,
         ),
       ),
       child: Row(

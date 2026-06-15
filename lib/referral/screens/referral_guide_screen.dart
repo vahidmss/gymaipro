@@ -73,7 +73,6 @@ class _ReferralGuideScreenState extends State<ReferralGuideScreen> {
             borderRadius: BorderRadius.circular(12.r),
             side: BorderSide(
               color: AppTheme.goldColor.withValues(alpha: 0.3),
-              width: 1,
             ),
           ),
           duration: const Duration(seconds: 2),
@@ -103,7 +102,7 @@ class _ReferralGuideScreenState extends State<ReferralGuideScreen> {
           elevation: 0,
         ),
         body: _isLoading
-            ? Center(
+            ? const Center(
                 child: CircularProgressIndicator(color: AppTheme.goldColor),
               )
             : SingleChildScrollView(
@@ -182,7 +181,6 @@ class _ReferralGuideScreenState extends State<ReferralGuideScreen> {
                 borderRadius: BorderRadius.circular(12.r),
                 border: Border.all(
                   color: AppTheme.goldColor.withValues(alpha: 0.3),
-                  width: 1,
                 ),
               ),
               child: Row(
@@ -251,7 +249,6 @@ class _ReferralGuideScreenState extends State<ReferralGuideScreen> {
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: context.separatorColor,
-          width: 1,
         ),
       ),
       child: Row(
@@ -327,7 +324,6 @@ class _ReferralGuideScreenState extends State<ReferralGuideScreen> {
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: context.separatorColor,
-          width: 1,
         ),
       ),
       child: Column(
@@ -452,7 +448,6 @@ class _ReferralGuideScreenState extends State<ReferralGuideScreen> {
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: 0.2),
-          width: 1,
         ),
       ),
       child: Column(

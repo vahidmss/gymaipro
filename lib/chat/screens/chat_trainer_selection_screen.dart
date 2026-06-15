@@ -163,6 +163,7 @@ class _ChatTrainerSelectionScreenState
         _errorMessage =
             'خطا در بارگذاری ${_userRole == 'trainer' ? 'شاگردان' : 'مربیان'}';
       });
+      if (!mounted) return;
       WidgetSafetyUtils.safeShowSnackBar(
         context,
         'خطا در بارگذاری ${_userRole == 'trainer' ? 'شاگردان' : 'مربیان'}: $e',
@@ -197,7 +198,7 @@ class _ChatTrainerSelectionScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: AppTheme.goldColor),
+            const CircularProgressIndicator(color: AppTheme.goldColor),
             SizedBox(height: 16.h),
             Text(
               'در حال بارگذاری...',
@@ -231,7 +232,7 @@ class _ChatTrainerSelectionScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(
+            const CircularProgressIndicator(
               color: AppTheme.goldColor,
               strokeWidth: 3,
             ),
@@ -310,8 +311,8 @@ class _ChatTrainerSelectionScreenState
               ),
               child: ElevatedButton.icon(
                 onPressed: _loadUserInfo,
-                icon: Icon(LucideIcons.refreshCw, color: AppTheme.onGoldColor),
-                label: Text(
+                icon: const Icon(LucideIcons.refreshCw, color: AppTheme.onGoldColor),
+                label: const Text(
                   'تلاش مجدد',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
@@ -662,6 +663,7 @@ class _ChatTrainerSelectionScreenState
       ),
     ).then((_) {
       // Close loading dialog if still showing
+      if (!mounted) return;
       if (Navigator.canPop(context)) {
         Navigator.pop(context);
       }
@@ -779,11 +781,11 @@ class _ChatTrainerSelectionScreenState
                         Navigator.pop(context);
                         _startChat(trainer);
                       },
-                      icon: Icon(
+                      icon: const Icon(
                         LucideIcons.messageCircle,
                         color: AppTheme.onGoldColor,
                       ),
-                      label: Text(
+                      label: const Text(
                         'شروع چت',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,

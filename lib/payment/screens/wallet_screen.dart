@@ -51,8 +51,7 @@ class _WalletScreenState extends State<WalletScreen> {
       final wallet = await _walletService.getUserWallet();
       final walletTx = await _walletService.getWalletTransactions(limit: 20);
       final paymentTx = await _paymentHistoryService.getDirectPayments(
-        limit: 20,
-        offset: 0,
+        
       );
       final List<_RecentEntry> merged = [
         ...walletTx.map((t) => _RecentEntry(date: t.createdAt, wallet: t)),
@@ -83,14 +82,12 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   void _onChargeWallet() {
-    // TODO: Navigate to wallet charge screen
     if (context.mounted) {
       Navigator.pushNamed(context, '/wallet-charge');
     }
   }
 
   void _onViewHistory() {
-    // TODO: Navigate to full transaction history
     if (context.mounted) {
       Navigator.pushNamed(context, '/payment-history');
     }
@@ -131,7 +128,7 @@ class _WalletScreenState extends State<WalletScreen> {
           ],
         ),
         body: _isLoading
-            ? Center(
+            ? const Center(
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(AppTheme.goldColor),
                 ),
@@ -914,7 +911,6 @@ class _WalletScreenState extends State<WalletScreen> {
                       borderRadius: BorderRadius.circular(8.r),
                       border: Border.all(
                         color: amountColor.withValues(alpha: 0.25),
-                        width: 1,
                       ),
                     ),
                     child: Text(

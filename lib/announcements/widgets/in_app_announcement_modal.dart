@@ -75,7 +75,7 @@ class InAppAnnouncementModal extends StatelessWidget {
                     color: AppTheme.goldColor.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10.r),
                   ),
-                  child: Icon(LucideIcons.megaphone, color: AppTheme.goldColor),
+                  child: const Icon(LucideIcons.megaphone, color: AppTheme.goldColor),
                 ),
                 SizedBox(width: 10.w),
                 Expanded(

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
 import 'package:gymaipro/chat/services/chat_cache_service.dart';
 import 'package:gymaipro/notification/notification_service.dart';
+import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// ChatService: handles private/direct chat operations using Supabase
@@ -21,28 +22,8 @@ class ChatService {
   }
 
   // نمایش نام کاربری بر اساس پروفایل (با fallback معقول)
-  String _buildDisplayNameFromProfile(Map<String, dynamic>? profile) {
-    if (profile == null) return 'کاربر ناشناس';
-
-    final firstName = (profile['first_name'] as String? ?? '').trim();
-    final lastName = (profile['last_name'] as String? ?? '').trim();
-    final username = (profile['username'] as String? ?? '').trim();
-    final phone = (profile['phone_number'] as String? ?? '').trim();
-
-    if (firstName.isNotEmpty && lastName.isNotEmpty) {
-      return '$firstName $lastName';
-    }
-    if (firstName.isNotEmpty) return firstName;
-    if (lastName.isNotEmpty) return lastName;
-    if (username.isNotEmpty) return username;
-    if (phone.isNotEmpty) {
-      if (phone.length > 7) {
-        return phone.replaceRange(0, 7, '***');
-      }
-      return phone;
-    }
-    return 'کاربر ناشناس';
-  }
+  String _buildDisplayNameFromProfile(Map<String, dynamic>? profile) =>
+      UserProfileService.displayNameFromMap(profile);
 
   // Get or create conversation
   Future<ChatConversation?> _getOrCreateConversation(
@@ -68,19 +49,9 @@ class ChatService {
 
       // Create new conversation
       // First, get user info for names and avatars
-      // توجه: ممکن است profiles.id با auth.users.id برابر نباشد، پس
-      // هم بر اساس id و هم auth_user_id جستجو می‌کنیم.
-      final currentUserInfo = await _supabase
-          .from('profiles')
-          .select('first_name, last_name, username, avatar_url, phone_number')
-          .or('id.eq.$currentUserId,auth_user_id.eq.$currentUserId')
-          .maybeSingle();
-
-      final otherUserInfo = await _supabase
-          .from('profiles')
-          .select('first_name, last_name, username, avatar_url, phone_number')
-          .or('id.eq.$otherUserId,auth_user_id.eq.$otherUserId')
-          .maybeSingle();
+      final currentUserInfo =
+          await UserProfileService.fetchProfile(currentUserId);
+      final otherUserInfo = await UserProfileService.fetchProfile(otherUserId);
 
       final currentUserName = _buildDisplayNameFromProfile(currentUserInfo);
       final otherUserName = _buildDisplayNameFromProfile(otherUserInfo);
@@ -371,8 +342,6 @@ class ChatService {
         attachmentSize: attachmentSize,
         createdAt: now,
         updatedAt: now,
-        isRead: false,
-        isDeleted: false,
       );
 
       // Get current messages
@@ -468,7 +437,7 @@ class ChatService {
         );
       } else {
         final errorMsg = e.message is Map
-            ? e.message.toString()
+            ? e.message
             : (e.code ?? 'خطای ناشناخته');
         throw Exception('خطا در ارسال پیام: $errorMsg');
       }
@@ -660,27 +629,8 @@ class ChatService {
     required String conversationId,
   }) async {
     try {
-      String senderName = 'کاربر';
-      final senderProfile = await _supabase
-          .from('profiles')
-          .select('first_name, last_name, username')
-          .or('id.eq.$senderId,auth_user_id.eq.$senderId')
-          .maybeSingle();
-      if (senderProfile != null) {
-        final firstName =
-            (senderProfile['first_name'] as String?)?.trim() ?? '';
-        final lastName = (senderProfile['last_name'] as String?)?.trim() ?? '';
-        final username = (senderProfile['username'] as String?)?.trim() ?? '';
-        if (firstName.isNotEmpty && lastName.isNotEmpty) {
-          senderName = '$firstName $lastName';
-        } else if (firstName.isNotEmpty) {
-          senderName = firstName;
-        } else if (lastName.isNotEmpty) {
-          senderName = lastName;
-        } else if (username.isNotEmpty) {
-          senderName = username;
-        }
-      }
+      final senderName =
+          await UserProfileService.getDisplayName(senderId);
       await NotificationService().sendChatNotification(
         receiverId: receiverId,
         senderId: senderId,

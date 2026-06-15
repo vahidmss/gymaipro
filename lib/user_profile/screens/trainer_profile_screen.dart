@@ -59,7 +59,7 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
       if (viewerProfileId.isNotEmpty) {
         final targetAuthId =
             _profile?['auth_user_id']?.toString() ??
-            (_profile?['id']?.toString()) ??
+            _profile?['id']?.toString() ??
             widget.userId;
 
         if (targetAuthId.isNotEmpty) {
@@ -95,7 +95,7 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
     }
 
     if (_profile == null) {
-      return Center(
+      return const Center(
         child: Text(
           'پروفایل یافت نشد',
           style: TextStyle(fontFamily: AppTheme.fontFamily),
@@ -145,7 +145,7 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
           },
         ),
         icon: Icon(LucideIcons.externalLink, size: 18.sp),
-        label: Text(
+        label: const Text(
           'مشاهده صفحه کامل مربی',
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
@@ -177,8 +177,8 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
         ? [firstName, lastName].join(' ')
         : (username.isNotEmpty ? username : 'کاربر');
 
-    final accentColor = AppTheme.goldColor;
-    final roleLabel = 'مربی';
+    const accentColor = AppTheme.goldColor;
+    const roleLabel = 'مربی';
 
     return Stack(
       alignment: Alignment.bottomCenter,
@@ -252,7 +252,6 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
     required bool isDark,
   }) {
     final rankingValue = (_profile?['ranking'] as num?)?.toInt();
-    final rating = (_profile?['rating'] as num?)?.toDouble() ?? 0.0;
 
     return Row(
       children: [
@@ -576,7 +575,6 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
             borderRadius: BorderRadius.circular(14.r),
             border: Border.all(
               color: context.separatorColor.withValues(alpha: 0.3),
-              width: 1,
             ),
           ),
           child: Row(
@@ -625,7 +623,7 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
     try {
       final targetAuthId =
           _profile?['auth_user_id']?.toString() ??
-          (_profile?['id']?.toString()) ??
+          _profile?['id']?.toString() ??
           widget.userId;
 
       switch (_friendshipStatus) {
@@ -638,7 +636,6 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
             );
             setState(() => _friendshipStatus = FriendshipStatus.requestSent);
           }
-          break;
         case FriendshipStatus.requestReceived:
           final requests = await FriendshipService.getReceivedRequests();
           final request = requests.firstWhere(
@@ -651,7 +648,6 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
             );
             setState(() => _friendshipStatus = FriendshipStatus.friends);
           }
-          break;
         case FriendshipStatus.friends:
           break;
         default:

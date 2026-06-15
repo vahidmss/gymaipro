@@ -48,7 +48,7 @@ class _MotivationalVideosScreenState extends State<MotivationalVideosScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return ColoredBox(
       color: context.backgroundColor,
       child: RefreshIndicator(
         onRefresh: () => _loadVideos(refresh: true),

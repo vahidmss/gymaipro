@@ -349,7 +349,7 @@ class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String?>(
-                  value: _selectedStatus,
+                  initialValue: _selectedStatus,
                   decoration: InputDecoration(
                     labelText: 'وضعیت',
                     border: const OutlineInputBorder(),
@@ -358,7 +358,6 @@ class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
                   ),
                   items: const [
                     DropdownMenuItem<String?>(
-                      value: null,
                       child: Text('همه'),
                     ),
                     DropdownMenuItem<String?>(
@@ -385,7 +384,7 @@ class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
               SizedBox(width: 8.w),
               Expanded(
                 child: DropdownButtonFormField<String?>(
-                  value: _selectedType,
+                  initialValue: _selectedType,
                   decoration: InputDecoration(
                     labelText: 'نوع مدرک',
                     border: const OutlineInputBorder(),
@@ -394,7 +393,6 @@ class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
                   ),
                   items: const [
                     DropdownMenuItem<String?>(
-                      value: null,
                       child: Text('همه'),
                     ),
                     DropdownMenuItem<String?>(
@@ -436,7 +434,7 @@ class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
         // لیست مدارک
         Expanded(
           child: _isLoading
-              ? Center(
+              ? const Center(
                   child: CircularProgressIndicator(
                     color: AppTheme.goldColor,
                   ),
@@ -490,7 +488,6 @@ class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
                                           borderRadius: BorderRadius.circular(8.r),
                                           border: Border.all(
                                             color: _getStatusColor(status),
-                                            width: 1,
                                           ),
                                         ),
                                         child: Text(
@@ -604,7 +601,7 @@ class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
                                             color: isDark
                                                 ? AppTheme.darkGreySeparator
                                                 : AppTheme.lightDividerColor,
-                                            child: Center(
+                                            child: const Center(
                                               child: CircularProgressIndicator(
                                                 color: AppTheme.goldColor,
                                               ),

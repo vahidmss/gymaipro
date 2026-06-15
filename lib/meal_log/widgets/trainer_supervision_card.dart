@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/meal_plan.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -86,20 +87,17 @@ class _TrainerSupervisionCardState extends State<TrainerSupervisionCard> {
       // تعیین ID سازنده برنامه (مربی)
       // اگر trainer_id وجود دارد، از آن استفاده می‌کنیم (مربی برنامه را نوشته)
       // اگر trainer_id null است، از user_id استفاده می‌کنیم (خود کاربر برنامه را نوشته)
-      String? targetTrainerId = trainerId ?? userId;
+      final String? targetTrainerId = trainerId ?? userId;
 
       if (targetTrainerId != null && targetTrainerId.isNotEmpty) {
         debugPrint('در حال خواندن پروفایل مربی با ID: $targetTrainerId');
-        final trainerProfile = await client
-            .from('profiles')
-            .select('id, username, first_name, last_name, avatar_url')
-            .eq('id', targetTrainerId)
-            .maybeSingle();
+        final trainerProfile =
+            await ProfileRepository.instance.fetchProfile(targetTrainerId);
 
         if (trainerProfile != null && mounted) {
           debugPrint('اطلاعات مربی بارگذاری شد: ${trainerProfile['first_name']} ${trainerProfile['last_name']}');
           setState(() {
-            _trainerInfo = Map<String, dynamic>.from(trainerProfile as Map);
+            _trainerInfo = trainerProfile;
             _isLoading = false;
           });
         } else {
@@ -244,7 +242,7 @@ class _TrainerSupervisionCardState extends State<TrainerSupervisionCard> {
                       ? CachedNetworkImage(
                           imageUrl: _trainerInfo!['avatar_url'] as String,
                           fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
+                          placeholder: (context, url) => ColoredBox(
                             color: AppTheme.goldColor.withValues(alpha: 0.1),
                             child: Icon(
                               LucideIcons.user,
@@ -252,7 +250,7 @@ class _TrainerSupervisionCardState extends State<TrainerSupervisionCard> {
                               size: 30.sp,
                             ),
                           ),
-                          errorWidget: (context, url, error) => Container(
+                          errorWidget: (context, url, error) => ColoredBox(
                             color: AppTheme.goldColor.withValues(alpha: 0.1),
                             child: Icon(
                               LucideIcons.user,
@@ -261,7 +259,7 @@ class _TrainerSupervisionCardState extends State<TrainerSupervisionCard> {
                             ),
                           ),
                         )
-                      : Container(
+                      : ColoredBox(
                           color: AppTheme.goldColor.withValues(alpha: 0.1),
                           child: Icon(
                             LucideIcons.user,

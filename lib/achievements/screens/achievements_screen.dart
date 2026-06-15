@@ -59,9 +59,9 @@ class _AchievementsScreenState extends State<AchievementsScreen>
             elevation: 0,
           ),
         ),
-        child: Container(
+        child: DecoratedBox(
           decoration: isDark
-              ? null
+              ? const BoxDecoration()
               : BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -95,7 +95,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                 _ensureTabController(categories.length);
 
                 if (_tabController == null) {
-                  return Center(
+                  return const Center(
                     child: CircularProgressIndicator(color: AppTheme.goldColor),
                   );
                 }
@@ -115,7 +115,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                         // Tab Bar View
                         Expanded(
                           child: TabBarView(
-                            controller: _tabController!,
+                            controller: _tabController,
                             children: categories.map((category) {
                               return _buildCategoryTabView(
                                 context,
@@ -179,7 +179,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     List<AchievementCategory> categories,
     TabController tabController,
   ) {
-    return Container(
+    return ColoredBox(
       color: context.backgroundColor,
       child: SafeArea(
         bottom: false,
@@ -204,7 +204,6 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                   Expanded(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.max,
                       children: [
                         Icon(
                           LucideIcons.trophy,
@@ -378,7 +377,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
 
     return SafeArea(
       top: false,
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: context.cardColor,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
@@ -503,7 +502,7 @@ class _AchievementsScreenState extends State<AchievementsScreen>
                     backgroundColor: AppTheme.lightDividerColor.withValues(
                       alpha: isDark ? 0.4 : 0.3,
                     ),
-                    valueColor: AlwaysStoppedAnimation(AppTheme.goldColor),
+                    valueColor: const AlwaysStoppedAnimation(AppTheme.goldColor),
                   ),
                   SizedBox(height: 20.h),
                   // آمار جمع‌بندی

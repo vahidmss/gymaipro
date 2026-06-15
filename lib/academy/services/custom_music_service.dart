@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/academy/models/custom_music.dart';
 import 'package:gymaipro/academy/models/workout_music.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -41,79 +42,15 @@ class CustomMusicService {
   Future<String> _getAuthorName(String userId) async {
     try {
       debugPrint('🔍 Getting author name for userId: $userId');
-      
-      // created_by در custom_music به auth.users.id اشاره می‌کند
-      // profiles.id به auth.users.id reference می‌کنه (PRIMARY KEY REFERENCES auth.users(id))
-      // پس اول با id جستجو می‌کنیم (رایج‌ترین حالت)
-      
-      // اول: جستجو با id (profiles.id == auth.users.id)
-      var profile = await _supabase
-          .from('profiles')
-          .select('first_name, last_name, username')
-          .eq('id', userId)
-          .maybeSingle();
-      
-      debugPrint('🔍 Profile by id: $profile');
-      
-      // دوم: اگر پیدا نشد، با auth_user_id جستجو کن (برای legacy profiles)
-      if (profile == null) {
-        try {
-          profile = await _supabase
-              .from('profiles')
-              .select('first_name, last_name, username')
-              .eq('auth_user_id', userId)
-              .maybeSingle();
-          
-          debugPrint('🔍 Profile by auth_user_id: $profile');
-        } catch (e) {
-          debugPrint('⚠️ Error querying by auth_user_id (column may not exist): $e');
-        }
-      }
-      
-      if (profile != null) {
-        final firstName = profile['first_name'] as String?;
-        final lastName = profile['last_name'] as String?;
-        final username = profile['username'] as String?;
-        
-        debugPrint(
-          '🔍 firstName: $firstName, lastName: $lastName, username: $username',
-        );
-
-        // اولویت: نام و نام خانوادگی (ترکیب)
-        if (firstName != null && 
-            firstName.trim().isNotEmpty && 
-            lastName != null && 
-            lastName.trim().isNotEmpty) {
-          final name = '${firstName.trim()} ${lastName.trim()}'.trim();
-          if (name.isNotEmpty) {
-            debugPrint('✅ Returning full name: $name');
-            return name;
-          }
-        }
-        // دوم: فقط نام
-        if (firstName != null && firstName.trim().isNotEmpty) {
-          debugPrint('✅ Returning first name: $firstName');
-          return firstName.trim();
-        }
-        // سوم: فقط نام خانوادگی
-        if (lastName != null && lastName.trim().isNotEmpty) {
-          debugPrint('✅ Returning last name: $lastName');
-          return lastName.trim();
-        }
-        // چهارم: username
-        if (username != null && username.trim().isNotEmpty) {
-          debugPrint('✅ Returning username: $username');
-          return username.trim();
-        }
-        
-        debugPrint('⚠️ Profile found but all name fields are empty/null');
-      }
-      
-      debugPrint('⚠️ No profile found for user: $userId');
-      return 'مربی ناشناس';
-    } catch (e, stackTrace) {
-      debugPrint('❌ Error getting author name for $userId: $e');
-      debugPrint('❌ Stack trace: $stackTrace');
+      final profile = await ProfileRepository.instance.fetchProfile(userId);
+      final name = ProfileRepository.instance.displayNameFromMap(
+        profile,
+        fallback: 'مربی ناشناس',
+      );
+      debugPrint('✅ Author name resolved: $name');
+      return name;
+    } catch (e) {
+      debugPrint('Error getting author name: $e');
       return 'مربی ناشناس';
     }
   }
@@ -139,21 +76,26 @@ class CustomMusicService {
     // دریافت نام‌های نویسندگان به صورت موازی
     final userIds = customMusics.map((m) => m.createdBy).toSet().toList();
     final authorNamesMap = <String, String>{};
-    
-    // دریافت نام‌ها به صورت موازی
-    final authorFutures = userIds.map((userId) async {
-      try {
-        final name = await _getAuthorName(userId);
-        return MapEntry(userId, name);
-      } catch (e) {
-        debugPrint('Error getting author name for $userId: $e');
-        return MapEntry(userId, 'مربی ناشناس');
+
+    try {
+      final profiles =
+          await ProfileRepository.instance.fetchProfilesByIdentifiers(userIds);
+      for (final row in profiles) {
+        final name = ProfileRepository.instance.displayNameFromMap(
+          row,
+          fallback: 'مربی ناشناس',
+        );
+        final profileId = row['id']?.toString();
+        final authId = row['auth_user_id']?.toString();
+        if (profileId != null && profileId.isNotEmpty) {
+          authorNamesMap[profileId] = name;
+        }
+        if (authId != null && authId.isNotEmpty) {
+          authorNamesMap[authId] = name;
+        }
       }
-    });
-    
-    final authorEntries = await Future.wait(authorFutures);
-    for (final entry in authorEntries) {
-      authorNamesMap[entry.key] = entry.value;
+    } catch (e) {
+      debugPrint('Error batch-loading author names: $e');
     }
     
     // تبدیل CustomMusic به WorkoutMusic؛ اولویت با artist ذخیره‌شده (GymAI یا نام مربی)

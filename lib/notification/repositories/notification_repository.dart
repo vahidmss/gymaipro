@@ -106,7 +106,7 @@ class NotificationRepository {
         params: {'user_uuid': user.id},
       );
 
-      return response ?? 0;
+      return response;
     } catch (e) {
       return 0;
     }
@@ -123,7 +123,7 @@ class NotificationRepository {
         params: {'notification_uuid': notificationId, 'user_uuid': user.id},
       );
 
-      return response ?? false;
+      return response;
     } catch (e) {
       return false;
     }
@@ -140,7 +140,7 @@ class NotificationRepository {
         params: {'user_uuid': user.id},
       );
 
-      return response ?? 0;
+      return response;
     } catch (e) {
       return 0;
     }

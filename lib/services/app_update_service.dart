@@ -207,7 +207,6 @@ class AppUpdateService {
     stateNotifier.value = stateNotifier.value.copyWith(
       isApplying: true,
       apkDownloadProgress: 0,
-      apkDownloadTotal: null,
       clearError: true,
     );
 

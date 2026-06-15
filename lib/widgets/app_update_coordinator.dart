@@ -168,7 +168,6 @@ class _AppUpdateCoordinatorState extends State<AppUpdateCoordinator>
 
     await showDialog<void>(
       context: context,
-      barrierDismissible: true,
       builder: (dialogContext) {
         return Directionality(
           textDirection: TextDirection.rtl,
@@ -188,7 +187,7 @@ class _AppUpdateCoordinatorState extends State<AppUpdateCoordinator>
                   children: [
                     Icon(LucideIcons.download, color: AppTheme.goldColor, size: 22.sp),
                     SizedBox(width: 8.w),
-                    Expanded(
+                    const Expanded(
                       child: Text(
                         'نسخه جدید APK',
                         style: TextStyle(

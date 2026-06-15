@@ -30,7 +30,7 @@ class OfflineBanner extends StatelessWidget {
                   ),
                   constraints: BoxConstraints(maxWidth: maxWidth),
                   decoration: BoxDecoration(
-                    color: AppTheme.cardColor.withValues(alpha: 0.95),
+                    color: context.cardColor.withValues(alpha: 0.95),
                     borderRadius: BorderRadius.circular(12.r),
                     border: Border.all(
                       color: AppTheme.goldColor.withValues(alpha: 0.3),

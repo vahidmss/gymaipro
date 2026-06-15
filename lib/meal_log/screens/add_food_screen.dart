@@ -197,7 +197,6 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      isDismissible: true,
       barrierColor: isDark
           ? Colors.black.withValues(alpha: 0.7)
           : AppTheme.lightTextColor.withValues(alpha: 0.5),
@@ -248,9 +247,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                 // Filter tabs
                 SliverToBoxAdapter(child: _buildFilterTabs(isDark)),
                 // Food list
-                _filterType == 'اخیر'
-                    ? _buildRecentListSliver(isDark)
-                    : _buildFoodListSliver(isDark),
+                if (_filterType == 'اخیر') _buildRecentListSliver(isDark) else _buildFoodListSliver(isDark),
               ],
             ),
           );
@@ -268,7 +265,6 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
             color: isDark
                 ? AppTheme.darkGreySeparator
                 : AppTheme.lightDividerColor,
-            width: 1,
           ),
         ),
       ),
@@ -287,7 +283,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
           SizedBox(width: 8.w),
           Expanded(
             child: Text(
-              'افزودن ${_selectedMealTitle}',
+              'افزودن $_selectedMealTitle',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: isDark ? AppTheme.goldColor : context.textColor,
@@ -574,7 +570,6 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
           color: isDark
               ? AppTheme.darkGreySeparator
               : AppTheme.lightDividerColor,
-          width: 1,
         ),
       ),
       child: Material(

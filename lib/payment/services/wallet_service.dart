@@ -56,7 +56,7 @@ class WalletService {
         }
       } catch (e) {
         if (kDebugMode) {
-          print(
+          debugPrint(
             'WALLET_SERVICE: Error getting profile (attempt ${retryCount + 1}/$maxRetries): $e',
           );
         }
@@ -76,7 +76,7 @@ class WalletService {
     // اگر بعد از retry هم پروفایل پیدا نشد، null برمی‌گردانیم
     // (نه authUserId چون constraint به profiles reference می‌کند)
     if (kDebugMode) {
-      print(
+      debugPrint(
         'WALLET_SERVICE: Profile not found after $maxRetries attempts, returning null',
       );
     }
@@ -89,7 +89,7 @@ class WalletService {
       final userId = await _getEffectiveUserId();
       if (userId == null) {
         if (kDebugMode) {
-          print('کاربر وارد نشده است');
+          debugPrint('کاربر وارد نشده است');
         }
         return null;
       }
@@ -107,7 +107,7 @@ class WalletService {
 
       _inFlightWallet = () async {
         if (kDebugMode) {
-          print('دریافت کیف پول برای کاربر: $userId');
+          debugPrint('دریافت کیف پول برای کاربر: $userId');
         }
 
         final response = await _client
@@ -121,10 +121,10 @@ class WalletService {
             : await _createWallet(userId);
 
         if (kDebugMode && response != null) {
-          print('کیف پول موجود پیدا شد');
+          debugPrint('کیف پول موجود پیدا شد');
         }
         if (kDebugMode && response == null) {
-          print('کیف پول وجود ندارد، در حال ایجاد کیف پول جدید...');
+          debugPrint('کیف پول وجود ندارد، در حال ایجاد کیف پول جدید...');
         }
 
         _cachedWallet = wallet;
@@ -136,7 +136,7 @@ class WalletService {
       return await _inFlightWallet;
     } catch (e) {
       if (kDebugMode) {
-        print('خطا در دریافت کیف پول: $e');
+        debugPrint('خطا در دریافت کیف پول: $e');
       }
       return null;
     } finally {
@@ -150,7 +150,7 @@ class WalletService {
       final userId = await _getEffectiveUserId();
       if (userId == null) {
         if (kDebugMode) {
-          print('کاربر وارد نشده است');
+          debugPrint('کاربر وارد نشده است');
         }
         return null;
       }
@@ -158,7 +158,7 @@ class WalletService {
       // بررسی وجود کیف پول
       if (await _walletExists(userId)) {
         if (kDebugMode) {
-          print('کیف پول از قبل وجود دارد');
+          debugPrint('کیف پول از قبل وجود دارد');
         }
         return await getUserWallet();
       }
@@ -167,7 +167,7 @@ class WalletService {
       return await _createWallet(userId);
     } catch (e) {
       if (kDebugMode) {
-        print('خطا در ایجاد کیف پول: $e');
+        debugPrint('خطا در ایجاد کیف پول: $e');
       }
       return null;
     }
@@ -225,13 +225,13 @@ class WalletService {
       );
 
       if (kDebugMode) {
-        print('کیف پول شارژ شد: ${PaymentConstants.formatAmount(amount)}');
+        debugPrint('کیف پول شارژ شد: ${PaymentConstants.formatAmount(amount)}');
       }
 
       return true;
     } catch (e) {
       if (kDebugMode) {
-        print('خطا در شارژ کیف پول: $e');
+        debugPrint('خطا در شارژ کیف پول: $e');
       }
       return false;
     }
@@ -302,7 +302,7 @@ class WalletService {
         );
       } catch (e) {
         if (kDebugMode) {
-          print('خطا در ثبت تراکنش کیف پول، در حال بازگرداندن موجودی: $e');
+          debugPrint('خطا در ثبت تراکنش کیف پول، در حال بازگرداندن موجودی: $e');
         }
         // بازگرداندن موجودی در صورت شکست ثبت تراکنش (RLS یا شبکه)
         await _client
@@ -319,13 +319,13 @@ class WalletService {
       }
 
       if (kDebugMode) {
-        print('پرداخت از کیف پول: ${PaymentConstants.formatAmount(amount)}');
+        debugPrint('پرداخت از کیف پول: ${PaymentConstants.formatAmount(amount)}');
       }
 
       return true;
     } catch (e) {
       if (kDebugMode) {
-        print('خطا در پرداخت از کیف پول: $e');
+        debugPrint('خطا در پرداخت از کیف پول: $e');
       }
       rethrow;
     }
@@ -371,7 +371,7 @@ class WalletService {
       );
 
       if (kDebugMode) {
-        print(
+        debugPrint(
           'بازگشت وجه به کیف پول: ${PaymentConstants.formatAmount(amount)}',
         );
       }
@@ -379,7 +379,7 @@ class WalletService {
       return true;
     } catch (e) {
       if (kDebugMode) {
-        print('خطا در بازگشت وجه: $e');
+        debugPrint('خطا در بازگشت وجه: $e');
       }
       return false;
     }
@@ -425,13 +425,13 @@ class WalletService {
       );
 
       if (kDebugMode) {
-        print('پاداش اضافه شد: ${PaymentConstants.formatAmount(amount)}');
+        debugPrint('پاداش اضافه شد: ${PaymentConstants.formatAmount(amount)}');
       }
 
       return true;
     } catch (e) {
       if (kDebugMode) {
-        print('خطا در اضافه کردن پاداش: $e');
+        debugPrint('خطا در اضافه کردن پاداش: $e');
       }
       return false;
     }
@@ -469,13 +469,13 @@ class WalletService {
       _invalidateWalletCache();
 
       if (kDebugMode) {
-        print('مبلغ مسدود شد: ${PaymentConstants.formatAmount(amount)}');
+        debugPrint('مبلغ مسدود شد: ${PaymentConstants.formatAmount(amount)}');
       }
 
       return true;
     } catch (e) {
       if (kDebugMode) {
-        print('خطا در مسدود کردن مبلغ: $e');
+        debugPrint('خطا در مسدود کردن مبلغ: $e');
       }
       return false;
     }
@@ -513,13 +513,13 @@ class WalletService {
       _invalidateWalletCache();
 
       if (kDebugMode) {
-        print('مبلغ آزاد شد: ${PaymentConstants.formatAmount(amount)}');
+        debugPrint('مبلغ آزاد شد: ${PaymentConstants.formatAmount(amount)}');
       }
 
       return true;
     } catch (e) {
       if (kDebugMode) {
-        print('خطا در آزاد کردن مبلغ: $e');
+        debugPrint('خطا در آزاد کردن مبلغ: $e');
       }
       return false;
     }
@@ -536,7 +536,7 @@ class WalletService {
       final wallet = await getUserWallet();
       if (wallet == null) {
         if (kDebugMode) {
-          print('WALLET_TX: کیف پول یافت نشد (getUserWallet null)');
+          debugPrint('WALLET_TX: کیف پول یافت نشد (getUserWallet null)');
         }
         return [];
       }
@@ -562,7 +562,7 @@ class WalletService {
           .toList();
 
       if (kDebugMode) {
-        print(
+        debugPrint(
           'WALLET_TX: wallet_id=${wallet.id}, تعداد تراکنش‌ها=${transactions.length}',
         );
       }
@@ -570,8 +570,8 @@ class WalletService {
       return transactions;
     } catch (e, st) {
       if (kDebugMode) {
-        print('خطا در دریافت تاریخچه کیف پول: $e');
-        print('WALLET_TX stack: $st');
+        debugPrint('خطا در دریافت تاریخچه کیف پول: $e');
+        debugPrint('WALLET_TX stack: $st');
       }
       return [];
     }
@@ -611,7 +611,7 @@ class WalletService {
       };
     } catch (e) {
       if (kDebugMode) {
-        print('خطا در دریافت آمار کیف پول: $e');
+        debugPrint('خطا در دریافت آمار کیف پول: $e');
       }
       return {};
     }
@@ -631,7 +631,7 @@ class WalletService {
       return response != null;
     } catch (e) {
       if (kDebugMode) {
-        print('خطا در بررسی وجود کیف پول: $e');
+        debugPrint('خطا در بررسی وجود کیف پول: $e');
       }
       return false;
     }
@@ -641,7 +641,7 @@ class WalletService {
   Future<Wallet> _createWallet(String userId) async {
     try {
       if (kDebugMode) {
-        print('شروع ایجاد کیف پول جدید برای کاربر: $userId');
+        debugPrint('شروع ایجاد کیف پول جدید برای کاربر: $userId');
       }
 
       final walletData = {
@@ -664,14 +664,14 @@ class WalletService {
           .single();
 
       if (kDebugMode) {
-        print('✅ کیف پول جدید با موفقیت ایجاد شد برای کاربر: $userId');
-        print('کیف پول ID: ${response['id']}');
+        debugPrint('✅ کیف پول جدید با موفقیت ایجاد شد برای کاربر: $userId');
+        debugPrint('کیف پول ID: ${response['id']}');
       }
 
       return Wallet.fromJson(response);
     } catch (e) {
       if (kDebugMode) {
-        print('❌ خطا در ایجاد کیف پول: $e');
+        debugPrint('❌ خطا در ایجاد کیف پول: $e');
       }
       rethrow;
     }
@@ -706,7 +706,7 @@ class WalletService {
       await _client.from('wallet_transactions').insert(transactionData);
     } catch (e) {
       if (kDebugMode) {
-        print('خطا در اضافه کردن تراکنش کیف پول: $e');
+        debugPrint('خطا در اضافه کردن تراکنش کیف پول: $e');
       }
       rethrow;
     }

@@ -6,6 +6,7 @@ import 'package:gymaipro/my_club/widgets/program_workout_activity_sheet.dart';
 import 'package:gymaipro/my_club/widgets/unified_empty_state.dart';
 import 'package:gymaipro/payment/models/trainer_subscription.dart';
 import 'package:gymaipro/payment/services/trainer_subscription_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/active_meal_plan_service.dart';
 import 'package:gymaipro/services/active_program_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
@@ -192,43 +193,36 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
       // خواندن پروفایل کاربر فعلی برای نمایش "خودم" در صورت نیاز
       Map<String, dynamic>? currentUserProfile;
       try {
-        final profile = await _db
-            .from('profiles')
-            .select('id, username, first_name, last_name, avatar_url')
-            .eq('id', userId)
-            .maybeSingle();
-        if (profile != null) {
-          currentUserProfile = Map<String, dynamic>.from(profile as Map);
-        }
+        currentUserProfile = await SimpleProfileService.getCurrentProfile();
       } catch (e) {
         debugPrint('خطا در خواندن پروفایل کاربر فعلی: $e');
       }
 
-      // اگر trainer_id وجود داشت، اطلاعات مربی را جداگانه بخوانیم
+      final trainerIds = <String>{};
+      for (final row in mealPlanRows) {
+        final trainerId = (row as Map)['trainer_id'] as String?;
+        if (trainerId != null && trainerId.isNotEmpty) {
+          trainerIds.add(trainerId);
+        }
+      }
+
+      final trainerProfilesMap = trainerIds.isEmpty
+          ? <String, Map<String, dynamic>>{}
+          : await ProfileRepository.instance.fetchProfilesByIdsMap(
+              trainerIds.toList(),
+            );
+
+      // اگر trainer_id وجود داشت، اطلاعات مربی را از batch map بخوانیم
       final List<Map<String, dynamic>> mealPlanItems = [];
       for (final row in mealPlanRows) {
         final r = Map<String, dynamic>.from(row as Map);
         final trainerId = r['trainer_id'] as String?;
         final planUserId = r['user_id'] as String?;
 
-        // خواندن اطلاعات مربی اگر trainer_id وجود داشته باشد
         Map<String, dynamic>? trainer;
         if (trainerId != null && trainerId.isNotEmpty) {
-          try {
-            final trainerProfile = await _db
-                .from('profiles')
-                .select('id, username, first_name, last_name, avatar_url')
-                .eq('id', trainerId)
-                .maybeSingle();
-            if (trainerProfile != null) {
-              trainer = Map<String, dynamic>.from(trainerProfile as Map);
-            }
-          } catch (e) {
-            debugPrint('خطا در خواندن اطلاعات مربی: $e');
-            // در صورت خطا، trainer را null می‌گذاریم
-          }
+          trainer = trainerProfilesMap[trainerId];
         } else if (planUserId == userId && currentUserProfile != null) {
-          // اگر trainer_id null است و برنامه متعلق به کاربر فعلی است، از پروفایل کاربر استفاده می‌کنیم
           trainer = currentUserProfile;
         }
 
@@ -386,30 +380,34 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
   Future<void> _loadPendingRequests(String userId) async {
     try {
       final subscriptions = await _subscriptionService.getUserSubscriptions(userId);
+      final pendingSubs = subscriptions.where((sub) {
+        if (sub.isCancelled || sub.isExpired) return false;
+        return sub.programStatus == ProgramStatus.notStarted;
+      }).toList();
+
+      final trainerIds = pendingSubs
+          .map((sub) => sub.trainerId)
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final trainerProfilesMap = trainerIds.isEmpty
+          ? <String, Map<String, dynamic>>{}
+          : await ProfileRepository.instance.fetchProfilesByIdsMap(
+              trainerIds,
+              columns: 'first_name, last_name, username, avatar_url',
+            );
+
       final pending = <_PendingRequest>[];
 
-      for (final sub in subscriptions) {
-        if (sub.isCancelled || sub.isExpired) continue;
-
-        final bool isProgramNotSent = sub.programStatus == ProgramStatus.notStarted;
-        if (!isProgramNotSent) continue;
-
-        String trainerName = '';
-        try {
-          final profile = await _db
-              .from('profiles')
-              .select('first_name, last_name, username, avatar_url')
-              .eq('id', sub.trainerId)
-              .maybeSingle();
-          if (profile != null) {
-            final first = (profile['first_name'] as String?)?.trim() ?? '';
-            final last = (profile['last_name'] as String?)?.trim() ?? '';
-            final combined = '$first $last'.trim();
-            trainerName = combined.isNotEmpty
-                ? combined
-                : (profile['username'] as String?) ?? '';
-          }
-        } catch (_) {}
+      for (final sub in pendingSubs) {
+        final profile = trainerProfilesMap[sub.trainerId];
+        final trainerName = profile == null
+            ? ''
+            : ProfileRepository.instance.displayNameFromMap(
+                profile,
+                fallback: '',
+              );
 
         pending.add(_PendingRequest(
           subscriptionId: sub.id,
@@ -601,63 +599,82 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
                 actionIcon: LucideIcons.search,
                 onAction: () => Navigator.pushNamed(context, '/trainer-ranking'),
               )
-            : ListView(
+            : ListView.builder(
                 padding: EdgeInsets.all(16.w),
-                children: [
-                  if (hasPending) ...[
-                    _buildPendingSection(),
-                    if (hasItems) SizedBox(height: 16.h),
-                  ],
-                  if (hasItems)
-                    ...List.generate(_items.length, (index) {
-                      final it = _items[index];
-                      if (it['type'] == 'workout') {
-                        return _ProgramCard(
-                          programName: it['title'] as String,
-                          trainerLine: it['trainerLine'] as String?,
-                          programId: it['id'] as String,
-                          isActive: (it['isActive'] as bool?) ?? false,
-                          isExpired: (it['isExpired'] as bool?) ?? false,
-                          expiryDate: it['expiry_date'] as DateTime?,
-                          onActivate: () => _activateProgram(it['id'] as String),
-                          onDeactivate: _deactivateProgram,
-                          onOpen: _goToWorkoutLog,
-                          onRenew: () => _renewProgram(it['id'] as String),
-                          onPreview: () => ProgramWorkoutActivitySheet.show(
-                            context,
-                            programTitle: it['title'] as String,
-                            filter: _activityFilterForItem(it),
-                            onOpenWorkoutLog: _goToWorkoutLog,
-                          ),
-                        );
-                      }
-                      return _DietPlanCard(
-                        planName: it['title'] as String,
-                        trainerLine: it['trainerLine'] as String?,
-                        mealPlanId: it['id'] as String,
-                        isActive: (it['isActive'] as bool?) ?? false,
-                        expiryDate: it['expiry_date'] as DateTime?,
-                        onActivate: () => _activateMealPlan(it['id'] as String),
-                        onDeactivate: _deactivateMealPlan,
-                        onOpen: () => Navigator.pushNamed(
-                          context,
-                          '/meal-log',
-                          arguments: it['id'] as String,
-                        ),
-                        onPreview: () => ProgramMealActivitySheet.show(
-                          context,
-                          planTitle: it['title'] as String,
-                          filter: _activityFilterForItem(it),
-                          onOpenMealLog: () => Navigator.pushNamed(
-                            context,
-                            '/meal-log',
-                            arguments: it['id'] as String,
-                          ),
-                        ),
-                      );
-                    }),
-                ],
+                itemCount: _programsListItemCount(hasPending, hasItems),
+                itemBuilder: (context, index) =>
+                    _buildProgramsListItem(index, hasPending, hasItems),
               ),
+      ),
+    );
+  }
+
+  int _programsListItemCount(bool hasPending, bool hasItems) {
+    var count = 0;
+    if (hasPending) {
+      count += 1;
+      if (hasItems) count += 1;
+    }
+    if (hasItems) count += _items.length;
+    return count;
+  }
+
+  Widget _buildProgramsListItem(int index, bool hasPending, bool hasItems) {
+    var cursor = index;
+    if (hasPending) {
+      if (cursor == 0) return _buildPendingSection();
+      cursor--;
+      if (hasItems) {
+        if (cursor == 0) return SizedBox(height: 16.h);
+        cursor--;
+      }
+    }
+    return _buildProgramItemCard(_items[cursor]);
+  }
+
+  Widget _buildProgramItemCard(Map<String, dynamic> it) {
+    if (it['type'] == 'workout') {
+      return _ProgramCard(
+        programName: it['title'] as String,
+        trainerLine: it['trainerLine'] as String?,
+        programId: it['id'] as String,
+        isActive: (it['isActive'] as bool?) ?? false,
+        isExpired: (it['isExpired'] as bool?) ?? false,
+        expiryDate: it['expiry_date'] as DateTime?,
+        onActivate: () => _activateProgram(it['id'] as String),
+        onDeactivate: _deactivateProgram,
+        onOpen: _goToWorkoutLog,
+        onRenew: () => _renewProgram(it['id'] as String),
+        onPreview: () => ProgramWorkoutActivitySheet.show(
+          context,
+          programTitle: it['title'] as String,
+          filter: _activityFilterForItem(it),
+          onOpenWorkoutLog: _goToWorkoutLog,
+        ),
+      );
+    }
+    return _DietPlanCard(
+      planName: it['title'] as String,
+      trainerLine: it['trainerLine'] as String?,
+      mealPlanId: it['id'] as String,
+      isActive: (it['isActive'] as bool?) ?? false,
+      expiryDate: it['expiry_date'] as DateTime?,
+      onActivate: () => _activateMealPlan(it['id'] as String),
+      onDeactivate: _deactivateMealPlan,
+      onOpen: () => Navigator.pushNamed(
+        context,
+        '/meal-log',
+        arguments: it['id'] as String,
+      ),
+      onPreview: () => ProgramMealActivitySheet.show(
+        context,
+        planTitle: it['title'] as String,
+        filter: _activityFilterForItem(it),
+        onOpenMealLog: () => Navigator.pushNamed(
+          context,
+          '/meal-log',
+          arguments: it['id'] as String,
+        ),
       ),
     );
   }

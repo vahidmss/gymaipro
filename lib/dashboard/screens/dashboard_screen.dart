@@ -1,10 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/achievements/services/achievement_service.dart';
 import 'package:gymaipro/ai/services/user_context_cache_service.dart';
 import 'package:gymaipro/announcements/services/in_app_announcement_service.dart';
 import 'package:gymaipro/announcements/widgets/in_app_announcement_modal.dart';
-import 'package:gymaipro/auth/services/supabase_service.dart';
 import 'package:gymaipro/chat/services/chat_unread_notifier.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_animated_section.dart';
@@ -26,7 +27,7 @@ import 'package:gymaipro/dashboard/widgets/weight_chart.dart';
 import 'package:gymaipro/guide/guide.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/services/app_state.dart';
-import 'package:gymaipro/services/auth_state_service.dart';
+import 'package:gymaipro/auth/services/auth_state_service.dart';
 import 'package:gymaipro/services/avatar_refresh_notifier.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
@@ -211,9 +212,9 @@ class _DashboardScreenState extends State<DashboardScreen>
           });
         }
         // بارگذاری کیف پول (نیازی به کش ندارد - حساس است)
-        _loadWallet();
+        unawaited(_loadWallet());
         // به‌روزرسانی streak و دستاوردهای membership
-        _updateStreakAndMembershipAchievements();
+        unawaited(_updateStreakAndMembershipAchievements());
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _tryShowAnnouncement();
         });
@@ -255,7 +256,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         });
 
         // به‌روزرسانی streak و دستاوردهای membership
-        _updateStreakAndMembershipAchievements();
+        unawaited(_updateStreakAndMembershipAchievements());
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _tryShowAnnouncement();
         });
@@ -428,6 +429,8 @@ class _DashboardScreenState extends State<DashboardScreen>
       return;
     }
 
+    if (!mounted) return;
+
     // Clear all caches
     try {
       FoodService().clearCache();
@@ -437,7 +440,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     // به‌روزرسانی کش اطلاعات کاربر برای هوش مصنوعی (در بک‌گراند)
     try {
-      UserContextCacheService.refreshUserContextCache();
+      unawaited(UserContextCacheService.refreshUserContextCache());
     } catch (_) {}
 
     // Trigger dependent notifiers/services to refresh
@@ -489,9 +492,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       // پاک کردن AppState
       await AppState().logout();
 
-      // خروج از Supabase
-      await SupabaseService().signOut();
-
+      // خروج از Supabase و پاک‌سازی نشست (signOut داخل clearAuthState انجام می‌شود)
       await AuthStateService().clearAuthState();
       // User signed out successfully
 
@@ -514,7 +515,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         WidgetSafetyUtils.safeSetState(this, () {
           _isLoggingOut = false;
         });
-        _logoutAnimationController?.reverse();
+        unawaited(_logoutAnimationController?.reverse());
       }
 
       WidgetsBinding.instance.addPostFrameCallback((_) {

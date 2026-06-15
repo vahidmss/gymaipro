@@ -300,9 +300,6 @@ class FoodServingUnits {
             key: 'gram',
             label: 'گرم',
             gramsPerUnit: 1,
-            step: 1,
-            decimals: 0,
-            isPrimary: false,
           ),
         ];
       } else {
@@ -324,7 +321,6 @@ class FoodServingUnits {
                       gramsPerUnit: u.gramsPerUnit,
                       step: u.step,
                       decimals: u.decimals,
-                      isPrimary: false,
                       hint: u.hint,
                     ),
             )

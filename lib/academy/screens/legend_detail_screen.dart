@@ -74,7 +74,6 @@ class _LegendDetailScreenState extends State<LegendDetailScreen> {
                       borderRadius: BorderRadius.circular(12.r),
                       border: Border.all(
                         color: AppTheme.goldColor.withValues(alpha: 0.2),
-                        width: 1,
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -82,7 +81,6 @@ class _LegendDetailScreenState extends State<LegendDetailScreen> {
                             alpha: isDark ? 0.1 : 0.15,
                           ),
                           blurRadius: 8.r,
-                          spreadRadius: 0,
                           offset: Offset(0, 2.h),
                         ),
                       ],
@@ -186,7 +184,6 @@ class _LegendDetailScreenState extends State<LegendDetailScreen> {
                       borderRadius: BorderRadius.circular(12.r),
                       border: Border.all(
                         color: AppTheme.goldColor.withValues(alpha: 0.2),
-                        width: 1,
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -194,7 +191,6 @@ class _LegendDetailScreenState extends State<LegendDetailScreen> {
                             alpha: isDark ? 0.1 : 0.15,
                           ),
                           blurRadius: 8.r,
-                          spreadRadius: 0,
                           offset: Offset(0, 2.h),
                         ),
                       ],
@@ -233,13 +229,11 @@ class _LegendDetailScreenState extends State<LegendDetailScreen> {
           color: isGold
               ? AppTheme.goldColor.withValues(alpha: 0.3)
               : AppTheme.goldColor.withValues(alpha: 0.2),
-          width: 1,
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.05),
             blurRadius: 2.r,
-            spreadRadius: 0,
             offset: Offset(0, 1.h),
           ),
         ],

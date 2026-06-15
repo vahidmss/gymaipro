@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TrainersChatSection extends StatefulWidget {
   const TrainersChatSection({super.key});
@@ -34,14 +34,8 @@ class _TrainersChatSectionState extends State<TrainersChatSection> {
         _errorMessage = null;
       });
 
-      // Get all trainers (users with role = 'trainer')
-      final response = await Supabase.instance.client
-          .from('profiles')
-          .select()
-          .eq('role', 'trainer')
-          .limit(10);
-
-      final trainers = response.map(UserProfile.fromJson).toList();
+      final rows = await ProfileRepository.instance.fetchTrainers();
+      final trainers = rows.map(UserProfile.fromJson).toList();
 
       SafeSetState.call(this, () {
         _trainers = trainers;
@@ -62,7 +56,7 @@ class _TrainersChatSectionState extends State<TrainersChatSection> {
         height: 200.h,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppTheme.cardColor,
+            color: context.cardColor,
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: AppTheme.goldColor.withValues(alpha: 0.1),
@@ -91,7 +85,7 @@ class _TrainersChatSectionState extends State<TrainersChatSection> {
         height: 200.h,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppTheme.cardColor,
+            color: context.cardColor,
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: Colors.red.withValues(alpha: 0.2),
@@ -139,7 +133,7 @@ class _TrainersChatSectionState extends State<TrainersChatSection> {
         height: 200.h,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppTheme.cardColor,
+            color: context.cardColor,
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: AppTheme.goldColor.withValues(alpha: 0.1),
@@ -170,7 +164,7 @@ class _TrainersChatSectionState extends State<TrainersChatSection> {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: 0.1),
@@ -277,7 +271,7 @@ class _TrainersChatSectionState extends State<TrainersChatSection> {
           // Footer
           DecoratedBox(
             decoration: BoxDecoration(
-              color: AppTheme.backgroundColor.withValues(alpha: 0.5),
+              color: context.backgroundColor.withValues(alpha: 0.5),
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(16.r),
                 bottomRight: Radius.circular(16.r),
@@ -333,7 +327,7 @@ class _TrainersChatSectionState extends State<TrainersChatSection> {
           width: 120.w,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,
+              color: context.backgroundColor,
               borderRadius: BorderRadius.circular(16.r),
               border: Border.all(
                 color: Colors.purple.withValues(alpha: 0.3),
@@ -373,7 +367,6 @@ class _TrainersChatSectionState extends State<TrainersChatSection> {
                             color: Colors.green,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: AppTheme.backgroundColor,
                               width: 2.w,
                             ),
                             boxShadow: [

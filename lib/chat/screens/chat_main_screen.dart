@@ -233,7 +233,7 @@ class _ChatMainScreenState extends State<ChatMainScreen>
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(LucideIcons.bell, color: AppTheme.goldColor),
+                leading: const Icon(LucideIcons.bell, color: AppTheme.goldColor),
                 title: Text(
                   'اعلان‌ها',
                   style: TextStyle(
@@ -247,7 +247,7 @@ class _ChatMainScreenState extends State<ChatMainScreen>
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(
+                leading: const Icon(
                   LucideIcons.shield,
                   color: AppTheme.goldColor,
                 ),
@@ -264,7 +264,7 @@ class _ChatMainScreenState extends State<ChatMainScreen>
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: Icon(
+                leading: const Icon(
                   LucideIcons.download,
                   color: AppTheme.goldColor,
                 ),

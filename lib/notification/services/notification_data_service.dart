@@ -1,4 +1,5 @@
-﻿import 'package:gymaipro/notification/models/notification_model.dart';
+﻿import 'package:flutter/foundation.dart';
+import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotificationDataService {
@@ -26,7 +27,7 @@ class NotificationDataService {
           )
           .toList();
     } catch (e) {
-      print('Error fetching notifications: $e');
+      debugPrint('Error fetching notifications: $e');
       return [];
     }
   }
@@ -44,7 +45,7 @@ class NotificationDataService {
 
       return response;
     } catch (e) {
-      print('Error fetching unread count: $e');
+      debugPrint('Error fetching unread count: $e');
       return 0;
     }
   }
@@ -55,7 +56,7 @@ class NotificationDataService {
       final count = await getUnreadCount();
       return count > 0;
     } catch (e) {
-      print('Error checking unread notifications: $e');
+      debugPrint('Error checking unread notifications: $e');
       return false; // Safe default
     }
   }
@@ -73,7 +74,7 @@ class NotificationDataService {
 
       return (response as bool?) ?? false;
     } catch (e) {
-      print('Error marking notification as read: $e');
+      debugPrint('Error marking notification as read: $e');
       return false;
     }
   }
@@ -91,7 +92,7 @@ class NotificationDataService {
 
       return (response as int?) ?? 0;
     } catch (e) {
-      print('Error marking all notifications as read: $e');
+      debugPrint('Error marking all notifications as read: $e');
       return 0;
     }
   }
@@ -144,7 +145,7 @@ class NotificationDataService {
 
       return true;
     } catch (e) {
-      print('Error creating notification: $e');
+      debugPrint('Error creating notification: $e');
       return false;
     }
   }
@@ -163,7 +164,7 @@ class NotificationDataService {
 
       return true;
     } catch (e) {
-      print('Error deleting notification: $e');
+      debugPrint('Error deleting notification: $e');
       return false;
     }
   }
@@ -182,7 +183,7 @@ class NotificationDataService {
 
       return (response as int?) ?? 0;
     } catch (e) {
-      print('Error deleting read notifications: $e');
+      debugPrint('Error deleting read notifications: $e');
       return 0;
     }
   }
@@ -210,7 +211,7 @@ class NotificationDataService {
           )
           .toList();
     } catch (e) {
-      print('Error fetching notifications by type: $e');
+      debugPrint('Error fetching notifications by type: $e');
       return [];
     }
   }
@@ -228,7 +229,7 @@ class NotificationDataService {
           .order('created_at')
           .map((data) => data.map(NotificationItem.fromJson).toList());
     } catch (e) {
-      print('Error listening to notifications: $e');
+      debugPrint('Error listening to notifications: $e');
       return Stream.value([]);
     }
   }

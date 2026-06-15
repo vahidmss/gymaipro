@@ -593,7 +593,6 @@ class MealInsightEngine {
         label: food.displayTitle,
         mealTitle: mealTitle,
         amount: 100,
-        unit: 'گرم',
       );
     }).toList();
   }

@@ -118,11 +118,11 @@ class _MotivationalVideoDetailScreenState
           children: [
             // Video Player
             if (_isLoading)
-              AspectRatio(
+              const AspectRatio(
                 aspectRatio: 16 / 9,
-                child: Container(
+                child: ColoredBox(
                   color: Colors.black,
-                  child: const Center(
+                  child: Center(
                     child: CircularProgressIndicator(color: AppTheme.goldColor),
                   ),
                 ),
@@ -135,7 +135,7 @@ class _MotivationalVideoDetailScreenState
             else
               AspectRatio(
                 aspectRatio: 16 / 9,
-                child: Container(
+                child: ColoredBox(
                   color: Colors.black,
                   child: Center(
                     child: Column(

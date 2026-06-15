@@ -29,16 +29,16 @@ class OTPService {
       String? appSignature;
       try {
         appSignature = await sms.SmsAutoFill().getAppSignature;
-        print('📱 App Signature for SMS: $appSignature');
+        debugPrint('📱 App Signature for SMS: $appSignature');
       } catch (e) {
-        print('⚠️ Could not get app signature: $e');
+        debugPrint('⚠️ Could not get app signature: $e');
       }
 
       // ارسال پیامک واقعی
       final smsSent = await _sendRealSMS(normalizedPhone, code, appSignature);
 
       if (!smsSent) {
-        print('⚠️ Warning: Failed to send SMS, but saving OTP to database');
+        debugPrint('⚠️ Warning: Failed to send SMS, but saving OTP to database');
       }
 
       // ذخیره OTP در دیتابیس Supabase (حتی اگر پیامک ارسال نشد)
@@ -46,7 +46,7 @@ class OTPService {
 
       return saved;
     } catch (e) {
-      print('Error sending OTP: $e');
+      debugPrint('Error sending OTP: $e');
       return false;
     }
   }
@@ -66,8 +66,8 @@ class OTPService {
 
       if (username.isEmpty || password.isEmpty || bodyId == 0) {
         if (kDebugMode) {
-          print('❌ SMS API credentials not configured');
-          print(
+          debugPrint('❌ SMS API credentials not configured');
+          debugPrint(
             'Please set SMS_API_USERNAME, SMS_API_PASSWORD, and SMS_API_BODY_ID',
           );
         }
@@ -88,11 +88,11 @@ class OTPService {
       if (appSignature != null && appSignature.isNotEmpty) {
         // استفاده از فرمت Android SMS Retriever برای Auto-fill
         message = '<#> کد تایید شما: $code\n$appSignature';
-        print('📱 Using Android SMS Retriever format with signature');
+        debugPrint('📱 Using Android SMS Retriever format with signature');
       } else {
         // فرمت عادی اگر signature در دسترس نباشد
         message = 'کد تایید شما: $code\nGymAI Pro';
-        print('⚠️ App signature not available, using regular format');
+        debugPrint('⚠️ App signature not available, using regular format');
       }
 
       // ساخت درخواست
@@ -107,8 +107,8 @@ class OTPService {
         'bodyId': bodyId.toString(),
       };
 
-      print('📱 Sending SMS to: $internationalPhone');
-      print('📝 Message: $message');
+      debugPrint('📱 Sending SMS to: $internationalPhone');
+      debugPrint('📝 Message: $message');
 
       // ارسال درخواست با form-data
       final response = await http
@@ -122,8 +122,8 @@ class OTPService {
           )
           .timeout(const Duration(seconds: 30));
 
-      print('📡 SMS API Response: ${response.statusCode}');
-      print('📡 SMS API Body: ${response.body}');
+      debugPrint('📡 SMS API Response: ${response.statusCode}');
+      debugPrint('📡 SMS API Body: ${response.body}');
 
       if (response.statusCode == 200) {
         try {
@@ -141,23 +141,23 @@ class OTPService {
                       responseData['status'] == 200));
 
           if (isSuccess) {
-            print('✅ SMS sent successfully');
+            debugPrint('✅ SMS sent successfully');
             return true;
           } else {
-            print('❌ SMS API returned error: $responseData');
+            debugPrint('❌ SMS API returned error: $responseData');
             return false;
           }
         } catch (e) {
           // اگر JSON parse نشد، اما status code 200 بود، احتمالاً موفق بوده
-          print('⚠️ Could not parse response, but status is 200: $e');
+          debugPrint('⚠️ Could not parse response, but status is 200: $e');
           return true;
         }
       } else {
-        print('❌ SMS API error: ${response.statusCode} - ${response.body}');
+        debugPrint('❌ SMS API error: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
-      print('❌ Error in _sendRealSMS: $e');
+      debugPrint('❌ Error in _sendRealSMS: $e');
       return false;
     }
   }
@@ -181,7 +181,7 @@ class OTPService {
 
       return true;
     } catch (e) {
-      print('Error saving OTP to Supabase: $e');
+      debugPrint('Error saving OTP to Supabase: $e');
       return false;
     }
   }
@@ -194,7 +194,7 @@ class OTPService {
       // بررسی OTP در Supabase
       return await _verifyOtpInSupabase(normalizedPhone, code);
     } catch (e) {
-      print('Error verifying OTP: $e');
+      debugPrint('Error verifying OTP: $e');
       return false;
     }
   }
@@ -231,14 +231,14 @@ class OTPService {
           return true;
         } catch (e) {
           // اگر OTP معتبر است اما نتوانستیم آن را علامت‌گذاری کنیم
-          print('Error marking OTP as used: $e');
+          debugPrint('Error marking OTP as used: $e');
           return true;
         }
       }
 
       return false;
     } catch (e) {
-      print('Error verifying OTP in Supabase: $e');
+      debugPrint('Error verifying OTP in Supabase: $e');
       return false;
     }
   }

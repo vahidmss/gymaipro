@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/achievements/services/achievement_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -92,15 +93,12 @@ class StreakService {
 
       // ذخیره در دیتابیس
       if (streakUpdated || lastLoginDate == null) {
-        await _client
-            .from('profiles')
-            .update({
-              'login_streak': newStreak,
-              'longest_streak': newLongestStreak,
-              'last_login_date': todayDate.toIso8601String().substring(0, 10),
-              'last_active_at': DateTime.now().toIso8601String(),
-            })
-            .eq('id', profileId);
+        await SimpleProfileService.updateProfile({
+          'login_streak': newStreak,
+          'longest_streak': newLongestStreak,
+          'last_login_date': todayDate.toIso8601String().substring(0, 10),
+          'last_active_at': DateTime.now().toIso8601String(),
+        });
 
         debugPrint(
           '✅ Streak updated: $newStreak days (longest: $newLongestStreak)',
@@ -212,12 +210,7 @@ class StreakService {
     String profileId,
   ) async {
     try {
-      final client = Supabase.instance.client;
-      final row = await client
-          .from('profiles')
-          .select('login_streak, longest_streak')
-          .eq('id', profileId)
-          .maybeSingle();
+      final row = await ProfileRepository.instance.fetchProfile(profileId);
       if (row == null) return (current: 0, longest: 0);
       return (
         current: (row['login_streak'] as num?)?.toInt() ?? 0,

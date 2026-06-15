@@ -232,19 +232,17 @@ class ExerciseCard extends StatelessWidget {
                   ExerciseNoteButton(
                     note: (exercise as NormalExercise).note,
                     onNoteChanged: onNoteChanged,
-                    iconSize: 18,
                     color: AppTheme.goldColor,
                   ),
                 if (exercise is SupersetExercise)
                   ExerciseNoteButton(
                     note: (exercise as SupersetExercise).note,
                     onNoteChanged: onNoteChanged,
-                    iconSize: 18,
                     color: AppTheme.goldColor,
                   ),
                 SizedBox(width: 4.w),
                 // Delete button
-                Container(
+                DecoratedBox(
                   decoration: BoxDecoration(
                     color: isDark
                         ? Colors.red.withValues(alpha: 0.2)
@@ -363,7 +361,7 @@ class ExerciseCard extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.only(top: 8.h),
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: isDark
               ? AppTheme.darkCardColor
@@ -505,7 +503,6 @@ class ExerciseCard extends StatelessWidget {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerRight,
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
@@ -536,7 +533,6 @@ class ExerciseCard extends StatelessWidget {
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerRight,
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
@@ -569,7 +565,6 @@ class ExerciseCard extends StatelessWidget {
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerRight,
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
@@ -627,7 +622,7 @@ class ExerciseCard extends StatelessWidget {
     return Padding(
       key: UniqueKey(),
       padding: EdgeInsets.only(top: 8.h),
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: isDark
               ? AppTheme.darkCardColor
@@ -894,7 +889,6 @@ class ExerciseCard extends StatelessWidget {
                           children: [
                             Flexible(
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
                                 children: [
                                   Text(
                                     'ست:',
@@ -923,7 +917,6 @@ class ExerciseCard extends StatelessWidget {
                                 ExerciseStyle.setsReps) ...[
                               Flexible(
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.start,
                                   children: [
                                     Text(
                                       'تکرار:',
@@ -956,7 +949,6 @@ class ExerciseCard extends StatelessWidget {
                                   fit: BoxFit.scaleDown,
                                   alignment: Alignment.centerRight,
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(

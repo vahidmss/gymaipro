@@ -1,4 +1,5 @@
-﻿import 'package:supabase_flutter/supabase_flutter.dart';
+﻿import 'package:gymaipro/profile/repositories/profile_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UserSearchService {
   factory UserSearchService() => _instance;
@@ -6,18 +7,15 @@ class UserSearchService {
   static final UserSearchService _instance = UserSearchService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
+  final ProfileRepository _profiles = ProfileRepository.instance;
 
   // جستجوی ورزشکاران (برای مربی‌ها)
   Future<List<Map<String, dynamic>>> searchAthletes(String query) async {
     try {
-      final response = await _client
-          .from('profiles')
-          .select('id, username, full_name, bio, height, weight, fitness_goals')
-          .eq('role', 'athlete')
-          .ilike('username', '%$query%')
-          .order('username');
-
-      return List<Map<String, dynamic>>.from(response);
+      return _profiles.searchByUsernameAndRole(
+        query,
+        role: 'athlete',
+      );
     } catch (e) {
       throw Exception('خطا در جستجوی ورزشکاران: $e');
     }
@@ -26,13 +24,7 @@ class UserSearchService {
   // دریافت اطلاعات کامل کاربر بر اساس یوزرنیم
   Future<Map<String, dynamic>?> getUserProfile(String username) async {
     try {
-      final response = await _client
-          .from('profiles')
-          .select()
-          .eq('username', username)
-          .maybeSingle();
-
-      return response;
+      return _profiles.fetchProfileByUsername(username);
     } catch (e) {
       throw Exception('خطا در دریافت اطلاعات کاربر: $e');
     }

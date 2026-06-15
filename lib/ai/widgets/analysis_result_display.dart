@@ -15,7 +15,7 @@ class AnalysisResultDisplay extends StatelessWidget {
     final sections = _parseContent(content);
 
     return Container(
-      constraints: BoxConstraints(),
+      constraints: const BoxConstraints(),
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: isDark
@@ -92,7 +92,6 @@ class AnalysisResultDisplay extends StatelessWidget {
           currentItems = [];
           currentSection = ContentSection(
             type: SectionType.list,
-            title: null,
             items: [],
           );
         }
@@ -112,7 +111,6 @@ class AnalysisResultDisplay extends StatelessWidget {
           currentItems = [];
           currentSection = ContentSection(
             type: SectionType.numberedList,
-            title: null,
             items: [],
           );
         }
@@ -136,7 +134,6 @@ class AnalysisResultDisplay extends StatelessWidget {
           currentItems = [];
           currentSection = ContentSection(
             type: SectionType.paragraph,
-            title: null,
             items: [],
           );
         }
@@ -157,7 +154,6 @@ class AnalysisResultDisplay extends StatelessWidget {
       sections.add(
         ContentSection(
           type: SectionType.paragraph,
-          title: null,
           items: [content],
         ),
       );
@@ -257,7 +253,7 @@ class AnalysisResultDisplay extends StatelessWidget {
                   margin: EdgeInsets.only(left: 10.w, top: 6.h),
                   width: 5.w,
                   height: 5.w,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: AppTheme.goldColor,
                     shape: BoxShape.circle,
                   ),
@@ -447,7 +443,7 @@ class AnalysisResultDisplay extends StatelessWidget {
 }
 
 class ContentSection {
-  ContentSection({required this.type, this.title, required this.items});
+  ContentSection({required this.type, required this.items, this.title});
 
   final SectionType type;
   final String? title;

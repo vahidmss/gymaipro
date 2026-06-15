@@ -31,7 +31,8 @@ class NavigationGuard {
       } else {
         // Double back pressed within 2 seconds - show exit dialog
         _lastBackPressed = null; // Reset for next time
-        
+
+        if (!context.mounted) return false;
         final shouldExit = await showDialog<bool>(
           context: context,
           builder: (BuildContext context) {

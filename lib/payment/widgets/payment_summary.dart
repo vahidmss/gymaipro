@@ -23,7 +23,7 @@ class PaymentSummary extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.1)),
       ),

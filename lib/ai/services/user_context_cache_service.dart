@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/my_club/services/confidential_user_info_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -63,15 +64,7 @@ class UserContextCacheService {
       // دریافت پروفایل کاربر
       Map<String, dynamic>? profile;
       try {
-        final profileResponse = await _supabase
-            .from('profiles')
-            .select()
-            .eq('id', userId)
-            .maybeSingle();
-        
-        if (profileResponse != null) {
-          profile = Map<String, dynamic>.from(profileResponse);
-        }
+        profile = await ProfileRepository.instance.fetchProfile(userId);
       } catch (e) {
         if (kDebugMode) {
           print('AI Context Cache: Error fetching profile: $e');

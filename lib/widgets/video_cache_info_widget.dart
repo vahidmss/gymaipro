@@ -94,7 +94,7 @@ class _VideoCacheInfoWidgetState extends State<VideoCacheInfoWidget> {
                   size: 20.sp,
                 ),
                 SizedBox(width: 8.w),
-                Text('خطا در پاک‌سازی کش'),
+                const Text('خطا در پاک‌سازی کش'),
               ],
             ),
             backgroundColor: AppTheme.errorColor,
@@ -195,7 +195,7 @@ class _VideoCacheInfoWidgetState extends State<VideoCacheInfoWidget> {
                       ? SizedBox(
                           width: 18.w,
                           height: 18.w,
-                          child: CircularProgressIndicator(
+                          child: const CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor: AlwaysStoppedAnimation<Color>(
                               AppTheme.errorColor,
@@ -219,7 +219,7 @@ class _VideoCacheInfoWidgetState extends State<VideoCacheInfoWidget> {
           Center(
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 16.h),
-              child: CircularProgressIndicator(
+              child: const CircularProgressIndicator(
                 color: AppTheme.goldColor,
                 strokeWidth: 2,
               ),
@@ -235,7 +235,6 @@ class _VideoCacheInfoWidgetState extends State<VideoCacheInfoWidget> {
               borderRadius: BorderRadius.circular(12.r),
               border: Border.all(
                 color: context.separatorColor.withValues(alpha: 0.3),
-                width: 1,
               ),
             ),
             child: Row(

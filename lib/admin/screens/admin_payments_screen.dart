@@ -147,7 +147,7 @@ class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> {
           padding: EdgeInsets.all(16.w),
           color: isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor,
           child: DropdownButtonFormField<String>(
-            value: _selectedStatusFilter,
+            initialValue: _selectedStatusFilter,
             decoration: InputDecoration(
               labelText: 'فیلتر وضعیت',
               border: OutlineInputBorder(
@@ -171,7 +171,7 @@ class _AdminPaymentsScreenState extends State<AdminPaymentsScreen> {
         ),
         Expanded(
           child: _isLoading
-              ? Center(
+              ? const Center(
                   child: CircularProgressIndicator(
                     color: AppTheme.goldColor,
                   ),

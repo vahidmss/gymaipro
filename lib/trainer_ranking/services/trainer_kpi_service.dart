@@ -153,8 +153,7 @@ class TrainerKpiService {
           .select('id')
           .eq('created_by', trainerId)
           .count();
-      // ignore: invalid_null_aware_operator — در برخی محیط‌های اجرا res.count ممکن است null باشد
-      return res.count ?? 0;
+      return res.count;
     } catch (e) {
       debugPrint('Error counting custom exercises: $e');
       return 0;
@@ -266,8 +265,9 @@ class TrainerKpiService {
       var sum = 0;
       for (final row in rows as List<dynamic>) {
         final rating = row['rating'];
-        if (rating is int) sum += rating;
-        else if (rating is num) sum += rating.round();
+        if (rating is int) {
+          sum += rating;
+        } else if (rating is num) sum += rating.round();
       }
       return sum;
     } catch (e) {

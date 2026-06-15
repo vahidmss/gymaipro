@@ -7,14 +7,14 @@ import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/models/muscle_targets.dart';
 import 'package:gymaipro/services/coach_video_upload_service.dart';
 import 'package:gymaipro/services/trainer_service.dart';
-import 'package:gymaipro/services/user_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// سرویس مدیریت تمرین‌های اختصاصی
 class CustomExerciseService {
   final SupabaseClient _supabase = Supabase.instance.client;
-  final UserService _userService = UserService();
+  final ProfileRepository _profiles = ProfileRepository.instance;
   final CoachVideoUploadService _videoUploadService = CoachVideoUploadService();
 
   String? _encodeUrlColumn(List<String> urls) {
@@ -26,7 +26,7 @@ class CustomExerciseService {
   /// دریافت نام نویسنده از userId
   Future<String> _getAuthorName(String userId) async {
     try {
-      final displayName = await _userService.getDisplayName(userId);
+      final displayName = await _profiles.getDisplayName(userId);
       return displayName;
     } catch (e) {
       debugPrint('Error getting author name: $e');

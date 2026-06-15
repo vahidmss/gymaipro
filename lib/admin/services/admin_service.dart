@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -8,6 +9,83 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// تمام عملیات‌های مدیریتی را انجام می‌دهد
 class AdminService {
   final SupabaseClient _supabase = Supabase.instance.client;
+
+  Future<Map<String, Map<String, dynamic>>> _fetchProfilesByIds(
+    Iterable<String?> ids, {
+    String columns = 'id, username, first_name, last_name',
+  }) async {
+    final uniqueIds = ids
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    if (uniqueIds.isEmpty) return {};
+    return ProfileRepository.instance.fetchProfilesByIdsMap(
+      uniqueIds,
+      columns: columns,
+    );
+  }
+
+  List<Map<String, dynamic>> _attachProfileFields(
+    List<Map<String, dynamic>> items, {
+    required Map<String, Map<String, dynamic>> profilesById,
+    required String idField,
+    required String profileField,
+  }) {
+    return items.map((item) {
+      final userId = item[idField] as String?;
+      return {
+        ...item,
+        profileField: userId != null ? profilesById[userId] : null,
+      };
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> _attachUserAndTrainerProfiles(
+    List<Map<String, dynamic>> items,
+    Map<String, Map<String, dynamic>> profilesById,
+  ) {
+    return items.map((item) {
+      final userId = item['user_id'] as String?;
+      final trainerId = item['trainer_id'] as String?;
+      return {
+        ...item,
+        'user': userId != null ? profilesById[userId] : null,
+        'trainer': trainerId != null ? profilesById[trainerId] : null,
+      };
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> _attachTrainerAndClientProfiles(
+    List<Map<String, dynamic>> items,
+    Map<String, Map<String, dynamic>> profilesById,
+  ) {
+    return items.map((item) {
+      final trainerId = item['trainer_id'] as String?;
+      final clientId = item['client_id'] as String?;
+      return {
+        ...item,
+        'trainer': trainerId != null ? profilesById[trainerId] : null,
+        'client': clientId != null ? profilesById[clientId] : null,
+      };
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> _attachAdminAndTargetProfiles(
+    List<Map<String, dynamic>> items,
+    Map<String, Map<String, dynamic>> profilesById,
+  ) {
+    return items.map((item) {
+      final adminId = item['admin_id'] as String?;
+      final targetUserId = item['target_user_id'] as String?;
+      return {
+        ...item,
+        'admin': adminId != null ? profilesById[adminId] : null,
+        'target_user':
+            targetUserId != null ? profilesById[targetUserId] : null,
+      };
+    }).toList();
+  }
 
   /// بررسی اینکه آیا کاربر ادمین است یا نه
   /// از SimpleProfileService استفاده می‌کند (همان روشی که در منو کار می‌کند)
@@ -85,21 +163,8 @@ class AdminService {
   }
 
   /// دریافت اطلاعات کامل یک کاربر
-  Future<UserProfile?> getUserById(String userId) async {
-    try {
-      final response = await _supabase
-          .from('profiles')
-          .select()
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (response == null) return null;
-      return UserProfile.fromJson(response);
-    } catch (e) {
-      debugPrint('AdminService.getUserById error: $e');
-      return null;
-    }
-  }
+  Future<UserProfile?> getUserById(String userId) =>
+      ProfileRepository.instance.getUserProfile(userId);
 
   /// تغییر نقش کاربر
   Future<bool> updateUserRole(String userId, String newRole) async {
@@ -251,45 +316,27 @@ class AdminService {
           .order('updated_at', ascending: false)
           .range(offset, offset + limit - 1);
 
-      // حالا برای هر مکالمه، اطلاعات کاربران را جداگانه بگیریم
+      final convList = List<Map<String, dynamic>>.from(
+        conversations as List,
+      );
+      final profilesById = await _fetchProfilesByIds(
+        convList.expand(
+          (conv) => [conv['user1_id'] as String?, conv['user2_id'] as String?],
+        ),
+        columns: 'id, username, first_name, last_name, avatar_url, role',
+      );
+
       final List<Map<String, dynamic>> result = [];
 
-      for (final conv in conversations) {
+      for (final conv in convList) {
         final user1Id = conv['user1_id'] as String?;
         final user2Id = conv['user2_id'] as String?;
 
-        Map<String, dynamic>? user1Info;
-        Map<String, dynamic>? user2Info;
-
-        // دریافت اطلاعات user1
-        if (user1Id != null) {
-          try {
-            final user1 = await _supabase
-                .from('profiles')
-                .select('id, username, first_name, last_name, avatar_url, role')
-                .eq('id', user1Id)
-                .maybeSingle();
-            user1Info = user1;
-          } catch (e) {
-            debugPrint('Error fetching user1 info: $e');
-          }
-        }
-
-        // دریافت اطلاعات user2
-        if (user2Id != null) {
-          try {
-            final user2 = await _supabase
-                .from('profiles')
-                .select('id, username, first_name, last_name, avatar_url, role')
-                .eq('id', user2Id)
-                .maybeSingle();
-            user2Info = user2;
-          } catch (e) {
-            debugPrint('Error fetching user2 info: $e');
-          }
-        }
-
-        result.add({...conv, 'user1': user1Info, 'user2': user2Info});
+        result.add({
+          ...conv,
+          'user1': user1Id != null ? profilesById[user1Id] : null,
+          'user2': user2Id != null ? profilesById[user2Id] : null,
+        });
       }
 
       return result;
@@ -321,34 +368,9 @@ class AdminService {
       final user1Id = response['user1_id'] as String?;
       final user2Id = response['user2_id'] as String?;
 
-      Map<String, dynamic>? user1Info;
-      Map<String, dynamic>? user2Info;
-
-      if (user1Id != null) {
-        try {
-          final user1 = await _supabase
-              .from('profiles')
-              .select('id, username, first_name, last_name')
-              .eq('id', user1Id)
-              .maybeSingle();
-          user1Info = user1;
-        } catch (e) {
-          debugPrint('Error fetching user1 info: $e');
-        }
-      }
-
-      if (user2Id != null) {
-        try {
-          final user2 = await _supabase
-              .from('profiles')
-              .select('id, username, first_name, last_name')
-              .eq('id', user2Id)
-              .maybeSingle();
-          user2Info = user2;
-        } catch (e) {
-          debugPrint('Error fetching user2 info: $e');
-        }
-      }
+      final profilesById = await _fetchProfilesByIds([user1Id, user2Id]);
+      final user1Info = user1Id != null ? profilesById[user1Id] : null;
+      final user2Info = user2Id != null ? profilesById[user2Id] : null;
 
       // اضافه کردن اطلاعات کاربر به هر پیام
       final enrichedMessages = messages.map((message) {
@@ -441,12 +463,8 @@ class AdminService {
       // دریافت نام ادمین
       String adminName = 'ادمین';
       try {
-        final adminProfile = await _supabase
-            .from('profiles')
-            .select('first_name, last_name, username')
-            .eq('id', adminUser.id)
-            .maybeSingle();
-
+        final adminProfile =
+            await ProfileRepository.instance.fetchProfile(adminUser.id);
         if (adminProfile != null) {
           final firstName = adminProfile['first_name'] as String?;
           final lastName = adminProfile['last_name'] as String?;
@@ -797,35 +815,24 @@ class AdminService {
     int offset = 0,
   }) async {
     try {
-      final programs = await _supabase
-          .from('workout_programs')
-          .select()
-          .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1);
+      final programs = List<Map<String, dynamic>>.from(
+        await _supabase
+            .from('workout_programs')
+            .select()
+            .order('created_at', ascending: false)
+            .range(offset, offset + limit - 1) as List,
+      );
 
-      // دریافت اطلاعات کاربران جداگانه
-      final List<Map<String, dynamic>> result = [];
-      for (final program in programs) {
-        final userId = program['user_id'] as String?;
-        Map<String, dynamic>? userInfo;
+      final profilesById = await _fetchProfilesByIds(
+        programs.map((program) => program['user_id'] as String?),
+      );
 
-        if (userId != null) {
-          try {
-            final user = await _supabase
-                .from('profiles')
-                .select('id, username, first_name, last_name')
-                .eq('id', userId)
-                .maybeSingle();
-            userInfo = user;
-          } catch (e) {
-            debugPrint('Error fetching user info for workout program: $e');
-          }
-        }
-
-        result.add({...program, 'user': userInfo});
-      }
-
-      return result;
+      return _attachProfileFields(
+        programs,
+        profilesById: profilesById,
+        idField: 'user_id',
+        profileField: 'user',
+      );
     } catch (e) {
       debugPrint('AdminService.getAllWorkoutPrograms error: $e');
       return [];
@@ -838,51 +845,24 @@ class AdminService {
     int offset = 0,
   }) async {
     try {
-      final plans = await _supabase
-          .from('meal_plans')
-          .select()
-          .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1);
+      final plans = List<Map<String, dynamic>>.from(
+        await _supabase
+            .from('meal_plans')
+            .select()
+            .order('created_at', ascending: false)
+            .range(offset, offset + limit - 1) as List,
+      );
 
-      // دریافت اطلاعات کاربران و مربیان جداگانه
-      final List<Map<String, dynamic>> result = [];
-      for (final plan in plans) {
-        final userId = plan['user_id'] as String?;
-        final trainerId = plan['trainer_id'] as String?;
+      final profilesById = await _fetchProfilesByIds(
+        plans.expand(
+          (plan) => [
+            plan['user_id'] as String?,
+            plan['trainer_id'] as String?,
+          ],
+        ),
+      );
 
-        Map<String, dynamic>? userInfo;
-        Map<String, dynamic>? trainerInfo;
-
-        if (userId != null) {
-          try {
-            final user = await _supabase
-                .from('profiles')
-                .select('id, username, first_name, last_name')
-                .eq('id', userId)
-                .maybeSingle();
-            userInfo = user;
-          } catch (e) {
-            debugPrint('Error fetching user info for meal plan: $e');
-          }
-        }
-
-        if (trainerId != null) {
-          try {
-            final trainer = await _supabase
-                .from('profiles')
-                .select('id, username, first_name, last_name')
-                .eq('id', trainerId)
-                .maybeSingle();
-            trainerInfo = trainer;
-          } catch (e) {
-            debugPrint('Error fetching trainer info for meal plan: $e');
-          }
-        }
-
-        result.add({...plan, 'user': userInfo, 'trainer': trainerInfo});
-      }
-
-      return result;
+      return _attachUserAndTrainerProfiles(plans, profilesById);
     } catch (e) {
       debugPrint('AdminService.getAllMealPlans error: $e');
       return [];
@@ -934,53 +914,22 @@ class AdminService {
         query = query.eq('status', statusFilter);
       }
 
-      final relationships = await query
-          .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1);
+      final relationships = List<Map<String, dynamic>>.from(
+        await query
+            .order('created_at', ascending: false)
+            .range(offset, offset + limit - 1) as List,
+      );
 
-      // دریافت اطلاعات مربیان و شاگردان جداگانه
-      final List<Map<String, dynamic>> result = [];
-      for (final relationship in relationships) {
-        final trainerId = relationship['trainer_id'] as String?;
-        final clientId = relationship['client_id'] as String?;
+      final profilesById = await _fetchProfilesByIds(
+        relationships.expand(
+          (relationship) => [
+            relationship['trainer_id'] as String?,
+            relationship['client_id'] as String?,
+          ],
+        ),
+      );
 
-        Map<String, dynamic>? trainerInfo;
-        Map<String, dynamic>? clientInfo;
-
-        if (trainerId != null) {
-          try {
-            final trainer = await _supabase
-                .from('profiles')
-                .select('id, username, first_name, last_name')
-                .eq('id', trainerId)
-                .maybeSingle();
-            trainerInfo = trainer;
-          } catch (e) {
-            debugPrint('Error fetching trainer info: $e');
-          }
-        }
-
-        if (clientId != null) {
-          try {
-            final client = await _supabase
-                .from('profiles')
-                .select('id, username, first_name, last_name')
-                .eq('id', clientId)
-                .maybeSingle();
-            clientInfo = client;
-          } catch (e) {
-            debugPrint('Error fetching client info: $e');
-          }
-        }
-
-        result.add({
-          ...relationship,
-          'trainer': trainerInfo,
-          'client': clientInfo,
-        });
-      }
-
-      return result;
+      return _attachTrainerAndClientProfiles(relationships, profilesById);
     } catch (e) {
       debugPrint('AdminService.getAllTrainerClients error: $e');
       return [];
@@ -1032,33 +981,22 @@ class AdminService {
         query = query.eq('status', statusFilter);
       }
 
-      final transactions = await query
-          .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1);
+      final transactions = List<Map<String, dynamic>>.from(
+        await query
+            .order('created_at', ascending: false)
+            .range(offset, offset + limit - 1) as List,
+      );
 
-      // دریافت اطلاعات کاربران جداگانه
-      final List<Map<String, dynamic>> result = [];
-      for (final transaction in transactions) {
-        final userId = transaction['user_id'] as String?;
-        Map<String, dynamic>? userInfo;
+      final profilesById = await _fetchProfilesByIds(
+        transactions.map((transaction) => transaction['user_id'] as String?),
+      );
 
-        if (userId != null) {
-          try {
-            final user = await _supabase
-                .from('profiles')
-                .select('id, username, first_name, last_name')
-                .eq('id', userId)
-                .maybeSingle();
-            userInfo = user;
-          } catch (e) {
-            debugPrint('Error fetching user info for transaction: $e');
-          }
-        }
-
-        result.add({...transaction, 'user': userInfo});
-      }
-
-      return result;
+      return _attachProfileFields(
+        transactions,
+        profilesById: profilesById,
+        idField: 'user_id',
+        profileField: 'user',
+      );
     } catch (e) {
       debugPrint('AdminService.getAllPaymentTransactions error: $e');
       return [];
@@ -1110,35 +1048,24 @@ class AdminService {
     int offset = 0,
   }) async {
     try {
-      final wallets = await _supabase
-          .from('wallets')
-          .select()
-          .order('balance', ascending: false)
-          .range(offset, offset + limit - 1);
+      final wallets = List<Map<String, dynamic>>.from(
+        await _supabase
+            .from('wallets')
+            .select()
+            .order('balance', ascending: false)
+            .range(offset, offset + limit - 1) as List,
+      );
 
-      // دریافت اطلاعات کاربران جداگانه
-      final List<Map<String, dynamic>> result = [];
-      for (final wallet in wallets) {
-        final userId = wallet['user_id'] as String?;
-        Map<String, dynamic>? userInfo;
+      final profilesById = await _fetchProfilesByIds(
+        wallets.map((wallet) => wallet['user_id'] as String?),
+      );
 
-        if (userId != null) {
-          try {
-            final user = await _supabase
-                .from('profiles')
-                .select('id, username, first_name, last_name')
-                .eq('id', userId)
-                .maybeSingle();
-            userInfo = user;
-          } catch (e) {
-            debugPrint('Error fetching user info for wallet: $e');
-          }
-        }
-
-        result.add({...wallet, 'user': userInfo});
-      }
-
-      return result;
+      return _attachProfileFields(
+        wallets,
+        profilesById: profilesById,
+        idField: 'user_id',
+        profileField: 'user',
+      );
     } catch (e) {
       debugPrint('AdminService.getAllWallets error: $e');
       return [];
@@ -1458,53 +1385,23 @@ class AdminService {
         query = query.eq('action_type', actionType);
       }
 
-      final response = await query
-          .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1);
+      final response = List<Map<String, dynamic>>.from(
+        await query
+            .order('created_at', ascending: false)
+            .range(offset, offset + limit - 1) as List,
+      );
 
-      // دریافت اطلاعات کاربران جداگانه
-      final List<Map<String, dynamic>> result = [];
-      for (final action in response) {
-        final adminIdValue = action['admin_id'] as String?;
-        final targetUserIdValue = action['target_user_id'] as String?;
+      final profilesById = await _fetchProfilesByIds(
+        response.expand(
+          (action) => [
+            action['admin_id'] as String?,
+            action['target_user_id'] as String?,
+          ],
+        ),
+        columns: 'id, username, first_name, last_name, avatar_url',
+      );
 
-        Map<String, dynamic>? adminInfo;
-        Map<String, dynamic>? targetUserInfo;
-
-        if (adminIdValue != null) {
-          try {
-            final admin = await _supabase
-                .from('profiles')
-                .select('id, username, first_name, last_name, avatar_url')
-                .eq('id', adminIdValue)
-                .maybeSingle();
-            adminInfo = admin;
-          } catch (e) {
-            debugPrint('Error fetching admin info: $e');
-          }
-        }
-
-        if (targetUserIdValue != null) {
-          try {
-            final targetUser = await _supabase
-                .from('profiles')
-                .select('id, username, first_name, last_name, avatar_url')
-                .eq('id', targetUserIdValue)
-                .maybeSingle();
-            targetUserInfo = targetUser;
-          } catch (e) {
-            debugPrint('Error fetching target user info: $e');
-          }
-        }
-
-        result.add({
-          ...action,
-          'admin': adminInfo,
-          'target_user': targetUserInfo,
-        });
-      }
-
-      return result;
+      return _attachAdminAndTargetProfiles(response, profilesById);
     } catch (e) {
       debugPrint('AdminService.getAdminWalletActions error: $e');
       return [];
@@ -1591,33 +1488,22 @@ class AdminService {
         query = query.eq('status', statusFilter);
       }
 
-      final subscriptions = await query
-          .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1);
+      final subscriptions = List<Map<String, dynamic>>.from(
+        await query
+            .order('created_at', ascending: false)
+            .range(offset, offset + limit - 1) as List,
+      );
 
-      // دریافت اطلاعات کاربران جداگانه
-      final List<Map<String, dynamic>> result = [];
-      for (final subscription in subscriptions) {
-        final userId = subscription['user_id'] as String?;
-        Map<String, dynamic>? userInfo;
+      final profilesById = await _fetchProfilesByIds(
+        subscriptions.map((subscription) => subscription['user_id'] as String?),
+      );
 
-        if (userId != null) {
-          try {
-            final user = await _supabase
-                .from('profiles')
-                .select('id, username, first_name, last_name')
-                .eq('id', userId)
-                .maybeSingle();
-            userInfo = user;
-          } catch (e) {
-            debugPrint('Error fetching user info for subscription: $e');
-          }
-        }
-
-        result.add({...subscription, 'user': userInfo});
-      }
-
-      return result;
+      return _attachProfileFields(
+        subscriptions,
+        profilesById: profilesById,
+        idField: 'user_id',
+        profileField: 'user',
+      );
     } catch (e) {
       debugPrint('AdminService.getAllSubscriptions error: $e');
       return [];
@@ -1770,32 +1656,23 @@ class AdminService {
         query = query.eq('trainer_id', trainerIdFilter);
       }
 
-      final response = await query
-          .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1);
+      final response = List<Map<String, dynamic>>.from(
+        await query
+            .order('created_at', ascending: false)
+            .range(offset, offset + limit - 1) as List,
+      );
 
-      final List<Map<String, dynamic>> result = [];
-      for (final cert in response) {
-        final trainerId = cert['trainer_id'] as String?;
-        Map<String, dynamic>? trainerInfo;
+      final profilesById = await _fetchProfilesByIds(
+        response.map((cert) => cert['trainer_id'] as String?),
+        columns: 'id, username, first_name, last_name, avatar_url',
+      );
 
-        if (trainerId != null) {
-          try {
-            final trainer = await _supabase
-                .from('profiles')
-                .select('id, username, first_name, last_name, avatar_url')
-                .eq('id', trainerId)
-                .maybeSingle();
-            trainerInfo = trainer;
-          } catch (e) {
-            debugPrint('Error fetching trainer info: $e');
-          }
-        }
-
-        result.add({...cert, 'trainer': trainerInfo});
-      }
-
-      return result;
+      return _attachProfileFields(
+        response,
+        profilesById: profilesById,
+        idField: 'trainer_id',
+        profileField: 'trainer',
+      );
     } catch (e) {
       debugPrint('AdminService.getAllCertificates error: $e');
       return [];

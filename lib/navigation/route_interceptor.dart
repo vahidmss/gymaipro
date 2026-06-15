@@ -15,7 +15,7 @@ class RouteInterceptor {
 
       if (isLoggedIn &&
           !NavigationGuard.isRouteAllowedForLoggedInUser(settings.name ?? '')) {
-        print(
+        debugPrint(
           '=== ROUTE INTERCEPTOR: Redirecting logged in user from ${settings.name} to ${NavigationGuard.getRedirectRouteForLoggedInUser()} ===',
         );
 
@@ -31,7 +31,7 @@ class RouteInterceptor {
       // Allow normal route generation
       return routeBuilder(settings);
     } catch (e) {
-      print('=== ROUTE INTERCEPTOR: Error in interceptRoute: $e ===');
+      debugPrint('=== ROUTE INTERCEPTOR: Error in interceptRoute: $e ===');
       return routeBuilder(settings);
     }
   }

@@ -59,7 +59,7 @@ class UserAvatarWidget extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppTheme.goldColor,
                 borderRadius: BorderRadius.circular((size * 0.15).r),
-                border: Border.all(color: AppTheme.backgroundColor, width: 2.w),
+                border: Border.all(width: 2.w),
               ),
             ),
           ),

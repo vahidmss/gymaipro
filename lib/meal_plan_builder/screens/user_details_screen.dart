@@ -56,45 +56,45 @@ class _UserDetailsScreenMealPlanBuilderState
             .maybeSingle();
         if (confRow != null) {
           _confidentialData = Map<String, dynamic>.from(confRow);
-          print('=== اطلاعات محرمانه دریافت شد ===');
-          print('کلیدها: ${_confidentialData?.keys.toList()}');
-          print(
+          debugPrint('=== اطلاعات محرمانه دریافت شد ===');
+          debugPrint('کلیدها: ${_confidentialData?.keys.toList()}');
+          debugPrint(
             'body_measurements نوع: ${_confidentialData?['body_measurements'].runtimeType}',
           );
-          print(
+          debugPrint(
             'body_measurements مقدار: ${_confidentialData?['body_measurements']}',
           );
-          print(
+          debugPrint(
             'health_info نوع: ${_confidentialData?['health_info'].runtimeType}',
           );
-          print('health_info مقدار: ${_confidentialData?['health_info']}');
-          print(
+          debugPrint('health_info مقدار: ${_confidentialData?['health_info']}');
+          debugPrint(
             'fitness_goals نوع: ${_confidentialData?['fitness_goals'].runtimeType}',
           );
-          print('fitness_goals مقدار: ${_confidentialData?['fitness_goals']}');
-          print(
+          debugPrint('fitness_goals مقدار: ${_confidentialData?['fitness_goals']}');
+          debugPrint(
             'lifestyle_preferences نوع: ${_confidentialData?['lifestyle_preferences'].runtimeType}',
           );
-          print(
+          debugPrint(
             'lifestyle_preferences مقدار: ${_confidentialData?['lifestyle_preferences']}',
           );
-          print('notes: ${_confidentialData?['notes']}');
-          print('has_consented: ${_confidentialData?['has_consented']}');
-          print(
+          debugPrint('notes: ${_confidentialData?['notes']}');
+          debugPrint('has_consented: ${_confidentialData?['has_consented']}');
+          debugPrint(
             'lifestyle_preferences نوع: ${_confidentialData?['lifestyle_preferences'].runtimeType}',
           );
-          print(
+          debugPrint(
             'lifestyle_preferences مقدار: ${_confidentialData?['lifestyle_preferences']}',
           );
-          print('================================');
+          debugPrint('================================');
         } else {
-          print('⚠️ اطلاعات محرمانه یافت نشد - confRow null است');
+          debugPrint('⚠️ اطلاعات محرمانه یافت نشد - confRow null است');
         }
       } catch (e) {
-        print('خطا در دریافت اطلاعات محرمانه: $e');
+        debugPrint('خطا در دریافت اطلاعات محرمانه: $e');
       }
     } catch (e) {
-      print('خطا در بارگذاری اطلاعات: $e');
+      debugPrint('خطا در بارگذاری اطلاعات: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -563,9 +563,9 @@ class _UserDetailsScreenMealPlanBuilderState
           if (decoded is Map) {
             bm = Map<String, dynamic>.from(decoded);
           }
-          print('body_measurements parsed from String');
+          debugPrint('body_measurements parsed from String');
         } catch (e) {
-          print('خطا در parse body_measurements: $e');
+          debugPrint('خطا در parse body_measurements: $e');
         }
       }
     }
@@ -674,9 +674,9 @@ class _UserDetailsScreenMealPlanBuilderState
           if (decoded is Map) {
             lp = Map<String, dynamic>.from(decoded);
           }
-          print('lifestyle_preferences parsed from String');
+          debugPrint('lifestyle_preferences parsed from String');
         } catch (e) {
-          print('خطا در parse lifestyle_preferences: $e');
+          debugPrint('خطا در parse lifestyle_preferences: $e');
         }
       }
     }
@@ -1094,7 +1094,7 @@ class _UserDetailsScreenMealPlanBuilderState
     final isExpanded = _expansionStates[key] ?? true;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
-      child: Container(
+      child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: isDark
               ? null
@@ -1188,7 +1188,7 @@ class _UserDetailsScreenMealPlanBuilderState
     final birthDateStr = _profile?['birth_date']?.toString();
     final isMale = (_profile?['gender']?.toString() ?? 'male') == 'male';
     final activityLevelStr =
-        (_profile?['activity_level']?.toString() ?? 'moderate');
+        _profile?['activity_level']?.toString() ?? 'moderate';
 
     // محاسبه سن
     int age = 25;
@@ -1296,8 +1296,7 @@ class _UserDetailsScreenMealPlanBuilderState
     if (waist != null &&
         waist > 0 &&
         height != null &&
-        height > 0 &&
-        neck != null) {
+        height > 0) {
       final calculatedBodyFat = FitnessCalculator.calculateBodyFatPercentage(
         waist,
         neck,
@@ -1353,35 +1352,33 @@ class _UserDetailsScreenMealPlanBuilderState
     if (weight != null && bodyFatPercentage != null && bodyFatPercentage > 0) {
       final fatMass = weight * (bodyFatPercentage / 100);
       lbm = weight - fatMass;
-      if (lbm != null) {
-        muscleMass = lbm * 0.5; // تقریباً 50% از LBM عضله است
-        if (isMale) {
-          final idealMuscleMass = weight * 0.45; // 45% وزن برای مردان
-          if (muscleMass < idealMuscleMass * 0.9) {
-            muscleMassAnalysis =
-                'توده عضلانی ${isMale ? 'آقای' : 'خانم'} $finalName پایین است (${muscleMass.toStringAsFixed(1)} کیلوگرم) - نیاز به تمرینات مقاومتی';
-          } else if (muscleMass > idealMuscleMass * 1.1) {
-            muscleMassAnalysis =
-                'توده عضلانی ${isMale ? 'آقای' : 'خانم'} $finalName عالی است (${muscleMass.toStringAsFixed(1)} کیلوگرم)';
-          } else {
-            muscleMassAnalysis =
-                'توده عضلانی ${isMale ? 'آقای' : 'خانم'} $finalName در محدوده مناسب است (${muscleMass.toStringAsFixed(1)} کیلوگرم)';
-          }
+      muscleMass = lbm * 0.5; // تقریباً 50% از LBM عضله است
+      if (isMale) {
+        final idealMuscleMass = weight * 0.45; // 45% وزن برای مردان
+        if (muscleMass < idealMuscleMass * 0.9) {
+          muscleMassAnalysis =
+              'توده عضلانی ${isMale ? 'آقای' : 'خانم'} $finalName پایین است (${muscleMass.toStringAsFixed(1)} کیلوگرم) - نیاز به تمرینات مقاومتی';
+        } else if (muscleMass > idealMuscleMass * 1.1) {
+          muscleMassAnalysis =
+              'توده عضلانی ${isMale ? 'آقای' : 'خانم'} $finalName عالی است (${muscleMass.toStringAsFixed(1)} کیلوگرم)';
         } else {
-          final idealMuscleMass = weight * 0.35; // 35% وزن برای زنان
-          if (muscleMass < idealMuscleMass * 0.9) {
-            muscleMassAnalysis =
-                'توده عضلانی خانم $finalName پایین است (${muscleMass.toStringAsFixed(1)} کیلوگرم) - نیاز به تمرینات مقاومتی';
-          } else if (muscleMass > idealMuscleMass * 1.1) {
-            muscleMassAnalysis =
-                'توده عضلانی خانم $finalName عالی است (${muscleMass.toStringAsFixed(1)} کیلوگرم)';
-          } else {
-            muscleMassAnalysis =
-                'توده عضلانی خانم $finalName در محدوده مناسب است (${muscleMass.toStringAsFixed(1)} کیلوگرم)';
-          }
+          muscleMassAnalysis =
+              'توده عضلانی ${isMale ? 'آقای' : 'خانم'} $finalName در محدوده مناسب است (${muscleMass.toStringAsFixed(1)} کیلوگرم)';
+        }
+      } else {
+        final idealMuscleMass = weight * 0.35; // 35% وزن برای زنان
+        if (muscleMass < idealMuscleMass * 0.9) {
+          muscleMassAnalysis =
+              'توده عضلانی خانم $finalName پایین است (${muscleMass.toStringAsFixed(1)} کیلوگرم) - نیاز به تمرینات مقاومتی';
+        } else if (muscleMass > idealMuscleMass * 1.1) {
+          muscleMassAnalysis =
+              'توده عضلانی خانم $finalName عالی است (${muscleMass.toStringAsFixed(1)} کیلوگرم)';
+        } else {
+          muscleMassAnalysis =
+              'توده عضلانی خانم $finalName در محدوده مناسب است (${muscleMass.toStringAsFixed(1)} کیلوگرم)';
         }
       }
-    }
+        }
 
     // محاسبه نیاز پروتئین (بر اساس وزن و سطح فعالیت)
     double? proteinRequirement;
@@ -1428,13 +1425,13 @@ class _UserDetailsScreenMealPlanBuilderState
     if (tdee != null && weightDifference != null) {
       if (weightDifference > 5) {
         // برای کاهش وزن: 500-750 کالری کمتر از TDEE
-        final deficit = 500.0;
+        const deficit = 500.0;
         final targetCalories = tdee - deficit;
         calorieGoalAnalysis =
             'برای کاهش وزن ${weightDifference.toStringAsFixed(1)} کیلوگرم، ${isMale ? 'آقای' : 'خانم'} $finalName باید ${targetCalories.toStringAsFixed(0)} کالری در روز مصرف کند (${deficit.toStringAsFixed(0)} کالری کمتر از TDEE)';
       } else if (weightDifference < -5) {
         // برای افزایش وزن: 300-500 کالری بیشتر از TDEE
-        final surplus = 300.0;
+        const surplus = 300.0;
         final targetCalories = tdee + surplus;
         calorieGoalAnalysis =
             'برای افزایش وزن ${(-weightDifference).toStringAsFixed(1)} کیلوگرم، ${isMale ? 'آقای' : 'خانم'} $finalName باید ${targetCalories.toStringAsFixed(0)} کالری در روز مصرف کند (${surplus.toStringAsFixed(0)} کالری بیشتر از TDEE)';
@@ -1760,7 +1757,7 @@ class _UserDetailsScreenMealPlanBuilderState
                         margin: EdgeInsets.only(top: 6.h, left: 8.w),
                         width: 6.w,
                         height: 6.h,
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: AppTheme.goldColor,
                           shape: BoxShape.circle,
                         ),
@@ -1793,10 +1790,8 @@ class _UserDetailsScreenMealPlanBuilderState
     required bool isDark,
     required String label,
     required String value,
-    String? category,
+    required IconData icon, required Color color, String? category,
     String? description,
-    required IconData icon,
-    required Color color,
   }) {
     return Container(
       padding: EdgeInsets.all(14.w),

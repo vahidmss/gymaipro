@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/services/notification_data_service.dart';
 import 'package:gymaipro/payment/services/payout_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
@@ -627,26 +628,14 @@ class WorkoutProgramService {
   }) async {
     try {
       String trainerName = 'مربی شما';
-      // واکشی نام مربی (با فیلدهای امن)
       try {
-        final trainerProfile = await _client
-            .from('profiles')
-            .select('first_name,last_name,username')
-            .eq('id', trainerId)
-            .maybeSingle();
-        if (trainerProfile != null) {
-          final first = (trainerProfile['first_name'] as String?)?.trim() ?? '';
-          final last = (trainerProfile['last_name'] as String?)?.trim() ?? '';
-          final username =
-              (trainerProfile['username'] as String?)?.trim() ?? '';
-          if ((first + last).trim().isNotEmpty) {
-            trainerName = '$first $last'.trim();
-          } else if (username.isNotEmpty) {
-            trainerName = username;
-          }
-        }
+        final trainerProfile =
+            await ProfileRepository.instance.fetchProfile(trainerId);
+        trainerName = ProfileRepository.instance.displayNameFromMap(
+          trainerProfile,
+          fallback: trainerName,
+        );
       } catch (e) {
-        // در صورت خطا در خواندن پروفایل، از عنوان پیش‌فرض استفاده می‌کنیم و ادامه می‌دهیم
         debugPrint('⚠️ خطا در واکشی نام مربی: $e');
       }
 
@@ -1134,9 +1123,7 @@ class WorkoutProgramService {
                 .maybeSingle();
           }
 
-          if (sub == null) {
-            // اگر subscriptionId مشخص نشده، از trainer_id و user_id پیدا کن
-            sub = await _client
+          sub ??= await _client
                 .from('trainer_subscriptions')
                 .select('id, created_at, payment_transaction_id')
                 .eq('trainer_id', trainerId)
@@ -1145,7 +1132,6 @@ class WorkoutProgramService {
                 .order('created_at', ascending: false)
                 .limit(1)
                 .maybeSingle();
-          }
           
           if (sub != null) {
             foundSubscriptionId = sub['id'] as String?;
@@ -1419,7 +1405,7 @@ class WorkoutProgramService {
   }
 
   /// Update program from database in background (non-blocking)
-  void _updateProgramFromDatabaseInBackground(
+  Future<void> _updateProgramFromDatabaseInBackground(
     String programId,
     WorkoutProgram cachedProgram,
   ) async {

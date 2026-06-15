@@ -2,6 +2,24 @@ import 'dart:convert';
 
 /// متادیتای غنی تمرین (از `exercise_extended_json` و ستون‌های Supabase).
 class ExerciseRichMeta {
+  const ExerciseRichMeta({
+    this.webSlug = '',
+    this.setupSteps = const [],
+    this.executionSteps = const [],
+    this.breathing = '',
+    this.commonMistakes = const [],
+    this.recommendedSets = '',
+    this.repRangeHypertrophy = '',
+    this.repRangeStrength = '',
+    this.repRangeEndurance = '',
+    this.restSeconds = '',
+    this.tempo = '',
+    this.programmingGoal = '',
+    this.movementPatternLabel = '',
+    this.bodyEngagementLabel = '',
+    this.mechanicsType = '',
+    this.forceType = '',
+  });
 
   factory ExerciseRichMeta.fromJson(dynamic raw) {
     final m = _parseJsonMap(raw);
@@ -29,24 +47,6 @@ class ExerciseRichMeta {
       forceType: m['forceType']?.toString() ?? '',
     );
   }
-  const ExerciseRichMeta({
-    this.webSlug = '',
-    this.setupSteps = const [],
-    this.executionSteps = const [],
-    this.breathing = '',
-    this.commonMistakes = const [],
-    this.recommendedSets = '',
-    this.repRangeHypertrophy = '',
-    this.repRangeStrength = '',
-    this.repRangeEndurance = '',
-    this.restSeconds = '',
-    this.tempo = '',
-    this.programmingGoal = '',
-    this.movementPatternLabel = '',
-    this.bodyEngagementLabel = '',
-    this.mechanicsType = '',
-    this.forceType = '',
-  });
 
   factory ExerciseRichMeta.fromSupabaseRow(Map<String, dynamic> row) {
     final ext = _parseJsonMap(row['exercise_extended_json']);

@@ -103,7 +103,7 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
         if (viewerProfileId.isNotEmpty) {
           final targetAuthId =
               _profile?['auth_user_id']?.toString() ??
-              (_profile?['id']?.toString()) ??
+              _profile?['id']?.toString() ??
               widget.userId;
 
           if (targetAuthId.isNotEmpty) {
@@ -126,7 +126,7 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
     try {
       final targetAuthId =
           _profile?['auth_user_id']?.toString() ??
-          (_profile?['id']?.toString()) ??
+          _profile?['id']?.toString() ??
           widget.userId;
 
       switch (_friendshipStatus) {
@@ -139,7 +139,6 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
             );
             setState(() => _friendshipStatus = FriendshipStatus.requestSent);
           }
-          break;
         case FriendshipStatus.requestReceived:
           final requests = await FriendshipService.getReceivedRequests();
           final request = requests.firstWhere(
@@ -152,7 +151,6 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
             );
             setState(() => _friendshipStatus = FriendshipStatus.friends);
           }
-          break;
         case FriendshipStatus.friends:
           break;
         default:
@@ -180,7 +178,7 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
     }
 
     if (_profile == null) {
-      return Center(
+      return const Center(
         child: Text(
           'پروفایل یافت نشد',
           style: TextStyle(fontFamily: AppTheme.fontFamily),
@@ -530,7 +528,7 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
                           backgroundColor: context.separatorColor.withValues(
                             alpha: 0.25,
                           ),
-                          valueColor: AlwaysStoppedAnimation<Color>(
+                          valueColor: const AlwaysStoppedAnimation<Color>(
                             AppTheme.goldColor,
                           ),
                         ),
@@ -710,7 +708,6 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
             borderRadius: BorderRadius.circular(14.r),
             border: Border.all(
               color: context.separatorColor.withValues(alpha: 0.3),
-              width: 1,
             ),
           ),
           child: Row(
@@ -768,8 +765,6 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
           totalWorkoutsScore: 0,
           totalMeals: 0,
           totalMealsScore: 0,
-          articlesReadCount: 0,
-          articlesReadScore: 0,
         );
 
     final bool hasAnyScore =

@@ -17,7 +17,10 @@ class AuthStateService {
 
       // Sync FCM token after successful auth
       try {
-        await NotificationService().syncFCMTokenIfAvailable();
+        final notificationService = NotificationService();
+        await notificationService.syncFCMTokenIfAvailable();
+        // Ensure broadcast notifications work after login/signup
+        await notificationService.forceSubscribeToAll();
       } catch (e) {
         debugPrint('Error syncing FCM token: $e');
       }

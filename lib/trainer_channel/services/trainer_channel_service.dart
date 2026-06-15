@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/trainer_channel/constants/trainer_channel_constants.dart';
 import 'package:gymaipro/trainer_channel/models/trainer_channel.dart';
@@ -196,26 +197,17 @@ class TrainerChannelService {
         .order('created_at', ascending: false)
         .limit(limit);
 
-    final profile = await _client
-        .from('profiles')
-        .select('first_name, last_name, username, avatar_url')
-        .eq('id', trainerId)
-        .maybeSingle();
+    final profile = await ProfileRepository.instance.fetchProfile(trainerId);
 
-    String? trainerName;
-    if (profile != null) {
-      final fn = profile['first_name']?.toString() ?? '';
-      final ln = profile['last_name']?.toString() ?? '';
-      trainerName = '$fn $ln'.trim();
-      if (trainerName.isEmpty) {
-        trainerName = profile['username']?.toString();
-      }
-    }
+    final trainerName = ProfileRepository.instance.displayNameFromMap(
+      profile,
+      fallback: '',
+    );
 
     final posts = <TrainerChannelPost>[];
     for (final row in rows as List) {
       final map = Map<String, dynamic>.from(row as Map);
-      map['trainer_name'] = trainerName;
+      map['trainer_name'] = trainerName.isEmpty ? null : trainerName;
       map['trainer_avatar_url'] = profile?['avatar_url'];
       map['trainer_username'] = profile?['username'];
       posts.add(TrainerChannelPost.fromMap(map));

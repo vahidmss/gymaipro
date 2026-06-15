@@ -215,7 +215,6 @@ class _FoodThumbnail extends StatelessWidget {
                       memCacheHeight: 128,
                       fadeInDuration: Duration.zero,
                       fadeOutDuration: Duration.zero,
-                      filterQuality: FilterQuality.low,
                       placeholder: (_, __) => _placeholderImage(),
                       errorWidget: (_, __, ___) => _placeholderImage(),
                     )
@@ -363,15 +362,15 @@ class _MacroRow extends StatelessWidget {
                 children: [
                   Expanded(
                     flex: _flex(protein, total),
-                    child: ColoredBox(color: AppTheme.proteinColor),
+                    child: const ColoredBox(color: AppTheme.proteinColor),
                   ),
                   Expanded(
                     flex: _flex(carbs, total),
-                    child: ColoredBox(color: AppTheme.carbsColor),
+                    child: const ColoredBox(color: AppTheme.carbsColor),
                   ),
                   Expanded(
                     flex: _flex(fat, total),
-                    child: ColoredBox(color: AppTheme.fatColor),
+                    child: const ColoredBox(color: AppTheme.fatColor),
                   ),
                 ],
               ),
@@ -442,7 +441,7 @@ class _MacroLabel extends StatelessWidget {
         SizedBox(width: 3.w),
         Expanded(
           child: Text(
-            '${label} ${_formatGram(value)}',
+            '$label ${_formatGram(value)}',
             style: _FoodListStyles.micro(context, color: color),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

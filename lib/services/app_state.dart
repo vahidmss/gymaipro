@@ -37,7 +37,7 @@ class AppState extends ChangeNotifier {
         }
       }
     } catch (e) {
-      print('Error loading user profile: $e');
+      debugPrint('Error loading user profile: $e');
     } finally {
       setLoading(false);
     }
@@ -49,9 +49,9 @@ class AppState extends ChangeNotifier {
       // پاک کردن تمام کش‌ها قبل از logout
       try {
         // Import های لازم در فایل‌های دیگر اضافه شده
-        print('AppState: Clearing all caches before logout');
+        debugPrint('AppState: Clearing all caches before logout');
       } catch (e) {
-        print('AppState: Error clearing caches: $e');
+        debugPrint('AppState: Error clearing caches: $e');
       }
 
       // Check connectivity before logout
@@ -60,22 +60,22 @@ class AppState extends ChangeNotifier {
       if (isOnline) {
         // Online: normal logout
         await Supabase.instance.client.auth.signOut();
-        print('Logout successful (online)');
+        debugPrint('Logout successful (online)');
       } else {
         // Offline: local logout only
-        print('Offline mode: performing local logout');
+        debugPrint('Offline mode: performing local logout');
         await Supabase.instance.client.auth.signOut();
-        print('Logout successful (offline)');
+        debugPrint('Logout successful (offline)');
       }
 
       await AuthStateService().clearAuthState();
       _currentUser = null;
       _userProfile = null;
     } catch (e) {
-      print('Error logging out: $e');
+      debugPrint('Error logging out: $e');
       // Don't throw exception in offline mode
       if (kDebugMode) {
-        print('Logout error (may be offline): $e');
+        debugPrint('Logout error (may be offline): $e');
       }
     } finally {
       setLoading(false);
@@ -90,7 +90,7 @@ class AppState extends ChangeNotifier {
         await loadUserProfile();
       }
     } catch (e) {
-      print('Error updating profile: $e');
+      debugPrint('Error updating profile: $e');
       rethrow;
     } finally {
       setLoading(false);

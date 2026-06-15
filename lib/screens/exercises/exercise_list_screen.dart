@@ -361,6 +361,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // ui-health: keyboard-inset-ok — intentional: avoid IME resize jank on list
       // جلوگیری از resize کل صفحه هنگام IME → کمتر viewport metric و لگ
       resizeToAvoidBottomInset: false,
       backgroundColor: context.backgroundColor,

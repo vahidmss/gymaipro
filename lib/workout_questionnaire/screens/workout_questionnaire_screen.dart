@@ -60,9 +60,7 @@ class _WorkoutQuestionnaireScreenState
   /// بارگذاری مجدد پاسخ‌ها از SharedPreferences
   Future<void> _refreshResponses() async {
     try {
-      if (_userId == null) {
-        _userId = await AuthHelper.getCurrentUserId();
-      }
+      _userId ??= await AuthHelper.getCurrentUserId();
       if (_userId == null) {
         return;
       }
@@ -328,9 +326,9 @@ class _WorkoutQuestionnaireScreenState
           data: Theme.of(
             context,
           ).copyWith(scaffoldBackgroundColor: context.backgroundColor),
-          child: Container(
+          child: DecoratedBox(
             decoration: isDark
-                ? null
+                ? const BoxDecoration()
                 : BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -342,7 +340,7 @@ class _WorkoutQuestionnaireScreenState
                       ],
                     ),
                   ),
-            child: Scaffold(
+            child: const Scaffold(
               backgroundColor: Colors.transparent,
               body: Center(
                 child: CircularProgressIndicator(
@@ -369,9 +367,9 @@ class _WorkoutQuestionnaireScreenState
               elevation: 0,
             ),
           ),
-          child: Container(
+          child: DecoratedBox(
             decoration: isDark
-                ? null
+                ? const BoxDecoration()
                 : BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -435,9 +433,9 @@ class _WorkoutQuestionnaireScreenState
               elevation: 0,
             ),
           ),
-          child: Container(
+          child: DecoratedBox(
             decoration: isDark
-                ? null
+                ? const BoxDecoration()
                 : BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -519,7 +517,7 @@ class _WorkoutQuestionnaireScreenState
                               width: 50.w,
                               height: 50.h,
                               decoration: BoxDecoration(
-                                gradient: LinearGradient(
+                                gradient: const LinearGradient(
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                   colors: [
@@ -681,7 +679,7 @@ class _WorkoutQuestionnaireScreenState
                         Expanded(
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
+                              gradient: const LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                                 colors: [AppTheme.goldColor, AppTheme.darkGold],
@@ -918,7 +916,7 @@ class _WorkoutGenerationDialogState extends State<_WorkoutGenerationDialog> {
               width: 80.w,
               height: 80.h,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [AppTheme.goldColor, AppTheme.darkGold],
@@ -975,7 +973,7 @@ class _WorkoutGenerationDialogState extends State<_WorkoutGenerationDialog> {
                   if (_generatedProgram != null) ...[
                     DecoratedBox(
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [AppTheme.goldColor, AppTheme.darkGold],
@@ -1003,7 +1001,7 @@ class _WorkoutGenerationDialogState extends State<_WorkoutGenerationDialog> {
                             borderRadius: BorderRadius.circular(12.r),
                           ),
                         ),
-                        child: Text(
+                        child: const Text(
                           'مشاهده برنامه',
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,

@@ -217,7 +217,7 @@ class MusicUploadService {
                            responseData['url'] as String?;
             if (audioUrl != null && audioUrl.isNotEmpty) {
               debugPrint('MusicUploadService: Upload successful! URL: $audioUrl');
-              onProgress?.call(1.0);
+              onProgress?.call(1);
               return audioUrl;
             }
           }

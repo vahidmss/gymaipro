@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:audioplayers/audioplayers.dart';
@@ -32,6 +33,7 @@ class _TrainerChannelAudioPlayerState
     extends State<TrainerChannelAudioPlayer> {
   AudioPlayer? _player;
   bool _listenersAttached = false;
+  final List<StreamSubscription<dynamic>> _playerSubs = [];
 
   bool _playing = false;
   bool _loading = false;
@@ -62,27 +64,30 @@ class _TrainerChannelAudioPlayerState
     _player = p;
     if (!_listenersAttached) {
       _listenersAttached = true;
-      p.onPlayerStateChanged.listen((s) {
+      _playerSubs.add(p.onPlayerStateChanged.listen((s) {
         if (!mounted) return;
         setState(() {
           _playing = s == PlayerState.playing;
           if (s == PlayerState.completed) _position = Duration.zero;
         });
-      });
-      p.onPositionChanged.listen((pos) {
+      }));
+      _playerSubs.add(p.onPositionChanged.listen((pos) {
         if (!mounted || _seeking) return;
         setState(() => _position = pos);
-      });
-      p.onDurationChanged.listen((d) {
+      }));
+      _playerSubs.add(p.onDurationChanged.listen((d) {
         if (!mounted || d <= Duration.zero) return;
         setState(() => _totalDuration = d);
-      });
+      }));
     }
     return p;
   }
 
   @override
   void dispose() {
+    for (final sub in _playerSubs) {
+      sub.cancel();
+    }
     _player?.dispose();
     super.dispose();
   }

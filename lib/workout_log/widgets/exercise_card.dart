@@ -267,9 +267,7 @@ class ExerciseCard extends StatelessWidget {
                         exerciseId,
                         setIndex,
                         exercise.style,
-                        savedStatus.length > setIndex
-                            ? savedStatus[setIndex]
-                            : false,
+                        savedStatus.length > setIndex && savedStatus[setIndex],
                         focusNodes: focusNodes.length > setIndex
                             ? focusNodes[setIndex]
                             : null,
@@ -498,10 +496,10 @@ class ExerciseCard extends StatelessWidget {
                   child: Column(
                     children: exercise.exercises.map((item) {
                       final itemId = '${exercise.id}_${item.exerciseId}';
-                      final savedStatus = this.setSavedStatus[itemId] ?? [];
-                      final focusNodes = this.exerciseFocusNodes[itemId] ?? [];
+                      final savedStatus = setSavedStatus[itemId] ?? [];
+                      final focusNodes = exerciseFocusNodes[itemId] ?? [];
                       final itemExerciseDetails =
-                          this.exerciseDetails[item.exerciseId];
+                          exerciseDetails[item.exerciseId];
 
                       return Column(
                         children: [
@@ -605,9 +603,7 @@ class ExerciseCard extends StatelessWidget {
                               itemId,
                               setIndex,
                               item.style,
-                              savedStatus.length > setIndex
-                                  ? savedStatus[setIndex]
-                                  : false,
+                              savedStatus.length > setIndex && savedStatus[setIndex],
                               focusNodes: focusNodes.length > setIndex
                                   ? focusNodes[setIndex]
                                   : null,

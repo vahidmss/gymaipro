@@ -121,7 +121,7 @@ class MusicPlayerWidget extends StatelessWidget {
                               ? Image.network(
                                   currentMusic.coverImageUrl,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (c, e, s) => Container(
+                                  errorBuilder: (c, e, s) => ColoredBox(
                                     color: Colors.black26,
                                     child: Icon(
                                       LucideIcons.music,
@@ -130,7 +130,7 @@ class MusicPlayerWidget extends StatelessWidget {
                                     ),
                                   ),
                                 )
-                              : Container(
+                              : ColoredBox(
                                   color: Colors.black26,
                                   child: Icon(
                                     LucideIcons.music,
@@ -304,7 +304,7 @@ class MusicPlayerWidget extends StatelessWidget {
                                     ? SizedBox(
                                         width: 20.w,
                                         height: 20.w,
-                                        child: CircularProgressIndicator(
+                                        child: const CircularProgressIndicator(
                                           strokeWidth: 2.5,
                                           valueColor:
                                               AlwaysStoppedAnimation<Color>(
@@ -411,7 +411,7 @@ class MusicPlayerWidget extends StatelessWidget {
                             ? Image.network(
                                 currentMusic.coverImageUrl,
                                 fit: BoxFit.cover,
-                                errorBuilder: (c, e, s) => Container(
+                                errorBuilder: (c, e, s) => ColoredBox(
                                   color: Colors.black26,
                                   child: Icon(
                                     LucideIcons.music,
@@ -420,7 +420,7 @@ class MusicPlayerWidget extends StatelessWidget {
                                   ),
                                 ),
                               )
-                            : Container(
+                            : ColoredBox(
                                 color: Colors.black26,
                                 child: Icon(
                                   LucideIcons.music,
@@ -585,7 +585,7 @@ class MusicPlayerWidget extends StatelessWidget {
                                   ? SizedBox(
                                       width: 20.w,
                                       height: 20.w,
-                                      child: CircularProgressIndicator(
+                                      child: const CircularProgressIndicator(
                                         strokeWidth: 2,
                                         valueColor:
                                             AlwaysStoppedAnimation<Color>(
@@ -682,7 +682,7 @@ class _RepeatButton extends StatelessWidget {
                   child: Container(
                     width: compact ? 8.w : 10.w,
                     height: compact ? 8.w : 10.w,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: AppTheme.goldColor,
                       shape: BoxShape.circle,
                     ),

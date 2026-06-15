@@ -24,8 +24,6 @@ class WalletTopUpSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      isDismissible: true,
-      enableDrag: true,
       builder: (_) => const WalletTopUpSheet(),
     ).then((value) => value ?? false);
   }
@@ -127,7 +125,6 @@ class _WalletTopUpSheetState extends State<WalletTopUpSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('درگاه پرداخت باز شد. پس از پرداخت به اپ برگردید.'),
-            duration: Duration(seconds: 4),
           ),
         );
       }

@@ -129,7 +129,6 @@ class StreakCalendarWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.12),
-          width: 1,
         ),
       ),
       child: Column(
@@ -183,7 +182,7 @@ class StreakCalendarWidget extends StatelessWidget {
     required bool isDark,
   }) {
     final daysInMonth = _getJalaliDaysInMonth(year, month);
-    final firstDay = Jalali(year, month, 1);
+    final firstDay = Jalali(year, month);
     final firstWeekday = firstDay.weekDay;
     final emptyBoxes = firstWeekday - 1;
     final totalCells = emptyBoxes + daysInMonth;

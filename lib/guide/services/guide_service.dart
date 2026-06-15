@@ -4,9 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// سرویس مدیریت راهنما و feature tour
 class GuideService extends ChangeNotifier {
-  static final GuideService _instance = GuideService._internal();
   factory GuideService() => _instance;
   GuideService._internal();
+  static final GuideService _instance = GuideService._internal();
 
   SharedPreferences? _prefs;
   bool _isInitialized = false;
@@ -122,7 +122,7 @@ class GuideService extends ChangeNotifier {
     if (guide == null) return false;
 
     // اگر کاربر تایید کرده که دیگه نشون نده، نمایش نده
-    if (_dontShowGuides[guideId] == true) {
+    if (_dontShowGuides[guideId] ?? false) {
       return false;
     }
 

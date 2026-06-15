@@ -2,13 +2,11 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// ارسال پیامک الگویی (BaseServiceNumber) از طریق پیامک‌پنل / ملی‌پیامک.
 class PatternSmsService {
-  static final SupabaseClient _client = Supabase.instance.client;
-
   /// ارسال پیامک با bodyId و پارامترهای الگو ({0};{1};...)
   static Future<bool> sendPattern({
     required String phoneNumber,
@@ -90,26 +88,12 @@ class PatternSmsService {
   /// نام کوتاه برای پارامتر {0} الگوهای پیامک.
   static Future<String> displayNameForProfile(String profileOrAuthId) async {
     try {
-      var row = await _client
-          .from('profiles')
-          .select('first_name, last_name, username')
-          .eq('id', profileOrAuthId)
-          .maybeSingle();
-      row ??= await _client
-          .from('profiles')
-          .select('first_name, last_name, username')
-          .eq('auth_user_id', profileOrAuthId)
-          .maybeSingle();
-
-      if (row == null) return 'کاربر';
-
-      final first = (row['first_name'] as String?)?.trim() ?? '';
-      final last = (row['last_name'] as String?)?.trim() ?? '';
-      final combined = '$first $last'.trim();
-      if (combined.isNotEmpty) return combined;
-
-      final username = (row['username'] as String?)?.trim() ?? '';
-      return username.isNotEmpty ? username : 'کاربر';
+      final row =
+          await ProfileRepository.instance.fetchProfile(profileOrAuthId);
+      return ProfileRepository.instance.displayNameFromMap(
+        row,
+        fallback: 'کاربر',
+      );
     } catch (e) {
       if (kDebugMode) {
         debugPrint('PatternSmsService.displayNameForProfile: $e');
@@ -121,17 +105,8 @@ class PatternSmsService {
   /// شماره موبایل از profiles (با id پروفایل یا auth_user_id).
   static Future<String?> phoneForProfile(String profileOrAuthId) async {
     try {
-      var row = await _client
-          .from('profiles')
-          .select('phone_number')
-          .eq('id', profileOrAuthId)
-          .maybeSingle();
-      row ??= await _client
-          .from('profiles')
-          .select('phone_number')
-          .eq('auth_user_id', profileOrAuthId)
-          .maybeSingle();
-
+      final row =
+          await ProfileRepository.instance.fetchProfile(profileOrAuthId);
       final phone = (row?['phone_number'] as String?)?.trim() ?? '';
       return phone.isNotEmpty ? phone : null;
     } catch (e) {

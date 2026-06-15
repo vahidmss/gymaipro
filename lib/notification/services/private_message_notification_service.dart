@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
-import 'package:gymaipro/notification/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -22,7 +21,6 @@ class PrivateMessageNotificationService {
       PrivateMessageNotificationService._internal();
 
   final SupabaseClient _supabase = Supabase.instance.client;
-  final NotificationService _notificationService = NotificationService();
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
@@ -118,150 +116,6 @@ class PrivateMessageNotificationService {
     } catch (e) {
       debugPrint('Error handling new message: $e');
     }
-  }
-
-  /// بررسی اینکه آیا باید نوتیفیکیشن ارسال شود
-  bool _shouldSendNotification(ChatMessage message) {
-    // بررسی فعال بودن نوتیفیکیشن‌های چت
-    if (!_settings.enabled) return false;
-
-    // بررسی ساعات سکوت
-    if (_isInQuietHours()) return false;
-
-    // بررسی تنظیمات بر اساس نوع کاربر
-    if (!_settings.notifyFromTrainers && _isFromTrainer(message.senderId)) {
-      return false;
-    }
-    if (!_settings.notifyFromAthletes && _isFromAthlete(message.senderId)) {
-      return false;
-    }
-
-    // بررسی تنظیمات بر اساس نوع پیام
-    if (!_settings.notifyTextMessages && message.isText) return false;
-    if (!_settings.notifyImageMessages && message.isImage) return false;
-    if (!_settings.notifyFileMessages && message.isFile) return false;
-    if (!_settings.notifyVoiceMessages && message.isVoice) return false;
-
-    return true;
-  }
-
-  /// بررسی ساعات سکوت
-  bool _isInQuietHours() {
-    if (_settings.quietStartTime == null || _settings.quietEndTime == null) {
-      return false;
-    }
-
-    final now = TimeOfDay.now();
-    final start = _settings.quietStartTime!;
-    final end = _settings.quietEndTime!;
-
-    // اگر ساعات سکوت در همان روز است
-    if (start.hour < end.hour ||
-        (start.hour == end.hour && start.minute < end.minute)) {
-      return now.hour > start.hour ||
-          (now.hour == start.hour && now.minute >= start.minute) &&
-              (now.hour < end.hour ||
-                  (now.hour == end.hour && now.minute < end.minute));
-    }
-
-    // اگر ساعات سکوت از شب تا صبح است
-    return now.hour >= start.hour || now.hour < end.hour;
-  }
-
-  /// بررسی اینکه آیا فرستنده مربی است
-  bool _isFromTrainer(String senderId) {
-    // اینجا باید از UserService استفاده کنی تا نقش کاربر را بررسی کنی
-    // فعلاً فرض می‌کنیم که در data پیام این اطلاعات موجود است
-    return false; // باید پیاده‌سازی شود
-  }
-
-  /// بررسی اینکه آیا فرستنده ورزشکار است
-  bool _isFromAthlete(String senderId) {
-    // اینجا باید از UserService استفاده کنی تا نقش کاربر را بررسی کنی
-    return false; // باید پیاده‌سازی شود
-  }
-
-  /// دریافت اطلاعات فرستنده
-  Future<Map<String, dynamic>?> _getSenderInfo(String senderId) async {
-    try {
-      final response = await _supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url, role')
-          .eq('id', senderId)
-          .single();
-
-      return response;
-    } catch (e) {
-      debugPrint('Error getting sender info: $e');
-      return null;
-    }
-  }
-
-  /// ایجاد نوتیفیکیشن
-  Future<void> _createNotification(
-    ChatMessage message,
-    Map<String, dynamic> senderInfo,
-  ) async {
-    try {
-      final title = _generateNotificationTitle(senderInfo);
-      final body = _generateNotificationBody(message);
-
-      final notificationData = {
-        'message_id': message.id,
-        'sender_id': message.senderId,
-        'conversation_id': _generateConversationId(
-          message.senderId,
-          message.receiverId,
-        ),
-        'message_type': message.messageType,
-        'sender_name': senderInfo['full_name'],
-        'sender_avatar': senderInfo['avatar_url'],
-      };
-
-      await _notificationService.showCustomNotification(
-        title: title,
-        body: body,
-        payload: jsonEncode(notificationData),
-      );
-    } catch (e) {
-      debugPrint('Error creating notification: $e');
-    }
-  }
-
-  /// تولید عنوان نوتیفیکیشن
-  String _generateNotificationTitle(Map<String, dynamic> senderInfo) {
-    final senderName = senderInfo['full_name'] ?? 'کاربر ناشناس';
-    final senderRole = senderInfo['role'];
-
-    if (senderRole == 'trainer') {
-      return 'پیام جدید از مربی $senderName';
-    } else if (senderRole == 'athlete') {
-      return 'پیام جدید از ورزشکار $senderName';
-    } else {
-      return 'پیام جدید از $senderName';
-    }
-  }
-
-  /// تولید متن نوتیفیکیشن
-  String _generateNotificationBody(ChatMessage message) {
-    switch (message.messageType) {
-      case 'text':
-        return message.message;
-      case 'image':
-        return '📷 تصویر ارسال کرد';
-      case 'file':
-        return '📎 فایل ارسال کرد';
-      case 'voice':
-        return '🎤 پیام صوتی ارسال کرد';
-      default:
-        return 'پیام جدید دریافت کردید';
-    }
-  }
-
-  /// تولید شناسه مکالمه
-  String _generateConversationId(String userId1, String userId2) {
-    final ids = [userId1, userId2]..sort();
-    return '${ids[0]}_${ids[1]}';
   }
 
   /// به‌روزرسانی تنظیمات

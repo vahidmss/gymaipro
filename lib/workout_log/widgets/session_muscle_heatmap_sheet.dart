@@ -200,11 +200,10 @@ class _EmptySessionBody extends StatelessWidget {
           SizedBox(
             width: 72.w,
             height: 100.h,
-            child: Opacity(
+            child: const Opacity(
               opacity: 0.25,
               child: AppRemoteImage(
                 path: 'images/gymai_body_front_premium.png',
-                fit: BoxFit.contain,
               ),
             ),
           ),

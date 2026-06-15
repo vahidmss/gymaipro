@@ -1,7 +1,7 @@
 ﻿// Profile module exports
 export 'models/user_profile.dart';
+export 'repositories/profile_repository.dart';
 export 'screens/profile_screen.dart';
-export 'screens/trainer_profile_screen.dart';
 export 'widgets/profile_app_bar_content_widget.dart';
 export 'widgets/profile_birth_date_widget.dart';
 export 'widgets/profile_form_widgets.dart';

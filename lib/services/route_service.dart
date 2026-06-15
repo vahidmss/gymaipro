@@ -15,10 +15,8 @@ import 'package:gymaipro/meal_plan_builder/screens/meal_plan_builder_screen.dart
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/my_club/index.dart';
-import 'package:gymaipro/navigation/constants/navigation_constants.dart';
 import 'package:gymaipro/navigation/navigation.dart';
 import 'package:gymaipro/navigation/navigation_guard.dart';
-import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
 import 'package:gymaipro/notification/screens/notification_settings_screen.dart';
 import 'package:gymaipro/notification/screens/notifications_screen.dart';
 import 'package:gymaipro/notification/screens/private_message_notification_settings_screen.dart';
@@ -72,7 +70,7 @@ class RouteService {
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     final originalName = settings.name ?? '';
-    print('=== ROUTE SERVICE: Generating route for: $originalName ===');
+    debugPrint('=== ROUTE SERVICE: Generating route for: $originalName ===');
 
     // sanitize query string
     final sanitizedName = originalName.contains('?')
@@ -125,9 +123,7 @@ class RouteService {
       case '/welcome':
         // بررسی arguments برای jumpToLastPage
         final args = settings.arguments;
-        final jumpToLastPage = args is Map<String, dynamic>
-            ? args['jumpToLastPage'] as bool? ?? false
-            : false;
+        final jumpToLastPage = args is Map<String, dynamic> && (args['jumpToLastPage'] as bool? ?? false);
         return MaterialPageRoute(
           builder: (_) => _buildProtectedRoute(
             WelcomeScreen(jumpToLastPage: jumpToLastPage),
@@ -267,9 +263,9 @@ class RouteService {
         );
       case '/chat-main':
         final initialTabIndex = settings.arguments is int
-            ? settings.arguments as int
+            ? settings.arguments! as int
             : (settings.arguments is Map<String, dynamic>
-                      ? (settings.arguments
+                      ? (settings.arguments!
                                 as Map<String, dynamic>)['initialTabIndex']
                             as int?
                       : null) ??
@@ -314,9 +310,9 @@ class RouteService {
         );
       case '/trainer-dashboard':
         final initialTabIndex = settings.arguments is int
-            ? settings.arguments as int
+            ? settings.arguments! as int
             : (settings.arguments is Map<String, dynamic>
-                    ? (settings.arguments
+                    ? (settings.arguments!
                             as Map<String, dynamic>)['initialTabIndex']
                         as int?
                     : null) ??
@@ -368,31 +364,31 @@ class RouteService {
 
   static Future<String> getInitialRoute() async {
     try {
-      print('=== ROUTE SERVICE: Starting getInitialRoute ===');
+      debugPrint('=== ROUTE SERVICE: Starting getInitialRoute ===');
       // Global offline gate
       final isOnline = await ConnectivityService.instance.checkNow();
       if (!isOnline) {
-        print('=== ROUTE SERVICE: Offline detected, returning /offline ===');
+        debugPrint('=== ROUTE SERVICE: Offline detected, returning /offline ===');
         return '/offline';
       }
       final backendReachable = await BackendReachabilityService
-          .isBackendReachable(timeout: const Duration(seconds: 3));
+          .isBackendReachable();
       if (!backendReachable) {
-        print(
+        debugPrint(
           '=== ROUTE SERVICE: Network is available but backend is unreachable. Returning /offline ===',
         );
         return '/offline';
       }
       final authService = AuthStateService();
-      print('=== ROUTE SERVICE: Checking login state for initial route... ===');
+      debugPrint('=== ROUTE SERVICE: Checking login state for initial route... ===');
 
       final isLoggedIn = await authService.isLoggedIn();
-      print('=== ROUTE SERVICE: Login state: $isLoggedIn ===');
+      debugPrint('=== ROUTE SERVICE: Login state: $isLoggedIn ===');
 
       // اگر کاربر لاگین است، بررسی کنیم که آیا کاربر فعلی در کلاینت وجود دارد
       if (isLoggedIn) {
         final currentUser = Supabase.instance.client.auth.currentUser;
-        print(
+        debugPrint(
           '=== ROUTE SERVICE: Current user: ${currentUser?.id ?? "null"} ===',
         );
 
@@ -402,25 +398,25 @@ class RouteService {
           // Decide route based on "profile complete" (supports phone fallback).
           final complete = await _isProfileCompleteForCurrentUser();
           if (complete) {
-            print('=== ROUTE SERVICE: Profile complete. Returning /main ===');
+            debugPrint('=== ROUTE SERVICE: Profile complete. Returning /main ===');
             return '/main';
           }
-          print(
+          debugPrint(
             '=== ROUTE SERVICE: Profile incomplete/missing. Keeping session and returning /register ===',
           );
           return '/register';
         } else {
-          print(
+          debugPrint(
             '=== ROUTE SERVICE: Warning: isLoggedIn is true but currentUser is null. Defaulting to welcome screen. ===',
           );
           return '/welcome';
         }
       }
 
-      print('=== ROUTE SERVICE: User not logged in, returning /welcome ===');
+      debugPrint('=== ROUTE SERVICE: User not logged in, returning /welcome ===');
       return '/welcome';
     } catch (e) {
-      print('=== ROUTE SERVICE: Error in getInitialRoute: $e ===');
+      debugPrint('=== ROUTE SERVICE: Error in getInitialRoute: $e ===');
       // در صورت خطا به صفحه خوش‌آمدگویی هدایت می‌کنیم
       return '/welcome';
     }
@@ -429,7 +425,7 @@ class RouteService {
   /// Build protected route that redirects logged in users
   /// Uses a StatefulWidget to cache the auth check result and prevent rebuilds
   static Widget _buildProtectedRoute(Widget child, String routeName) {
-    return _ProtectedRouteWrapper(child: child, routeName: routeName);
+    return _ProtectedRouteWrapper(routeName: routeName, child: child);
   }
 
   /// Check if user is logged in
@@ -438,7 +434,7 @@ class RouteService {
       final authService = AuthStateService();
       return await authService.isLoggedIn();
     } catch (e) {
-      print('=== ROUTE SERVICE: Error checking login status: $e ===');
+      debugPrint('=== ROUTE SERVICE: Error checking login status: $e ===');
       return false;
     }
   }

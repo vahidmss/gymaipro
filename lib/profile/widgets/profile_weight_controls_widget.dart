@@ -21,7 +21,7 @@ class ProfileWeightControlsWidget extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: onAddWeightPressed,
               icon: const Icon(LucideIcons.plus),
-              label: Text('ثبت وزن جدید', style: TextStyle(
+              label: const Text('ثبت وزن جدید', style: TextStyle(
     fontFamily: AppTheme.fontFamily,)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.goldColor,
@@ -35,7 +35,7 @@ class ProfileWeightControlsWidget extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: onWeightHistoryPressed,
               icon: const Icon(LucideIcons.history),
-              label: Text('تاریخچه وزن', style: TextStyle(
+              label: const Text('تاریخچه وزن', style: TextStyle(
     fontFamily: AppTheme.fontFamily,)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2A2A2A),

@@ -329,8 +329,10 @@ class _ProfileScreenState extends State<ProfileScreen>
       final weightHistory = await WeeklyWeightService.getFullWeightHistory(
         userId as String,
       );
+      if (!mounted) return;
       WeightWidgets.showWeightHistoryDialog(context, weightHistory);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('خطا در بارگذاری تاریخچه وزن: $e'),
@@ -358,8 +360,8 @@ class _ProfileScreenState extends State<ProfileScreen>
         weight,
       );
 
+      if (!mounted) return;
       if (success) {
-        if (!mounted) return;
         SafeSetState.call(this, () {
           _profileData['weight'] = weight;
           _profileData['latest_weight'] = weight;
@@ -414,7 +416,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         if (imageUrl != null && imageUrl.isNotEmpty) {
           _profileData['avatar_url'] = imageUrl;
           avatarSaved = true;
-          if (context != null && mounted) {
+          if (context != null && context.mounted) {
             try {
               final achievementService = Provider.of<AchievementService>(
                 context,
@@ -656,9 +658,9 @@ class _ProfileScreenState extends State<ProfileScreen>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final role = (_profileData['role'] ?? 'athlete').toString();
-    return Container(
+    return DecoratedBox(
       decoration: isDark
-          ? null
+          ? const BoxDecoration()
           : BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,

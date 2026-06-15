@@ -116,7 +116,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         backgroundColor: isDark
             ? AppTheme.darkBackgroundColor
             : AppTheme.lightBackgroundColor,
-        body: Center(
+        body: const Center(
           child: CircularProgressIndicator(color: AppTheme.goldColor),
         ),
       );

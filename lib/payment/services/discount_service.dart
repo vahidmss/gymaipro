@@ -3,6 +3,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/payment/models/discount_code.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -410,16 +411,12 @@ class DiscountService {
 
   Future<bool> _isNewUser(String userId) async {
     try {
-      // کاربر جدید کسی است که کمتر از 30 روز از ثبت‌نامش گذشته
       final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
+      final profile = await ProfileRepository.instance.fetchProfile(userId);
+      final createdAtRaw = profile?['created_at'] as String?;
+      if (createdAtRaw == null) return false;
 
-      final response = await _client
-          .from('profiles')
-          .select('created_at')
-          .eq('id', userId)
-          .single();
-
-      final createdAt = DateTime.parse(response['created_at'] as String);
+      final createdAt = DateTime.parse(createdAtRaw);
       return createdAt.isAfter(thirtyDaysAgo);
     } catch (e) {
       return false;
