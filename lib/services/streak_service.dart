@@ -12,10 +12,23 @@ class StreakService {
 
   final SupabaseClient _client = Supabase.instance.client;
 
+  static DateTime? _lastStreakSessionDay;
+  static bool _membershipAchievementsUpdatedThisSession = false;
+
   /// به‌روزرسانی streak هنگام ورود کاربر
   /// این متد باید در app startup یا login صدا زده شود
   Future<void> updateLoginStreak() async {
     try {
+      final today = DateTime.now();
+      final todayDay = DateTime(today.year, today.month, today.day);
+      if (_lastStreakSessionDay == todayDay) {
+        if (kDebugMode) {
+          debugPrint(
+            'ℹ️ Login streak update skipped (already ran today this session)',
+          );
+        }
+        return;
+      }
       final user = _client.auth.currentUser;
       if (user == null) {
         debugPrint('⚠️ No user logged in, skipping streak update');
@@ -33,8 +46,7 @@ class StreakService {
         return;
       }
 
-      final today = DateTime.now();
-      final todayDate = DateTime(today.year, today.month, today.day);
+      final todayDate = todayDay;
 
       // دریافت آخرین تاریخ ورود و streak فعلی
       final lastLoginDateStr = profile['last_login_date'] as String?;
@@ -107,6 +119,7 @@ class StreakService {
 
       // به‌روزرسانی دستاوردهای streak
       await _updateStreakAchievements(newStreak);
+      _lastStreakSessionDay = todayDay;
     } catch (e) {
       debugPrint('❌ Error updating login streak: $e');
     }
@@ -130,6 +143,14 @@ class StreakService {
 
   /// محاسبه و به‌روزرسانی دستاوردهای membership (روزهای عضویت)
   Future<void> updateMembershipAchievements() async {
+    if (_membershipAchievementsUpdatedThisSession) {
+      if (kDebugMode) {
+        debugPrint(
+          'ℹ️ Membership achievements skipped (already ran this session)',
+        );
+      }
+      return;
+    }
     try {
       final profile = await SimpleProfileService.getCurrentProfile();
       if (profile == null) {
@@ -174,6 +195,7 @@ class StreakService {
       debugPrint(
         '✅ Membership achievements updated: $daysSinceMembership days',
       );
+      _membershipAchievementsUpdatedThisSession = true;
     } catch (e) {
       debugPrint('❌ Error updating membership achievements: $e');
     }

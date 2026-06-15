@@ -86,8 +86,13 @@ class _DiscoverSectionState extends State<DiscoverSection>
     );
     _tabAnimController.forward();
 
-    _loadExercises();
-    _loadFoods();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 1200), () {
+        if (!mounted) return;
+        _loadExercises();
+        _loadFoods();
+      });
+    });
   }
 
   @override
@@ -200,7 +205,6 @@ class _DiscoverSectionState extends State<DiscoverSection>
       // فالبک اگه خالی بود
       if (allExercises.isEmpty) {
         try {
-          await _exerciseService.init();
           final regularExercises = await _exerciseService.getExercises();
           regularExercises.sort((a, b) => b.likes.compareTo(a.likes));
           for (final ex in regularExercises.take(5)) {
@@ -257,7 +261,6 @@ class _DiscoverSectionState extends State<DiscoverSection>
       if (cachedFoods != null && cachedFoods.isNotEmpty) {
         allFoods = cachedFoods;
       } else {
-        await _foodService.init();
         allFoods = await _foodService.getFoods();
         _cacheService.setFoods(allFoods);
       }

@@ -4,8 +4,10 @@ import 'package:gymaipro/my_club/my_club_main_screen.dart' show MyClubMainScreen
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
 import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
 
-/// Shared navigator key for cross-feature navigation.
+/// Shared navigator key for cross-feature navigation (MaterialApp root).
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
+NavigatorState? get rootNavigator => appNavigatorKey.currentState;
 
 /// Sub-tab indices inside [MyClubMainScreen] (باشگاه من).
 abstract final class MyClubTabs {
@@ -19,7 +21,7 @@ abstract final class MyClubTabs {
 
 /// Closes routes pushed above the root [MainNavigationScreen] (e.g. chat screens).
 void popRootNavigatorOverlays() {
-  final navigator = appNavigatorKey.currentState;
+  final navigator = rootNavigator;
   if (navigator == null || !navigator.canPop()) return;
   navigator.popUntil((route) => route.isFirst);
 }
@@ -28,7 +30,7 @@ void popRootNavigatorOverlays() {
 /// first route, pop the duplicate overlay instead of showing a blank page.
 void resolveDuplicateShellRoute(BuildContext context) {
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    final navigator = appNavigatorKey.currentState ?? Navigator.of(context);
+    final navigator = rootNavigator ?? Navigator.of(context);
     if (navigator.canPop()) {
       navigator.pop();
     }
@@ -50,7 +52,7 @@ void goToMainApp([BuildContext? context]) {
     openMainDashboard();
     return;
   }
-  final rootNav = appNavigatorKey.currentState;
+  final rootNav = rootNavigator;
   if (rootNav != null) {
     rootNav.pushNamedAndRemoveUntil('/main', (route) => false);
     return;
@@ -139,7 +141,7 @@ Future<T?>? navigateAppRoute<T extends Object?>(
   if (tryNavigateIntegratedRoute(route, arguments: args)) {
     return null;
   }
-  final navigator = appNavigatorKey.currentState;
+  final navigator = rootNavigator;
   if (navigator == null) return null;
   return navigator.pushNamed<T>(route, arguments: arguments);
 }

@@ -34,7 +34,11 @@ class _WeeklyMuscleHeatmapSectionState
   @override
   void initState() {
     super.initState();
-    unawaited(_load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 1800), () {
+        if (mounted) unawaited(_load());
+      });
+    });
   }
 
   @override

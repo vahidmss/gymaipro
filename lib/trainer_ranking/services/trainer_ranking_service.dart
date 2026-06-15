@@ -21,6 +21,9 @@ class TrainerRankingService {
   final ProfileRepository _profiles = ProfileRepository.instance;
   static const String _cacheKey = 'trainer_rankings';
   static const Duration _cacheExpiry = Duration(minutes: 10);
+  static Future<void>? _bulkRankUpdateInFlight;
+  static DateTime? _lastBulkRankUpdate;
+  static const Duration _bulkRankUpdateCooldown = Duration(minutes: 10);
 
   // Check if cache is still valid
   Future<bool> get _isCacheValid async {
@@ -323,6 +326,28 @@ class TrainerRankingService {
 
   // به‌روزرسانی ranking همه مربیان
   Future<void> _updateAllTrainerRankings() async {
+    if (_bulkRankUpdateInFlight != null) {
+      return _bulkRankUpdateInFlight!;
+    }
+    if (_lastBulkRankUpdate != null &&
+        DateTime.now().difference(_lastBulkRankUpdate!) <
+            _bulkRankUpdateCooldown) {
+      return;
+    }
+
+    final future = _runBulkRankUpdate();
+    _bulkRankUpdateInFlight = future;
+    try {
+      await future;
+      _lastBulkRankUpdate = DateTime.now();
+    } finally {
+      if (identical(_bulkRankUpdateInFlight, future)) {
+        _bulkRankUpdateInFlight = null;
+      }
+    }
+  }
+
+  Future<void> _runBulkRankUpdate() async {
     try {
       // دریافت همه مربیان
       final trainersResponse = await _profiles.fetchProfilesByRole(

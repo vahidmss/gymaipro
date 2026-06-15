@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/academy/models/workout_music.dart';
+import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -22,18 +23,17 @@ class MusicCacheService {
   // Key for storing explicitly downloaded music URLs
   static const String _downloadedUrlsKey = 'downloaded_music_urls';
 
+  /// Max auto-cache size (~250 MB). User downloads are not evicted here.
+  static const int _maxAutoCacheBytes = 250 * 1024 * 1024;
+
   /// Build a stable key for local storage, so signed URLs (with changing query params)
   /// still map to the same local file.
-  ///
-  /// Example:
-  /// - Input:  https://.../file.mp3?token=abc
-  /// - Output: https://.../file.mp3
   String _storageKey(String url) {
     final normalized = WorkoutMusic.normalizeAudioUrl(url);
     if (normalized.isEmpty) return normalized;
     try {
       final uri = Uri.parse(normalized);
-      return uri.replace().toString();
+      return uri.replace(queryParameters: {}, fragment: '').toString();
     } catch (_) {
       return normalized;
     }
@@ -117,12 +117,11 @@ class MusicCacheService {
     }
   }
 
-  /// Cache music in background (for performance, temporary)
-  /// This is automatic cache that happens after playback
+  /// Cache music in background (for performance, temporary).
+  /// Only on Wi‑Fi/Ethernet — never burns mobile data for auto-cache.
   Future<String?> cacheMusic(String url) async {
     final key = _storageKey(url);
     if (_cachingUrls[key] ?? false) {
-      // Already caching
       return null;
     }
 
@@ -133,9 +132,13 @@ class MusicCacheService {
         return cachedPath;
       }
 
+      if (!await ConnectivityService.instance.isOnUnmeteredNetwork) {
+        debugPrint('Skipping auto-cache (not on Wi-Fi): $key');
+        return null;
+      }
+
       _cachingUrls[key] = true;
 
-      // Download music
       final response = await http
           .get(Uri.parse(url))
           .timeout(const Duration(minutes: 5));
@@ -148,6 +151,7 @@ class MusicCacheService {
         await file.writeAsBytes(response.bodyBytes);
         _cachingUrls[key] = false;
 
+        await _enforceAutoCacheLimit();
         return file.path;
       } else {
         _cachingUrls[key] = false;
@@ -157,6 +161,42 @@ class MusicCacheService {
       _cachingUrls[key] = false;
       debugPrint('Error caching music: $e');
       return null;
+    }
+  }
+
+  /// Evict oldest auto-cached files when over the size cap (LRU by modified time).
+  Future<void> _enforceAutoCacheLimit() async {
+    try {
+      final cacheDir = await _getCacheDirectory();
+      if (!await cacheDir.exists()) return;
+
+      final files = <File>[];
+      var totalSize = 0;
+      await for (final entity in cacheDir.list(recursive: false)) {
+        if (entity is File) {
+          final size = await entity.length();
+          totalSize += size;
+          files.add(entity);
+        }
+      }
+
+      if (totalSize <= _maxAutoCacheBytes) return;
+
+      files.sort(
+        (a, b) => a.lastModifiedSync().compareTo(b.lastModifiedSync()),
+      );
+
+      for (final file in files) {
+        if (totalSize <= _maxAutoCacheBytes) break;
+        try {
+          final size = await file.length();
+          await file.delete();
+          totalSize -= size;
+          debugPrint('🗑️ Evicted auto-cache: ${file.path}');
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('Error enforcing cache limit: $e');
     }
   }
 

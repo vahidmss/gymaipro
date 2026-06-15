@@ -60,6 +60,14 @@ class MainNavigationScreen extends StatefulWidget {
     }
   }
 
+  /// Back from social/chat hub to main menu (dashboard tab).
+  static void leaveSocialTab() {
+    final state = _currentState;
+    if (state != null && state.mounted) {
+      state.handleSocialTabBack();
+    }
+  }
+
   /// رفتن به آکادمی با تب موزیک و پخش یک موزیک خاص (مثل لمس از کاروسل)
   static void navigateToAcademyWithMusic(WorkoutMusic music) {
     final state = _currentState;
@@ -82,6 +90,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex =
       NavigationConstants.dashboardIndex; // شروع با داشبورد (دکمه مرکزی)
   late PageController _pageController;
+  final List<int> _tabBackStack = [NavigationConstants.dashboardIndex];
   int? _pendingAcademyTabIndex;
   WorkoutMusic? _pendingAcademyMusic;
   int? _pendingMyClubTabIndex;
@@ -123,13 +132,37 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     super.dispose();
   }
 
-  void _onNavItemTapped(int index) {
-    if (!NavigationUtils.canNavigate()) return;
+  void _onNavItemTapped(int index, {bool bypassDebounce = false}) {
+    if (!bypassDebounce && !NavigationUtils.canNavigate()) return;
+
+    if (index != _currentIndex) {
+      _tabBackStack.remove(index);
+      _tabBackStack.add(index);
+    }
 
     setState(() {
       _currentIndex = index;
     });
     _pageController.jumpToPage(index);
+  }
+
+  void _leaveCurrentTabToDashboard() {
+    NavigationGuard.resetBackPress();
+    _onNavItemTapped(
+      NavigationConstants.dashboardIndex,
+      bypassDebounce: true,
+    );
+  }
+
+  Future<void> _handleBackPress() async {
+    // اگر روی تب داشبورد نیستیم، به داشبورد (منوی اصلی) برگرد
+    if (_currentIndex != NavigationConstants.dashboardIndex) {
+      _leaveCurrentTabToDashboard();
+      return;
+    }
+
+    // اگر روی تب داشبورد هستیم، از NavigationGuard استفاده کن
+    await NavigationGuard.handleBackPress(context);
   }
 
   Future<void> _loadUserRole() async {
@@ -184,23 +217,23 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     _onNavItemTapped(NavigationConstants.myClubIndex);
   }
 
-  Future<bool> _handleBackPress() async {
-    // اگر روی تب داشبورد نیستیم، به داشبورد برو
-    if (_currentIndex != NavigationConstants.dashboardIndex) {
-      _onNavItemTapped(NavigationConstants.dashboardIndex);
-      return false; // جلوگیری از خروج
+  /// Called from [ChatMainScreen] when social tab handles system back.
+  void handleSocialTabBack() {
+    if (_currentIndex == NavigationConstants.socialIndex) {
+      _leaveCurrentTabToDashboard();
     }
-
-    // اگر روی تب داشبورد هستیم، از NavigationGuard استفاده کن
-    return NavigationGuard.handleBackPress(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final hideBottomNav = _currentIndex == NavigationConstants.socialIndex;
-    return WillPopScope(
-      onWillPop: _handleBackPress,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBackPress();
+      },
       child: DecoratedBox(
         decoration: isDark
             ? const BoxDecoration()
@@ -250,6 +283,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               // اجتماعی / چت‌ها (index 4) - گفتگوها و چت همگانی
               ChatMainScreen(
                 initialTabIndex: _pendingSocialTabIndex ?? 0,
+                isActiveTab: _currentIndex == NavigationConstants.socialIndex,
               ),
             ],
           ),

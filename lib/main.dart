@@ -8,12 +8,14 @@ import 'package:gymaipro/achievements/services/achievement_service.dart';
 import 'package:gymaipro/chat/services/chat_unread_notifier.dart';
 import 'package:gymaipro/core/app_error_handler.dart';
 import 'package:gymaipro/core/app_initializer.dart';
+import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/core/lifecycle_observer.dart';
 import 'package:gymaipro/core/performance_monitor.dart';
 import 'package:gymaipro/debug/global_key_debugger.dart';
 import 'package:gymaipro/guide/guide.dart';
 import 'package:gymaipro/payment/services/payment_deeplink_service.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
+import 'package:gymaipro/services/backend_reachability_service.dart';
 import 'package:gymaipro/services/notification_navigation_service.dart';
 import 'package:gymaipro/notification/providers/notification_provider.dart';
 import 'package:gymaipro/services/route_service.dart';
@@ -48,12 +50,15 @@ class BootstrapApp extends StatefulWidget {
 
 enum _BootPhase { loading, done, failed }
 
+enum _BootFailureReason { noNetwork, serverUnreachable, initError }
+
 class _BootstrapAppState extends State<BootstrapApp> {
   _BootPhase _phase = _BootPhase.loading;
   AppInitResult? _result;
 
   bool _isInitializing = false;
   bool _showSlowHint = false;
+  _BootFailureReason _failureReason = _BootFailureReason.noNetwork;
   Timer? _slowTimer;
   StreamSubscription<bool>? _connectivitySub;
 
@@ -90,6 +95,17 @@ class _BootstrapAppState extends State<BootstrapApp> {
     });
 
     try {
+      final online = await ConnectivityService.instance.checkNow();
+      if (!online) {
+        _slowTimer?.cancel();
+        if (!mounted) return;
+        setState(() {
+          _phase = _BootPhase.failed;
+          _failureReason = _BootFailureReason.noNetwork;
+        });
+        return;
+      }
+
       final result = await AppInitializer.initialize();
       _slowTimer?.cancel();
       if (!mounted) return;
@@ -100,16 +116,39 @@ class _BootstrapAppState extends State<BootstrapApp> {
           _result = result;
         });
       } else {
-        setState(() => _phase = _BootPhase.failed);
+        final backendReachable =
+            await BackendReachabilityService.isBackendReachable();
+        setState(() {
+          _phase = _BootPhase.failed;
+          _failureReason = backendReachable
+              ? _BootFailureReason.initError
+              : _BootFailureReason.serverUnreachable;
+        });
       }
     } catch (e) {
       _slowTimer?.cancel();
       if (kDebugMode) debugPrint('Bootstrap init error: $e');
       if (!mounted) return;
-      setState(() => _phase = _BootPhase.failed);
+      setState(() {
+        _phase = _BootPhase.failed;
+        _failureReason = _BootFailureReason.initError;
+      });
     } finally {
       _isInitializing = false;
     }
+  }
+
+  Future<void> _retryInit() async {
+    final online = await ConnectivityService.instance.checkNow();
+    if (!online) {
+      if (!mounted) return;
+      setState(() {
+        _phase = _BootPhase.failed;
+        _failureReason = _BootFailureReason.noNetwork;
+      });
+      return;
+    }
+    await _startInit();
   }
 
   void _listenConnectivity() {
@@ -139,7 +178,8 @@ class _BootstrapAppState extends State<BootstrapApp> {
     return _SplashMaterialApp(
       phase: _phase,
       showSlowHint: _showSlowHint,
-      onRetry: _startInit,
+      failureReason: _failureReason,
+      onRetry: _retryInit,
     );
   }
 }
@@ -152,11 +192,13 @@ class _SplashMaterialApp extends StatelessWidget {
   const _SplashMaterialApp({
     required this.phase,
     required this.showSlowHint,
+    required this.failureReason,
     required this.onRetry,
   });
 
   final _BootPhase phase;
   final bool showSlowHint;
+  final _BootFailureReason failureReason;
   final VoidCallback onRetry;
 
   @override
@@ -166,6 +208,7 @@ class _SplashMaterialApp extends StatelessWidget {
       home: _SplashScreen(
         phase: phase,
         showSlowHint: showSlowHint,
+        failureReason: failureReason,
         onRetry: onRetry,
       ),
     );
@@ -176,11 +219,13 @@ class _SplashScreen extends StatefulWidget {
   const _SplashScreen({
     required this.phase,
     required this.showSlowHint,
+    required this.failureReason,
     required this.onRetry,
   });
 
   final _BootPhase phase;
   final bool showSlowHint;
+  final _BootFailureReason failureReason;
   final VoidCallback onRetry;
 
   @override
@@ -215,123 +260,163 @@ class _SplashScreenState extends State<_SplashScreen>
   @override
   Widget build(BuildContext context) {
     final isFailed = widget.phase == _BootPhase.failed;
+    final failure = widget.failureReason;
+
+    final String title;
+    final String subtitle;
+    final IconData failureIcon;
+
+    switch (failure) {
+      case _BootFailureReason.serverUnreachable:
+        title = 'سرور در دسترس نیست';
+        subtitle = 'اینترنت وصل است ولی به سرور نمی‌رسیم';
+        failureIcon = Icons.cloud_off_rounded;
+      case _BootFailureReason.initError:
+        title = 'خطا در راه‌اندازی';
+        subtitle = 'لطفاً دوباره تلاش کنید';
+        failureIcon = Icons.error_outline_rounded;
+      case _BootFailureReason.noNetwork:
+        title = 'اتصال اینترنت نیست';
+        subtitle = 'اینترنت را روشن کنید و دوباره تلاش کنید';
+        failureIcon = Icons.wifi_off_rounded;
+    }
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFF0A0A0A),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FadeTransition(
-                  opacity: isFailed
-                      ? const AlwaysStoppedAnimation(1)
-                      : _fadeAnimation,
-                  child: const Image(
-                    image: AssetImage('images/mainlogo_no_bg.png'),
-                    width: 130,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FadeTransition(
+                    opacity: isFailed
+                        ? const AlwaysStoppedAnimation(1)
+                        : _fadeAnimation,
+                    child: const Image(
+                      image: AssetImage('images/mainlogo_no_bg.png'),
+                      width: 130,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 48),
-                AnimatedOpacity(
-                  opacity: isFailed ? 0 : 1,
-                  duration: const Duration(milliseconds: 300),
-                  child: SizedBox(
-                    width: 56,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: LinearProgressIndicator(
-                        minHeight: 2,
-                        backgroundColor: Colors.white.withValues(alpha: 0.08),
-                        color: AppTheme.goldColor.withValues(alpha: 0.6),
+                  const SizedBox(height: 48),
+                  AnimatedOpacity(
+                    opacity: isFailed ? 0 : 1,
+                    duration: const Duration(milliseconds: 300),
+                    child: SizedBox(
+                      width: 56,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          minHeight: 2,
+                          backgroundColor: Colors.white.withValues(alpha: 0.08),
+                          color: AppTheme.goldColor.withValues(alpha: 0.6),
+                        ),
                       ),
                     ),
                   ),
-                ),
-                if (isFailed) ...[
-                  const SizedBox(height: 20),
-                  Icon(
-                    Icons.wifi_off_rounded,
-                    size: 28,
-                    color: Colors.white.withValues(alpha: 0.4),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'اتصال نیست',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white.withValues(alpha: 0.7),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'اینترنت را چک کنید',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  TextButton(
-                    onPressed: widget.onRetry,
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.goldColor,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 28,
-                        vertical: 12,
+                  if (isFailed) ...[
+                    const SizedBox(height: 28),
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppTheme.goldColor.withValues(alpha: 0.06),
+                        border: Border.all(
+                          color: AppTheme.goldColor.withValues(alpha: 0.18),
+                        ),
+                      ),
+                      child: Icon(
+                        failureIcon,
+                        size: 32,
+                        color: AppTheme.goldColor.withValues(alpha: 0.85),
                       ),
                     ),
-                    child: const Text(
-                      'تلاش مجدد',
+                    const SizedBox(height: 20),
+                    Text(
+                      title,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white.withValues(alpha: 0.9),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    Text(
+                      subtitle,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.white.withValues(alpha: 0.45),
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: widget.onRetry,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppTheme.goldColor,
+                          foregroundColor: AppTheme.onGoldColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'تلاش مجدد',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (!isFailed)
+                    AnimatedOpacity(
+                      opacity: widget.showSlowHint ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 500),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 28),
+                        child: Column(
+                          children: [
+                            Text(
+                              'در حال اتصال...',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white.withValues(alpha: 0.55),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'وی‌پی‌ان روشن است؟ خاموشش کنید.',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.white.withValues(alpha: 0.45),
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
-                if (!isFailed)
-                  AnimatedOpacity(
-                    opacity: widget.showSlowHint ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 500),
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 28),
-                      child: Column(
-                        children: [
-                          Text(
-                            'در حال اتصال...',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white.withValues(alpha: 0.55),
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'وی‌پی‌ان روشن است؟ خاموشش کنید.',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.white.withValues(alpha: 0.45),
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
           ),
         ),
@@ -353,8 +438,7 @@ class MyApp extends StatefulWidget {
 
   final String initialRoute;
   final SupabaseService supabaseService;
-  static final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>();
+  static GlobalKey<NavigatorState> get navigatorKey => appNavigatorKey;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -407,9 +491,13 @@ class _MyAppState extends State<MyApp> {
       if (mounted) _chatUnreadNotifier.initialize(widget.supabaseService);
     });
 
-    final scoreService = ScoreService();
-    scoreService.init().catchError((Object e) {
-      debugPrint('Error initializing ScoreService: $e');
+    Future<void>.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        final scoreService = ScoreService();
+        scoreService.init().catchError((Object e) {
+          debugPrint('Error initializing ScoreService: $e');
+        });
+      }
     });
   }
 
@@ -499,7 +587,7 @@ class _MyAppState extends State<MyApp> {
               return MaterialApp(
                 title: 'GymAI Pro',
                 debugShowCheckedModeBanner: false,
-                navigatorKey: MyApp.navigatorKey,
+                navigatorKey: appNavigatorKey,
                 locale: const Locale('fa'),
                 builder: (context, child) {
                   final isDark =

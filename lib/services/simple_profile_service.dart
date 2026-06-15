@@ -28,6 +28,24 @@ class SimpleProfileService {
     _inFlightProfile = null;
   }
 
+  static const Set<String> _presenceOnlyKeys = {
+    'last_active_at',
+    'last_seen_at',
+    'is_online',
+    'updated_at',
+  };
+
+  static bool _isPresenceOnlyUpdate(Map<String, dynamic> updates) {
+    if (updates.isEmpty) return false;
+    return updates.keys.every(_presenceOnlyKeys.contains);
+  }
+
+  static void _patchCachedProfile(Map<String, dynamic> updates) {
+    if (_cachedProfile == null) return;
+    _cachedProfile!.addAll(updates);
+    _cachedProfileAt = DateTime.now();
+  }
+
   static List<String> _phoneVariants(String raw) {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return const [];
@@ -268,9 +286,6 @@ class SimpleProfileService {
         return false;
       }
 
-      debugPrint('Updating profile for profileId: $profileId');
-      debugPrint('Updates: $updates');
-
       // حذف فیلدهای غیرضروری از updates
       final cleanUpdates = Map<String, dynamic>.from(updates);
       cleanUpdates.remove('id'); // حذف id از updates
@@ -310,20 +325,26 @@ class SimpleProfileService {
 
       cleanUpdates['updated_at'] = DateTime.now().toUtc().toIso8601String();
 
-      debugPrint('Clean updates: $cleanUpdates');
+      final presenceOnly = _isPresenceOnlyUpdate(cleanUpdates);
+      if (!presenceOnly) {
+        debugPrint('Updating profile for profileId: $profileId');
+        debugPrint('Updates: $updates');
+        debugPrint('Clean updates: $cleanUpdates');
+      }
 
-      // ابتدا بررسی کن که کاربر وجود دارد
-      final checkResponse = await client
-          .from('profiles')
-          .select('id, username, first_name, last_name')
-          .eq('id', profileId)
-          .maybeSingle();
+      if (!presenceOnly) {
+        final checkResponse = await client
+            .from('profiles')
+            .select('id, username, first_name, last_name')
+            .eq('id', profileId)
+            .maybeSingle();
 
-      debugPrint('User check response: $checkResponse');
+        debugPrint('User check response: $checkResponse');
 
-      if (checkResponse == null) {
-        debugPrint('User not found in database!');
-        return false;
+        if (checkResponse == null) {
+          debugPrint('User not found in database!');
+          return false;
+        }
       }
 
       final response = await client
@@ -332,19 +353,25 @@ class SimpleProfileService {
           .eq('id', profileId)
           .select();
 
-      debugPrint('Profile update response: $response');
+      if (!presenceOnly) {
+        debugPrint('Profile update response: $response');
+      }
 
       if (response.isNotEmpty) {
-        _log('Profile updated successfully');
-        // Invalidate dashboard/profile caches to ensure fresh data after update
-        try {
-          DashboardCacheService().invalidateDashboard();
-        } catch (_) {}
-        // Invalidate in-memory profile cache
-        invalidateCache();
+        if (presenceOnly) {
+          _patchCachedProfile(cleanUpdates);
+        } else {
+          _log('Profile updated successfully');
+          try {
+            DashboardCacheService().invalidateDashboard();
+          } catch (_) {}
+          invalidateCache();
+        }
         return true;
       } else {
-        _log('Profile update failed - no response');
+        if (!presenceOnly) {
+          _log('Profile update failed - no response');
+        }
         return false;
       }
     } catch (e) {

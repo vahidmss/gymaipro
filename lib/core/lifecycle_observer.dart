@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gymaipro/chat/services/chat_presence_service.dart';
+import 'package:gymaipro/academy/services/music_player_service.dart';
 import 'package:gymaipro/core/app_initializer.dart';
 import 'package:gymaipro/notification/notification_service.dart';
 import 'package:gymaipro/notification/services/notification_fallback_sync_service.dart';
@@ -54,6 +55,13 @@ class _LifecycleObserverState extends State<LifecycleObserver>
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       _markInactive('$state');
+      if (state == AppLifecycleState.detached) {
+        MusicPlayerService().handleAppDetached().catchError((Object e) {
+          if (kDebugMode) {
+            debugPrint('LifecycleObserver music stop on detach: $e');
+          }
+        });
+      }
     }
   }
 

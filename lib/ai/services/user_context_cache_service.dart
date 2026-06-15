@@ -48,6 +48,32 @@ class UserContextCacheService {
   /// به‌روزرسانی کش اطلاعات کاربر (در بک‌گراند)
   /// این متد تمام اطلاعات لازم را از دیتابیس می‌گیرد و در حافظه داخلی ذخیره می‌کند
   static Future<void> refreshUserContextCache() async {
+    final now = DateTime.now();
+    if (_refreshInFlight != null) {
+      return _refreshInFlight!;
+    }
+    if (_lastRefreshAt != null &&
+        now.difference(_lastRefreshAt!) < _refreshCooldown) {
+      if (kDebugMode) {
+        debugPrint('AI Context Cache: refresh skipped (cooldown active)');
+      }
+      return;
+    }
+
+    _refreshInFlight = _refreshUserContextCacheInternal();
+    try {
+      await _refreshInFlight!;
+      _lastRefreshAt = DateTime.now();
+    } finally {
+      _refreshInFlight = null;
+    }
+  }
+
+  static Future<void>? _refreshInFlight;
+  static DateTime? _lastRefreshAt;
+  static const Duration _refreshCooldown = Duration(minutes: 10);
+
+  static Future<void> _refreshUserContextCacheInternal() async {
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) {

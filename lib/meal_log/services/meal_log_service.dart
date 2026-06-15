@@ -127,11 +127,6 @@ class MealLogService {
                   'updated_at': DateTime.now().toIso8601String(),
                 })
                 .eq('id', existing['id'] as String);
-            // ردیابی برای امتیاز رتبه‌بندی (وعده به روز موجود اضافه شده)
-            try {
-              await RankingTrackerHelper().trackMealLog();
-              RankingService().updateCurrentUserRanking();
-            } catch (_) {}
           } else {
             // Insert new log
             await client.from(_tableName).insert({

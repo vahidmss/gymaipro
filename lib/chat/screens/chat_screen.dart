@@ -593,7 +593,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
+    return PopScope(
+      canPop: Navigator.of(context).canPop(),
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Theme(
       data: Theme.of(
         context,
       ).copyWith(scaffoldBackgroundColor: context.backgroundColor),
@@ -632,6 +640,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ],
         ),
       ),
+    ),
     );
   }
 

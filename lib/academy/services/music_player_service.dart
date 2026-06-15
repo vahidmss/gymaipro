@@ -75,6 +75,22 @@ class MusicPlayerService extends ChangeNotifier {
   bool get hasNext => _getNextIndex() != null;
   bool get hasPrevious => _getPreviousIndex() != null;
 
+  /// Whether [music] is the track currently loaded in the player (by id or URL).
+  bool isCurrentTrack(WorkoutMusic music) {
+    final current = _currentMusic;
+    if (current == null) return false;
+    final targetUrl = WorkoutMusic.normalizeAudioUrl(music.audioUrl);
+    final currentUrl = WorkoutMusic.normalizeAudioUrl(current.audioUrl);
+    return current.id == music.id || currentUrl == targetUrl;
+  }
+
+  /// Stop playback when the app process is being torn down (swipe from recents).
+  Future<void> handleAppDetached() async {
+    if (!_isPlaying && _currentMusic == null) return;
+    debugPrint('⏹️ App detached — stopping music playback');
+    await stop(clearSelection: true);
+  }
+
   // Helper method to safely handle PlatformException and other errors
   void _handleError(Object error, String context) {
     if (error is PlatformException) {
@@ -167,17 +183,8 @@ class MusicPlayerService extends ChangeNotifier {
       _audioPlayer.onPositionChanged.listen((position) {
         _position = position;
         notifyListeners();
-        // Update notification less frequently
         if (position.inSeconds % 3 == 0) {
           _debouncedNotificationUpdate();
-        }
-        
-        // Smart cache: cache music after 80% playback (for next time)
-        if (_duration.inMilliseconds > 0 && 
-            position.inMilliseconds > 0 &&
-            !_isCachingCurrentTrack &&
-            position.inMilliseconds / _duration.inMilliseconds > 0.8) {
-          _cacheCurrentTrackInBackground();
         }
       });
 
@@ -230,18 +237,16 @@ class MusicPlayerService extends ChangeNotifier {
   }
 
   void setPlaylist(List<WorkoutMusic> musicList) {
-    // اگر موزیکی در حال پخش است، index آن را در playlist جدید پیدا کن
     final currentUrl = _currentPlayingUrl;
     final currentId = _currentMusic?.id;
-    
-    _playlist = musicList;
+
+    _playlist = List.from(musicList);
     if (_isShuffled) {
       _generateShuffledIndices();
     } else {
       _shuffledIndices.clear();
     }
-    
-    // اگر موزیکی در حال پخش است، index آن را در playlist جدید پیدا کن
+
     if (currentUrl != null || currentId != null) {
       int? foundIndex;
       for (int i = 0; i < _playlist.length; i++) {
@@ -255,34 +260,21 @@ class MusicPlayerService extends ChangeNotifier {
           break;
         }
       }
-      
+
       if (foundIndex != null) {
         _currentIndex = foundIndex;
-        // به‌روزرسانی _currentMusic از playlist جدید
         _currentMusic = _playlist[foundIndex];
-        debugPrint('✅ Found current music in new playlist at index: $foundIndex');
-      } else if (_currentMusic != null) {
-        // اگر موزیک فعلی در playlist جدید نیست، آن را به ابتدای playlist اضافه کن
-        // اینطوری کاربر می‌تواند از playlist فعلی استفاده کند
-        _playlist.insert(0, _currentMusic!);
-        _currentIndex = 0;
-        // shuffled indices را دوباره تولید کن
-        if (_isShuffled) {
-          _generateShuffledIndices();
-        }
-        debugPrint('ℹ️ Current music not in new playlist, added to start at index 0');
       } else {
+        // Keep playing the current track but do NOT inject it into tab lists.
         _currentIndex = -1;
-        debugPrint('ℹ️ No current music, resetting index');
       }
     } else if (_currentIndex >= _playlist.length) {
       _currentIndex = -1;
-      // اگر موزیکی در حال پخش نیست، _currentMusic را هم null کن
       if (!_isPlaying) {
         _currentMusic = null;
       }
     }
-    
+
     notifyListeners();
   }
 
@@ -370,9 +362,8 @@ class MusicPlayerService extends ChangeNotifier {
       );
     }
     if (targetIndex < 0) {
-      // As a last resort, inject into playlist so we can play it reliably.
-      _playlist.insert(0, music);
-      targetIndex = 0;
+      // Play without polluting the tab-filtered playlist shown in the UI.
+      targetIndex = -1;
     }
 
     // Cancel any ongoing operation if user wants to play different music
@@ -422,10 +413,9 @@ class MusicPlayerService extends ChangeNotifier {
     // Reset cancellation flag at the start of new operation
     _isCancelled = false;
 
-    // If the same track is already playing, do nothing (UI should call togglePlayPause)
+      // Check if the same track is already playing, do nothing (UI should call togglePlayPause)
     if (_currentPlayingUrl == normalizedUrl &&
-        _currentIndex == targetIndex &&
-        _currentIndex >= 0 &&
+        isCurrentTrack(music) &&
         _isPlaying &&
         !_isLoading) {
       debugPrint('ℹ️ Already playing (no reload): ${music.title}');
@@ -1305,15 +1295,23 @@ class MusicPlayerService extends ChangeNotifier {
 
   void _onTrackComplete() {
     try {
-      // Cache current track after completion
-      _cacheCurrentTrackInBackground();
-      
+      // Auto-cache only after a full listen (Wi‑Fi only, handled in cache service).
+      // Avoids double-download while still streaming.
+      final listenedEnough = _duration.inMilliseconds <= 0 ||
+          _position.inMilliseconds / _duration.inMilliseconds >= 0.85;
+      if (listenedEnough) {
+        _cacheCurrentTrackInBackground();
+      }
+
       if (_repeatMode == MusicRepeatMode.one) {
-        // Replay current track
-        if (_currentIndex >= 0 && _currentIndex < _playlist.length) {
-          playMusic(_playlist[_currentIndex], index: _currentIndex).catchError((
-            Object e,
-          ) {
+        final replay = _currentIndex >= 0 && _currentIndex < _playlist.length
+            ? _playlist[_currentIndex]
+            : _currentMusic;
+        if (replay != null) {
+          playMusic(
+            replay,
+            index: _currentIndex >= 0 ? _currentIndex : null,
+          ).catchError((Object e) {
             debugPrint('❌ Error replaying track: $e');
             _isPlaying = false;
             _position = Duration.zero;
@@ -1432,13 +1430,17 @@ class MusicPlayerService extends ChangeNotifier {
       _notificationService.updateCallbacks();
 
       try {
-        // Stop audio player
+        // Stop audio player and release native resources (prevents ghost playback).
         try {
           await _audioPlayer.stop().timeout(
             const Duration(seconds: 2),
             onTimeout: () {
               debugPrint('⚠️ Stop timeout, continuing');
             },
+          );
+          await _audioPlayer.release().timeout(
+            const Duration(seconds: 2),
+            onTimeout: () {},
           );
         } catch (e) {
           _handleError(e, 'stopping player in stop()');

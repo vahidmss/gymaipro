@@ -62,6 +62,7 @@ class ExerciseService {
   final CustomExerciseService _customExerciseService = CustomExerciseService();
   List<Exercise>? _cachedExercises;
   DateTime? _lastCacheTime;
+  Future<List<Exercise>>? _inFlightLoad;
   static const Duration _cacheValidity = Duration(
     hours: 24,
   ); // افزایش مدت اعتبار cache
@@ -164,16 +165,38 @@ exercise_difficulty_score, estimated_1rm_formula, views_count, likes_count, sour
 
   // Get all exercises with caching - از Supabase استفاده می‌کند
   Future<List<Exercise>> getExercises({bool forceRefresh = false}) async {
-    // Return cached exercises if still valid (unless force refresh)
+    if (forceRefresh) {
+      _inFlightLoad = null;
+    } else if (_inFlightLoad != null) {
+      return _inFlightLoad!;
+    }
+
+    if (!forceRefresh &&
+        _cachedExercises != null &&
+        _lastCacheTime != null) {
+      final timeSinceLastCache = DateTime.now().difference(_lastCacheTime!);
+      if (timeSinceLastCache < _cacheValidity) {
+        return _applyUserDataToExercises(_cachedExercises!);
+      }
+    }
+
     if (!forceRefresh) {
-      if (_cachedExercises != null && _lastCacheTime != null) {
-        final timeSinceLastCache = DateTime.now().difference(_lastCacheTime!);
-        if (timeSinceLastCache < _cacheValidity) {
-          return _applyUserDataToExercises(_cachedExercises!);
+      final future = _getExercisesUncached(forceRefresh: false);
+      _inFlightLoad = future;
+      try {
+        return await future;
+      } finally {
+        if (identical(_inFlightLoad, future)) {
+          _inFlightLoad = null;
         }
       }
+    }
 
-      // Try persistent cache
+    return _getExercisesUncached(forceRefresh: true);
+  }
+
+  Future<List<Exercise>> _getExercisesUncached({required bool forceRefresh}) async {
+    if (!forceRefresh) {
       try {
         final cachedExercises = await getExercisesFromCache();
         if (cachedExercises != null) {
@@ -184,6 +207,12 @@ exercise_difficulty_score, estimated_1rm_formula, views_count, likes_count, sour
       }
     }
 
+    return _fetchExercisesFromNetwork(forceRefresh: forceRefresh);
+  }
+
+  Future<List<Exercise>> _fetchExercisesFromNetwork({
+    required bool forceRefresh,
+  }) async {
     try {
       // اول از Supabase تلاش می‌کنیم (سریع‌تر)
       try {

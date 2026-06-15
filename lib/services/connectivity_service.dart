@@ -78,6 +78,18 @@ class ConnectivityService {
   /// آخرین وضعیت تشخیص وی‌پی‌ان (بعد از [checkNow] یا [initialize] معتبر است).
   bool get isVpn => _lastVpn;
 
+  /// True when the device is on Wi‑Fi or Ethernet (unmetered). Used for smart media cache.
+  Future<bool> get isOnUnmeteredNetwork async {
+    final results = await _connectivity.checkConnectivity();
+    if (results.isEmpty || results.contains(ConnectivityResult.none)) {
+      return false;
+    }
+    return results.any(
+      (r) =>
+          r == ConnectivityResult.wifi || r == ConnectivityResult.ethernet,
+    );
+  }
+
   /// Checks connectivity now and updates last known status.
   /// Also emits on [isConnectedStream] if the status changed.
   Future<bool> checkNow() async {

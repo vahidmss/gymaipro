@@ -1,23 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gymaipro/auth/services/auth_state_service.dart';
+import 'package:gymaipro/theme/app_theme.dart';
 
 class NavigationGuard {
   static DateTime? _lastBackPressed;
 
-  /// Handle back button press with navigation guard
-  static Future<bool> handleBackPress(BuildContext context) async {
+  static void resetBackPress() {
+    _lastBackPressed = null;
+  }
+
+  /// Handle back button press with navigation guard.
+  /// Uses PopScope at the shell level — does not return a pop decision.
+  static Future<void> handleBackPress(BuildContext context) async {
     try {
-      // Check if user is logged in
       final authService = AuthStateService();
       final isLoggedIn = await authService.isLoggedIn();
 
       if (!isLoggedIn) {
-        // User is not logged in, allow normal navigation
-        return true;
+        if (context.mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+        return;
       }
 
-      // User is logged in, implement double back to show exit dialog
       final now = DateTime.now();
       const maxDuration = Duration(seconds: 2);
       final isFirstPress =
@@ -25,43 +31,63 @@ class NavigationGuard {
           now.difference(_lastBackPressed!) > maxDuration;
 
       if (isFirstPress) {
-        // First back press - record the time
         _lastBackPressed = now;
-        return false; // Don't exit yet
-      } else {
-        // Double back pressed within 2 seconds - show exit dialog
-        _lastBackPressed = null; // Reset for next time
-
-        if (!context.mounted) return false;
-        final shouldExit = await showDialog<bool>(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('خروج از برنامه'),
-              content: const Text('آیا می‌خواهید از برنامه خارج شوید؟'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('خیر'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('بله'),
-                ),
-              ],
-            );
-          },
-        );
-
-        if (shouldExit ?? false) {
-          SystemNavigator.pop();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'برای خروج دوباره دکمه بازگشت را بزنید',
+                style: TextStyle(fontFamily: AppTheme.fontFamily),
+              ),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
         }
-        
-        return false;
+        return;
+      }
+
+      _lastBackPressed = null;
+
+      if (!context.mounted) return;
+      final shouldExit = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) {
+          return AlertDialog(
+            title: const Text(
+              'خروج از برنامه',
+              style: TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
+            content: const Text(
+              'آیا می‌خواهید از برنامه خارج شوید؟',
+              style: TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text(
+                  'خیر',
+                  style: TextStyle(fontFamily: AppTheme.fontFamily),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text(
+                  'بله',
+                  style: TextStyle(fontFamily: AppTheme.fontFamily),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (shouldExit ?? false) {
+        await SystemNavigator.pop();
       }
     } catch (e) {
       debugPrint('Error in handleBackPress: $e');
-      return true;
     }
   }
 

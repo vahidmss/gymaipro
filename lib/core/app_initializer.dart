@@ -36,6 +36,7 @@ class AppInitializer {
   /// Whether Supabase.initialize() completed successfully.
   static bool _supabaseInitialized = false;
   static bool _backgroundServicesStarted = false;
+  static bool _networkHeavyServicesStarted = false;
 
   /// Check if Supabase is ready before accessing Supabase.instance.
   static bool get isSupabaseReady => _supabaseInitialized;
@@ -152,9 +153,11 @@ class AppInitializer {
         _initializeSupabase(),
       ]);
       _coreInitialized = true;
-    } else if (!dotenv.isInitialized) {
-      // Hot restart: dotenv ریست می‌شود ولی _coreInitialized می‌ماند.
-      await _loadEnvironmentVariables();
+    } else {
+      // Retry path: first launch may have failed while offline.
+      if (!dotenv.isInitialized) {
+        await _loadEnvironmentVariables();
+      }
       if (!_supabaseInitialized && AppConfig.supabaseAnonKey.isNotEmpty) {
         await _initializeSupabase();
       }
@@ -388,28 +391,26 @@ class AppInitializer {
   }
 
   static Future<void> _initializeAppServices() async {
-    if (_backgroundServicesStarted) return;
-    _backgroundServicesStarted = true;
     final canBackend = await ConnectivityService.instance.canReachAppBackend();
 
-    // Stage background services to reduce startup contention/jank.
-    // Critical/near-critical first, heavier preloads later.
-    unawaited(_initVideoCacheService());
-    // Delay heavy notification wiring slightly so first frame is not blocked.
-    unawaited(
-      Future<void>.delayed(const Duration(milliseconds: 1200), () async {
-        await _initNotificationService();
-      }),
-    );
-    if (canBackend) {
-      unawaited(_initDatabaseMigrations());
-    } else if (kDebugMode) {
-      debugPrint(
-        'Skipping startup DB migrations stage: no usable network/DNS for backend',
+    if (!_backgroundServicesStarted) {
+      _backgroundServicesStarted = true;
+
+      // Stage background services to reduce startup contention/jank.
+      // Critical/near-critical first, heavier preloads later.
+      unawaited(_initVideoCacheService());
+      // Delay heavy notification wiring slightly so first frame is not blocked.
+      unawaited(
+        Future<void>.delayed(const Duration(milliseconds: 1200), () async {
+          await _initNotificationService();
+        }),
       );
     }
 
-    if (canBackend) {
+    // Network-heavy services may have been skipped on first offline launch.
+    if (canBackend && !_networkHeavyServicesStarted) {
+      _networkHeavyServicesStarted = true;
+      unawaited(_initDatabaseMigrations());
       unawaited(
         Future<void>.delayed(const Duration(milliseconds: 900), () async {
           await _initExerciseService();
@@ -425,7 +426,7 @@ class AppInitializer {
           await _preloadAIExercises();
         }),
       );
-    } else if (kDebugMode) {
+    } else if (!canBackend && kDebugMode) {
       debugPrint(
         'Skipping startup network-heavy services (exercise/food/AI preload) due to offline DNS state',
       );

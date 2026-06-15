@@ -46,13 +46,6 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Refresh cache status when widget rebuilds
-    _checkCache();
-  }
-
-  @override
   void didUpdateWidget(PlaylistItemWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Refresh cache and favorite status when music changes
@@ -291,7 +284,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
   Widget build(BuildContext context) {
     return Consumer<MusicPlayerService>(
       builder: (context, player, _) {
-        final isCurrent = player.currentIndex == widget.index;
+        final isCurrent = player.isCurrentTrack(widget.music);
         final isPlaying = isCurrent && player.isPlaying;
 
         return Container(
@@ -316,7 +309,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                   // Standard behavior:
                   // - If this is the current track, tapping the row toggles play/pause (no reload)
                   // - Otherwise, play the selected track
-                  final isCurrent = player.currentIndex == widget.index;
+                  final isCurrent = player.isCurrentTrack(widget.music);
                   if (isCurrent) {
                     await player.togglePlayPause();
                   } else {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/screens/chat_conversations_screen.dart';
 import 'package:gymaipro/chat/widgets/public_chat_widget.dart';
+import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -9,9 +10,12 @@ class ChatMainScreen extends StatefulWidget {
   const ChatMainScreen({
     super.key,
     this.initialTabIndex = 0,
+    this.isActiveTab = true,
   });
 
   final int initialTabIndex;
+  /// When embedded in [MainNavigationScreen], only the visible tab handles back.
+  final bool isActiveTab;
 
   @override
   State<ChatMainScreen> createState() => _ChatMainScreenState();
@@ -39,7 +43,7 @@ class _ChatMainScreenState extends State<ChatMainScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
+    final scaffold = Theme(
       data: Theme.of(context).copyWith(
         scaffoldBackgroundColor: context.backgroundColor,
         appBarTheme: AppBarTheme(
@@ -53,6 +57,11 @@ class _ChatMainScreenState extends State<ChatMainScreen>
         appBar: AppBar(
           backgroundColor: context.cardColor,
           elevation: 0,
+          leading: IconButton(
+            icon: Icon(LucideIcons.arrowRight, color: context.textColor),
+            tooltip: 'بازگشت به منو',
+            onPressed: _handleLeaveChatHub,
+          ),
           title: Row(
             textDirection: TextDirection.rtl,
             children: [
@@ -125,6 +134,33 @@ class _ChatMainScreenState extends State<ChatMainScreen>
         ),
       ),
     );
+
+    if (!widget.isActiveTab) {
+      return scaffold;
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleLeaveChatHub();
+      },
+      child: scaffold,
+    );
+  }
+
+  void _handleLeaveChatHub() {
+    if (_tabController.index > 0) {
+      _tabController.animateTo(0);
+      return;
+    }
+    if (MainNavigationScreen.isShellActive) {
+      MainNavigationScreen.leaveSocialTab();
+      return;
+    }
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
   }
 
   Widget _buildTabBar() {

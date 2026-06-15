@@ -68,6 +68,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _isLoading = true;
   int? _walletAvailableBalance;
   int _refreshKey = 0; // برای force rebuild ویجت‌های فرزند
+  bool _gamificationBootstrapScheduled = false;
   final InAppAnnouncementService _announcementService =
       InAppAnnouncementService();
   bool _isAnnouncementDialogVisible = false;
@@ -213,8 +214,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
         // بارگذاری کیف پول (نیازی به کش ندارد - حساس است)
         unawaited(_loadWallet());
-        // به‌روزرسانی streak و دستاوردهای membership
-        unawaited(_updateStreakAndMembershipAchievements());
+        // به‌روزرسانی streak و دستاوردهای membership (بعد از first frame)
+        _scheduleGamificationBootstrap();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _tryShowAnnouncement();
         });
@@ -255,8 +256,8 @@ class _DashboardScreenState extends State<DashboardScreen>
           _isLoading = false;
         });
 
-        // به‌روزرسانی streak و دستاوردهای membership
-        unawaited(_updateStreakAndMembershipAchievements());
+        // به‌روزرسانی streak و دستاوردهای membership (بعد از first frame)
+        _scheduleGamificationBootstrap();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _tryShowAnnouncement();
         });
@@ -293,7 +294,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  /// به‌روزرسانی streak و دستاوردهای membership
+  void _scheduleGamificationBootstrap() {
+    if (_gamificationBootstrapScheduled) return;
+    _gamificationBootstrapScheduled = true;
+    Future<void>.delayed(const Duration(milliseconds: 2500), () {
+      if (!mounted) return;
+      unawaited(_updateStreakAndMembershipAchievements());
+    });
+  }
+
   Future<void> _refreshGamificationScores({bool force = false}) async {
     if (!mounted) return;
     try {

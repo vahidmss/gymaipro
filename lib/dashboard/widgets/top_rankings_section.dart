@@ -33,7 +33,12 @@ class _TopRankingsSectionState extends State<TopRankingsSection> {
   @override
   void initState() {
     super.initState();
-    _loadTopRankings();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 2000), () {
+        if (!mounted) return;
+        _loadTopRankings();
+      });
+    });
   }
 
   @override

@@ -25,6 +25,8 @@ class FoodService {
 
   // Cached foods list
   List<Food>? _cachedFoods;
+  Future<List<Food>>? _inFlightFoodsLoad;
+  static bool _initialized = false;
   // Map to store comments for each food (cache)
   final Map<int, List<dynamic>> _commentsCache = {};
 
@@ -35,14 +37,15 @@ class FoodService {
   }
 
   static Future<void> initAll() async {
+    if (_initialized) return;
     await _instance.init();
+    _initialized = true;
   }
 
   Future<void> init() async {
+    if (_initialized) return;
     debugPrint('Food service initialized successfully');
-
-    // Clear cache to apply title cleaning changes
-    clearCache();
+    _initialized = true;
 
     // Create food tables if they don't exist
     final isOnline = await ConnectivityService.instance.checkNow();
@@ -196,6 +199,26 @@ class FoodService {
     if (!forceRefresh && _cachedFoods != null) {
       return _applyUserData(_cachedFoods!);
     }
+    if (!forceRefresh && _inFlightFoodsLoad != null) {
+      return _inFlightFoodsLoad!;
+    }
+
+    if (!forceRefresh) {
+      final future = _fetchFoodsFromNetwork(forceRefresh: false);
+      _inFlightFoodsLoad = future;
+      try {
+        return await future;
+      } finally {
+        if (identical(_inFlightFoodsLoad, future)) {
+          _inFlightFoodsLoad = null;
+        }
+      }
+    }
+
+    return _fetchFoodsFromNetwork(forceRefresh: true);
+  }
+
+  Future<List<Food>> _fetchFoodsFromNetwork({required bool forceRefresh}) async {
     try {
       final isOnline = await ConnectivityService.instance.checkNow();
       if (!isOnline) {

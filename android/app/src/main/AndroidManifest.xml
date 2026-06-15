@@ -21,6 +21,7 @@
             android:name="com.example.gymaipro.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:stopWithTask="true"
             android:screenOrientation="portrait"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
