@@ -1,11 +1,10 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/core/web_interaction.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/models/custom_exercise.dart';
-import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
@@ -13,6 +12,7 @@ import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/services/trainer_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
@@ -39,26 +39,35 @@ class _DiscoverItem {
 
 /// بخش "کشف جدیدها" - ترکیب تمرینات و تغذیه در یک کاروسل واحد با تب‌سوئیچر
 class DiscoverSection extends StatefulWidget {
-  const DiscoverSection({super.key});
+  const DiscoverSection({super.key, this.refreshToken = 0});
+
+  /// وقتی داشبورد pull-to-refresh می‌شود، این مقدار عوض می‌شود تا داده و تصاویر
+  /// دوباره بارگذاری شوند.
+  final int refreshToken;
 
   @override
   State<DiscoverSection> createState() => _DiscoverSectionState();
 }
 
 class _DiscoverSectionState extends State<DiscoverSection>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   // تب انتخاب شده: 0 = تمرینات، 1 = تغذیه
   int _selectedTab = 0;
 
   // کنترلرهای کاروسل
-  PageController _pageController = PageController(viewportFraction: 0.88);
+  final PageController _pageController = PageController(viewportFraction: 0.88);
   Timer? _autoPlayTimer;
+  int _carouselPageIndex = 0;
 
   // دیتا
   List<_DiscoverItem> _exerciseItems = [];
   List<_DiscoverItem> _foodItems = [];
   bool _isLoadingExercises = true;
   bool _isLoadingFoods = true;
+
+  /// با هر resume یا refresh، epoch عوض می‌شود تا CachedNetworkImage دوباره mount شود
+  /// (بعد از background اندروید کش حافظهٔ تصویر خالی می‌شود و بدون rebuild خطا می‌ماند).
+  int _imageReloadEpoch = 0;
 
   // سرویس‌ها
   final CustomExerciseService _customExerciseService = CustomExerciseService();
@@ -75,6 +84,7 @@ class _DiscoverSectionState extends State<DiscoverSection>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _currentUserId = AuthHelper.currentUserIdSync;
 
     _tabAnimController = AnimationController(
@@ -87,16 +97,74 @@ class _DiscoverSectionState extends State<DiscoverSection>
     _tabAnimController.forward();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future<void>.delayed(const Duration(milliseconds: 1200), () {
-        if (!mounted) return;
-        _loadExercises();
-        _loadFoods();
-      });
+      if (!mounted) return;
+      unawaited(_loadAll());
     });
   }
 
   @override
+  void didUpdateWidget(covariant DiscoverSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken) {
+      unawaited(_reloadFromDashboardRefresh());
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _onAppResumed();
+    }
+  }
+
+  /// بعد از برگشت از background: ویجت تصویر را مجبور به rebuild می‌کنیم.
+  /// اگر URL خالی مانده، داده را هم دوباره می‌گیریم.
+  void _onAppResumed() {
+    if (!mounted) return;
+    setState(() => _imageReloadEpoch++);
+    if (_itemsMissingImages) {
+      unawaited(_loadAll());
+    }
+  }
+
+  bool get _itemsMissingImages =>
+      _exerciseItems.any((i) => i.imageUrl.isEmpty) ||
+      _foodItems.any((i) => i.imageUrl.isEmpty);
+
+  Future<void> _loadAll() async {
+    // Preload catalog so carousel reads URLs that are already in memory/disk cache.
+    await Future.wait([
+      _exerciseService.getExercises(),
+      _foodService.getFoods(),
+    ]);
+    await Future.wait([_loadExercises(), _loadFoods()]);
+
+    if (mounted && _itemsMissingImages) {
+      await Future.wait([
+        _exerciseService.getExercises(forceRefresh: true),
+        _foodService.getFoods(forceRefresh: true),
+      ]);
+      await Future.wait([_loadExercises(), _loadFoods()]);
+    }
+
+    if (mounted) {
+      setState(() => _imageReloadEpoch++);
+    }
+  }
+
+  Future<void> _reloadFromDashboardRefresh() async {
+    if (!mounted) return;
+    setState(() {
+      _imageReloadEpoch++;
+      _isLoadingExercises = true;
+      _isLoadingFoods = true;
+    });
+    await _loadAll();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _autoPlayTimer?.cancel();
     _pageController.dispose();
     _tabAnimController.dispose();
@@ -202,48 +270,23 @@ class _DiscoverSectionState extends State<DiscoverSection>
         );
       }
 
-      // فالبک اگه خالی بود
-      if (allExercises.isEmpty) {
-        try {
-          final regularExercises = await _exerciseService.getExercises();
-          regularExercises.sort((a, b) => b.likes.compareTo(a.likes));
-          for (final ex in regularExercises.take(5)) {
-            allExercises.add(
-              _DiscoverItem(
-                title: ex.title,
-                imageUrl: ex.imageUrl,
-                subtitle: ex.author ?? 'جیم اِی آی',
-                subtitleIcon: LucideIcons.user,
-                showLock: false,
-                date: DateTime.now().subtract(
-                  Duration(days: regularExercises.indexOf(ex)),
-                ),
-                onTap: () {
-                  if (mounted) {
-                    Navigator.pushNamed(
-                      context,
-                      '/exercise-detail',
-                      arguments: {'exercise': ex},
-                    );
-                  }
-                },
-              ),
-            );
-          }
-        } catch (e) {
-          debugPrint('Error loading regular exercises: $e');
-        }
-      }
+      await _appendCatalogExercises(allExercises);
 
       allExercises.sort((a, b) => b.date.compareTo(a.date));
+      final exercisesWithImages =
+          allExercises.where((e) => e.imageUrl.isNotEmpty).toList();
+      final exercisePool =
+          exercisesWithImages.length >= 5 ? exercisesWithImages : allExercises;
 
       if (mounted) {
         setState(() {
-          _exerciseItems = allExercises.take(5).toList();
+          _exerciseItems = exercisePool.take(5).toList();
           _isLoadingExercises = false;
         });
         if (_selectedTab == 0 && _exerciseItems.length > 1) {
-          _startAutoPlay();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _startAutoPlay();
+          });
         }
       }
     } catch (e) {
@@ -252,22 +295,59 @@ class _DiscoverSectionState extends State<DiscoverSection>
     }
   }
 
+  Future<void> _appendCatalogExercises(List<_DiscoverItem> allExercises) async {
+    try {
+      final regularExercises = await _exerciseService.getExercises();
+      regularExercises.sort((a, b) => b.likes.compareTo(a.likes));
+      final withImages =
+          regularExercises.where((e) => e.imageUrl.isNotEmpty).toList();
+      final pool = withImages.isNotEmpty ? withImages : regularExercises;
+      final existingTitles = allExercises.map((e) => e.title).toSet();
+
+      for (final ex in pool) {
+        if (allExercises.length >= 5) break;
+        if (existingTitles.contains(ex.title)) continue;
+        allExercises.add(
+          _DiscoverItem(
+            title: ex.title,
+            imageUrl: ex.imageUrl,
+            subtitle: ex.author ?? 'جیم اِی آی',
+            subtitleIcon: LucideIcons.user,
+            showLock: false,
+            date: DateTime.now().subtract(
+              Duration(days: pool.indexOf(ex)),
+            ),
+            onTap: () {
+              if (mounted) {
+                Navigator.pushNamed(
+                  context,
+                  '/exercise-detail',
+                  arguments: {'exercise': ex},
+                );
+              }
+            },
+          ),
+        );
+        existingTitles.add(ex.title);
+      }
+    } catch (e) {
+      debugPrint('Error loading catalog exercises for discover: $e');
+    }
+  }
+
   // ─── بارگذاری غذاها ───
   Future<void> _loadFoods() async {
     try {
-      List<Food> allFoods = [];
-
-      final cachedFoods = _cacheService.getFoods();
-      if (cachedFoods != null && cachedFoods.isNotEmpty) {
-        allFoods = cachedFoods;
-      } else {
-        allFoods = await _foodService.getFoods();
-        _cacheService.setFoods(allFoods);
-      }
+      final allFoods = await _foodService.getFoods();
+      _cacheService.setFoods(allFoods);
 
       allFoods.sort((a, b) => b.date.compareTo(a.date));
 
-      final foodItems = allFoods.take(5).map((food) {
+      final withImages =
+          allFoods.where((f) => f.imageUrl.isNotEmpty).toList();
+      final pool = withImages.isNotEmpty ? withImages : allFoods;
+
+      final foodItems = pool.take(5).map((food) {
         final caloriesText =
             (food.nutrition.calories.isNotEmpty &&
                 food.nutrition.calories != '0')
@@ -296,7 +376,9 @@ class _DiscoverSectionState extends State<DiscoverSection>
           _isLoadingFoods = false;
         });
         if (_selectedTab == 1 && _foodItems.length > 1) {
-          _startAutoPlay();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _startAutoPlay();
+          });
         }
       }
     } catch (e) {
@@ -318,15 +400,15 @@ class _DiscoverSectionState extends State<DiscoverSection>
   // ─── اتوپلی ───
   void _startAutoPlay() {
     _autoPlayTimer?.cancel();
+    if (!WebInteraction.allowCarouselAutoPlay) return;
     final items = _currentItems;
     if (items.isEmpty || items.length <= 1) return;
 
     _autoPlayTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted) return;
+      if (!mounted || !_pageController.hasClients) return;
       final items = _currentItems;
       if (items.isEmpty || items.length <= 1) return;
-      final next = (_pageController.page?.round() ?? 0) + 1;
-      final target = next >= items.length ? 0 : next;
+      final target = (_carouselPageIndex + 1) % items.length;
       _pageController.animateToPage(
         target,
         duration: const Duration(milliseconds: 400),
@@ -343,16 +425,21 @@ class _DiscoverSectionState extends State<DiscoverSection>
 
     setState(() {
       _selectedTab = index;
-      _pageController.dispose();
-      _pageController = PageController(viewportFraction: 0.88);
+      _carouselPageIndex = 0;
     });
+
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(0);
+    }
 
     _tabAnimController.forward();
 
     // شروع اتوپلی برای تب جدید
     Future.delayed(const Duration(milliseconds: 350), () {
       if (mounted && _currentItems.length > 1) {
-        _startAutoPlay();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _startAutoPlay();
+        });
       }
     });
   }
@@ -589,12 +676,18 @@ class _DiscoverSectionState extends State<DiscoverSection>
           height: 220.h,
           child: PageView.builder(
             controller: _pageController,
+            physics: WebInteraction.pageViewPhysics,
             itemCount: items.length,
+            onPageChanged: (index) => _carouselPageIndex = index,
             itemBuilder: (context, index) {
               return _DiscoverCard(
+                key: ValueKey(
+                  'discover_${_selectedTab}_${items[index].title}_$index',
+                ),
                 item: items[index],
                 isDark: isDark,
                 isFood: _selectedTab == 1,
+                imageReloadEpoch: _imageReloadEpoch,
               );
             },
           ),
@@ -667,14 +760,17 @@ class _DiscoverSectionState extends State<DiscoverSection>
 // ─── کارت کاروسل ───
 class _DiscoverCard extends StatelessWidget {
   const _DiscoverCard({
+    super.key,
     required this.item,
     required this.isDark,
     required this.isFood,
+    required this.imageReloadEpoch,
   });
 
   final _DiscoverItem item;
   final bool isDark;
   final bool isFood;
+  final int imageReloadEpoch;
 
   @override
   Widget build(BuildContext context) {
@@ -711,10 +807,13 @@ class _DiscoverCard extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     // تصویر اصلی
-                    if (item.imageUrl.isNotEmpty) CachedNetworkImage(
+                    if (item.imageUrl.isNotEmpty)
+                      GymaiNetworkImage(
+                            key: ValueKey(
+                              'discover_img_${item.imageUrl}_$imageReloadEpoch',
+                            ),
                             imageUrl: item.imageUrl,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => ColoredBox(
+                            placeholder: ColoredBox(
                               color: context.placeholderColor,
                               child: const Center(
                                 child: CircularProgressIndicator(
@@ -723,7 +822,7 @@ class _DiscoverCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            errorWidget: (context, url, error) => ColoredBox(
+                            errorWidget: ColoredBox(
                               color: context.placeholderColor,
                               child: Icon(
                                 isFood

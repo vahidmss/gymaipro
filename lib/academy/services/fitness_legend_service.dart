@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:gymaipro/academy/models/fitness_legend.dart';
+import 'package:gymaipro/network/wordpress_http.dart';
 import 'package:gymaipro/utils/cache_service.dart';
-import 'package:http/http.dart' as http;
 
 class FitnessLegendService {
   static const String _baseUrl =
@@ -31,7 +31,7 @@ class FitnessLegendService {
     }
 
     final uri = Uri.parse('$_baseUrl&per_page=$perPage&page=$page');
-    final response = await http.get(
+    final response = await wordpressGet(
       uri,
       headers: {'Accept': 'application/json'},
     );
@@ -56,7 +56,7 @@ class FitnessLegendService {
     final uri = Uri.parse(
       'https://gymaipro.ir/wp-json/wp/v2/fitness_legends/$id?_embed=true',
     );
-    final response = await http.get(
+    final response = await wordpressGet(
       uri,
       headers: {'Accept': 'application/json'},
     );

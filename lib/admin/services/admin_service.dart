@@ -668,7 +668,7 @@ class AdminService {
       try {
         final bodyPhotos = await _supabase
             .from('confidential_user_info')
-            .select('user_id, photo_album')
+            .select('profile_id, photo_album, created_at')
             .not('photo_album', 'is', null)
             .range(offset, offset + limit - 1);
 
@@ -680,7 +680,7 @@ class AdminService {
                 'type': 'body_photo',
                 'url': photo['url'],
                 'name': photo['notes'] ?? 'عکس بدنی',
-                'user_id': info['user_id'],
+                'user_id': info['profile_id'],
                 'created_at': photo['taken_at'] ?? info['created_at'],
               });
             }

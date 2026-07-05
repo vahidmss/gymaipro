@@ -7,9 +7,13 @@ import 'package:gymaipro/ai/services/user_context_cache_service.dart';
 import 'package:gymaipro/announcements/services/in_app_announcement_service.dart';
 import 'package:gymaipro/announcements/widgets/in_app_announcement_modal.dart';
 import 'package:gymaipro/chat/services/chat_unread_notifier.dart';
+import 'package:gymaipro/core/web_interaction.dart';
+import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
+import 'package:gymaipro/dashboard/services/dashboard_profile_mapper.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_animated_section.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_app_bar.dart';
+import 'package:gymaipro/dashboard/widgets/dashboard_deferred_gate.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_drawer.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_hero_carousel.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_loading_screen.dart';
@@ -25,6 +29,9 @@ import 'package:gymaipro/dashboard/widgets/top_rankings_section.dart';
 import 'package:gymaipro/dashboard/widgets/weekly_muscle_heatmap_section.dart';
 import 'package:gymaipro/dashboard/widgets/weight_chart.dart';
 import 'package:gymaipro/guide/guide.dart';
+import 'package:gymaipro/navigation/constants/navigation_constants.dart';
+import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
+import 'package:gymaipro/notification/providers/notification_provider.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/services/app_state.dart';
 import 'package:gymaipro/auth/services/auth_state_service.dart';
@@ -33,10 +40,12 @@ import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
 import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/services/logout_cache_clear_service.dart';
+import 'package:gymaipro/services/route_service.dart';
 import 'package:gymaipro/services/score_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/streak_service.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
+import 'package:gymaipro/store/widgets/store_teaser_banner.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
@@ -57,6 +66,16 @@ class _DashboardScreenState extends State<DashboardScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
+  final Map<String, GlobalKey> _guideKeys = {
+    'welcome_card': GlobalKey(debugLabel: 'dashboard_welcome_card'),
+    'fitness_metrics': GlobalKey(debugLabel: 'dashboard_fitness_metrics'),
+    'weight_chart': GlobalKey(debugLabel: 'dashboard_weight_chart'),
+    'quick_actions': GlobalKey(debugLabel: 'dashboard_quick_actions'),
+    'todays_program': GlobalKey(debugLabel: 'dashboard_todays_program'),
+    'exercises_tabs': GlobalKey(debugLabel: 'dashboard_exercises_tabs'),
+    'drawer_menu': GlobalKey(debugLabel: 'dashboard_drawer_menu'),
+  };
+
   // انیمیشن logout
   AnimationController? _logoutAnimationController;
   Animation<double>? _logoutFadeAnimation;
@@ -72,10 +91,18 @@ class _DashboardScreenState extends State<DashboardScreen>
   final InAppAnnouncementService _announcementService =
       InAppAnnouncementService();
   bool _isAnnouncementDialogVisible = false;
+  final ScrollController _scrollController = ScrollController();
+  late final DashboardDeferredReveal _deferredReveal;
+  bool _deferredSectionsReady = false;
+  bool _dashboardTourCheckRunning = false;
+  late final VoidCallback _dashboardForegroundListener;
 
   @override
   void initState() {
     super.initState();
+
+    _deferredReveal = DashboardDeferredReveal(scrollController: _scrollController)
+      ..addListener(_onDeferredRevealChanged);
 
     // Main animations
     _animation = AnimationController(
@@ -116,23 +143,45 @@ class _DashboardScreenState extends State<DashboardScreen>
       if (mounted) {
         _animation.safeForward();
         _registerGuides();
-        _checkAndShowTour();
+        _scheduleDashboardTourCheck();
       }
     });
+
+    _dashboardForegroundListener = _scheduleDashboardTourCheck;
+    MainNavigationScreen.addDashboardForegroundListener(
+      _dashboardForegroundListener,
+    );
+  }
+
+  void _scheduleDashboardTourCheck() {
+    if (_dashboardTourCheckRunning) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_checkAndShowTour());
+    });
+  }
+
+  void _onDeferredRevealChanged() {
+    if (!_deferredReveal.ready || !mounted) return;
+    setState(() => _deferredSectionsReady = true);
   }
 
   void _registerGuides() {
     try {
       // ثبت راهنمای اصلی داشبورد
-      registerGuide(context, DashboardGuideData.getDashboardGuide());
+      registerGuide(context, DashboardGuideData.getDashboardGuide(keyOverrides: _guideKeys));
       registerGuide(context, DashboardGuideData.getProgramBuilderGuide());
-      registerGuide(context, DashboardGuideData.getWeightTrackingGuide());
+      registerGuide(
+        context,
+        DashboardGuideData.getWeightTrackingGuide(keyOverrides: _guideKeys),
+      );
     } catch (e) {
       debugPrint('Error registering guides: $e');
     }
   }
 
   Future<void> _checkAndShowTour() async {
+    if (_dashboardTourCheckRunning) return;
+    _dashboardTourCheckRunning = true;
     try {
       final guideService = Provider.of<GuideService>(context, listen: false);
 
@@ -144,6 +193,16 @@ class _DashboardScreenState extends State<DashboardScreen>
 
       // تاخیر برای اطمینان از render شدن ویجت‌ها
       await Future<void>.delayed(const Duration(milliseconds: 800));
+
+      if (!mounted || !_isDashboardForegroundForTour()) return;
+
+      final profileComplete = await RouteService.isCurrentUserProfileComplete();
+      if (!mounted || !profileComplete || !_isDashboardForegroundForTour()) {
+        return;
+      }
+
+      // سکشن‌های پایین برای تور راهنما باید mount شده باشند
+      _deferredReveal.forceReveal();
 
       // نمایش راهنمای اصلی داشبورد اگر هنوز نشون داده نشده
       if (mounted && guideService.shouldShowGuide('dashboard_main_tour')) {
@@ -158,11 +217,33 @@ class _DashboardScreenState extends State<DashboardScreen>
       }
     } catch (e) {
       debugPrint('Error showing tour: $e');
+    } finally {
+      _dashboardTourCheckRunning = false;
     }
+  }
+
+  /// تور فقط وقتی نشان داده شود که shell داشبورد جلویی باشد
+  /// (بدون صفحهٔ ثبت‌نام/لودینگ روی استک).
+  bool _isDashboardForegroundForTour() {
+    if (!MainNavigationScreen.isShellActive) return false;
+    if (MainNavigationScreen.currentTabIndex !=
+        NavigationConstants.dashboardIndex) {
+      return false;
+    }
+
+    final nav = rootNavigator;
+    if (nav == null || nav.canPop()) return false;
+
+    return true;
   }
 
   @override
   void dispose() {
+    MainNavigationScreen.removeDashboardForegroundListener(
+      _dashboardForegroundListener,
+    );
+    _deferredReveal.dispose();
+    _scrollController.dispose();
     AvatarRefreshNotifier.instance.removeListener(_onAvatarUpdated);
     _animation.dispose();
     _logoutAnimationController?.dispose();
@@ -198,6 +279,11 @@ class _DashboardScreenState extends State<DashboardScreen>
           // کش متعلق به کاربر قبلی است - پاک می‌کنیم
           cacheService.invalidateDashboard();
           cachedProfileData = null;
+        } else if (_getDisplayName(cachedProfileData) == 'کاربر عزیز') {
+          // کش ناقص (مثلاً قبل از تکمیل ثبت‌نام) — از سرور بگیر
+          cacheService.invalidateDashboard();
+          cachedProfileData = null;
+          SimpleProfileService.invalidateCache();
         }
       }
 
@@ -216,6 +302,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         unawaited(_loadWallet());
         // به‌روزرسانی streak و دستاوردهای membership (بعد از first frame)
         _scheduleGamificationBootstrap();
+        _scheduleDashboardTourCheck();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _tryShowAnnouncement();
         });
@@ -225,8 +312,8 @@ class _DashboardScreenState extends State<DashboardScreen>
       // بارگذاری از API
       final profileData = await SimpleProfileService.getCurrentProfile();
 
-      // بارگذاری کیف پول کاربر
-      await _loadWallet();
+      // کیف پول فقط برای drawer — UI را block نمی‌کند
+      unawaited(_loadWallet());
 
       if (profileData != null && mounted) {
         // بارگذاری آخرین وزن ثبت شده
@@ -255,6 +342,8 @@ class _DashboardScreenState extends State<DashboardScreen>
           _profileData = builtProfileData;
           _isLoading = false;
         });
+
+        _scheduleDashboardTourCheck();
 
         // به‌روزرسانی streak و دستاوردهای membership (بعد از first frame)
         _scheduleGamificationBootstrap();
@@ -328,7 +417,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       // به‌روزرسانی دستاوردهای membership
       await streakService.updateMembershipAchievements();
 
-      await _refreshGamificationScores();
+      await _refreshGamificationScores(force: true);
     } catch (e) {
       // بی‌صدا - خطا در به‌روزرسانی streak نباید روی عملکرد اصلی تاثیر بگذارد
       debugPrint('⚠️ Error updating streak and membership achievements: $e');
@@ -354,37 +443,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     Map<String, dynamic> profileData,
     double? latestWeight,
   ) {
-    return {
-      'id': profileData['id'] ?? '',
-      'first_name': profileData['first_name'] ?? '',
-      'last_name': profileData['last_name'] ?? '',
-      'height': profileData['height']?.toString() ?? '0',
-      'weight': profileData['weight']?.toString() ?? '0',
-      'arm_circumference': profileData['arm_circumference']?.toString() ?? '',
-      'chest_circumference':
-          profileData['chest_circumference']?.toString() ?? '',
-      'waist_circumference':
-          profileData['waist_circumference']?.toString() ?? '',
-      'hip_circumference': profileData['hip_circumference']?.toString() ?? '',
-      'experience_level': profileData['experience_level'] ?? '',
-      'preferred_training_days':
-          profileData['preferred_training_days']?.join(',') ?? '',
-      'preferred_training_time': profileData['preferred_training_time'] ?? '',
-      'fitness_goals': profileData['fitness_goals']?.join(',') ?? '',
-      'medical_conditions': profileData['medical_conditions']?.join(',') ?? '',
-      'dietary_preferences':
-          profileData['dietary_preferences']?.join(',') ?? '',
-      'birth_date': profileData['birth_date']?.toString() ?? '',
-      'gender': profileData['gender'] ?? 'male',
-      'activity_level': profileData['activity_level'] ?? 'moderate',
-      'weight_history': (profileData['weight_history'] as List<dynamic>?) ?? [],
-      'username': profileData['username'] ?? '',
-      'phone_number': profileData['phone_number'] ?? '',
-      'avatar_url': profileData['avatar_url'] ?? '',
-      'role': profileData['role'] ?? 'athlete',
-      'latest_weight': latestWeight,
-      'login_streak': (profileData['login_streak'] as num?)?.toInt() ?? 0,
-    };
+    return DashboardProfileMapper.fromRaw(profileData, latestWeight: latestWeight);
   }
 
   Map<String, dynamic> _getDefaultProfileData() {
@@ -440,6 +499,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     if (!mounted) return;
 
+    _deferredReveal.forceReveal();
+
     // Clear all caches
     try {
       FoodService().clearCache();
@@ -461,15 +522,22 @@ class _DashboardScreenState extends State<DashboardScreen>
       await chatUnread.refreshUnreadCount();
     } catch (_) {}
 
+    if (!mounted) return;
+    try {
+      final notifProvider = Provider.of<NotificationProvider>(
+        context,
+        listen: false,
+      );
+      notifProvider.attachForCurrentUser();
+      await notifProvider.refreshUnreadCount();
+    } catch (_) {}
+
     // بارگذاری امتیاز و ستاره‌های دستاورد از منبع واقعی
     try {
       await _refreshGamificationScores(force: true);
     } catch (_) {}
 
-    // Reload dashboard user data and rebuild
-    setState(() {
-      _isLoading = true;
-    });
+    // Reload dashboard user data and rebuild child sections
     await _loadUserData();
 
     // Force rebuild of child widgets by updating refresh key
@@ -616,7 +684,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             children: [
               Scaffold(
                 backgroundColor: Colors.transparent,
-                appBar: const DashboardAppBar(),
+                appBar: DashboardAppBar(drawerMenuKey: _guideKeys['drawer_menu']),
                 drawer: DashboardDrawer(
                   username: _username,
                   userRole: _userRole,
@@ -681,7 +749,8 @@ class _DashboardScreenState extends State<DashboardScreen>
               await _refreshAll();
             },
             child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
+              controller: _scrollController,
+              physics: WebInteraction.alwaysScrollableListPhysics,
               padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -689,7 +758,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   // ── ۰. کارت خوش‌آمدگویی (با Streak داخلش) ──
                   DashboardAnimatedSection(
                     child: WelcomeCard(
-                      key: DashboardGuideData.keys['welcome_card'],
+                      key: _guideKeys['welcome_card'],
                       username: _username ?? 'کاربر عزیز',
                       welcomeMessage:
                           DashboardWelcomeHelpers.getWelcomeMessage(),
@@ -716,7 +785,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   DashboardAnimatedSection(
                     index: 3,
                     child: TodaysProgramSection(
-                      key: DashboardGuideData.keys['todays_program'],
+                      key: _guideKeys['todays_program'],
                     ),
                   ),
                   SizedBox(height: 24.h),
@@ -725,65 +794,96 @@ class _DashboardScreenState extends State<DashboardScreen>
                   DashboardAnimatedSection(
                     index: 4,
                     child: QuickActionButtons(
-                      key: DashboardGuideData.keys['quick_actions'],
+                      key: _guideKeys['quick_actions'],
                     ),
                   ),
                   SizedBox(height: 24.h),
 
-                  // ── ۵. هیت‌مپ عضلانی هفتگی ──
-                  DashboardAnimatedSection(
+                  // ── ۴.۵ بنر فروشگاه (teaser) ──
+                  const DashboardAnimatedSection(
                     index: 5,
-                    child: WeeklyMuscleHeatmapSection(
-                      refreshToken: _refreshKey,
+                    child: StoreTeaserBanner(),
+                  ),
+                  SizedBox(height: 24.h),
+
+                  // ── ۵. هیت‌مپ عضلانی هفتگی ──
+                  DashboardDeferredGate(
+                    ready: _deferredSectionsReady,
+                    placeholderHeight: 160.h,
+                    child: DashboardAnimatedSection(
+                      index: 5,
+                      child: WeeklyMuscleHeatmapSection(
+                        refreshToken: _refreshKey,
+                      ),
                     ),
                   ),
                   SizedBox(height: 24.h),
 
                   // ── ۶. متریک‌های فیتنس ──
-                  DashboardAnimatedSection(
-                    index: 6,
-                    child: FitnessMetrics(
-                      key: DashboardGuideData.keys['fitness_metrics'],
-                      profileData: _profileData,
+                  DashboardDeferredGate(
+                    ready: _deferredSectionsReady,
+                    placeholderHeight: 100.h,
+                    child: DashboardAnimatedSection(
+                      index: 6,
+                      child: FitnessMetrics(
+                        key: _guideKeys['fitness_metrics'],
+                        profileData: _profileData,
+                      ),
                     ),
                   ),
                   SizedBox(height: 24.h),
 
                   // ── ۷. نمودار وزن ──
-                  DashboardAnimatedSection(
-                    index: 7,
-                    child: _profileData['id'] != null
-                        ? WeightChart(
-                            key: DashboardGuideData.keys['weight_chart'],
-                            userId: _profileData['id'] as String,
-                            currentWeight: double.tryParse(
-                              (_profileData['weight'] as String?) ?? '',
-                            ),
-                          )
-                        : const SizedBox.shrink(),
+                  DashboardDeferredGate(
+                    ready: _deferredSectionsReady,
+                    placeholderHeight: 200.h,
+                    child: DashboardAnimatedSection(
+                      index: 7,
+                      child: _profileData['id'] != null
+                          ? WeightChart(
+                              key: _guideKeys['weight_chart'],
+                              userId: _profileData['id'] as String,
+                              currentWeight: double.tryParse(
+                                (_profileData['weight'] as String?) ?? '',
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
                   ),
                   ...(_profileData['id'] != null
                       ? [SizedBox(height: 24.h)]
                       : []),
 
                   // ── ۸. محتوای پیشنهادی - ویدیو، مقاله، موزیک ──
-                  const DashboardAnimatedSection(
-                    index: 8,
-                    child: DashboardHeroCarousel(),
+                  DashboardDeferredGate(
+                    ready: _deferredSectionsReady,
+                    placeholderHeight: 180.h,
+                    child: const DashboardAnimatedSection(
+                      index: 8,
+                      child: DashboardHeroCarousel(),
+                    ),
                   ),
                   SizedBox(height: 24.h),
 
                   // ── ۹. کشف جدیدها - تمرینات و تغذیه ──
-                  const DashboardAnimatedSection(
-                    index: 9,
-                    child: DiscoverSection(),
+                  DashboardDeferredGate(
+                    ready: _deferredSectionsReady,
+                    placeholderHeight: 220.h,
+                    child: DashboardAnimatedSection(
+                      index: 9,
+                      child: DiscoverSection(refreshToken: _refreshKey),
+                    ),
                   ),
                   SizedBox(height: 24.h),
 
                   // ── ۱۰. رتبه‌بندی ──
-                  const DashboardAnimatedSection(
-                    index: 10,
-                    child: TopRankingsSection(),
+                  DashboardDeferredGate(
+                    ready: _deferredSectionsReady,
+                    placeholderHeight: 180.h,
+                    child: const DashboardAnimatedSection(
+                      index: 10,
+                      child: TopRankingsSection(),
+                    ),
                   ),
                   SizedBox(height: 32.h),
                 ],

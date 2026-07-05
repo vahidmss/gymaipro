@@ -1,16 +1,17 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/profile/widgets/profile_image_widgets.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// ویجت محتوای AppBar پروفایل
 class ProfileAppBarContentWidget extends StatelessWidget {
   const ProfileAppBarContentWidget({
     required this.profileData,
-    required this.avatarFile,
+    required this.avatarPreviewBytes,
     required this.isLoading,
     required this.isEditing,
     required this.onImageTap,
@@ -18,7 +19,7 @@ class ProfileAppBarContentWidget extends StatelessWidget {
   });
 
   final Map<String, dynamic> profileData;
-  final File? avatarFile;
+  final Uint8List? avatarPreviewBytes;
   final bool isLoading;
   final bool isEditing;
   final VoidCallback? onImageTap;
@@ -26,7 +27,7 @@ class ProfileAppBarContentWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasImage =
-        avatarFile != null ||
+        avatarPreviewBytes != null ||
         (profileData.containsKey('avatar_url') &&
             profileData['avatar_url'] != null &&
             profileData['avatar_url'] is String &&
@@ -37,7 +38,6 @@ class ProfileAppBarContentWidget extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // تصویر پروفایل
           Stack(
             children: [
               GestureDetector(
@@ -62,43 +62,18 @@ class ProfileAppBarContentWidget extends StatelessWidget {
                   ),
                   child: ClipOval(
                     child: hasImage
-                        ? avatarFile != null
-                              ? Image.file(
-                                  avatarFile!,
+                        ? avatarPreviewBytes != null
+                              ? Image.memory(
+                                  avatarPreviewBytes!,
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stackTrace) {
                                     return ProfileImageWidgets.buildDefaultAvatar();
                                   },
                                 )
-                              : Image.network(
-                                  profileData['avatar_url'] as String,
-                                  fit: BoxFit.cover,
-                                  loadingBuilder:
-                                      (context, child, loadingProgress) {
-                                        if (loadingProgress == null) {
-                                          return child;
-                                        }
-                                        return ColoredBox(
-                                          color: context.veryDarkBackground,
-                                          child: Center(
-                                            child: CircularProgressIndicator(
-                                              value:
-                                                  loadingProgress
-                                                          .expectedTotalBytes !=
-                                                      null
-                                                  ? loadingProgress
-                                                            .cumulativeBytesLoaded /
-                                                        loadingProgress
-                                                            .expectedTotalBytes!
-                                                  : null,
-                                              color: AppTheme.goldColor,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return ProfileImageWidgets.buildDefaultAvatar();
-                                  },
+                              : GymaiNetworkImage(
+                                  imageUrl: profileData['avatar_url'] as String,
+                                  errorWidget:
+                                      ProfileImageWidgets.buildDefaultAvatar(),
                                 )
                         : ProfileImageWidgets.buildDefaultAvatar(),
                   ),
@@ -118,7 +93,6 @@ class ProfileAppBarContentWidget extends StatelessWidget {
                     ),
                   ),
                 ),
-              // آیکون دوربین برای نشان دادن قابلیت تغییر عکس
               if (isEditing)
                 Positioned(
                   bottom: 0,
@@ -154,7 +128,6 @@ class ProfileAppBarContentWidget extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          // نام و نام خانوادگی - با محافظت از overflow
           Text(
             '${profileData['first_name'] ?? ''} ${profileData['last_name'] ?? ''}'
                 .trim(),
@@ -168,7 +141,6 @@ class ProfileAppBarContentWidget extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          // نام کاربری - با محافظت از overflow
           if (profileData['username'] != null) ...[
             const SizedBox(height: 4),
             Text(

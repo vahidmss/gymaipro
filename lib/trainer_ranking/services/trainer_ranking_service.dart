@@ -46,6 +46,7 @@ class TrainerRankingService {
     double? maxHourlyRate,
     bool? isOnline,
     bool forceRefresh = false,
+    bool skipBulkRankUpdate = false,
   }) async {
     try {
       // Return cached data if available and valid, unless force refresh is requested
@@ -59,8 +60,10 @@ class TrainerRankingService {
         }
       }
 
-      // ابتدا ranking همه مربیان را محاسبه و به‌روزرسانی کنیم
-      await _updateAllTrainerRankings();
+      // Full list screen may refresh rankings; dashboard preview uses stored ranks.
+      if (!skipBulkRankUpdate) {
+        await _updateAllTrainerRankings();
+      }
 
       final response = await _profiles.fetchTrainersByRanking();
       final trainers = response.map(_convertTrainerToUserProfile).toList();
@@ -762,9 +765,13 @@ class TrainerRankingService {
   Future<List<TrainerTopLeagueEntry>> getTopTrainersByLeagueScores({
     int limit = 3,
     int candidatePool = 40,
+    bool skipBulkRankUpdate = true,
   }) async {
     try {
-      final trainers = await getTrainerRankings(limit: candidatePool);
+      final trainers = await getTrainerRankings(
+        limit: candidatePool,
+        skipBulkRankUpdate: skipBulkRankUpdate,
+      );
       final leagueService = TrainerLeaguePointsService();
       final scored = <TrainerTopLeagueEntry>[];
 

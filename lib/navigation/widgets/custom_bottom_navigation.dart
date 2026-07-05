@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/chat/services/chat_unread_notifier.dart';
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:provider/provider.dart';
 
 class CustomBottomNavigation extends StatelessWidget {
   const CustomBottomNavigation({
@@ -134,6 +136,7 @@ class CustomBottomNavigation extends StatelessWidget {
                         index: NavigationConstants.socialIndex,
                         isSelected:
                             currentIndex == NavigationConstants.socialIndex,
+                        showUnreadBadge: true,
                       ),
                     ),
                   ],
@@ -221,6 +224,7 @@ class CustomBottomNavigation extends StatelessWidget {
     required String label,
     required int index,
     required bool isSelected,
+    bool showUnreadBadge = false,
   }) {
     return Builder(
       builder: (context) {
@@ -235,36 +239,47 @@ class CustomBottomNavigation extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min, // برای جلوگیری از overflow
               children: [
-                Container(
-                  padding: const EdgeInsets.all(
-                    NavigationConstants.navItemPadding,
-                  ), // کاهش padding
-                  decoration: BoxDecoration(
-                    gradient: isSelected && !isDark
-                        ? LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppTheme.goldColor.withValues(alpha: 0.25),
-                              AppTheme.goldColor.withValues(alpha: 0.15),
-                            ],
-                          )
-                        : null,
-                    color: isSelected && isDark
-                        ? AppTheme.goldColor.withValues(alpha: 0.2)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: isSelected
-                        ? AppTheme.goldColor
-                        : isDark
-                        ? Colors.white.withValues(alpha: 0.6)
-                        : context.textSecondary,
-                    size: NavigationConstants
-                        .navItemIconSize, // کاهش اندازه آیکون
-                  ),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(
+                        NavigationConstants.navItemPadding,
+                      ), // کاهش padding
+                      decoration: BoxDecoration(
+                        gradient: isSelected && !isDark
+                            ? LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  AppTheme.goldColor.withValues(alpha: 0.25),
+                                  AppTheme.goldColor.withValues(alpha: 0.15),
+                                ],
+                              )
+                            : null,
+                        color: isSelected && isDark
+                            ? AppTheme.goldColor.withValues(alpha: 0.2)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      child: Icon(
+                        icon,
+                        color: isSelected
+                            ? AppTheme.goldColor
+                            : isDark
+                            ? Colors.white.withValues(alpha: 0.6)
+                            : context.textSecondary,
+                        size: NavigationConstants
+                            .navItemIconSize, // کاهش اندازه آیکون
+                      ),
+                    ),
+                    if (showUnreadBadge)
+                      const Positioned(
+                        right: -4,
+                        top: -4,
+                        child: _UnreadDotBadge(),
+                      ),
+                  ],
                 ),
                 SizedBox(
                   height: NavigationConstants
@@ -294,6 +309,62 @@ class CustomBottomNavigation extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// نشانگر پیام خصوصیِ خوانده‌نشده روی تب اجتماعی.
+/// وقتی شمارنده صفر باشد چیزی نمایش نمی‌دهد.
+class _UnreadDotBadge extends StatelessWidget {
+  const _UnreadDotBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ChatUnreadNotifier>(
+      builder: (context, notifier, _) {
+        final count = notifier.unreadCount;
+        if (count <= 0) return const SizedBox.shrink();
+
+        final label = count > 99 ? '99+' : count.toString();
+        return Container(
+          constraints: BoxConstraints(minWidth: 16.w, minHeight: 16.w),
+          padding: EdgeInsets.symmetric(
+            horizontal: count > 9 ? 4.w : 0,
+          ),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFF4444), Color(0xFFE53E3E)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(10.r),
+            border: Border.all(
+              color: context.backgroundColor,
+              width: 1.5.w,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.red.withValues(alpha: 0.4),
+                blurRadius: 4.r,
+                spreadRadius: 0.5.r,
+              ),
+            ],
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: Colors.white,
+                fontSize: 9.sp,
+                fontWeight: FontWeight.bold,
+                height: 1,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
         );

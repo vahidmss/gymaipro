@@ -207,26 +207,35 @@ Future<ExerciseCatalogFilters?> showExerciseSortSheet({
                       ],
                     ),
                     SizedBox(height: 12.h),
-                    ...options.entries.map(
-                      (e) => RadioListTile<String>(
-                        dense: true,
-                        visualDensity: VisualDensity.compact,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 4.w),
-                        title: Text(
-                          e.value,
-                          style: TextStyle(
-                            color: sortBy == e.key
-                                ? AppTheme.goldColor
-                                : context.textColor,
-                            fontWeight: sortBy == e.key
-                                ? FontWeight.bold
-                                : FontWeight.w500,
-                          ),
-                        ),
-                        value: e.key,
-                        groupValue: sortBy,
-                        activeColor: AppTheme.goldColor,
-                        onChanged: (v) => setModalState(() => sortBy = v!),
+                    RadioGroup<String>(
+                      groupValue: sortBy,
+                      onChanged: (v) => setModalState(() => sortBy = v!),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: options.entries
+                            .map(
+                              (e) => RadioListTile<String>(
+                                dense: true,
+                                visualDensity: VisualDensity.compact,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 4.w,
+                                ),
+                                title: Text(
+                                  e.value,
+                                  style: TextStyle(
+                                    color: sortBy == e.key
+                                        ? AppTheme.goldColor
+                                        : context.textColor,
+                                    fontWeight: sortBy == e.key
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                  ),
+                                ),
+                                value: e.key,
+                                activeColor: AppTheme.goldColor,
+                              ),
+                            )
+                            .toList(),
                       ),
                     ),
                     SwitchListTile(

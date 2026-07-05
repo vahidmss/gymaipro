@@ -108,74 +108,117 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
     final monthlyEntries = monthly.entries.toList()
       ..sort((a, b) => b.key.compareTo(a.key)); // جدیدترین اول
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      color: AppTheme.goldColor,
-      child: ListView(
-        padding: EdgeInsets.all(16.w),
-        children: [
-          // خلاصه مالی
-          _sectionTitle('خلاصه مالی', isDark),
-          SizedBox(height: 16.h),
-          
-          // کل درآمد (قبل از کمیسیون)
-          _metric(
-            'کل درآمد',
-            totalRevenue,
-            isDark,
-            icon: LucideIcons.dollarSign,
-            color: Colors.blue,
-            subtitle: 'کل پول‌های پرداخت شده بابت اشتراک‌ها',
-          ),
-          SizedBox(height: 12.h),
-          
-          // کل کمیسیون
-          _metric(
-            'کل کمیسیون پلتفرم',
-            totalCommission,
-            isDark,
-            icon: LucideIcons.percent,
-            color: Colors.orange,
-            subtitle: 'کمیسیونی که از مربی کسر می‌شود',
-          ),
-          SizedBox(height: 12.h),
-          
-          // درآمد خالص
-          _metric(
-            'درآمد خالص',
-            netEarnings,
-            isDark,
-            icon: LucideIcons.trendingUp,
-            color: AppTheme.goldColor,
-            subtitle: 'کل درآمد منهای کمیسیون',
-          ),
-          SizedBox(height: 12.h),
-          
-          // قابل برداشت
-          _metric(
-            'قابل برداشت',
-            withdrawable,
-            isDark,
-            icon: LucideIcons.checkCircle,
-            color: Colors.green,
-            subtitle: 'بعد از 3 روز انتظار و بدون برداشت‌های قبلی',
-          ),
-          SizedBox(height: 12.h),
-          
-          // در انتظار
-          _metric(
-            'در انتظار',
-            onHold,
-            isDark,
-            icon: LucideIcons.clock,
-            color: Colors.orange,
-            subtitle: 'تا رسیدن به زمان برداشت',
-          ),
-          
-          SizedBox(height: 32.h),
-          
-          // آمار مشتریان و اشتراک‌ها
-          _sectionTitle('آمار مشتریان و اشتراک‌ها', isDark),
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: RefreshIndicator(
+        onRefresh: _load,
+        color: AppTheme.goldColor,
+        child: ListView(
+          padding: EdgeInsets.all(16.w),
+          children: [
+            _sectionHeader('نمای کلی', LucideIcons.layoutDashboard, isDark),
+            SizedBox(height: 12.h),
+            Row(
+              children: [
+                Expanded(
+                  child: _overviewTile(
+                    'درآمد خالص',
+                    _formatToman(netEarnings),
+                    LucideIcons.trendingUp,
+                    AppTheme.goldColor,
+                    isDark,
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: _overviewTile(
+                    'مشتریان فعال',
+                    activeClients.toString(),
+                    LucideIcons.userCheck,
+                    Colors.green,
+                    isDark,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 10.h),
+            Row(
+              children: [
+                Expanded(
+                  child: _overviewTile(
+                    'نرخ پاسخ',
+                    '${responseRate.toStringAsFixed(responseRate < 10 ? 1 : 0)}%',
+                    LucideIcons.target,
+                    Colors.purple,
+                    isDark,
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: _overviewTile(
+                    'اشتراک فعال',
+                    activeSubscriptions.toString(),
+                    LucideIcons.activity,
+                    Colors.blue,
+                    isDark,
+                  ),
+                ),
+              ],
+            ),
+
+            SizedBox(height: 28.h),
+
+            _sectionHeader('خلاصه مالی', LucideIcons.wallet, isDark),
+            SizedBox(height: 12.h),
+            _groupedCard(
+              isDark: isDark,
+              children: [
+                _compactMetricRow(
+                  'کل درآمد',
+                  totalRevenue,
+                  LucideIcons.dollarSign,
+                  Colors.blue,
+                  subtitle: 'پرداخت‌های اشتراک',
+                ),
+                _groupDivider(isDark),
+                _compactMetricRow(
+                  'کمیسیون پلتفرم',
+                  totalCommission,
+                  LucideIcons.percent,
+                  Colors.orange,
+                  subtitle: 'سهم پلتفرم',
+                ),
+                _groupDivider(isDark),
+                _compactMetricRow(
+                  'درآمد خالص',
+                  netEarnings,
+                  LucideIcons.trendingUp,
+                  AppTheme.goldColor,
+                  subtitle: 'بعد از کسر کمیسیون',
+                ),
+                _groupDivider(isDark),
+                _compactMetricRow(
+                  'قابل برداشت',
+                  withdrawable,
+                  LucideIcons.checkCircle,
+                  Colors.green,
+                  subtitle: 'آماده برداشت',
+                ),
+                _groupDivider(isDark),
+                _compactMetricRow(
+                  'در انتظار',
+                  onHold,
+                  LucideIcons.clock,
+                  Colors.orange,
+                  subtitle: 'تا آزادسازی',
+                  isLast: true,
+                ),
+              ],
+            ),
+
+            SizedBox(height: 28.h),
+
+            _sectionHeader('مشتریان و اشتراک‌ها', LucideIcons.users, isDark),
           SizedBox(height: 16.h),
           
           Row(
@@ -227,47 +270,46 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
             ],
           ),
           
-          SizedBox(height: 32.h),
-          
-          // آمار عملکرد
-          _sectionTitle('آمار عملکرد', isDark),
-          SizedBox(height: 16.h),
-          
-          _performanceCard(
-            'نرخ پاسخ',
-            responseRate,
-            '%',
-            LucideIcons.target,
-            Colors.purple,
-            isDark,
-            subtitle: 'درصد برنامه‌هایی که ارسال شده',
+          SizedBox(height: 28.h),
+
+          _sectionHeader('عملکرد', LucideIcons.gauge, isDark),
+          SizedBox(height: 12.h),
+          _groupedCard(
+            isDark: isDark,
+            children: [
+              _compactPerformanceRow(
+                'نرخ پاسخ',
+                responseRate,
+                '%',
+                LucideIcons.target,
+                Colors.purple,
+                subtitle: 'برنامه‌های ارسال‌شده',
+              ),
+              _groupDivider(isDark),
+              _compactPerformanceRow(
+                'میانگین زمان پاسخ',
+                averageResponseTimeDays > 0
+                    ? averageResponseTimeDays
+                    : averageResponseTimeHours,
+                averageResponseTimeDays > 0 ? 'روز' : 'ساعت',
+                LucideIcons.clock,
+                Colors.blue,
+                subtitle: 'از زمان ثبت تا ارسال',
+              ),
+              _groupDivider(isDark),
+              _compactPerformanceRow(
+                'تحویل به موقع',
+                onTimeDeliveryRate,
+                '%',
+                LucideIcons.checkCircle2,
+                Colors.green,
+                subtitle: 'بدون تاخیر',
+                isLast: true,
+              ),
+            ],
           ),
           SizedBox(height: 12.h),
-          
-          _performanceCard(
-            'میانگین زمان پاسخ',
-            averageResponseTimeDays > 0 ? averageResponseTimeDays : averageResponseTimeHours,
-            averageResponseTimeDays > 0 ? 'روز' : 'ساعت',
-            LucideIcons.clock,
-            Colors.blue,
-            isDark,
-            subtitle: averageResponseTimeDays > 0 
-                ? 'میانگین زمان ارسال برنامه'
-                : 'میانگین زمان ارسال برنامه',
-          ),
-          SizedBox(height: 12.h),
-          
-          _performanceCard(
-            'نرخ تحویل به موقع',
-            onTimeDeliveryRate,
-            '%',
-            LucideIcons.checkCircle2,
-            Colors.green,
-            isDark,
-            subtitle: 'درصد برنامه‌های بدون تاخیر',
-          ),
-          SizedBox(height: 12.h),
-          
+
           Row(
             children: [
               Expanded(
@@ -292,10 +334,9 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
             ],
           ),
           
-          SizedBox(height: 32.h),
-          
-          // تفکیک سرویس
-          _sectionTitle('تفکیک سرویس', isDark),
+          SizedBox(height: 28.h),
+
+          _sectionHeader('تفکیک سرویس', LucideIcons.layers, isDark),
           SizedBox(height: 12.h),
           
           ...byService.entries.map((e) {
@@ -317,10 +358,9 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
           if (byService.isEmpty)
             _emptyState('هنوز فروشی ثبت نشده', isDark),
           
-          SizedBox(height: 32.h),
-          
-          // درآمد ماهانه
-          _sectionTitle('درآمد ماهانه', isDark),
+          SizedBox(height: 28.h),
+
+          _sectionHeader('درآمد ماهانه', LucideIcons.calendarDays, isDark),
           SizedBox(height: 12.h),
           
           ...monthlyEntries.take(12).map((e) {
@@ -341,78 +381,125 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
           
           if (monthlyEntries.isEmpty)
             _emptyState('هنوز درآمد ماهانه‌ای ثبت نشده', isDark),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String title, IconData icon, bool isDark) {
+    return Row(
+      children: [
+        Container(
+          padding: EdgeInsets.all(8.w),
+          decoration: BoxDecoration(
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.12),
+            borderRadius: BorderRadius.circular(10.r),
+          ),
+          child: Icon(icon, color: AppTheme.goldColor, size: 18.sp),
+        ),
+        SizedBox(width: 10.w),
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textColor,
+              fontSize: 17.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _overviewTile(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+    bool isDark,
+  ) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 14.h),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14.r),
+        color: isDark ? context.veryDarkBackground : AppTheme.lightSurfaceColor,
+        border: Border.all(
+          color: color.withValues(alpha: isDark ? 0.25 : 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20.sp),
+          SizedBox(height: 8.h),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: color,
+              fontSize: 16.sp,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 2.h),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textSecondary,
+              fontSize: 11.sp,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _sectionTitle(String title, bool isDark) {
-    return Text(
-      title,
-      style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-        color: context.textColor,
-        fontSize: 20.sp,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-  }
-
-  Widget _metric(
-    String title,
-    int amount,
-    bool isDark, {
-    required IconData icon,
-    required Color color,
-    String? subtitle,
+  Widget _groupedCard({
+    required bool isDark,
+    required List<Widget> children,
   }) {
     return Container(
-      padding: EdgeInsets.all(18.w),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20.r),
-        gradient: isDark
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  context.cardColor,
-                  context.cardColor.withValues(alpha: 0.95),
-                  context.veryDarkBackground,
-                ],
-              )
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  context.cardColor,
-                  context.cardColor.withValues(alpha: 0.98),
-                  AppTheme.lightGradientStart.withValues(alpha: 0.1),
-                ],
-              ),
+        borderRadius: BorderRadius.circular(16.r),
+        color: isDark ? context.veryDarkBackground : AppTheme.lightSurfaceColor,
         border: Border.all(
-          color: color.withValues(alpha: isDark ? 0.3 : 0.4),
-          width: 1.5.w,
+          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.2),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: isDark ? 0.15 : 0.25),
-            blurRadius: 16.r,
-            offset: Offset(0.w, 6.h),
-            spreadRadius: 1.r,
-          ),
-        ],
       ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _groupDivider(bool isDark) {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: AppTheme.goldColor.withValues(alpha: isDark ? 0.1 : 0.12),
+    );
+  }
+
+  Widget _compactMetricRow(
+    String title,
+    int amount,
+    IconData icon,
+    Color color, {
+    String? subtitle,
+    bool isLast = false,
+  }) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, isLast ? 12.h : 0),
       child: Row(
         children: [
-          Container(
-            padding: EdgeInsets.all(10.w),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Icon(icon, color: color, size: 24.sp),
-          ),
-          SizedBox(width: 16.w),
+          Icon(icon, color: color, size: 18.sp),
+          SizedBox(width: 10.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -420,34 +507,85 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
                 Text(
                   title,
                   style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                    fontFamily: AppTheme.fontFamily,
                     color: context.textColor,
-                    fontSize: 14.sp,
+                    fontSize: 13.sp,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (subtitle != null) ...[
-                  SizedBox(height: 2.h),
+                if (subtitle != null)
                   Text(
                     subtitle,
                     style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                      fontFamily: AppTheme.fontFamily,
                       color: context.textSecondary,
-                      fontSize: 11.sp,
+                      fontSize: 10.sp,
                     ),
                   ),
-                ],
-                SizedBox(height: 4.h),
+              ],
+            ),
+          ),
+          Text(
+            _formatToman(amount),
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 13.sp,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _compactPerformanceRow(
+    String title,
+    double value,
+    String unit,
+    IconData icon,
+    Color color, {
+    String? subtitle,
+    bool isLast = false,
+  }) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, isLast ? 12.h : 0),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18.sp),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  _formatToman(amount),
+                  title,
                   style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                    color: color,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18.sp,
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
+                if (subtitle != null)
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textSecondary,
+                      fontSize: 10.sp,
+                    ),
+                  ),
               ],
+            ),
+          ),
+          Text(
+            '${value.toStringAsFixed(value < 10 && unit == '%' ? 1 : value < 1 ? 2 : 0)} $unit',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 13.sp,
             ),
           ),
         ],
@@ -502,122 +640,6 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
     );
   }
 
-  Widget _performanceCard(
-    String title,
-    double value,
-    String unit,
-    IconData icon,
-    Color color,
-    bool isDark, {
-    String? subtitle,
-  }) {
-    return Container(
-      padding: EdgeInsets.all(18.w),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20.r),
-        gradient: isDark
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  context.cardColor,
-                  context.cardColor.withValues(alpha: 0.95),
-                  context.veryDarkBackground,
-                ],
-              )
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  context.cardColor,
-                  context.cardColor.withValues(alpha: 0.98),
-                  AppTheme.lightGradientStart.withValues(alpha: 0.1),
-                ],
-              ),
-        border: Border.all(
-          color: color.withValues(alpha: isDark ? 0.3 : 0.4),
-          width: 1.5.w,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: isDark ? 0.15 : 0.25),
-            blurRadius: 16.r,
-            offset: Offset(0.w, 6.h),
-            spreadRadius: 1.r,
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: EdgeInsets.all(10.w),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Icon(icon, color: color, size: 24.sp),
-          ),
-          SizedBox(width: 16.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (subtitle != null) ...[
-                  SizedBox(height: 2.h),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                      color: context.textSecondary,
-                      fontSize: 11.sp,
-                    ),
-                  ),
-                ],
-                SizedBox(height: 4.h),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      value.toStringAsFixed(value < 1 ? 2 : 1),
-                      style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                        color: color,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 20.sp,
-                      ),
-                    ),
-                    SizedBox(width: 4.w),
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 2.h),
-                      child: Text(
-                        unit,
-                        style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                          color: color.withValues(alpha: 0.8),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14.sp,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _serviceRow(
     String serviceName,
     int earnings,
@@ -645,17 +667,21 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                serviceName,
-                style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                  color: context.textColor,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  serviceName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
+              SizedBox(width: 8.w),
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                 decoration: BoxDecoration(
@@ -763,17 +789,21 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                monthName,
-                style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                  color: context.textColor,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  monthName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
+              SizedBox(width: 8.w),
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                 decoration: BoxDecoration(
@@ -921,7 +951,7 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
   }
 
   String _formatMonthKey(String key) {
-    // تبدیل yyyy-MM به نام ماه فارسی
+    // کلید ماهانه به‌صورت yyyy-MM شمسی از سرویس مالی می‌آید
     try {
       final parts = key.split('-');
       if (parts.length == 2) {
@@ -942,8 +972,8 @@ class _TrainerStatsTabState extends State<TrainerStatsTab> {
           'بهمن',
           'اسفند',
         ];
-        if (month >= 1 && month <= 12) {
-          return '$monthNames[month] $year';
+        if (year > 0 && month >= 1 && month <= 12) {
+          return '${monthNames[month]} $year';
         }
       }
     } catch (_) {}

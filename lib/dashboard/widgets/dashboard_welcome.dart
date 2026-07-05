@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/notification/providers/notification_provider.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/theme/theme_provider.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/widgets/notification_icon.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -63,35 +64,24 @@ class _WelcomeCardState extends State<WelcomeCard> {
         widget.profileData!['avatar_url'].toString().isNotEmpty) {
       // Avatar URL loaded successfully
 
-      return Image.network(
-        widget.profileData!['avatar_url'] as String,
+      return GymaiNetworkImage(
+        imageUrl: widget.profileData!['avatar_url'] as String,
         width: imageSize,
         height: imageSize,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Container(
-            width: imageSize,
-            height: imageSize,
-            color: context.cardColor,
-            child: Center(
-              child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded /
-                          loadingProgress.expectedTotalBytes!
-                    : null,
-                strokeWidth: 2,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppTheme.goldColor,
-                ),
+        placeholder: Container(
+          width: imageSize,
+          height: imageSize,
+          color: context.cardColor,
+          child: const Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                AppTheme.goldColor,
               ),
             ),
-          );
-        },
-        errorBuilder: (context, error, stackTrace) {
-          // Error loading avatar handled silently
-          return _buildInitialAvatar(size: imageSize, buildContext: context);
-        },
+          ),
+        ),
+        errorWidget: _buildInitialAvatar(size: imageSize, buildContext: context),
       );
     }
 

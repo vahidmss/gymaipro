@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ArticleImage extends StatelessWidget {
@@ -15,10 +16,9 @@ class ArticleImage extends StatelessWidget {
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: aspectRatio,
-      child: Image.network(
-        imageUrl,
-        fit: BoxFit.cover,
-        errorBuilder: (c, e, s) => const ColoredBox(
+      child: GymaiNetworkImage(
+        imageUrl: imageUrl,
+        errorWidget: const ColoredBox(
           color: Colors.black12,
           child: Center(
             child: Icon(LucideIcons.imageOff, color: Colors.white54),

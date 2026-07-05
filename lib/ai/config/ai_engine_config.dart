@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:gymaipro/config/app_config.dart';
 
 /// حالت موتور هوش مصنوعی — پیش‌فرض: OpenAI وقتی پروکسی/کلید موجود است.
@@ -18,7 +19,9 @@ class AiEngineConfig {
     }
     final dotenvMode = AppConfig.dotenvValue('AI_ENGINE_MODE');
     if (dotenvMode != null) return _parseMode(dotenvMode);
-    if (AppConfig.openaiUseProxy || AppConfig.openaiApiKey.isNotEmpty) {
+    if (kIsWeb ||
+        AppConfig.openaiUseProxy ||
+        AppConfig.openaiApiKey.isNotEmpty) {
       return AiEngineMode.openAi;
     }
     return AiEngineMode.ruleBased;
@@ -28,15 +31,18 @@ class AiEngineConfig {
 
   static bool get useOpenAiEngine => mode == AiEngineMode.openAi;
 
-  static bool get usesDeviceDirectRoute => AppConfig.aiUsesDeviceDirectRoute;
+  static bool get usesDeviceDirectRoute =>
+      !kIsWeb && AppConfig.aiUsesDeviceDirectRoute;
 
+  /// روی وب همیشه proxy؛ روی موبایل با OPENAI_USE_PROXY=true.
   static bool get usesServerProxyRoute =>
-      AppConfig.openaiUseProxy && AppConfig.supabaseEdgeFunctionsEnabled;
+      (kIsWeb || AppConfig.openaiUseProxy) &&
+      AppConfig.supabaseEdgeFunctionsEnabled;
 
-  /// آیا تلاش برای فراخوانی OpenAI مجاز است؟
   static bool get canAttemptOpenAi =>
       useOpenAiEngine &&
-      (usesServerProxyRoute || AppConfig.openaiApiKey.isNotEmpty);
+      (usesServerProxyRoute ||
+          (!kIsWeb && AppConfig.openaiApiKey.isNotEmpty));
 
   static AiEngineMode _parseMode(String raw) {
     final v = raw.trim().toLowerCase();

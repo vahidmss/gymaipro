@@ -111,7 +111,8 @@ class _WorkoutProgramBuilderScreenState
         final loadedFromLocal = await _loadProgramLocally();
         // ??? ?????? ???? ?????? ???????? ??? ?? ????? ??????? ??
         if (loadedFromLocal) {
-          debugPrint('? ?????? ?? ????? ???? ???????? ?? - ?? ???????? ??????? ??????? ??????');
+          await _ensureValidProgramName();
+          debugPrint('✅ برنامه از حافظه محلی بارگذاری شد - از بارگذاری دیتابیس صرف‌نظر می‌شود');
           if (!mounted) return;
           SafeSetState.call(this, () {
             _isLoading = false;
@@ -149,7 +150,7 @@ class _WorkoutProgramBuilderScreenState
           });
           // ??? ??? ?????? ????? ??? ????? editable_until ?? ????
           if (_program.sentAt != null) {
-            debugPrint('?? ?????? ????? ???????? ??? ?? ??? ?????? editable_until...');
+            debugPrint('📥 برنامه موجود بارگذاری شد، در حال خواندن editable_until...');
             await _loadEditableUntil();
           }
         } else {
@@ -184,7 +185,7 @@ class _WorkoutProgramBuilderScreenState
       if (!mounted) return;
       WidgetSafetyUtils.safeShowSnackBar(
         context,
-        '??? ?? ????????: $e',
+        'خطا در بارگذاری: $e',
       );
       SafeSetState.call(this, () {
         _isLoading = false;
@@ -204,12 +205,27 @@ class _WorkoutProgramBuilderScreenState
     }
   }
 
-  // ???? ?????? ??? ??????: "?????? ??????-??? ?????-?????"
+  bool _hasCorruptedPersianText(String text) {
+    return RegExp(r'\?{2,}').hasMatch(text);
+  }
+
+  Future<void> _ensureValidProgramName() async {
+    if (_program.name.isNotEmpty && !_hasCorruptedPersianText(_program.name)) {
+      return;
+    }
+    final name = await _generatePlanName();
+    if (!mounted) return;
+    SafeSetState.call(this, () {
+      _program = _program.copyWith(name: name);
+    });
+  }
+
+  // ساخت خودکار نام برنامه: "برنامه تمرینی-نام کاربر-تاریخ"
   Future<String> _generatePlanName() async {
     final dateStr = toJalali(DateTime.now());
     
     if (widget.targetUserId == null) {
-      return '?????? ??????-$dateStr';
+      return 'برنامه تمرینی-$dateStr';
     }
 
     try {
@@ -223,17 +239,17 @@ class _WorkoutProgramBuilderScreenState
 
         if (userName.isNotEmpty) {
           _targetUserName = userName;
-          return '?????? ??????-$userName-$dateStr';
+          return 'برنامه تمرینی-$userName-$dateStr';
         }
       }
     } catch (e) {
-      debugPrint('??? ?? ?????? ??????? ????? ???? ???? ???: $e');
+      debugPrint('خطا در دریافت اطلاعات کاربر برای ساخت نام: $e');
     }
 
-    // ?? ???? ???? ?? ??? ????? ?? widget ??????? ??
-    final userName = widget.targetUserName ?? '?????';
+    // در صورت خطا، از نام کاربر از widget استفاده کن
+    final userName = widget.targetUserName ?? 'کاربر';
     _targetUserName = userName;
-    return '?????? ??????-$userName-$dateStr';
+    return 'برنامه تمرینی-$userName-$dateStr';
   }
 
   // ?????? editable_until ?? ???????
@@ -328,7 +344,7 @@ class _WorkoutProgramBuilderScreenState
 
   // ????? ?????? ????? ????? ??????
   Future<void> _showConfirmDialog() async {
-    final userName = _targetUserName ?? widget.targetUserName ?? '?????';
+    final userName = _targetUserName ?? widget.targetUserName ?? 'کاربر';
     final confirmed = await WidgetSafetyUtils.safeShowDialog<bool>(
       context: context,
       builder: (context) => Directionality(
@@ -342,7 +358,7 @@ class _WorkoutProgramBuilderScreenState
             side: BorderSide(color: AppTheme.goldColor.withValues(alpha: 0.3)),
           ),
           title: Text(
-            '????? ????? ??????',
+            'تأیید ارسال برنامه',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               color: Theme.of(context).brightness == Brightness.dark
@@ -353,7 +369,7 @@ class _WorkoutProgramBuilderScreenState
             ),
           ),
           content: Text(
-            '????? ????? ????????? ?????? ???? ????? $userName ??????? ????\n\n?? ??? ??? ????? ?? ??? 3 ??? ??? ?????? ?????? ? ????? ????? ?? ?? ?????.',
+            'مطمئن هستید می‌خواهید برنامه برای کاربر $userName فرستاده بشه؟\n\nاز ثبت این تاریخ تا مدت 3 روز وقت ویرایش برنامه و تطبیق بیشتر آن را دارید.',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               color: Theme.of(context).brightness == Brightness.dark
@@ -368,7 +384,7 @@ class _WorkoutProgramBuilderScreenState
               onPressed: () => WidgetSafetyUtils.safePop(context, false),
               style: TextButton.styleFrom(foregroundColor: AppTheme.goldColor),
               child: const Text(
-                '??????',
+                'انصراف',
                 style: TextStyle(fontFamily: AppTheme.fontFamily),
               ),
             ),
@@ -382,7 +398,7 @@ class _WorkoutProgramBuilderScreenState
                 ),
               ),
               child: const Text(
-                '????? ? ?????',
+                'تأیید و ارسال',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontWeight: FontWeight.bold,
@@ -428,11 +444,11 @@ class _WorkoutProgramBuilderScreenState
             }
           }
         } catch (e) {
-          debugPrint('??? ?? ????? ??????: $e');
+          debugPrint('خطا در ارسال برنامه: $e');
           if (mounted) {
             WidgetSafetyUtils.safeShowSnackBar(
               context,
-              '??? ?? ????? ??????: $e',
+              'خطا در ارسال برنامه: $e',
             );
           }
           return;
@@ -442,7 +458,7 @@ class _WorkoutProgramBuilderScreenState
       if (mounted) {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
-          '?????? ?? ?????? ????? ??',
+          'برنامه با موفقیت ارسال شد',
         );
         WidgetSafetyUtils.safePop(context);
       }
@@ -460,7 +476,7 @@ class _WorkoutProgramBuilderScreenState
 
     try {
       // ???? ??? ?????? ??? ???? ?????
-      if (_program.name.isEmpty) {
+      if (_program.name.isEmpty || _hasCorruptedPersianText(_program.name)) {
         _program = _program.copyWith(name: await _generatePlanName());
       }
 
@@ -543,10 +559,15 @@ class _WorkoutProgramBuilderScreenState
         
         // ??? ??? ?????? ???? ????? ???? ????? ?? ???? ???? ??????? ??
         if (localProgram.sentAt == null) {
+          var program = localProgram;
+          if (program.name.isEmpty ||
+              RegExp(r'\?{2,}').hasMatch(program.name)) {
+            program = program.copyWith(name: await _generatePlanName());
+          }
           SafeSetState.call(this, () {
-            _program = localProgram;
+            _program = program;
           });
-          debugPrint('?? ?????? ?? ????? ???? ???????? ??');
+          debugPrint('📥 برنامه از حافظه محلی بارگذاری شد');
           debugPrint('?? Program ID: ${_program.id}');
           debugPrint('?? Sessions count: ${_program.sessions.length}');
           return true;
@@ -567,7 +588,7 @@ class _WorkoutProgramBuilderScreenState
   // ????? ?????? ?? ??????? (??? ???? ?????)
   Future<void> _saveProgramToDatabase() async {
     // ???? ??? ?????? ??? ???? ?????
-    if (_program.name.isEmpty) {
+    if (_program.name.isEmpty || _hasCorruptedPersianText(_program.name)) {
       _program = _program.copyWith(name: await _generatePlanName());
     }
 
@@ -580,7 +601,7 @@ class _WorkoutProgramBuilderScreenState
         if (now.isAfter(_editableUntil!)) {
           WidgetSafetyUtils.safeShowSnackBar(
             context,
-            '???? ?????? ??? ?????? ?? ????? ????? ???',
+            'مهلت ویرایش این برنامه به پایان رسیده است',
           );
           return;
         }
@@ -590,7 +611,7 @@ class _WorkoutProgramBuilderScreenState
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) {
-        throw Exception('????? ???? ????? ???? ???');
+        throw Exception('کاربر وارد سیستم نشده است');
       }
 
       // ????? ????? ??? ?????? ?? ??????? ????? ??? ??? ?? ??
@@ -629,7 +650,7 @@ class _WorkoutProgramBuilderScreenState
       if (mounted) {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
-          '??? ?? ????? ??????: $e',
+          'خطا در ذخیره برنامه: $e',
         );
       }
       rethrow;
@@ -677,7 +698,7 @@ class _WorkoutProgramBuilderScreenState
       if (!mounted) return;
       WidgetSafetyUtils.safeShowSnackBar(
         context,
-        '????? ?? ??? ??? ???? ?????? ???? ?? ???.',
+        'افزودن حرکت با خطا مواجه شد. دوباره تلاش کنید.',
       );
     }
   }
@@ -799,7 +820,7 @@ class _WorkoutProgramBuilderScreenState
                   onPressed: _addExercise,
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                  tooltip: '?????? ????',
+                  tooltip: 'افزودن حرکت',
                   child: Icon(
                     LucideIcons.plus,
                     color: Colors.white,
@@ -855,7 +876,7 @@ class _WorkoutProgramBuilderScreenState
                                         ),
                                         SizedBox(width: 6.w),
                                         Text(
-                                          '?? ??? ???? ?????? ???? ${widget.targetUserName ?? '?????'}',
+                                          'در حال ساخت برنامه برای ${widget.targetUserName ?? 'کاربر'}',
                                           style: TextStyle(
                                             fontFamily: AppTheme.fontFamily,
                                             color: isDark
@@ -883,7 +904,7 @@ class _WorkoutProgramBuilderScreenState
                                               UserDetailsScreenMealPlanBuilder(
                                             userId: widget.targetUserId!,
                                             userName: widget.targetUserName ??
-                                                '?????',
+                                                'کاربر',
                                           ),
                                         );
                                       },
@@ -931,7 +952,7 @@ class _WorkoutProgramBuilderScreenState
                                           right: 0.w,
                                         ),
                                         child: Text(
-                                          '?? $remainingHours ???? ???? ???? ?? ?????? ?????? ?????',
+                                          'تا $remainingHours ساعت دیگر مجاز به ویرایش برنامه هستید',
                                           style: TextStyle(
                                             fontFamily: AppTheme.fontFamily,
                                             color: isDark
@@ -956,7 +977,7 @@ class _WorkoutProgramBuilderScreenState
                                         right: 0.w,
                                       ),
                                       child: Text(
-                                        '?? ??? ???????? ???????...',
+                                        'در حال بارگذاری اطلاعات...',
                                         style: TextStyle(
                                           fontFamily: AppTheme.fontFamily,
                                           color: Colors.orange.withValues(
@@ -1007,7 +1028,7 @@ class _WorkoutProgramBuilderScreenState
                                       orElse: () => Exercise(
                                         id: 0,
                                         title: '',
-                                        name: '???? ${exerciseIndex + 1}',
+                                        name: 'حرکت ${exerciseIndex + 1}',
                                         mainMuscle: '',
                                         secondaryMuscles: '',
                                         tips: [],

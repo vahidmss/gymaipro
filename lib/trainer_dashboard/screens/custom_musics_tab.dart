@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/custom_music.dart';
 import 'package:gymaipro/academy/services/custom_music_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/trainer_dashboard/screens/custom_music_editor_screen.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -288,10 +289,9 @@ class _CustomMusicsTabState extends State<CustomMusicsTab> {
                 child: music.coverImageUrl.isNotEmpty
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(12.r),
-                        child: Image.network(
-                          music.coverImageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Icon(
+                        child: GymaiNetworkImage(
+                          imageUrl: music.coverImageUrl,
+                          errorWidget: Icon(
                             LucideIcons.music,
                             color: AppTheme.goldColor,
                             size: 24.sp,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/trainer_ranking/models/certificate.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class CertificateCarousel extends StatelessWidget {
@@ -213,10 +214,10 @@ class _CertificateCardState extends State<_CertificateCard>
                           fit: StackFit.expand,
                           children: [
                             if (widget.certificate.certificateUrl != null)
-                              Image.network(
-                                widget.certificate.certificateUrl!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (c, e, s) => DecoratedBox(
+                              GymaiNetworkImage(
+                                imageUrl: widget.certificate.certificateUrl!,
+                                memCacheWidth: 400,
+                                errorWidget: DecoratedBox(
                                   decoration: BoxDecoration(
                                     gradient: LinearGradient(
                                       begin: Alignment.topLeft,

@@ -221,12 +221,15 @@ class _AdminCertificatesScreenState extends State<AdminCertificatesScreen> {
       ),
     );
 
-    if (confirmed != true || reasonController.text.isEmpty) return;
+    final reason = reasonController.text;
+    reasonController.dispose();
+
+    if (confirmed != true || reason.isEmpty) return;
 
     try {
       final success = await _adminService.rejectCertificate(
         certificateId,
-        reasonController.text,
+        reason,
       );
       if (mounted) {
         if (success) {

@@ -219,20 +219,16 @@ class Wallet {
   String get formattedTrainerWithdrawable =>
       '${(trainerWithdrawable / 10).toStringAsFixed(0)} تومان';
 
-  /// وضعیت کیف پول
+  /// وضعیت کیف پول (فقط برای پنل ادمین)
   String get statusText {
     if (!isActive) return 'غیرفعال';
-    if (!isVerified) return 'تأیید نشده';
-    if (needsCharge) return 'نیاز به شارژ';
     return 'فعال';
   }
 
   /// رنگ وضعیت
   String get statusColor {
-    if (!isActive) return '#F44336'; // قرمز
-    if (!isVerified) return '#FF9800'; // نارنجی
-    if (needsCharge) return '#FFC107'; // زرد
-    return '#4CAF50'; // سبز
+    if (!isActive) return '#F44336';
+    return '#4CAF50';
   }
 
   @override

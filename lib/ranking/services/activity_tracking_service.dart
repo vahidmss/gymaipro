@@ -13,6 +13,25 @@ class ActivityTrackingService {
 
   final SupabaseClient _client = Supabase.instance.client;
   final String _tableName = 'user_activity_tracking';
+  String? _cachedUserId;
+
+  Future<String?> _resolveUserId([String? userId]) async {
+    if (userId != null && userId.isNotEmpty) return userId;
+
+    if (_cachedUserId != null && _cachedUserId!.isNotEmpty) {
+      return _cachedUserId;
+    }
+
+    final cachedProfileId = SimpleProfileService.cachedProfileId;
+    if (cachedProfileId != null) {
+      _cachedUserId = cachedProfileId;
+      return cachedProfileId;
+    }
+
+    final profile = await SimpleProfileService.getCurrentProfile();
+    _cachedUserId = profile?['id'] as String?;
+    return _cachedUserId;
+  }
 
   /// افزایش زمان خواندن مقاله
   Future<void> incrementArticleReadingTime(int minutes) async {
@@ -177,11 +196,10 @@ class ActivityTrackingService {
   }
 
   /// افزایش تعداد وعده‌های ثبت شده
-  Future<void> incrementMealLogs() async {
+  Future<void> incrementMealLogs({String? userId}) async {
     try {
-      final profile = await SimpleProfileService.getCurrentProfile();
-      final userId = profile?['id'] as String?;
-      if (userId == null) return;
+      final resolvedUserId = await _resolveUserId(userId);
+      if (resolvedUserId == null) return;
 
       final today = DateTime.now();
       final todayDate = today.toIso8601String().substring(0, 10);
@@ -189,7 +207,7 @@ class ActivityTrackingService {
       final existing = await _client
           .from(_tableName)
           .select()
-          .eq('user_id', userId)
+          .eq('user_id', resolvedUserId)
           .eq('activity_date', todayDate)
           .maybeSingle();
 
@@ -201,11 +219,11 @@ class ActivityTrackingService {
                   (existing['meal_logs_count'] as num? ?? 0).toInt() + 1,
               'updated_at': DateTime.now().toIso8601String(),
             })
-            .eq('user_id', userId)
+            .eq('user_id', resolvedUserId)
             .eq('activity_date', todayDate);
       } else {
         await _client.from(_tableName).insert({
-          'user_id': userId,
+          'user_id': resolvedUserId,
           'activity_date': todayDate,
           'meal_logs_count': 1,
         });

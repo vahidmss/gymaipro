@@ -6,6 +6,7 @@ import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/trainer_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/widgets/user_role_badge.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
@@ -711,18 +712,15 @@ class _ChatTrainerSelectionScreenState
                   child: trainer['avatar'] != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(30.r),
-                          child: Image.network(
-                            trainer['avatar'] as String,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Icon(
-                                _userRole == 'trainer'
-                                    ? LucideIcons.user
-                                    : LucideIcons.userCheck,
-                                color: AppTheme.goldColor,
-                                size: 30.sp,
-                              );
-                            },
+                          child: GymaiNetworkImage(
+                            imageUrl: trainer['avatar'] as String,
+                            errorWidget: Icon(
+                              _userRole == 'trainer'
+                                  ? LucideIcons.user
+                                  : LucideIcons.userCheck,
+                              color: AppTheme.goldColor,
+                              size: 30.sp,
+                            ),
                           ),
                         )
                       : Icon(

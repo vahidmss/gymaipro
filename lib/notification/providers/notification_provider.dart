@@ -2,15 +2,28 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/repositories/notification_repository.dart';
+import 'package:gymaipro/notification/services/in_app_notification_delivery_service.dart';
+import 'package:gymaipro/notification/services/notification_sync_bus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Provider برای مدیریت state اعلان‌ها
 /// شامل realtime updates، pagination، filtering و search
 class NotificationProvider extends ChangeNotifier {
-
   NotificationProvider() {
-    _initializeRealtime();
+    _syncSubscription = NotificationSyncBus.instance.stream.listen((_) {
+      unawaited(refreshUnreadCount());
+    });
+    _authSubscription =
+        Supabase.instance.client.auth.onAuthStateChange.listen((event) {
+      if (event.session != null) {
+        attachForCurrentUser();
+      } else {
+        _detachForUser();
+      }
+    });
+    Future.microtask(attachForCurrentUser);
   }
+
   final NotificationRepository _repository = NotificationRepository();
 
   // State variables
@@ -31,6 +44,9 @@ class NotificationProvider extends ChangeNotifier {
 
   // Realtime subscription
   RealtimeChannel? _realtimeChannel;
+  String? _attachedUserId;
+  StreamSubscription<void>? _syncSubscription;
+  StreamSubscription<AuthState>? _authSubscription;
 
   // Getters
   List<NotificationItem> get notifications => _notifications;
@@ -60,17 +76,14 @@ class NotificationProvider extends ChangeNotifier {
   List<NotificationItem> get filteredNotifications {
     var filtered = _notifications;
 
-    // Filter by type
     if (_selectedFilter != null) {
       filtered = filtered.where((n) => n.type == _selectedFilter).toList();
     }
 
-    // Filter by read status
     if (_showOnlyUnread) {
       filtered = filtered.where((n) => !n.isRead).toList();
     }
 
-    // Filter by search query
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
       filtered = filtered.where((n) {
@@ -82,15 +95,39 @@ class NotificationProvider extends ChangeNotifier {
     return filtered;
   }
 
-  /// Initialize realtime subscription
-  void _initializeRealtime() {
+  /// بعد از login یا resume — realtime و شمارنده unread را وصل می‌کند.
+  void attachForCurrentUser() {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+      if (_attachedUserId == user.id && _realtimeChannel != null) {
+        return;
+      }
+
+      _attachedUserId = user.id;
+      _realtimeChannel?.unsubscribe();
+      _initializeRealtime(user.id);
+      unawaited(refreshUnreadCount());
+    } catch (e) {
+      debugPrint('❌ NotificationProvider.attachForCurrentUser: $e');
+    }
+  }
+
+  void _detachForUser() {
+    _attachedUserId = null;
+    _realtimeChannel?.unsubscribe();
+    _realtimeChannel = null;
+    _notifications = [];
+    _unreadCount = 0;
+    notifyListeners();
+  }
+
+  void _initializeRealtime(String authUserId) {
     try {
       final client = Supabase.instance.client;
-      final user = client.auth.currentUser;
-      if (user == null) return;
 
       _realtimeChannel = client
-          .channel('notifications_${user.id}')
+          .channel('notifications_$authUserId')
           .onPostgresChanges(
             event: PostgresChangeEvent.all,
             schema: 'public',
@@ -98,13 +135,17 @@ class NotificationProvider extends ChangeNotifier {
             filter: PostgresChangeFilter(
               type: PostgresChangeFilterType.eq,
               column: 'user_id',
-              value: user.id,
+              value: authUserId,
             ),
             callback: _handleRealtimeUpdate,
           )
           .subscribe();
 
-      debugPrint('✅ Realtime notifications subscription initialized');
+      if (kDebugMode) {
+        debugPrint(
+          '✅ Realtime notifications subscription for user $authUserId',
+        );
+      }
     } catch (e) {
       debugPrint('❌ Error initializing realtime: $e');
     }
@@ -119,7 +160,6 @@ class NotificationProvider extends ChangeNotifier {
           final notification = NotificationItem.fromJson(
             Map<String, dynamic>.from(newRecord),
           );
-          // جلوگیری از duplicate - بررسی وجود notification
           final exists = _notifications.any((n) => n.id == notification.id);
           if (!exists) {
             _notifications.insert(0, notification);
@@ -127,6 +167,11 @@ class NotificationProvider extends ChangeNotifier {
               _unreadCount++;
             }
             notifyListeners();
+            unawaited(
+              InAppNotificationDeliveryService.showLocalTrayFromNotificationRow(
+                record: Map<String, dynamic>.from(newRecord),
+              ),
+            );
           }
 
         case PostgresChangeEvent.update:
@@ -312,19 +357,18 @@ class NotificationProvider extends ChangeNotifier {
   /// Delete all read notifications
   Future<int> deleteReadNotifications() async {
     try {
-      final deletedIds = await _repository.deleteReadNotifications();
-      if (deletedIds.isNotEmpty) {
-        _notifications.removeWhere((n) => deletedIds.contains(n.id));
+      final deletedCount = await _repository.deleteReadNotifications();
+      if (deletedCount > 0) {
+        _notifications.removeWhere((n) => n.isRead);
         notifyListeners();
       }
-      return deletedIds.length;
+      return deletedCount;
     } catch (e) {
       debugPrint('❌ Error deleting read notifications: $e');
       return 0;
     }
   }
 
-  /// Set filter
   void setFilter(NotificationType? type) {
     if (_selectedFilter != type) {
       _selectedFilter = type;
@@ -332,7 +376,6 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  /// Set search query
   void setSearchQuery(String query) {
     if (_searchQuery != query) {
       _searchQuery = query;
@@ -340,13 +383,11 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  /// Toggle show only unread
   void toggleShowOnlyUnread() {
     _showOnlyUnread = !_showOnlyUnread;
     loadNotifications(refresh: true);
   }
 
-  /// Clear all filters
   void clearFilters() {
     _selectedFilter = null;
     _searchQuery = '';
@@ -354,7 +395,6 @@ class NotificationProvider extends ChangeNotifier {
     loadNotifications(refresh: true);
   }
 
-  /// Get date key for grouping
   String _getDateKey(DateTime date) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -371,7 +411,6 @@ class NotificationProvider extends ChangeNotifier {
     } else if (difference < 30) {
       return 'این ماه';
     } else {
-      // Format: "1403/01/15"
       final persianMonths = [
         '',
         'فروردین',
@@ -393,6 +432,8 @@ class NotificationProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _syncSubscription?.cancel();
+    _authSubscription?.cancel();
     _realtimeChannel?.unsubscribe();
     super.dispose();
   }

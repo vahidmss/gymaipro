@@ -1,11 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:gymaipro/config/app_config.dart';
-import 'package:gymaipro/notification/models/notification_model.dart';
-import 'package:gymaipro/notification/services/notification_data_service.dart';
 import 'package:gymaipro/payment/models/trainer_subscription.dart';
 import 'package:gymaipro/payment/services/payout_service.dart';
-import 'package:gymaipro/profile/repositories/profile_repository.dart';
-import 'package:gymaipro/trainer_dashboard/services/trainer_client_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// سرویس مدیریت اشتراک‌های مربی
@@ -17,7 +12,6 @@ class TrainerSubscriptionService {
 
   final SupabaseClient _client = Supabase.instance.client;
   final PayoutService _payoutService = PayoutService();
-  final ProfileRepository _profiles = ProfileRepository.instance;
 
   /// ایجاد اشتراک جدید
   Future<TrainerSubscription?> createSubscription({
@@ -61,24 +55,6 @@ class TrainerSubscriptionService {
       }
 
       final createdSubscription = TrainerSubscription.fromJson(response);
-
-      // افزودن کاربر به شاگردان مربی (active) و ارسال نوتیفیکیشن
-      try {
-        final trainerClientService = TrainerClientService();
-        await trainerClientService
-            .ensureActiveRelationship(trainerId: trainerId, clientId: userId);
-
-        // اعلان خرید اشتراک به مربی - در هر خرید (جدید یا تمدید)
-        await _notifyTrainerNewStudent(
-          trainerId: trainerId,
-          buyerUserId: userId,
-        );
-      } catch (e) {
-        if (kDebugMode) {
-          print('⚠️ خطا در اضافه کردن شاگرد یا ارسال نوتیفیکیشن: $e');
-        }
-        // ادامه می‌دهیم حتی اگر این بخش خطا داشته باشد
-      }
 
       return createdSubscription;
     } catch (e) {
@@ -489,72 +465,6 @@ class TrainerSubscriptionService {
         print('خطا در جستجوی اشتراک‌ها: $e');
       }
       return [];
-    }
-  }
-
-  /// بر اساس profile id مربی، auth user id را برمی‌گرداند (برای اعلان و device_tokens که با auth.uid کار می‌کنند)
-  Future<String> _getAuthUserIdForProfileId(String profileId) =>
-      _profiles.resolveAuthUserId(profileId);
-
-  /// ارسال اعلان: شاگرد جدید به مربی اضافه شد
-  Future<void> _notifyTrainerNewStudent({
-    required String trainerId,
-    required String buyerUserId,
-  }) async {
-    try {
-      final trainerAuthId = await _getAuthUserIdForProfileId(trainerId);
-
-      final buyerProfile = await _profiles.fetchProfile(buyerUserId);
-      var buyerName = _profiles.displayNameFromMap(buyerProfile, fallback: '');
-      if (buyerName.isEmpty) buyerName = 'یک کاربر';
-
-      const title = 'شاگرد جدید';
-      final message = '$buyerName به شاگردان شما اضافه شد.';
-
-      // ایجاد نوتیفیکیشن داخل برنامه (user_id باید auth.uid باشد)
-      await NotificationDataService.createNotification(
-        userId: trainerAuthId,
-        title: title,
-        message: message,
-        type: NotificationType.payment,
-        priority: 2,
-        data: {'buyer_user_id': buyerUserId, 'event': 'student_added'},
-      );
-
-      // ارسال پوش: سمت سرور توکن مربی را می‌خواند (RLS اجازه خواندن به خریدار نمی‌دهد)
-      try {
-        if (kDebugMode) print('📤 Push: supabaseEdgeFunctionsEnabled=${AppConfig.supabaseEdgeFunctionsEnabled}');
-        if (AppConfig.supabaseEdgeFunctionsEnabled) {
-          if (kDebugMode) print('📤 Invoking send-notifications (trainer_new_student) for trainer $trainerId');
-          final res = await _client.functions.invoke(
-            'send-notifications',
-            body: {
-              'mode': 'trainer_new_student',
-              'trainer_id': trainerId,
-              'title': title,
-              'body': message,
-              'data': {
-                'type': 'payment',
-                'route': '/trainer-dashboard',
-                'buyer_user_id': buyerUserId,
-                'event': 'student_added',
-              },
-            },
-          );
-          if (kDebugMode) print('☁️ send-notifications result: ${res.status} ${res.data}');
-        } else if (kDebugMode) {
-          print('⚠️ Push skipped: supabaseEdgeFunctionsEnabled=false');
-        }
-      } catch (e, st) {
-        if (kDebugMode) {
-          print('⚠️ خطا در ارسال پوش نوتیفیکیشن: $e');
-          print('Stack: $st');
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('⚠️ خطا در ایجاد اعلان: $e');
-      }
     }
   }
 }

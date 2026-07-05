@@ -1,4 +1,5 @@
 import 'package:gymaipro/utils/json_parse_utils.dart';
+import 'package:gymaipro/utils/wordpress_media.dart';
 
 class FitnessLegend {
   FitnessLegend({
@@ -53,23 +54,8 @@ class FitnessLegend {
     final weightStage = meta['weight_stage']?.toString();
     final olympiaTitles = meta['olympia_titles']?.toString();
 
-    // Extract featured image
-    String? imageUrl;
-    try {
-      final embedded = json['_embedded'];
-      if (embedded is Map<String, dynamic>) {
-        final media = embedded['wp:featuredmedia'];
-        if (media is List && media.isNotEmpty) {
-          final first = media.first;
-          if (first is Map<String, dynamic>) {
-            final mediaSource = first['source_url']?.toString();
-            if (mediaSource != null && mediaSource.isNotEmpty) {
-              imageUrl = mediaSource;
-            }
-          }
-        }
-      }
-    } catch (_) {}
+    // Extract featured image (prefer a resized variant to save bandwidth).
+    final imageUrl = WordPressMedia.bestFeaturedImageUrl(json);
 
     int id = 0;
     try {

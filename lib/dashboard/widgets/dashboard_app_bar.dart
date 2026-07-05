@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/achievements/screens/achievements_screen.dart';
@@ -8,13 +7,16 @@ import 'package:gymaipro/guide/data/dashboard_guide_data.dart';
 import 'package:gymaipro/services/avatar_refresh_notifier.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DashboardAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const DashboardAppBar({super.key});
+  const DashboardAppBar({this.drawerMenuKey, super.key});
+
+  final GlobalKey? drawerMenuKey;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -168,7 +170,7 @@ class DashboardAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget _buildMenuButton(BuildContext context) {
     return Builder(
       builder: (context) => IconButton(
-        key: DashboardGuideData.keys['drawer_menu'], // Key برای guide overlay
+        key: drawerMenuKey ?? DashboardGuideData.keys['drawer_menu'],
         icon: Icon(
           LucideIcons.menu,
           color: context.textColor,
@@ -271,13 +273,9 @@ class _AppBarAvatarButtonState extends State<_AppBarAvatarButton> {
             ),
             child: avatarUrl != null && avatarUrl.isNotEmpty
                 ? ClipOval(
-                    child: CachedNetworkImage(
+                    child: GymaiNetworkImage(
                       imageUrl: avatarUrl,
-                      cacheKey: 'avatar_appbar_${userId}_${avatarUrl.hashCode}',
-                      fit: BoxFit.cover,
-                      memCacheWidth: 80,
-                      memCacheHeight: 80,
-                      placeholder: (context, url) => ColoredBox(
+                      placeholder: ColoredBox(
                         color: AppTheme.goldColor.withValues(alpha: 0.1),
                         child: Icon(
                           LucideIcons.user,
@@ -285,7 +283,7 @@ class _AppBarAvatarButtonState extends State<_AppBarAvatarButton> {
                           size: 20.sp,
                         ),
                       ),
-                      errorWidget: (context, url, error) => ColoredBox(
+                      errorWidget: ColoredBox(
                         color: AppTheme.goldColor.withValues(alpha: 0.1),
                         child: Icon(
                           LucideIcons.user,

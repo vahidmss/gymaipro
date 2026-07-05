@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/fitness_legend.dart';
 import 'package:gymaipro/academy/screens/legend_detail_screen.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class LegendCard extends StatelessWidget {
@@ -71,10 +72,9 @@ class LegendCard extends StatelessWidget {
                   height: 90.h,
                   color: Colors.black26,
                   child: legend.featuredImageUrl != null
-                      ? Image.network(
-                          legend.featuredImageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (c, e, s) => const Icon(
+                      ? GymaiNetworkImage(
+                          imageUrl: legend.featuredImageUrl!,
+                          errorWidget: const Icon(
                             LucideIcons.user,
                             color: Colors.white54,
                             size: 48,

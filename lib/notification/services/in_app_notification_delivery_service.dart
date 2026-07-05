@@ -1,17 +1,85 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/notification/push_notification_policy.dart';
+import 'package:gymaipro/notification/services/notification_push_invoker.dart';
+import 'package:gymaipro/notification/utils/notification_tray_dedupe.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/notification_service.dart';
 import 'package:gymaipro/notification/services/notification_data_service.dart';
+import 'package:gymaipro/notification/services/push_health_monitor.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// تحویل اعلان درون‌برنامه‌ای: ردیف در DB + نوتیف محلی (اگر گیرنده همین دستگاه است).
-/// FCM فقط وقتی [AppConfig.firebasePushEnabled] روشن باشد — در پس‌زمینه و بدون block UI.
+/// FCM فقط وقتی [PushNotificationPolicy.shouldAttemptServerPush] روشن باشد.
 class InAppNotificationDeliveryService {
   static final SupabaseClient _client = Supabase.instance.client;
-  static final Map<String, DateTime> _recentLocalKeys = {};
+
+  /// اعلان خرید برنامه برای مربی — ثبت در DB سمت سرور + پوش FCM (اگر فعال باشد).
+  static Future<bool> deliverTrainerProgramPurchase({
+    required String trainerProfileId,
+    required String trainerAuthUserId,
+    required String title,
+    required String body,
+    required Map<String, dynamic> data,
+    String? dedupeKey,
+    String? actionUrl,
+    int priority = 3,
+  }) async {
+    final payloadData = {
+      ...data,
+      'type': data['type'] ?? 'payment',
+      'event': data['event'] ?? 'trainer_program_purchase',
+    };
+
+    var serverOk = false;
+    try {
+      final response = await _client.functions.invoke(
+        'send-notifications',
+        body: {
+          'mode': 'trainer_notify',
+          'trainer_id': trainerProfileId,
+          'title': title,
+          'body': body,
+          'data': payloadData,
+          'notification': {
+            'user_id': trainerAuthUserId,
+            'title': title,
+            'message': body,
+            'type': 'payment',
+            'priority': priority,
+            'data': payloadData,
+            'action_url': actionUrl,
+          },
+        },
+      );
+      serverOk = response.status == 200;
+      if (kDebugMode && !serverOk) {
+        debugPrint(
+          'deliverTrainerProgramPurchase server status=${response.status} '
+          'data=${response.data}',
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('deliverTrainerProgramPurchase server failed: $e');
+      }
+    }
+
+    if (serverOk) return true;
+
+    return deliver(
+      recipientUserId: trainerAuthUserId,
+      title: title,
+      body: body,
+      type: NotificationType.payment,
+      priority: priority,
+      data: payloadData,
+      actionUrl: actionUrl,
+      dedupeKey: dedupeKey,
+      trainerProfileIdForFcm: trainerProfileId,
+    );
+  }
 
   /// درج در notifications + نمایش tray برای کاربر فعلی + FCM اختیاری.
   static Future<bool> deliver({
@@ -56,7 +124,16 @@ class InAppNotificationDeliveryService {
         }
       }
 
-      if (!skipLocalTray) {
+      // Push attempt targets the RECIPIENT — it only needs server capability
+      // (edge functions), not this device's FCM health.
+      final willSendFcm =
+          !skipFcm && PushNotificationPolicy.shouldAttemptServerPush;
+
+      // The local tray only fires when the current user IS the recipient. Show
+      // it only when THIS device won't receive the FCM push (filtered network /
+      // no token) so the alert is never duplicated nor silently lost.
+      final deviceWillGetPush = PushHealthMonitor.instance.canReceivePushNow;
+      if (!skipLocalTray && !deviceWillGetPush) {
         unawaited(
           _maybeShowLocalTray(
             recipientUserId: recipientUserId,
@@ -68,7 +145,7 @@ class InAppNotificationDeliveryService {
         );
       }
 
-      if (!skipFcm && AppConfig.firebasePushEnabled) {
+      if (willSendFcm) {
         unawaited(
           _deliverFcmBestEffort(
             recipientUserId: recipientUserId,
@@ -135,6 +212,18 @@ class InAppNotificationDeliveryService {
             .limit(1);
         return (rows as List<dynamic>).isNotEmpty;
       }
+      if (dedupeKey.startsWith('trainer_program:')) {
+        final subId = dedupeKey.split(':').last;
+        if (subId.isEmpty) return false;
+        final rows = await _client
+            .from('notifications')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('data->>event', 'trainer_program_purchase')
+            .eq('data->>subscription_id', subId)
+            .limit(1);
+        return (rows as List<dynamic>).isNotEmpty;
+      }
       final event = data['event']?.toString();
       final buyerId = data['buyer_user_id']?.toString();
       if (event != null && buyerId != null) {
@@ -170,12 +259,7 @@ class InAppNotificationDeliveryService {
     final currentId = _client.auth.currentUser?.id;
     if (currentId == null || currentId != recipientUserId) return;
 
-    final last = _recentLocalKeys[dedupeKey];
-    if (last != null &&
-        DateTime.now().difference(last) < const Duration(seconds: 20)) {
-      return;
-    }
-    _recentLocalKeys[dedupeKey] = DateTime.now();
+    if (!NotificationTrayDedupe.shouldShow(dedupeKey)) return;
 
     final type = data['type']?.toString() ?? '';
     if (type == 'friend_request' || type == 'friend_request_accepted') {
@@ -204,23 +288,19 @@ class InAppNotificationDeliveryService {
     required Map<String, dynamic> data,
     String? trainerProfileIdForFcm,
   }) async {
-    if (!AppConfig.supabaseEdgeFunctionsEnabled) return;
-
     try {
       if (trainerProfileIdForFcm != null &&
           trainerProfileIdForFcm.isNotEmpty) {
-        await _client.functions
-            .invoke(
-              'send-notifications',
-              body: {
-                'mode': 'trainer_new_student',
-                'trainer_id': trainerProfileIdForFcm,
-                'title': title,
-                'body': body,
-                'data': data,
-              },
-            )
-            .timeout(const Duration(seconds: 12));
+        await NotificationPushInvoker.sendNotifications(
+          client: _client,
+          body: {
+            'mode': 'trainer_notify',
+            'trainer_id': trainerProfileIdForFcm,
+            'title': title,
+            'body': body,
+            'data': data,
+          },
+        );
         return;
       }
 
@@ -238,19 +318,17 @@ class InAppNotificationDeliveryService {
 
       if (tokens.isEmpty) return;
 
-      await _client.functions
-          .invoke(
-            'send-notifications',
-            body: {
-              'mode': 'direct',
-              'target_type': 'device_tokens',
-              'tokens': tokens,
-              'title': title,
-              'body': body,
-              'data': data,
-            },
-          )
-          .timeout(const Duration(seconds: 12));
+      await NotificationPushInvoker.sendNotifications(
+        client: _client,
+        body: {
+          'mode': 'direct',
+          'target_type': 'device_tokens',
+          'tokens': tokens,
+          'title': title,
+          'body': body,
+          'data': data,
+        },
+      );
     } catch (e) {
       if (kDebugMode) {
         debugPrint('InAppNotificationDelivery FCM skipped: $e');
@@ -272,6 +350,25 @@ class InAppNotificationDeliveryService {
     Map<String, dynamic> data = {};
     if (dataRaw is Map) {
       data = Map<String, dynamic>.from(dataRaw);
+    }
+
+    // Chat messages are delivered exclusively by ChatUnreadNotifier (on filtered
+    // networks) or the FCM foreground handler (unfiltered). The edge function
+    // also inserts a `notifications` row for history/badge, so showing a generic
+    // tray here would duplicate the dedicated chat alert. Skip it.
+    final rowType = record['type']?.toString();
+    final dataType = data['type']?.toString();
+    final isChatMessage = rowType == 'message' ||
+        dataType == 'chat_message' ||
+        data.containsKey('conversation_id');
+    if (isChatMessage) {
+      if (kDebugMode) {
+        debugPrint(
+          'InAppNotificationDelivery: skip generic tray for chat row '
+          '(handled by ChatUnreadNotifier/FCM)',
+        );
+      }
+      return;
     }
 
     final dedupeKey =

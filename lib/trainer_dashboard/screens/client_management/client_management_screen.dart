@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/trainer_dashboard/services/trainer_client_service.dart';
 import 'package:gymaipro/trainer_dashboard/services/user_search_service.dart';
 import 'package:gymaipro/trainer_dashboard/widgets/athlete_request_widget.dart';
@@ -937,22 +938,19 @@ class _ClientAvatar extends StatelessWidget {
       ),
       child: ClipOval(
         child: (avatarUrl != null && avatarUrl.isNotEmpty)
-            ? Image.network(
-                avatarUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _Initials(initials: initials),
-                loadingBuilder: (ctx, child, progress) => progress == null
-                    ? child
-                    : ColoredBox(
-                        color: context.cardColor,
-                        child: Center(
-                          child: SizedBox(
-                            width: 18.w,
-                            height: 18.h,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppTheme.goldColor,
-                            ),
+            ? GymaiNetworkImage(
+                imageUrl: avatarUrl,
+                errorWidget: _Initials(initials: initials),
+                placeholder: ColoredBox(
+                  color: context.cardColor,
+                  child: Center(
+                    child: SizedBox(
+                      width: 18.w,
+                      height: 18.h,
+                      child: const CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.goldColor,
+                      ),
                           ),
                         ),
                       ),

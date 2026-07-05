@@ -109,7 +109,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
       Map<String, dynamic> result;
 
       final backgroundColorHex =
-          '#${_selectedBackgroundColor.value.toRadixString(16).substring(2)}';
+          '#${_selectedBackgroundColor.toARGB32().toRadixString(16).substring(2)}';
 
       switch (_selectedTargetType) {
         case 'all':

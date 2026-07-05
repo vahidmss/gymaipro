@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/core/lifecycle_observer.dart';
 import 'package:gymaipro/services/app_access_control_service.dart';
 import 'package:gymaipro/services/app_update_service.dart';
 import 'package:gymaipro/services/app_version_service.dart';
@@ -41,6 +43,7 @@ class _AppUpdateCoordinatorState extends State<AppUpdateCoordinator>
     _updateService.stateNotifier.addListener(_onUpdateStateChanged);
     unawaited(_bootstrap());
     _accessRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (LifecycleObserver.isAppInBackground) return;
       unawaited(_refreshAccessState());
     });
   }
@@ -56,6 +59,7 @@ class _AppUpdateCoordinatorState extends State<AppUpdateCoordinator>
   Future<void> _bootstrap() async {
     await AppVersionService.instance.ensureLoaded();
     await _refreshAccessState();
+    if (kIsWeb) return;
     await _updateService.checkForUpdates(force: true);
   }
 
@@ -63,7 +67,9 @@ class _AppUpdateCoordinatorState extends State<AppUpdateCoordinator>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(_refreshAccessState());
-      unawaited(_updateService.checkForUpdates(force: true));
+      if (!kIsWeb) {
+        unawaited(_updateService.checkForUpdates(force: true));
+      }
     }
   }
 

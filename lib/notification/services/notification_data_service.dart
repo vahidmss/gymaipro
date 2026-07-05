@@ -120,7 +120,7 @@ class NotificationDataService {
     );
   }
 
-  /// Create a new notification
+  /// Create a new notification (RPC با SECURITY DEFINER برای درج cross-user)
   static Future<bool> createNotification({
     required String userId,
     required String title,
@@ -132,21 +132,39 @@ class NotificationDataService {
     DateTime? expiresAt,
   }) async {
     try {
-      await _client.from('notifications').insert({
-        'user_id': userId,
-        'title': title,
-        'message': message,
-        'type': type.name,
-        'priority': priority,
-        'data': data ?? {},
-        'action_url': actionUrl,
-        'expires_at': expiresAt?.toIso8601String(),
-      });
-
+      await _client.rpc<String>(
+        'create_user_notification',
+        params: {
+          'p_user_id': userId,
+          'p_title': title,
+          'p_message': message,
+          'p_type': type.name,
+          'p_priority': priority,
+          'p_data': data ?? {},
+          'p_action_url': actionUrl,
+        },
+      );
       return true;
     } catch (e) {
-      debugPrint('Error creating notification: $e');
-      return false;
+      if (kDebugMode) {
+        debugPrint('create_user_notification RPC failed, trying insert: $e');
+      }
+      try {
+        await _client.from('notifications').insert({
+          'user_id': userId,
+          'title': title,
+          'message': message,
+          'type': type.name,
+          'priority': priority,
+          'data': data ?? {},
+          'action_url': actionUrl,
+          'expires_at': expiresAt?.toIso8601String(),
+        });
+        return true;
+      } catch (e2) {
+        debugPrint('Error creating notification: $e2');
+        return false;
+      }
     }
   }
 
@@ -156,16 +174,32 @@ class NotificationDataService {
       final user = _client.auth.currentUser;
       if (user == null) return false;
 
-      await _client
-          .from('notifications')
-          .delete()
-          .eq('id', notificationId)
-          .eq('user_id', user.id);
+      final response = await _client.rpc<bool>(
+        'delete_notification',
+        params: {
+          'notification_uuid': notificationId,
+          'user_uuid': user.id,
+        },
+      );
 
-      return true;
+      return response == true;
     } catch (e) {
       debugPrint('Error deleting notification: $e');
-      return false;
+      try {
+        final user = _client.auth.currentUser;
+        if (user == null) return false;
+
+        final rows = await _client
+            .from('notifications')
+            .delete()
+            .eq('id', notificationId)
+            .eq('user_id', user.id)
+            .select('id');
+
+        return rows.isNotEmpty;
+      } catch (_) {
+        return false;
+      }
     }
   }
 

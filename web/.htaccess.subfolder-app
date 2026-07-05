@@ -1,0 +1,9 @@
+# Use this file if the app lives in a subfolder, e.g. https://gymaipro.ir/app/
+# Rename/copy to .htaccess and run: flutter build web --base-href /app/
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /app/
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^ index.html [L]
+</IfModule>

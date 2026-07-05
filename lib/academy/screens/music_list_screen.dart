@@ -7,6 +7,7 @@ import 'package:gymaipro/academy/widgets/music_player_widget.dart';
 import 'package:gymaipro/academy/widgets/playlist_item_widget.dart';
 import 'package:gymaipro/academy/services/music_favorite_service.dart';
 import 'package:gymaipro/academy/services/music_cache_service.dart';
+import 'package:gymaipro/core/web_interaction.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/trainer_dashboard/services/trainer_client_service.dart';
@@ -293,9 +294,7 @@ class _MusicListScreenState extends State<MusicListScreen>
                 color: AppTheme.goldColor,
                 child: CustomScrollView(
                   controller: _scrollController,
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: BouncingScrollPhysics(),
-                  ),
+                  physics: WebInteraction.alwaysScrollableListPhysics,
                   slivers: [
                     // Main Player Widget
                     const SliverToBoxAdapter(
@@ -350,7 +349,7 @@ class _MusicListScreenState extends State<MusicListScreen>
           ),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
+            physics: WebInteraction.listScrollPhysics,
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 minWidth: constraints.maxWidth - 32.w,

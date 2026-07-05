@@ -5,6 +5,7 @@ import 'package:gymaipro/my_club/services/friendship_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/profile/widgets/profile_new_widgets.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_kpi_service.dart';
 import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -277,7 +278,7 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
               padding: EdgeInsets.all(3.w),
               child: ClipOval(
                 child: avatarUrl.isNotEmpty
-                    ? Image.network(avatarUrl, fit: BoxFit.cover)
+                    ? GymaiNetworkImage(imageUrl: avatarUrl)
                     : Container(
                         color: isDark ? Colors.grey[800] : Colors.grey[200],
                         child: Icon(
@@ -430,7 +431,7 @@ class _TrainerProfileScreenState extends State<TrainerProfileScreen> {
         backgroundColor: Colors.transparent,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20.r),
-          child: Image.network(url, fit: BoxFit.cover),
+          child: GymaiNetworkImage(imageUrl: url),
         ),
       ),
     );

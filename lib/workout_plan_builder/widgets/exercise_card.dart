@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:gymaipro/workout_plan_builder/widgets/exercise_note_button.dart';
 import 'package:gymaipro/workout_plan_builder/widgets/exercise_stepper.dart';
@@ -192,12 +193,11 @@ class ExerciseCard extends StatelessWidget {
                   child: exerciseDetails.imageUrl.isNotEmpty
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(8.r),
-                          child: Image.network(
-                            exerciseDetails.imageUrl,
+                          child: GymaiNetworkImage(
+                            imageUrl: exerciseDetails.imageUrl,
                             width: 36.w,
                             height: 36.h,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Icon(
+                            errorWidget: Icon(
                               LucideIcons.dumbbell,
                               color: AppTheme.goldColor,
                               size: 20.sp,
@@ -690,12 +690,11 @@ class ExerciseCard extends StatelessWidget {
                             if (exDetails.imageUrl.isNotEmpty)
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(6.r),
-                                child: Image.network(
-                                  exDetails.imageUrl,
+                                child: GymaiNetworkImage(
+                                  imageUrl: exDetails.imageUrl,
                                   width: 28.w,
                                   height: 28.h,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Icon(
+                                  errorWidget: Icon(
                                     LucideIcons.dumbbell,
                                     color: AppTheme.goldColor,
                                     size: 20.sp,

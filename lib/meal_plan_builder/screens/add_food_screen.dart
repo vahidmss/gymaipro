@@ -5,6 +5,7 @@ import 'package:gymaipro/models/meal_plan.dart';
 import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/services/user_preferences_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class AddFoodScreenMealPlanBuilder extends StatefulWidget {
@@ -420,12 +421,11 @@ class _AddFoodScreenMealPlanBuilderState
                 if (food.imageUrl.isNotEmpty)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8.r),
-                    child: Image.network(
-                      food.imageUrl,
+                    child: GymaiNetworkImage(
+                      imageUrl: food.imageUrl,
                       width: 50.w,
                       height: 50.h,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                      errorWidget: Container(
                         width: 50.w,
                         height: 50.h,
                         decoration: BoxDecoration(
@@ -1133,12 +1133,11 @@ class _AmountInputDialogState extends State<_AmountInputDialog> {
                   Center(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12.r),
-                      child: Image.network(
-                        widget.food.imageUrl,
+                      child: GymaiNetworkImage(
+                        imageUrl: widget.food.imageUrl,
                         width: 80.w,
                         height: 80.h,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorWidget: Container(
                           width: 80.w,
                           height: 80.h,
                           decoration: BoxDecoration(

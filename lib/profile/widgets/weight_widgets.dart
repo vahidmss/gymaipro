@@ -175,7 +175,7 @@ class WeightWidgets {
           ],
         );
       },
-    );
+    ).whenComplete(weightController.dispose);
   }
 
   static void showWeightHistoryDialog(

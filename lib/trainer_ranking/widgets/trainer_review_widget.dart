@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/trainer_ranking/models/trainer_ranking_model.dart'
     show TrainerReview;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -45,16 +46,13 @@ class TrainerReviewWidget extends StatelessWidget {
                   ),
                   child: ClipOval(
                     child: review.userAvatar != null
-                        ? Image.network(
-                            review.userAvatar!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Icon(
-                                LucideIcons.user,
-                                color: AppTheme.goldColor,
-                                size: 20.sp,
-                              );
-                            },
+                        ? GymaiNetworkImage(
+                            imageUrl: review.userAvatar!,
+                            errorWidget: Icon(
+                              LucideIcons.user,
+                              color: AppTheme.goldColor,
+                              size: 20.sp,
+                            ),
                           )
                         : Icon(
                             LucideIcons.user,

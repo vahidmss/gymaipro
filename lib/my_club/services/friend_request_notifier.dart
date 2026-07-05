@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/chat/services/chat_unread_notifier.dart' show ChatUnreadNotifier;
+import 'package:gymaipro/core/lifecycle_observer.dart';
 import 'package:gymaipro/models/friendship_models.dart';
 import 'package:gymaipro/my_club/services/friendship_service.dart';
 import 'package:gymaipro/notification/notification_service.dart';
@@ -41,6 +42,8 @@ class FriendRequestNotifier extends ChangeNotifier {
         return;
       }
       if (!_isInitialized || _isLoading) return;
+      // در پس‌زمینه poll نکن تا دیتا/باتری هدر نرود (به‌ویژه روی وب).
+      if (LifecycleObserver.isAppInBackground) return;
       if (Supabase.instance.client.auth.currentUser == null) return;
       unawaited(_loadPending());
     });

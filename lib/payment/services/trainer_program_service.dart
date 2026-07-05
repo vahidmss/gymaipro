@@ -1,5 +1,6 @@
-﻿import 'package:flutter/foundation.dart';
-import 'package:gymaipro/payment/services/payout_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:gymaipro/payment/services/trainer_escrow_service.dart';
+import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 // removed unused import
 
@@ -11,7 +12,7 @@ class TrainerProgramService {
       TrainerProgramService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
-  final PayoutService _payoutService = PayoutService();
+  final TrainerEscrowService _escrowService = TrainerEscrowService();
 
   /// ثبت برنامه توسط مربی
   Future<bool> registerProgram({
@@ -50,31 +51,21 @@ class TrainerProgramService {
         return false;
       }
 
-      // به‌روزرسانی وضعیت برنامه
       final now = DateTime.now();
-      await _client
-          .from('trainer_subscriptions')
-          .update({
-            'program_registration_date': now.toIso8601String(),
-            'program_status': 'in_progress',
-            'status': 'active',
-            'updated_at': now.toIso8601String(),
-            'metadata': {
-              'program_description': programDescription,
-              'program_data': programData,
-              'registered_by_trainer': true,
-            },
-          })
-          .eq('id', subscriptionId);
+      await _escrowService.onProgramSent(
+        subscriptionId: subscriptionId,
+        sentAt: now,
+      );
 
-      // به‌روزرسانی trainer_withdrawable
-      try {
-        await _payoutService.updateTrainerWithdrawable(trainerId);
-      } catch (e) {
-        if (kDebugMode) {
-          print('⚠️ خطا در به‌روزرسانی موجودی قابل برداشت: $e');
-        }
-        // خطا در به‌روزرسانی نباید جریان اصلی را متوقف کند
+      if (programDescription != null || programData != null) {
+        await _client.from('trainer_subscriptions').update({
+          'metadata': {
+            'program_description': programDescription,
+            'program_data': programData,
+            'registered_by_trainer': true,
+          },
+          'updated_at': now.toIso8601String(),
+        }).eq('id', subscriptionId);
       }
 
       if (kDebugMode) {
@@ -219,18 +210,16 @@ class TrainerProgramService {
             purchase_date,
             program_registration_date,
             program_status,
-            trainer_delay_days,
-            profiles!trainer_subscriptions_user_id_fkey(
-              full_name,
-              avatar_url
-            )
+            trainer_delay_days
           ''')
           .eq('trainer_id', trainerId)
           .or('status.eq.paid,status.eq.active')
           .or('program_status.eq.not_started,program_status.eq.delayed')
           .order('purchase_date', ascending: true);
 
-      return (response as List).cast<Map<String, dynamic>>();
+      return _attachBuyerProfileSnapshots(
+        (response as List).cast<Map<String, dynamic>>(),
+      );
     } catch (e) {
       if (kDebugMode) {
         print('خطا در دریافت برنامه‌های در انتظار: $e');
@@ -352,11 +341,7 @@ class TrainerProgramService {
             purchase_date,
             program_registration_date,
             first_usage_date,
-            trainer_delay_days,
-            profiles!trainer_subscriptions_user_id_fkey(
-              full_name,
-              avatar_url
-            )
+            trainer_delay_days
           ''');
 
       var filter = base.eq('trainer_id', trainerId);
@@ -371,12 +356,52 @@ class TrainerProgramService {
 
       final ordered = filter.order('purchase_date', ascending: false);
       final response = await (limit != null ? ordered.limit(limit) : ordered);
-      return (response as List).cast<Map<String, dynamic>>();
+      return _attachBuyerProfileSnapshots(
+        (response as List).cast<Map<String, dynamic>>(),
+      );
     } catch (e) {
       if (kDebugMode) {
         print('خطا در دریافت تاریخچه برنامه‌های مربی: $e');
       }
       return [];
     }
+  }
+
+  Future<List<Map<String, dynamic>>> _attachBuyerProfileSnapshots(
+    List<Map<String, dynamic>> rows,
+  ) async {
+    if (rows.isEmpty) return rows;
+
+    final userIds = rows
+        .map((row) => row['user_id'] as String?)
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    if (userIds.isEmpty) return rows;
+
+    final profilesById = await ProfileRepository.instance.fetchProfilesByIdsMap(
+      userIds,
+    );
+
+    return rows.map((row) {
+      final userId = row['user_id'] as String?;
+      final profile = userId != null ? profilesById[userId] : null;
+      final first = (profile?['first_name'] as String?)?.trim() ?? '';
+      final last = (profile?['last_name'] as String?)?.trim() ?? '';
+      final fullName = '$first $last'.trim();
+      return {
+        ...row,
+        'profiles': profile == null
+            ? null
+            : {
+                ...profile,
+                'full_name': fullName.isNotEmpty
+                    ? fullName
+                    : (profile['username'] as String?),
+                'avatar_url': profile['avatar_url'],
+              },
+      };
+    }).toList();
   }
 }

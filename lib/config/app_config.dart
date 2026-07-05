@@ -87,7 +87,11 @@ class AppConfig {
     return true;
   }
 
-  /// FCM push — پیش‌فرض خاموش؛ درون‌برنامه‌ای همیشه فعال است.
+  /// FCM push — قابلیت push به‌صورت پیش‌فرض روشن است، اما تحویل واقعی به‌صورت
+  /// runtime با PushHealthMonitor بررسی می‌شود: روی شبکه‌هایی که Firebase
+  /// فیلتر است، خودکار به نوتیف داخلی (DB + realtime + tray محلی) سوییچ می‌شود.
+  /// برای خاموش‌کردن کامل push: `.env` → `FIREBASE_PUSH_ENABLED=false`
+  /// یا `--dart-define=FIREBASE_PUSH_ENABLED=false`.
   static bool get firebasePushEnabled {
     const env = String.fromEnvironment('FIREBASE_PUSH_ENABLED');
     if (env.isNotEmpty) {
@@ -95,7 +99,7 @@ class AppConfig {
     }
     final v = dotenvValue('FIREBASE_PUSH_ENABLED');
     if (v != null) return _isTruthy(v);
-    return false;
+    return true;
   }
 
   /// پایه آدرس سایت وردپرس (بدون `/` انتهایی)، برای REST و لینک‌های نسبی.
@@ -146,25 +150,44 @@ class AppConfig {
     return true;
   }
 
-  static String get supportPhone => _envString('SUPPORT_PHONE');
+  static String get supportPhone {
+    final v = _envString('SUPPORT_PHONE');
+    return v.isNotEmpty ? v : '09916390767';
+  }
 
   static String get supportWhatsApp => _envString('SUPPORT_WHATSAPP');
 
-  static String get supportTelegram => _envString('SUPPORT_TELEGRAM');
+  static String get supportTelegram {
+    final v = _envString('SUPPORT_TELEGRAM');
+    return v.isNotEmpty ? v : 'vahidmss';
+  }
 
   // API configuration
   static const int apiTimeout = 30000; // 30 seconds
   static const int maxRetries = 3;
 
-  /// مدل پیش‌فرض DeepSeek (Chat Completions — سازگار با OpenAI)
-  static const String aiDefaultModel = 'deepseek-v4-flash';
+  /// مدل پیش‌فرض OpenAI Chat Completions
+  static const String aiDefaultModel = 'gpt-4o-mini';
 
   /// مدل قوی‌تر برای پرامپت‌های سنگین
-  static const String aiReasoningModel = 'deepseek-v4-pro';
+  static const String aiReasoningModel = 'gpt-4o';
+
+  /// OTP از Edge Function سرور (send-otp / verify-otp) — credential پیامک در کلاینت نیست.
+  /// روی وب همیشه true. روی موبایل: OTP_USE_SERVER=false برای مسیر legacy.
+  static bool get otpUseServerRoute {
+    if (kIsWeb) return true;
+    const env = String.fromEnvironment('OTP_USE_SERVER');
+    if (env.isNotEmpty) {
+      return _isTruthy(env);
+    }
+    final v = dotenvValue('OTP_USE_SERVER');
+    if (v != null) return _isTruthy(v);
+    return supabaseEdgeFunctionsEnabled;
+  }
 
   /// اگر true باشد، درخواست‌های AI از طریق Edge Function روی api.gymaipro.ir
-  /// به DeepSeek پروکسی می‌شوند (برای انتشار عمومی + امنیت کلید).
-  /// پیش‌فرض false: هر دستگاه مستقیم به DeepSeek می‌زند (مناسب بتا/تست).
+  /// به OpenAI پروکسی می‌شوند (برای انتشار عمومی + امنیت کلید).
+  /// روی وب همیشه از proxy استفاده می‌شود (در OpenAIService).
   static bool get openaiUseProxy {
     const env = String.fromEnvironment('OPENAI_USE_PROXY');
     if (env.isNotEmpty) {
@@ -179,48 +202,25 @@ class AppConfig {
   static bool get aiUsesDeviceDirectRoute =>
       !openaiUseProxy && openaiApiKey.isNotEmpty;
 
-  /// آدرس مستقیم DeepSeek (فقط وقتی OPENAI_USE_PROXY=false)
+  /// آدرس مستقیم OpenAI (فقط وقتی OPENAI_USE_PROXY=false)
   static String get openaiDirectBaseUrl {
     const env = String.fromEnvironment('OPENAI_BASE_URL');
     if (env.isNotEmpty) {
       return env.replaceFirst(RegExp(r'/$'), '');
     }
-    const deepseekEnv = String.fromEnvironment('DEEPSEEK_BASE_URL');
-    if (deepseekEnv.isNotEmpty) {
-      return deepseekEnv.replaceFirst(RegExp(r'/$'), '');
-    }
-    final dotenvUrl =
-        dotenvValue('OPENAI_BASE_URL') ?? dotenvValue('DEEPSEEK_BASE_URL');
+    final dotenvUrl = dotenvValue('OPENAI_BASE_URL');
     if (dotenvUrl != null) return dotenvUrl.replaceFirst(RegExp(r'/$'), '');
-    return 'https://api.deepseek.com';
+    return 'https://api.openai.com';
   }
 
-  // DeepSeek / OpenAI-compatible API key (OPENAI_* نام legacy برای سازگاری)
   static String get openaiApiKey {
     const envKey = String.fromEnvironment('OPENAI_API_KEY');
     if (envKey.isNotEmpty) {
-      if (kDebugMode) {
-        debugPrint('AppConfig: Using API key from --dart-define');
-      }
       return envKey;
     }
-    const deepseekKey = String.fromEnvironment('DEEPSEEK_API_KEY');
-    if (deepseekKey.isNotEmpty) {
-      if (kDebugMode) {
-        debugPrint('AppConfig: Using DeepSeek API key from --dart-define');
-      }
-      return deepseekKey;
-    }
-    final dotenvKey =
-        dotenvValue('OPENAI_API_KEY') ?? dotenvValue('DEEPSEEK_API_KEY');
+    final dotenvKey = dotenvValue('OPENAI_API_KEY');
     if (dotenvKey != null) {
-      if (kDebugMode) {
-        debugPrint('AppConfig: Using API key from .env file');
-      }
       return dotenvKey;
-    }
-    if (kDebugMode) {
-      debugPrint('AppConfig: No API key found');
     }
     return '';
   }

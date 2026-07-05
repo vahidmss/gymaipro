@@ -1,10 +1,16 @@
 import 'dart:async';
+
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:gymaipro/core/foreground_resume_coordinator.dart';
+import 'package:gymaipro/core/app_navigator.dart';
+import 'package:gymaipro/payment/services/payment_resume_tracker.dart';
 import 'package:gymaipro/payment/services/trainer_payment_service.dart';
+import 'package:gymaipro/payment/services/wallet_service.dart';
+import 'package:gymaipro/payment/utils/wallet_refresh_notifier.dart';
 import 'package:gymaipro/payment/widgets/purchase_success_dialog.dart';
-import 'package:gymaipro/widgets/responsive_dialog.dart';
+import 'package:gymaipro/utils/external_url_launcher.dart';
 
 /// سرویس مدیریت deeplink های پرداخت
 class PaymentDeeplinkService {
@@ -17,7 +23,8 @@ class PaymentDeeplinkService {
 
   StreamSubscription<Uri>? _linkSubscription;
   BuildContext? _context;
-  bool _isShowingDialog = false;
+  String? _lastTopupDeeplinkKey;
+  DateTime? _lastTopupHandledAt;
 
   BuildContext? _getNavigatorContext() {
     // استفاده از context محلی
@@ -76,8 +83,14 @@ class PaymentDeeplinkService {
 
   /// پردازش deeplink دریافتی
   void _handleDeeplink(Uri uri) {
+    uri = _normalizeDeeplinkUri(uri);
     if (kDebugMode) {
       print('Deeplink دریافت شد: $uri');
+    }
+
+    if (_isWebPaymentCallback(uri)) {
+      _handleWebPaymentCallback(uri);
+      return;
     }
 
     // بررسی scheme و host
@@ -132,12 +145,8 @@ class PaymentDeeplinkService {
   }
 
   void _handleTrainerPayment(Uri uri) {
-    // برخی وب‌سرورها کاراکتر & را به &amp; تبدیل می‌کنند؛ نرمال‌سازی
-    final String raw = uri.toString();
-    if (raw.contains('&amp;')) {
-      final normalized = Uri.parse(raw.replaceAll('&amp;', '&'));
-      uri = normalized;
-    }
+    uri = _normalizeDeeplinkUri(uri);
+    ForegroundResumeCoordinator.markPaymentReturnHandling();
 
     // خواندن پارامترها با نام‌های ممکن مختلف
     final status = uri.queryParameters['status'];
@@ -167,6 +176,7 @@ class PaymentDeeplinkService {
 
     if (status != 'success' || transactionId == null || trackId == null) {
       _withNavigatorContext((ctx) async {
+        _collapseTransientPaymentRoutes(ctx);
         // هدایت به صفحه مربی در صورت وجود trainerId
         if (trainerId != null && trainerId.isNotEmpty) {
           try {
@@ -201,6 +211,7 @@ class PaymentDeeplinkService {
 
     // تایید پرداخت و نمایش نتیجه
     _withNavigatorContext((ctx) async {
+      _collapseTransientPaymentRoutes(ctx);
       try {
         final service = TrainerPaymentService();
         final result = await service.verifyDirectPayment(
@@ -231,15 +242,15 @@ class PaymentDeeplinkService {
             serviceName: serviceName,
             trainerName: trainerNameStr,
             onViewPrograms: () {
+              _collapseTransientPaymentRoutes(ctx);
               try {
-                Navigator.of(ctx).pushNamedAndRemoveUntil(
-                  '/my-club',
-                  (route) => route.isFirst,
-                  arguments: {'initialTab': 0},
-                );
+                openMainMyClub();
               } catch (_) {}
             },
           );
+          if (ctx.mounted) {
+            _collapseTransientPaymentRoutes(ctx);
+          }
         } else {
           await showDialog<void>(
             context: ctx,
@@ -293,6 +304,17 @@ class PaymentDeeplinkService {
   /// پردازش deeplink شارژ کیف پول
   void _handleTopupDeeplink(Uri uri) {
     final status = uri.queryParameters['status'];
+    final dedupeKey = '${uri.host}${uri.path}?status=$status';
+    final now = DateTime.now();
+    if (_lastTopupDeeplinkKey == dedupeKey &&
+        _lastTopupHandledAt != null &&
+        now.difference(_lastTopupHandledAt!) <
+            const Duration(seconds: 4)) {
+      return;
+    }
+    _lastTopupDeeplinkKey = dedupeKey;
+    _lastTopupHandledAt = now;
+    ForegroundResumeCoordinator.markPaymentReturnHandling();
 
     if (kDebugMode) {
       print('نتیجه شارژ کیف پول: $status');
@@ -306,91 +328,139 @@ class PaymentDeeplinkService {
     }
 
     _withNavigatorContext((ctx) async {
-      await _navigateToWallet(ctx);
-      // بعد از ناوبری به کیف پول، دیالوگ نتیجه را نمایش بده
-      Future.delayed(const Duration(milliseconds: 120), () {
-        switch (status) {
-          case 'success':
-            _showTopupSuccessDialog();
-          case 'failed':
-            _showTopupFailedDialog();
-          default:
-            if (kDebugMode) {
-              print('وضعیت نامعتبر: $status');
-            }
-        }
-      });
+      await ExternalUrlLauncher.closePaymentBrowserIfOpen();
+      // صبر تا route شیم app_links روی پشته قرار گیرد، بعد جمع‌آوری UI
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      if (!ctx.mounted) return;
+      await _settleAfterTopup(ctx, status);
     });
   }
 
-  /// ناوبری به صفحه کیف پول و بستن هر دیالوگ باز قبلی
-  Future<void> _navigateToWallet(BuildContext ctx) async {
-    // تلاش برای بستن هر دیالوگ باز (مثل دیالوگ ادامه پرداخت)
-    try {
-      Navigator.of(ctx, rootNavigator: true).pop();
-    } catch (_) {
-      // نادیده بگیر
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 60));
-    if (kDebugMode) {
-      print('Navigating to /wallet after payment result');
-    }
-
+  Future<void> _settleAfterTopup(BuildContext ctx, String? status) async {
     if (!ctx.mounted) return;
-    // استفاده از NavigatorState از context
-    try {
-      Navigator.of(ctx).pushNamedAndRemoveUntil('/wallet', (route) {
-        final name = route.settings.name ?? '';
-        return name == '/main' || route.isFirst;
-      });
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error navigating to wallet: $e');
+
+    _collapseTransientWalletRoutes(ctx);
+
+    if (status == 'success') {
+      PaymentResumeTracker.instance.clear();
+      try {
+        await WalletService().refreshUserWallet();
+        WalletRefreshNotifier.notifyRefresh(balanceAlreadyRefreshed: true);
+      } catch (e) {
+        if (kDebugMode) {
+          print('Wallet refresh after topup failed: $e');
+        }
+        WalletRefreshNotifier.notifyRefresh();
       }
+      if (!ctx.mounted) return;
+      _showTopupSnack(ctx, 'شارژ موفق — موجودی به‌روز شد');
+    } else if (status == 'failed') {
+      _showTopupSnack(ctx, 'شارژ انجام نشد. دوباره تلاش کنید.');
+    } else if (kDebugMode) {
+      print('وضعیت نامعتبر شارژ: $status');
     }
   }
 
-  /// نمایش دیالوگ موفقیت شارژ
-  void _showTopupSuccessDialog() {
-    if (_isShowingDialog) return;
-    _isShowingDialog = true;
-    _withNavigatorContext((ctx) async {
-      await ResponsiveDialog.showAlert<void>(
-        context: ctx,
-        title: 'شارژ موفق',
-        content: 'کیف پول شما با موفقیت شارژ شد. موجودی شما به‌روزرسانی خواهد شد.',
-        confirmText: 'باشه',
-        barrierDismissible: false,
-        onConfirm: () {
-          Navigator.of(ctx, rootNavigator: true).pop();
-        },
-      );
-      _isShowingDialog = false;
+  void _collapseTransientWalletRoutes(BuildContext ctx) {
+    _collapseTransientPaymentRoutes(ctx);
+  }
+
+  void _collapseTransientPaymentRoutes(BuildContext ctx) {
+    final navigator = rootNavigator ?? Navigator.of(ctx);
+    if (!navigator.canPop()) return;
+
+    navigator.popUntil((route) {
+      final name = route.settings.name ?? '';
+      if (name == '/payment-deeplink-shim' ||
+          name == '/topup-deeplink-shim' ||
+          name == '/trainer' ||
+          name == '/payment/trainer') {
+        return false;
+      }
+      return true;
     });
   }
 
-  /// نمایش دیالوگ عدم موفقیت شارژ
-  void _showTopupFailedDialog() {
-    if (_isShowingDialog) return;
-    _isShowingDialog = true;
-    _withNavigatorContext((ctx) async {
-      await ResponsiveDialog.showAlert<void>(
-        context: ctx,
-        title: 'شارژ ناموفق',
-        content: 'متأسفانه شارژ کیف پول شما ناموفق بود. لطفاً مجدد تلاش کنید.',
-        confirmText: 'باشه',
-        barrierDismissible: false,
-        onConfirm: () {
-          Navigator.of(ctx, rootNavigator: true).pop();
-        },
+  static Uri _normalizeDeeplinkUri(Uri uri) {
+    final raw = uri.toString();
+    if (!raw.contains('&amp;')) return uri;
+    return Uri.parse(raw.replaceAll('&amp;', '&'));
+  }
+
+  void _showTopupSnack(BuildContext ctx, String message) {
+    ScaffoldMessengerState? messenger = ScaffoldMessenger.maybeOf(ctx);
+    final rootCtx = appNavigatorKey.currentContext;
+    if (messenger == null && rootCtx != null) {
+      messenger = ScaffoldMessenger.maybeOf(rootCtx);
+    }
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// Callback پرداخت از مرورگر (https://gymaipro.ir/payment/callback?...)
+  bool _isWebPaymentCallback(Uri uri) {
+    if (uri.scheme != 'https' && uri.scheme != 'http') return false;
+    const hosts = {'gymaipro.ir', 'www.gymaipro.ir', 'app.gymaipro.ir'};
+    if (!hosts.contains(uri.host)) return false;
+    return uri.path.contains('payment/callback');
+  }
+
+  /// پردازش URL فعلی مرورگر هنگام باز شدن PWA
+  void handleWebLaunchUri(Uri uri) {
+    if (!kIsWeb) return;
+    if (!_isWebPaymentCallback(uri)) return;
+    _handleWebPaymentCallback(uri);
+  }
+
+  void _handleWebPaymentCallback(Uri uri) {
+    final params = uri.queryParameters;
+    final type = params['type'];
+
+    if (type == 'trainer') {
+      _handleTrainerPayment(uri);
+      return;
+    }
+
+    final status = params['status'] ??
+        (params['success'] == '1' ? 'success' : null) ??
+        params['result'];
+
+    if (uri.path.contains('wallet') || params.containsKey('topup')) {
+      _handleTopupDeeplink(
+        Uri(
+          scheme: 'gymaipro',
+          host: 'wallet',
+          pathSegments: const ['topup'],
+          queryParameters: {'status': status ?? 'unknown'},
+        ),
       );
-      _isShowingDialog = false;
-    });
+      return;
+    }
+
+    if (status != null) {
+      _handleTopupDeeplink(
+        Uri(
+          scheme: 'gymaipro',
+          host: 'wallet',
+          pathSegments: const ['topup'],
+          queryParameters: {'status': status},
+        ),
+      );
+    }
   }
 
   /// بررسی و پردازش deeplink اولیه (در صورت وجود)
   Future<void> handleInitialLink() async {
     try {
+      if (kIsWeb) {
+        handleWebLaunchUri(Uri.base);
+        return;
+      }
+
       final Uri? initialUri = await _appLinks.getInitialLink();
       if (initialUri != null) {
         if (kDebugMode) {

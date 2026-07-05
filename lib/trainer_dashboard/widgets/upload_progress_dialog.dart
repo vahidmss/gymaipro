@@ -54,8 +54,8 @@ class _UploadProgressDialogState extends State<UploadProgressDialog>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final progressPercent = (widget.progress * 100).clamp(0.0, 100.0).toInt();
 
-    return WillPopScope(
-      onWillPop: () async => false, // جلوگیری از بستن با back button
+    return PopScope(
+      canPop: false, // جلوگیری از بستن با back button
       child: Dialog(
         backgroundColor: Colors.transparent,
         elevation: 0,

@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/models/meal_plan.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
+import 'package:gymaipro/notification/services/notification_push_invoker.dart';
 import 'package:gymaipro/notification/services/notification_data_service.dart';
-import 'package:gymaipro/payment/services/payout_service.dart';
+import 'package:gymaipro/payment/services/trainer_escrow_service.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/supabase_service.dart' as supabase_service;
@@ -250,9 +251,18 @@ class MealPlanService {
             
             debugPrint('زمان انتظار تا ارسال برنامه: $responseTimeSeconds ثانیه (${(responseTimeSeconds / 3600).toStringAsFixed(2)} ساعت)');
           }
+          // به‌روزرسانی escrow و subscription پس از ارسال برنامه
+          if (sub != null) {
+            await _updatePendingSubscriptionAfterPlan(
+              trainerId: trainerId,
+              userId: userId,
+              subscriptionId: sub['id'] as String?,
+              sentAt: sentAt,
+              editableUntil: editableUntil,
+            );
+          }
         } catch (e) {
           debugPrint('⚠️ خطا در محاسبه زمان انتظار: $e');
-          // خطا در محاسبه زمان انتظار نباید جریان اصلی را متوقف کند
         }
 
         // ارسال نوتیفیکیشن به کاربر
@@ -441,63 +451,14 @@ class MealPlanService {
         }
       }
 
-      // اگر برنامه جدید بود، ID را از دیتابیس بگیر
-      String finalPlanId = planToSave.id;
       if (planToSave.id.isEmpty) {
         final savedPlan = await getExistingPlanForTrainerAndUser(
           userId,
           trainerId ?? '',
         );
         if (savedPlan != null) {
-          finalPlanId = savedPlan.id;
-          // اگر برنامه توسط مربی برای کاربر دیگری ثبت شده، وضعیت اشتراک را به‌روزرسانی و اعلان ارسال شود
-          try {
-            if (trainerId != null &&
-                trainerId.isNotEmpty &&
-                targetUserId != null &&
-                targetUserId.isNotEmpty) {
-              await _updatePendingSubscriptionAfterPlan(
-                trainerId: trainerId,
-                userId: targetUserId,
-                subscriptionId: subscriptionId,
-                paymentTransactionId: paymentTransactionId,
-                planDataPreview: {
-                  'plan_id': finalPlanId,
-                  'plan_name': planToSave.planName,
-                },
-              );
-              // نوتیفیکیشن فقط در sendPlan ارسال می‌شود
-            }
-          } catch (e) {
-            debugPrint(
-              '⚠️ خطا در به‌روزرسانی اشتراک/ارسال اعلان پس از ایجاد برنامه: $e',
-            );
-          }
+          // escrow فقط در sendPlan به‌روز می‌شود
           return savedPlan;
-        }
-      } else {
-        // اگر برنامه توسط مربی برای کاربر دیگری ثبت شده، وضعیت اشتراک را به‌روزرسانی و اعلان ارسال شود
-        try {
-          if (trainerId != null &&
-              trainerId.isNotEmpty &&
-              targetUserId != null &&
-              targetUserId.isNotEmpty) {
-            await _updatePendingSubscriptionAfterPlan(
-              trainerId: trainerId,
-              userId: targetUserId,
-              subscriptionId: subscriptionId,
-              paymentTransactionId: paymentTransactionId,
-              planDataPreview: {
-                'plan_id': finalPlanId,
-                'plan_name': planToSave.planName,
-              },
-            );
-            // نوتیفیکیشن فقط در sendPlan ارسال می‌شود
-          }
-        } catch (e) {
-          debugPrint(
-            '⚠️ خطا در به‌روزرسانی اشتراک/ارسال اعلان پس از ایجاد برنامه: $e',
-          );
         }
       }
 
@@ -607,7 +568,7 @@ class MealPlanService {
   Future<void> _updatePendingSubscriptionAfterPlan({
     required String trainerId,
     required String userId,
-    String? subscriptionId,
+    required DateTime sentAt, required DateTime editableUntil, String? subscriptionId,
     String? paymentTransactionId,
     Map<String, dynamic>? planDataPreview,
   }) async {
@@ -659,29 +620,22 @@ class MealPlanService {
         return;
       }
 
-      final now = DateTime.now().toIso8601String();
-      await client
-          .from('trainer_subscriptions')
-          .update(<String, dynamic>{
-            'program_registration_date': now,
-            'program_status': 'in_progress',
-            'status': 'active',
-            'updated_at': now,
-            'metadata': <String, dynamic>{
-              'registered_by_trainer': true,
-              if (planDataPreview != null)
-                'program_preview': planDataPreview,
-            },
-          })
-          .eq('id', sub['id'].toString());
+      final subId = sub['id'].toString();
 
-      // به‌روزرسانی trainer_withdrawable
-      try {
-        final payoutService = PayoutService();
-        await payoutService.updateTrainerWithdrawable(trainerId);
-      } catch (e) {
-        debugPrint('⚠️ خطا در به‌روزرسانی موجودی قابل برداشت: $e');
-        // خطا در به‌روزرسانی نباید جریان اصلی را متوقف کند
+      await TrainerEscrowService().onProgramSent(
+        subscriptionId: subId,
+        sentAt: sentAt,
+        editableUntil: editableUntil,
+      );
+
+      if (planDataPreview != null) {
+        await client.from('trainer_subscriptions').update({
+          'metadata': {
+            'registered_by_trainer': true,
+            'program_preview': planDataPreview,
+          },
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', subId);
       }
     } catch (e) {
       debugPrint('خطا در به‌روزرسانی وضعیت اشتراک پس از ایجاد برنامه: $e');
@@ -737,8 +691,8 @@ class MealPlanService {
             .toList();
 
         if (tokens.isNotEmpty) {
-          await client.functions.invoke(
-            'send-notifications',
+          await NotificationPushInvoker.sendNotifications(
+            client: client,
             body: {
               'mode': 'direct',
               'target_type': 'device_tokens',

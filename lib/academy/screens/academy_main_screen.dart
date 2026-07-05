@@ -5,6 +5,7 @@ import 'package:gymaipro/academy/screens/articles_list_screen.dart';
 import 'package:gymaipro/academy/screens/legends_list_screen.dart';
 import 'package:gymaipro/academy/screens/music_list_screen.dart';
 import 'package:gymaipro/academy/screens/motivational_videos_screen.dart';
+import 'package:gymaipro/core/web_interaction.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -216,6 +217,7 @@ class _AcademyMainScreenState extends State<AcademyMainScreen>
           ),
           body: TabBarView(
             controller: _tabController,
+            physics: WebInteraction.tabBarViewPhysics,
             children: [
               const ArticlesListScreen(),
               MusicListScreen(initialMusicToPlay: _initialMusicToPlay),

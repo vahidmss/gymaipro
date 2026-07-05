@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' show Platform;
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
@@ -26,6 +26,11 @@ class MusicNotificationService {
   Future<void> initialize() async {
     if (_isInitialized) {
       debugPrint('✅ Audio service already initialized');
+      return;
+    }
+    if (kIsWeb) {
+      debugPrint('ℹ️ Audio foreground service skipped on web');
+      _isInitialized = true;
       return;
     }
     if (!Platform.isAndroid) {

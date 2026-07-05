@@ -64,22 +64,25 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
 
   @override
   void codeUpdated() {
-    // زمانی که کد OTP از SMS دریافت شد
-    if (code != null &&
-        code!.length == 6 &&
-        mounted &&
-        _isActive &&
-        !_isDisposed) {
-      if (_otpController.isSafe) {
-        _otpController.safeSetText(code!);
-        // خودکار تایید می‌کنیم
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted && _isActive && !_isDisposed) {
-            _verifyAndNavigate();
-          }
-        });
+    final digits = _extractOtpDigits(code);
+    if (digits == null || digits.length != 6) return;
+    if (!mounted || !_isActive || _isDisposed) return;
+    if (!_otpController.isSafe) return;
+
+    _otpController.safeSetText(digits);
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted && _isActive && !_isDisposed) {
+        _verifyAndNavigate();
       }
-    }
+    });
+  }
+
+  String? _extractOtpDigits(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    final match = RegExp(r'\d{6}').firstMatch(raw);
+    if (match != null) return match.group(0);
+    final digitsOnly = raw.replaceAll(RegExp(r'\D'), '');
+    return digitsOnly.length >= 6 ? digitsOnly.substring(0, 6) : null;
   }
 
   @override
@@ -151,8 +154,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
         _otpController.safeClear();
       }
 
-      final otpCode = OTPService.generateOTP();
-      await OTPService.sendOTP(widget.phoneNumber, otpCode);
+      await OTPService.sendOTP(widget.phoneNumber);
 
       if (!_isActive || !mounted || _isDisposed) return;
 

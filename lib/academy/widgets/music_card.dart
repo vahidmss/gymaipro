@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/workout_music.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class MusicCard extends StatefulWidget {
@@ -138,11 +139,10 @@ class _MusicCardState extends State<MusicCard> {
                     topRight: Radius.circular(16.r),
                   ),
                   child: widget.music.coverImageUrl.isNotEmpty
-                      ? Image.network(
-                          widget.music.coverImageUrl,
-                          fit: BoxFit.cover,
+                      ? GymaiNetworkImage(
+                          imageUrl: widget.music.coverImageUrl,
                           width: double.infinity,
-                          errorBuilder: (c, e, s) => const ColoredBox(
+                          errorWidget: const ColoredBox(
                             color: Colors.black26,
                             child: Icon(
                               LucideIcons.music,

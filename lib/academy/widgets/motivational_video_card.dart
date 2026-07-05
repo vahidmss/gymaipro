@@ -9,6 +9,7 @@ import 'dart:async';
 import 'package:gymaipro/services/video_cache_service.dart';
 import 'package:gymaipro/services/video_download_manager.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
@@ -100,7 +101,8 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
       if (cachedPath != null) {
         controller = VideoPlayerController.file(File(cachedPath));
       } else {
-        controller = VideoPlayerController.network(widget.video.videoUrl);
+        controller =
+            VideoPlayerController.networkUrl(Uri.parse(widget.video.videoUrl));
       }
 
       await controller.initialize();
@@ -556,26 +558,17 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                           ),
                           child: Chewie(controller: _chewieController!),
                         )
-                      : Image.network(
-                          widget.video.thumbnailUrl,
-                          fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return ColoredBox(
-                              color: Colors.black26,
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  value:
-                                      loadingProgress.expectedTotalBytes != null
-                                      ? loadingProgress.cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                      : null,
-                                  color: AppTheme.goldColor,
-                                ),
+                      : GymaiNetworkImage(
+                          imageUrl: widget.video.thumbnailUrl,
+                          placeholder: const ColoredBox(
+                            color: Colors.black26,
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                color: AppTheme.goldColor,
                               ),
-                            );
-                          },
-                          errorBuilder: (c, e, s) => const ColoredBox(
+                            ),
+                          ),
+                          errorWidget: const ColoredBox(
                             color: Colors.black26,
                             child: Icon(
                               LucideIcons.video,

@@ -160,12 +160,18 @@ class MotivationalVideo {
               ? mediaDetails['sizes'] as Map<String, dynamic>
               : null;
           if (sizes != null) {
-            thumbnailUrl = JsonParse.fromStr(sizes['full']?['source_url']);
+            // Prefer a resized variant over the full-size original to save
+            // bandwidth; card thumbnails don't need the full resolution.
+            thumbnailUrl = JsonParse.fromStr(sizes['large']?['source_url']);
             if (thumbnailUrl.isEmpty) {
-              thumbnailUrl = JsonParse.fromStr(sizes['large']?['source_url']);
+              thumbnailUrl =
+                  JsonParse.fromStr(sizes['medium_large']?['source_url']);
             }
             if (thumbnailUrl.isEmpty) {
               thumbnailUrl = JsonParse.fromStr(sizes['medium']?['source_url']);
+            }
+            if (thumbnailUrl.isEmpty) {
+              thumbnailUrl = JsonParse.fromStr(sizes['full']?['source_url']);
             }
             if (thumbnailUrl.isEmpty) {
               thumbnailUrl = JsonParse.fromStr(media['source_url']);

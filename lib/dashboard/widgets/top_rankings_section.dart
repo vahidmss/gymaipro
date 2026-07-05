@@ -6,6 +6,7 @@ import 'package:gymaipro/ranking/models/user_ranking.dart';
 import 'package:gymaipro/ranking/screens/leaderboard_screen.dart';
 import 'package:gymaipro/ranking/services/ranking_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/trainer_ranking/screens/trainer_detail_screen.dart';
 import 'package:gymaipro/trainer_ranking/screens/trainer_ranking_screen.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_ranking_service.dart'
@@ -790,10 +791,9 @@ class _RankAvatar extends StatelessWidget {
           ),
           child: ClipOval(
             child: item.avatarUrl != null && item.avatarUrl!.isNotEmpty
-                ? Image.network(
-                    item.avatarUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _fallbackAvatar(),
+                ? GymaiNetworkImage(
+                    imageUrl: item.avatarUrl!,
+                    errorWidget: _fallbackAvatar(),
                   )
                 : _fallbackAvatar(),
           ),

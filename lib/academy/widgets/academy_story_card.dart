@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/article.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class AcademyStoryCard extends StatelessWidget {
@@ -41,16 +42,13 @@ class AcademyStoryCard extends StatelessWidget {
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: article.featuredImageUrl != null
-                      ? Image.network(
-                          article.featuredImageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Icon(
-                              LucideIcons.bookOpen,
-                              color: AppTheme.goldColor,
-                              size: 28.sp,
-                            );
-                          },
+                      ? GymaiNetworkImage(
+                          imageUrl: article.featuredImageUrl!,
+                          errorWidget: Icon(
+                            LucideIcons.bookOpen,
+                            color: AppTheme.goldColor,
+                            size: 28.sp,
+                          ),
                         )
                       : Icon(
                           LucideIcons.bookOpen,

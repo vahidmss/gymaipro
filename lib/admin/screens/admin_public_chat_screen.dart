@@ -198,12 +198,15 @@ class _AdminPublicChatScreenState extends State<AdminPublicChatScreen> {
       ),
     );
 
+    final reason = reasonController.text.trim();
+    reasonController.dispose();
+
     if (confirmed != true) return;
 
     final success = await _adminService.blockUserInPublicChat(
       userId: senderId,
       duration: selectedDuration,
-      reason: reasonController.text.trim(),
+      reason: reason,
     );
 
     if (!mounted) return;

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
 import 'package:gymaipro/chat/services/chat_cache_service.dart';
+import 'package:gymaipro/chat/services/chat_presence_service.dart';
 import 'package:gymaipro/notification/notification_service.dart';
 import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -133,36 +134,41 @@ class ChatService {
     if (me == null) return controller.stream;
 
     final channel = _supabase.channel('chat_conversations_$me');
+
+    void emitIfMine(Map<String, dynamic> row) {
+      final user1Id = row['user1_id'] as String?;
+      final user2Id = row['user2_id'] as String?;
+      if (user1Id == null || user2Id == null) return;
+      if (user1Id != me && user2Id != me) return;
+      try {
+        controller.add(ChatConversation.fromJson(row));
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('ChatService: failed to parse conversation realtime row: $e');
+        }
+      }
+    }
+
     channel
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'chat_conversations',
-          callback: (payload) async {
-            final row = payload.newRecord;
-            final user1Id = row['user1_id'] as String?;
-            final user2Id = row['user2_id'] as String?;
-            if (user1Id == null || user2Id == null) return;
-            if (user1Id != me && user2Id != me) return;
-            final conv = ChatConversation.fromJson(row);
-            controller.add(conv);
-          },
+          callback: (payload) => emitIfMine(payload.newRecord),
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'public',
           table: 'chat_conversations',
-          callback: (payload) async {
-            final row = payload.newRecord;
-            final user1Id = row['user1_id'] as String?;
-            final user2Id = row['user2_id'] as String?;
-            if (user1Id == null || user2Id == null) return;
-            if (user1Id != me && user2Id != me) return;
-            final conv = ChatConversation.fromJson(row);
-            controller.add(conv);
-          },
+          callback: (payload) => emitIfMine(payload.newRecord),
         )
-        .subscribe();
+        .subscribe((status, error) {
+          if (kDebugMode) {
+            debugPrint(
+              'ChatService: conversations realtime status=$status error=$error',
+            );
+          }
+        });
 
     controller.onCancel = channel.unsubscribe;
     return controller.stream;
@@ -259,39 +265,102 @@ class ChatService {
     }
   }
 
-  Stream<ChatMessage> subscribeToMessages(String otherUserId) {
+  Stream<ChatMessage> subscribeToMessages(
+    String otherUserId, {
+    String? conversationId,
+  }) {
     final me = _supabase.auth.currentUser?.id;
     final controller = StreamController<ChatMessage>.broadcast();
     if (me == null) return controller.stream;
 
-    final channel = _supabase.channel('chat_messages_${me}_$otherUserId');
+    final sorted = _sortedUserIds(me, otherUserId);
+    final knownMessages = <String, ChatMessage>{};
+    for (final cached in getCachedMessages(otherUserId)) {
+      if (cached.id.isNotEmpty) {
+        knownMessages[cached.id] = cached;
+      }
+    }
+
+    bool messageChanged(ChatMessage prev, ChatMessage next) {
+      return prev.isRead != next.isRead ||
+          prev.isDeleted != next.isDeleted ||
+          prev.message != next.message ||
+          prev.updatedAt != next.updatedAt;
+    }
+
+    void emitNewMessagesFromRow(Map<String, dynamic> row) {
+      final rowId = row['id'] as String?;
+      if (conversationId != null &&
+          conversationId.isNotEmpty &&
+          rowId != conversationId) {
+        return;
+      }
+
+      final user1Id = row['user1_id'] as String?;
+      final user2Id = row['user2_id'] as String?;
+      if (user1Id == null || user2Id == null) return;
+      if (user1Id != sorted[0] || user2Id != sorted[1]) return;
+
+      final messagesJson = row['messages'] as List<dynamic>? ?? [];
+      for (final raw in messagesJson) {
+        if (raw is! Map) continue;
+        try {
+          final message = ChatMessage.fromJson(
+            Map<String, dynamic>.from(raw),
+          );
+          if (message.isDeleted || message.id.isEmpty) continue;
+          final prev = knownMessages[message.id];
+          if (prev == null) {
+            knownMessages[message.id] = message;
+            controller.add(message);
+          } else if (messageChanged(prev, message)) {
+            knownMessages[message.id] = message;
+            controller.add(message);
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            debugPrint('ChatService: failed to parse realtime message: $e');
+          }
+        }
+      }
+    }
+
+    final channel = _supabase.channel(
+      'chat_messages_${me}_$otherUserId${conversationId ?? ''}',
+    );
+
+    PostgresChangeFilter? conversationFilter;
+    if (conversationId != null && conversationId.isNotEmpty) {
+      conversationFilter = PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'id',
+        value: conversationId,
+      );
+    }
+
     channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'chat_conversations',
+          filter: conversationFilter,
+          callback: (payload) => emitNewMessagesFromRow(payload.newRecord),
+        )
         .onPostgresChanges(
           event: PostgresChangeEvent.update,
           schema: 'public',
           table: 'chat_conversations',
-          callback: (payload) async {
-            final row = payload.newRecord;
-            final user1Id = row['user1_id'] as String?;
-            final user2Id = row['user2_id'] as String?;
-            if (user1Id == null || user2Id == null) return;
-
-            // Check if this conversation involves current user and other user
-            final sorted = _sortedUserIds(me, otherUserId);
-            if (user1Id != sorted[0] || user2Id != sorted[1]) return;
-
-            // Get latest message from messages array
-            final messagesJson = row['messages'] as List<dynamic>? ?? [];
-            if (messagesJson.isNotEmpty) {
-              try {
-                final latestMsgJson = messagesJson.last as Map<String, dynamic>;
-                final message = ChatMessage.fromJson(latestMsgJson);
-                controller.add(message);
-              } catch (_) {}
-            }
-          },
+          filter: conversationFilter,
+          callback: (payload) => emitNewMessagesFromRow(payload.newRecord),
         )
-        .subscribe();
+        .subscribe((status, error) {
+          if (kDebugMode) {
+            debugPrint(
+              'ChatService: messages realtime status=$status '
+              'peer=$otherUserId conv=$conversationId error=$error',
+            );
+          }
+        });
 
     controller.onCancel = channel.unsubscribe;
     return controller.stream;
@@ -409,6 +478,8 @@ class ChatService {
         _sendChatNotificationInBackground(
           receiverId: receiverId,
           senderId: me,
+          user1Id: user1Id,
+          user2Id: response['user2_id'] as String,
           message: message.trim(),
           messageId: messageId,
           messageType: messageType,
@@ -623,12 +694,35 @@ class ChatService {
   Future<void> _sendChatNotificationInBackground({
     required String receiverId,
     required String senderId,
+    required String user1Id,
+    required String user2Id,
     required String message,
     required String messageId,
     required String messageType,
     required String conversationId,
   }) async {
     try {
+      final presence = ChatPresenceService();
+      final activeInConversation =
+          await presence.getActiveUsersInConversation(conversationId);
+
+      // Receiver is already inside this chat → no tray/push (WhatsApp-style).
+      if (activeInConversation.contains(receiverId)) {
+        if (kDebugMode) {
+          debugPrint('ChatService: skip notification — receiver is in chat');
+        }
+        return;
+      }
+
+      // Both participants are in the chat → no notification for either side.
+      if (activeInConversation.contains(user1Id) &&
+          activeInConversation.contains(user2Id)) {
+        if (kDebugMode) {
+          debugPrint('ChatService: skip notification — both users in chat');
+        }
+        return;
+      }
+
       final senderName =
           await UserProfileService.getDisplayName(senderId);
       await NotificationService().sendChatNotification(

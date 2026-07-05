@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_log/models/food_log_item.dart';
 import 'package:gymaipro/meal_log/utils/meal_log_utils.dart';
+import 'package:gymaipro/meal_log/widgets/food_nutrition_detail_sheet.dart';
+import 'package:gymaipro/meal_log/widgets/meal_log_colors.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -23,22 +25,23 @@ class FoodItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isFromPlan = foodItem.mealPlanId != null;
     final isManuallyAdded = !isFromPlan;
 
-    final consumedAmount = foodItem.amount;
-    final ratio = consumedAmount / 100.0;
-    final calories = (double.tryParse(food.nutrition.calories) ?? 0) * ratio;
-    final protein = (double.tryParse(food.nutrition.protein) ?? 0) * ratio;
-    final carbs = (double.tryParse(food.nutrition.carbohydrates) ?? 0) * ratio;
-    final fat = (double.tryParse(food.nutrition.fat) ?? 0) * ratio;
+    final scaled = MealLogUtils.scaledItemNutrition(food, foodItem);
+    final calories = scaled['calories'] ?? 0;
+    final protein = scaled['protein'] ?? 0;
+    final carbs = scaled['carbs'] ?? 0;
+    final fat = scaled['fat'] ?? 0;
 
-    // Macro total for proportional bars
     final macroTotal = protein + carbs + fat;
     final proteinFrac = macroTotal > 0 ? protein / macroTotal : 0.33;
     final carbsFrac = macroTotal > 0 ? carbs / macroTotal : 0.33;
     final fatFrac = macroTotal > 0 ? fat / macroTotal : 0.34;
+
+    final unitLabel =
+        food.meta.servingUnits.resolve(foodItem.unit)?.displayLabel ??
+        foodItem.unit;
 
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 10.w, vertical: 2.h),
@@ -46,7 +49,6 @@ class FoodItemCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Left accent bar ──
             Container(
               width: 3.w,
               decoration: BoxDecoration(
@@ -55,153 +57,152 @@ class FoodItemCard extends StatelessWidget {
                   end: Alignment.bottomCenter,
                   colors: isFromPlan
                       ? [
-                          Colors.blue.withValues(alpha: 0.7),
-                          Colors.blue.withValues(alpha: 0.3),
+                          MealLogColors.planAccent(context).withValues(alpha: 0.75),
+                          MealLogColors.planAccent(context).withValues(alpha: 0.25),
                         ]
                       : [
-                          AppTheme.goldColor.withValues(alpha: 0.7),
-                          AppTheme.goldColor.withValues(alpha: 0.2),
+                          MealLogColors.accent(context).withValues(alpha: 0.75),
+                          MealLogColors.accent(context).withValues(alpha: 0.2),
                         ],
                 ),
                 borderRadius: BorderRadius.circular(2.r),
               ),
             ),
             SizedBox(width: 8.w),
-            // ── Content ──
             Expanded(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 6.h),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Row 1: food name + calorie badge
-                    Row(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => FoodNutritionDetailSheet.show(
+                    context,
+                    food: food,
+                    foodItem: foodItem,
+                  ),
+                  borderRadius: BorderRadius.circular(6.r),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 6.h),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text(
-                            food.title,
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: isDark ? Colors.white : context.textColor,
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w600,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                food.displayTitle,
+                                style: MealLogTypography.foodName(context),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        SizedBox(width: 6.w),
-                        // Calorie badge
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 6.w,
-                            vertical: 2.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppTheme.goldColor.withValues(alpha: 0.12)
-                                : AppTheme.goldColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4.r),
-                          ),
-                          child: Text(
-                            MealLogUtils.convertToPersianNumbers(
-                              '${calories.toStringAsFixed(0)} kcal',
-                            ),
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: isDark
-                                  ? AppTheme.goldColor
-                                  : AppTheme.darkGold,
-                              fontSize: 9.sp,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 4.h),
-                    // Row 2: tag + amount + macro bar
-                    Row(
-                      children: [
-                        // Plan/Free tag
-                        _buildTag(isDark, isManuallyAdded, context),
-                        SizedBox(width: 6.w),
-                        // Amount (editable)
-                        GestureDetector(
-                          onTap: onEditAmount,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                MealLogUtils.convertToPersianNumbers(
-                                  foodItem.plannedAmount != null
-                                      ? '${foodItem.plannedAmount!.toStringAsFixed(0)}/${consumedAmount.toStringAsFixed(0)} ${foodItem.unit}'
-                                      : '${consumedAmount.toStringAsFixed(0)} ${foodItem.unit}',
+                            SizedBox(width: 6.w),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6.w,
+                                vertical: 2.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: MealLogColors.chipFill(
+                                  context,
+                                  selected: true,
                                 ),
-                                textDirection: TextDirection.rtl,
+                                borderRadius: BorderRadius.circular(4.r),
+                                border: Border.all(
+                                  color: MealLogColors.chipBorder(
+                                    context,
+                                    selected: true,
+                                  ),
+                                ),
+                              ),
+                              child: Text(
+                                MealLogUtils.convertToPersianNumbers(
+                                  '${calories.toStringAsFixed(0)} kcal',
+                                ),
                                 style: TextStyle(
                                   fontFamily: AppTheme.fontFamily,
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.5)
-                                      : context.textColor.withValues(
-                                          alpha: 0.5,
-                                        ),
+                                  color: MealLogColors.accent(context),
                                   fontSize: 9.sp,
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              SizedBox(width: 2.w),
-                              Icon(
-                                LucideIcons.edit2,
-                                size: 9.sp,
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.3)
-                                    : context.textColor.withValues(alpha: 0.3),
-                              ),
-                            ],
-                          ),
+                            ),
+                            SizedBox(width: 4.w),
+                            Icon(
+                              LucideIcons.info,
+                              size: 11.sp,
+                              color: MealLogColors.hintText(context),
+                            ),
+                          ],
                         ),
-                        const Spacer(),
-                        // Macro proportion bar
-                        _buildMacroBar(
-                          isDark,
-                          proteinFrac,
-                          carbsFrac,
-                          fatFrac,
-                          context,
+                        SizedBox(height: 4.h),
+                        Row(
+                          children: [
+                            _buildTag(isManuallyAdded, context),
+                            SizedBox(width: 6.w),
+                            GestureDetector(
+                              onTap: onEditAmount,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    MealLogUtils.convertToPersianNumbers(
+                                      foodItem.plannedAmount != null
+                                          ? '${foodItem.plannedAmount!.toStringAsFixed(0)}/${foodItem.amount.toStringAsFixed(foodItem.amount % 1 == 0 ? 0 : 1)} $unitLabel'
+                                          : '${foodItem.amount.toStringAsFixed(foodItem.amount % 1 == 0 ? 0 : 1)} $unitLabel',
+                                    ),
+                                    textDirection: TextDirection.rtl,
+                                    style: MealLogTypography.caption(
+                                      context,
+                                      color: MealLogColors.mutedText(context),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  SizedBox(width: 2.w),
+                                  Icon(
+                                    LucideIcons.edit2,
+                                    size: 9.sp,
+                                    color: MealLogColors.hintText(context),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Spacer(),
+                            _buildMacroBar(
+                              proteinFrac,
+                              carbsFrac,
+                              fatFrac,
+                              context,
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
-            // ── Actions menu ──
-            _buildActionMenu(isDark, isFromPlan, context),
+            _buildActionMenu(isFromPlan, context),
           ],
         ),
       ),
     );
   }
 
-  // ── Tag widget ──
-  Widget _buildTag(bool isDark, bool isManual, BuildContext context) {
+  Widget _buildTag(bool isManual, BuildContext context) {
     if (isManual) {
       return Container(
         padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
         decoration: BoxDecoration(
-          color: isDark
-              ? AppTheme.goldColor.withValues(alpha: 0.1)
-              : AppTheme.goldColor.withValues(alpha: 0.08),
+          color: MealLogColors.chipFill(context, selected: false),
           borderRadius: BorderRadius.circular(3.r),
+          border: Border.all(
+            color: MealLogColors.chipBorder(context, selected: false),
+          ),
         ),
         child: Text(
           'آزاد',
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
-            color: isDark
-                ? AppTheme.goldColor.withValues(alpha: 0.7)
-                : AppTheme.darkGold.withValues(alpha: 0.6),
+            color: MealLogColors.accent(context),
             fontSize: 8.sp,
             fontWeight: FontWeight.w600,
           ),
@@ -211,23 +212,17 @@ class FoodItemCard extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ColorFiltered(
-          colorFilter: isDark
-              ? ColorFilter.mode(Colors.blue[400]!, BlendMode.srcIn)
-              : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
-          child: Image.asset(
-            'images/program.png',
-            width: 10.w,
-            height: 10.h,
-            fit: BoxFit.contain,
-          ),
+        Icon(
+          LucideIcons.clipboardList,
+          size: 10.sp,
+          color: MealLogColors.planAccent(context),
         ),
         SizedBox(width: 2.w),
         Text(
           'برنامه',
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
-            color: isDark ? Colors.blue[400] : Colors.blue[600],
+            color: MealLogColors.planAccent(context),
             fontSize: 8.sp,
             fontWeight: FontWeight.w600,
           ),
@@ -236,9 +231,7 @@ class FoodItemCard extends StatelessWidget {
     );
   }
 
-  // ── Macro proportion bar ──
   Widget _buildMacroBar(
-    bool isDark,
     double proteinFrac,
     double carbsFrac,
     double fatFrac,
@@ -257,27 +250,15 @@ class FoodItemCard extends StatelessWidget {
             children: [
               Expanded(
                 flex: (proteinFrac * 100).round().clamp(1, 100),
-                child: Container(
-                  color: AppTheme.proteinColor.withValues(
-                    alpha: isDark ? 0.7 : 0.6,
-                  ),
-                ),
+                child: Container(color: AppTheme.proteinColor),
               ),
               Expanded(
                 flex: (carbsFrac * 100).round().clamp(1, 100),
-                child: Container(
-                  color: AppTheme.carbsColor.withValues(
-                    alpha: isDark ? 0.7 : 0.6,
-                  ),
-                ),
+                child: Container(color: AppTheme.carbsColor),
               ),
               Expanded(
                 flex: (fatFrac * 100).round().clamp(1, 100),
-                child: Container(
-                  color: AppTheme.fatColor.withValues(
-                    alpha: isDark ? 0.7 : 0.6,
-                  ),
-                ),
+                child: Container(color: AppTheme.fatColor),
               ),
             ],
           ),
@@ -286,19 +267,16 @@ class FoodItemCard extends StatelessWidget {
     );
   }
 
-  // ── Actions menu ──
-  Widget _buildActionMenu(bool isDark, bool isFromPlan, BuildContext context) {
+  Widget _buildActionMenu(bool isFromPlan, BuildContext context) {
     return PopupMenuButton<String>(
       icon: Icon(
         Icons.more_vert,
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.25)
-            : context.textColor.withValues(alpha: 0.25),
+        color: MealLogColors.hintText(context),
         size: 14.sp,
       ),
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(),
-      color: isDark ? context.backgroundColor : context.cardColor,
+      color: MealLogColors.sectionBackground(context),
       itemBuilder: (context) => isFromPlan
           ? [
               PopupMenuItem(
@@ -307,7 +285,7 @@ class FoodItemCard extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.check_circle,
-                      color: Colors.green[400],
+                      color: MealLogColors.successText(context),
                       size: 12.sp,
                     ),
                     SizedBox(width: 5.w),
@@ -315,7 +293,7 @@ class FoodItemCard extends StatelessWidget {
                       'تکمیل شده',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        color: Colors.green[400],
+                        color: MealLogColors.successText(context),
                         fontSize: 11.sp,
                       ),
                     ),
@@ -330,7 +308,7 @@ class FoodItemCard extends StatelessWidget {
                     children: [
                       Icon(
                         Icons.swap_horiz,
-                        color: Colors.blue[400],
+                        color: MealLogColors.planAccent(context),
                         size: 12.sp,
                       ),
                       SizedBox(width: 5.w),
@@ -338,7 +316,7 @@ class FoodItemCard extends StatelessWidget {
                         'جایگزین کردن',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          color: Colors.blue[400],
+                          color: MealLogColors.planAccent(context),
                           fontSize: 11.sp,
                         ),
                       ),
@@ -351,13 +329,17 @@ class FoodItemCard extends StatelessWidget {
                 value: 'delete',
                 child: Row(
                   children: [
-                    Icon(Icons.delete, color: Colors.red[400], size: 12.sp),
+                    Icon(
+                      Icons.delete,
+                      color: MealLogColors.errorText(context),
+                      size: 12.sp,
+                    ),
                     SizedBox(width: 5.w),
                     Text(
                       'حذف',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        color: Colors.red[400],
+                        color: MealLogColors.errorText(context),
                         fontSize: 11.sp,
                       ),
                     ),

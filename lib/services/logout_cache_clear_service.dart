@@ -7,6 +7,8 @@ import 'package:gymaipro/ai/services/ai_chat_service.dart';
 import 'package:gymaipro/ai/services/user_context_cache_service.dart';
 import 'package:gymaipro/chat/services/chat_presence_service.dart';
 import 'package:gymaipro/chat/services/chat_service.dart';
+import 'package:gymaipro/core/foreground_resume_coordinator.dart';
+import 'package:gymaipro/core/startup_bootstrap.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
 import 'package:gymaipro/services/food_service.dart';
@@ -62,6 +64,8 @@ class LogoutCacheClearService {
       // ریست حالت در حافظه دستاوردها و امتیاز تا کاربر بعدی داده قبلی نبیند
       AchievementService.instance.resetForLogout();
       ScoreService().resetScore();
+      StartupBootstrap.resetOnLogout();
+      ForegroundResumeCoordinator.resetOnLogout();
 
       if (kDebugMode) {
         print('✅ کش‌های اصلی پاک شدند');

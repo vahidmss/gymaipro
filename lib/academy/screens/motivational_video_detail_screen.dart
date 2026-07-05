@@ -51,7 +51,8 @@ class _MotivationalVideoDetailScreenState
       if (cachedPath != null) {
         controller = VideoPlayerController.file(File(cachedPath));
       } else {
-        controller = VideoPlayerController.network(widget.video.videoUrl);
+        controller =
+            VideoPlayerController.networkUrl(Uri.parse(widget.video.videoUrl));
       }
 
       _videoPlayerController = controller;

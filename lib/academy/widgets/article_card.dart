@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/article.dart';
 import 'package:gymaipro/academy/services/article_stats_cache_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 
@@ -87,10 +88,9 @@ class ArticleCard extends StatelessWidget {
                   children: [
                     AspectRatio(
                       aspectRatio: 16 / 9,
-                      child: Image.network(
-                        article.featuredImageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (c, e, s) => const ColoredBox(
+                      child: GymaiNetworkImage(
+                        imageUrl: article.featuredImageUrl!,
+                        errorWidget: const ColoredBox(
                           color: Colors.black12,
                           child: Center(
                             child: Icon(

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -8,13 +8,14 @@ import 'package:gymaipro/ranking/models/league.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_kpi_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/format_utils.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ModernProfileHeader extends StatelessWidget {
 
   const ModernProfileHeader({
     required this.profileData, required this.onImageTap, required this.onEditTap, required this.onSettingsTap, super.key,
-    this.avatarFile,
+    this.avatarPreviewBytes,
     this.ranking,
     this.avatarUploading = false,
     this.avatarSuccess = false,
@@ -22,7 +23,7 @@ class ModernProfileHeader extends StatelessWidget {
     this.onRetryAvatar,
   });
   final Map<String, dynamic> profileData;
-  final File? avatarFile;
+  final Uint8List? avatarPreviewBytes;
   final VoidCallback onImageTap;
   final VoidCallback onEditTap;
   final VoidCallback onSettingsTap;
@@ -130,14 +131,15 @@ class ModernProfileHeader extends StatelessWidget {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        if (avatarFile != null) Image.file(avatarFile!, fit: BoxFit.cover) else avatarUrl != null && avatarUrl.isNotEmpty
-                                  ? Image.network(
-                                      avatarUrl,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          _buildPlaceholder(context),
-                                    )
-                                  : _buildPlaceholder(context),
+                        if (avatarPreviewBytes != null)
+                          Image.memory(avatarPreviewBytes!, fit: BoxFit.cover)
+                        else if (avatarUrl != null && avatarUrl.isNotEmpty)
+                          GymaiNetworkImage(
+                            imageUrl: avatarUrl,
+                            errorWidget: _buildPlaceholder(context),
+                          )
+                        else
+                          _buildPlaceholder(context),
                         if (avatarUploading) _buildAvatarOverlay(context, accentColor, loading: true),
                         if (avatarSuccess && !avatarUploading)
                           _buildAvatarOverlay(context, accentColor, success: true),

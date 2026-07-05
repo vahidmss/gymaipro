@@ -389,7 +389,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           e.toString().contains('insufficient_quota') ||
           e.toString().contains('402')) {
         errorMessage =
-            'اعتبار حساب DeepSeek تمام شده. از platform.deepseek.com شارژ کن یا کلید جدید بساز.';
+            'اعتبار حساب OpenAI تمام شده. از platform.openai.com شارژ کن یا کلید جدید بساز.';
       } else if (e.toString().contains('اتصال به اینترنت') ||
           e.toString().contains('از این دستگاه وصل نشدم') ||
           e.toString().contains('زمان‌بر شد')) {

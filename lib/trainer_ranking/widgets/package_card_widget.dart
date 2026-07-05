@@ -36,7 +36,7 @@ class PackageCardWidget extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
         transform: isSelected
-            ? (Matrix4.identity()..scale(0.98))
+            ? (Matrix4.identity()..scaleByDouble(0.98, 0.98, 0.98, 1))
             : Matrix4.identity(),
         child: Material(
           color: Colors.transparent,

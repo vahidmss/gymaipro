@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/theme/theme_provider.dart';
+import 'package:gymaipro/utils/support_launcher.dart';
 import 'package:gymaipro/widgets/comprehensive_cache_info_widget.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -359,11 +360,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                 context: context,
                 isDark: isDark,
                 icon: LucideIcons.messageCircle,
-                title: 'پشتیبانی',
-                subtitle: 'تماس با تیم پشتیبانی',
-                onTap: () {
-                  // TODO: انتقال به صفحه تماس
-                },
+                title: 'ارتباط با ما',
+                subtitle: SupportLauncher.supportPhone.isNotEmpty
+                    ? '${SupportLauncher.supportPhone} · ${SupportLauncher.telegramDisplayHandle}'
+                    : 'تماس با تیم پشتیبانی',
+                onTap: () => Navigator.pushNamed(context, '/help'),
               ),
             ],
           ),

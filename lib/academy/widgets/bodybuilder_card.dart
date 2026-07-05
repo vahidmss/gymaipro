@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/professional_bodybuilder.dart';
 import 'package:gymaipro/academy/screens/bodybuilder_detail_screen.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class BodybuilderCard extends StatelessWidget {
@@ -72,10 +73,9 @@ class BodybuilderCard extends StatelessWidget {
                 width: 120.w,
                 height: 120.h,
                 color: Colors.black26,
-                child: Image.network(
-                  bodybuilder.profileImageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (c, e, s) => const Icon(
+                child: GymaiNetworkImage(
+                  imageUrl: bodybuilder.profileImageUrl,
+                  errorWidget: const Icon(
                     LucideIcons.user,
                     color: Colors.white54,
                     size: 48,

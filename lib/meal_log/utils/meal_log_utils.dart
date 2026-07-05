@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:gymaipro/meal_log/models/food_log_item.dart';
 import 'package:gymaipro/meal_log/models/food_meal_log.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/meal_log/utils/meal_nutrition_targets.dart';
+import 'package:gymaipro/utils/food_amount_utils.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 
@@ -100,41 +102,76 @@ class MealLogUtils {
     return weekdays[weekday];
   }
 
-  // Nutrition calculation helpers
+  static Food resolveFood(List<Food> allFoods, int foodId) {
+    return allFoods.firstWhere(
+      (f) => f.id == foodId,
+      orElse: () => createDefaultFood(foodId),
+    );
+  }
+
+  static Map<String, double> scaledItemNutrition(
+    Food food,
+    FoodLogItem item,
+  ) {
+    if (food.id == 0 || item.amount <= 0) {
+      return const {};
+    }
+    return FoodAmountUtils.scaledNutrition(food, item.amount, item.unit);
+  }
+
+  // Nutrition calculation helpers (respects serving units)
   static Map<String, double> calculateTotals(
     List<FoodMealLog> meals,
-    List<Food> allFoods,
-  ) {
+    List<Food> allFoods, {
+    bool extended = false,
+  }) {
     double totalCalories = 0;
     double totalProtein = 0;
     double totalCarbs = 0;
     double totalFat = 0;
+    double totalFiber = 0;
+    double totalSugar = 0;
+    double totalSodium = 0;
+    double totalSaturatedFat = 0;
+    double totalPotassium = 0;
 
     for (final meal in meals) {
       for (final foodItem in meal.foods) {
-        final food = allFoods.firstWhere(
-          (f) => f.id == foodItem.foodId,
-          orElse: () => createDefaultFood(foodItem.foodId),
-        );
-        if (food.id != 0) {
-          final ratio = foodItem.amount / 100;
-          totalCalories +=
-              (double.tryParse(food.nutrition.calories) ?? 0) * ratio;
-          totalProtein +=
-              (double.tryParse(food.nutrition.protein) ?? 0) * ratio;
-          totalCarbs +=
-              (double.tryParse(food.nutrition.carbohydrates) ?? 0) * ratio;
-          totalFat += (double.tryParse(food.nutrition.fat) ?? 0) * ratio;
+        if (foodItem.amount <= 0) continue;
+        final food = resolveFood(allFoods, foodItem.foodId);
+        if (food.id == 0) continue;
+
+        final scaled = scaledItemNutrition(food, foodItem);
+        totalCalories += scaled['calories'] ?? 0;
+        totalProtein += scaled['protein'] ?? 0;
+        totalCarbs += scaled['carbs'] ?? 0;
+        totalFat += scaled['fat'] ?? 0;
+        if (extended) {
+          totalFiber += scaled['fiber'] ?? 0;
+          totalSugar += scaled['sugar'] ?? 0;
+          totalSodium += scaled['sodium'] ?? 0;
+          totalSaturatedFat += scaled['saturatedFat'] ?? 0;
+          totalPotassium += scaled['potassium'] ?? 0;
         }
       }
     }
 
-    return {
+    final result = <String, double>{
       'calories': totalCalories,
       'protein': totalProtein,
       'carbs': totalCarbs,
       'fat': totalFat,
     };
+    if (extended) {
+      result.addAll({
+        'fiber': totalFiber,
+        'sugar': totalSugar,
+        'sodium': totalSodium,
+        'saturatedFat': totalSaturatedFat,
+        'potassium': totalPotassium,
+      });
+    }
+    return result;
   }
 
   // Helper method to create default Food object

@@ -8,7 +8,10 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/core/foreground_resume_coordinator.dart';
+import 'package:gymaipro/notification/push_notification_policy.dart';
+import 'package:gymaipro/notification/utils/notification_tray_dedupe.dart';
+import 'package:gymaipro/chat/services/chat_presence_service.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/notification_navigation_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
@@ -35,7 +38,6 @@ class NotificationService {
   Future<void>? _initializingFuture;
   bool _handlersConfigured = false;
   final Map<String, DateTime> _recentChatNotificationAttempts = {};
-  final Map<String, DateTime> _recentIncomingNotificationKeys = {};
   DateTime? _lastChatNotificationTimeoutAt;
 
   // Callbacks for handling notifications
@@ -47,6 +49,29 @@ class NotificationService {
     final raw = preferred ?? DateTime.now().millisecondsSinceEpoch;
     final normalized = raw % maxSigned32;
     return normalized <= 0 ? 1 : normalized;
+  }
+
+  /// Stable tray id per conversation so repeated alerts replace each other.
+  int _chatNotificationId(String? conversationId) {
+    if (conversationId == null || conversationId.isEmpty) {
+      return _safeNotificationId();
+    }
+    final hash = conversationId.hashCode.abs();
+    return hash == 0 ? 1 : (hash % 2147483646) + 1;
+  }
+
+  String _extractChatMessageBody(RemoteMessage message) {
+    for (final key in ['body', 'message']) {
+      final value = message.data[key] as String?;
+      if (value != null && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+    }
+    final notificationBody = message.notification?.body;
+    if (notificationBody != null && notificationBody.trim().isNotEmpty) {
+      return notificationBody.trim();
+    }
+    return 'پیام جدید دریافت کردید';
   }
 
   /// Initialize notification service
@@ -110,6 +135,7 @@ class NotificationService {
       debugPrint('✅ Initial message handling completed');
 
       _isInitialized = true;
+      PushNotificationPolicy.logStartupStatus();
       debugPrint('✅ Notification service initialized successfully');
     } catch (e) {
       debugPrint('❌ Error initializing notification service: $e');
@@ -130,7 +156,7 @@ class NotificationService {
   /// Initialize local notifications
   Future<void> _initializeLocalNotifications() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@drawable/ic_stat_gymai');
 
     const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings();
@@ -199,13 +225,13 @@ class NotificationService {
       _fcmToken = await _firebaseMessaging!.getToken();
       if (_fcmToken != null) {
         debugPrint('🔑 FCM Token: $_fcmToken');
-        await _saveFCMToken(_fcmToken!);
+        await _saveFCMToken(_fcmToken!, force: true);
       }
       // Listen for token refresh
       _firebaseMessaging!.onTokenRefresh.listen((newToken) async {
         debugPrint('🔄 FCM token refreshed');
         _fcmToken = newToken;
-        await _saveFCMToken(newToken);
+        await _saveFCMToken(newToken, force: true);
       });
     } catch (e) {
       debugPrint('❌ Error getting FCM token: $e');
@@ -213,9 +239,13 @@ class NotificationService {
   }
 
   /// Save FCM token locally and sync with Supabase
-  Future<void> _saveFCMToken(String token) async {
+  Future<void> _saveFCMToken(String token, {bool force = false}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('fcm_token', token);
+
+    if (!ForegroundResumeCoordinator.shouldSyncFcm(force: force)) {
+      return;
+    }
 
     try {
       // If offline, keep token locally and skip backend sync for now
@@ -240,11 +270,9 @@ class NotificationService {
         }, onConflict: 'token');
         debugPrint('✅ FCM token saved to Supabase');
 
-        // Subscribe to default topics after ensuring token is registered
-        await _subscribeDefaultTopics();
-
-        // Update user's last active timestamp
-        await _updateLastActiveAt();
+        if (ForegroundResumeCoordinator.shouldSubscribeTopics()) {
+          await _subscribeDefaultTopics();
+        }
       }
     } catch (e) {
       debugPrint('❌ Error saving FCM token to Supabase: $e');
@@ -319,7 +347,10 @@ class NotificationService {
   }
 
   /// Public method to mark user active and bump device last_seen
-  Future<void> markUserActive() async {
+  Future<void> markUserActive({String source = 'markUserActive'}) async {
+    if (!ForegroundResumeCoordinator.shouldBumpPresence(source)) {
+      return;
+    }
     try {
       await _updateLastActiveAt();
       final supabase = Supabase.instance.client;
@@ -392,30 +423,11 @@ class NotificationService {
 
   /// Handle foreground messages
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
-    final incomingMessageId = message.data['message_id'] as String?;
-    final fallbackKey = [
-      message.data['type'],
-      message.data['conversation_id'],
-      message.data['sender_id'],
-      message.data['message'],
-    ].join('|');
-    final dedupeKey = (incomingMessageId != null && incomingMessageId.isNotEmpty)
-        ? 'id:$incomingMessageId'
-        : 'payload:$fallbackKey';
-    final now = DateTime.now();
-    _recentIncomingNotificationKeys.removeWhere(
-      (_, at) => now.difference(at) > const Duration(seconds: 20),
-    );
-    if (_recentIncomingNotificationKeys.containsKey(dedupeKey)) {
-      debugPrint('ℹ️ Skip duplicate incoming notification: $dedupeKey');
-      return;
-    }
-    _recentIncomingNotificationKeys[dedupeKey] = now;
-
     debugPrint('📨 Foreground message received: ${message.data}');
 
-    // بررسی اینکه آیا این نوتیفیکیشن چت است
     final messageType = message.data['type'] as String?;
+
+    // بررسی اینکه آیا این نوتیفیکیشن چت است
     if (messageType == 'chat_message') {
       // In foreground, show an in-app alert only if user is not inside
       // the same conversation to avoid silent delivery gaps.
@@ -433,17 +445,26 @@ class NotificationService {
             (message.data['sender_name'] as String?)?.trim().isNotEmpty ?? false
             ? (message.data['sender_name'] as String).trim()
             : (message.notification?.title ?? 'کاربر');
-        final body =
-            (message.data['message'] as String?)?.trim().isNotEmpty ?? false
-            ? (message.data['message'] as String).trim()
-            : (message.notification?.body ?? 'پیام جدید دریافت کردید');
         await showInAppChatAlert(
           senderName: senderName,
-          message: body,
+          message: _extractChatMessageBody(message),
           conversationId: conversationId,
+          peerId: message.data['peer_id'] as String?,
+          messageId: message.data['message_id'] as String?,
+          senderId: message.data['sender_id'] as String?,
         );
       }
       onNotificationReceived?.call(message.data);
+      return;
+    }
+
+    final dedupeKey = NotificationTrayDedupe.genericKey(
+      type: messageType ?? 'fcm',
+      id: message.data['request_id'] as String? ??
+          message.data['message_id'] as String?,
+    );
+    if (!NotificationTrayDedupe.shouldShow(dedupeKey)) {
+      debugPrint('ℹ️ Skip duplicate incoming notification: $dedupeKey');
       return;
     }
 
@@ -548,14 +569,16 @@ class NotificationService {
     }
   }
 
-  /// Get icon resource name from icon string
-  /// Note: Always uses app launcher icon for consistency
-  /// Users can add emojis in the notification text if they want visual icons
+  /// Small status-bar icon — must be a monochrome (alpha) asset, otherwise
+  /// Android renders it as a plain white square. We use the GYMAI dumbbell
+  /// mark and tint it with the brand gold via the notification `color`.
   String _getIconResource(String? iconName) {
-    // Always use app launcher icon - simple and consistent like other apps
-    // Users can add emojis (😊, 🎉, etc.) in the notification text if needed
-    return '@mipmap/ic_launcher';
+    return '@drawable/ic_stat_gymai';
   }
+
+  /// GYMAI wordmark shown as the large icon on the right of the tray.
+  static const AndroidBitmap<Object> _gymaiLargeIcon =
+      DrawableResourceAndroidBitmap('@drawable/gymai_logo_notification');
 
   /// Get or create notification channel with specific color
   /// Uses a dynamic channel ID based on color to ensure color is applied correctly
@@ -567,7 +590,7 @@ class NotificationService {
 
     // Create a channel ID based on color (first 6 hex digits)
     // This ensures each color gets its own channel
-    final colorHex = color.value.toRadixString(16).substring(2, 8);
+    final colorHex = color.toARGB32().toRadixString(16).substring(2, 8);
     final channelId = 'gymai_pro_channel_$colorHex';
 
     final androidImplementation =
@@ -631,10 +654,12 @@ class NotificationService {
 
     // Parse color
     final notificationColor = _parseHexColor(backgroundColorHex);
-    final colorHex = notificationColor.value.toRadixString(16).substring(2);
-    debugPrint('   - Parsed color: #$colorHex (ARGB: ${notificationColor.value})');
+    final colorHex = notificationColor.toARGB32().toRadixString(16).substring(2);
+    debugPrint(
+      '   - Parsed color: #$colorHex (ARGB: ${notificationColor.toARGB32()})',
+    );
     
-    // Get icon resource - use ic_notification if available, otherwise ic_launcher
+    // Monochrome GYMAI small icon (tinted by notification color).
     final iconResource = _getIconResource(iconName);
     debugPrint('   - Icon resource: $iconResource');
 
@@ -658,6 +683,7 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
           icon: iconResource,
+          largeIcon: _gymaiLargeIcon,
           color: notificationColor,
           // LED settings for older Android versions (pre-Oreo)
           // Must specify both ledOnMs and ledOffMs when enableLights is true
@@ -687,7 +713,9 @@ class NotificationService {
       payload: json.encode(message.data),
     );
     
-    debugPrint('✅ Notification shown with color: #${notificationColor.value.toRadixString(16).substring(2)}');
+    debugPrint(
+      '✅ Notification shown with color: #${notificationColor.toARGB32().toRadixString(16).substring(2)}',
+    );
     if (imageUrl != null && imageUrl.isNotEmpty) {
       debugPrint('📷 Image URL saved in payload (full image support coming soon)');
     }
@@ -748,7 +776,8 @@ class NotificationService {
           channelDescription: 'Custom notifications for GymAI Pro app',
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_stat_gymai',
+          largeIcon: _gymaiLargeIcon,
           color: Color(0xFFD4AF37),
         );
 
@@ -779,9 +808,36 @@ class NotificationService {
     required String message,
     String? conversationId,
     String? peerId,
+    String? messageId,
+    String? senderId,
+    String? messageAt,
   }) async {
     if (!_isInitialized) {
       await initialize();
+    }
+
+    final dedupeKey = NotificationTrayDedupe.chatKey(
+      messageId: messageId,
+      conversationId: conversationId,
+      senderId: senderId ?? peerId,
+      messageAt: messageAt,
+    );
+    if (!NotificationTrayDedupe.shouldShow(dedupeKey)) {
+      debugPrint('ℹ️ Skip duplicate chat tray alert: $dedupeKey');
+      return;
+    }
+
+    // WhatsApp-style: no tray alert while user is inside this conversation.
+    if (conversationId != null && conversationId.isNotEmpty) {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        final activeConversation =
+            await ChatPresenceService().getUserActiveConversation(user.id);
+        if (activeConversation == conversationId) {
+          debugPrint('ℹ️ Skip chat tray — user is inside conversation');
+          return;
+        }
+      }
     }
 
     final safeSender = senderName.trim().isNotEmpty ? senderName.trim() : 'کاربر';
@@ -795,7 +851,8 @@ class NotificationService {
       channelDescription: 'Realtime in-app chat alerts',
       importance: Importance.high,
       priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
+      icon: '@drawable/ic_stat_gymai',
+      largeIcon: _gymaiLargeIcon,
       color: AppTheme.goldColor,
       category: AndroidNotificationCategory.message,
       styleInformation: BigTextStyleInformation(
@@ -827,12 +884,18 @@ class NotificationService {
     });
 
     await _localNotifications.show(
-      _safeNotificationId(),
+      _chatNotificationId(conversationId),
       'پیام جدید از $safeSender',
       safeMessage,
       details,
       payload: payload,
     );
+  }
+
+  /// Cancel tray notification for a private chat conversation.
+  Future<void> cancelChatTrayForConversation(String? conversationId) async {
+    if (conversationId == null || conversationId.isEmpty) return;
+    await _localNotifications.cancel(_chatNotificationId(conversationId));
   }
 
   /// Show workout reminder notification
@@ -941,7 +1004,7 @@ class NotificationService {
 
   /// Trigger processing of broadcast queue (Edge Function)
   Future<bool> processBroadcastQueue() async {
-    if (!AppConfig.supabaseEdgeFunctionsEnabled) return false;
+    if (!PushNotificationPolicy.shouldAttemptServerPush) return false;
     try {
       final supabase = Supabase.instance.client;
       final res = await supabase.functions.invoke(
@@ -963,11 +1026,10 @@ class NotificationService {
     required String body,
     Map<String, dynamic>? data,
   }) async {
-    if (!AppConfig.supabaseEdgeFunctionsEnabled) return false;
+    if (!PushNotificationPolicy.shouldAttemptServerPush) return false;
     try {
       final supabase = Supabase.instance.client;
-      
-      // Debug: Print what we're sending
+
       debugPrint('📤 Sending to Edge Function:');
       debugPrint('   - topic: $topic');
       debugPrint('   - title: $title');
@@ -1021,7 +1083,8 @@ class NotificationService {
           channelDescription: 'Daily weight logging reminders',
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_stat_gymai',
+          largeIcon: _gymaiLargeIcon,
           color: Color(0xFFD4AF37),
         ),
       ),
@@ -1047,7 +1110,8 @@ class NotificationService {
           channelDescription: 'Workout schedule reminders',
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_stat_gymai',
+          largeIcon: _gymaiLargeIcon,
           color: Color(0xFFD4AF37),
         ),
       ),
@@ -1072,7 +1136,8 @@ class NotificationService {
           channelDescription: 'Meal schedule reminders',
           importance: Importance.high,
           priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_stat_gymai',
+          largeIcon: _gymaiLargeIcon,
           color: Color(0xFFD4AF37),
         ),
       ),
@@ -1092,6 +1157,9 @@ class NotificationService {
 
   /// Ensure the current user's FCM token is synced to backend (use after login/signup)
   Future<void> syncFCMTokenIfAvailable() async {
+    if (!ForegroundResumeCoordinator.shouldSyncFcm()) {
+      return;
+    }
     try {
       final supabase = Supabase.instance.client;
       final user = supabase.auth.currentUser;
@@ -1133,10 +1201,15 @@ class NotificationService {
     required String messageType,
     String? conversationId,
   }) async {
-    if (!AppConfig.supabaseEdgeFunctionsEnabled) return false;
+    if (!PushNotificationPolicy.shouldAttemptServerPush) {
+      if (kDebugMode) {
+        debugPrint(
+          'ℹ️ Chat push skipped (FIREBASE_PUSH_ENABLED=false or edge functions off)',
+        );
+      }
+      return false;
+    }
     try {
-      // If provider/network recently timed out, back off briefly to avoid
-      // repeated expensive calls that hurt chat responsiveness.
       if (_lastChatNotificationTimeoutAt != null &&
           DateTime.now().difference(_lastChatNotificationTimeoutAt!) <
               const Duration(seconds: 4)) {

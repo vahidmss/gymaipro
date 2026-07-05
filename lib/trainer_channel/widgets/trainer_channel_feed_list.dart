@@ -60,6 +60,7 @@ class _TrainerChannelFeedListState extends State<TrainerChannelFeedList> {
           return _DateDivider(label: item.dateLabel!);
         }
         return RepaintBoundary(
+          key: ValueKey<String>(item.post!.id),
           child: TrainerChannelPostBubble(
             post: item.post!,
             isOwner: widget.isOwner,

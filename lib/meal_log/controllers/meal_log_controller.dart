@@ -107,12 +107,9 @@ class MealLogController {
     final meal = currentLog.meals.firstWhere((m) => m.title == mealTitle);
     meal.foods.remove(foodItem);
     unawaited(_foodLogService.saveLogLocal(currentLog));
-    // سعی در sync به دیتابیس (اگر آنلاین باشیم)
-    try {
-      await _foodLogService.saveLog(currentLog);
-    } catch (e) {
-      // اگر آنلاین نبودیم، فقط local ذخیره شده
-    }
+    unawaited(
+      _foodLogService.saveLog(currentLog).catchError((_) {}),
+    );
     return currentLog;
   }
 
@@ -138,12 +135,9 @@ class MealLogController {
     }
 
     unawaited(_foodLogService.saveLogLocal(currentLog));
-    // سعی در sync به دیتابیس (اگر آنلاین باشیم)
-    try {
-      await _foodLogService.saveLog(currentLog);
-    } catch (e) {
-      // اگر آنلاین نبودیم، فقط local ذخیره شده
-    }
+    unawaited(
+      _foodLogService.saveLog(currentLog).catchError((_) {}),
+    );
     return currentLog;
   }
 
@@ -173,12 +167,9 @@ class MealLogController {
     }
 
     unawaited(_foodLogService.saveLogLocal(currentLog));
-    // سعی در sync به دیتابیس (اگر آنلاین باشیم)
-    try {
-      await _foodLogService.saveLog(currentLog);
-    } catch (e) {
-      // اگر آنلاین نبودیم، فقط local ذخیره شده
-    }
+    unawaited(
+      _foodLogService.saveLog(currentLog).catchError((_) {}),
+    );
     return currentLog;
   }
 
@@ -218,12 +209,9 @@ class MealLogController {
     }
 
     unawaited(_foodLogService.saveLogLocal(currentLog));
-    // سعی در sync به دیتابیس (اگر آنلاین باشیم)
-    try {
-      await _foodLogService.saveLog(currentLog);
-    } catch (e) {
-      // اگر آنلاین نبودیم، فقط local ذخیره شده
-    }
+    unawaited(
+      _foodLogService.saveLog(currentLog).catchError((_) {}),
+    );
     return currentLog;
   }
 }

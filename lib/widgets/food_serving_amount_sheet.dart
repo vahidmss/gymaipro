@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/meal_log/widgets/meal_log_colors.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/models/food_serving_units.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -31,6 +32,7 @@ class _FoodServingAmountSheetState extends State<FoodServingAmountSheet> {
   late final FoodServingUnits _servingUnits;
   late String _selectedUnitLabel;
   String _amountStr = '';
+  bool _replaceNextInput = false;
   final FocusNode _focusNode = FocusNode();
 
   FoodServingUnits _resolveServingUnits() {
@@ -67,9 +69,10 @@ class _FoodServingAmountSheetState extends State<FoodServingAmountSheet> {
     }
     final initialAmount = widget.initialAmount;
     if (initialAmount != null && initialAmount > 0) {
-      _amountStr = initialAmount % 1 == 0
-          ? initialAmount.toInt().toString()
-          : initialAmount.toString();
+      _amountStr = _formatAmountValue(initialAmount);
+    } else {
+      _amountStr = _defaultAmountForUnit(_activeUnit);
+      _replaceNextInput = true;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -84,19 +87,60 @@ class _FoodServingAmountSheetState extends State<FoodServingAmountSheet> {
     super.dispose();
   }
 
+  String _formatAmountValue(double value) {
+    return value % 1 == 0 ? value.toInt().toString() : value.toString();
+  }
+
+  /// مقدار منطقی پیش‌فرض برای هر واحد (اسکوپ/عدد → ۱، گرم → ۱۰۰).
+  String _defaultAmountForUnit(FoodServingUnit? unit) {
+    if (unit == null) return '1';
+    final key = unit.key.toLowerCase();
+    if (key == 'gram' || unit.label.trim() == 'گرم') return '100';
+    if (key == 'ml' || unit.label.contains('میلی')) return '200';
+    return '1';
+  }
+
+  void _selectUnit(FoodServingUnit unit) {
+    if (_selectedUnitLabel == unit.label) return;
+    setState(() {
+      _selectedUnitLabel = unit.label;
+      _amountStr = _defaultAmountForUnit(unit);
+      _replaceNextInput = true;
+    });
+  }
+
+  void _armAmountReplace() {
+    setState(() => _replaceNextInput = true);
+  }
+
   void _onKey(String key) {
     setState(() {
       if (key == '⌫') {
         if (_amountStr.isNotEmpty) {
           _amountStr = _amountStr.substring(0, _amountStr.length - 1);
         }
+        _replaceNextInput = false;
         return;
       }
       if (key == '.') {
+        if (_replaceNextInput) {
+          _amountStr = '0.';
+          _replaceNextInput = false;
+          return;
+        }
+        if (_amountStr.isEmpty) {
+          _amountStr = '0.';
+          return;
+        }
         if (!_amountStr.contains('.')) _amountStr += '.';
         return;
       }
-      if (_amountStr == '0' && key != '.') {
+      if (_replaceNextInput) {
+        _amountStr = key;
+        _replaceNextInput = false;
+        return;
+      }
+      if (_amountStr == '0') {
         _amountStr = key;
       } else {
         _amountStr += key;
@@ -106,20 +150,16 @@ class _FoodServingAmountSheetState extends State<FoodServingAmountSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final sheetHeight = MediaQuery.sizeOf(context).height * 0.52;
     final parsed = _parsed;
     final hasAmount = parsed != null && parsed > 0;
-    final textColor = isDark ? AppTheme.goldColor : context.textColor;
-    final borderColor =
-        isDark ? AppTheme.darkGreySeparator : AppTheme.lightDividerColor;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Container(
         height: sheetHeight,
         decoration: BoxDecoration(
-          color: isDark ? context.backgroundColor : context.cardColor,
+          color: MealLogColors.sectionBackground(context),
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(18.r),
             topRight: Radius.circular(18.r),
@@ -136,7 +176,7 @@ class _FoodServingAmountSheetState extends State<FoodServingAmountSheet> {
                   height: 4.h,
                   margin: EdgeInsets.only(bottom: 8.h),
                   decoration: BoxDecoration(
-                    color: borderColor,
+                    color: MealLogColors.inputBorder(context),
                     borderRadius: BorderRadius.circular(2.r),
                   ),
                 ),
@@ -144,19 +184,24 @@ class _FoodServingAmountSheetState extends State<FoodServingAmountSheet> {
                   children: [
                     Expanded(
                       child: Text(
-                        widget.food.title,
+                        widget.food.displayTitle,
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          color: textColor,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w700,
+                          color: MealLogColors.secondaryText(context),
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
                       ),
                     ),
                     IconButton(
-                      icon: Icon(LucideIcons.x, color: textColor, size: 18.sp),
+                      icon: Icon(
+                        LucideIcons.x,
+                        color: MealLogColors.hintText(context),
+                        size: 16.sp,
+                      ),
                       padding: EdgeInsets.zero,
                       constraints: BoxConstraints(
                         minWidth: 32.w,
@@ -166,107 +211,89 @@ class _FoodServingAmountSheetState extends State<FoodServingAmountSheet> {
                     ),
                   ],
                 ),
-                SizedBox(height: 10.h),
+                SizedBox(height: 12.h),
                 SizedBox(
-                  height: 38.h,
+                  height: 34.h,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: _servingUnits.units.length,
-                    separatorBuilder: (_, __) => SizedBox(width: 8.w),
+                    separatorBuilder: (_, __) => SizedBox(width: 6.w),
                     itemBuilder: (context, index) {
                       final unit = _servingUnits.units[index];
-                      return _unitChip(
-                        context,
-                        isDark,
-                        unit: unit,
-                      );
+                      return _unitChip(context, unit: unit);
                     },
                   ),
                 ),
-                SizedBox(height: 8.h),
-                Container(
-                  width: double.infinity,
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppTheme.darkCardColor
-                        : context.cardColor.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(12.r),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
+                SizedBox(height: 14.h),
+                GestureDetector(
+                  onTap: _armAmountReplace,
+                  behavior: HitTestBehavior.opaque,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        _amountStr.isEmpty ? '0' : _amountStr,
+                      AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 160),
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
-                          color: textColor,
-                          fontSize: 28.sp,
-                          fontWeight: FontWeight.w700,
+                          color: _replaceNextInput
+                              ? MealLogColors.accent(context)
+                              : MealLogColors.primaryText(context),
+                          fontSize: 36.sp,
+                          fontWeight: FontWeight.w800,
                           height: 1,
+                          letterSpacing: -0.5,
+                        ),
+                        child: Text(
+                          _amountStr.isEmpty ? '0' : _amountStr,
+                          textAlign: TextAlign.center,
                         ),
                       ),
-                      SizedBox(width: 8.w),
-                      Flexible(
-                        child: Text(
-                          _selectedUnitDisplay,
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            color: textColor.withValues(alpha: 0.75),
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      SizedBox(height: 4.h),
+                      Text(
+                        _selectedUnitDisplay,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: MealLogColors.mutedText(context),
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        margin: EdgeInsets.only(top: 6.h),
+                        width: _replaceNextInput ? 28.w : 0,
+                        height: 2.h,
+                        decoration: BoxDecoration(
+                          color: MealLogColors.accent(context),
+                          borderRadius: BorderRadius.circular(1.r),
                         ),
                       ),
                     ],
                   ),
                 ),
-                SizedBox(
-                  height: 28.h,
-                  child: Center(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 180),
-                      child: hasAmount
-                          ? Text(
-                              _scaledPreviewLine(parsed),
-                              key: ValueKey('$_amountStr|$_selectedUnitLabel'),
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                color: AppTheme.goldColor.withValues(
-                                  alpha: isDark ? 0.95 : 0.85,
-                                ),
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            )
-                          : Text(
-                              'مبنای محاسبه: ${widget.food.nutritionBasisLabel}',
-                              key: const ValueKey('basis'),
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                color: context.textSecondary,
-                                fontSize: 10.sp,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                if (hasAmount)
+                  Padding(
+                    padding: EdgeInsets.only(top: 10.h),
+                    child: Text(
+                      _caloriePreview(parsed),
+                      key: ValueKey('$_amountStr|$_selectedUnitLabel'),
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: MealLogColors.mutedText(context),
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.1,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                ),
+                  )
+                else
+                  SizedBox(height: 10.h),
                 Expanded(
                   child: Focus(
                     focusNode: _focusNode,
-                    child: _buildInlineKeypad(context, isDark),
+                    child: _buildInlineKeypad(context),
                   ),
                 ),
                 SizedBox(height: 8.h),
@@ -276,11 +303,14 @@ class _FoodServingAmountSheetState extends State<FoodServingAmountSheet> {
                   child: ElevatedButton(
                     onPressed: hasAmount ? _confirm : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.goldColor,
-                      disabledBackgroundColor:
-                          AppTheme.goldColor.withValues(alpha: 0.35),
-                      foregroundColor: AppTheme.veryDarkBackground,
-                      disabledForegroundColor: Colors.black54,
+                      backgroundColor: MealLogColors.accent(context),
+                      disabledBackgroundColor: MealLogColors.accent(context)
+                          .withValues(alpha: 0.35),
+                      foregroundColor: MealLogColors.onGoldSurface(context),
+                      disabledForegroundColor:
+                          MealLogColors.onGoldSurface(context).withValues(
+                            alpha: 0.45,
+                          ),
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10.r),
@@ -318,53 +348,45 @@ class _FoodServingAmountSheetState extends State<FoodServingAmountSheet> {
     Navigator.of(context).pop(result);
   }
 
-  String _scaledPreviewLine(double amount) {
+  String _caloriePreview(double amount) {
     final calories = FoodAmountUtils.scaledCalories(
       widget.food,
       amount,
       _selectedUnitLabel,
     ).round();
-    final grams = FoodAmountUtils.gramsFromAmount(
-      widget.food,
-      amount,
-      _selectedUnitLabel,
-    );
-    final gramsLabel = grams > 0 ? '  ·  ≈ ${grams.round()} گرم' : '';
-    return '≈ $calories کالری$gramsLabel';
+    return '$calories کالری';
   }
 
   Widget _unitChip(
-    BuildContext context,
-    bool isDark, {
+    BuildContext context, {
     required FoodServingUnit unit,
   }) {
     final selected = _selectedUnitLabel == unit.label;
     return GestureDetector(
-      onTap: () => setState(() => _selectedUnitLabel = unit.label),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 7.h),
+      onTap: () => _selectUnit(unit),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
         decoration: BoxDecoration(
           color: selected
-              ? AppTheme.goldColor.withValues(alpha: isDark ? 0.22 : 0.16)
-              : (isDark ? AppTheme.darkCardColor : context.cardColor),
-          borderRadius: BorderRadius.circular(18.r),
+              ? MealLogColors.chipFill(context, selected: true)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20.r),
           border: Border.all(
             color: selected
-                ? AppTheme.goldColor
-                : (isDark
-                    ? AppTheme.darkGreySeparator
-                    : AppTheme.lightDividerColor),
+                ? MealLogColors.chipBorder(context, selected: true)
+                : MealLogColors.inputBorder(context),
           ),
         ),
         child: Text(
           unit.displayLabel,
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
-            color: selected
-                ? AppTheme.goldColor
-                : context.textColor.withValues(alpha: 0.8),
             fontSize: 11.sp,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected
+                ? MealLogColors.accent(context)
+                : MealLogColors.secondaryText(context),
           ),
         ),
       ),
@@ -378,9 +400,8 @@ class _FoodServingAmountSheetState extends State<FoodServingAmountSheet> {
     ['.', '0', '⌫'],
   ];
 
-  Widget _buildInlineKeypad(BuildContext context, bool isDark) {
-    final textColor = isDark ? AppTheme.goldColor : context.textColor;
-    final surface = isDark ? AppTheme.darkCardColor : context.cardColor;
+  Widget _buildInlineKeypad(BuildContext context) {
+    final textColor = MealLogColors.secondaryText(context);
 
     return Column(
       children: [
@@ -388,34 +409,33 @@ class _FoodServingAmountSheetState extends State<FoodServingAmountSheet> {
           Expanded(
             child: Padding(
               padding: EdgeInsets.only(
-                bottom: rowIndex < _keypadRows.length - 1 ? 4.h : 0,
+                bottom: rowIndex < _keypadRows.length - 1 ? 3.h : 0,
               ),
               child: Row(
                 children: _keypadRows[rowIndex].map((key) {
                   final isBack = key == '⌫';
                   return Expanded(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 3.w),
+                      padding: EdgeInsets.symmetric(horizontal: 2.w),
                       child: Material(
-                        color: surface,
-                        borderRadius: BorderRadius.circular(8.r),
+                        color: Colors.transparent,
                         child: InkWell(
                           onTap: () => _onKey(key),
-                          borderRadius: BorderRadius.circular(8.r),
+                          borderRadius: BorderRadius.circular(10.r),
                           child: Center(
                             child: isBack
                                 ? Icon(
                                     Icons.backspace_outlined,
-                                    size: 18.sp,
-                                    color: textColor.withValues(alpha: 0.8),
+                                    size: 17.sp,
+                                    color: textColor.withValues(alpha: 0.7),
                                   )
                                 : Text(
                                     key,
                                     style: TextStyle(
                                       fontFamily: AppTheme.fontFamily,
-                                      color: textColor,
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w600,
+                                      color: MealLogColors.primaryText(context),
+                                      fontSize: 20.sp,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                           ),

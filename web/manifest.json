@@ -2,11 +2,12 @@
     "name": "GYMAI Pro",
     "short_name": "GYMAI",
     "start_url": "./",
+    "scope": "./",
     "display": "standalone",
     "background_color": "#0A0A0A",
     "theme_color": "#0A0A0A",
     "description": "AI-powered fitness coaching and nutrition planning.",
-    "orientation": "portrait-primary",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

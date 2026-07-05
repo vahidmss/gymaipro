@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/academy/models/motivational_video.dart';
+import 'package:gymaipro/network/wordpress_http.dart';
 import 'package:gymaipro/utils/cache_service.dart';
-import 'package:http/http.dart' as http;
 
 class MotivationalVideoService {
   static const String _baseUrl = 'https://gymaipro.ir/wp-json/wp/v2/video';
@@ -38,9 +38,10 @@ class MotivationalVideoService {
       for (final endpointUrl in endpoints) {
         try {
           final uri = Uri.parse(endpointUrl);
-          final response = await http
-              .get(uri, headers: {'Accept': 'application/json'})
-              .timeout(const Duration(seconds: 15));
+          final response = await wordpressGet(
+            uri,
+            headers: {'Accept': 'application/json'},
+          ).timeout(const Duration(seconds: 15));
 
           if (response.statusCode == 200) {
             final body = utf8.decode(response.bodyBytes);
@@ -146,9 +147,10 @@ class MotivationalVideoService {
       final uri = Uri.parse(
         'https://gymaipro.ir/%d9%81%db%8c%d9%84%d9%85-%d9%87%d8%a7%db%8c-%d8%a7%d9%86%da%af%db%8c%d8%b2%d8%b4%db%8c/',
       );
-      final response = await http
-          .get(uri, headers: {'Accept': 'text/html'})
-          .timeout(const Duration(seconds: 15));
+      final response = await wordpressGet(
+        uri,
+        headers: {'Accept': 'text/html'},
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final htmlContent = utf8.decode(response.bodyBytes);
@@ -418,7 +420,7 @@ class MotivationalVideoService {
   static Future<MotivationalVideo?> fetchVideoById(int id) async {
     try {
       final uri = Uri.parse('$_baseUrl/$id?_embed=true');
-      final response = await http.get(
+      final response = await wordpressGet(
         uri,
         headers: {'Accept': 'application/json'},
       );

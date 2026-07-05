@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 
 class SectionNavCarousel extends StatelessWidget {
   const SectionNavCarousel({
@@ -326,11 +327,9 @@ class _SectionCardState extends State<_SectionCard>
                           fit: StackFit.expand,
                           children: [
                             if (widget.item.imageUrl != null)
-                              Image.network(
-                                widget.item.imageUrl!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (c, e, s) =>
-                                    const SizedBox.shrink(),
+                              GymaiNetworkImage(
+                                imageUrl: widget.item.imageUrl!,
+                                errorWidget: const SizedBox.shrink(),
                               )
                             else
                               Container(

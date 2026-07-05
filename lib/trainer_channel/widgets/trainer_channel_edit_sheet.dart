@@ -15,6 +15,9 @@ Future<String?> showTrainerChannelEditSheet({
       : post.displayCaption;
   final isCaption = post.hasMedia && post.contentType != TrainerChannelContentType.text;
 
+  final controller = TextEditingController(text: initial);
+  final focus = FocusNode()..requestFocus();
+
   return showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
@@ -23,8 +26,6 @@ Future<String?> showTrainerChannelEditSheet({
       borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
     ),
     builder: (ctx) {
-      final controller = TextEditingController(text: initial);
-      final focus = FocusNode()..requestFocus();
       final isDark = Theme.of(ctx).brightness == Brightness.dark;
 
       return Padding(
@@ -132,5 +133,8 @@ Future<String?> showTrainerChannelEditSheet({
         ),
       );
     },
-  );
+  ).whenComplete(() {
+    controller.dispose();
+    focus.dispose();
+  });
 }

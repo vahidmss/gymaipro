@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/services/pattern_sms_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// پیامک‌های الگویی مربوط به درخواست/دریافت برنامه مربی.
 class TrainerProgramSmsService {
@@ -13,6 +14,9 @@ class TrainerProgramSmsService {
     required String buyerProfileId,
     required String subscriptionId,
   }) async {
+    final sentViaServer = await _sendViaServer(subscriptionId: subscriptionId);
+    if (sentViaServer) return;
+
     await notifyCoachNewProgramRequest(
       trainerProfileOrAuthId: trainerProfileOrAuthId,
     );
@@ -20,6 +24,42 @@ class TrainerProgramSmsService {
       userProfileId: buyerProfileId,
       programId: subscriptionId,
     );
+  }
+
+  /// ارسال از Edge Function (اعتبار SMS روی سرور؛ قابل اطمینان‌تر از کلاینت)
+  static Future<bool> _sendViaServer({required String subscriptionId}) async {
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'send-program-sms',
+        body: {'subscription_id': subscriptionId},
+      );
+      if (response.status != 200) {
+        if (kDebugMode) {
+          debugPrint(
+            'TrainerProgramSmsService: send-program-sms status=${response.status} '
+            'data=${response.data}',
+          );
+        }
+        return false;
+      }
+      final data = response.data;
+      if (data is Map) {
+        final coachSent = data['coach_sent'] == true;
+        if (kDebugMode) {
+          debugPrint(
+            'TrainerProgramSmsService: coach_sent=$coachSent '
+            'buyer_sent=${data['buyer_sent']}',
+          );
+        }
+        return coachSent;
+      }
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('TrainerProgramSmsService server route failed: $e');
+      }
+      return false;
+    }
   }
 
   /// مربی: «{0} عزیز شما درخواست برنامه دارید…» — bodyId 450989

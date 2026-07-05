@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/professional_bodybuilder.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -50,12 +51,11 @@ class BodybuilderDetailScreen extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  Image.network(
-                    bodybuilder.profileImageUrl,
+                  GymaiNetworkImage(
+                    imageUrl: bodybuilder.profileImageUrl,
                     width: double.infinity,
                     height: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) => const ColoredBox(
+                    errorWidget: const ColoredBox(
                       color: Colors.black26,
                       child: Icon(
                         LucideIcons.user,

@@ -109,7 +109,7 @@ class PerformanceScanner {
 
     await for (final entity in directory.list(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
-      final path = entity.path.replaceAll('\\', '/');
+      final path = entity.path.replaceAll(r'\', '/');
       if (path.contains('/test/') ||
           path.contains('.g.dart') ||
           path.contains('.freezed.dart') ||

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class TrainerCardWidget extends StatefulWidget {
@@ -73,7 +74,12 @@ class _TrainerCardWidgetState extends State<TrainerCardWidget> {
                   ..setEntry(3, 2, 0.001)
                   ..rotateX(_tiltX * 3.1415 / 180)
                   ..rotateY(_tiltY * 3.1415 / 180)
-                  ..scale(_pressed ? 0.98 : 1.0),
+                  ..scaleByDouble(
+                    _pressed ? 0.98 : 1.0,
+                    _pressed ? 0.98 : 1.0,
+                    _pressed ? 0.98 : 1.0,
+                    1,
+                  ),
                 margin: EdgeInsets.only(bottom: 12.h),
                 decoration: BoxDecoration(
                   color: context.cardColor,
@@ -396,12 +402,9 @@ class _TrainerCardWidgetState extends State<TrainerCardWidget> {
         padding: EdgeInsets.all(2.5.w),
         child: ClipOval(
           child: trainer.avatarUrl != null
-              ? Image.network(
-                  trainer.avatarUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return _buildDefaultAvatar();
-                  },
+              ? GymaiNetworkImage(
+                  imageUrl: trainer.avatarUrl!,
+                  errorWidget: _buildDefaultAvatar(),
                 )
               : _buildDefaultAvatar(),
         ),

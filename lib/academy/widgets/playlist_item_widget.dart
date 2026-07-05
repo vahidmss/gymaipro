@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/workout_music.dart';
@@ -6,6 +7,7 @@ import 'package:gymaipro/academy/services/music_favorite_service.dart';
 import 'package:gymaipro/academy/services/music_player_service.dart';
 import 'package:gymaipro/services/user_preferences_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
@@ -98,9 +100,8 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
       final normalizedUrl = WorkoutMusic.normalizeAudioUrl(
         widget.music.audioUrl,
       );
-      await _cacheService.downloadMusic(normalizedUrl);
+      final path = await _cacheService.downloadMusic(normalizedUrl);
       if (mounted) {
-        // Refresh cache status after download
         await _checkCache();
         final isDownloaded = await _cacheService.isDownloaded(normalizedUrl);
         if (!mounted) return;
@@ -108,11 +109,23 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'موزیک دانلود شد',
+                kIsWeb
+                    ? 'فایل در پوشه دانلود مرورگر ذخیره شد'
+                    : 'موزیک دانلود شد',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              duration: Duration(seconds: 1),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else if (path == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'خطا در دانلود موزیک',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           );
         }
@@ -352,10 +365,9 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(10.r),
                         child: widget.music.coverImageUrl.isNotEmpty
-                            ? Image.network(
-                                widget.music.coverImageUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (c, e, s) => ColoredBox(
+                            ? GymaiNetworkImage(
+                                imageUrl: widget.music.coverImageUrl,
+                                errorWidget: ColoredBox(
                                   color: Colors.black26,
                                   child: Icon(
                                     LucideIcons.music,

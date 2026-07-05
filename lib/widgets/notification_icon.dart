@@ -49,6 +49,7 @@ class _NotificationIconState extends State<NotificationIcon>
     // Load unread count on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<NotificationProvider>();
+      provider.attachForCurrentUser();
       provider.refreshUnreadCount();
     });
   }

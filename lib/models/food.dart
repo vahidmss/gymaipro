@@ -34,6 +34,11 @@ class Food {
           json['_embedded']['wp:featuredmedia'][0]['source_url'] as String;
     } else if (json['meta']?['sample_image_forapp'] != null) {
       imageUrl = json['meta']['sample_image_forapp'] as String;
+    } else {
+      final cached = json['imageUrl'];
+      if (cached is String && cached.isNotEmpty) {
+        imageUrl = cached;
+      }
     }
 
     // Filter classList for display (remove post-xxxx, type-foods, status-publish, foods, hentry, ...)

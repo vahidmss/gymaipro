@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/ranking/models/user_ranking.dart';
 import 'package:gymaipro/ranking/widgets/league_badge.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 
 /// ویجت نمایش یک آیتم در Leaderboard — طراحی دارک/لایت
 /// نکته: نمایش رتبه فقط به صورت عدد (بدون متن/آیکن)
@@ -207,26 +208,22 @@ class _AvatarCircle extends StatelessWidget {
       child: SizedBox(
         width: radius * 2,
         height: radius * 2,
-        child: Image.network(
-          url,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => placeholder(),
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return ColoredBox(
-              color: bg,
-              child: Center(
-                child: SizedBox(
-                  width: 16.w,
-                  height: 16.w,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppTheme.goldColor.withValues(alpha: 0.9),
-                  ),
+        child: GymaiNetworkImage(
+          imageUrl: url,
+          errorWidget: placeholder(),
+          placeholder: ColoredBox(
+            color: bg,
+            child: Center(
+              child: SizedBox(
+                width: 16.w,
+                height: 16.w,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.goldColor.withValues(alpha: 0.9),
                 ),
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/services/music_player_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
@@ -118,10 +119,9 @@ class MusicPlayerWidget extends StatelessWidget {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12.r),
                           child: currentMusic.coverImageUrl.isNotEmpty
-                              ? Image.network(
-                                  currentMusic.coverImageUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (c, e, s) => ColoredBox(
+                              ? GymaiNetworkImage(
+                                  imageUrl: currentMusic.coverImageUrl,
+                                  errorWidget: ColoredBox(
                                     color: Colors.black26,
                                     child: Icon(
                                       LucideIcons.music,
@@ -408,10 +408,9 @@ class MusicPlayerWidget extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(16.r),
                         child: currentMusic.coverImageUrl.isNotEmpty
-                            ? Image.network(
-                                currentMusic.coverImageUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (c, e, s) => ColoredBox(
+                            ? GymaiNetworkImage(
+                                imageUrl: currentMusic.coverImageUrl,
+                                errorWidget: ColoredBox(
                                   color: Colors.black26,
                                   child: Icon(
                                     LucideIcons.music,

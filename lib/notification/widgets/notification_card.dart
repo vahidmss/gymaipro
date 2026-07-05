@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/core/web_interaction.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -15,7 +16,7 @@ class NotificationCard extends StatelessWidget {
   final NotificationItem notification;
   final VoidCallback? onTap;
   final VoidCallback? onMarkAsRead;
-  final VoidCallback? onDelete;
+  final Future<bool> Function()? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -23,51 +24,7 @@ class NotificationCard extends StatelessWidget {
     final isUnread = !notification.isRead;
     final typeColor = _getNotificationColor(context, notification.type);
 
-    return Dismissible(
-      key: Key(notification.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.errorColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16.r),
-        ),
-        alignment: Alignment.centerLeft,
-        padding: EdgeInsets.symmetric(horizontal: 16.w),
-        child: Icon(
-          LucideIcons.trash2,
-          color: AppTheme.errorColor,
-          size: 20.sp,
-        ),
-      ),
-      secondaryBackground: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.goldColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16.r),
-        ),
-        alignment: Alignment.centerRight,
-        padding: EdgeInsets.symmetric(horizontal: 16.w),
-        child: Icon(
-          LucideIcons.check,
-          color: AppTheme.goldColor,
-          size: 20.sp,
-        ),
-      ),
-      confirmDismiss: (direction) async {
-        if (direction == DismissDirection.endToStart) {
-          return _showDeleteConfirmation(context);
-        } else {
-          if (!notification.isRead) {
-            onMarkAsRead?.call();
-          }
-          return false;
-        }
-      },
-      onDismissed: (direction) {
-        if (direction == DismissDirection.endToStart) {
-          onDelete?.call();
-        }
-      },
-      child: AnimatedContainer(
+    final card = AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOut,
         decoration: BoxDecoration(
@@ -265,12 +222,85 @@ class NotificationCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                  if (!WebInteraction.allowSwipeToDismiss &&
+                      onDelete != null) ...[
+                    SizedBox(width: 8.w),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(999.r),
+                      onTap: () async {
+                        final confirmed = await _showDeleteConfirmation(context);
+                        if (confirmed) await onDelete!();
+                      },
+                      child: Container(
+                        padding: EdgeInsets.all(6.w),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppTheme.errorColor.withValues(alpha: 0.08),
+                        ),
+                        child: Icon(
+                          LucideIcons.trash2,
+                          size: 14.sp,
+                          color: AppTheme.errorColor,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
         ),
+      );
+
+    if (!WebInteraction.allowSwipeToDismiss) {
+      return card;
+    }
+
+    return Dismissible(
+      key: Key(notification.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.errorColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        alignment: Alignment.centerLeft,
+        padding: EdgeInsets.symmetric(horizontal: 16.w),
+        child: Icon(
+          LucideIcons.trash2,
+          color: AppTheme.errorColor,
+          size: 20.sp,
+        ),
       ),
+      secondaryBackground: Container(
+        decoration: BoxDecoration(
+          color: AppTheme.goldColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        alignment: Alignment.centerRight,
+        padding: EdgeInsets.symmetric(horizontal: 16.w),
+        child: Icon(
+          LucideIcons.check,
+          color: AppTheme.goldColor,
+          size: 20.sp,
+        ),
+      ),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          if (!notification.isRead) {
+            onMarkAsRead?.call();
+          }
+          return false;
+        }
+        final confirmed = await _showDeleteConfirmation(context);
+        if (!confirmed) return false;
+        if (onDelete != null) {
+          return onDelete!();
+        }
+        return false;
+      },
+      onDismissed: (_) {},
+      child: card,
     );
   }
 

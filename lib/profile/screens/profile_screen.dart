@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
+import 'package:gymaipro/profile/models/picked_profile_image.dart';
 import 'package:gymaipro/profile/widgets/profile_birth_date_widget.dart';
 import 'package:gymaipro/profile/widgets/profile_form_widgets.dart';
 import 'package:gymaipro/profile/widgets/profile_image_widgets.dart';
@@ -42,7 +42,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
 
-  File? _avatarFile;
+  PickedProfileImage? _avatarPicked;
   bool _isLoading = false;
   bool _isEditing = false;
   AvatarUploadStatus _avatarUploadStatus = AvatarUploadStatus.idle;
@@ -185,7 +185,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   void _pickImage() {
     final hasImage =
-        _avatarFile != null ||
+        _avatarPicked != null ||
         (_profileData.containsKey('avatar_url') &&
             _profileData['avatar_url'] != null &&
             _profileData['avatar_url'] is String &&
@@ -200,10 +200,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _pickImageFromSource(ImageSource source) async {
-    ProfileImageWidgets.pickImageFromSource(source, context, (file) async {
+    ProfileImageWidgets.pickImageFromSource(source, context, (picked) async {
       if (!mounted) return;
       SafeSetState.call(this, () {
-        _avatarFile = file as File?;
+        _avatarPicked = picked;
         _avatarUploadStatus = AvatarUploadStatus.uploading;
         _avatarUploadError = null;
       });
@@ -221,7 +221,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           await Future<void>.delayed(const Duration(milliseconds: 1800));
           if (!mounted) return;
           SafeSetState.call(this, () {
-            _avatarFile = null; // نمایش از avatar_url
+            _avatarPicked = null;
             _avatarUploadStatus = AvatarUploadStatus.idle;
           });
         } else {
@@ -242,7 +242,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _retryAvatarUpload() async {
-    if (_avatarFile == null) return;
+    if (_avatarPicked == null) return;
     SafeSetState.call(this, () {
       _avatarUploadStatus = AvatarUploadStatus.uploading;
       _avatarUploadError = null;
@@ -259,7 +259,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         await Future<void>.delayed(const Duration(milliseconds: 1800));
         if (!mounted) return;
         SafeSetState.call(this, () {
-          _avatarFile = null;
+          _avatarPicked = null;
           _avatarUploadStatus = AvatarUploadStatus.idle;
         });
       } else {
@@ -281,7 +281,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   void _removeImage() {
     ProfileImageWidgets.showRemoveImageDialog(context, () async {
       SafeSetState.call(this, () {
-        _avatarFile = null;
+        _avatarPicked = null;
         _profileData['avatar_url'] = null;
         _originalData['avatar_url'] = null;
       });
@@ -407,11 +407,14 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (userId == null) return false;
 
       bool avatarSaved = false;
-      if (_avatarFile != null) {
+      if (_avatarPicked != null) {
         final supabaseService = SupabaseService();
-        final imageUrl = await supabaseService.uploadProfileImage(
+        final picked = _avatarPicked!;
+        final imageUrl = await supabaseService.uploadProfileImageBytes(
           userId as String,
-          _avatarFile!,
+          picked.bytes,
+          extension: picked.fileName.split('.').last,
+          mimeType: picked.mimeType,
         );
         if (imageUrl != null && imageUrl.isNotEmpty) {
           _profileData['avatar_url'] = imageUrl;
@@ -686,7 +689,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         if (!_isEditing) ...[
                           ModernProfileHeader(
                             profileData: _profileData,
-                            avatarFile: _avatarFile,
+                            avatarPreviewBytes: _avatarPicked?.bytes,
                             avatarUploading: _avatarUploadStatus ==
                                 AvatarUploadStatus.uploading,
                             avatarSuccess: _avatarUploadStatus ==

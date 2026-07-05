@@ -3,6 +3,7 @@ import 'package:gymaipro/my_club/index.dart' show MyClubMainScreen;
 import 'package:gymaipro/my_club/my_club_main_screen.dart' show MyClubMainScreen;
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
 import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
+import 'package:gymaipro/payment/widgets/wallet_overview.dart';
 
 /// Shared navigator key for cross-feature navigation (MaterialApp root).
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
@@ -19,11 +20,14 @@ abstract final class MyClubTabs {
   static const int confidential = 5;
 }
 
-/// Closes routes pushed above the root [MainNavigationScreen] (e.g. chat screens).
+/// Closes routes pushed above [MainNavigationScreen] without removing the shell.
 void popRootNavigatorOverlays() {
   final navigator = rootNavigator;
   if (navigator == null || !navigator.canPop()) return;
-  navigator.popUntil((route) => route.isFirst);
+  navigator.popUntil((route) {
+    final name = route.settings.name ?? '';
+    return name == '/main' || name == '/dashboard';
+  });
 }
 
 /// When `/` or `/main` is pushed while [MainNavigationScreen] is already the
@@ -46,20 +50,29 @@ void openMainDashboard() {
   MainNavigationScreen.navigateToTab(NavigationConstants.dashboardIndex);
 }
 
+/// After login/registration: replace the entire stack with main shell.
+void enterMainAppAfterAuth([BuildContext? context]) {
+  final rootNav = rootNavigator;
+  if (rootNav != null) {
+    rootNav.pushNamedAndRemoveUntil('/main', (route) => false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      MainNavigationScreen.navigateToTab(NavigationConstants.dashboardIndex);
+      MainNavigationScreen.notifyDashboardForeground();
+    });
+    return;
+  }
+  if (context != null && context.mounted) {
+    Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
+  }
+}
+
 /// After login/registration: show main shell on dashboard without a blank overlay.
 void goToMainApp([BuildContext? context]) {
   if (MainNavigationScreen.isShellActive) {
     openMainDashboard();
     return;
   }
-  final rootNav = rootNavigator;
-  if (rootNav != null) {
-    rootNav.pushNamedAndRemoveUntil('/main', (route) => false);
-    return;
-  }
-  if (context != null && context.mounted) {
-    Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
-  }
+  enterMainAppAfterAuth(context);
 }
 
 /// باشگاه من (تب برنامه‌ها به‌صورت پیش‌فرض) — داخل shell، نه صفحه جدا.
@@ -109,7 +122,10 @@ bool tryNavigateIntegratedRoute(
       openMainMyClub(initialTab: MyClubTabs.points);
       return true;
     case '/wallet':
+      openMainMyClub(initialTab: MyClubTabs.wallet);
+      return true;
     case '/wallet-charge':
+      WalletOverview.pendingChargeSheet = true;
       openMainMyClub(initialTab: MyClubTabs.wallet);
       return true;
     case '/chat-main':
@@ -139,7 +155,7 @@ Future<T?>? navigateAppRoute<T extends Object?>(
           ? Map<String, dynamic>.from(arguments)
           : null;
   if (tryNavigateIntegratedRoute(route, arguments: args)) {
-    return null;
+    if (MainNavigationScreen.isShellActive) return null;
   }
   final navigator = rootNavigator;
   if (navigator == null) return null;
@@ -158,7 +174,7 @@ Future<T?>? navigateAppRouteFrom<T extends Object?>(
           ? Map<String, dynamic>.from(arguments)
           : null;
   if (tryNavigateIntegratedRoute(route, arguments: args)) {
-    return null;
+    if (MainNavigationScreen.isShellActive) return null;
   }
   return Navigator.pushNamed<T>(context, route, arguments: arguments);
 }

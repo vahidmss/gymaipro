@@ -34,6 +34,8 @@ import 'package:gymaipro/screens/help_screen.dart';
 import 'package:gymaipro/screens/offline_screen.dart';
 import 'package:gymaipro/screens/settings_screen.dart';
 import 'package:gymaipro/screens/welcome_screen.dart';
+import 'package:gymaipro/store/screens/store_screen.dart';
+import 'package:gymaipro/core/app_initializer.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/backend_reachability_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
@@ -68,6 +70,10 @@ class RouteService {
     }
   }
 
+  /// Whether the signed-in user finished registration (valid username).
+  static Future<bool> isCurrentUserProfileComplete() =>
+      _isProfileCompleteForCurrentUser();
+
   static Route<dynamic> generateRoute(RouteSettings settings) {
     final originalName = settings.name ?? '';
     debugPrint('=== ROUTE SERVICE: Generating route for: $originalName ===');
@@ -77,22 +83,29 @@ class RouteService {
         ? originalName.split('?').first
         : originalName;
 
-    // هندل لینک‌های دیپلینک که ممکن است به صورت route وارد شوند
+    // دیپلینک پرداخت — فقط PaymentDeeplinkService؛ از پشته حذف شود.
+    if (_isPaymentDeeplinkShimPath(sanitizedName, originalName)) {
+      return _paymentDeeplinkShimRoute();
+    }
+
+    // دیپلینک شارژ — فقط توسط PaymentDeeplinkService؛ بلافاصله از پشته حذف شود.
     if (sanitizedName == '/topup' || sanitizedName == '/wallet/topup') {
-      // مسیر دیپلینک را شفاف و بدون UI باز و سریعاً pop کن تا صفحه سیاه نشود
-      return PageRouteBuilder(
+      return PageRouteBuilder<void>(
+        settings: const RouteSettings(name: '/topup-deeplink-shim'),
         opaque: false,
         barrierColor: Colors.transparent,
-        pageBuilder: (ctx, __, ___) {
+        maintainState: false,
+        pageBuilder: (ctx, _, __) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (Navigator.of(ctx, rootNavigator: true).canPop()) {
-              Navigator.of(ctx, rootNavigator: true).pop();
+            final navigator = Navigator.of(ctx);
+            if (navigator.canPop()) {
+              navigator.pop();
             }
           });
           return const SizedBox.shrink();
         },
-        transitionDuration: const Duration(),
-        reverseTransitionDuration: const Duration(),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
       );
     }
 
@@ -103,8 +116,42 @@ class RouteService {
     );
   }
 
+  static bool _isPaymentDeeplinkShimPath(String path, String rawName) {
+    if (path == '/trainer' || path == '/payment/trainer') return true;
+    if (path.startsWith('/payment/') && rawName.contains('status=')) {
+      return true;
+    }
+    return false;
+  }
+
+  static Route<dynamic> _paymentDeeplinkShimRoute() {
+    return PageRouteBuilder<void>(
+      settings: const RouteSettings(name: '/payment-deeplink-shim'),
+      opaque: false,
+      barrierColor: Colors.transparent,
+      maintainState: false,
+      pageBuilder: (ctx, _, __) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final navigator = Navigator.of(ctx);
+          if (navigator.canPop()) {
+            navigator.pop();
+          }
+        });
+        return const SizedBox.shrink();
+      },
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+    );
+  }
+
   static Route<dynamic> _buildRoute(RouteSettings settings) {
     switch (settings.name) {
+      case '/':
+      case '/main':
+        return MaterialPageRoute(
+          settings: const RouteSettings(name: '/main'),
+          builder: (_) => const MainNavigationScreen(),
+        );
       case '/login':
         return MaterialPageRoute(
           builder: (_) => _buildProtectedRoute(const LoginScreen(), '/login'),
@@ -116,8 +163,6 @@ class RouteService {
         );
       case '/dashboard':
         return MaterialPageRoute(builder: (_) => const DashboardScreen());
-      case '/main':
-        return MaterialPageRoute(builder: (_) => const MainNavigationScreen());
       case '/profile':
         return MaterialPageRoute(builder: (_) => const ProfileScreen());
       case '/welcome':
@@ -195,6 +240,8 @@ class RouteService {
         return MaterialPageRoute(
           builder: (_) => UserProfileScreen(userId: userId),
         );
+      case '/store':
+        return MaterialPageRoute(builder: (_) => const StoreScreen());
       case '/exercise-list':
         return MaterialPageRoute(builder: (_) => const ExerciseListScreen());
       case '/exercise-detail':
@@ -309,12 +356,12 @@ class RouteService {
           builder: (_) => const ClientManagementScreen(),
         );
       case '/trainer-dashboard':
-        final initialTabIndex = settings.arguments is int
-            ? settings.arguments! as int
-            : (settings.arguments is Map<String, dynamic>
-                    ? (settings.arguments!
-                            as Map<String, dynamic>)['initialTabIndex']
-                        as int?
+        final args = settings.arguments;
+        final initialTabIndex = args is int
+            ? args
+            : (args is Map<String, dynamic>
+                    ? (args['initialTabIndex'] as int?) ??
+                        (args['initialTab'] as int?)
                     : null) ??
                 0;
         return MaterialPageRoute(
@@ -365,27 +412,13 @@ class RouteService {
   static Future<String> getInitialRoute() async {
     try {
       debugPrint('=== ROUTE SERVICE: Starting getInitialRoute ===');
-      // Global offline gate
-      final isOnline = await ConnectivityService.instance.checkNow();
-      if (!isOnline) {
-        debugPrint('=== ROUTE SERVICE: Offline detected, returning /offline ===');
-        return '/offline';
-      }
-      final backendReachable = await BackendReachabilityService
-          .isBackendReachable();
-      if (!backendReachable) {
-        debugPrint(
-          '=== ROUTE SERVICE: Network is available but backend is unreachable. Returning /offline ===',
-        );
-        return '/offline';
-      }
       final authService = AuthStateService();
-      debugPrint('=== ROUTE SERVICE: Checking login state for initial route... ===');
 
+      // Hydrate persisted session before any network gate (especially on web).
+      await authService.restoreSession();
       final isLoggedIn = await authService.isLoggedIn();
       debugPrint('=== ROUTE SERVICE: Login state: $isLoggedIn ===');
 
-      // اگر کاربر لاگین است، بررسی کنیم که آیا کاربر فعلی در کلاینت وجود دارد
       if (isLoggedIn) {
         final currentUser = Supabase.instance.client.auth.currentUser;
         debugPrint(
@@ -393,9 +426,6 @@ class RouteService {
         );
 
         if (currentUser != null) {
-          // Professional behavior:
-          // If session exists, never sign out just because profile lookup failed.
-          // Decide route based on "profile complete" (supports phone fallback).
           final complete = await _isProfileCompleteForCurrentUser();
           if (complete) {
             debugPrint('=== ROUTE SERVICE: Profile complete. Returning /main ===');
@@ -405,19 +435,47 @@ class RouteService {
             '=== ROUTE SERVICE: Profile incomplete/missing. Keeping session and returning /register ===',
           );
           return '/register';
-        } else {
-          debugPrint(
-            '=== ROUTE SERVICE: Warning: isLoggedIn is true but currentUser is null. Defaulting to welcome screen. ===',
-          );
-          return '/welcome';
         }
+
+        debugPrint(
+          '=== ROUTE SERVICE: Session exists but currentUser is null. Returning /welcome ===',
+        );
+        return '/welcome';
+      }
+
+      // Not logged in — only block on true device offline.
+      final isOnline = await ConnectivityService.instance.checkNow();
+      if (!isOnline) {
+        debugPrint('=== ROUTE SERVICE: Offline detected, returning /offline ===');
+        return '/offline';
+      }
+
+      // Supabase already initialized → allow welcome; health probes can lag on cold start.
+      if (AppInitializer.isSupabaseReady) {
+        debugPrint(
+          '=== ROUTE SERVICE: Supabase ready — returning /welcome (soft backend gate) ===',
+        );
+        return '/welcome';
+      }
+
+      final backendReachable = await BackendReachabilityService
+          .isBackendReachable();
+      if (!backendReachable) {
+        debugPrint(
+          '=== ROUTE SERVICE: Network is available but backend is unreachable. Returning /offline ===',
+        );
+        return '/offline';
       }
 
       debugPrint('=== ROUTE SERVICE: User not logged in, returning /welcome ===');
       return '/welcome';
     } catch (e) {
       debugPrint('=== ROUTE SERVICE: Error in getInitialRoute: $e ===');
-      // در صورت خطا به صفحه خوش‌آمدگویی هدایت می‌کنیم
+      try {
+        if (await AuthStateService().isLoggedIn()) {
+          return '/main';
+        }
+      } catch (_) {}
       return '/welcome';
     }
   }

@@ -571,29 +571,29 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
                             ),
                           ),
                           SizedBox(height: 8.h),
-                          RadioListTile<String>(
-                            title: const Text('خصوصی'),
-                            subtitle: const Text('فقط شما می‌توانید ببینید'),
-                            value: 'private',
+                          RadioGroup<String>(
                             groupValue: _visibility,
                             onChanged: (value) {
                               setState(() {
                                 _visibility = value!;
                               });
                             },
-                          ),
-                          RadioListTile<String>(
-                            title: const Text('عمومی'),
-                            subtitle: const Text(
-                              'همه می‌توانند ببینند (نیاز به تایید دارد)',
+                            child: const Column(
+                              children: [
+                                RadioListTile<String>(
+                                  title: Text('خصوصی'),
+                                  subtitle: Text('فقط شما می‌توانید ببینید'),
+                                  value: 'private',
+                                ),
+                                RadioListTile<String>(
+                                  title: Text('عمومی'),
+                                  subtitle: Text(
+                                    'همه می‌توانند ببینند (نیاز به تایید دارد)',
+                                  ),
+                                  value: 'public',
+                                ),
+                              ],
                             ),
-                            value: 'public',
-                            groupValue: _visibility,
-                            onChanged: (value) {
-                              setState(() {
-                                _visibility = value!;
-                              });
-                            },
                           ),
                         ],
                       ),

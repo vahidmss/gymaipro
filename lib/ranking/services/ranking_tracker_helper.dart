@@ -55,9 +55,9 @@ class RankingTrackerHelper {
   }
 
   /// ردیابی ثبت رژیم (فراخوانی هنگام ثبت وعده)
-  Future<void> trackMealLog() async {
+  Future<void> trackMealLog({String? userId}) async {
     try {
-      await _activityService.incrementMealLogs();
+      await _activityService.incrementMealLogs(userId: userId);
       debugPrint('✅ Tracked meal log');
     } catch (e) {
       debugPrint('❌ Error tracking meal log: $e');

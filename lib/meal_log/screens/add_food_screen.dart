@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_log/models/meal_quick_log_entry.dart';
 import 'package:gymaipro/meal_log/services/meal_quick_log_service.dart';
+import 'package:gymaipro/meal_log/widgets/meal_log_colors.dart';
 import 'package:gymaipro/models/food.dart';
+import 'package:gymaipro/models/food_meta.dart';
 import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/services/user_preferences_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -214,7 +217,6 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final mediaQuery = MediaQuery.of(context);
     final screenHeight = mediaQuery.size.height;
     final pageHeight = screenHeight * 0.8;
@@ -232,7 +234,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
           return Container(
             height: pageHeight,
             decoration: BoxDecoration(
-              color: isDark ? context.backgroundColor : context.cardColor,
+              color: MealLogColors.sectionBackground(context),
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(borderRadius),
                 topRight: Radius.circular(borderRadius),
@@ -241,13 +243,16 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
             child: CustomScrollView(
               slivers: [
                 // Header
-                SliverToBoxAdapter(child: _buildHeader(isDark)),
+                SliverToBoxAdapter(child: _buildHeader(context)),
                 // Search
-                SliverToBoxAdapter(child: _buildSearchBar(isDark)),
+                SliverToBoxAdapter(child: _buildSearchBar(context)),
                 // Filter tabs
-                SliverToBoxAdapter(child: _buildFilterTabs(isDark)),
+                SliverToBoxAdapter(child: _buildFilterTabs(context)),
                 // Food list
-                if (_filterType == 'اخیر') _buildRecentListSliver(isDark) else _buildFoodListSliver(isDark),
+                if (_filterType == 'اخیر')
+                  _buildRecentListSliver(context)
+                else
+                  _buildFoodListSliver(context),
               ],
             ),
           );
@@ -256,16 +261,12 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
     );
   }
 
-  Widget _buildHeader(bool isDark) {
+  Widget _buildHeader(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(
-            color: isDark
-                ? AppTheme.darkGreySeparator
-                : AppTheme.lightDividerColor,
-          ),
+          bottom: BorderSide(color: MealLogColors.inputBorder(context)),
         ),
       ),
       child: Row(
@@ -273,7 +274,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
           IconButton(
             icon: Icon(
               LucideIcons.chevronDown,
-              color: isDark ? AppTheme.goldColor : context.textColor,
+              color: MealLogColors.iconOnSurface(context),
               size: 20.sp,
             ),
             onPressed: () => Navigator.of(context).pop(),
@@ -284,12 +285,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
           Expanded(
             child: Text(
               'افزودن $_selectedMealTitle',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                color: isDark ? AppTheme.goldColor : context.textColor,
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-              ),
+              style: MealLogTypography.sectionTitle(context),
             ),
           ),
         ],
@@ -297,7 +293,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
     );
   }
 
-  Widget _buildSearchBar(bool isDark) {
+  Widget _buildSearchBar(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
       child: TextField(
@@ -308,47 +304,38 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
           _filterFoods();
         },
         decoration: InputDecoration(
-          hintText: 'جستجو...',
+          hintText: 'جستجو نام، گروه یا وعده...',
           hintStyle: TextStyle(
-            color: isDark
-                ? AppTheme.goldColor.withValues(alpha: 0.5)
-                : context.textColor.withValues(alpha: 0.5),
+            color: MealLogColors.hintText(context),
             fontFamily: AppTheme.fontFamily,
             fontSize: 12.sp,
           ),
           prefixIcon: Icon(
             LucideIcons.search,
-            color: AppTheme.goldColor,
+            color: MealLogColors.accent(context),
             size: 18.sp,
           ),
           filled: true,
-          fillColor: isDark
-              ? AppTheme.darkCardColor
-              : context.cardColor.withValues(alpha: 0.5),
+          fillColor: MealLogColors.inputFill(context),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10.r),
-            borderSide: BorderSide(
-              color: isDark
-                  ? AppTheme.darkGreySeparator
-                  : AppTheme.lightDividerColor,
-            ),
+            borderSide: BorderSide(color: MealLogColors.inputBorder(context)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10.r),
-            borderSide: BorderSide(
-              color: isDark
-                  ? AppTheme.darkGreySeparator
-                  : AppTheme.lightDividerColor,
-            ),
+            borderSide: BorderSide(color: MealLogColors.inputBorder(context)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10.r),
-            borderSide: BorderSide(color: AppTheme.goldColor, width: 1.2.w),
+            borderSide: BorderSide(
+              color: MealLogColors.inputBorderFocused(context),
+              width: 1.2.w,
+            ),
           ),
           contentPadding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
         ),
         style: TextStyle(
-          color: isDark ? AppTheme.goldColor : context.textColor,
+          color: MealLogColors.primaryText(context),
           fontFamily: AppTheme.fontFamily,
           fontSize: 12.sp,
         ),
@@ -356,22 +343,22 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
     );
   }
 
-  Widget _buildFilterTabs(bool isDark) {
+  Widget _buildFilterTabs(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.w),
       child: Row(
         children: [
-          _buildFilterTab('همه', isDark),
+          _buildFilterTab(context, 'همه'),
           SizedBox(width: 8.w),
-          _buildFilterTab('اخیر', isDark),
+          _buildFilterTab(context, 'اخیر'),
           SizedBox(width: 8.w),
-          _buildFilterTab('مورد علاقه', isDark),
+          _buildFilterTab(context, 'مورد علاقه'),
         ],
       ),
     );
   }
 
-  Widget _buildFilterTab(String label, bool isDark) {
+  Widget _buildFilterTab(BuildContext context, String label) {
     final isSelected = _filterType == label;
     return Expanded(
       child: GestureDetector(
@@ -385,30 +372,23 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
           padding: EdgeInsets.symmetric(vertical: 8.h),
           decoration: BoxDecoration(
             color: isSelected
-                ? AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.15)
+                ? MealLogColors.chipFill(context, selected: true)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(10.r),
             border: Border.all(
-              color: isSelected
-                  ? AppTheme.goldColor
-                  : (isDark
-                        ? AppTheme.darkGreySeparator
-                        : AppTheme.lightDividerColor),
+              color: MealLogColors.chipBorder(
+                context,
+                selected: isSelected,
+              ),
               width: isSelected ? 1.2.w : 1.w,
             ),
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              color: isSelected
-                  ? AppTheme.goldColor
-                  : (isDark
-                        ? AppTheme.goldColor.withValues(alpha: 0.7)
-                        : context.textColor.withValues(alpha: 0.7)),
-              fontSize: 12.sp,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            style: MealLogTypography.chip(
+              context,
+              selected: isSelected,
             ),
           ),
         ),
@@ -416,7 +396,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
     );
   }
 
-  Widget _buildRecentListSliver(bool isDark) {
+  Widget _buildRecentListSliver(BuildContext context) {
     if (_filteredRecentEntries.isEmpty) {
       return SliverFillRemaining(
         hasScrollBody: false,
@@ -428,9 +408,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              color: isDark
-                  ? AppTheme.goldColor.withValues(alpha: 0.7)
-                  : context.textColor.withValues(alpha: 0.7),
+              color: MealLogColors.mutedText(context),
               fontSize: 12.sp,
             ),
           ),
@@ -445,27 +423,23 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
           final entry = _filteredRecentEntries[index];
           final food = _foodForId(entry.foodId);
           if (food == null) return const SizedBox.shrink();
-          return _buildRecentItem(entry, food, isDark);
+          return _buildRecentItem(context, entry, food);
         }, childCount: _filteredRecentEntries.length),
       ),
     );
   }
 
   Widget _buildRecentItem(
+    BuildContext context,
     MealQuickLogEntry entry,
     Food food,
-    bool isDark,
   ) {
     return Container(
       margin: EdgeInsets.only(bottom: 8.h),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCardColor : context.cardColor,
+        color: MealLogColors.panelBackground(context),
         borderRadius: BorderRadius.circular(10.r),
-        border: Border.all(
-          color: isDark
-              ? AppTheme.darkGreySeparator
-              : AppTheme.lightDividerColor,
-        ),
+        border: Border.all(color: MealLogColors.chipBorder(context, selected: false)),
       ),
       child: Material(
         color: Colors.transparent,
@@ -482,7 +456,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
               children: [
                 Icon(
                   LucideIcons.history,
-                  color: AppTheme.goldColor,
+                  color: MealLogColors.accent(context),
                   size: 18.sp,
                 ),
                 SizedBox(width: 10.w),
@@ -492,28 +466,21 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                     children: [
                       Text(
                         food.displayTitle,
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: isDark ? AppTheme.goldColor : context.textColor,
+                        style: MealLogTypography.foodName(context).copyWith(
                           fontSize: 13.sp,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       SizedBox(height: 2.h),
                       Text(
                         '${_formatAmount(entry.amount)} ${_unitDisplayLabel(food, entry.unit)} · ≈ ${_estimatedCalories(food, entry)} کالری',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: context.textSecondary,
-                          fontSize: 11.sp,
-                        ),
+                        style: MealLogTypography.caption(context),
                       ),
                     ],
                   ),
                 ),
                 Icon(
                   LucideIcons.plus,
-                  color: AppTheme.goldColor,
+                  color: MealLogColors.accent(context),
                   size: 18.sp,
                 ),
               ],
@@ -524,7 +491,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
     );
   }
 
-  Widget _buildFoodListSliver(bool isDark) {
+  Widget _buildFoodListSliver(BuildContext context) {
     if (_filteredFoods.isEmpty) {
       return SliverFillRemaining(
         hasScrollBody: false,
@@ -533,9 +500,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
             'غذایی یافت نشد',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              color: isDark
-                  ? AppTheme.goldColor.withValues(alpha: 0.7)
-                  : context.textColor.withValues(alpha: 0.7),
+              color: MealLogColors.mutedText(context),
               fontSize: 12.sp,
             ),
           ),
@@ -549,9 +514,9 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
         delegate: SliverChildBuilderDelegate((context, index) {
           final food = _filteredFoods[index];
           return _buildFoodItem(
+            context,
             food,
             food.isFavorite,
-            isDark,
             key: ValueKey('${food.id}_${food.isFavorite}'),
           );
         }, childCount: _filteredFoods.length),
@@ -559,17 +524,23 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
     );
   }
 
-  Widget _buildFoodItem(Food food, bool isFavorite, bool isDark, {Key? key}) {
+  Widget _buildFoodItem(
+    BuildContext context,
+    Food food,
+    bool isFavorite, {
+    Key? key,
+  }) {
+    final protein = double.tryParse(food.nutrition.protein) ?? 0;
+    final group = food.meta.foodGroup.trim();
+
     return Container(
       key: key,
       margin: EdgeInsets.only(bottom: 8.h),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCardColor : context.cardColor,
+        color: MealLogColors.panelBackground(context),
         borderRadius: BorderRadius.circular(10.r),
         border: Border.all(
-          color: isDark
-              ? AppTheme.darkGreySeparator
-              : AppTheme.lightDividerColor,
+          color: MealLogColors.chipBorder(context, selected: false),
         ),
       ),
       child: Material(
@@ -580,31 +551,22 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6.r),
-                  child: Image.asset(
-                    'images/gymaifoodplaceholder.png',
+                  child: SizedBox(
                     width: 40.w,
                     height: 40.h,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 40.w,
-                      height: 40.h,
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? AppTheme.darkGreySeparator
-                            : AppTheme.lightDividerColor,
-                        borderRadius: BorderRadius.circular(6.r),
-                      ),
-                      child: Icon(
-                        LucideIcons.imageOff,
-                        color: isDark
-                            ? AppTheme.goldColor.withValues(alpha: 0.5)
-                            : context.textColor.withValues(alpha: 0.5),
-                        size: 18.sp,
-                      ),
-                    ),
+                    child: food.imageUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: food.imageUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => _foodThumbPlaceholder(context),
+                            errorWidget: (_, __, ___) =>
+                                _foodThumbPlaceholder(context),
+                          )
+                        : _foodThumbPlaceholder(context),
                   ),
                 ),
                 SizedBox(width: 10.w),
@@ -615,28 +577,38 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                     children: [
                       Text(
                         food.displayTitle,
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: isDark
-                              ? AppTheme.goldColor
-                              : context.textColor,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: MealLogTypography.foodName(context),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: 2.h),
+                      SizedBox(height: 3.h),
                       Text(
                         '${food.nutrition.calories} کالری · ${food.nutritionBasisLabel}',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: isDark
-                              ? AppTheme.goldColor.withValues(alpha: 0.7)
-                              : context.textColor.withValues(alpha: 0.7),
+                        style: MealLogTypography.caption(context).copyWith(
                           fontSize: 10.sp,
                         ),
                       ),
+                      if (group.isNotEmpty || protein >= 8) ...[
+                        SizedBox(height: 4.h),
+                        Wrap(
+                          spacing: 4.w,
+                          runSpacing: 3.h,
+                          children: [
+                            if (group.isNotEmpty)
+                              _foodMetaChip(
+                                context,
+                                group,
+                                FoodDisplayLabels.groupColor(group),
+                              ),
+                            if (protein >= 8)
+                              _foodMetaChip(
+                                context,
+                                'پ ${protein.toStringAsFixed(0)}g',
+                                AppTheme.proteinColor,
+                              ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -646,9 +618,7 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                     isFavorite ? LucideIcons.heart : LucideIcons.heartOff,
                     color: isFavorite
                         ? Colors.red
-                        : (isDark
-                              ? AppTheme.goldColor.withValues(alpha: 0.5)
-                              : context.textColor.withValues(alpha: 0.5)),
+                        : MealLogColors.hintText(context),
                     size: 18.sp,
                   ),
                   onPressed: () => _toggleFavorite(food),
@@ -658,6 +628,37 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _foodThumbPlaceholder(BuildContext context) {
+    return ColoredBox(
+      color: MealLogColors.inputBorder(context),
+      child: Icon(
+        LucideIcons.utensils,
+        color: MealLogColors.hintText(context),
+        size: 18.sp,
+      ),
+    );
+  }
+
+  Widget _foodMetaChip(BuildContext context, String label, Color color) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 2.h),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4.r),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontSize: 8.sp,
+          fontWeight: FontWeight.w600,
+          color: MealLogColors.macroText(context, color),
         ),
       ),
     );

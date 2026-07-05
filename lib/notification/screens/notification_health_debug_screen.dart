@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:gymaipro/notification/push_notification_policy.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:gymaipro/notification/services/notification_fallback_sync_service.dart';
+import 'package:gymaipro/notification/services/push_health_monitor.dart';
 
 class NotificationHealthDebugScreen extends StatefulWidget {
   const NotificationHealthDebugScreen({super.key});
@@ -52,6 +54,7 @@ class _NotificationHealthDebugScreenState
     if (_syncing) return;
     setState(() => _syncing = true);
     try {
+      await PushHealthMonitor.instance.refresh(force: true);
       await _syncService.syncOnForeground(reason: 'manual_debug');
       await _loadSnapshot();
     } finally {
@@ -73,6 +76,8 @@ class _NotificationHealthDebugScreenState
       'successCount': snapshot.successCount,
       'failureCount': snapshot.failureCount,
       'pushUnavailableCount': snapshot.pushUnavailableCount,
+      'fcmPushEnabled': PushNotificationPolicy.isFcmPushEnabled,
+      'serverPushActive': PushNotificationPolicy.shouldAttemptServerPush,
       'unreadNotifications': snapshot.unreadNotifications,
       'unreadChats': snapshot.unreadChats,
     };
@@ -112,6 +117,30 @@ class _NotificationHealthDebugScreenState
               children: [
                 _buildStatusCard(snapshot),
                 const SizedBox(height: 12),
+                _buildMetricTile(
+                  label: 'FCM Push (FIREBASE_PUSH_ENABLED)',
+                  value: PushNotificationPolicy.isFcmPushEnabled
+                      ? 'ON'
+                      : 'OFF — set true in .env to enable',
+                ),
+                _buildMetricTile(
+                  label: 'Server Push Active',
+                  value: PushNotificationPolicy.shouldAttemptServerPush
+                      ? 'YES'
+                      : 'NO (local fallback mode)',
+                ),
+                _buildMetricTile(
+                  label: 'Push Reaches This Device (live)',
+                  value: PushHealthMonitor.instance.canReceivePushNow
+                      ? 'YES → alerts via FCM'
+                      : 'NO → alerts via in-app',
+                ),
+                _buildMetricTile(
+                  label: 'Last Push Probe At',
+                  value:
+                      PushHealthMonitor.instance.lastProbeAt?.toLocal().toString() ??
+                      'not probed yet',
+                ),
                 _buildMetricTile(
                   label: 'Last Sync At',
                   value: snapshot?.lastSyncAt?.toLocal().toString() ?? '-',

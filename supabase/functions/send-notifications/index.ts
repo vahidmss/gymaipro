@@ -351,9 +351,9 @@ serve(async (req) => {
     }
 
     // trainer_new_student: اپ نمی‌تواند توکن مربی را بخواند (RLS)، پس سمت سرور می‌خوانیم
-    if (payload?.mode === 'trainer_new_student') {
+    if (payload?.mode === 'trainer_new_student' || payload?.mode === 'trainer_notify') {
       const trainerId = payload.trainer_id as string;
-      const title = (payload.title || 'شاگرد جدید') as string;
+      const title = (payload.title || (payload?.mode === 'trainer_notify' ? 'درخواست برنامه جدید' : 'شاگرد جدید')) as string;
       const body = (payload.body || 'یک کاربر به شاگردان شما اضافه شد.') as string;
       const payloadData = (payload.data && typeof payload.data === 'object') ? payload.data : {};
       if (!trainerId) {
@@ -364,7 +364,31 @@ serve(async (req) => {
         const { data: row } = await supabase.from('profiles').select('auth_user_id').eq('id', trainerId).maybeSingle();
         if (row?.auth_user_id) trainerAuthId = row.auth_user_id;
       } catch (_) {}
-      // device_tokens.user_id = auth.uid()؛ جستجو با هر دو برای پوشش profiles.id و auth_user_id
+
+      let notificationCreated = false;
+      const notif = payload.notification;
+      if (payload?.mode === 'trainer_notify' && notif && typeof notif === 'object') {
+        try {
+          const targetUserId = (notif.user_id as string) || trainerAuthId;
+          const { error: rpcErr } = await supabase.rpc('create_user_notification', {
+            p_user_id: targetUserId,
+            p_title: (notif.title as string) || title,
+            p_message: (notif.message as string) || body,
+            p_type: (notif.type as string) || 'payment',
+            p_priority: (notif.priority as number) ?? 3,
+            p_data: (notif.data as object) ?? payloadData,
+            p_action_url: (notif.action_url as string) ?? null,
+          });
+          if (rpcErr) {
+            console.error('create_user_notification error:', rpcErr);
+          } else {
+            notificationCreated = true;
+          }
+        } catch (e) {
+          console.error('trainer_notify persist error:', e);
+        }
+      }
+
       const userIdsToTry = [trainerAuthId];
       if (trainerId !== trainerAuthId) userIdsToTry.push(trainerId);
       const { data: tokensRows, error: tokensErr } = await supabase
@@ -374,14 +398,14 @@ serve(async (req) => {
         .eq('is_push_enabled', true);
       if (tokensErr) {
         console.error('device_tokens query error:', tokensErr);
-        return new Response(JSON.stringify({ error: tokensErr.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify({ error: tokensErr.message, notification_created: notificationCreated }), { status: 500, headers: { 'Content-Type': 'application/json' } });
       }
       const tokens = (tokensRows || []).map((t: any) => t.token as string).filter(Boolean);
-      console.log(`trainer_new_student: trainerId=${trainerId} trainerAuthId=${trainerAuthId} tokens_found=${tokens.length}`);
+      console.log(`${payload.mode}: trainerId=${trainerId} trainerAuthId=${trainerAuthId} tokens_found=${tokens.length} notification_created=${notificationCreated}`);
       if (tokens.length > 0) {
         await sendToTokens(accessToken, projectId, tokens, title, body, payloadData);
       }
-      return new Response(JSON.stringify({ ok: true, mode: 'trainer_new_student', tokens_sent: tokens.length }), {
+      return new Response(JSON.stringify({ ok: true, mode: payload.mode, tokens_sent: tokens.length, notification_created: notificationCreated }), {
         headers: { 'Content-Type': 'application/json' },
       });
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/admin/services/admin_service.dart';
+import 'package:gymaipro/payment/services/trainer_escrow_service.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -15,7 +16,9 @@ class AdminFinancialScreen extends StatefulWidget {
 
 class _AdminFinancialScreenState extends State<AdminFinancialScreen> {
   final AdminService _adminService = AdminService();
+  final TrainerEscrowService _escrowService = TrainerEscrowService();
   Map<String, dynamic> _report = {};
+  Map<String, dynamic> _escrowSummary = {};
   bool _isLoading = false;
   DateTime? _startDate;
   DateTime? _endDate;
@@ -33,9 +36,14 @@ class _AdminFinancialScreenState extends State<AdminFinancialScreen> {
         startDate: _startDate,
         endDate: _endDate,
       );
+      final escrow = await _escrowService.getAdminEscrowOverview(
+        startDate: _startDate,
+        endDate: _endDate,
+      );
       if (mounted) {
         setState(() {
           _report = report;
+          _escrowSummary = escrow['summary'] as Map<String, dynamic>? ?? {};
           _isLoading = false;
         });
       }
@@ -232,6 +240,64 @@ class _AdminFinancialScreenState extends State<AdminFinancialScreen> {
                                 title: 'تعداد تراکنش',
                                 value: _report['transaction_count'] as int? ?? 0,
                                 color: Colors.purple,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 16.h),
+                        Text(
+                          'Escrow مربیان',
+                          style: TextStyle(
+                            color: isDark ? AppTheme.darkTextColor : AppTheme.lightTextColor,
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 12.h),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatCard(
+                                context,
+                                icon: LucideIcons.shield,
+                                title: 'در اختیار پلتفرم',
+                                value: _escrowSummary['in_platform'] as int? ?? 0,
+                                color: Colors.purple,
+                              ),
+                            ),
+                            SizedBox(width: 16.w),
+                            Expanded(
+                              child: _buildStatCard(
+                                context,
+                                icon: LucideIcons.clock,
+                                title: 'در انتظار آزادسازی',
+                                value: (_escrowSummary['in_hold'] as int? ?? 0) +
+                                    (_escrowSummary['in_edit_window'] as int? ?? 0),
+                                color: Colors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 16.h),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatCard(
+                                context,
+                                icon: LucideIcons.percent,
+                                title: 'کمیسیون پلتفرم',
+                                value: _escrowSummary['total_commission'] as int? ?? 0,
+                                color: Colors.teal,
+                              ),
+                            ),
+                            SizedBox(width: 16.w),
+                            Expanded(
+                              child: _buildStatCard(
+                                context,
+                                icon: LucideIcons.wallet,
+                                title: 'قابل برداشت مربیان',
+                                value: _escrowSummary['withdrawable'] as int? ?? 0,
+                                color: Colors.green,
                               ),
                             ),
                           ],

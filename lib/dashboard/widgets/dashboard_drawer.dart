@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -12,6 +11,7 @@ import 'package:gymaipro/services/avatar_refresh_notifier.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/admin/screens/admin_dashboard_screen.dart';
 import 'package:gymaipro/trainer_dashboard/screens/trainer_dashboard_screen.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -204,19 +204,11 @@ class _DashboardDrawerState extends State<DashboardDrawer>
               )
             : (_avatarUrl != null && _avatarUrl!.isNotEmpty)
                 ? ClipOval(
-                    child: CachedNetworkImage(
+                    child: GymaiNetworkImage(
                       imageUrl: _avatarUrl!,
-                      cacheKey: 'avatar_drawer_${Supabase.instance.client.auth.currentUser?.id ?? ''}_${_avatarUrl.hashCode}',
                       width: 80.r,
                       height: 80.r,
-                      fit: BoxFit.cover,
-                      memCacheWidth: 160,
-                      memCacheHeight: 160,
-                      maxWidthDiskCache: 320,
-                      maxHeightDiskCache: 320,
-                      fadeInDuration: Duration.zero,
-                      placeholderFadeInDuration: Duration.zero,
-                      placeholder: (context, url) => CircleAvatar(
+                      placeholder: CircleAvatar(
                         radius: 40.r,
                         backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
                         child: const CircularProgressIndicator(
@@ -224,7 +216,7 @@ class _DashboardDrawerState extends State<DashboardDrawer>
                           strokeWidth: 2,
                         ),
                       ),
-                      errorWidget: (context, url, error) => CircleAvatar(
+                      errorWidget: CircleAvatar(
                         radius: 40.r,
                         backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
                         child: Text(

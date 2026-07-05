@@ -17,7 +17,8 @@ class WalletService {
   String? _cachedWalletUserId;
   DateTime? _cachedWalletAt;
   Future<Wallet?>? _inFlightWallet;
-  static const Duration _walletCacheTtl = Duration(seconds: 20);
+  Future<Wallet?>? _inFlightRefresh;
+  static const Duration _walletCacheTtl = Duration(seconds: 30);
 
   void _invalidateWalletCache() {
     _cachedWallet = null;
@@ -28,14 +29,31 @@ class WalletService {
 
   /// پاک کردن کش و دریافت مجدد موجودی (بعد از شارژ آنلاین)
   Future<Wallet?> refreshUserWallet() async {
-    _invalidateWalletCache();
-    return getUserWallet();
+    if (_inFlightRefresh != null) {
+      return _inFlightRefresh;
+    }
+
+    final future = () async {
+      _invalidateWalletCache();
+      return getUserWallet();
+    }();
+    _inFlightRefresh = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(_inFlightRefresh, future)) {
+        _inFlightRefresh = null;
+      }
+    }
   }
 
   /// در این پروژه، برای بسیاری از جدول‌ها `user_id` به `profiles.id` وصل است (نه `auth.users.id`).
   /// پس برای جلوگیری از خطای FK باید profileId را استفاده کنیم.
   /// اگر پروفایل پیدا نشد، retry می‌کنیم (ممکن است مشکل connection باشد)
   Future<String?> _getEffectiveUserId() async {
+    final cachedId = SimpleProfileService.cachedProfileId;
+    if (cachedId != null && cachedId.isNotEmpty) return cachedId;
+
     int retryCount = 0;
     const maxRetries = 3;
 
@@ -525,6 +543,55 @@ class WalletService {
     }
   }
 
+  /// بارگذاری یک‌جا: کیف پول + تراکنش‌های اخیر (بدون fetch تکراری wallet)
+  Future<({Wallet? wallet, List<WalletTransaction> transactions})>
+      loadWalletOverview({
+    int limit = 15,
+  }) async {
+    final wallet = await getUserWallet();
+    if (wallet == null) {
+      return (wallet: null, transactions: const <WalletTransaction>[]);
+    }
+    final transactions = await getWalletTransactionsForWallet(
+      wallet.id,
+      limit: limit,
+    );
+    return (wallet: wallet, transactions: transactions);
+  }
+
+  Future<List<WalletTransaction>> getWalletTransactionsForWallet(
+    String walletId, {
+    int limit = 50,
+    int offset = 0,
+    WalletTransactionType? type,
+  }) async {
+    try {
+      var query = _client
+          .from('wallet_transactions')
+          .select()
+          .eq('wallet_id', walletId);
+
+      if (type != null) {
+        query = query.eq('type', type.toString().split('.').last);
+      }
+
+      final raw = await query
+          .order('created_at', ascending: false)
+          .range(offset, offset + limit - 1);
+
+      return (raw as List<dynamic>)
+          .map<WalletTransaction>(
+            (e) => WalletTransaction.fromJson(e as Map<String, dynamic>),
+          )
+          .toList();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('خطا در دریافت تراکنش‌های کیف پول: $e');
+      }
+      return [];
+    }
+  }
+
   /// دریافت تاریخچه تراکنش‌های کیف پول
   /// از wallet جاری کاربر (profile-based) استفاده می‌کند تا با RLS و user_id یکسان باشد.
   Future<List<WalletTransaction>> getWalletTransactions({
@@ -541,33 +608,12 @@ class WalletService {
         return [];
       }
 
-      var query = _client
-          .from('wallet_transactions')
-          .select()
-          .eq('wallet_id', wallet.id);
-
-      if (type != null) {
-        query = query.eq('type', type.toString().split('.').last);
-      }
-
-      final raw = await query
-          .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1);
-
-      final list = raw as List<dynamic>;
-      final transactions = list
-          .map<WalletTransaction>(
-            (e) => WalletTransaction.fromJson(e as Map<String, dynamic>),
-          )
-          .toList();
-
-      if (kDebugMode) {
-        debugPrint(
-          'WALLET_TX: wallet_id=${wallet.id}, تعداد تراکنش‌ها=${transactions.length}',
-        );
-      }
-
-      return transactions;
+      return getWalletTransactionsForWallet(
+        wallet.id,
+        limit: limit,
+        offset: offset,
+        type: type,
+      );
     } catch (e, st) {
       if (kDebugMode) {
         debugPrint('خطا در دریافت تاریخچه کیف پول: $e');

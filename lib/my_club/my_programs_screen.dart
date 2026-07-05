@@ -61,6 +61,11 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
         return;
       }
 
+      final profile = await SimpleProfileService.getCurrentProfile();
+      final profileId = (profile?['id'] as String?)?.trim();
+      final effectiveUserId =
+          (profileId != null && profileId.isNotEmpty) ? profileId : userId;
+
       final activeState = await _active.getActiveProgramState();
       _activeProgramId = activeState?['active_program_id'] as String?;
       _activeMealPlanId = await _activeMealPlan.getActiveMealPlanId();
@@ -77,7 +82,7 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
                 id, username, first_name, last_name, avatar_url
               )
             ''')
-            .eq('user_id', userId)
+            .eq('user_id', effectiveUserId)
             .eq('is_deleted', false)
             .not('sent_at', 'is', null) // فقط برنامه‌های ارسال شده
             .order('created_at', ascending: false);
@@ -94,7 +99,7 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
                   id, username, first_name, last_name, avatar_url
                 )
               ''')
-              .eq('user_id', userId)
+              .eq('user_id', effectiveUserId)
               .eq('is_deleted', false)
               .order('created_at', ascending: false);
         } catch (e2) {
@@ -160,7 +165,7 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
             .select(
               'id, plan_name, data, created_at, updated_at, user_id, trainer_id, sent_at, expiry_date',
             )
-            .eq('user_id', userId)
+            .eq('user_id', effectiveUserId)
             .not('sent_at', 'is', null) // فقط برنامه‌های ارسال شده
             .order('created_at', ascending: false);
       } catch (e) {
@@ -173,7 +178,7 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
               .select(
                 'id, plan_name, data, created_at, updated_at, user_id, trainer_id',
               )
-              .eq('user_id', userId)
+              .eq('user_id', effectiveUserId)
               .order('created_at', ascending: false);
         } catch (e2) {
           debugPrint('خطا در خواندن meal plans: $e2');
@@ -181,7 +186,7 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
             mealPlanRows = await _db
                 .from('meal_plans')
                 .select('id, plan_name, data, created_at, updated_at, user_id')
-                .eq('user_id', userId)
+                .eq('user_id', effectiveUserId)
                 .order('created_at', ascending: false);
           } catch (e3) {
             debugPrint('خطا در خواندن meal plans: $e3');
@@ -324,9 +329,7 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
       }
 
       // بارگذاری درخواست‌های در انتظار (اشتراک‌ها با profile_id ذخیره می‌شوند)
-      final profile = await SimpleProfileService.getCurrentProfile();
-      final profileId = profile != null ? profile['id'] as String? : null;
-      await _loadPendingRequests(profileId ?? userId);
+      await _loadPendingRequests(effectiveUserId);
     } catch (e) {
       if (mounted) {
         setState(() {

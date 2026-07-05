@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/widgets/chat_hub_ui.dart';
 import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/chat/models/public_chat_message.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/chat/services/public_chat_service.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -415,6 +416,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
                             final messageIndex = _messages.length - 1 - index;
                             final msg = _messages[messageIndex];
                             return Column(
+                              key: ValueKey<String>(msg.id),
                               children: [
                                 if (_showDateHeader(messageIndex))
                                   _buildDateChip(msg.createdAt),
@@ -892,11 +894,9 @@ class PublicChatWidgetState extends State<PublicChatWidget>
         ),
         child: ClipOval(
           child: (msg.senderAvatar != null && msg.senderAvatar!.isNotEmpty)
-              ? Image.network(
-                  msg.senderAvatar!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      _buildAvatarFallback(msg.senderName ?? 'کاربر'),
+              ? GymaiNetworkImage(
+                  imageUrl: msg.senderAvatar!,
+                  errorWidget: _buildAvatarFallback(msg.senderName ?? 'کاربر'),
                 )
               : _buildAvatarFallback(msg.senderName ?? 'کاربر'),
         ),

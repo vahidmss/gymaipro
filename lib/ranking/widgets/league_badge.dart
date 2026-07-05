@@ -40,7 +40,7 @@ class LeagueBadge extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(size * 0.2),
       decoration: BoxDecoration(
-        color: Color(league.color).withOpacity(0.2),
+        color: Color(league.color).withValues(alpha: 0.2),
         shape: BoxShape.circle,
         border: Border.all(
           color: Color(league.color),

@@ -4,7 +4,7 @@ import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/services/notification_data_service.dart';
 import 'package:gymaipro/payment/models/payout_request.dart';
 import 'package:gymaipro/payment/models/wallet.dart';
-import 'package:gymaipro/payment/services/commission_service.dart';
+import 'package:gymaipro/payment/services/trainer_escrow_service.dart';
 import 'package:gymaipro/payment/utils/card_encryption_helper.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
@@ -17,7 +17,7 @@ class PayoutService {
   static final PayoutService _instance = PayoutService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
-  final CommissionService _commissionService = CommissionService();
+  final TrainerEscrowService _escrowService = TrainerEscrowService();
 
   /// ایجاد درخواست برداشت
   Future<Map<String, dynamic>> createPayoutRequest({
@@ -110,7 +110,17 @@ class PayoutService {
         }
       }
 
-      // محاسبه موجودی قابل برداشت (بعد از 3 روز)
+      // بررسی مسدودیت برداشت توسط ادمین
+      final payoutCheck = await _escrowService.checkPayoutAllowed(userId);
+      if (payoutCheck['allowed'] != true) {
+        return {
+          'success': false,
+          'error': payoutCheck['reason'] as String? ?? 'برداشت مسدود است',
+          'code': 'PAYOUT_BLOCKED',
+        };
+      }
+
+      // محاسبه موجودی قابل برداشت
       final withdrawable = await getTrainerWithdrawable(userId);
       if (amount > withdrawable) {
         return {
@@ -520,143 +530,9 @@ class PayoutService {
     }
   }
 
-  /// محاسبه موجودی قابل برداشت مربی (بعد از 3 روز)
+  /// محاسبه موجودی قابل برداشت مربی (Escrow)
   Future<int> getTrainerWithdrawable(String trainerId) async {
-    try {
-      final settings = await _commissionService.getActiveSettings();
-      final holdDays = settings?.holdDays ?? 3;
-
-      // دریافت تمام اشتراک‌های مربی که برنامه ثبت شده
-      final subscriptions = await _client
-          .from('trainer_subscriptions')
-          .select(
-            'id, final_amount, program_registration_date, payment_transaction_id',
-          )
-          .eq('trainer_id', trainerId)
-          .not('program_registration_date', 'is', null);
-
-      // دریافت platform_revenue برای هر subscription (برای محاسبه trainer_earnings)
-      final subscriptionIds = subscriptions
-          .map((s) => s['id'] as String?)
-          .whereType<String>()
-          .toList();
-      final Map<String, int> platformRevenueBySub = {};
-      if (subscriptionIds.isNotEmpty) {
-        try {
-          final orExpr = subscriptionIds
-              .map((id) => 'subscription_id.eq.$id')
-              .join(',');
-          final revenueRows = await _client
-              .from('platform_revenue')
-              .select('subscription_id, amount')
-              .or(orExpr);
-          for (final r in (revenueRows as List)) {
-            final subId = r['subscription_id'] as String?;
-            final amount = (r['amount'] as num?)?.toInt() ?? 0;
-            if (subId != null) {
-              platformRevenueBySub[subId] = amount;
-            }
-          }
-        } catch (_) {}
-      }
-
-      // دریافت درخواست‌های برداشت شده (completed) و تایید شده (approved)
-      // درخواست‌های approved هم باید از withdrawable کم شوند چون در حال پردازش هستند
-      final processedRequests = await _client
-          .from('payout_requests')
-          .select('amount, final_amount')
-          .eq('trainer_id', trainerId)
-          .or(
-            'status.eq.${PayoutRequestStatus.completed.toString().split('.').last},status.eq.${PayoutRequestStatus.approved.toString().split('.').last}',
-          );
-
-      // محاسبه کل مبلغ برداشت شده یا در حال پردازش
-      int totalWithdrawn = 0;
-      for (final req in (processedRequests as List<dynamic>)) {
-        final finalAmount = req['final_amount'] as int?;
-        final amount = req['amount'] as int?;
-        // استفاده از final_amount اگر وجود داشته باشد (بعد از جریمه)، وگرنه amount
-        totalWithdrawn += finalAmount ?? amount ?? 0;
-      }
-
-      // دریافت تراکنش‌ها برای normalize کردن مبالغ
-      final txIds = subscriptions
-          .map((r) => r['payment_transaction_id'] as String?)
-          .whereType<String>()
-          .toSet()
-          .toList();
-      final Map<String, Map<String, dynamic>> txById = {};
-      if (txIds.isNotEmpty) {
-        try {
-          final orExpr = txIds.map((id) => 'id.eq.$id').join(',');
-          final txRows = await _client
-              .from('payment_transactions')
-              .select('id, amount, final_amount, payment_method, gateway')
-              .or(orExpr);
-          for (final t in (txRows as List)) {
-            final id = t['id'] as String?;
-            if (id != null) {
-              txById[id] = Map<String, dynamic>.from(
-                t as Map<dynamic, dynamic>,
-              );
-            }
-          }
-        } catch (_) {}
-      }
-
-      int normalizeToRial(int raw, {Map<String, dynamic>? tx}) {
-        if (tx != null) {
-          final txFinal = tx['final_amount'] as int?;
-          final txAmt = tx['amount'] as int?;
-          final pm = (tx['payment_method'] as String?)?.toLowerCase();
-          final gw = (tx['gateway'] as String?)?.toLowerCase();
-          final v = txFinal ?? txAmt;
-          if (v != null) {
-            final isDirect =
-                pm == 'direct' || gw == 'zibal' || gw == 'zarinpal';
-            return isDirect ? v : (v * 10); // اگر wallet بود، به ریال تبدیل کن
-          }
-        }
-        // Fallback: اگر به نظر ریال است (مضرب 10)، همان را برگردان
-        return raw % 10 == 0 ? raw : (raw * 10);
-      }
-
-      int totalEarnings = 0;
-      final now = DateTime.now();
-
-      for (final sub in (subscriptions as List<dynamic>)) {
-        final registrationDateStr = sub['program_registration_date'] as String?;
-        if (registrationDateStr == null) continue;
-
-        final registrationDate = DateTime.parse(registrationDateStr);
-        final daysSinceRegistration = now.difference(registrationDate).inDays;
-
-        // اگر 3 روز گذشته باشد، قابل برداشت است
-        if (daysSinceRegistration >= holdDays) {
-          final rawAmount = (sub['final_amount'] as num).toInt();
-          final txId = sub['payment_transaction_id'] as String?;
-          final tx = txId != null ? txById[txId] : null;
-          final amountInRial = normalizeToRial(rawAmount, tx: tx);
-
-          // استفاده از platform_revenue که قبلاً ثبت شده (به جای محاسبه مجدد)
-          final subId = sub['id'] as String?;
-          final platformRevenue = subId != null
-              ? (platformRevenueBySub[subId] ?? 0)
-              : 0;
-          final trainerEarning = amountInRial - platformRevenue;
-
-          totalEarnings += trainerEarning;
-        }
-      }
-
-      // موجودی قابل برداشت = کل درآمد - مبالغ برداشت شده
-      return (totalEarnings - totalWithdrawn).clamp(0, totalEarnings);
-    } catch (e) {
-      if (kDebugMode) {
-        print('خطا در محاسبه موجودی قابل برداشت: $e');
-      }
-      return 0;
-    }
+    return _escrowService.getWithdrawableAmount(trainerId);
   }
 
   /// به‌روزرسانی trainer_withdrawable در کیف پول

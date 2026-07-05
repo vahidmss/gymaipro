@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/core/web_proxy_url.dart';
 import 'package:gymaipro/network/wordpress_http_insecure.dart'
     if (dart.library.html) 'wordpress_http_insecure_stub.dart'
     as wp_insecure;
@@ -111,6 +112,21 @@ Future<http.Response> wordpressGet(
   Map<String, String>? headers,
   Duration? timeout,
 }) async {
+  if (kIsWeb && _hostMatchesConfiguredWordpress(uri)) {
+    try {
+      return await _strictGet(
+        WebProxyUrl.proxyUri(uri),
+        headers: {...?headers, ...WebProxyUrl.fetchHeaders()},
+        timeout: timeout,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('WordpressHttp: web proxy GET failed for ${uri.host}: $e');
+      }
+      rethrow;
+    }
+  }
+
   if (_isWordpressHostInCooldown(uri)) {
     if (kDebugMode) {
       debugPrint(

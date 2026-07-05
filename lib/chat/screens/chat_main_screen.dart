@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/screens/chat_conversations_screen.dart';
 import 'package:gymaipro/chat/widgets/public_chat_widget.dart';
+import 'package:gymaipro/core/web_interaction.dart';
 import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -124,6 +125,7 @@ class _ChatMainScreenState extends State<ChatMainScreen>
             Expanded(
               child: TabBarView(
                 controller: _tabController,
+                physics: WebInteraction.tabBarViewPhysics,
                 children: const [
                   ChatConversationsScreen(),
                   PublicChatWidget(),

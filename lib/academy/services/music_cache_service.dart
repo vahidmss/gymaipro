@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/academy/models/workout_music.dart';
+import 'package:gymaipro/academy/services/music_media_url_service.dart';
+import 'package:gymaipro/academy/services/web_music_platform.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
@@ -28,7 +30,8 @@ class MusicCacheService {
 
   /// Build a stable key for local storage, so signed URLs (with changing query params)
   /// still map to the same local file.
-  String _storageKey(String url) {
+  /// Stable key for blob/files (shared with player on web).
+  static String storageKey(String url) {
     final normalized = WorkoutMusic.normalizeAudioUrl(url);
     if (normalized.isEmpty) return normalized;
     try {
@@ -38,6 +41,8 @@ class MusicCacheService {
       return normalized;
     }
   }
+
+  String _storageKey(String url) => storageKey(url);
 
   String _getLegacyFileName(String url) {
     final bytes = utf8.encode(url);
@@ -90,6 +95,7 @@ class MusicCacheService {
   }
 
   Future<String?> getCachedPath(String url) async {
+    if (kIsWeb) return null;
     try {
       final cacheDir = await _getCacheDirectory();
       final fileName = _getFileName(url);
@@ -120,6 +126,7 @@ class MusicCacheService {
   /// Cache music in background (for performance, temporary).
   /// Only on Wi‑Fi/Ethernet — never burns mobile data for auto-cache.
   Future<String?> cacheMusic(String url) async {
+    if (kIsWeb) return null;
     final key = _storageKey(url);
     if (_cachingUrls[key] ?? false) {
       return null;
@@ -172,7 +179,7 @@ class MusicCacheService {
 
       final files = <File>[];
       var totalSize = 0;
-      await for (final entity in cacheDir.list(recursive: false)) {
+      await for (final entity in cacheDir.list()) {
         if (entity is File) {
           final size = await entity.length();
           totalSize += size;
@@ -205,12 +212,10 @@ class MusicCacheService {
   Future<String?> downloadMusic(String url) async {
     final key = _storageKey(url);
     if (_downloadingUrls[key] ?? false) {
-      // Already downloading
       return null;
     }
 
     try {
-      // Check if already downloaded
       final downloadedPath = await getDownloadedPath(key, legacyUrl: url);
       if (downloadedPath != null) {
         return downloadedPath;
@@ -218,7 +223,11 @@ class MusicCacheService {
 
       _downloadingUrls[key] = true;
 
-      // Download music
+      if (kIsWeb) {
+        return await _downloadMusicWeb(key, url);
+      }
+
+      // Download music (native — filesystem)
       final response = await http
           .get(Uri.parse(url))
           .timeout(const Duration(minutes: 5));
@@ -247,7 +256,41 @@ class MusicCacheService {
     }
   }
 
+  Future<String?> _downloadMusicWeb(String key, String url) async {
+    try {
+      final response = await http
+          .get(
+            MusicMediaUrlService.fetchUri(url),
+            headers: MusicMediaUrlService.fetchHeaders(),
+          )
+          .timeout(const Duration(minutes: 5));
+
+      if (response.statusCode != 200) {
+        debugPrint('Web music download failed: HTTP ${response.statusCode}');
+        return null;
+      }
+
+      final bytes = response.bodyBytes;
+      if (bytes.isEmpty) return null;
+
+      final fileName = '${_getFileName(key).split('.').first}.mp3';
+      await WebMusicPlatform.saveToDownloads(bytes, fileName: fileName);
+      final blobUrl = WebMusicPlatform.storeBlob(key, bytes, fileName: fileName);
+      await _markAsDownloaded(key, legacyUrl: url);
+      return blobUrl;
+    } catch (e) {
+      debugPrint('Error downloading music on web: $e');
+      return null;
+    } finally {
+      _downloadingUrls[key] = false;
+    }
+  }
+
   Future<String?> getDownloadedPath(String url, {String? legacyUrl}) async {
+    if (kIsWeb) {
+      final key = _storageKey(url);
+      return WebMusicPlatform.blobUrlForKey(key);
+    }
     try {
       final downloadDir = await _getDownloadDirectory();
       final fileName = _getFileName(url);
@@ -280,6 +323,15 @@ class MusicCacheService {
 
   Future<bool> isDownloaded(String url) async {
     final key = _storageKey(url);
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final downloadedUrls = prefs.getStringList(_downloadedUrlsKey) ?? [];
+      final marked = downloadedUrls.contains(key) ||
+          downloadedUrls.contains(url);
+      if (!marked) return false;
+      // In-app offline needs an active blob (cleared on full page reload).
+      return WebMusicPlatform.blobUrlForKey(key) != null;
+    }
     final downloadedPath = await getDownloadedPath(key, legacyUrl: url);
     if (downloadedPath == null) return false;
 
@@ -302,8 +354,12 @@ class MusicCacheService {
   /// Best local path for playback (prefer explicit downloads, then cache).
   /// Returns null if nothing exists locally.
   Future<String?> getBestLocalPathForPlayback(String url) async {
-    // Prefer downloads (explicit user action)
     final key = _storageKey(url);
+    if (kIsWeb) {
+      if (!await isDownloaded(url)) return null;
+      return WebMusicPlatform.blobUrlForKey(key);
+    }
+    // Prefer downloads (explicit user action)
     final downloadedPath = await getDownloadedPath(key, legacyUrl: url);
     if (downloadedPath != null) {
       return downloadedPath;
@@ -336,6 +392,11 @@ class MusicCacheService {
   Future<void> deleteDownloadedMusic(String url) async {
     try {
       final key = _storageKey(url);
+      if (kIsWeb) {
+        WebMusicPlatform.revoke(key);
+        await _unmarkAsDownloaded(url);
+        return;
+      }
       final downloadedPath = await getDownloadedPath(key, legacyUrl: url);
       if (downloadedPath != null) {
         final file = File(downloadedPath);

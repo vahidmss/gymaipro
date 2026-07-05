@@ -16,6 +16,7 @@ class MealsListWidget extends StatelessWidget {
     required this.onEditAmount,
     required this.onFoodAction,
     this.profileData,
+    this.highlightMealTitle,
     super.key,
   });
 
@@ -25,6 +26,7 @@ class MealsListWidget extends StatelessWidget {
   final void Function(FoodLogItem, String) onEditAmount;
   final void Function(String, FoodLogItem, String) onFoodAction;
   final Map<String, dynamic>? profileData;
+  final String? highlightMealTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +69,7 @@ class MealsListWidget extends StatelessWidget {
               onFoodAction: onFoodAction,
               dailyCalorieTarget: dailyCalorieTarget,
               note: mealNote,
+              isHighlighted: highlightMealTitle == mealTitle,
             ),
             SizedBox(height: 16.h),
           ],

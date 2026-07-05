@@ -3,10 +3,23 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:gymaipro/models/food.dart';
+import 'package:gymaipro/network/wordpress_http.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/user_preferences_service.dart';
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+/// پارس لیست غذاها از بدنهٔ صفحات API روی isolate پس‌زمینه (برای [compute]).
+/// باید top-level باشد و ورودی/خروجی قابل انتقال بین isolateها.
+List<Food> _parseFoodsFromBodies(List<String> bodies) {
+  final all = <Food>[];
+  for (final body in bodies) {
+    final data = json.decode(body) as List<dynamic>;
+    for (final item in data) {
+      all.add(Food.fromJson(item as Map<String, dynamic>));
+    }
+  }
+  return all;
+}
 
 class FoodService {
   factory FoodService() {
@@ -241,7 +254,9 @@ class FoodService {
   }
 
   Future<List<Food>> _fetchAllFoodsFromApi() async {
-    final all = <Food>[];
+    // فقط دریافت شبکه روی این isolate انجام می‌شود؛ پارس سنگین JSON
+    // (پاسخ‌های _embed حجیم) به isolate پس‌زمینه منتقل می‌شود تا فریم‌ها بلاک نشوند.
+    final bodies = <String>[];
     var page = 1;
     var totalPages = 1;
 
@@ -249,7 +264,7 @@ class FoodService {
       final uri = Uri.parse(
         '$_foodsApiBase&per_page=$_foodsPerPage&page=$page',
       );
-      final response = await http.get(
+      final response = await wordpressGet(
         uri,
         headers: {'Content-Type': 'application/json'},
       );
@@ -262,18 +277,12 @@ class FoodService {
         totalPages = int.tryParse(totalPagesHeader) ?? totalPages;
       }
 
-      final data = json.decode(response.body) as List<dynamic>;
-      if (data.isEmpty) break;
-
-      all.addAll(
-        data.map((item) => Food.fromJson(item as Map<String, dynamic>)),
-      );
-
-      if (data.length < _foodsPerPage) break;
+      bodies.add(response.body);
       page++;
     }
 
-    return all;
+    if (bodies.isEmpty) return <Food>[];
+    return compute(_parseFoodsFromBodies, bodies);
   }
 
   // --- Like/Favorite logic using UserPreferencesService ---

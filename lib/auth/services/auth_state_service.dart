@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/notification/notification_service.dart';
 import 'package:gymaipro/services/logout_cache_clear_service.dart';
@@ -10,24 +12,15 @@ class AuthStateService {
   AuthStateService._internal();
   static final AuthStateService _instance = AuthStateService._internal();
 
-  /// Save authentication state after login/signup
+  /// Save authentication state after login/signup.
+  ///
+  /// Critical local persistence runs first; FCM/topic sync is best-effort in the
+  /// background so signup/login never hangs on Firebase/network blips.
   Future<void> saveAuthState(Session session, {String? phoneNumber}) async {
     try {
       await _checkAndClearCacheOnUserChange(session.user.id);
-
-      // Sync FCM token after successful auth
-      try {
-        final notificationService = NotificationService();
-        await notificationService.syncFCMTokenIfAvailable();
-        // Ensure broadcast notifications work after login/signup
-        await notificationService.forceSubscribeToAll();
-      } catch (e) {
-        debugPrint('Error syncing FCM token: $e');
-      }
-
       await _saveCurrentUserId(session.user.id);
 
-      // Save phone number for data fallback
       if (phoneNumber?.trim().isNotEmpty ?? false) {
         try {
           final prefs = await SharedPreferences.getInstance();
@@ -39,8 +32,24 @@ class AuthStateService {
           debugPrint('Error saving phone number: $e');
         }
       }
+
+      unawaited(_syncNotificationsInBackground());
     } catch (e) {
       debugPrint('Error in saveAuthState: $e');
+    }
+  }
+
+  Future<void> _syncNotificationsInBackground() async {
+    try {
+      final notificationService = NotificationService();
+      await notificationService
+          .syncFCMTokenIfAvailable()
+          .timeout(const Duration(seconds: 5));
+      await notificationService
+          .forceSubscribeToAll()
+          .timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint('Error syncing FCM token: $e');
     }
   }
 
@@ -118,14 +127,15 @@ class AuthStateService {
   /// so Supabase autoRefreshToken can recover later.
   Future<Session?> restoreSession() async {
     try {
-      // Wait a bit for Supabase to restore from storage
+      // Wait for Supabase to restore from localStorage / secure storage.
       Session? currentSession;
-      for (int attempt = 0; attempt < 3; attempt++) {
+      const maxAttempts = kIsWeb ? 12 : 3;
+      for (var attempt = 0; attempt < maxAttempts; attempt++) {
         currentSession = Supabase.instance.client.auth.currentSession;
         if (currentSession != null) break;
-        if (attempt < 2) {
+        if (attempt < maxAttempts - 1) {
           await Future<void>.delayed(
-            Duration(milliseconds: 100 * (attempt + 1)),
+            Duration(milliseconds: kIsWeb ? 60 * (attempt + 1) : 100 * (attempt + 1)),
           );
         }
       }

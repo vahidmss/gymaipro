@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/core/web_interaction.dart';
 import 'package:gymaipro/my_club/my_programs_screen.dart';
 import 'package:gymaipro/my_club/screens/confidential_user_info_screen.dart';
 import 'package:gymaipro/my_club/screens/friendship_search_screen.dart';
@@ -129,7 +130,9 @@ class _MyClubMainScreenState extends State<MyClubMainScreen>
             ),
             centerTitle: true,
             bottom: PreferredSize(
-              preferredSize: Size.fromHeight(60.h),
+              preferredSize: Size.fromHeight(
+                WebInteraction.prefersTapNavigation ? 72.h : 60.h,
+              ),
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: isDark
@@ -158,6 +161,10 @@ class _MyClubMainScreenState extends State<MyClubMainScreen>
                 ),
                 child: TabBar(
                   controller: _tabController,
+                  isScrollable: WebInteraction.prefersTapNavigation,
+                  tabAlignment: WebInteraction.prefersTapNavigation
+                      ? TabAlignment.start
+                      : TabAlignment.fill,
                   indicator: BoxDecoration(
                     borderRadius: BorderRadius.circular(14.r),
                     gradient: isDark
@@ -205,38 +212,31 @@ class _MyClubMainScreenState extends State<MyClubMainScreen>
                     fontFamily: AppTheme.fontFamily,
                     height: 1.4,
                   ),
-                  tabAlignment: TabAlignment.fill,
                   padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 6.h),
                   tabs: [
                     Tab(
                       icon: Icon(LucideIcons.dumbbell, size: 15.sp),
                       text: 'برنامه‌ها',
-                      height: 44.h,
                     ),
                     Tab(
                       icon: Icon(LucideIcons.userCheck, size: 15.sp),
                       text: 'مربی‌ها',
-                      height: 44.h,
                     ),
                     Tab(
                       icon: Icon(LucideIcons.users, size: 15.sp),
                       text: 'دوستان',
-                      height: 44.h,
                     ),
                     Tab(
                       icon: Icon(LucideIcons.sparkles, size: 15.sp),
                       text: 'امتیازات',
-                      height: 44.h,
                     ),
                     Tab(
                       icon: Icon(LucideIcons.wallet, size: 15.sp),
                       text: 'مالی',
-                      height: 44.h,
                     ),
                     Tab(
                       icon: Icon(LucideIcons.shield, size: 15.sp),
                       text: 'اطلاعات محرمانه',
-                      height: 44.h,
                     ),
                   ],
                 ),
@@ -245,6 +245,7 @@ class _MyClubMainScreenState extends State<MyClubMainScreen>
           ),
           body: TabBarView(
             controller: _tabController,
+            physics: WebInteraction.tabBarViewPhysics,
             children: const [
               MyProgramsScreen(),
               _MyTrainersTab(),

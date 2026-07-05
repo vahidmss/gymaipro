@@ -94,10 +94,14 @@ class _AdminWalletsScreenState extends State<AdminWalletsScreen> {
       ),
     );
 
+    final amount = int.tryParse(amountController.text) ?? 0;
+    final description = descriptionController.text;
+    amountController.dispose();
+    descriptionController.dispose();
+
     if (confirmed != true) return;
     if (!mounted) return;
 
-    final amount = int.tryParse(amountController.text) ?? 0;
     if (amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -111,9 +115,7 @@ class _AdminWalletsScreenState extends State<AdminWalletsScreen> {
     final success = await _adminService.chargeWalletManually(
       userId,
       amount,
-      descriptionController.text.isEmpty
-          ? 'شارژ دستی توسط ادمین'
-          : descriptionController.text,
+      description.isEmpty ? 'شارژ دستی توسط ادمین' : description,
     );
 
     if (mounted) {
@@ -194,10 +196,14 @@ class _AdminWalletsScreenState extends State<AdminWalletsScreen> {
       ),
     );
 
+    final newBalance = int.tryParse(balanceController.text) ?? 0;
+    final description = descriptionController.text;
+    balanceController.dispose();
+    descriptionController.dispose();
+
     if (confirmed != true) return;
     if (!mounted) return;
 
-    final newBalance = int.tryParse(balanceController.text) ?? 0;
     if (newBalance < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -211,9 +217,7 @@ class _AdminWalletsScreenState extends State<AdminWalletsScreen> {
     final success = await _adminService.updateWalletBalanceDirectly(
       userId,
       newBalance,
-      descriptionController.text.isEmpty
-          ? 'اصلاح موجودی توسط ادمین'
-          : descriptionController.text,
+      description.isEmpty ? 'اصلاح موجودی توسط ادمین' : description,
     );
 
     if (mounted) {

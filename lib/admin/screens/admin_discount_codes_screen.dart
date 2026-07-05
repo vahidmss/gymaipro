@@ -133,9 +133,7 @@ class _AdminDiscountCodesScreenState extends State<AdminDiscountCodesScreen> {
       ),
     );
 
-    if (confirmed != true) return;
-
-    final codeData = {
+    final codeData = <String, dynamic>{
       'code': codeController.text.trim(),
       'type': selectedType,
       'value': int.tryParse(valueController.text) ?? 0,
@@ -144,6 +142,11 @@ class _AdminDiscountCodesScreenState extends State<AdminDiscountCodesScreen> {
           : null,
       'is_active': isActive,
     };
+    codeController.dispose();
+    valueController.dispose();
+    maxUsageController.dispose();
+
+    if (confirmed != true) return;
 
     final success = await _adminService.createDiscountCode(codeData);
     if (mounted) {

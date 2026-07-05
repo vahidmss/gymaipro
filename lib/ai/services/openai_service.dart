@@ -1,26 +1,47 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:gymaipro/ai/config/ai_engine_config.dart';
 import 'package:gymaipro/ai/models/ai_chat_message.dart';
 import 'package:gymaipro/config/app_config.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// سرویس OpenAI برای ارتباط با API
+/// سرویس AI — روی وب و حالت proxy فقط از Edge Function `openai-chat` استفاده می‌کند.
 class OpenAIService {
   OpenAIService({ChatSettings? settings})
     : _settings =
           settings ??
           const ChatSettings(
-            maxTokens: 2000, // افزایش برای JSON کامل
+            maxTokens: 2000,
           );
-  static const String _baseUrl = 'https://api.openai.com/v1';
 
-  // Get API key from AppConfig (supports both --dart-define and .env file)
   String get _apiKey => AppConfig.openaiApiKey;
+
+  bool get _useServerProxy => AiEngineConfig.usesServerProxyRoute;
+
+  bool get _canUseDirect =>
+      !kIsWeb && !AppConfig.openaiUseProxy && _apiKey.isNotEmpty;
 
   final http.Client _client = http.Client();
   final ChatSettings _settings;
+
+  void _ensureCallable() {
+    if (_useServerProxy) {
+      return;
+    }
+    if (_apiKey.isEmpty) {
+      throw const OpenAIException(
+        kIsWeb
+            ? 'چت هوش مصنوعی روی وب فقط از طریق سرور فعال است. '
+                  'OPENAI_USE_PROXY=true و Edge Function openai-chat را deploy کنید.'
+            : 'کلید OPENAI_API_KEY تنظیم نشده است.\n'
+                  '۱) فایل .env در ریشه پروژه بسازید و OPENAI_API_KEY=... را پر کنید.\n'
+                  '۲) یا OPENAI_USE_PROXY=true برای مسیر امن سرور.\n'
+                  '۳) اپ را کاملاً ببندید و دوباره Run کنید.',
+      );
+    }
+  }
 
   /// Raw chat completion — returns assistant text (for JSON/metadata pipelines).
   Future<String> sendCompletion({
@@ -31,9 +52,7 @@ class OpenAIService {
     Map<String, dynamic>? responseFormat,
     Duration? requestTimeout,
   }) async {
-    if (_apiKey.isEmpty) {
-      throw const OpenAIException('کلید OPENAI_API_KEY تنظیم نشده است.');
-    }
+    _ensureCallable();
 
     final requestBody = <String, dynamic>{
       'model': model ?? _settings.model,
@@ -43,128 +62,189 @@ class OpenAIService {
       if (responseFormat != null) 'response_format': responseFormat,
     };
 
-    final response = await _client
-        .post(
-          Uri.parse('$_baseUrl/chat/completions'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $_apiKey',
-          },
-          body: jsonEncode(requestBody),
-        )
-        .timeout(requestTimeout ?? const Duration(seconds: 90));
-
-    if (response.statusCode == 200) {
-      final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-      return (responseData['choices'] as List<dynamic>)[0]['message']['content']
-          as String;
+    if (_useServerProxy) {
+      return _proxyCompletion(
+        requestBody,
+        requestTimeout ?? const Duration(seconds: 90),
+      );
     }
 
-    final errorData = jsonDecode(response.body);
-    final errorMessage = errorData['error']?['message'] ?? 'خطای نامشخص';
-    throw OpenAIException('خطا در ارتباط با OpenAI: $errorMessage');
+    return _directCompletion(
+      requestBody,
+      requestTimeout ?? const Duration(seconds: 90),
+    );
   }
 
-  /// ارسال پیام به OpenAI
+  /// ارسال پیام به AI
   Future<ChatMessage> sendMessage({
     required List<ChatMessage> messages,
     String? systemPrompt,
   }) async {
     try {
       if (kDebugMode) {
-        print(
-          'OpenAI: API Key check - isEmpty: ${_apiKey.isEmpty}, length: ${_apiKey.length}',
-        );
-        if (_apiKey.isNotEmpty) {
-          print(
-            'OpenAI: API Key starts with: ${_apiKey.substring(0, _apiKey.length > 10 ? 10 : _apiKey.length)}...',
-          );
-        }
-      }
-
-      if (_apiKey.isEmpty) {
-        throw const OpenAIException(
-          'کلید OPENAI_API_KEY تنظیم نشده است.\n'
-          '۱) فایل .env در ریشه پروژه بسازید (کپی از .env.example) و خط OPENAI_API_KEY=sk-... را با کلید واقعی پر کنید.\n'
-          '۲) اپ را کاملاً ببندید و دوباره Run کنید (Hot Reload کافی نیست).',
+        debugPrint(
+          'OpenAI: route=${_useServerProxy ? "server-proxy" : "direct"} '
+          'messages=${messages.length}',
         );
       }
-      if (kDebugMode) {
-        print('OpenAI: Sending message with ${messages.length} messages');
-      }
 
-      final requestBody = {
+      _ensureCallable();
+
+      final requestBody = <String, dynamic>{
         'model': _settings.model,
         'messages': _buildMessages(messages, systemPrompt),
         'temperature': _settings.temperature,
         'max_tokens': _settings.maxTokens,
-        'stream': _settings.streamResponse,
       };
+      if (!_useServerProxy && _settings.streamResponse) {
+        requestBody['stream'] = true;
+      }
 
-      final response = await _client.post(
-        Uri.parse('$_baseUrl/chat/completions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_apiKey',
-        },
-        body: jsonEncode(requestBody),
-      );
+      final content = _useServerProxy
+          ? await _proxyCompletion(
+              requestBody,
+              const Duration(seconds: 90),
+            )
+          : await _directCompletion(
+              requestBody,
+              const Duration(seconds: 90),
+            );
 
       if (kDebugMode) {
-        print('OpenAI: Response status: ${response.statusCode}');
+        debugPrint(
+          'OpenAI: Response received: '
+          '${content.substring(0, content.length > 100 ? 100 : content.length)}...',
+        );
       }
 
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-        final content =
-            (responseData['choices'] as List<dynamic>)[0]['message']['content']
-                as String;
-
-        if (kDebugMode) {
-          print(
-            'OpenAI: Response received: ${content.substring(0, content.length > 100 ? 100 : content.length)}...',
-          );
-        }
-
-        return ChatMessage.ai(content: content);
-      } else {
-        final errorData = jsonDecode(response.body);
-        final errorMessage = errorData['error']?['message'] ?? 'خطای نامشخص';
-
-        if (kDebugMode) {
-          print('OpenAI: Error ${response.statusCode}: $errorMessage');
-        }
-
-        throw OpenAIException('خطا در ارتباط با OpenAI: $errorMessage');
-      }
+      return ChatMessage.ai(content: content);
+    } on OpenAIException {
+      rethrow;
     } catch (e) {
       if (kDebugMode) {
-        print('OpenAI: Exception: $e');
+        debugPrint('OpenAI: Exception: $e');
       }
-
-      if (e is SocketException) {
+      if (_isNetworkError(e)) {
         throw const OpenAIException('خطا در اتصال به اینترنت');
-      } else if (e is OpenAIException) {
-        rethrow;
-      } else {
-        throw OpenAIException('خطای غیرمنتظره: $e');
       }
+      throw OpenAIException('خطای غیرمنتظره: $e');
     }
   }
 
-  /// ساخت لیست پیام‌ها برای API
+  Future<String> _proxyCompletion(
+    Map<String, dynamic> requestBody,
+    Duration timeout,
+  ) async {
+    final client = Supabase.instance.client;
+    if (client.auth.currentSession == null) {
+      throw const OpenAIException(
+        'برای استفاده از هوش مصنوعی ابتدا وارد حساب کاربری شوید.',
+      );
+    }
+
+    final response = await client.functions
+        .invoke('openai-chat', body: requestBody)
+        .timeout(timeout);
+
+    return _parseCompletionPayload(response.data);
+  }
+
+  Future<String> _directCompletion(
+    Map<String, dynamic> requestBody,
+    Duration timeout,
+  ) async {
+    final baseUrl = AppConfig.openaiDirectBaseUrl;
+    final response = await _client
+        .post(
+          Uri.parse('$baseUrl/v1/chat/completions'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_apiKey',
+          },
+          body: jsonEncode(requestBody),
+        )
+        .timeout(timeout);
+
+    if (response.statusCode == 200) {
+      return _parseCompletionPayload(response.body);
+    }
+
+    final errorMessage = _extractErrorMessage(response.body);
+    throw OpenAIException(
+      'خطا در ارتباط با AI: $errorMessage',
+    );
+  }
+
+  String _parseCompletionPayload(dynamic payload) {
+    dynamic decoded = payload;
+    if (decoded is String) {
+      decoded = jsonDecode(decoded);
+    }
+    if (decoded is! Map) {
+      throw const OpenAIException('پاسخ نامعتبر از سرور AI');
+    }
+
+    final map = Map<String, dynamic>.from(decoded);
+    final error = map['error'];
+    if (error != null) {
+      if (error is Map) {
+        throw OpenAIException(
+          error['message']?.toString() ?? 'خطای نامشخص سرور AI',
+        );
+      }
+      throw OpenAIException(error.toString());
+    }
+
+    final choices = map['choices'];
+    if (choices is! List || choices.isEmpty) {
+      throw const OpenAIException('پاسخ خالی از سرور AI');
+    }
+
+    final first = choices.first;
+    if (first is! Map) {
+      throw const OpenAIException('ساختار پاسخ AI نامعتبر است');
+    }
+
+    final message = first['message'];
+    if (message is! Map) {
+      throw const OpenAIException('پیام AI یافت نشد');
+    }
+
+    final content = message['content']?.toString();
+    if (content == null || content.isEmpty) {
+      throw const OpenAIException('متن پاسخ AI خالی است');
+    }
+    return content;
+  }
+
+  String _extractErrorMessage(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) {
+        return decoded['error']?['message']?.toString() ?? 'خطای نامشخص';
+      }
+    } catch (_) {}
+    return body;
+  }
+
+  bool _isNetworkError(Object e) {
+    final text = e.toString().toLowerCase();
+    return text.contains('socket') ||
+        text.contains('network') ||
+        text.contains('connection') ||
+        text.contains('timeout');
+  }
+
   List<Map<String, String>> _buildMessages(
     List<ChatMessage> messages,
     String? systemPrompt,
   ) {
     final apiMessages = <Map<String, String>>[];
 
-    // اضافه کردن system prompt
     if (systemPrompt != null && systemPrompt.isNotEmpty) {
       apiMessages.add({'role': 'system', 'content': systemPrompt});
     }
 
-    // اضافه کردن پیام‌های چت
     for (final message in messages) {
       if (!message.isTyping) {
         apiMessages.add({
@@ -177,64 +257,64 @@ class OpenAIService {
     return apiMessages;
   }
 
-  /// تست اتصال به API
+  /// تست اتصال — روی proxy فقط نشست کاربر را بررسی می‌کند.
   Future<bool> testConnection() async {
     try {
+      if (_useServerProxy) {
+        return Supabase.instance.client.auth.currentSession != null;
+      }
+      if (!_canUseDirect) return false;
+
+      final baseUrl = AppConfig.openaiDirectBaseUrl;
       final response = await _client.get(
-        Uri.parse('$_baseUrl/models'),
+        Uri.parse('$baseUrl/v1/models'),
         headers: {'Authorization': 'Bearer $_apiKey'},
       );
-
       return response.statusCode == 200;
     } catch (e) {
       if (kDebugMode) {
-        print('OpenAI: Connection test failed: $e');
+        debugPrint('OpenAI: Connection test failed: $e');
       }
       return false;
     }
   }
 
-  /// دریافت لیست مدل‌های موجود
   Future<List<String>> getAvailableModels() async {
+    if (_useServerProxy) {
+      return [AppConfig.aiDefaultModel, AppConfig.aiReasoningModel];
+    }
+
     try {
+      final baseUrl = AppConfig.openaiDirectBaseUrl;
       final response = await _client.get(
-        Uri.parse('$_baseUrl/models'),
+        Uri.parse('$baseUrl/v1/models'),
         headers: {'Authorization': 'Bearer $_apiKey'},
       );
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data =
-            jsonDecode(response.body) as Map<String, dynamic>;
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
         final models = <String>[];
-
-        final List<dynamic> items = data['data'] as List<dynamic>;
-        for (final dynamic model in items) {
-          final String modelId =
-              (model as Map<String, dynamic>)['id'] as String;
-          if (modelId.startsWith('gpt-')) {
+        for (final model in data['data'] as List<dynamic>) {
+          final modelId = (model as Map<String, dynamic>)['id'] as String;
+          if (modelId.startsWith('gpt-') ||
+              modelId.startsWith('o1') ||
+              modelId.startsWith('o3')) {
             models.add(modelId);
           }
         }
-
         return models;
-      } else {
-        throw const OpenAIException('خطا در دریافت مدل‌ها');
       }
+      throw const OpenAIException('خطا در دریافت مدل‌ها');
     } catch (e) {
-      if (kDebugMode) {
-        print('OpenAI: Error getting models: $e');
-      }
       throw OpenAIException('خطا در دریافت مدل‌ها: $e');
     }
   }
 
-  /// بستن کلاینت
   void dispose() {
     _client.close();
   }
 }
 
-/// استثنای مخصوص OpenAI
 class OpenAIException implements Exception {
   const OpenAIException(this.message);
   final String message;
@@ -243,7 +323,6 @@ class OpenAIException implements Exception {
   String toString() => 'OpenAIException: $message';
 }
 
-/// System prompt برای چت ورزشی
 class GymAIPrompts {
   static const String defaultPrompt = '''
 شما یک مربی ورزشی و متخصص تغذیه هوش مصنوعی هستید که به کاربران در زمینه‌های زیر کمک می‌کنید:

@@ -11,10 +11,13 @@ import 'package:gymaipro/academy/screens/motivational_video_detail_screen.dart';
 import 'package:gymaipro/academy/services/article_service.dart';
 import 'package:gymaipro/academy/services/motivational_video_service.dart';
 import 'package:gymaipro/academy/services/workout_music_service.dart';
+import 'package:gymaipro/core/web_interaction.dart';
+import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
 import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/widgets/app_remote_image.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
@@ -52,7 +55,9 @@ class DashboardHeroCarousel extends StatefulWidget {
 
 class _DashboardHeroCarouselState extends State<DashboardHeroCarousel> {
   final PageController _pageController = PageController(viewportFraction: 0.92);
+  final DashboardCacheService _cacheService = DashboardCacheService();
   Timer? _autoPlayTimer;
+  int _carouselPageIndex = 0;
   List<HeroSlideItem> _slides = [];
   bool _isLoading = true;
 
@@ -87,7 +92,12 @@ class _DashboardHeroCarouselState extends State<DashboardHeroCarousel> {
   @override
   void initState() {
     super.initState();
-    _loadSlides();
+    // بعد از Stories تا کش مقالات پر شود و درخواست تکراری کمتر شود
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 900), () {
+        if (mounted) unawaited(_loadSlides());
+      });
+    });
   }
 
   @override
@@ -97,13 +107,24 @@ class _DashboardHeroCarouselState extends State<DashboardHeroCarousel> {
     super.dispose();
   }
 
+  Future<List<Article>> _loadArticles() async {
+    final cached = _cacheService.getArticles();
+    if (cached != null && cached.isNotEmpty) return cached;
+
+    final articles = await ArticleService.fetchArticles(perPage: 12);
+    if (articles.isNotEmpty) {
+      _cacheService.setArticles(articles);
+    }
+    return articles;
+  }
+
   Future<void> _loadSlides() async {
     setState(() => _isLoading = true);
 
     try {
-      final results = await Future.wait([
+      final results = await Future.wait<dynamic>([
         MotivationalVideoService.fetchVideos(),
-        ArticleService.fetchArticles(perPage: 5),
+        _loadArticles(),
         WorkoutMusicService.fetchMusic(),
       ]);
 
@@ -202,7 +223,9 @@ class _DashboardHeroCarouselState extends State<DashboardHeroCarousel> {
           _slides = slides;
           _isLoading = false;
         });
-        _startAutoPlay();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _startAutoPlay();
+        });
       }
     } catch (_) {
       if (mounted) {
@@ -219,19 +242,21 @@ class _DashboardHeroCarouselState extends State<DashboardHeroCarousel> {
               .toList();
           _isLoading = false;
         });
-        _startAutoPlay();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _startAutoPlay();
+        });
       }
     }
   }
 
   void _startAutoPlay() {
     _autoPlayTimer?.cancel();
-    if (_slides.isEmpty) return;
+    if (!WebInteraction.allowCarouselAutoPlay) return;
+    if (_slides.length <= 1) return;
 
     _autoPlayTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted || _slides.isEmpty) return;
-      final next = (_pageController.page?.round() ?? 0) + 1;
-      final target = next >= _slides.length ? 0 : next;
+      if (!mounted || !_pageController.hasClients || _slides.isEmpty) return;
+      final target = (_carouselPageIndex + 1) % _slides.length;
       _pageController.animateToPage(
         target,
         duration: const Duration(milliseconds: 400),
@@ -388,8 +413,9 @@ class _DashboardHeroCarouselState extends State<DashboardHeroCarousel> {
           height: 180.h,
           child: PageView.builder(
             controller: _pageController,
+            physics: WebInteraction.pageViewPhysics,
             itemCount: _slides.length,
-            onPageChanged: (_) {},
+            onPageChanged: (index) => _carouselPageIndex = index,
             itemBuilder: (context, index) {
               final slide = _slides[index];
               return _HeroSlideCard(
@@ -469,14 +495,11 @@ class _HeroSlideCard extends StatelessWidget {
                   errorWidget: _buildPlaceholder(),
                 )
               else
-                Image.network(
-                  slide.imageUrl,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (context, child, progress) {
-                    if (progress == null) return child;
-                    return _buildPlaceholder();
-                  },
-                  errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                GymaiNetworkImage(
+                  imageUrl: slide.imageUrl,
+                  filterQuality: FilterQuality.medium,
+                  placeholder: _buildPlaceholder(),
+                  errorWidget: _buildPlaceholder(),
                 ),
               // گرادیان پایین برای خوانایی متن
               Positioned(

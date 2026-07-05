@@ -8,6 +8,7 @@ import 'package:gymaipro/trainer_ranking/models/certificate.dart';
 import 'package:gymaipro/trainer_ranking/services/certificate_service.dart';
 import 'package:gymaipro/trainer_ranking/widgets/certificate_carousel.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -746,54 +747,45 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(20.r),
-                    child: Image.network(
-                      imageUrl,
+                    child: GymaiNetworkImage(
+                      imageUrl: imageUrl,
                       fit: BoxFit.contain,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return ColoredBox(
+                      placeholder: ColoredBox(
+                        color: context.cardColor,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: AppTheme.goldColor,
+                          ),
+                        ),
+                      ),
+                      errorWidget: Container(
+                        padding: EdgeInsets.all(32.w),
+                        decoration: BoxDecoration(
                           color: context.cardColor,
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: AppTheme.goldColor,
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                  : null,
-                            ),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          padding: EdgeInsets.all(32.w),
-                          decoration: BoxDecoration(
-                            color: context.cardColor,
-                            borderRadius: BorderRadius.circular(20.r),
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.image_not_supported,
-                                  color: context.textSecondary,
-                                  size: 64.sp,
+                          borderRadius: BorderRadius.circular(20.r),
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.image_not_supported,
+                                color: context.textSecondary,
+                                size: 64.sp,
+                              ),
+                              SizedBox(height: 16.h),
+                              Text(
+                                'خطا در بارگذاری تصویر',
+                                style: TextStyle(
+                                  color: context.textColor,
+                                  fontSize: 16.sp,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                SizedBox(height: 16.h),
-                                Text(
-                                  'خطا در بارگذاری تصویر',
-                                  style: TextStyle(
-                                    color: context.textColor,
-                                    fontSize: 16.sp,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        );
-                      },
+                        ),
+                      ),
                     ),
                   ),
                 ),

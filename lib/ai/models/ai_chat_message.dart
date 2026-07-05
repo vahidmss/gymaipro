@@ -1,4 +1,6 @@
-﻿/// مدل پیام چت برای سیستم هوش مصنوعی
+﻿import 'package:gymaipro/config/app_config.dart';
+
+/// مدل پیام چت برای سیستم هوش مصنوعی
 class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -141,7 +143,7 @@ enum ChatStatus { idle, typing, sending, error }
 /// تنظیمات چت
 class ChatSettings {
   const ChatSettings({
-    this.model = 'gpt-4o-mini',
+    this.model = AppConfig.aiDefaultModel,
     this.temperature = 0.7,
     this.maxTokens = 1000,
     this.streamResponse = false,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/services/fitness_calculator.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
@@ -288,10 +289,9 @@ class _UserDetailsScreenMealPlanBuilderState
               ),
               child: ClipOval(
                 child: avatarUrl.isNotEmpty && avatarUrl != 'null'
-                    ? Image.network(
-                        avatarUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Icon(
+                    ? GymaiNetworkImage(
+                        imageUrl: avatarUrl,
+                        errorWidget: Icon(
                           LucideIcons.user,
                           color: AppTheme.goldColor,
                           size: 40.sp,

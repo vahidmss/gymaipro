@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_log/services/meal_insight_engine.dart';
+import 'package:gymaipro/meal_log/widgets/meal_log_colors.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -18,17 +19,27 @@ class MealInsightCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!insight.shouldShowInsightCard) return const SizedBox.shrink();
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accent = _toneColor(insight.tone, isDark);
+    final accent = _toneColor(context, insight.tone);
     final showMessage = insight.cardMessage.isNotEmpty;
 
     return Container(
       margin: EdgeInsets.symmetric(vertical: 8.h),
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
-        color: context.cardColor,
+        color: MealLogColors.sectionBackground(context),
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: accent.withValues(alpha: isDark ? 0.55 : 0.65)),
+        border: Border.all(
+          color: accent.withValues(
+            alpha: MealLogColors.isDark(context) ? 0.55 : 0.65,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.08),
+            blurRadius: 8.r,
+            offset: Offset(0, 2.h),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -45,7 +56,7 @@ class MealInsightCard extends StatelessWidget {
                     insight.cardMessage,
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
-                      color: context.textColor,
+                      color: MealLogColors.primaryText(context),
                       fontSize: 13.sp,
                       fontWeight: FontWeight.w600,
                       height: 1.45,
@@ -66,11 +77,9 @@ class MealInsightCard extends StatelessWidget {
                 padding: EdgeInsets.only(bottom: 8.h),
                 child: Text(
                   'افزودن سریع',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: context.textSecondary,
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w700,
+                  style: MealLogTypography.caption(
+                    context,
+                    fontWeight: FontWeight.w800,
                   ),
                   textDirection: TextDirection.rtl,
                 ),
@@ -87,18 +96,20 @@ class MealInsightCard extends StatelessWidget {
                       fontFamily: AppTheme.fontFamily,
                       fontSize: 11.sp,
                       fontWeight: FontWeight.w600,
-                      color: context.textColor,
+                      color: MealLogColors.primaryText(context),
                     ),
                   ),
                   avatar: Icon(
                     LucideIcons.plus,
                     size: 14.sp,
-                    color: isDark ? AppTheme.goldColor : AppTheme.darkGold,
+                    color: MealLogColors.accent(context),
                   ),
-                  backgroundColor: context.backgroundColor,
+                  backgroundColor: MealLogColors.chipFill(
+                    context,
+                    selected: false,
+                  ),
                   side: BorderSide(
-                    color: (isDark ? AppTheme.goldColor : AppTheme.darkGold)
-                        .withValues(alpha: 0.45),
+                    color: MealLogColors.chipBorder(context, selected: false),
                   ),
                   onPressed: onSuggestionTap == null
                       ? null
@@ -112,19 +123,15 @@ class MealInsightCard extends StatelessWidget {
     );
   }
 
-  static Color _toneColor(MealInsightTone tone, bool isDark) {
+  static Color _toneColor(BuildContext context, MealInsightTone tone) {
     switch (tone) {
       case MealInsightTone.success:
-        return isDark
-            ? const Color(0xFF81C784)
-            : AppTheme.proteinColor;
+        return MealLogColors.successText(context);
       case MealInsightTone.warning:
-        return isDark
-            ? const Color(0xFFFF8A80)
-            : const Color(0xFFB71C1C);
+        return MealLogColors.errorText(context);
       case MealInsightTone.tip:
       case MealInsightTone.info:
-        return isDark ? AppTheme.goldColor : AppTheme.darkGold;
+        return MealLogColors.accent(context);
     }
   }
 
@@ -149,15 +156,16 @@ class _StreakBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accent = isDark ? AppTheme.goldColor : AppTheme.darkGold;
+    final accent = MealLogColors.accent(context);
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
       decoration: BoxDecoration(
-        color: context.backgroundColor,
+        color: MealLogColors.chipFill(context, selected: true),
         borderRadius: BorderRadius.circular(20.r),
-        border: Border.all(color: accent.withValues(alpha: 0.45)),
+        border: Border.all(
+          color: MealLogColors.chipBorder(context, selected: true),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -168,7 +176,7 @@ class _StreakBadge extends StatelessWidget {
             '$days',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              color: context.textColor,
+              color: MealLogColors.primaryText(context),
               fontSize: 11.sp,
               fontWeight: FontWeight.w800,
             ),

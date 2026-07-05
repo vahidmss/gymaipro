@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -11,16 +12,69 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MealLogService {
   MealLogService();
+
   final String _tableName = 'food_logs';
+  String? _cachedProfileUserId;
+
+  static Timer? _rankingScoreDebounceTimer;
+  static String? _pendingRankingUserId;
+  static const Duration _rankingScoreDebounce = Duration(seconds: 25);
+
+  bool _logHasFoodEntries(FoodLog log) {
+    return log.meals.any((meal) => meal.foods.isNotEmpty);
+  }
+
+  void _scheduleRankingSideEffects(String userId) {
+    unawaited(_trackMealActivity(userId));
+    _scheduleDebouncedRankingScoreUpdate(userId);
+  }
+
+  Future<void> _trackMealActivity(String userId) async {
+    try {
+      await RankingTrackerHelper().trackMealLog(userId: userId);
+    } catch (_) {}
+  }
+
+  void _scheduleDebouncedRankingScoreUpdate(String userId) {
+    _pendingRankingUserId = userId;
+    _rankingScoreDebounceTimer?.cancel();
+    _rankingScoreDebounceTimer = Timer(_rankingScoreDebounce, () {
+      final pendingUserId = _pendingRankingUserId;
+      if (pendingUserId == null) return;
+      unawaited(
+        RankingService()
+            .updateCurrentUserRanking(userId: pendingUserId)
+            .catchError((_) {}),
+      );
+    });
+  }
 
   /// در این پروژه food_logs.user_id به profiles.id اشاره دارد (نه auth.users.id)
   Future<String?> _getCurrentUserId() async {
+    if (_cachedProfileUserId != null && _cachedProfileUserId!.isNotEmpty) {
+      return _cachedProfileUserId;
+    }
+
+    final cachedProfileId = SimpleProfileService.cachedProfileId;
+    if (cachedProfileId != null) {
+      _cachedProfileUserId = cachedProfileId;
+      return cachedProfileId;
+    }
+
     final profile = await SimpleProfileService.getCurrentProfile();
     if (profile != null) {
       final id = profile['id'] as String?;
-      if (id != null && id.isNotEmpty) return id;
+      if (id != null && id.isNotEmpty) {
+        _cachedProfileUserId = id;
+        return id;
+      }
     }
-    return Supabase.instance.client.auth.currentUser?.id;
+
+    final authId = Supabase.instance.client.auth.currentUser?.id;
+    if (authId != null && authId.isNotEmpty) {
+      _cachedProfileUserId = authId;
+    }
+    return authId;
   }
 
   /// Get food log for a specific date
@@ -57,7 +111,7 @@ class MealLogService {
   }
 
   /// Save food log for a specific date
-  Future<void> saveLog(FoodLog log) async {
+  Future<void> saveLog(FoodLog log, {bool trackRanking = true}) async {
     try {
       final client = Supabase.instance.client;
       final userId = await _getCurrentUserId();
@@ -138,11 +192,9 @@ class MealLogService {
             });
           }
           success = true;
-          // ردیابی برای امتیاز رتبه‌بندی: فعالیت روزانه + روزهای فعال + به‌روزرسانی امتیاز کل
-          try {
-            await RankingTrackerHelper().trackMealLog();
-            RankingService().updateCurrentUserRanking();
-          } catch (_) {}
+          if (trackRanking && _logHasFoodEntries(log)) {
+            _scheduleRankingSideEffects(userId);
+          }
         } catch (e) {
           retryCount++;
           final errorString = e.toString();

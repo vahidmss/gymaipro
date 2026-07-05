@@ -116,7 +116,7 @@ class AppInitializer {
       if (Supabase.instance.client.auth.currentSession != null) {
         return '/main';
       }
-      return '/offline';
+      return _supabaseInitialized ? '/welcome' : '/offline';
     }
 
     try {
@@ -133,7 +133,9 @@ class AppInitializer {
       final session = Supabase.instance.client.auth.currentSession;
       return AppInitResult(
         success: true,
-        initialRoute: session != null ? '/main' : '/offline',
+        initialRoute: session != null
+            ? '/main'
+            : (_supabaseInitialized ? '/welcome' : '/offline'),
         supabaseService: SupabaseService(),
       );
     }
@@ -183,8 +185,8 @@ class AppInitializer {
   }
 
   static Future<void> _loadEnvironmentVariables() async {
-    // Release: از --dart-define / CI. Debug & profile: از asset `.env` در pubspec.
-    if (kReleaseMode) return;
+    // Release و Web: فقط --dart-define (امنیت — .env در bundle وب قابل مشاهده است).
+    if (kReleaseMode || kIsWeb) return;
     if (dotenv.isInitialized) return;
 
     try {
@@ -291,15 +293,19 @@ class AppInitializer {
       if (kDebugMode) debugPrint('Auth listener setup error: $e');
     }
 
-    // Brief pause for Supabase to restore session from storage
-    await Future<void>.delayed(const Duration(milliseconds: 150));
+    // Brief pause for Supabase to restore session from storage (web needs more time).
+    await Future<void>.delayed(
+      const Duration(milliseconds: kIsWeb ? 350 : 150),
+    );
 
-    // Non-blocking connection test
-    try {
-      await _testSupabaseConnection();
-    } catch (e) {
-      if (kDebugMode) debugPrint('Connection test error: $e');
-    }
+    // Connection warm-up — its result is only used for debug logging, so run it
+    // off the critical path. Awaiting it here previously blocked the splash for
+    // a full network round-trip (reachability + a profiles SELECT, up to ~5s).
+    unawaited(
+      _testSupabaseConnection().catchError((Object e) {
+        if (kDebugMode) debugPrint('Connection test error: $e');
+      }),
+    );
   }
 
   static void _setupAuthStateListener() {
@@ -397,32 +403,36 @@ class AppInitializer {
       _backgroundServicesStarted = true;
 
       // Stage background services to reduce startup contention/jank.
-      // Critical/near-critical first, heavier preloads later.
-      unawaited(_initVideoCacheService());
-      // Delay heavy notification wiring slightly so first frame is not blocked.
-      unawaited(
-        Future<void>.delayed(const Duration(milliseconds: 1200), () async {
-          await _initNotificationService();
-        }),
-      );
+      if (!kIsWeb) {
+        unawaited(_initVideoCacheService());
+        unawaited(
+          Future<void>.delayed(const Duration(milliseconds: 1800), () async {
+            await _initNotificationService();
+          }),
+        );
+      }
     }
 
     // Network-heavy services may have been skipped on first offline launch.
     if (canBackend && !_networkHeavyServicesStarted) {
       _networkHeavyServicesStarted = true;
-      unawaited(_initDatabaseMigrations());
       unawaited(
-        Future<void>.delayed(const Duration(milliseconds: 900), () async {
+        Future<void>.delayed(const Duration(milliseconds: 600), () async {
+          await _initDatabaseMigrations();
+        }),
+      );
+      unawaited(
+        Future<void>.delayed(const Duration(milliseconds: 1400), () async {
           await _initExerciseService();
         }),
       );
       unawaited(
-        Future<void>.delayed(const Duration(milliseconds: 1300), () async {
+        Future<void>.delayed(const Duration(milliseconds: 2000), () async {
           await _initFoodService();
         }),
       );
       unawaited(
-        Future<void>.delayed(const Duration(milliseconds: 1800), () async {
+        Future<void>.delayed(const Duration(milliseconds: 2600), () async {
           await _preloadAIExercises();
         }),
       );
@@ -711,8 +721,8 @@ class AppInitializer {
   static Future<String> _determineFallbackRouteWithoutSupabase() async {
     try {
       if (kIsWeb) return '/welcome';
-      final canBackend = await ConnectivityService.instance.canReachAppBackend();
-      if (!canBackend) return '/offline';
+      final isOnline = await ConnectivityService.instance.checkNow();
+      if (!isOnline) return '/offline';
       final backendReachable = await BackendReachabilityService
           .isBackendReachable();
       return backendReachable ? '/welcome' : '/offline';

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
+import 'package:gymaipro/utils/support_launcher.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class HelpScreen extends StatefulWidget {
@@ -256,6 +257,9 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildContactSupport() {
+    final phone = SupportLauncher.supportPhone;
+    final telegram = SupportLauncher.telegramDisplayHandle;
+
     return Container(
       padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
@@ -272,7 +276,7 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 16),
           Text(
-            'نیاز به کمک بیشتری دارید؟',
+            'ارتباط با ما',
             style: TextStyle(
               color: Colors.white,
               fontSize: 16.sp,
@@ -282,30 +286,34 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 8),
           Text(
-            'با تیم پشتیبانی ما در ارتباط باشید',
+            'برای گزارش باگ، پیشنهاد یا سوال با ما در تماس باشید',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.7),
               fontSize: 14.sp,
             ),
             textAlign: TextAlign.center,
           ),
+          if (phone.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _buildContactRow(
+              icon: LucideIcons.phone,
+              label: phone,
+              onTap: () => SupportLauncher.openPhone(context),
+            ),
+          ],
+          if (telegram.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _buildContactRow(
+              icon: LucideIcons.send,
+              label: 'تلگرام $telegram',
+              onTap: () => SupportLauncher.openTelegram(context),
+            ),
+          ],
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () {
-                // TODO: انتقال به صفحه تماس با پشتیبانی
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('به زودی در دسترس خواهد بود'),
-                    backgroundColor: AppTheme.goldColor,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10.r),
-                    ),
-                  ),
-                );
-              },
+              onPressed: () => SupportLauncher.openBestContact(context),
               icon: const Icon(LucideIcons.messageSquare, size: 18),
               label: const Text('تماس با پشتیبانی'),
               style: ElevatedButton.styleFrom(
@@ -319,6 +327,45 @@ class _HelpScreenState extends State<HelpScreen> with TickerProviderStateMixin {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildContactRow({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.05),
+      borderRadius: BorderRadius.circular(12.r),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12.r),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+          child: Row(
+            children: [
+              Icon(icon, color: AppTheme.goldColor, size: 20.sp),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14.sp,
+                    fontFamily: AppTheme.fontFamily,
+                  ),
+                ),
+              ),
+              Icon(
+                LucideIcons.chevronLeft,
+                color: Colors.white.withValues(alpha: 0.5),
+                size: 18.sp,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

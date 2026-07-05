@@ -7,6 +7,42 @@ import 'package:url_launcher/url_launcher.dart';
 class SupportLauncher {
   SupportLauncher._();
 
+  static Future<void> openPhone(BuildContext context) async {
+    final phone = supportPhone.trim();
+    if (phone.isEmpty) {
+      _showNotConfigured(context);
+      return;
+    }
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  static Future<void> openTelegram(BuildContext context) async {
+    final telegram = supportTelegram.trim();
+    if (telegram.isEmpty) {
+      _showNotConfigured(context);
+      return;
+    }
+    final handle =
+        telegram.startsWith('@') ? telegram.substring(1) : telegram;
+    final uri = Uri.parse('https://t.me/$handle');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  static String get supportPhone => AppConfig.supportPhone;
+
+  static String get supportTelegram => AppConfig.supportTelegram;
+
+  static String get telegramDisplayHandle {
+    final t = supportTelegram.trim();
+    if (t.isEmpty) return '';
+    return t.startsWith('@') ? t : '@$t';
+  }
+
   static Future<void> openBestContact(BuildContext context) async {
     final whatsapp = AppConfig.supportWhatsApp.trim();
     if (whatsapp.isNotEmpty) {
@@ -37,6 +73,11 @@ class SupportLauncher {
       }
     }
 
+    if (!context.mounted) return;
+    _showNotConfigured(context);
+  }
+
+  static void _showNotConfigured(BuildContext context) {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(

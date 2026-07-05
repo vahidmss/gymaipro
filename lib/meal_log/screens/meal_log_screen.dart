@@ -76,6 +76,13 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
   Map<DateTime, double> _preloadedCaloriesByDate = {};
 
   Map<String, dynamic>? _profileData;
+  bool _profileInitialized = false;
+
+  String? get _currentUserId {
+    final profileId = _profileData?['id'] as String?;
+    if (profileId != null && profileId.isNotEmpty) return profileId;
+    return Supabase.instance.client.auth.currentUser?.id;
+  }
 
   @override
   void initState() {
@@ -167,20 +174,25 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Reload profile data when returning to this screen
-    _loadProfileData();
+    // پروفایل فقط یک‌بار در initState بارگذاری می‌شود — فراخوانی مجدد اینجا
+    // باعث setState و fetch تکراری و jank می‌شد.
   }
 
-  Future<void> _loadProfileData() async {
+  Future<void> _loadProfileData({bool force = false}) async {
+    if (_profileInitialized && !force) return;
+
     final cacheService = DashboardCacheService();
     try {
       // بررسی کش برای profile data
       final Map<String, dynamic>? cachedProfileData = cacheService.getProfileData();
       if (cachedProfileData != null) {
-        SafeSetState.call(this, () {
-          _profileData = cachedProfileData;
-        });
-        _refreshMealIntelligence();
+        if (_profileData == null) {
+          SafeSetState.call(this, () {
+            _profileData = cachedProfileData;
+          });
+          _refreshMealIntelligence();
+        }
+        _profileInitialized = true;
         return;
       }
 
@@ -212,6 +224,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
         });
         _refreshMealIntelligence();
       }
+      _profileInitialized = true;
     } catch (e) {
       // Error handled silently
     }
@@ -259,45 +272,52 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
   }
 
   Future<void> _loadData() async {
-    SafeSetState.call(this, () {
-      _isLoading = true;
-    });
-
-    // هر دو را هم‌زمان بگیر؛ یک‌بار هر دو آماده شدند، یک‌جا یک فریم کامل نشون بده
+    final cachedFoods = await _foodService.getFoodsFromCache();
     final localLogFuture = _foodLogService.loadLogLocal(_selectedDate);
-    final foodsFuture = _foodService.getFoods();
 
     FoodLog? localLog;
-    List<Food> foods;
     try {
       localLog = await localLogFuture;
     } catch (_) {}
-    try {
-      foods = await foodsFuture;
-    } catch (e) {
-      foods = [];
-    }
 
     final logToShow = localLog ?? _buildEmptyLogForDate(_selectedDate);
+    final hasCachedFoods = cachedFoods != null && cachedFoods.isNotEmpty;
+
+    if (hasCachedFoods) {
+      SafeSetState.call(this, () {
+        _currentLog = logToShow;
+        _allFoods = cachedFoods;
+        _isLoading = false;
+      });
+    } else {
+      SafeSetState.call(this, () => _isLoading = true);
+    }
+
+    List<Food> foods;
+    try {
+      foods = await _foodService.getFoods();
+    } catch (e) {
+      foods = cachedFoods ?? [];
+    }
+
     SafeSetState.call(this, () {
       _currentLog = logToShow;
       _allFoods = foods;
       _isLoading = false;
     });
 
-    // در پس‌زمینه از سرور به‌روزرسانی کن
-    await _loadCurrentLog();
+    await _loadCurrentLog(refreshInsight: false);
     unawaited(
-      _preloadCalendarData().then((_) => _refreshMealIntelligence()),
+      _preloadCalendarData().then((_) {
+        if (mounted) _refreshMealIntelligence();
+      }),
     );
-    _refreshMealIntelligence();
   }
 
   Future<void> _preloadCalendarData() async {
     try {
       final client = Supabase.instance.client;
-      final profile = await SimpleProfileService.getCurrentProfile();
-      final userId = (profile?['id'] as String?) ?? client.auth.currentUser?.id;
+      final userId = _currentUserId;
       if (userId == null) return;
 
       // محاسبه محدوده تاریخ ماه جاری
@@ -384,15 +404,11 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     );
   }
 
-  Future<void> _loadCurrentLog() async {
+  Future<void> _loadCurrentLog({bool refreshInsight = true}) async {
     var log = await _foodLogService.getLogForDate(_selectedDate);
 
-    // اگر log وجود نداشت، یک log خالی با همه وعده‌ها ایجاد کن
     if (log == null) {
-      final profile = await SimpleProfileService.getCurrentProfile();
-      final userId =
-          (profile?['id'] as String?) ??
-          Supabase.instance.client.auth.currentUser?.id;
+      final userId = _currentUserId;
       if (userId != null) {
         log = FoodLog(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -413,7 +429,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
         await _foodLogService.saveLogLocal(log);
         // سعی در sync به دیتابیس (اگر آنلاین باشیم)
         try {
-          await _foodLogService.saveLog(log);
+          await _foodLogService.saveLog(log, trackRanking: false);
         } catch (e) {
           // اگر آنلاین نبودیم، فقط local ذخیره شده
         }
@@ -429,7 +445,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
 
     // Ensure all standard meals exist in log (even if empty)
     await _ensureStandardMeals();
-    _refreshMealIntelligence();
+    if (refreshInsight) _refreshMealIntelligence();
   }
 
   bool get _isFreeLoggingMode => !_shouldShowTrainerCard();
@@ -445,7 +461,25 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       referenceTime: _isTodaySelected ? DateTime.now() : _selectedDate,
     );
 
+    if (!_insightChanged(insight)) return;
     SafeSetState.call(this, () => _mealInsight = insight);
+  }
+
+  bool _insightChanged(MealInsightResult next) {
+    final current = _mealInsight;
+    if (current.message != next.message) return true;
+    if (current.tone != next.tone) return true;
+    if (current.streakDays != next.streakDays) return true;
+    if (current.highlightMealTitle != next.highlightMealTitle) return true;
+    if (current.barGuidance.message != next.barGuidance.message) return true;
+    if (current.barGuidance.tone != next.barGuidance.tone) return true;
+    if (current.suggestions.length != next.suggestions.length) return true;
+    for (var i = 0; i < next.suggestions.length; i++) {
+      if (current.suggestions[i].foodId != next.suggestions[i].foodId) {
+        return true;
+      }
+    }
+    return false;
   }
 
   bool get _isTodaySelected {
@@ -472,9 +506,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
   Future<void> _ensureCurrentLogInitialized() async {
     if (_currentLog != null) return;
 
-    final userId = Supabase.instance.client.auth.currentUser?.id ??
-        (await SimpleProfileService.getCurrentProfile())?['id'] as String? ??
-        '';
+    final userId = _currentUserId ?? '';
     final newLog = FoodLog(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       userId: userId,
@@ -486,7 +518,9 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     );
     SafeSetState.call(this, () => _currentLog = newLog);
     await _foodLogService.saveLogLocal(newLog);
-    unawaited(_foodLogService.saveLog(newLog).catchError((_) {}));
+    unawaited(
+      _foodLogService.saveLog(newLog, trackRanking: false).catchError((_) {}),
+    );
     await _ensureStandardMeals();
   }
 
@@ -602,7 +636,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       await _foodLogService.saveLogLocal(_currentLog!);
       // سعی در sync به دیتابیس (اگر آنلاین باشیم)
       try {
-        await _foodLogService.saveLog(_currentLog!);
+        await _foodLogService.saveLog(_currentLog!, trackRanking: false);
       } catch (e) {
         // اگر آنلاین نبودیم، فقط local ذخیره شده
       }
@@ -757,17 +791,20 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                                                       _loadCurrentLog();
                                                     },
                                               )
-                                            : DailyCalorieSummary(
-                                                key: MealLogGuideData
-                                                    .keys['calorie_summary'],
-                                                meals: _currentLog?.meals ?? [],
-                                                allFoods: _allFoods,
-                                                profileData: _profileData,
-                                                barGuidance:
-                                                    _mealInsight.barGuidance,
-                                                referenceTime: _isTodaySelected
-                                                    ? DateTime.now()
-                                                    : _selectedDate,
+                                            : RepaintBoundary(
+                                                child: DailyCalorieSummary(
+                                                  key: MealLogGuideData
+                                                      .keys['calorie_summary'],
+                                                  meals:
+                                                      _currentLog?.meals ?? [],
+                                                  allFoods: _allFoods,
+                                                  profileData: _profileData,
+                                                  barGuidance:
+                                                      _mealInsight.barGuidance,
+                                                  referenceTime: _isTodaySelected
+                                                      ? DateTime.now()
+                                                      : _selectedDate,
+                                                ),
                                               ),
                                       if (!_isLoading &&
                                           _isFreeLoggingMode &&
@@ -829,13 +866,17 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                                         ),
                                         SizedBox(height: 24.h),
                                       ],
-                                      MealsListWidget(
-                                        currentLog: _currentLog,
-                                        allFoods: _allFoods,
-                                        onAddFood: _addFoodToMeal,
-                                        onEditAmount: _showEditAmountDialog,
-                                        onFoodAction: _handleFoodAction,
-                                        profileData: _profileData,
+                                      RepaintBoundary(
+                                        child: MealsListWidget(
+                                          currentLog: _currentLog,
+                                          allFoods: _allFoods,
+                                          onAddFood: _addFoodToMeal,
+                                          onEditAmount: _showEditAmountDialog,
+                                          onFoodAction: _handleFoodAction,
+                                          profileData: _profileData,
+                                          highlightMealTitle:
+                                              _mealInsight.highlightMealTitle,
+                                        ),
                                       ),
                                       if (_currentLog?.supplements.isNotEmpty ??
                                           false) ...[
@@ -933,9 +974,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     if (result != null) {
       // Initialize log if it doesn't exist (سریع: اول auth، بعد در پس‌زمینه sync)
       if (_currentLog == null) {
-        final userId = Supabase.instance.client.auth.currentUser?.id ??
-            (await SimpleProfileService.getCurrentProfile())?['id'] as String? ??
-            '';
+        final userId = _currentUserId ?? '';
         final newLog = FoodLog(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           userId: userId,
@@ -949,7 +988,11 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
           _currentLog = newLog;
         });
         unawaited(_foodLogService.saveLogLocal(newLog));
-        unawaited(_foodLogService.saveLog(newLog).catchError((_) {}));
+        unawaited(
+          _foodLogService
+              .saveLog(newLog, trackRanking: false)
+              .catchError((_) {}),
+        );
       }
 
       // Get meal title from result or use the original

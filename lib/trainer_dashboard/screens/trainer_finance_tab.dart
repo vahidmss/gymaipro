@@ -131,9 +131,12 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
       ),
     );
 
+    final rawAmount = controller.text.trim();
+    controller.dispose();
+
     if (confirmed != true || !mounted) return;
 
-    final amountToman = int.tryParse(controller.text.trim());
+    final amountToman = int.tryParse(rawAmount);
     if (amountToman == null || amountToman <= 0) {
       WidgetSafetyUtils.safeShowSnackBar(
         context,
@@ -385,7 +388,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                     ),
                     SizedBox(height: 12.h),
                     Text(
-                      'پس از ثبت برنامه، درآمد ۳ روز نگه‌داری می‌شود. سپس می‌توانید به کیف پول شخصی (برای خرید در اپ) منتقل کنید یا به حساب بانکی برداشت کنید. درآمد مربی در تب کیف پول نمایش داده نمی‌شود.',
+                      'پس از پرداخت شاگرد، درآمد شما تا زمان ارسال برنامه نمایش داده نمی‌شود. بعد از ارسال، ۳ روز فرصت ویرایش دارید؛ سپس دوره نگه‌داری (۳ روز) شروع می‌شود و مبلغ «در انتظار آزادسازی» دیده می‌شود. پس از آن قابل برداشت است.',
                       style: TextStyle(
     fontFamily: AppTheme.fontFamily,
                         fontSize: 14.sp,
@@ -533,7 +536,9 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
         ? '$first $last'.trim()
         : (buyer?['username'] as String? ?? 'کاربر');
     final amount = e['amount'] as int? ?? 0;
-    final available = e['is_available'] == true;
+    final statusLabel = e['status_label'] as String?;
+    final isFrozen = e['is_frozen'] == true;
+    final available = e['is_available'] == true && !isFrozen;
     final holdUntilStr = e['hold_until'] as String?;
     DateTime? holdUntil;
     if (holdUntilStr != null) {
@@ -606,9 +611,12 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                     ),
                     SizedBox(width: 4.w),
                     Text(
-                      available
-                          ? 'قابل برداشت'
-                          : 'آزادسازی تا ${holdUntil != null ? _formatDate(holdUntil) : '-'}',
+                      isFrozen
+                          ? 'مسدود شده'
+                          : available
+                              ? 'قابل برداشت'
+                              : (statusLabel ??
+                                  'آزادسازی تا ${holdUntil != null ? _formatDate(holdUntil) : '-'}'),
                       style: TextStyle(
     fontFamily: AppTheme.fontFamily,
                         fontSize: 12.sp,
@@ -683,7 +691,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
             ),
             SizedBox(height: 8.h),
             Text(
-              'پس از ثبت اولین برنامه، تراکنش‌های شما اینجا نمایش داده می‌شوند',
+              'پس از ارسال اولین برنامه و پایان دوره نگه‌داری، درآمدها اینجا نمایش داده می‌شوند',
               textAlign: TextAlign.center,
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,

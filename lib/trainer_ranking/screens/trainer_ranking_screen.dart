@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/trainer_ranking/screens/trainer_detail_screen.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_ranking_service.dart';
 import 'package:gymaipro/trainer_ranking/widgets/shimmer.dart';
@@ -340,11 +341,9 @@ class _TrainerRankingScreenState extends State<TrainerRankingScreen> {
                           ),
                           clipBehavior: Clip.antiAlias,
                           child: trainer.avatarUrl != null
-                              ? Image.network(
-                                  trainer.avatarUrl!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      _buildDefaultAvatar(),
+                              ? GymaiNetworkImage(
+                                  imageUrl: trainer.avatarUrl!,
+                                  errorWidget: _buildDefaultAvatar(),
                                 )
                               : _buildDefaultAvatar(),
                         ),

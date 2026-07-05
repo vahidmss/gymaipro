@@ -88,10 +88,10 @@
             </intent-filter>
         </receiver>
         
-        <!-- Default notification icon -->
+        <!-- Default notification icon (GYMAI monochrome dumbbell mark) -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/ic_notification_simple" />
+            android:resource="@drawable/ic_stat_gymai" />
         
         <!-- Default notification color -->
         <meta-data

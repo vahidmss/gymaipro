@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_log/dialogs/persian_food_log_date_picker_dialog.dart';
+import 'package:gymaipro/meal_log/widgets/meal_log_colors.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -43,12 +44,14 @@ class MealLogAppBar extends StatelessWidget implements PreferredSizeWidget {
         final actionIconSize = baseActionIconSize.sp;
         
         return AppBar(
-          backgroundColor: isDark ? context.backgroundColor : Colors.transparent,
+          backgroundColor: MealLogColors.isDark(context)
+              ? context.backgroundColor
+              : Colors.transparent,
           elevation: 0,
           leading: IconButton(
             icon: Icon(
               LucideIcons.arrowRight,
-              color: AppTheme.goldColor,
+              color: MealLogColors.accent(context),
               size: iconSize,
             ),
             onPressed: () {
@@ -59,7 +62,7 @@ class MealLogAppBar extends StatelessWidget implements PreferredSizeWidget {
             isFromMealPlan ? 'ثبت تغذیه' : 'کالری شماری',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              color: isDark ? AppTheme.goldColor : context.textColor,
+              color: MealLogColors.primaryText(context),
               fontWeight: FontWeight.bold,
               fontSize: titleFontSize,
             ),
@@ -69,7 +72,7 @@ class MealLogAppBar extends StatelessWidget implements PreferredSizeWidget {
             IconButton(
               icon: Icon(
                 LucideIcons.calendar,
-                color: AppTheme.goldColor,
+                color: MealLogColors.accent(context),
                 size: actionIconSize,
               ),
               tooltip: 'انتخاب تاریخ',

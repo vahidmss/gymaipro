@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ChatMessageBubble extends StatelessWidget {
@@ -225,26 +226,23 @@ class ChatMessageBubble extends StatelessWidget {
         if (message.attachmentUrl != null)
           ClipRRect(
             borderRadius: BorderRadius.circular(12.r),
-            child: Image.network(
-              message.attachmentUrl!,
+            child: GymaiNetworkImage(
+              imageUrl: message.attachmentUrl!,
               width: 200.w,
               height: 150.h,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: 200.w,
-                  height: 150.h,
-                  decoration: BoxDecoration(
-                    color: context.textSecondary.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: Icon(
-                    LucideIcons.image,
-                    color: context.textSecondary,
-                    size: 40.sp,
-                  ),
-                );
-              },
+              errorWidget: Container(
+                width: 200.w,
+                height: 150.h,
+                decoration: BoxDecoration(
+                  color: context.textSecondary.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: Icon(
+                  LucideIcons.image,
+                  color: context.textSecondary,
+                  size: 40.sp,
+                ),
+              ),
             ),
           ),
         if (message.message.isNotEmpty) ...[

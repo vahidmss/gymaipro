@@ -55,6 +55,7 @@ class CommissionService {
   Future<CommissionSettings?> createSettings({
     required double commissionPercentage,
     required int holdDays,
+    int editWindowDays = 3,
   }) async {
     try {
       final userId = _client.auth.currentUser?.id;
@@ -74,6 +75,7 @@ class CommissionService {
           .insert({
             'commission_percentage': commissionPercentage,
             'hold_days': holdDays,
+            'edit_window_days': editWindowDays,
             'is_active': true,
             'created_by': userId,
           })
@@ -94,6 +96,7 @@ class CommissionService {
     required String id,
     double? commissionPercentage,
     int? holdDays,
+    int? editWindowDays,
     bool? isActive,
   }) async {
     try {
@@ -104,6 +107,9 @@ class CommissionService {
       }
       if (holdDays != null) {
         updateData['hold_days'] = holdDays;
+      }
+      if (editWindowDays != null) {
+        updateData['edit_window_days'] = editWindowDays;
       }
       if (isActive != null) {
         updateData['is_active'] = isActive;
@@ -156,7 +162,7 @@ class CommissionService {
     }
   }
 
-  /// ثبت درآمد پلتفرم
+  /// ثبت درآمد پلتفرم (RPC با SECURITY DEFINER — insert مستقیم RLS را رد می‌کند)
   Future<bool> recordPlatformRevenue({
     required String transactionId,
     required String subscriptionId,
@@ -165,14 +171,16 @@ class CommissionService {
     required double commissionPercentage,
   }) async {
     try {
-      await _client.from('platform_revenue').insert({
-        'transaction_id': transactionId,
-        'subscription_id': subscriptionId,
-        'trainer_id': trainerId,
-        'amount': amount,
-        'commission_percentage': commissionPercentage,
-      });
-
+      await _client.rpc<void>(
+        'record_platform_revenue',
+        params: {
+          'p_transaction_id': transactionId,
+          'p_subscription_id': subscriptionId,
+          'p_trainer_id': trainerId,
+          'p_amount': amount,
+          'p_commission_percentage': commissionPercentage,
+        },
+      );
       return true;
     } catch (e) {
       if (kDebugMode) {

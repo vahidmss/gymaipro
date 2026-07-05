@@ -4,8 +4,9 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
+import 'package:gymaipro/notification/services/notification_push_invoker.dart';
 import 'package:gymaipro/notification/services/notification_data_service.dart';
-import 'package:gymaipro/payment/services/payout_service.dart';
+import 'package:gymaipro/payment/services/trainer_escrow_service.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
@@ -23,7 +24,6 @@ class WorkoutProgramService {
       WorkoutProgramService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
-  final PayoutService _payoutService = PayoutService();
   List<WorkoutProgram> _cachedPrograms = [];
   bool _initialized = false;
 
@@ -532,7 +532,7 @@ class WorkoutProgramService {
   Future<void> _updatePendingSubscriptionAfterProgram({
     required String trainerId,
     required String userId,
-    String? subscriptionId,
+    required DateTime sentAt, required DateTime editableUntil, String? subscriptionId,
     String? paymentTransactionId,
     Map<String, dynamic>? programDataPreview,
   }) async {
@@ -585,36 +585,25 @@ class WorkoutProgramService {
         return;
       }
 
-      final now = DateTime.now().toIso8601String();
-      debugPrint('🔔 در حال تنظیم program_registration_date: $now');
-      debugPrint('🔔 Subscription ID: ${sub['id']}');
-      debugPrint('🔔 Trainer ID: $trainerId');
-      debugPrint('🔔 User ID: $userId');
-      
-      await _client
-          .from('trainer_subscriptions')
-          .update(<String, dynamic>{
-            'program_registration_date': now,
-            'program_status': 'in_progress',
-            'status': 'active',
-            'updated_at': now,
-            'metadata': <String, dynamic>{
-              'registered_by_trainer': true,
-              if (programDataPreview != null)
-                'program_preview': programDataPreview,
-            },
-          })
-          .eq('id', sub['id'].toString());
-      
-      debugPrint('✅ program_registration_date با موفقیت تنظیم شد: $now');
+      final subId = sub['id'].toString();
 
-      // به‌روزرسانی trainer_withdrawable
-      try {
-        await _payoutService.updateTrainerWithdrawable(trainerId);
-      } catch (e) {
-        debugPrint('⚠️ خطا در به‌روزرسانی موجودی قابل برداشت: $e');
-        // خطا در به‌روزرسانی نباید جریان اصلی را متوقف کند
+      await TrainerEscrowService().onProgramSent(
+        subscriptionId: subId,
+        sentAt: sentAt,
+        editableUntil: editableUntil,
+      );
+
+      if (programDataPreview != null) {
+        await _client.from('trainer_subscriptions').update({
+          'metadata': {
+            'registered_by_trainer': true,
+            'program_preview': programDataPreview,
+          },
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', subId);
       }
+
+      debugPrint('✅ Escrow به‌روز شد پس از ارسال برنامه: $subId');
     } catch (e) {
       debugPrint('خطا در به‌روزرسانی وضعیت اشتراک پس از ایجاد برنامه: $e');
     }
@@ -670,8 +659,8 @@ class WorkoutProgramService {
             .toList();
 
         if (tokens.isNotEmpty) {
-          await _client.functions.invoke(
-            'send-notifications',
+          await NotificationPushInvoker.sendNotifications(
+            client: _client,
             body: {
               'mode': 'direct',
               'target_type': 'device_tokens',
@@ -1151,6 +1140,8 @@ class WorkoutProgramService {
                 'program_id': programId,
                 'program_name': programName,
               },
+              sentAt: sentAt,
+              editableUntil: editableUntil,
             );
           }
         } catch (e) {

@@ -8,12 +8,14 @@ import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart' as auth_supabase;
 import 'package:gymaipro/auth/widgets/profile_completion_widgets.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
+import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
+import 'package:gymaipro/dashboard/services/dashboard_profile_mapper.dart';
+import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/referral_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
-import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -1204,12 +1206,24 @@ class RegistrationLoadingScreen extends StatefulWidget {
 
 class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
     with SingleTickerProviderStateMixin {
+  static const Duration _pipelineTimeout = Duration(seconds: 40);
+  static const Duration _authStepTimeout = Duration(seconds: 18);
+  static const Duration _stallWatchdogDelay = Duration(seconds: 18);
+
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
   bool _isLoading = true;
   bool _isSuccess = false;
+  bool _showRetryActions = false;
+  bool _attemptInFlight = false;
   String? _errorMessage;
+  Timer? _stallWatchdog;
+  StreamSubscription<bool>? _connectivitySub;
+  bool _autoRetryScheduled = false;
+
+  String get _normalizedPhone =>
+      auth_supabase.SupabaseService().normalizePhoneNumber(widget.phoneNumber);
 
   @override
   void initState() {
@@ -1228,132 +1242,313 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
     );
 
     _animationController.safeForward();
-    _completeRegistration();
+    _listenConnectivity();
+    unawaited(_completeRegistration());
+  }
+
+  void _listenConnectivity() {
+    _connectivitySub =
+        ConnectivityService.instance.isConnectedStream.listen((online) {
+      if (!online || !mounted || _isSuccess || _attemptInFlight) return;
+      if (_isLoading || _showRetryActions) {
+        _scheduleAutoRetryOnReconnect();
+      }
+    });
+  }
+
+  void _scheduleAutoRetryOnReconnect() {
+    if (_autoRetryScheduled) return;
+    _autoRetryScheduled = true;
+    Future<void>.delayed(const Duration(milliseconds: 900), () {
+      _autoRetryScheduled = false;
+      if (!mounted || _isSuccess || _attemptInFlight) return;
+      unawaited(_completeRegistration());
+    });
+  }
+
+  void _armStallWatchdog() {
+    _stallWatchdog?.cancel();
+    _stallWatchdog = Timer(_stallWatchdogDelay, () {
+      if (!mounted || !_isLoading || _isSuccess) return;
+      unawaited(_handleStall());
+    });
+  }
+
+  void _cancelStallWatchdog() {
+    _stallWatchdog?.cancel();
+    _stallWatchdog = null;
   }
 
   Future<void> _completeRegistration() async {
+    if (_attemptInFlight || _isSuccess) return;
+    _attemptInFlight = true;
+
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _isSuccess = false;
+        _showRetryActions = false;
+        _errorMessage = null;
+      });
+    }
+    _armStallWatchdog();
+
     try {
-      final supabaseService = auth_supabase.SupabaseService();
-      final normalizedPhone = supabaseService.normalizePhoneNumber(
-        widget.phoneNumber,
+      if (await _tryFinishIfAlreadyRegistered()) return;
+
+      await _runRegistrationPipeline().timeout(_pipelineTimeout);
+    } on TimeoutException {
+      await _handleStall(
+        message:
+            'اتصال طولانی شد. اگر ثبت‌نام انجام شده، «ورود به اپ» را بزنید.',
       );
-
-      debugPrint('=== REGISTRATION LOADING: Starting registration ===');
-      debugPrint('Phone: $normalizedPhone');
-      debugPrint('Username: ${widget.username}');
-
-      final session = await supabaseService.signUpWithPhone(
-        normalizedPhone,
-        widget.username,
-      );
-
-      if (session == null) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _isSuccess = false;
-            _errorMessage = 'خطا در ثبت نام. لطفاً دوباره تلاش کنید';
-          });
-          await Future<void>.delayed(const Duration(seconds: 3));
-          if (mounted) {
-            Navigator.of(context).pop();
-          }
-        }
-        return;
-      }
-
-      debugPrint('=== REGISTRATION LOADING: Registration successful ===');
-
-      // Save auth state + phone for consistent profile fallback (login/signup behave the same)
-      await AuthStateService().saveAuthState(
-        session,
-        phoneNumber: normalizedPhone,
-      );
-
-      final jalali = Jalali(
-        widget.birthYear,
-        widget.birthMonth,
-        widget.birthDay,
-      );
-      final gregorian = jalali.toGregorian();
-      final birthDate = gregorian.toDateTime();
-
-      // تبدیل امن قد و وزن به double
-      final heightValue = double.tryParse(widget.height.trim());
-      final weightValue = double.tryParse(widget.weight.trim());
-
-      if (heightValue == null || weightValue == null) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _isSuccess = false;
-            _errorMessage = 'خطا در تبدیل مقادیر قد و وزن';
-          });
-          await Future<void>.delayed(const Duration(seconds: 3));
-          if (mounted) {
-            Navigator.of(context).pop();
-          }
-        }
-        return;
-      }
-
-      final updates = <String, dynamic>{
-        'first_name': widget.firstName,
-        'last_name': widget.lastName,
-        'gender': widget.gender,
-        'birth_date': birthDate.toIso8601String().split('T')[0],
-        'height': heightValue,
-        'weight': weightValue,
-        'activity_level': widget.activityLevel,
-      };
-
-      final success = await _saveProfileCoreDataWithRetry(
-        userId: session.user.id,
-        normalizedPhone: normalizedPhone,
-        updates: updates,
-      );
-
-      if (!success) {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _isSuccess = false;
-            _errorMessage = 'خطا در ذخیره اطلاعات';
-          });
-          await Future<void>.delayed(const Duration(seconds: 3));
-          if (mounted) {
-            Navigator.of(context).pop();
-          }
-        }
-        return;
-      }
-
-      _runPostRegistrationTasks(
-        userId: session.user.id,
-        weightValue: weightValue,
-      );
-
-      if (mounted) {
-        WidgetSafetyUtils.safeSetState(this, () {
-          _isLoading = false;
-          _isSuccess = true;
-        });
-        await Future<void>.delayed(const Duration(milliseconds: 600));
-        if (!mounted) return;
-        goToMainApp(context);
-      }
     } catch (e) {
       debugPrint('Error completing registration: $e');
-      if (mounted) {
-        WidgetSafetyUtils.safeSetState(this, () {
-          _isLoading = false;
-          _isSuccess = false;
-          _errorMessage = 'خطا: $e';
-        });
-        await Future<void>.delayed(const Duration(seconds: 3));
-        if (!mounted) return;
-        WidgetSafetyUtils.safePop(context);
+      await _handleStall(
+        message: 'خطا در تکمیل ثبت‌نام. دوباره تلاش کنید یا وارد اپ شوید.',
+      );
+    } finally {
+      _cancelStallWatchdog();
+      _attemptInFlight = false;
+    }
+  }
+
+  Future<void> _runRegistrationPipeline() async {
+    final supabaseService = auth_supabase.SupabaseService();
+    final normalizedPhone = _normalizedPhone;
+
+    debugPrint('=== REGISTRATION LOADING: Starting registration ===');
+    debugPrint('Phone: $normalizedPhone');
+    debugPrint('Username: ${widget.username}');
+
+    final session = await supabaseService
+        .signUpWithPhone(normalizedPhone, widget.username)
+        .timeout(_authStepTimeout);
+
+    if (session == null) {
+      throw Exception('signUp returned null session');
+    }
+
+    debugPrint('=== REGISTRATION LOADING: Registration successful ===');
+
+    await AuthStateService()
+        .saveAuthState(session, phoneNumber: normalizedPhone)
+        .timeout(const Duration(seconds: 8));
+
+    final jalali = Jalali(
+      widget.birthYear,
+      widget.birthMonth,
+      widget.birthDay,
+    );
+    final gregorian = jalali.toGregorian();
+    final birthDate = gregorian.toDateTime();
+
+    final heightValue = double.tryParse(widget.height.trim());
+    final weightValue = double.tryParse(widget.weight.trim());
+
+    if (heightValue == null || weightValue == null) {
+      throw Exception('invalid height/weight');
+    }
+
+    final updates = <String, dynamic>{
+      'first_name': widget.firstName,
+      'last_name': widget.lastName,
+      'gender': widget.gender,
+      'birth_date': birthDate.toIso8601String().split('T')[0],
+      'height': heightValue,
+      'weight': weightValue,
+      'activity_level': widget.activityLevel,
+    };
+
+    final success = await _saveProfileCoreDataWithRetry(
+      userId: session.user.id,
+      normalizedPhone: normalizedPhone,
+      updates: updates,
+    );
+
+    if (!success) {
+      if (await _isRegistrationCompleteInDb(userId: session.user.id)) {
+        await _finishSuccess(session, weightValue: weightValue);
+        return;
       }
+      throw Exception('profile save failed');
+    }
+
+    await _finishSuccess(session, weightValue: weightValue);
+  }
+
+  Future<bool> _tryFinishIfAlreadyRegistered() async {
+    final supabaseService = auth_supabase.SupabaseService();
+    final normalizedPhone = _normalizedPhone;
+
+    Session? session = Supabase.instance.client.auth.currentSession;
+    if (session != null &&
+        await _isRegistrationCompleteInDb(userId: session.user.id)) {
+      await AuthStateService()
+          .saveAuthState(session, phoneNumber: normalizedPhone)
+          .timeout(const Duration(seconds: 8));
+      await _finishSuccess(session);
+      return true;
+    }
+
+    try {
+      session = await supabaseService
+          .signInWithPhone(normalizedPhone)
+          .timeout(_authStepTimeout);
+      if (session != null &&
+          await _isRegistrationCompleteInDb(userId: session.user.id)) {
+        await AuthStateService()
+            .saveAuthState(session, phoneNumber: normalizedPhone)
+            .timeout(const Duration(seconds: 8));
+        await _finishSuccess(session);
+        return true;
+      }
+    } catch (e) {
+      debugPrint('REGISTRATION recovery sign-in: $e');
+    }
+
+    final profileByPhone = await _fetchProfileByPhone(normalizedPhone);
+    if (profileByPhone != null &&
+        _rowIndicatesCompleteRegistration(profileByPhone)) {
+      try {
+        session = await supabaseService
+            .signInWithPhone(normalizedPhone)
+            .timeout(_authStepTimeout);
+        if (session != null) {
+          await AuthStateService()
+              .saveAuthState(session, phoneNumber: normalizedPhone)
+              .timeout(const Duration(seconds: 8));
+          await _finishSuccess(session);
+          return true;
+        }
+      } catch (e) {
+        debugPrint('REGISTRATION recovery by phone: $e');
+      }
+    }
+
+    return false;
+  }
+
+  Future<Map<String, dynamic>?> _fetchProfileByPhone(String phone) async {
+    try {
+      return await Supabase.instance.client
+          .from('profiles')
+          .select('id, username, first_name, last_name, height, weight')
+          .eq('phone_number', phone)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('REGISTRATION fetch profile by phone: $e');
+      return null;
+    }
+  }
+
+  bool _rowIndicatesCompleteRegistration(Map<String, dynamic>? row) {
+    if (row == null) return false;
+    final username = row['username'] as String?;
+    if (username == null ||
+        username.isEmpty ||
+        username.startsWith('user_')) {
+      return false;
+    }
+    final firstName = row['first_name'] as String?;
+    if (firstName == null || firstName.trim().isEmpty) return false;
+    return row['height'] != null && row['weight'] != null;
+  }
+
+  Future<bool> _isRegistrationCompleteInDb({required String userId}) async {
+    try {
+      final row = await Supabase.instance.client
+          .from('profiles')
+          .select('id, username, first_name, last_name, height, weight')
+          .eq('id', userId)
+          .maybeSingle()
+          .timeout(const Duration(seconds: 8));
+      return _rowIndicatesCompleteRegistration(row);
+    } catch (e) {
+      debugPrint('REGISTRATION profile completeness check: $e');
+      return false;
+    }
+  }
+
+  Future<void> _finishSuccess(
+    Session session, {
+    double? weightValue,
+  }) async {
+    final parsedWeight =
+        weightValue ?? double.tryParse(widget.weight.trim()) ?? 0;
+
+    _runPostRegistrationTasks(
+      userId: session.user.id,
+      weightValue: parsedWeight,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _isSuccess = true;
+      _showRetryActions = false;
+      _errorMessage = null;
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+
+    SimpleProfileService.invalidateCache();
+    DashboardCacheService().invalidateDashboard();
+    try {
+      final profile = await SimpleProfileService.getCurrentProfile();
+      if (profile != null) {
+        DashboardCacheService().setProfileData(
+          DashboardProfileMapper.fromRaw(profile),
+        );
+      }
+    } catch (e) {
+      debugPrint('REGISTRATION: profile prefetch before main: $e');
+    }
+
+    if (!mounted) return;
+    enterMainAppAfterAuth(context);
+  }
+
+  Future<void> _handleStall({String? message}) async {
+    if (await _tryFinishIfAlreadyRegistered()) return;
+
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _isSuccess = false;
+      _showRetryActions = true;
+      _errorMessage = message ??
+          'اتصال قطع شد یا کند است. ثبت‌نام ممکن است انجام شده باشد.';
+    });
+  }
+
+  Future<void> _onRetryPressed() async {
+    await _completeRegistration();
+  }
+
+  Future<void> _onVerifyAndEnterApp() async {
+    if (_attemptInFlight) return;
+    _attemptInFlight = true;
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _showRetryActions = false;
+        _errorMessage = null;
+      });
+    }
+    try {
+      final recovered = await _tryFinishIfAlreadyRegistered();
+      if (!recovered && mounted) {
+        setState(() {
+          _isLoading = false;
+          _showRetryActions = true;
+          _errorMessage =
+              'هنوز نتوانستیم حساب را پیدا کنیم. اتصال را چک کنید و دوباره تلاش کنید.';
+        });
+      }
+    } finally {
+      _attemptInFlight = false;
     }
   }
 
@@ -1457,6 +1652,8 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
 
   @override
   void dispose() {
+    _cancelStallWatchdog();
+    _connectivitySub?.cancel();
     _animationController.dispose();
     super.dispose();
   }
@@ -1545,22 +1742,76 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
                     ),
                   )
                 else if (_errorMessage != null)
-                  Text(
-                    _errorMessage!,
-                    style: TextStyle(
-                      fontSize: ResponsiveValue(
-                        context,
-                        defaultValue: 16.sp,
-                        conditionalValues: [
-                          Condition.smallerThan(name: MOBILE, value: 14.sp),
-                          Condition.largerThan(name: TABLET, value: 18.sp),
-                        ],
-                      ).value,
-                      color: AppTheme.errorColor,
-                      fontFamily: AppTheme.fontFamily,
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24.w),
+                    child: Text(
+                      _errorMessage!,
+                      style: TextStyle(
+                        fontSize: ResponsiveValue(
+                          context,
+                          defaultValue: 16.sp,
+                          conditionalValues: [
+                            Condition.smallerThan(name: MOBILE, value: 14.sp),
+                            Condition.largerThan(name: TABLET, value: 18.sp),
+                          ],
+                        ).value,
+                        color: AppTheme.errorColor,
+                        fontFamily: AppTheme.fontFamily,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
+                if (_showRetryActions) ...[
+                  SizedBox(height: 24.h),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 28.w),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: _attemptInFlight ? null : _onVerifyAndEnterApp,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppTheme.goldColor,
+                              foregroundColor: AppTheme.onGoldColor,
+                              padding: EdgeInsets.symmetric(vertical: 14.h),
+                            ),
+                            child: Text(
+                              'ورود به اپ',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15.sp,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 10.h),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: _attemptInFlight ? null : _onRetryPressed,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.goldColor,
+                              side: BorderSide(
+                                color: AppTheme.goldColor.withValues(alpha: 0.6),
+                              ),
+                              padding: EdgeInsets.symmetric(vertical: 14.h),
+                            ),
+                            child: Text(
+                              'تلاش مجدد',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15.sp,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 SizedBox(height: 32.h),
                 if (_isLoading || _isSuccess)
                   SizedBox(
@@ -1573,7 +1824,7 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
                       ),
                     ),
                   )
-                else
+                else if (!_showRetryActions)
                   Icon(Icons.error_outline, color: AppTheme.errorColor, size: 40.sp),
               ],
             ),

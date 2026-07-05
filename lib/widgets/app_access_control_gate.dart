@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/core/lifecycle_observer.dart';
 import 'package:gymaipro/services/app_access_control_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/widgets/app_status_card.dart';
@@ -29,6 +30,7 @@ class _AppAccessControlGateState extends State<AppAccessControlGate> {
     super.initState();
     _refreshAccessState();
     _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (LifecycleObserver.isAppInBackground) return;
       _refreshAccessState();
     });
   }

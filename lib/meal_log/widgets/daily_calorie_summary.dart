@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_log/models/food_meal_log.dart';
 import 'package:gymaipro/meal_log/services/meal_insight_engine.dart';
 import 'package:gymaipro/meal_log/utils/meal_log_utils.dart';
+import 'package:gymaipro/meal_log/widgets/meal_log_colors.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/meal_log/utils/meal_nutrition_targets.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -34,16 +35,44 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
   bool _isExpanded = false;
   bool _showChart = false;
 
+  MealNutritionTargets? _cachedTargets;
+  Map<String, dynamic>? _cachedProfileRef;
+  Map<String, double>? _cachedTotals;
+  List<FoodMealLog>? _cachedMealsRef;
+  List<Food>? _cachedFoodsRef;
+  bool _cachedExtended = false;
+
+  void _ensureComputed() {
+    final profile = widget.profileData;
+    if (_cachedProfileRef != profile) {
+      _cachedProfileRef = profile;
+      _cachedTargets = MealNutritionTargets.fromProfile(profile);
+    }
+
+    final needsExtended = _isExpanded;
+    if (_cachedMealsRef != widget.meals ||
+        _cachedFoodsRef != widget.allFoods ||
+        _cachedExtended != needsExtended ||
+        _cachedTotals == null) {
+      _cachedMealsRef = widget.meals;
+      _cachedFoodsRef = widget.allFoods;
+      _cachedExtended = needsExtended;
+      _cachedTotals = MealLogUtils.calculateTotals(
+        widget.meals,
+        widget.allFoods,
+        extended: needsExtended,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    _ensureComputed();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // محاسبه مرجع کالری روزانه (TDEE / برآورد پروفایل)
-    final targets = MealNutritionTargets.fromProfile(widget.profileData);
+    final targets = _cachedTargets!;
     final dailyCalorieTarget = targets.calorieTarget;
-
-    // محاسبه totals از غذاهای ثبت شده
-    final totals = MealLogUtils.calculateTotals(widget.meals, widget.allFoods);
+    final totals = _cachedTotals!;
     final consumedCalories = totals['calories'] ?? 0;
     final consumedProtein = totals['protein'] ?? 0;
     final consumedCarbs = totals['carbs'] ?? 0;
@@ -57,13 +86,7 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
         ? (consumedCalories / dailyCalorieTarget).clamp(0.0, 1.0)
         : 0.0;
 
-    final barGuidance = widget.barGuidance ??
-        MealInsightEngine.buildBarGuidance(
-          meals: widget.meals,
-          allFoods: widget.allFoods,
-          profileData: widget.profileData,
-          referenceTime: widget.referenceTime,
-        );
+    final barGuidance = widget.barGuidance ?? MealCalorieBarGuidance.empty;
 
     final now = widget.referenceTime ?? DateTime.now();
     final percentage = (progressPercentage * 100).round();
@@ -427,6 +450,12 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
                   consumedFat,
                   isDark,
                 ),
+                if ((totals['fiber'] ?? 0) > 0 ||
+                    (totals['sugar'] ?? 0) > 0 ||
+                    (totals['sodium'] ?? 0) > 0) ...[
+                  SizedBox(height: 10.h),
+                  _buildMicronutrientSection(context, totals),
+                ],
                 SizedBox(height: 8.h),
                 _buildTip(context, targets, isDark),
               ],
@@ -1279,5 +1308,92 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
       'carbs': targets.carbsTarget,
       'fat': targets.fatTarget,
     };
+  }
+
+  Widget _buildMicronutrientSection(
+    BuildContext context,
+    Map<String, double> totals,
+  ) {
+    final items = <({String label, double value, String unit, IconData icon})>[
+      (label: 'فیبر', value: totals['fiber'] ?? 0, unit: 'g', icon: LucideIcons.leaf),
+      (label: 'قند', value: totals['sugar'] ?? 0, unit: 'g', icon: LucideIcons.candy),
+      (
+        label: 'چربی اشباع',
+        value: totals['saturatedFat'] ?? 0,
+        unit: 'g',
+        icon: LucideIcons.droplet,
+      ),
+      (label: 'سدیم', value: totals['sodium'] ?? 0, unit: 'mg', icon: LucideIcons.flaskConical),
+      (
+        label: 'پتاسیم',
+        value: totals['potassium'] ?? 0,
+        unit: 'mg',
+        icon: LucideIcons.zap,
+      ),
+    ].where((e) => e.value > 0.05).toList();
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'دریافت روزانه (جزئیات)',
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            color: MealLogColors.accent(context),
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        SizedBox(height: 8.h),
+        Wrap(
+          spacing: 6.w,
+          runSpacing: 6.h,
+          textDirection: TextDirection.rtl,
+          children: items.map((item) {
+            return Container(
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+              decoration: BoxDecoration(
+                color: MealLogColors.chipFill(context, selected: false),
+                borderRadius: BorderRadius.circular(8.r),
+                border: Border.all(
+                  color: MealLogColors.chipBorder(context, selected: false),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    item.icon,
+                    size: 11.sp,
+                    color: MealLogColors.iconOnSurface(context),
+                  ),
+                  SizedBox(width: 4.w),
+                  Text(
+                    item.label,
+                    style: MealLogTypography.caption(context).copyWith(
+                      fontSize: 9.sp,
+                    ),
+                  ),
+                  SizedBox(width: 4.w),
+                  Text(
+                    MealLogUtils.convertToPersianNumbers(
+                      '${item.value.toStringAsFixed(item.unit == 'mg' ? 0 : 1)}${item.unit}',
+                    ),
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 9.sp,
+                      fontWeight: FontWeight.w700,
+                      color: MealLogColors.primaryText(context),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
   }
 }

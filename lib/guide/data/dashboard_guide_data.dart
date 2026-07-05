@@ -16,8 +16,13 @@ class DashboardGuideData {
     'drawer_menu': GlobalKey(),
   };
 
+  static Map<String, GlobalKey> _resolveKeys(Map<String, GlobalKey>? overrides) {
+    return overrides ?? keys;
+  }
+
   /// راهنمای کامل داشبورد
-  static GuideSequence getDashboardGuide() {
+  static GuideSequence getDashboardGuide({Map<String, GlobalKey>? keyOverrides}) {
+    final resolvedKeys = _resolveKeys(keyOverrides);
     return GuideSequence(
       id: 'dashboard_main_tour',
       name: 'راهنمای داشبورد',
@@ -42,7 +47,7 @@ class DashboardGuideData {
               'اینجا اطلاعات پروفایل و پیام‌های انگیزشی روزانه نمایش داده می‌شود.\nروی کارت کلیک کنید تا به پروفایل برید.',
           icon: Icons.person,
           primaryColor: AppTheme.goldColor,
-          targetKey: keys['welcome_card'],
+          targetKey: resolvedKeys['welcome_card'],
         ),
 
         // مرحله ۳: معیارهای فیزیکی
@@ -53,7 +58,7 @@ class DashboardGuideData {
               'BMI، کالری مورد نیاز روزانه و وضعیت فیزیکی شما.\nاین اطلاعات بر اساس پروفایل شما محاسبه می‌شود.',
           icon: Icons.assessment,
           primaryColor: const Color(0xFF26C281),
-          targetKey: keys['fitness_metrics'],
+          targetKey: resolvedKeys['fitness_metrics'],
         ),
 
         // مرحله ۴: نمودار وزن
@@ -64,7 +69,7 @@ class DashboardGuideData {
               'پیگیری تغییرات وزن شما در طول زمان.\nبا ضربه روی نمودار می‌تونید وزن جدید اضافه کنید.',
           icon: Icons.show_chart,
           primaryColor: const Color(0xFF6C63FF),
-          targetKey: keys['weight_chart'],
+          targetKey: resolvedKeys['weight_chart'],
         ),
 
         // مرحله ۵: دکمه‌های سریع
@@ -75,7 +80,7 @@ class DashboardGuideData {
               'دسترسی سریع به مهم‌ترین بخش‌ها:\n• ساخت برنامه تمرینی\n• مربیان حرفه‌ای\n• دستاوردهای شما',
           icon: Icons.bolt,
           primaryColor: const Color(0xFFFF6B6B),
-          targetKey: keys['quick_actions'],
+          targetKey: resolvedKeys['quick_actions'],
         ),
 
         // مرحله ۶: برنامه امروز
@@ -86,7 +91,7 @@ class DashboardGuideData {
               'برنامه تمرینی امروز شما اینجا نمایش داده می‌شود.\nروی هر تمرین ضربه بزنید تا اطلاعات بیشتر ببینید.',
           icon: Icons.today,
           primaryColor: AppTheme.goldColor,
-          targetKey: keys['todays_program'],
+          targetKey: resolvedKeys['todays_program'],
         ),
 
         // مرحله ۷: تب‌های تمرینات و تغذیه
@@ -97,7 +102,7 @@ class DashboardGuideData {
               'از اینجا می‌تونید تمرینات و غذاهای مختلف رو ببینید.\nبه لیست علاقه‌مندی‌ها اضافه کنید و جزئیات هر کدوم رو بخونید.',
           icon: Icons.restaurant_menu,
           primaryColor: const Color(0xFFF39C12),
-          targetKey: keys['exercises_tabs'],
+          targetKey: resolvedKeys['exercises_tabs'],
           tooltipPosition: TooltipPosition.top,
         ),
 
@@ -109,7 +114,7 @@ class DashboardGuideData {
               'با کلیک روی این دکمه (یا کشیدن از سمت راست صفحه)، منوی اصلی باز می‌شود.\nاز اونجا به تمام بخش‌های اپ دسترسی دارید:\n• پروفایل\n• برنامه‌های من\n• کیف پول\n• چت و اجتماعی\n• تنظیمات\nو...',
           icon: Icons.menu,
           primaryColor: AppTheme.goldColor,
-          targetKey: keys['drawer_menu'], // Key به دکمه menu در AppBar
+          targetKey: resolvedKeys['drawer_menu'], // Key به دکمه menu در AppBar
           tooltipPosition: TooltipPosition.right,
         ),
 
@@ -179,7 +184,8 @@ class DashboardGuideData {
   }
 
   /// راهنمای کوتاه برای ثبت وزن
-  static GuideSequence getWeightTrackingGuide() {
+  static GuideSequence getWeightTrackingGuide({Map<String, GlobalKey>? keyOverrides}) {
+    final resolvedKeys = _resolveKeys(keyOverrides);
     return GuideSequence(
       id: 'weight_tracking_guide',
       name: 'راهنمای ثبت وزن',
@@ -193,7 +199,7 @@ class DashboardGuideData {
               'برای افزودن وزن جدید، روی نمودار وزن ضربه بزنید.',
           icon: Icons.touch_app,
           primaryColor: const Color(0xFF6C63FF),
-          targetKey: keys['weight_chart'],
+          targetKey: resolvedKeys['weight_chart'],
         ),
 
         const GuideStep(

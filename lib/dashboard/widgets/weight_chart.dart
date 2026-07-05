@@ -597,7 +597,10 @@ class _WeightChartState extends State<WeightChart>
         final width = targetWidth < minWidth ? minWidth : targetWidth;
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: SizedBox(width: width, child: chartWidget),
+          child: SizedBox(
+            width: width,
+            child: RepaintBoundary(child: chartWidget),
+          ),
         );
       },
     );

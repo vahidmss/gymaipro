@@ -1,6 +1,6 @@
-// پروکسی OpenAI — درخواست از اپ به api.gymaipro.ir می‌رود؛ سرور به OpenAI وصل می‌شود.
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// openai-chat proxy — same import style as send-notifications (no jsr.io)
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.44.2'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -18,7 +18,7 @@ type ChatRequest = {
   response_format?: { type: string }
 }
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'method-not-allowed' }), {
@@ -111,9 +111,14 @@ Deno.serve(async (req) => {
     const relaySecret = Deno.env.get('OPENAI_RELAY_SECRET')?.trim()
     const useRelay = Boolean(relayBase && relaySecret)
 
+    const aiBase =
+      Deno.env.get('AI_API_BASE_URL')?.trim().replace(/\/$/, '') ||
+      Deno.env.get('OPENAI_BASE_URL')?.trim().replace(/\/$/, '') ||
+      'https://api.openai.com'
+
     const openaiUrl = useRelay
       ? `${relayBase}/v1/chat/completions`
-      : 'https://api.openai.com/v1/chat/completions'
+      : `${aiBase}/v1/chat/completions`
 
     const openaiHeaders: Record<string, string> = {
       'Content-Type': 'application/json',

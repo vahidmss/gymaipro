@@ -17,13 +17,22 @@ class RankingService {
 
   /// به‌روزرسانی رتبه کاربر فعلی
   /// بهینه‌سازی شده: فقط امتیاز کاربر رو به‌روزرسانی می‌کنه، بدون به‌روزرسانی همه رتبه‌ها
-  Future<void> updateCurrentUserRanking({bool updateAllRanks = false}) async {
+  Future<void> updateCurrentUserRanking({
+    String? userId,
+    bool updateAllRanks = false,
+  }) async {
     try {
-      final profile = await SimpleProfileService.getCurrentProfile();
-      final userId = profile?['id'] as String?;
-      if (userId == null) return;
+      var resolvedUserId = userId;
+      if (resolvedUserId == null || resolvedUserId.isEmpty) {
+        resolvedUserId = SimpleProfileService.cachedProfileId;
+      }
+      if (resolvedUserId == null || resolvedUserId.isEmpty) {
+        final profile = await SimpleProfileService.getCurrentProfile();
+        resolvedUserId = profile?['id'] as String?;
+      }
+      if (resolvedUserId == null) return;
 
-      await _scoreService.updateUserScore(userId);
+      await _scoreService.updateUserScore(resolvedUserId);
       
       // فقط اگه لازم باشه همه رتبه‌ها رو به‌روزرسانی کن (مثلاً در background job)
       if (updateAllRanks) {

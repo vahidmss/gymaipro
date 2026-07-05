@@ -20,7 +20,7 @@ class _AdminCommissionSettingsScreenState
   final CommissionService _commissionService = CommissionService();
   final TextEditingController _percentageController = TextEditingController();
   final TextEditingController _holdDaysController = TextEditingController();
-  
+  final TextEditingController _editWindowController = TextEditingController();
   bool _isLoading = false;
   bool _isSaving = false;
   List<CommissionSettings> _history = [];
@@ -35,6 +35,7 @@ class _AdminCommissionSettingsScreenState
   void dispose() {
     _percentageController.dispose();
     _holdDaysController.dispose();
+    _editWindowController.dispose();
     super.dispose();
   }
 
@@ -50,9 +51,11 @@ class _AdminCommissionSettingsScreenState
           if (active != null) {
             _percentageController.text = active.commissionPercentage.toString();
             _holdDaysController.text = active.holdDays.toString();
+            _editWindowController.text = active.editWindowDays.toString();
           } else {
             _percentageController.text = '20.0';
             _holdDaysController.text = '3';
+            _editWindowController.text = '3';
           }
           _isLoading = false;
         });
@@ -73,6 +76,7 @@ class _AdminCommissionSettingsScreenState
   Future<void> _saveSettings() async {
     final percentage = double.tryParse(_percentageController.text);
     final holdDays = int.tryParse(_holdDaysController.text);
+    final editWindowDays = int.tryParse(_editWindowController.text);
 
     if (percentage == null || percentage < 0 || percentage > 100) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -94,11 +98,22 @@ class _AdminCommissionSettingsScreenState
       return;
     }
 
+    if (editWindowDays == null || editWindowDays < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('فرصت ادیت برنامه باید عدد مثبت باشد'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       final saved = await _commissionService.createSettings(
         commissionPercentage: percentage,
         holdDays: holdDays,
+        editWindowDays: editWindowDays,
       );
 
       if (mounted) {
@@ -237,6 +252,36 @@ class _AdminCommissionSettingsScreenState
                     decoration: InputDecoration(
                       hintText: 'مثال: 3',
                       suffixText: 'روز',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      filled: true,
+                      fillColor: isDark
+                          ? AppTheme.darkBackgroundColor
+                          : AppTheme.lightBackgroundColor,
+                    ),
+                  ),
+                  SizedBox(height: 16.h),
+                  Text(
+                    'فرصت ادیت برنامه پس از ارسال',
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? AppTheme.darkTextColor
+                          : AppTheme.lightTextColor,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  TextField(
+                    controller: _editWindowController,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      hintText: 'مثال: 3',
+                      suffixText: 'روز',
+                      helperText:
+                          'تا پایان این مدت مربی درآمد را نمی‌بیند',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12.r),
                       ),

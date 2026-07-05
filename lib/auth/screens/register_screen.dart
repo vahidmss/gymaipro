@@ -293,8 +293,7 @@ class _RegisterScreenState extends State<RegisterScreen>
 
       // تولید و ارسال کد OTP
       if (!mounted) return;
-      final otpCode = OTPService.generateOTP();
-      final success = await OTPService.sendOTP(normalizedPhone, otpCode);
+      final success = await OTPService.sendOTP(normalizedPhone);
 
       if (!mounted) return;
       if (!success) {

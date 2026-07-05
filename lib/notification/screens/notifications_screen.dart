@@ -130,9 +130,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   ),
                                   onMarkAsRead: () =>
                                       provider.markAsRead(notification.id),
-                                  onDelete: () => provider.deleteNotification(
-                                    notification.id,
-                                  ),
+                                  onDelete: () =>
+                                      provider.deleteNotification(
+                                        notification.id,
+                                      ),
                                 ),
                               ),
                             ),
@@ -821,7 +822,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       final initialTabIndex = event == 'student_added' ? 0 : 1;
       _safeNavigate(
         '/trainer-dashboard',
-        arguments: {'initialTab': initialTabIndex},
+        arguments: {'initialTabIndex': initialTabIndex},
       );
       return;
     }
@@ -835,15 +836,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _navigateWorkoutNotification(Map<String, dynamic> data) {
-    final workoutId = data['workout_id']?.toString();
     final programId = data['program_id']?.toString();
 
-    if (workoutId != null && workoutId.isNotEmpty) {
-      _safeNavigate('/workout-detail', arguments: {'workoutId': workoutId});
-      return;
-    }
     if (programId != null && programId.isNotEmpty) {
-      _safeNavigate('/workout-program', arguments: {'programId': programId});
+      _safeNavigate('/workout-log', arguments: {'programId': programId});
       return;
     }
     _safeNavigate('/my-club', arguments: const {'initialTab': 0});
@@ -856,9 +852,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void _navigateReminderNotification(Map<String, dynamic> data) {
     final reminderType = data['reminder_type']?.toString();
     if (reminderType == 'workout') {
-      _safeNavigate('/workouts');
+      _safeNavigate('/workout-log');
     } else if (reminderType == 'meal') {
-      _safeNavigate('/meal-plan');
+      _safeNavigate('/meal-log');
     } else {
       _safeNavigate('/dashboard');
     }

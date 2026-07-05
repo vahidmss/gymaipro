@@ -95,7 +95,7 @@ class _OfflineScreenState extends State<OfflineScreen>
       setState(() => _statusMessage = 'در حال اتصال به سرور...');
 
       final backendReachable = await BackendReachabilityService.isBackendReachable(
-        timeout: const Duration(seconds: 8),
+        
       );
       if (!backendReachable) {
         setState(() => _statusMessage = null);

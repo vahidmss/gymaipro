@@ -14,6 +14,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:gymaipro/my_club/services/confidential_user_info_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 
 /// صفحه اطلاعات محرمانه کاربر
@@ -1980,10 +1981,9 @@ class _PhotoCard extends StatelessWidget {
             Positioned.fill(
               child: photo.isAsset
                   ? Image.asset(photo.url, fit: BoxFit.cover)
-                  : Image.network(
-                      photo.url,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Image.asset(
+                  : GymaiNetworkImage(
+                      imageUrl: photo.url,
+                      errorWidget: Image.asset(
                         'images/food_placeholder.png',
                         fit: BoxFit.cover,
                       ),
@@ -2415,7 +2415,7 @@ class _ImageProcessingDialogState extends State<_ImageProcessingDialog> {
       }
 
       final ui.Image combinedImage = await boundary.toImage(
-        pixelRatio: ui.window.devicePixelRatio,
+        pixelRatio: View.of(context).devicePixelRatio,
       );
       final byteData = await combinedImage.toByteData(
         format: ui.ImageByteFormat.png,
@@ -2612,10 +2612,9 @@ class _PhotoGridItem extends StatelessWidget {
               borderRadius: BorderRadius.circular(12.r),
               child: photo.isAsset
                   ? Image.asset(photo.url, fit: BoxFit.cover)
-                  : Image.network(
-                      photo.url,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stack) => Image.asset(
+                  : GymaiNetworkImage(
+                      imageUrl: photo.url,
+                      errorWidget: Image.asset(
                         'images/food_placeholder.png',
                         fit: BoxFit.cover,
                       ),
@@ -2705,22 +2704,18 @@ class _PhotoGridItem extends StatelessWidget {
                             maxScale: 4,
                             child: photo.isAsset
                                 ? Image.asset(photo.url, fit: BoxFit.contain)
-                                : Image.network(
-                                    photo.url,
+                                : GymaiNetworkImage(
+                                    imageUrl: photo.url,
                                     fit: BoxFit.contain,
-                                    loadingBuilder: (context, child, progress) {
-                                      if (progress == null) return child;
-                                      return const Center(
-                                        child: CircularProgressIndicator(
-                                          color: AppTheme.goldColor,
-                                        ),
-                                      );
-                                    },
-                                    errorBuilder: (context, error, stack) =>
-                                        Image.asset(
-                                          'images/food_placeholder.png',
-                                          fit: BoxFit.contain,
-                                        ),
+                                    placeholder: const Center(
+                                      child: CircularProgressIndicator(
+                                        color: AppTheme.goldColor,
+                                      ),
+                                    ),
+                                    errorWidget: Image.asset(
+                                      'images/food_placeholder.png',
+                                      fit: BoxFit.contain,
+                                    ),
                                   ),
                           ),
                         ),

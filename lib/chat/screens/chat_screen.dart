@@ -14,6 +14,7 @@ import 'package:gymaipro/chat/widgets/chat_hub_ui.dart';
 import 'package:gymaipro/chat/widgets/chat_message_bubble.dart';
 import 'package:gymaipro/chat/widgets/error_boundary_widget.dart';
 import 'package:gymaipro/chat/widgets/message_input_widget.dart';
+import 'package:gymaipro/notification/notification_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/supabase_service.dart';
 import 'package:gymaipro/user_profile/services/user_profile_service.dart';
@@ -51,6 +52,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   // Real-time subscriptions
   StreamSubscription<ChatMessage>? _messageSubscription;
+  RealtimeChannel? _peerPresenceChannel;
+  Timer? _messageSyncTimer;
+  Timer? _markReadDebounceTimer;
 
   // User state
   String? _currentUserId;
@@ -63,10 +67,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final ChatPresenceService _presenceService = ChatPresenceService();
   String? _conversationId;
 
+  // Captured so dispose() can notify without touching a deactivated context.
+  ChatUnreadNotifier? _unreadNotifier;
+
   // Error handling
   String? _errorMessage;
   bool _hasMoreMessages = true;
   bool _isAppInForeground = true;
+  bool _peerIsActiveInChat = false;
   static const int _messagesPerPage = 20;
   final Set<String> _messageIds = {};
   Timer? _metricsDebounceTimer;
@@ -91,7 +99,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _messageController.dispose();
     _scrollController.dispose();
     _messageSubscription?.cancel();
+    _peerPresenceChannel?.unsubscribe();
+    _messageSyncTimer?.cancel();
+    _markReadDebounceTimer?.cancel();
     _metricsDebounceTimer?.cancel();
+
+    // اطلاع به نوتیفایر که کاربر از این گفتگو خارج شد تا در بازهٔ کوتاهِ
+    // همگام‌سازیِ mark-read نوتیف اشتباه برای پیام‌های همین الان خوانده‌شده نیاید.
+    if (_conversationId != null && _conversationId!.isNotEmpty) {
+      _unreadNotifier?.noteConversationLeft(_conversationId!);
+    }
 
     // حذف حضور کاربر از چت
     if (_currentUserId != null && _conversationId != null) {
@@ -117,6 +134,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _isAppInForeground = true;
       _updateUserPresence(true);
+      unawaited(_syncNewMessagesQuietly());
       // از سرگیری heartbeat
       if (_currentUserId != null && _conversationId != null) {
         _presenceService.startHeartbeat(
@@ -171,6 +189,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       _currentUserId = Supabase.instance.client.auth.currentUser?.id;
       _conversationId = widget.initialConversationId;
 
+      if (mounted) {
+        try {
+          _unreadNotifier =
+              Provider.of<ChatUnreadNotifier>(context, listen: false);
+        } catch (_) {}
+      }
+
       if (_currentUserId == null) {
         throw Exception('کاربر احراز هویت نشده');
       }
@@ -211,13 +236,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         await _setupPresence();
       } catch (_) {}
 
+      try {
+        await _refreshPeerPresence();
+      } catch (_) {}
+      _subscribeToPeerPresence();
+
       _subscribeToMessages();
-      if (_shouldAutoMarkAsRead()) {
-        _markConversationAsRead();
-      }
+      _startMessageSyncFallback();
+      _scheduleMarkAsRead();
 
       // ثبت حضور کاربر در چت
       if (_currentUserId != null && _conversationId != null) {
+        unawaited(
+          NotificationService().cancelChatTrayForConversation(_conversationId),
+        );
         await _presenceService.markUserAsActiveInChat(
           userId: _currentUserId!,
           conversationId: _conversationId!,
@@ -266,6 +298,67 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final difference = now.difference(_otherUserLastSeen!);
     _isOtherUserOnline =
         difference.inMinutes < 5; // Online if seen in last 5 minutes
+  }
+
+  Future<void> _refreshPeerPresence() async {
+    final convId = _conversationId;
+    if (convId == null || convId.isEmpty) return;
+    final active = await _presenceService.getActiveUsersInConversation(convId);
+    if (!mounted) return;
+    SafeSetState.call(this, () {
+      _peerIsActiveInChat = active.contains(widget.otherUserId);
+    });
+  }
+
+  void _subscribeToPeerPresence() {
+    _peerPresenceChannel?.unsubscribe();
+    final convId = _conversationId;
+    if (convId == null || convId.isEmpty) return;
+
+    _peerPresenceChannel = Supabase.instance.client
+        .channel('peer_presence_$convId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'chat_presence',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'conversation_id',
+            value: convId,
+          ),
+          callback: (payload) {
+            final record = payload.newRecord;
+            if (record.isEmpty) return;
+            final userId = record['user_id'] as String?;
+            if (userId != widget.otherUserId) return;
+            final isActive = record['is_active'] as bool? ?? false;
+            SafeSetState.call(this, () => _peerIsActiveInChat = isActive);
+          },
+        )
+        .subscribe();
+  }
+
+  void _scheduleMarkAsRead() {
+    if (!_shouldAutoMarkAsRead()) return;
+    _markReadDebounceTimer?.cancel();
+    _markReadDebounceTimer = Timer(const Duration(milliseconds: 80), () {
+      unawaited(_markConversationAsRead());
+    });
+  }
+
+  void _applyMessageUpdate(ChatMessage message) {
+    final index = _messages.indexWhere((m) => m.id == message.id);
+    if (index == -1) return;
+    final existing = _messages[index];
+    if (existing.isRead == message.isRead &&
+        existing.isDeleted == message.isDeleted &&
+        existing.message == message.message) {
+      return;
+    }
+    SafeSetState.call(this, () {
+      _messages[index] = message;
+    });
+    _syncMessagesCache();
   }
 
   Future<void> _setupPresence() async {
@@ -317,6 +410,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           _conversationId = conversation.id;
         }
       }
+
+      unawaited(
+        NotificationService().cancelChatTrayForConversation(_conversationId),
+      );
 
       SafeSetState.call(this, () {
         _messages = messages;
@@ -381,28 +478,86 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _subscribeToMessages() {
+    _messageSubscription?.cancel();
     _messageSubscription = _chatService
-        .subscribeToMessages(widget.otherUserId)
+        .subscribeToMessages(
+          widget.otherUserId,
+          conversationId: _conversationId,
+        )
         .listen((message) {
           if (message.senderId != _currentUserId) {
             final inserted = _addMessageIfNotExists(message);
             if (inserted) {
               _syncMessagesCache();
               _scrollToBottom();
-              if (_shouldAutoMarkAsRead()) {
-                _markConversationAsRead();
-              }
+              ChatUnreadSyncBus.instance.ping();
+              _scheduleMarkAsRead();
+            } else {
+              _applyMessageUpdate(message);
             }
           } else {
             SafeSetState.call(this, () {
               final index = _messages.indexWhere((m) => m.id == message.id);
               if (index != -1) {
                 _messages[index] = message;
+              } else {
+                _mergeOrAddOwnMessage(message);
               }
             });
             _syncMessagesCache();
           }
         }, onError: (_) {});
+  }
+
+  void _startMessageSyncFallback() {
+    _messageSyncTimer?.cancel();
+    // Lightweight poll when realtime is flaky (common on some networks/devices).
+    _messageSyncTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (!_isAppInForeground || !mounted) return;
+      unawaited(_syncNewMessagesQuietly());
+    });
+  }
+
+  Future<void> _syncNewMessagesQuietly() async {
+    if (!mounted || _isLoading) return;
+    try {
+      final List<ChatMessage> latest;
+      if (_conversationId != null && _conversationId!.isNotEmpty) {
+        latest = await _chatService.getMessagesByConversationId(
+          _conversationId!,
+        );
+      } else {
+        latest = await _chatService.getMessages(
+          widget.otherUserId,
+        );
+      }
+
+      var anyNew = false;
+      var anyUpdated = false;
+      for (final message in latest) {
+        if (_addMessageIfNotExists(message)) {
+          anyNew = true;
+        } else {
+          final index = _messages.indexWhere((m) => m.id == message.id);
+          if (index != -1 && _messages[index].isRead != message.isRead) {
+            SafeSetState.call(this, () {
+              _messages[index] = message;
+            });
+            anyUpdated = true;
+          }
+        }
+      }
+      if (anyNew || anyUpdated) {
+        _syncMessagesCache();
+        if (anyNew) {
+          _scrollToBottom();
+          ChatUnreadSyncBus.instance.ping();
+        }
+        if (anyNew && _shouldAutoMarkAsRead()) {
+          _scheduleMarkAsRead();
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _markConversationAsRead() async {
@@ -414,7 +569,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           final notifier =
               Provider.of<ChatUnreadNotifier>(context, listen: false);
           await notifier.ensureInitialized(SupabaseService());
-          notifier.markAsRead();
+          if (_conversationId != null && _conversationId!.isNotEmpty) {
+            notifier.acknowledgeConversationRead(_conversationId!);
+          } else {
+            notifier.markAsRead();
+          }
         } catch (_) {}
       }
 
@@ -460,6 +619,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
     SafeSetState.call(this, () {
       _isSending = true;
+      _messageIds.add(tempMessage.id);
       _messages.add(tempMessage);
     });
 
@@ -474,15 +634,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         message: message,
       );
 
+      final displayMessage = _peerIsActiveInChat
+          ? sentMessage.copyWith(isRead: true)
+          : sentMessage;
+
       // Replace temp message with real message
       SafeSetState.call(this, () {
+        _messageIds.remove(tempMessage.id);
         final index = _messages.indexWhere((m) => m.id == tempMessage.id);
         if (index != -1) {
-          _messages[index] = sentMessage;
-        } else {
-          // اگر پیام موقت پیدا نشد، پیام واقعی را اضافه کن
-          _messages.add(sentMessage);
+          _messages[index] = displayMessage;
+        } else if (!_messageIds.contains(sentMessage.id)) {
+          _messages.add(displayMessage);
         }
+        _messageIds.add(sentMessage.id);
         // مرتب‌سازی بر اساس زمان ایجاد (قدیمی‌ترین اول)
         _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       });
@@ -490,6 +655,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (e) {
       // Remove temp message on error
       SafeSetState.call(this, () {
+        _messageIds.remove(tempMessage.id);
         _messages.removeWhere((m) => m.id == tempMessage.id);
       });
 
@@ -547,6 +713,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return true;
   }
 
+  /// Realtime may deliver the server message before send() replaces the optimistic bubble.
+  void _mergeOrAddOwnMessage(ChatMessage message) {
+    if (_messageIds.contains(message.id)) return;
+
+    final pendingIndex = _messages.indexWhere((m) {
+      if (m.senderId != _currentUserId || m.id == message.id) return false;
+      if (m.message != message.message) return false;
+      return message.createdAt.difference(m.createdAt).inSeconds.abs() < 60;
+    });
+
+    if (pendingIndex != -1) {
+      _messageIds.remove(_messages[pendingIndex].id);
+      _messages[pendingIndex] = message;
+      _messageIds.add(message.id);
+      _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return;
+    }
+
+    _messageIds.add(message.id);
+    _messages.add(message);
+    _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+  }
+
   Future<void> _refreshMessages() async {
     await _loadMessages();
   }
@@ -557,6 +746,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
       // Update local state immediately
       SafeSetState.call(this, () {
+        _messageIds.remove(message.id);
         _messages.removeWhere((m) => m.id == message.id);
       });
     } catch (e) {
@@ -757,6 +947,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           final isMe = message.senderId == _currentUserId;
 
           return ChatMessageBubble(
+            key: ValueKey<String>(message.id),
             message: message,
             isMe: isMe,
             onLongPress: () => _showMessageOptions(message),
@@ -951,12 +1142,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       context: context,
       builder: (context) {
         // کنترل امن دیالوگ و dispose کردن TextEditingController
-        return WillPopScope(
-          onWillPop: () async {
-            if (editController.isSafe) {
+        return PopScope(
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop && editController.isSafe) {
               editController.dispose();
             }
-            return true;
           },
           child: AlertDialog(
             backgroundColor: context.cardColor,

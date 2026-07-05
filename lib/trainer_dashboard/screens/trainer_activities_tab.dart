@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/utils/date_utils.dart' as du;
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -587,22 +588,19 @@ class _Avatar extends StatelessWidget {
               ? context.veryDarkBackground
               : AppTheme.lightCardColor,
           child: avatarUrl != null && avatarUrl!.isNotEmpty
-              ? Image.network(
-                  avatarUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _Initials(initials: initials),
-                  loadingBuilder: (ctx, child, progress) => progress == null
-                      ? child
-                      : Center(
-                          child: SizedBox(
-                            width: 16.w,
-                            height: 16.h,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppTheme.goldColor,
-                            ),
-                          ),
-                        ),
+              ? GymaiNetworkImage(
+                  imageUrl: avatarUrl!,
+                  errorWidget: _Initials(initials: initials),
+                  placeholder: Center(
+                    child: SizedBox(
+                      width: 16.w,
+                      height: 16.h,
+                      child: const CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.goldColor,
+                      ),
+                    ),
+                  ),
                 )
               : _Initials(initials: initials),
         ),

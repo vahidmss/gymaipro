@@ -4,6 +4,7 @@ import 'package:gymaipro/auth/screens/login_otp_verification_screen.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
 import 'package:gymaipro/auth/utils/phone_utils.dart';
 import 'package:gymaipro/auth/widgets/auth_gradient_background.dart';
+import 'package:gymaipro/core/web_interaction.dart';
 import 'package:gymaipro/services/otp_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
@@ -157,8 +158,7 @@ class _LoginScreenState extends State<LoginScreen>
       }
 
       if (!mounted) return;
-      final otpCode = OTPService.generateOTP();
-      final success = await OTPService.sendOTP(normalizedPhone, otpCode);
+      final success = await OTPService.sendOTP(normalizedPhone);
 
       if (!mounted) return;
       if (success) {
@@ -215,9 +215,10 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        if (_isDisposed) return false;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop || _isDisposed) return;
 
         // ابتدا TextField را از درخت UI حذف می‌کنیم
         _isDisposed = true;
@@ -234,7 +235,6 @@ class _LoginScreenState extends State<LoginScreen>
             );
           }
         });
-        return false; // جلوگیری از pop خودکار
       },
       child: Scaffold(
         backgroundColor: context.backgroundColor,
@@ -258,7 +258,7 @@ class _LoginScreenState extends State<LoginScreen>
                         // بهینه‌سازی: بهبود رفتار کیبورد
                         keyboardDismissBehavior:
                             ScrollViewKeyboardDismissBehavior.onDrag,
-                        physics: const BouncingScrollPhysics(),
+                        physics: WebInteraction.listScrollPhysics,
                         padding: EdgeInsets.only(
                           left: 20.w,
                           right: 20.w,

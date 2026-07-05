@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
+import 'package:gymaipro/dashboard/services/dashboard_profile_mapper.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -12,7 +13,7 @@ class SimpleProfileService {
   static Map<String, dynamic>? _cachedProfile;
   static DateTime? _cachedProfileAt;
   static Future<Map<String, dynamic>?>? _inFlightProfile;
-  static const Duration _profileCacheTtl = Duration(seconds: 20);
+  static const Duration _profileCacheTtl = Duration(seconds: 45);
 
   static void _log(String msg) {
     if (kDebugMode) {
@@ -26,6 +27,22 @@ class SimpleProfileService {
     _cachedProfile = null;
     _cachedProfileAt = null;
     _inFlightProfile = null;
+  }
+
+  static void _warmDashboardProfileCache(Map<String, dynamic> profile) {
+    try {
+      final userId = profile['id']?.toString();
+      final currentUserId = client.auth.currentUser?.id;
+      if (userId == null || userId.isEmpty) return;
+      if (currentUserId != null &&
+          userId != currentUserId &&
+          profile['auth_user_id']?.toString() != currentUserId) {
+        return;
+      }
+      DashboardCacheService().setProfileData(
+        DashboardProfileMapper.fromRaw(profile),
+      );
+    } catch (_) {}
   }
 
   static const Set<String> _presenceOnlyKeys = {
@@ -134,6 +151,26 @@ class SimpleProfileService {
     _log('=== END TEST ===');
   }
 
+  /// نقش کاربر از کش در حافظه (بدون درخواست شبکه).
+  static String? get cachedRole {
+    if (_cachedProfile == null || _cachedProfileAt == null) return null;
+    if (DateTime.now().difference(_cachedProfileAt!) >= _profileCacheTtl) {
+      return null;
+    }
+    return (_cachedProfile!['role'] as String?) ?? 'athlete';
+  }
+
+  /// شناسهٔ پروفایل از کش در حافظه (بدون درخواست شبکه).
+  static String? get cachedProfileId {
+    if (_cachedProfile == null || _cachedProfileAt == null) return null;
+    if (DateTime.now().difference(_cachedProfileAt!) >= _profileCacheTtl) {
+      return null;
+    }
+    final id = _cachedProfile!['id'];
+    if (id is String && id.isNotEmpty) return id;
+    return null;
+  }
+
   // دریافت پروفایل کاربر فعلی
   static Future<Map<String, dynamic>?> getCurrentProfile() async {
     try {
@@ -189,6 +226,7 @@ class SimpleProfileService {
           );
           _cachedProfile = response;
           _cachedProfileAt = DateTime.now();
+          _warmDashboardProfileCache(response);
           return response;
         }
         _log(
@@ -222,6 +260,7 @@ class SimpleProfileService {
               );
               _cachedProfile = profileByPhone;
               _cachedProfileAt = DateTime.now();
+              _warmDashboardProfileCache(profileByPhone);
               return profileByPhone;
             }
           }

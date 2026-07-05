@@ -156,6 +156,7 @@ async function sendChatNotification(accessToken: string, projectId: string, toke
         ...filteredData,
         title: title,
         body: body,
+        message: body,
       };
       message.message.data = finalData;
 
@@ -252,6 +253,34 @@ serve(async (req) => {
       return new Response('Missing required fields: receiver_id, sender_id, message', {
         status: 400
       });
+    }
+
+    // دیدوپ: هر پیام message_id یکتا دارد؛ اگر قبلاً نوتیفی با همین message_id
+    // ثبت شده باشد یعنی این فراخوانی تکراری است (مثلاً retry بعد از client-timeout
+    // در حالی که سرور تلاش اول را کامل کرده بود). پس هم پوش هم insert را رد می‌کنیم
+    // تا کاربر نوتیف دوتایی نگیرد.
+    if (message_id) {
+      try {
+        const { data: existingRows } = await supabase
+          .from('notifications')
+          .select('id')
+          .eq('user_id', receiver_id)
+          .eq('type', 'message')
+          .contains('data', { message_id })
+          .limit(1);
+        if (existingRows && existingRows.length > 0) {
+          console.log(`⏩ Duplicate chat notification skipped (message_id=${message_id})`);
+          return new Response(JSON.stringify({
+            ok: true,
+            message: 'Duplicate notification skipped',
+            tokens_sent: 0
+          }), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      } catch (dedupError) {
+        console.error('Dedup check failed (continuing):', dedupError);
+      }
     }
 
     // device_tokens.user_id = auth.uid()؛ resolve profile id به auth_user_id

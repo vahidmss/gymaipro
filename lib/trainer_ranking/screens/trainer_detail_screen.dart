@@ -24,6 +24,7 @@ import 'package:gymaipro/trainer_ranking/services/trainer_ranking_service.dart';
 import 'package:gymaipro/trainer_ranking/utils/dialog_helpers.dart';
 import 'package:gymaipro/trainer_ranking/utils/format_utils.dart';
 import 'package:gymaipro/trainer_ranking/widgets/certificate_carousel.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/widgets/gymai_trainer_avatar.dart';
 import 'package:gymaipro/trainer_ranking/widgets/package_card_widget.dart';
 import 'package:gymaipro/trainer_ranking/widgets/review_submission_widget.dart';
@@ -2225,41 +2226,39 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                     maxWidth: MediaQuery.of(context).size.width * 0.9,
                     maxHeight: MediaQuery.of(context).size.height * 0.8,
                   ),
-                  child: Image.network(
-                    imageUrl,
+                  child: GymaiNetworkImage(
+                    imageUrl: imageUrl,
                     fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        padding: EdgeInsets.all(48.w),
-                        decoration: BoxDecoration(
-                          color: context.cardColor,
-                          borderRadius: BorderRadius.circular(20.r),
-                          border: Border.all(color: context.separatorColor),
-                        ),
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.image_not_supported,
-                                color: context.textSecondary,
-                                size: 64.sp,
+                    errorWidget: Container(
+                      padding: EdgeInsets.all(48.w),
+                      decoration: BoxDecoration(
+                        color: context.cardColor,
+                        borderRadius: BorderRadius.circular(20.r),
+                        border: Border.all(color: context.separatorColor),
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.image_not_supported,
+                              color: context.textSecondary,
+                              size: 64.sp,
+                            ),
+                            SizedBox(height: 16.h),
+                            Text(
+                              'خطا در بارگذاری تصویر',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                color: context.textColor,
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w600,
                               ),
-                              SizedBox(height: 16.h),
-                              Text(
-                                'خطا در بارگذاری تصویر',
-                                style: TextStyle(
-                                  fontFamily: AppTheme.fontFamily,
-                                  color: context.textColor,
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      );
-                    },
+                      ),
+                    ),
                   ),
                 ),
               ),

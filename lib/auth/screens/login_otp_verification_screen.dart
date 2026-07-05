@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/auth/services/auth_state_service.dart';
+import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
 import 'package:gymaipro/services/otp_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -41,6 +42,10 @@ class _LoginOTPVerificationScreenState extends State<LoginOTPVerificationScreen>
 
   Future<void> _initSmsAutofill() async {
     try {
+      final signature = await sms.SmsAutoFill().getAppSignature;
+      if (mounted) {
+        debugPrint('📱 Login OTP app signature: $signature');
+      }
       listenForCode();
     } catch (e) {
       debugPrint('SMS Autofill error: $e');
@@ -49,16 +54,25 @@ class _LoginOTPVerificationScreenState extends State<LoginOTPVerificationScreen>
 
   @override
   void codeUpdated() {
-    if (code != null && code!.length == 6 && mounted && _isActive) {
-      if (_otpController.isSafe) {
-        _otpController.safeSetText(code!);
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted && _isActive) {
-            _verifyAndLogin();
-          }
-        });
+    final digits = _extractOtpDigits(code);
+    if (digits == null || digits.length != 6) return;
+    if (!mounted || !_isActive) return;
+    if (!_otpController.isSafe) return;
+
+    _otpController.safeSetText(digits);
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted && _isActive) {
+        _verifyAndLogin();
       }
-    }
+    });
+  }
+
+  String? _extractOtpDigits(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    final match = RegExp(r'\d{6}').firstMatch(raw);
+    if (match != null) return match.group(0);
+    final digitsOnly = raw.replaceAll(RegExp(r'\D'), '');
+    return digitsOnly.length >= 6 ? digitsOnly.substring(0, 6) : null;
   }
 
   @override
@@ -119,8 +133,7 @@ class _LoginOTPVerificationScreenState extends State<LoginOTPVerificationScreen>
         _otpController.safeClear();
       }
 
-      final otpCode = OTPService.generateOTP();
-      await OTPService.sendOTP(widget.phoneNumber, otpCode);
+      await OTPService.sendOTP(widget.phoneNumber);
 
       if (!_isActive || !mounted) return;
 
@@ -192,11 +205,7 @@ class _LoginOTPVerificationScreenState extends State<LoginOTPVerificationScreen>
             context,
             'ورود با موفقیت انجام شد',
           );
-          WidgetSafetyUtils.safePushNamedAndRemoveUntil(
-            context,
-            '/main',
-            (route) => false,
-          );
+          enterMainAppAfterAuth(context);
         }
       } else {
         if (!_isActive || !mounted) return;
@@ -244,7 +253,7 @@ class _LoginOTPVerificationScreenState extends State<LoginOTPVerificationScreen>
 
     return PopScope(
       canPop: !_isLoading,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, result) {
         if (!didPop && !_isLoading) {
           _handleBack();
         } else if (didPop) {

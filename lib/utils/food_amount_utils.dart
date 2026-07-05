@@ -63,6 +63,27 @@ class FoodAmountUtils {
     };
   }
 
+  /// Full nutrition profile scaled to logged amount + unit.
+  static Map<String, double> scaledNutrition(
+    Food food,
+    double amount,
+    String unit,
+  ) {
+    final n = food.nutrition;
+    return {
+      'calories': scaledCalories(food, amount, unit),
+      'protein': scaledMacro(food, amount, unit, n.protein),
+      'carbs': scaledMacro(food, amount, unit, n.carbohydrates),
+      'fat': scaledMacro(food, amount, unit, n.fat),
+      'saturatedFat': scaledMacro(food, amount, unit, n.saturatedFat),
+      'fiber': scaledMacro(food, amount, unit, n.fiber),
+      'sugar': scaledMacro(food, amount, unit, n.sugar),
+      'cholesterol': scaledMacro(food, amount, unit, n.cholesterol),
+      'sodium': scaledMacro(food, amount, unit, n.sodium),
+      'potassium': scaledMacro(food, amount, unit, n.potassium),
+    };
+  }
+
   static String formatAmountForUnit(FoodServingUnit unit, double amount) {
     if (unit.decimals <= 0 || amount % 1 == 0) {
       return amount.toInt().toString();

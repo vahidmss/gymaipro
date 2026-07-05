@@ -9,6 +9,7 @@ import 'package:gymaipro/ranking/services/ranking_score_service.dart';
 import 'package:gymaipro/ranking/services/ranking_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:gymaipro/user_profile/widgets/progress_metrics_widget.dart';
 import 'package:gymaipro/user_profile/widgets/streak_calendar_widget.dart';
@@ -306,7 +307,7 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
                           padding: EdgeInsets.all(3.w),
                           child: ClipOval(
                             child: avatarUrl.isNotEmpty
-                                ? Image.network(avatarUrl, fit: BoxFit.cover)
+                                ? GymaiNetworkImage(imageUrl: avatarUrl)
                                 : Container(
                                     color: isDark
                                         ? Colors.grey[800]
@@ -986,7 +987,7 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
         backgroundColor: Colors.transparent,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20.r),
-          child: Image.network(url, fit: BoxFit.cover),
+          child: GymaiNetworkImage(imageUrl: url),
         ),
       ),
     );

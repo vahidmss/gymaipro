@@ -129,7 +129,6 @@ class _TrainerChannelMediaComposeScreenState
           activeControlsWidgetColor: AppTheme.goldColor,
           cropFrameColor: AppTheme.goldColor,
           dimmedLayerColor: Colors.black.withValues(alpha: 0.65),
-          statusBarColor: const Color(0xFF0E0E0E),
           initAspectRatio: CropAspectRatioPreset.original,
           lockAspectRatio: false,
         ),

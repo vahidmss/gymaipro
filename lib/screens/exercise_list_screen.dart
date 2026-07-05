@@ -269,16 +269,24 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildSortOption('name', 'نام تمرین'),
-            _buildSortOption('difficulty', 'سطح دشواری'),
-            _buildSortOption('duration', 'مدت زمان'),
-            _buildSortOption('popularity', 'محبوبیت'),
-            _buildSortOption('equipment', 'تجهیزات'),
-            _buildSortOption('type', 'نوع تمرین'),
-          ],
+        content: RadioGroup<String>(
+          groupValue: _selectedSortBy,
+          onChanged: (newValue) {
+            if (newValue != null) {
+              setState(() => _selectedSortBy = newValue);
+            }
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildSortOption('name', 'نام تمرین'),
+              _buildSortOption('difficulty', 'سطح دشواری'),
+              _buildSortOption('duration', 'مدت زمان'),
+              _buildSortOption('popularity', 'محبوبیت'),
+              _buildSortOption('equipment', 'تجهیزات'),
+              _buildSortOption('type', 'نوع تمرین'),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -316,12 +324,6 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
         ),
       ),
       value: value,
-      groupValue: _selectedSortBy,
-      onChanged: (newValue) {
-        setState(() {
-          _selectedSortBy = newValue!;
-        });
-      },
       activeColor: AppTheme.goldColor,
     );
   }

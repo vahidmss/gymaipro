@@ -200,15 +200,16 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final background = context.backgroundColor;
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
         // Always reload stats when returning to ensure they're up to date
         Navigator.pop(context, {
           'articleId': widget.article.id,
           'isRead': _markedReadLocally || _isRead,
           'statsChanged': true,
         });
-        return false;
       },
       child: Scaffold(
         backgroundColor: background,

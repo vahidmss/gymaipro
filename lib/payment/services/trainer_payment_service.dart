@@ -1,13 +1,17 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
+import 'package:gymaipro/notification/push_notification_policy.dart';
+import 'package:gymaipro/notification/services/notification_push_invoker.dart';
+import 'package:gymaipro/notification/services/in_app_notification_delivery_service.dart';
 import 'package:gymaipro/notification/services/notification_data_service.dart';
 import 'package:gymaipro/payment/models/payment_transaction.dart';
 import 'package:gymaipro/payment/models/trainer_subscription.dart';
-import 'package:gymaipro/payment/services/commission_service.dart';
+import 'package:gymaipro/payment/services/trainer_escrow_service.dart';
 import 'package:gymaipro/payment/services/discount_service.dart';
 // removed unused import
 import 'package:gymaipro/payment/services/payment_gateway_service.dart';
+import 'package:gymaipro/payment/services/trainer_program_sms_service.dart';
 import 'package:gymaipro/payment/services/trainer_subscription_service.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
@@ -27,7 +31,6 @@ class TrainerPaymentService {
   final DiscountService _discountService = DiscountService();
   final TrainerSubscriptionService _subscriptionService =
       TrainerSubscriptionService();
-  final CommissionService _commissionService = CommissionService();
   final SupabaseClient _client = Supabase.instance.client;
   final ProfileRepository _profiles = ProfileRepository.instance;
   final TrainerClientService _trainerClientService = TrainerClientService();
@@ -434,10 +437,19 @@ class TrainerPaymentService {
         };
       }
 
+      // ثبت escrow و کمیسیون (مثل پرداخت مستقیم)
+      await _processCommission(
+        transactionId: transaction.id,
+        subscriptionId: subscription.id,
+        trainerId: trainerId,
+        finalAmount: transaction.finalAmount,
+      );
+
       // ارسال اعلان به مربی
       await _notifyTrainerNewRequest(
         trainerId: trainerId,
         buyerUserId: userId,
+        subscriptionId: subscription.id,
         serviceType: serviceType,
         buyerNameOverride: buyerNameOverride,
       );
@@ -606,6 +618,7 @@ class TrainerPaymentService {
       await _notifyTrainerNewRequest(
         trainerId: transaction.metadata?['trainer_id'] as String? ?? '',
         buyerUserId: transaction.userId,
+        subscriptionId: subscription.id,
         serviceType: TrainerServiceType.values.firstWhere(
           (e) =>
               e.toString().split('.').last ==
@@ -672,6 +685,7 @@ class TrainerPaymentService {
   Future<void> _notifyTrainerNewRequest({
     required String trainerId,
     required String buyerUserId,
+    required String subscriptionId,
     required TrainerServiceType serviceType,
     String? buyerNameOverride,
   }) async {
@@ -713,57 +727,36 @@ class TrainerPaymentService {
       final message =
           'درخواست $serviceName از $buyerName$usernameSuffix رسیده است.';
 
-      // ایجاد نوتیفیکیشن داخل برنامه (user_id باید auth.uid باشد)
-      await NotificationDataService.createNotification(
-        userId: trainerAuthId,
+      final notifData = <String, dynamic>{
+        'type': 'payment',
+        'event': 'trainer_program_purchase',
+        'buyer_user_id': buyerUserId,
+        'subscription_id': subscriptionId,
+        'service': serviceName,
+        'route': '/trainer-dashboard',
+      };
+
+      await InAppNotificationDeliveryService.deliverTrainerProgramPurchase(
+        trainerProfileId: trainerId,
+        trainerAuthUserId: trainerAuthId,
         title: title,
-        message: message,
-        type: NotificationType.payment,
-        priority: 2,
-        data: {'buyer_user_id': buyerUserId, 'service': serviceName},
+        body: message,
+        data: notifData,
+        actionUrl: '/trainer-dashboard',
+        dedupeKey: 'trainer_program:$subscriptionId',
       );
 
-      // ارسال پوش نوتیفیکیشن مستقیم به device tokens (user_id در جدول = auth.uid)
-      try {
-        final List<dynamic> tokensRes = await _client
-            .from('device_tokens')
-            .select('token')
-            .eq('user_id', trainerAuthId)
-            .eq('is_push_enabled', true);
-        final List<String> tokens = tokensRes
-            .map((e) => (e as Map)['token']?.toString() ?? '')
-            .whereType<String>()
-            .where((t) => t.isNotEmpty)
-            .toList();
-
-        if (tokens.isNotEmpty && AppConfig.supabaseEdgeFunctionsEnabled) {
-          await _client.functions.invoke(
-            'send-notifications',
-            body: {
-              'mode': 'direct',
-              'target_type': 'device_tokens',
-              'tokens': tokens,
-              'title': title,
-              'body': message,
-              'data': {
-                'type': 'payment',
-                'route': '/trainer-dashboard',
-                'buyer_user_id': buyerUserId,
-                'service': serviceName,
-              },
-            },
-          );
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          print('⚠️ خطا در ارسال پوش نوتیفیکیشن: $e');
-        }
+      if (subscriptionId.isNotEmpty) {
+        await TrainerProgramSmsService.notifyPurchaseCompleteSms(
+          trainerProfileOrAuthId: trainerId,
+          buyerProfileId: buyerUserId,
+          subscriptionId: subscriptionId,
+        );
       }
     } catch (e) {
       if (kDebugMode) {
         print('⚠️ خطا در ایجاد اعلان: $e');
       }
-      // خطا در اعلان را نادیده می‌گیریم تا جریان اصلی متوقف نشود
     }
   }
 
@@ -795,9 +788,9 @@ class TrainerPaymentService {
 
       // ارسال پوش: سمت سرور توکن مربی را می‌خواند (RLS اجازه خواندن به خریدار نمی‌دهد)
       try {
-        if (AppConfig.supabaseEdgeFunctionsEnabled) {
-          await _client.functions.invoke(
-            'send-notifications',
+        if (PushNotificationPolicy.shouldAttemptServerPush) {
+          await NotificationPushInvoker.sendNotifications(
+            client: _client,
             body: {
               'mode': 'trainer_new_student',
               'trainer_id': trainerId,
@@ -948,7 +941,7 @@ class TrainerPaymentService {
     }
   }
 
-  /// پردازش کمیسیون و به‌روزرسانی درآمد مربی
+  /// پردازش کمیسیون — ثبت escrow (مربی تا زمان مناسب پول را نمی‌بیند)
   Future<void> _processCommission({
     required String transactionId,
     required String subscriptionId,
@@ -956,63 +949,20 @@ class TrainerPaymentService {
     required int finalAmount,
   }) async {
     try {
-      // محاسبه کمیسیون
-      final commission = await _commissionService.calculateCommission(
-        finalAmount,
-      );
-      final platformRevenue = commission['platform_revenue'] ?? 0;
-      final trainerEarnings = commission['trainer_earnings'] ?? finalAmount;
-
-      // دریافت تنظیمات برای ثبت درصد کمیسیون
-      final settings = await _commissionService.getActiveSettings();
-      final commissionPercentage = settings?.commissionPercentage ?? 0.0;
-
-      // ثبت درآمد پلتفرم
-      await _commissionService.recordPlatformRevenue(
-        transactionId: transactionId,
+      await TrainerEscrowService().recordPaymentEscrow(
         subscriptionId: subscriptionId,
         trainerId: trainerId,
-        amount: platformRevenue,
-        commissionPercentage: commissionPercentage,
+        transactionId: transactionId,
+        finalAmountRial: finalAmount,
       );
 
-      // به‌روزرسانی trainer_earnings در کیف پول مربی
-      final walletResponse = await _client
-          .from('wallets')
-          .select()
-          .eq('user_id', trainerId)
-          .maybeSingle();
-
-      if (walletResponse != null) {
-        final currentEarnings =
-            (walletResponse['trainer_earnings'] as int?) ?? 0;
-        final newEarnings = currentEarnings + trainerEarnings;
-
-        await _client
-            .from('wallets')
-            .update({
-              'trainer_earnings': newEarnings,
-              'updated_at': DateTime.now().toIso8601String(),
-            })
-            .eq('user_id', trainerId);
-      } else {
-        // اگر کیف پول وجود نداشت، ایجاد می‌کنیم
-        await _client.from('wallets').insert({
-          'user_id': trainerId,
-          'trainer_earnings': trainerEarnings,
-        });
-      }
-
       if (kDebugMode) {
-        print(
-          'کمیسیون پردازش شد - پلتفرم: ${platformRevenue / 10} تومان، مربی: ${trainerEarnings / 10} تومان',
-        );
+        print('Escrow پردازش شد برای اشتراک: $subscriptionId');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('خطا در پردازش کمیسیون: $e');
+        print('خطا در پردازش escrow: $e');
       }
-      // خطا در کمیسیون نباید جریان اصلی را متوقف کند
     }
   }
 

@@ -13,6 +13,7 @@ import 'package:gymaipro/admin/screens/admin_wallet_actions_screen.dart';
 import 'package:gymaipro/admin/screens/admin_wallets_screen.dart';
 import 'package:gymaipro/admin/screens/admin_certificates_screen.dart';
 import 'package:gymaipro/admin/screens/admin_commission_settings_screen.dart';
+import 'package:gymaipro/admin/screens/admin_trainer_escrow_screen.dart';
 import 'package:gymaipro/admin/screens/admin_payout_requests_screen.dart';
 import 'package:gymaipro/admin/screens/admin_broadcast_screen.dart';
 import 'package:gymaipro/admin/screens/admin_exercise_sync_screen.dart';
@@ -41,11 +42,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   void initState() {
     super.initState();
-    // 18 تب: آمار، کاربران، برنامه‌ها، مربی-شاگرد، پرداخت‌ها،
-    // کیف پول، کد تخفیف، چت خصوصی، چت عمومی، عکس‌ها، گزارش مالی،
-    // تاریخچه کیف پول، مدارک مربی، تنظیمات کمیسیون، درخواست‌های برداشت،
-    // نوتیفیکیشن همگانی، Sync تمرین‌ها
-    _tabController = TabController(length: 18, vsync: this);
+    // 19 تب
+    _tabController = TabController(length: 19, vsync: this);
     _checkAdminStatus();
   }
 
@@ -168,6 +166,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             Tab(icon: Icon(LucideIcons.messageCircle), text: 'چت عمومی'),
             Tab(icon: Icon(LucideIcons.image), text: 'عکس‌ها'),
             Tab(icon: Icon(LucideIcons.trendingUp), text: 'گزارش مالی'),
+            Tab(icon: Icon(LucideIcons.shield), text: 'Escrow مربی'),
             Tab(icon: Icon(LucideIcons.history), text: 'تاریخچه کیف پول'),
             Tab(icon: Icon(LucideIcons.award), text: 'مدارک مربی'),
             Tab(icon: Icon(LucideIcons.percent), text: 'تنظیمات کمیسیون'),
@@ -195,6 +194,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           AdminPublicChatScreen(),
           AdminImagesScreen(),
           AdminFinancialScreen(),
+          AdminTrainerEscrowScreen(),
           AdminWalletActionsScreen(),
           AdminCertificatesScreen(),
           AdminCommissionSettingsScreen(),

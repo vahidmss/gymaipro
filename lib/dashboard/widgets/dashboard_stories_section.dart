@@ -8,6 +8,7 @@ import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
 import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// بخش داستان‌های افقی - سبک اینستاگرام برای مقالات آکادمی
@@ -239,11 +240,9 @@ class _StoryCircle extends StatelessWidget {
                   child:
                       article.featuredImageUrl != null &&
                           article.featuredImageUrl!.isNotEmpty
-                      ? Image.network(
-                          article.featuredImageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              _buildPlaceholder(context),
+                      ? GymaiNetworkImage(
+                          imageUrl: article.featuredImageUrl!,
+                          errorWidget: _buildPlaceholder(context),
                         )
                       : _buildPlaceholder(context),
                 ),

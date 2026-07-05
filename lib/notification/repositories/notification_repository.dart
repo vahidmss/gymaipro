@@ -152,49 +152,49 @@ class NotificationRepository {
       final user = _client.auth.currentUser;
       if (user == null) return false;
 
-      await _client
-          .from('notifications')
-          .delete()
-          .eq('id', notificationId)
-          .eq('user_id', user.id);
+      final response = await _client.rpc<bool>(
+        'delete_notification',
+        params: {
+          'notification_uuid': notificationId,
+          'user_uuid': user.id,
+        },
+      );
 
-      return true;
+      return response == true;
     } catch (e) {
-      return false;
+      // Fallback when RPC is not deployed yet but RLS delete policy exists.
+      try {
+        final user = _client.auth.currentUser;
+        if (user == null) return false;
+
+        final rows = await _client
+            .from('notifications')
+            .delete()
+            .eq('id', notificationId)
+            .eq('user_id', user.id)
+            .select('id');
+
+        return rows.isNotEmpty;
+      } catch (_) {
+        return false;
+      }
     }
   }
 
   /// Delete all read notifications
-  Future<List<String>> deleteReadNotifications() async {
+  Future<int> deleteReadNotifications() async {
     try {
       final user = _client.auth.currentUser;
-      if (user == null) return [];
+      if (user == null) return 0;
 
-      // Get all read notification IDs first
-      final readNotifications = await _client
-          .from('notifications')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('is_read', true);
+      final response = await _client.rpc<int>(
+        'delete_read_notifications',
+        params: {'user_uuid': user.id},
+      );
 
-      if (readNotifications.isEmpty) {
-        return [];
-      }
-
-      final ids = readNotifications
-          .map((n) => Map<String, dynamic>.from(n)['id'] as String)
-          .toList();
-
-      // Delete them
-      await _client
-          .from('notifications')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('is_read', true);
-
-      return ids;
+      return response;
     } catch (e) {
-      return [];
+      return 0;
     }
   }
 }

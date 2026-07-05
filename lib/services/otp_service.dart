@@ -7,58 +7,85 @@ import 'package:sms_autofill/sms_autofill.dart' as sms;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OTPService {
-  // Normalize phone number format
   static String normalizePhoneNumber(String phoneNumber) {
-    // Remove any spaces or special characters
     String normalized = phoneNumber.replaceAll(RegExp(r'\s+'), '');
-
-    // Ensure it starts with 0
     if (!normalized.startsWith('0')) {
       normalized = '0$normalized';
     }
-
     return normalized;
   }
 
-  static Future<bool> sendOTP(String phoneNumber, String code) async {
+  /// ارسال OTP — روی وب/حالت امن فقط از Edge Function `send-otp`.
+  static Future<bool> sendOTP(String phoneNumber) async {
     try {
-      // Normalize phone number
       final normalizedPhone = normalizePhoneNumber(phoneNumber);
 
-      // دریافت App Signature برای Android SMS Retriever API
-      String? appSignature;
-      try {
-        appSignature = await sms.SmsAutoFill().getAppSignature;
-        debugPrint('📱 App Signature for SMS: $appSignature');
-      } catch (e) {
-        debugPrint('⚠️ Could not get app signature: $e');
+      if (AppConfig.otpUseServerRoute) {
+        return _sendViaServer(normalizedPhone);
       }
 
-      // ارسال پیامک واقعی
-      final smsSent = await _sendRealSMS(normalizedPhone, code, appSignature);
-
-      if (!smsSent) {
-        debugPrint('⚠️ Warning: Failed to send SMS, but saving OTP to database');
-      }
-
-      // ذخیره OTP در دیتابیس Supabase (حتی اگر پیامک ارسال نشد)
-      final saved = await _saveOtpToSupabase(normalizedPhone, code);
-
-      return saved;
+      final code = generateOTP();
+      return _sendViaClient(normalizedPhone, code);
     } catch (e) {
       debugPrint('Error sending OTP: $e');
       return false;
     }
   }
 
-  /// ارسال پیامک واقعی از طریق API پیامک پنل
+  static Future<bool> _sendViaServer(String normalizedPhone) async {
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'send-otp',
+        body: {'phone_number': normalizedPhone},
+      );
+
+      final data = _decodeResponseData(response.data);
+      if (data == null) {
+        debugPrint('send-otp: empty response');
+        return false;
+      }
+
+      if (data['error'] != null) {
+        debugPrint('send-otp error: ${data['error']}');
+        return false;
+      }
+
+      return data['ok'] == true;
+    } on FunctionException catch (e) {
+      debugPrint('send-otp FunctionException: ${e.details}');
+      return false;
+    } catch (e) {
+      debugPrint('send-otp failed: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> _sendViaClient(
+    String normalizedPhone,
+    String code,
+  ) async {
+    String? appSignature;
+    try {
+      appSignature = await sms.SmsAutoFill().getAppSignature;
+      debugPrint('📱 App Signature for SMS: $appSignature');
+    } catch (e) {
+      debugPrint('⚠️ Could not get app signature: $e');
+    }
+
+    final smsSent = await _sendRealSMS(normalizedPhone, code, appSignature);
+    if (!smsSent) {
+      debugPrint('⚠️ Warning: Failed to send SMS, but saving OTP to database');
+    }
+
+    return _saveOtpToSupabase(normalizedPhone, code);
+  }
+
   static Future<bool> _sendRealSMS(
     String phoneNumber,
     String code,
     String? appSignature,
   ) async {
     try {
-      // بررسی وجود تنظیمات SMS API
       final baseUrl = AppConfig.smsApiBaseUrl;
       final username = AppConfig.smsApiUsername;
       final password = AppConfig.smsApiPassword;
@@ -67,14 +94,10 @@ class OTPService {
       if (username.isEmpty || password.isEmpty || bodyId == 0) {
         if (kDebugMode) {
           debugPrint('❌ SMS API credentials not configured');
-          debugPrint(
-            'Please set SMS_API_USERNAME, SMS_API_PASSWORD, and SMS_API_BODY_ID',
-          );
         }
         return false;
       }
 
-      // تبدیل شماره تلفن به فرمت بین‌المللی (بدون 0 اول)
       String internationalPhone = phoneNumber;
       if (internationalPhone.startsWith('0')) {
         internationalPhone = '98${internationalPhone.substring(1)}';
@@ -82,23 +105,14 @@ class OTPService {
         internationalPhone = '98$internationalPhone';
       }
 
-      // ساخت متن پیامک با فرمت Android SMS Retriever API
-      // فرمت: <#> Your verification code is: 123456\nAppSignatureHash
       final String message;
       if (appSignature != null && appSignature.isNotEmpty) {
-        // استفاده از فرمت Android SMS Retriever برای Auto-fill
         message = '<#> کد تایید شما: $code\n$appSignature';
-        debugPrint('📱 Using Android SMS Retriever format with signature');
       } else {
-        // فرمت عادی اگر signature در دسترس نباشد
         message = 'کد تایید شما: $code\nGymAI Pro';
-        debugPrint('⚠️ App signature not available, using regular format');
       }
 
-      // ساخت درخواست
       final url = Uri.parse(baseUrl);
-
-      // استفاده از form-data (فرمت استاندارد API پیامک پنل)
       final requestBody = {
         'username': username,
         'password': password,
@@ -107,10 +121,6 @@ class OTPService {
         'bodyId': bodyId.toString(),
       };
 
-      debugPrint('📱 Sending SMS to: $internationalPhone');
-      debugPrint('📝 Message: $message');
-
-      // ارسال درخواست با form-data
       final response = await http
           .post(
             url,
@@ -122,47 +132,27 @@ class OTPService {
           )
           .timeout(const Duration(seconds: 30));
 
-      debugPrint('📡 SMS API Response: ${response.statusCode}');
-      debugPrint('📡 SMS API Body: ${response.body}');
-
       if (response.statusCode == 200) {
         try {
           final responseData =
               jsonDecode(response.body) as Map<String, dynamic>;
-
-          // بررسی پاسخ API (بسته به فرمت پاسخ API پیامک پنل)
-          // معمولاً اگر موفق باشد، یک فیلد success یا status دارد
-          final isSuccess =
-              responseData['StrRetStatus'] == '1' ||
+          return responseData['StrRetStatus'] == '1' ||
               responseData['RetStatus'] == 1 ||
               responseData['success'] == true ||
               (responseData['status'] != null &&
                   (responseData['status'] == 'success' ||
                       responseData['status'] == 200));
-
-          if (isSuccess) {
-            debugPrint('✅ SMS sent successfully');
-            return true;
-          } else {
-            debugPrint('❌ SMS API returned error: $responseData');
-            return false;
-          }
-        } catch (e) {
-          // اگر JSON parse نشد، اما status code 200 بود، احتمالاً موفق بوده
-          debugPrint('⚠️ Could not parse response, but status is 200: $e');
+        } catch (_) {
           return true;
         }
-      } else {
-        debugPrint('❌ SMS API error: ${response.statusCode} - ${response.body}');
-        return false;
       }
+      return false;
     } catch (e) {
       debugPrint('❌ Error in _sendRealSMS: $e');
       return false;
     }
   }
 
-  // ذخیره OTP در دیتابیس Supabase
   static Future<bool> _saveOtpToSupabase(
     String phoneNumber,
     String code,
@@ -171,7 +161,6 @@ class OTPService {
       final client = Supabase.instance.client;
       final expiresAt = DateTime.now().add(const Duration(minutes: 2));
 
-      // تلاش برای ذخیره کد OTP - روش بهینه‌شده
       await client.from('otp_codes').insert({
         'phone_number': phoneNumber,
         'code': code,
@@ -188,18 +177,40 @@ class OTPService {
 
   static Future<bool> verifyOTP(String phoneNumber, String code) async {
     try {
-      // Normalize phone number
       final normalizedPhone = normalizePhoneNumber(phoneNumber);
 
-      // بررسی OTP در Supabase
-      return await _verifyOtpInSupabase(normalizedPhone, code);
+      if (AppConfig.otpUseServerRoute) {
+        return _verifyViaServer(normalizedPhone, code);
+      }
+
+      return _verifyOtpInSupabase(normalizedPhone, code);
     } catch (e) {
       debugPrint('Error verifying OTP: $e');
       return false;
     }
   }
 
-  // بررسی OTP در دیتابیس Supabase
+  static Future<bool> _verifyViaServer(String phoneNumber, String code) async {
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'verify-otp',
+        body: {
+          'phone_number': phoneNumber,
+          'code': code.trim(),
+        },
+      );
+
+      final data = _decodeResponseData(response.data);
+      return data?['ok'] == true;
+    } on FunctionException catch (e) {
+      debugPrint('verify-otp FunctionException: ${e.details}');
+      return false;
+    } catch (e) {
+      debugPrint('verify-otp failed: $e');
+      return false;
+    }
+  }
+
   static Future<bool> _verifyOtpInSupabase(
     String phoneNumber,
     String code,
@@ -207,7 +218,6 @@ class OTPService {
     try {
       final client = Supabase.instance.client;
 
-      // بررسی OTP در Supabase با کوئری بهینه‌شده
       final response = await client
           .from('otp_codes')
           .select('id')
@@ -219,7 +229,6 @@ class OTPService {
 
       if (response != null) {
         try {
-          // علامت‌گذاری OTP به عنوان استفاده شده
           await client
               .from('otp_codes')
               .update({
@@ -227,10 +236,8 @@ class OTPService {
                 'used_at': DateTime.now().toIso8601String(),
               })
               .eq('id', response['id'] as Object);
-
           return true;
         } catch (e) {
-          // اگر OTP معتبر است اما نتوانستیم آن را علامت‌گذاری کنیم
           debugPrint('Error marking OTP as used: $e');
           return true;
         }
@@ -243,8 +250,20 @@ class OTPService {
     }
   }
 
+  static Map<String, dynamic>? _decodeResponseData(dynamic data) {
+    if (data == null) return null;
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    if (data is String) {
+      try {
+        final decoded = jsonDecode(data);
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    return null;
+  }
+
   static String generateOTP() {
-    // تولید کد 6 رقمی تصادفی - روش بهینه‌شده
     return (100000 + (DateTime.now().millisecondsSinceEpoch % 900000))
         .toString();
   }

@@ -6,7 +6,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:gymaipro/academy/models/workout_music.dart';
 import 'package:gymaipro/academy/services/music_cache_service.dart';
+import 'package:gymaipro/academy/services/music_media_url_service.dart';
 import 'package:gymaipro/academy/services/music_notification_service.dart';
+import 'package:gymaipro/academy/services/web_music_platform.dart';
+import 'package:http/http.dart' as http;
 
 enum MusicRepeatMode { none, one, all }
 
@@ -102,6 +105,72 @@ class MusicPlayerService extends ChangeNotifier {
     }
   }
 
+  Future<bool> _localFileExists(String? path) async {
+    if (path == null || path.isEmpty) return false;
+    if (kIsWeb) return path.startsWith('blob:');
+    return File(path).exists();
+  }
+
+  bool _isWebBlobPath(String? path) =>
+      kIsWeb && path != null && path.startsWith('blob:');
+
+  UrlSource _streamingSource(String normalizedUrl) => UrlSource(
+        MusicMediaUrlService.playbackUrl(normalizedUrl),
+        mimeType: 'audio/mpeg',
+      );
+
+  Source _localSource(String path) {
+    if (_isWebBlobPath(path)) {
+      return UrlSource(path, mimeType: 'audio/mpeg');
+    }
+    return DeviceFileSource(path);
+  }
+
+  Source _playbackSource({
+    required String normalizedUrl,
+    required bool useLocalFile,
+    String? sourcePath,
+  }) {
+    if (useLocalFile && sourcePath != null) {
+      return _localSource(sourcePath);
+    }
+    return _streamingSource(normalizedUrl);
+  }
+
+  /// When HTML audio cannot stream cross-origin, fetch via Supabase proxy and play blob.
+  Future<bool> _tryWebProxyBlobPlayback(String normalizedUrl) async {
+    if (!kIsWeb) return false;
+    try {
+      debugPrint('🌐 Web fallback: loading via music-proxy blob...');
+      final response = await http
+          .get(
+            MusicMediaUrlService.fetchUri(normalizedUrl),
+            headers: MusicMediaUrlService.fetchHeaders(),
+          )
+          .timeout(const Duration(minutes: 3));
+
+      if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+        debugPrint(
+          'Web proxy fetch failed: HTTP ${response.statusCode}',
+        );
+        return false;
+      }
+
+      final blobUrl = WebMusicPlatform.storeBlob(
+        MusicCacheService.storageKey(normalizedUrl),
+        response.bodyBytes,
+      );
+      await _audioPlayer
+          .setSource(UrlSource(blobUrl, mimeType: 'audio/mpeg'))
+          .timeout(const Duration(seconds: 30));
+      debugPrint('✅ Web blob playback ready');
+      return true;
+    } catch (e) {
+      _handleError(e, 'web proxy blob playback');
+      return false;
+    }
+  }
+
   // Cleanup method called when operation is cancelled
   void _cleanupAfterCancellation() {
     _isLoading = false;
@@ -124,34 +193,36 @@ class MusicPlayerService extends ChangeNotifier {
 
     _isInitializing = true;
     try {
-      // Setup notification callbacks
-      _notificationService.onPlayPause = () {
-        togglePlayPause().catchError((Object e) {
-          debugPrint('❌ Error in notification play/pause: $e');
-        });
-      };
-      _notificationService.onNext = () {
-        next().catchError((Object e) {
-          debugPrint('❌ Error in notification next: $e');
-        });
-      };
-      _notificationService.onPrevious = () {
-        previous().catchError((Object e) {
-          debugPrint('❌ Error in notification previous: $e');
-        });
-      };
-      _notificationService.onStop = () {
-        close().catchError((Object e) {
-          debugPrint('❌ Error in notification stop: $e');
-        });
-      };
-      _notificationService.onSeek = (position) {
-        seek(position).catchError((Object e) {
-          debugPrint('❌ Error in notification seek: $e');
-        });
-      };
+      if (!kIsWeb) {
+        // Setup notification callbacks (Android foreground service only)
+        _notificationService.onPlayPause = () {
+          togglePlayPause().catchError((Object e) {
+            debugPrint('❌ Error in notification play/pause: $e');
+          });
+        };
+        _notificationService.onNext = () {
+          next().catchError((Object e) {
+            debugPrint('❌ Error in notification next: $e');
+          });
+        };
+        _notificationService.onPrevious = () {
+          previous().catchError((Object e) {
+            debugPrint('❌ Error in notification previous: $e');
+          });
+        };
+        _notificationService.onStop = () {
+          close().catchError((Object e) {
+            debugPrint('❌ Error in notification stop: $e');
+          });
+        };
+        _notificationService.onSeek = (position) {
+          seek(position).catchError((Object e) {
+            debugPrint('❌ Error in notification seek: $e');
+          });
+        };
 
-      await _notificationService.initialize();
+        await _notificationService.initialize();
+      }
       await _audioPlayer.setPlayerMode(PlayerMode.mediaPlayer);
       await _audioPlayer.setReleaseMode(ReleaseMode.stop);
 
@@ -208,6 +279,7 @@ class MusicPlayerService extends ChangeNotifier {
   }
 
   void _updateNotification() {
+    if (kIsWeb) return;
     final music = currentMusic;
     if (music != null &&
         _lastNotificationUrl ==
@@ -223,6 +295,7 @@ class MusicPlayerService extends ChangeNotifier {
   }
 
   void _updateNotificationNow() {
+    if (kIsWeb) return;
     final music = currentMusic;
     if (music == null) return;
     if (_lastNotificationUrl != WorkoutMusic.normalizeAudioUrl(music.audioUrl)) {
@@ -475,7 +548,7 @@ class MusicPlayerService extends ChangeNotifier {
       } catch (e) {
         debugPrint('⚠️ Error getting local path: $e');
       }
-      final hasLocalFile = localPath != null && await File(localPath).exists();
+      final hasLocalFile = await _localFileExists(localPath);
       
       // Stop current playback - faster for local files
       try {
@@ -536,8 +609,13 @@ class MusicPlayerService extends ChangeNotifier {
 
       bool useLocalFile = false;
       String? sourcePath;
+      final useWebBlob = _isWebBlobPath(localPath);
 
-      if (localPath != null) {
+      if (useWebBlob) {
+        sourcePath = localPath;
+        useLocalFile = true;
+        debugPrint('✅ Using web blob: ${music.title}');
+      } else if (localPath != null && !kIsWeb) {
         try {
           final file = File(localPath);
           if (await file.exists()) {
@@ -562,87 +640,98 @@ class MusicPlayerService extends ChangeNotifier {
       // روی بعضی دستگاه‌ها/فایل‌های بزرگ، آماده‌سازی فایل لوکال ممکنه چندین ثانیه طول بکشه.
       // اگر زود timeout کنیم و retry/reset بزنیم، عملاً جلوی پخش رو می‌گیریم.
       if (useLocalFile && sourcePath != null) {
-        // Validate file before attempting to load
-        try {
-          final file = File(sourcePath);
-          if (!await file.exists()) {
-            debugPrint('⚠️ File does not exist: $sourcePath');
-            useLocalFile = false;
-          } else {
-            final fileSize = await file.length();
-            if (fileSize == 0) {
-              debugPrint('⚠️ File is empty: $sourcePath');
+        if (!useWebBlob) {
+          // Validate file before attempting to load
+          try {
+            final file = File(sourcePath);
+            if (!await file.exists()) {
+              debugPrint('⚠️ File does not exist: $sourcePath');
               useLocalFile = false;
             } else {
-              // Try to read first few bytes to ensure file is accessible
-              try {
-                final randomAccessFile = await file.open();
-                await randomAccessFile.setPosition(0);
-                await randomAccessFile.read(1024); // Read first 1KB
-                await randomAccessFile.close();
-                debugPrint('✅ File validated: $sourcePath ($fileSize bytes)');
-              } catch (e) {
-                debugPrint('⚠️ File is not readable: $sourcePath - $e');
+              final fileSize = await file.length();
+              if (fileSize == 0) {
+                debugPrint('⚠️ File is empty: $sourcePath');
                 useLocalFile = false;
+              } else {
+                try {
+                  final randomAccessFile = await file.open();
+                  await randomAccessFile.setPosition(0);
+                  await randomAccessFile.read(1024);
+                  await randomAccessFile.close();
+                  debugPrint('✅ File validated: $sourcePath ($fileSize bytes)');
+                } catch (e) {
+                  debugPrint('⚠️ File is not readable: $sourcePath - $e');
+                  useLocalFile = false;
+                }
               }
             }
+          } catch (e) {
+            debugPrint('⚠️ Error validating file: $sourcePath - $e');
+            useLocalFile = false;
           }
-        } catch (e) {
-          debugPrint('⚠️ Error validating file: $sourcePath - $e');
-          useLocalFile = false;
         }
 
-        // Try loading local file (limited retries, but WITHOUT aggressive stop/reset loops)
         if (useLocalFile) {
-          const int fileRetries = 2;
-          for (int retry = 0; retry < fileRetries && !sourceLoaded; retry++) {
+          final localPlaybackSource = _localSource(sourcePath);
+          if (useWebBlob) {
             try {
-              if (retry > 0) {
-                debugPrint('🔄 Retrying file load: $retry/$fileRetries');
-                await Future<void>.delayed(const Duration(milliseconds: 50)); // Minimal delay for local files
-              }
-
-              // Use a generous timeout; local file prepare can be slow on some devices.
               await _audioPlayer
-                  .setSource(DeviceFileSource(sourcePath))
-                  .timeout(
-                    const Duration(seconds: 45),
-                    onTimeout: () {
-                      throw TimeoutException('File load timeout');
-                    },
-                  );
-
+                  .setSource(localPlaybackSource)
+                  .timeout(const Duration(seconds: 30));
               sourceLoaded = true;
-              debugPrint('✅ File source set successfully');
-              break;
+              debugPrint('✅ Web blob source set successfully');
             } catch (e) {
-              _handleError(e, 'loading file (attempt ${retry + 1})');
+              _handleError(e, 'loading web blob');
             }
-          }
+          } else {
+            const int fileRetries = 2;
+            for (int retry = 0; retry < fileRetries && !sourceLoaded; retry++) {
+              try {
+                if (retry > 0) {
+                  debugPrint('🔄 Retrying file load: $retry/$fileRetries');
+                  await Future<void>.delayed(const Duration(milliseconds: 50));
+                }
 
-          // اگر setSource نتونست تموم بشه ولی فایل سالمه، یک بار play مستقیم امتحان کن
-          // (روی بعضی دیوایس‌ها setSource دیر resolve میشه ولی play بهتر جواب میده)
-          if (!sourceLoaded) {
+                await _audioPlayer
+                    .setSource(localPlaybackSource)
+                    .timeout(
+                      const Duration(seconds: 45),
+                      onTimeout: () {
+                        throw TimeoutException('File load timeout');
+                      },
+                    );
+
+                sourceLoaded = true;
+                debugPrint('✅ File source set successfully');
+                break;
+              } catch (e) {
+                _handleError(e, 'loading file (attempt ${retry + 1})');
+              }
+            }
+
+            if (!sourceLoaded) {
               try {
                 final file = File(sourcePath);
                 if (await file.exists() && await file.length() > 0) {
                   debugPrint('🔁 Trying direct play from local file: $sourcePath');
                   await _audioPlayer
-                      .play(DeviceFileSource(sourcePath))
-                      .timeout(const Duration(seconds: 10)); // Reduced timeout
+                      .play(localPlaybackSource)
+                      .timeout(const Duration(seconds: 10));
                   sourceLoaded = true;
                   debugPrint('✅ Direct local play started');
                 }
               } catch (e) {
                 _handleError(e, 'direct local play fallback');
               }
+            }
           }
         }
       }
 
       // Second priority: stream from URL (no download before play)
       if (!sourceLoaded) {
-        debugPrint('🌐 Streaming from URL: ${music.title} ($normalizedUrl)');
+        final streamUrl = MusicMediaUrlService.playbackUrl(normalizedUrl);
+        debugPrint('🌐 Streaming from URL: ${music.title} ($streamUrl)');
         const int maxRetries = 2;
         for (int retry = 0; retry <= maxRetries && !sourceLoaded; retry++) {
           try {
@@ -652,7 +741,7 @@ class MusicPlayerService extends ChangeNotifier {
             }
 
             await _audioPlayer
-                .setSource(UrlSource(normalizedUrl))
+                .setSource(_streamingSource(normalizedUrl))
                 .timeout(
                   const Duration(seconds: 30),
                   onTimeout: () {
@@ -667,7 +756,7 @@ class MusicPlayerService extends ChangeNotifier {
             // This will be triggered when music finishes playing
           } catch (e) {
             _handleError(e, 'streaming URL (attempt ${retry + 1})');
-            if (retry == maxRetries && localPath != null && useLocalFile) {
+            if (retry == maxRetries && localPath != null && useLocalFile && !useWebBlob) {
               // Last resort: try local file one more time with longer timeout
               try {
                 final file = File(localPath);
@@ -679,9 +768,9 @@ class MusicPlayerService extends ChangeNotifier {
                   } catch (_) {
                     // Ignore stop errors
                   }
-                  
+
                   await _audioPlayer
-                      .setSource(DeviceFileSource(localPath))
+                      .setSource(_localSource(localPath))
                       .timeout(const Duration(seconds: 10));
                   sourceLoaded = true;
                   debugPrint('✅ Fallback to local file successful');
@@ -691,6 +780,10 @@ class MusicPlayerService extends ChangeNotifier {
               }
             }
           }
+        }
+
+        if (!sourceLoaded && kIsWeb) {
+          sourceLoaded = await _tryWebProxyBlobPlayback(normalizedUrl);
         }
       }
 
@@ -734,7 +827,7 @@ class MusicPlayerService extends ChangeNotifier {
         // For local files, use play() directly (faster)
         if (useLocalFile && sourcePath != null) {
           try {
-            final source = DeviceFileSource(sourcePath);
+            final source = _localSource(sourcePath);
             await _audioPlayer
                 .play(source)
                 .timeout(
@@ -795,9 +888,11 @@ class MusicPlayerService extends ChangeNotifier {
           try {
             await _audioPlayer.stop().timeout(const Duration(milliseconds: 100));
             // No delay needed here
-            final source = useLocalFile && sourcePath != null
-                ? DeviceFileSource(sourcePath)
-                : UrlSource(normalizedUrl);
+            final source = _playbackSource(
+              normalizedUrl: normalizedUrl,
+              useLocalFile: useLocalFile,
+              sourcePath: sourcePath,
+            );
             await _audioPlayer
                 .play(source)
                 .timeout(
@@ -1046,27 +1141,30 @@ class MusicPlayerService extends ChangeNotifier {
             );
             final savedPosition = _position;
 
-            String? cachedPath;
+            String? localPath;
             try {
-              cachedPath = await _cacheService.getCachedPath(normalizedUrl);
+              localPath =
+                  await _cacheService.getBestLocalPathForPlayback(normalizedUrl);
             } catch (e) {
-              _handleError(e, 'getCachedPath in togglePlayPause');
+              _handleError(e, 'getBestLocalPathForPlayback in togglePlayPause');
             }
 
-            Source source = UrlSource(normalizedUrl);
-            if (cachedPath != null) {
-              final file = File(cachedPath);
-              if (await file.exists() && await file.length() > 0) {
-                // Validate file is readable
-                try {
-                  final randomAccessFile = await file.open();
-                  await randomAccessFile.setPosition(0);
-                  await randomAccessFile.read(1024);
-                  await randomAccessFile.close();
-                  source = DeviceFileSource(cachedPath);
-                } catch (e) {
-                  debugPrint('⚠️ Cached file not readable in togglePlayPause: $e');
-                  // Use URL source instead
+            Source source = _streamingSource(normalizedUrl);
+            if (localPath != null) {
+              if (_isWebBlobPath(localPath)) {
+                source = _localSource(localPath);
+              } else {
+                final file = File(localPath);
+                if (await file.exists() && await file.length() > 0) {
+                  try {
+                    final randomAccessFile = await file.open();
+                    await randomAccessFile.setPosition(0);
+                    await randomAccessFile.read(1024);
+                    await randomAccessFile.close();
+                    source = DeviceFileSource(localPath);
+                  } catch (e) {
+                    debugPrint('⚠️ Cached file not readable in togglePlayPause: $e');
+                  }
                 }
               }
             }
@@ -1266,7 +1364,7 @@ class MusicPlayerService extends ChangeNotifier {
   }
 
   void _cacheCurrentTrackInBackground() {
-    if (_isCachingCurrentTrack) return;
+    if (_isCachingCurrentTrack || kIsWeb) return;
     
     final music = currentMusic;
     if (music == null) return;

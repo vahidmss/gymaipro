@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/custom_exercise.dart';
 import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/trainer_dashboard/screens/custom_exercise_editor_screen.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -271,10 +272,9 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            Image.network(
-                              exercise.imageUrls.first,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Icon(
+                            GymaiNetworkImage(
+                              imageUrl: exercise.imageUrls.first,
+                              errorWidget: Icon(
                                 LucideIcons.dumbbell,
                                 color: AppTheme.goldColor,
                                 size: 24.sp,

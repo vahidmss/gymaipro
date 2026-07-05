@@ -8,6 +8,7 @@ import 'package:gymaipro/models/custom_exercise.dart';
 import 'package:gymaipro/models/muscle_targets.dart';
 import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/trainer_dashboard/widgets/exercise_metadata_ai_flow.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/widgets/exercise_muscle_heatmap_widget.dart';
@@ -1177,12 +1178,11 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
                         isDark,
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(10.r),
-                          child: Image.network(
-                            url,
+                          child: GymaiNetworkImage(
+                            imageUrl: url,
                             width: 96.w,
                             height: 96.w,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => ColoredBox(
+                            errorWidget: ColoredBox(
                               color: Colors.grey[800]!,
                               child: Icon(
                                 LucideIcons.imageOff,

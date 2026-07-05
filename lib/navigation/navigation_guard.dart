@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gymaipro/auth/services/auth_state_service.dart';
@@ -35,12 +36,12 @@ class NavigationGuard {
         if (context.mounted) {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
+            const SnackBar(
+              content: Text(
                 'برای خروج دوباره دکمه بازگشت را بزنید',
                 style: TextStyle(fontFamily: AppTheme.fontFamily),
               ),
-              duration: const Duration(seconds: 2),
+              duration: Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -84,7 +85,21 @@ class NavigationGuard {
       );
 
       if (shouldExit ?? false) {
-        await SystemNavigator.pop();
+        if (kIsWeb) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'برای خروج تب مرورگر را ببندید',
+                  style: TextStyle(fontFamily: AppTheme.fontFamily),
+                ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        } else {
+          await SystemNavigator.pop();
+        }
       }
     } catch (e) {
       debugPrint('Error in handleBackPress: $e');

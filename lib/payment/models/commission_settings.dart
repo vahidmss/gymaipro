@@ -5,6 +5,7 @@ class CommissionSettings {
     required this.id,
     required this.commissionPercentage,
     required this.holdDays,
+    required this.editWindowDays,
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
@@ -16,6 +17,7 @@ class CommissionSettings {
       id: json['id'] as String,
       commissionPercentage: (json['commission_percentage'] as num).toDouble(),
       holdDays: json['hold_days'] as int,
+      editWindowDays: json['edit_window_days'] as int? ?? 3,
       isActive: json['is_active'] as bool? ?? true,
       createdBy: json['created_by'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -31,6 +33,9 @@ class CommissionSettings {
 
   /// تعداد روزهای انتظار قبل از قابل برداشت شدن
   final int holdDays;
+
+  /// فرصت ادیت برنامه پس از ارسال (روز)
+  final int editWindowDays;
 
   /// آیا تنظیمات فعال است؟
   final bool isActive;
@@ -49,6 +54,7 @@ class CommissionSettings {
       'id': id,
       'commission_percentage': commissionPercentage,
       'hold_days': holdDays,
+      'edit_window_days': editWindowDays,
       'is_active': isActive,
       'created_by': createdBy,
       'created_at': createdAt.toIso8601String(),
@@ -61,6 +67,7 @@ class CommissionSettings {
     String? id,
     double? commissionPercentage,
     int? holdDays,
+    int? editWindowDays,
     bool? isActive,
     String? createdBy,
     DateTime? createdAt,
@@ -70,6 +77,7 @@ class CommissionSettings {
       id: id ?? this.id,
       commissionPercentage: commissionPercentage ?? this.commissionPercentage,
       holdDays: holdDays ?? this.holdDays,
+      editWindowDays: editWindowDays ?? this.editWindowDays,
       isActive: isActive ?? this.isActive,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,

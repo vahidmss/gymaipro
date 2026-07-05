@@ -1,7 +1,7 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/profile/models/picked_profile_image.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
@@ -88,9 +88,9 @@ class ProfileImageWidgets {
   static Future<void> pickImageFromSource(
     ImageSource source,
     BuildContext context,
-    void Function(File) onImageSelected,
+    void Function(PickedProfileImage image) onImageSelected,
   ) async {
-    Navigator.pop(context); // بستن bottom sheet
+    Navigator.pop(context);
 
     try {
       final picker = ImagePicker();
@@ -101,18 +101,21 @@ class ProfileImageWidgets {
         imageQuality: 90,
       );
 
-      if (image != null) {
-        if (!context.mounted) return;
-        // Crop the image
-        // Crop the image to circle
-        final croppedFile = await _cropImage(image.path, context);
+      if (image == null) return;
+      if (!context.mounted) return;
 
-        if (croppedFile != null) {
-          onImageSelected(File(croppedFile.path));
+      final croppedFile = await _cropImage(image.path, context);
+      if (croppedFile == null) return;
 
-          // Auto-save در صفحه پروفایل انجام می‌شود؛ اینجا پیام راهنما لازم نیست
-        }
-      }
+      final bytes = await croppedFile.readAsBytes();
+      if (bytes.isEmpty) return;
+
+      onImageSelected(
+        PickedProfileImage(
+          bytes: bytes,
+          fileName: 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        ),
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -143,7 +146,7 @@ class ProfileImageWidgets {
     BuildContext context,
   ) async {
     try {
-      final croppedFile = await ImageCropper().cropImage(
+      return await ImageCropper().cropImage(
         sourcePath: imagePath,
         maxWidth: 1024,
         maxHeight: 1024,
@@ -154,16 +157,13 @@ class ProfileImageWidgets {
             toolbarWidgetColor: const Color(0xFFFFFFFF),
             backgroundColor: const Color(0xFF000000),
             activeControlsWidgetColor: const Color(0xFFD4AF37),
-            // تنظیمات برای ظاهر دایره‌ای مثل اینستاگرام
             cropFrameColor: const Color(0xFFD4AF37),
             dimmedLayerColor: const Color(0xFF000000).withValues(alpha: 0.1),
-            statusBarColor: const Color(0xFF000000),
-            // شکل دایره‌ای
             cropStyle: CropStyle.circle,
             cropFrameStrokeWidth: 2,
-            showCropGrid: false, // حذف grid برای ظاهر تمیزتر
+            showCropGrid: false,
             lockAspectRatio: true,
-            hideBottomControls: true, // حذف کنترل‌های پایین
+            hideBottomControls: true,
             initAspectRatio: CropAspectRatioPreset.square,
           ),
           IOSUiSettings(
@@ -174,12 +174,24 @@ class ProfileImageWidgets {
             resetAspectRatioEnabled: false,
             aspectRatioPickerButtonHidden: true,
             hidesNavigationBar: false,
+            cropStyle: CropStyle.circle,
           ),
-          WebUiSettings(context: context),
+          WebUiSettings(
+            context: context,
+            size: const CropperSize(width: 520, height: 520),
+            dragMode: WebDragMode.crop,
+            initialAspectRatio: 1,
+            guides: false,
+            center: true,
+            highlight: true,
+            background: true,
+            movable: true,
+            rotatable: false,
+            scalable: true,
+            zoomable: true,
+          ),
         ],
       );
-
-      return croppedFile;
     } catch (e) {
       debugPrint('خطا در برش تصویر: $e');
       if (context.mounted) {
@@ -246,18 +258,19 @@ class ProfileImageWidgets {
               const SizedBox(height: 20),
               Row(
                 children: [
-                  Expanded(
-                    child: buildImageOption(
-                      icon: LucideIcons.camera,
-                      title: 'دوربین',
-                      onTap: () => onSourceSelected(ImageSource.camera),
+                  if (!kIsWeb)
+                    Expanded(
+                      child: buildImageOption(
+                        icon: LucideIcons.camera,
+                        title: 'دوربین',
+                        onTap: () => onSourceSelected(ImageSource.camera),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
+                  if (!kIsWeb) const SizedBox(width: 12),
                   Expanded(
                     child: buildImageOption(
                       icon: LucideIcons.image,
-                      title: 'گالری',
+                      title: kIsWeb ? 'انتخاب فایل' : 'گالری',
                       onTap: () => onSourceSelected(ImageSource.gallery),
                     ),
                   ),
@@ -301,10 +314,8 @@ class ProfileImageWidgets {
     BuildContext context,
     VoidCallback onConfirmRemove,
   ) {
-    // بستن bottom sheet
     Navigator.pop(context);
 
-    // نمایش دیالوگ تایید
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -352,9 +363,7 @@ class ProfileImageWidgets {
             ),
             ElevatedButton(
               onPressed: () {
-                // بستن دیالوگ
                 Navigator.pop(dialogContext);
-                // اجرای callback
                 onConfirmRemove();
               },
               style: ElevatedButton.styleFrom(

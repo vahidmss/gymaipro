@@ -140,7 +140,11 @@ class SupabaseService {
   /// Register user with phone number
   Future<Session?> signUpWithPhone(String phoneNumber, String username) async {
     try {
-      await testDatabaseConnection();
+      try {
+        await testDatabaseConnection();
+      } catch (e) {
+        debugPrint('signUpWithPhone: DB probe failed, continuing: $e');
+      }
       final normalizedPhone = normalizePhoneNumber(phoneNumber);
       return await _registerRealUser(normalizedPhone, username);
     } catch (e) {
@@ -289,9 +293,15 @@ class SupabaseService {
   }
 
   /// Test database connection
-  Future<void> testDatabaseConnection() async {
+  Future<void> testDatabaseConnection({
+    Duration timeout = const Duration(seconds: 6),
+  }) async {
     try {
-      await client.from('profiles').select('count').limit(1);
+      await client
+          .from('profiles')
+          .select('count')
+          .limit(1)
+          .timeout(timeout);
     } catch (e) {
       throw Exception('Database connection failed: $e');
     }
@@ -471,14 +481,23 @@ class SupabaseService {
     }
   }
 
-  // Upload profile image
-  Future<String?> uploadProfileImage(String userId, File imageFile) async {
+  // Upload profile image (bytes — works on web and native).
+  Future<String?> uploadProfileImageBytes(
+    String userId,
+    Uint8List bytes, {
+    String extension = 'jpg',
+    String mimeType = 'image/jpeg',
+  }) async {
     try {
-      final fileExt = imageFile.path.split('.').last;
-      final fileName = '$userId-${DateTime.now().toIso8601String()}.$fileExt';
+      final fileName =
+          '$userId-${DateTime.now().toIso8601String()}.$extension';
       final filePath = 'public/$fileName';
 
-      await client.storage.from('profile_images').upload(filePath, imageFile);
+      await client.storage.from('profile_images').uploadBinary(
+            filePath,
+            bytes,
+            fileOptions: FileOptions(contentType: mimeType, upsert: true),
+          );
 
       final imageUrlResponse = client.storage
           .from('profile_images')
@@ -498,5 +517,18 @@ class SupabaseService {
       }
       rethrow;
     }
+  }
+
+  // Upload profile image from filesystem (native).
+  Future<String?> uploadProfileImage(String userId, File imageFile) async {
+    final bytes = await imageFile.readAsBytes();
+    final fileExt = imageFile.path.split('.').last.toLowerCase();
+    final mime = fileExt == 'png' ? 'image/png' : 'image/jpeg';
+    return uploadProfileImageBytes(
+      userId,
+      bytes,
+      extension: fileExt == 'png' ? 'png' : 'jpg',
+      mimeType: mime,
+    );
   }
 }

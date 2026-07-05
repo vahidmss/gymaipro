@@ -3,6 +3,7 @@
 import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/models/exercise_rich_meta.dart';
 import 'package:gymaipro/models/muscle_targets.dart';
+import 'package:gymaipro/utils/wordpress_media.dart';
 
 class Exercise {
   Exercise({
@@ -204,21 +205,20 @@ class Exercise {
       return baseTime;
     }
 
-    // image url: ALWAYS prefer WP featured image (ignore meta.image_url entirely)
-    String imageUrl = '';
-    try {
-      final embedded = json['_embedded'];
-      if (embedded is Map &&
-          embedded['wp:featuredmedia'] is List &&
-          (embedded['wp:featuredmedia'] as List).isNotEmpty) {
-        final media = (embedded['wp:featuredmedia'] as List).first;
-        final src = (media is Map) ? media['source_url'] : null;
-        if (src is String && src.isNotEmpty) imageUrl = src;
-      }
-    } catch (_) {}
+    // image url: ALWAYS prefer WP featured image (ignore meta.image_url entirely).
+    // Prefer a resized variant to save bandwidth; falls back to the original.
+    String imageUrl = WordPressMedia.bestFeaturedImageUrl(json) ?? '';
     if (imageUrl.isEmpty) {
       final fi = json['featured_image'];
       if (fi is String && fi.isNotEmpty) imageUrl = fi;
+    }
+    // SharedPreferences list cache uses `toJson()` (`imageUrl` camelCase), not WP _embedded.
+    final cachedImageUrl = json['imageUrl'];
+    final usedCachedImageUrl = imageUrl.isEmpty &&
+        cachedImageUrl is String &&
+        cachedImageUrl.isNotEmpty;
+    if (usedCachedImageUrl) {
+      imageUrl = cachedImageUrl;
     }
     // NOTE: cached exercises use `toJson()` which stores `title` as a String.
     // WP payload uses `title` as a Map with `rendered`.
@@ -228,7 +228,9 @@ class Exercise {
         (titleObj is Map) ? titleObj['rendered'] : titleObj;
     final String versionTag =
         modified.isNotEmpty ? modified : (titleRenderedOrValue ?? '').toString();
-    imageUrl = _appendVersion(imageUrl, versionTag);
+    if (!usedCachedImageUrl) {
+      imageUrl = _appendVersion(imageUrl, versionTag);
+    }
 
     final String contentText = readStr('learn').isNotEmpty
         ? readStr('learn')

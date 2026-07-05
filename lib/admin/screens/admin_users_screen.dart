@@ -463,49 +463,31 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('تغییر نقش کاربر'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('ورزشکار'),
-              leading: Radio<String>(
-                value: 'athlete',
-                groupValue: user.role,
-                onChanged: (value) {
-                  if (value != null) {
-                    Navigator.pop(context);
-                    _updateUserRole(user, value);
-                  }
-                },
+        content: RadioGroup<String>(
+          groupValue: user.role,
+          onChanged: (value) {
+            if (value != null) {
+              Navigator.pop(context);
+              _updateUserRole(user, value);
+            }
+          },
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text('ورزشکار'),
+                leading: Radio<String>(value: 'athlete'),
               ),
-            ),
-            ListTile(
-              title: const Text('مربی'),
-              leading: Radio<String>(
-                value: 'trainer',
-                groupValue: user.role,
-                onChanged: (value) {
-                  if (value != null) {
-                    Navigator.pop(context);
-                    _updateUserRole(user, value);
-                  }
-                },
+              ListTile(
+                title: Text('مربی'),
+                leading: Radio<String>(value: 'trainer'),
               ),
-            ),
-            ListTile(
-              title: const Text('ادمین'),
-              leading: Radio<String>(
-                value: 'admin',
-                groupValue: user.role,
-                onChanged: (value) {
-                  if (value != null) {
-                    Navigator.pop(context);
-                    _updateUserRole(user, value);
-                  }
-                },
+              ListTile(
+                title: Text('ادمین'),
+                leading: Radio<String>(value: 'admin'),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

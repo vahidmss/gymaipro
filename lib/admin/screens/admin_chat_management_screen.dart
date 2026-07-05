@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/admin/services/admin_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// صفحه مدیریت چت‌های خصوصی
@@ -318,12 +319,11 @@ class _AdminChatManagementScreenState extends State<AdminChatManagementScreen> {
                                   if (attachmentUrl != null && attachmentType == 'image')
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(8.r),
-                                      child: Image.network(
-                                        attachmentUrl,
+                                      child: GymaiNetworkImage(
+                                        imageUrl: attachmentUrl,
                                         width: 200.w,
                                         height: 200.h,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) =>
+                                        errorWidget:
                                             const Icon(LucideIcons.imageOff),
                                       ),
                                     )

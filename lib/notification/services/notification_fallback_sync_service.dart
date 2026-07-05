@@ -1,12 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:gymaipro/core/foreground_resume_coordinator.dart';
 import 'package:gymaipro/chat/services/chat_service.dart';
 import 'package:gymaipro/chat/services/chat_unread_sync_bus.dart';
 import 'package:gymaipro/notification/gateway/notification_delivery_gateway.dart';
+import 'package:gymaipro/notification/push_notification_policy.dart';
+import 'package:gymaipro/notification/utils/notification_tray_dedupe.dart';
 import 'package:gymaipro/notification/notification_service.dart';
 import 'package:gymaipro/notification/repositories/notification_repository.dart';
 import 'package:gymaipro/notification/services/notification_sync_bus.dart';
+import 'package:gymaipro/notification/services/push_health_monitor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -59,7 +63,6 @@ class NotificationFallbackSyncService {
   final NotificationDeliveryGateway _deliveryGateway =
       FcmNotificationDeliveryGateway();
   final NotificationService _notificationService = NotificationService();
-  DateTime? _lastFallbackChatNotifyAt;
   DateTime? _lastFallbackFriendRequestNotifyAt;
 
   static const String _kLastSyncAtKey = 'notif_fallback_last_sync_at';
@@ -79,6 +82,10 @@ class NotificationFallbackSyncService {
   static const int _kInitMinIntervalMs = 25000;
 
   Future<void> syncOnForeground({String reason = 'resume'}) async {
+    if (!ForegroundResumeCoordinator.shouldRunFallbackSync(reason)) {
+      return;
+    }
+
     final startedAt = DateTime.now();
     final prefs = await SharedPreferences.getInstance();
     if (!_shouldRunSync(prefs: prefs, reason: reason, now: startedAt)) {
@@ -96,8 +103,8 @@ class NotificationFallbackSyncService {
         return;
       }
 
-      final health = await _deliveryGateway.healthCheck();
-      if (!health.backendReachable) {
+      final postSyncHealth = await _deliveryGateway.healthCheck();
+      if (!postSyncHealth.backendReachable) {
         await _markSuccess(
           prefs: prefs,
           startedAt: startedAt,
@@ -106,13 +113,12 @@ class NotificationFallbackSyncService {
         return;
       }
 
-      final preSyncHealth = await _deliveryGateway.healthCheck();
-
       // FCM may be blocked (e.g. filtered networks). Never block unread/badge sync.
       unawaited(_syncPushProviderInBackground(reason));
 
-      final postSyncHealth = preSyncHealth;
-      final previousUnreadChats = prefs.getInt(_kLastUnreadChatsKey) ?? 0;
+      // Cache the live push health so the whole app can route each alert to a
+      // single channel (FCM vs in-app) without probing again.
+      PushHealthMonitor.instance.update(postSyncHealth);
       final previousPendingFriendRequests =
           prefs.getInt(_kLastPendingFriendRequestsKey) ?? 0;
       if (!postSyncHealth.canDeliverPush) {
@@ -140,12 +146,10 @@ class NotificationFallbackSyncService {
         pendingFriendRequests,
       );
 
-      await _maybeNotifyChatFallback(
-        previousUnreadChats: previousUnreadChats,
-        unreadChats: unreadChats,
-        reason: reason,
-        pushHealthy: postSyncHealth.canDeliverPush,
-      );
+      // NOTE: Chat trays are handled exclusively by ChatUnreadNotifier
+      // (named, per-conversation, deduped). We intentionally do NOT raise a
+      // generic "you have a new message" tray here — doing so produced a
+      // duplicate alert alongside the named one.
 
       await _maybeNotifyFriendRequestFallback(
         previousPending: previousPendingFriendRequests,
@@ -313,45 +317,6 @@ class NotificationFallbackSyncService {
     return baseIntervalMs;
   }
 
-  Future<void> _maybeNotifyChatFallback({
-    required int previousUnreadChats,
-    required int unreadChats,
-    required String reason,
-    required bool pushHealthy,
-  }) async {
-    // No new unread chats.
-    if (unreadChats <= previousUnreadChats) return;
-
-    // Avoid notifications during manual debug runs.
-    if (reason == 'manual_debug') return;
-
-    // If push is healthy, FCM should handle delivery.
-    if (pushHealthy) return;
-
-    // Guard against bursts/duplicate local alerts near realtime path.
-    if (_lastFallbackChatNotifyAt != null &&
-        DateTime.now().difference(_lastFallbackChatNotifyAt!) <
-            const Duration(seconds: 20)) {
-      return;
-    }
-
-    try {
-      final newChats = unreadChats - previousUnreadChats;
-      _lastFallbackChatNotifyAt = DateTime.now();
-      await _notificationService.showCustomNotification(
-        title: '💬 پیام جدید',
-        body: newChats > 1
-            ? '$newChats گفت‌وگوی جدید پیام نخوانده دارند'
-            : 'یک پیام جدید دریافت کردید',
-        payload: '{"type":"chat_message_fallback","source":"fallback_sync"}',
-      );
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('NotificationFallbackSync local chat notify error: $e');
-      }
-    }
-  }
-
   Future<void> _maybeNotifyFriendRequestFallback({
     required int previousPending,
     required int pendingNow,
@@ -360,7 +325,17 @@ class NotificationFallbackSyncService {
   }) async {
     if (pendingNow <= previousPending) return;
     if (reason == 'manual_debug') return;
-    // حتی با FCM token، push ممکن است فیلتر باشد — tray محلی لازم است.
+
+    if (!PushNotificationPolicy.shouldShowFallbackTray(
+      pushHealthy: pushHealthy,
+    )) {
+      return;
+    }
+
+    final dedupeKey = NotificationTrayDedupe.friendRequestKey(
+      requestId: '$previousPending->$pendingNow',
+    );
+    if (!NotificationTrayDedupe.shouldShow(dedupeKey)) return;
 
     if (_lastFallbackFriendRequestNotifyAt != null &&
         DateTime.now().difference(_lastFallbackFriendRequestNotifyAt!) <

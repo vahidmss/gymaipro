@@ -2,6 +2,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/achievements/services/achievement_service.dart';
@@ -11,6 +12,7 @@ import 'package:gymaipro/core/app_initializer.dart';
 import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/core/lifecycle_observer.dart';
 import 'package:gymaipro/core/performance_monitor.dart';
+import 'package:gymaipro/core/web_interaction.dart';
 import 'package:gymaipro/debug/global_key_debugger.dart';
 import 'package:gymaipro/guide/guide.dart';
 import 'package:gymaipro/payment/services/payment_deeplink_service.dart';
@@ -33,6 +35,9 @@ import 'package:responsive_framework/responsive_framework.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kIsWeb) {
+    usePathUrlStrategy();
+  }
   AppErrorHandler.initialize();
   runApp(const BootstrapApp());
 }
@@ -587,6 +592,7 @@ class _MyAppState extends State<MyApp> {
               return MaterialApp(
                 title: 'GymAI Pro',
                 debugShowCheckedModeBanner: false,
+                scrollBehavior: WebInteraction.scrollBehavior,
                 navigatorKey: appNavigatorKey,
                 locale: const Locale('fa'),
                 builder: (context, child) {
@@ -646,6 +652,14 @@ class _MyAppState extends State<MyApp> {
                 darkTheme: AppTheme.darkTheme,
                 themeMode: themeProvider.themeMode,
                 onGenerateRoute: RouteService.generateRoute,
+                // فقط یک مسیر اولیه بساز (نه استکِ پیش‌فرضِ «/»+«/main»)؛
+                // در غیر این‌صورت MainNavigationScreen دوبار ساخته می‌شود و همهٔ
+                // درخواست‌های شبکه (موزیک، تمرین، مربی، ویدیو) دوبار اجرا می‌شوند.
+                onGenerateInitialRoutes: (initialRouteName) => <Route<dynamic>>[
+                  RouteService.generateRoute(
+                    RouteSettings(name: initialRouteName),
+                  ),
+                ],
                 initialRoute: widget.initialRoute,
               );
             },

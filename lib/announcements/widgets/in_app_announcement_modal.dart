@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/announcements/models/in_app_announcement.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -195,19 +196,16 @@ class InAppAnnouncementModal extends StatelessWidget {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(14.r),
-      child: Image.network(
-        mediaUrl,
+      child: GymaiNetworkImage(
+        imageUrl: mediaUrl,
         width: double.infinity,
         height: 180.h,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) {
-          return Container(
-            height: 120.h,
-            color: isDark ? Colors.black26 : Colors.black12,
-            alignment: Alignment.center,
-            child: const Text('خطا در بارگذاری تصویر'),
-          );
-        },
+        errorWidget: Container(
+          height: 120.h,
+          color: isDark ? Colors.black26 : Colors.black12,
+          alignment: Alignment.center,
+          child: const Text('خطا در بارگذاری تصویر'),
+        ),
       ),
     );
   }
