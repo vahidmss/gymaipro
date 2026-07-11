@@ -12,6 +12,7 @@ import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/payment/widgets/purchase_success_dialog.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_ranking/models/certificate.dart';
 import 'package:gymaipro/trainer_ranking/models/trainer_ranking_model.dart'
@@ -89,7 +90,10 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
   String? _discountCode;
   int _walletBalance = 0;
   bool _hasVisibleChannel = false;
+  bool _isChannelOwner = false;
   final TrainerChannelService _channelService = TrainerChannelService();
+
+  bool get _showChannelEntry => _hasVisibleChannel || _isChannelOwner;
 
   @override
   void initState() {
@@ -129,11 +133,18 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
 
   Future<void> _loadChannelVisibility() async {
     try {
+      final profile = await SimpleProfileService.getCurrentProfile();
+      final myId = profile?['id']?.toString();
+      final isOwner =
+          myId != null && myId == widget.trainer.id?.toString();
       final visible = await _channelService.isChannelVisibleToPublic(
         widget.trainer.id!,
       );
       if (mounted) {
-        SafeSetState.call(this, () => _hasVisibleChannel = visible);
+        SafeSetState.call(this, () {
+          _hasVisibleChannel = visible;
+          _isChannelOwner = isOwner;
+        });
       }
     } catch (_) {}
   }
@@ -733,11 +744,11 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          if (_hasVisibleChannel)
+          if (_showChannelEntry)
             IconButton(
               onPressed: _openTrainerChannel,
               icon: Icon(LucideIcons.radio, color: AppTheme.goldColor, size: 20.sp),
-              tooltip: 'کانال',
+              tooltip: _isChannelOwner ? 'کانال من' : 'کانال',
             ),
           IconButton(
             onPressed: _messageTrainer,
@@ -937,7 +948,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
               ),
             ],
           ),
-          if (_hasVisibleChannel) ...[
+          if (_showChannelEntry) ...[
             SizedBox(height: 10.h),
             SizedBox(
               width: double.infinity,
@@ -945,7 +956,9 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                 onPressed: _openTrainerChannel,
                 icon: Icon(LucideIcons.radio, size: 16.sp, color: AppTheme.goldColor),
                 label: Text(
-                  'مشاهده کانال',
+                  _isChannelOwner && !_hasVisibleChannel
+                      ? 'کانال من'
+                      : 'مشاهده کانال',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 13.sp,

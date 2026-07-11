@@ -15,6 +15,7 @@ class ChatMainScreen extends StatefulWidget {
   });
 
   final int initialTabIndex;
+
   /// When embedded in [MainNavigationScreen], only the visible tab handles back.
   final bool isActiveTab;
 
@@ -83,27 +84,34 @@ class _ChatMainScreenState extends State<ChatMainScreen>
                 ),
               ),
               SizedBox(width: 12.w),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'گفتگو',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18.sp,
-                      color: context.textColor,
+              Flexible(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'گفتگو',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18.sp,
+                        color: context.textColor,
+                      ),
                     ),
-                  ),
-                  Text(
-                    'پیام‌های خصوصی و چت همگانی',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 12.sp,
-                      color: context.textSecondary,
+                    Text(
+                      'پیام‌های خصوصی و چت همگانی',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 12.sp,
+                        color: context.textSecondary,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -126,10 +134,7 @@ class _ChatMainScreenState extends State<ChatMainScreen>
               child: TabBarView(
                 controller: _tabController,
                 physics: WebInteraction.tabBarViewPhysics,
-                children: const [
-                  ChatConversationsScreen(),
-                  PublicChatWidget(),
-                ],
+                children: const [ChatConversationsScreen(), PublicChatWidget()],
               ),
             ),
           ],
@@ -186,9 +191,7 @@ class _ChatMainScreenState extends State<ChatMainScreen>
       child: TabBar(
         controller: _tabController,
         indicator: BoxDecoration(
-          gradient: LinearGradient(
-            colors: context.goldGradientColors,
-          ),
+          gradient: LinearGradient(colors: context.goldGradientColors),
           borderRadius: BorderRadius.circular(12.r),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
@@ -271,7 +274,10 @@ class _ChatMainScreenState extends State<ChatMainScreen>
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
-                leading: const Icon(LucideIcons.bell, color: AppTheme.goldColor),
+                leading: const Icon(
+                  LucideIcons.bell,
+                  color: AppTheme.goldColor,
+                ),
                 title: Text(
                   'اعلان‌ها',
                   style: TextStyle(

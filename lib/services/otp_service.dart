@@ -1,9 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:gymaipro/auth/utils/otp_autofill_helper.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/core/client_secret_guard.dart';
 import 'package:http/http.dart' as http;
-import 'package:sms_autofill/sms_autofill.dart' as sms;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OTPService {
@@ -24,6 +25,11 @@ class OTPService {
         return _sendViaServer(normalizedPhone);
       }
 
+      if (ClientSecretGuard.blocksClientSmsCredentials) {
+        debugPrint('OTP: client route blocked on web — use server Edge Function');
+        return false;
+      }
+
       final code = generateOTP();
       return _sendViaClient(normalizedPhone, code);
     } catch (e) {
@@ -34,9 +40,14 @@ class OTPService {
 
   static Future<bool> _sendViaServer(String normalizedPhone) async {
     try {
+      final appSignature = await OtpAutofillHelper.fetchAppSignature();
+
       final response = await Supabase.instance.client.functions.invoke(
         'send-otp',
-        body: {'phone_number': normalizedPhone},
+        body: {
+          'phone_number': normalizedPhone,
+          if (appSignature != null) 'app_signature': appSignature,
+        },
       );
 
       final data = _decodeResponseData(response.data);
@@ -66,8 +77,7 @@ class OTPService {
   ) async {
     String? appSignature;
     try {
-      appSignature = await sms.SmsAutoFill().getAppSignature;
-      debugPrint('📱 App Signature for SMS: $appSignature');
+      appSignature = await OtpAutofillHelper.fetchAppSignature();
     } catch (e) {
       debugPrint('⚠️ Could not get app signature: $e');
     }
@@ -106,10 +116,10 @@ class OTPService {
       }
 
       final String message;
-      if (appSignature != null && appSignature.isNotEmpty) {
-        message = '<#> کد تایید شما: $code\n$appSignature';
+      if (bodyId > 0) {
+        message = OtpAutofillHelper.payamakPatternText(code, appSignature);
       } else {
-        message = 'کد تایید شما: $code\nGymAI Pro';
+        message = OtpAutofillHelper.freeTextMessage(code, appSignature);
       }
 
       final url = Uri.parse(baseUrl);
@@ -181,6 +191,11 @@ class OTPService {
 
       if (AppConfig.otpUseServerRoute) {
         return _verifyViaServer(normalizedPhone, code);
+      }
+
+      if (ClientSecretGuard.blocksClientSmsCredentials) {
+        debugPrint('OTP verify: client route blocked on web');
+        return false;
       }
 
       return _verifyOtpInSupabase(normalizedPhone, code);

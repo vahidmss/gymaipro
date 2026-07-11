@@ -1,7 +1,10 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:gymaipro/ai/config/coach_v2_config.dart';
+import 'package:gymaipro/ai/integration/coach_integration_service.dart';
 import 'package:gymaipro/ai/models/ai_chat_message.dart';
+import 'package:gymaipro/ai/prompt/prompt_package_renderer.dart';
 import 'package:gymaipro/ai/services/message_rate_limiter_service.dart';
 import 'package:gymaipro/ai/services/openai_service.dart';
 import 'package:gymaipro/ai/services/user_context_cache_service.dart';
@@ -15,6 +18,8 @@ class AIChatService {
   static final SupabaseClient _supabase = Supabase.instance.client;
   final OpenAIService _openAIService = OpenAIService();
   final MessageRateLimiterService _rateLimiter = MessageRateLimiterService();
+  final CoachIntegrationService _coachIntegrationService =
+      CoachIntegrationService();
 
   // کلیدهای SharedPreferences
   static const String _sessionsKey = 'ai_chat_sessions';
@@ -47,8 +52,9 @@ class AIChatService {
 
       // جدا کردن session های کاربر فعلی و کاربران دیگر
       final currentUserSessions = allSessions
-          .where((session) =>
-              session.isActive && session.userId == currentUserId)
+          .where(
+            (session) => session.isActive && session.userId == currentUserId,
+          )
           .toList();
       final otherUserSessions = allSessions
           .where((session) => session.userId != currentUserId)
@@ -75,9 +81,7 @@ class AIChatService {
         await prefs.setString(_sessionsKey, updatedSessionsJson);
 
         if (kDebugMode) {
-          print(
-            'AI Chat: Cleaned up ${otherUserSessions.length} old sessions',
-          );
+          print('AI Chat: Cleaned up ${otherUserSessions.length} old sessions');
         }
       }
 
@@ -394,6 +398,14 @@ class AIChatService {
         );
       }
 
+      if (CoachV2Config.coachV2Enabled) {
+        return _sendMessageWithCoachV2(
+          sessionId: sessionId,
+          content: content,
+          chatHistory: chatHistory,
+        );
+      }
+
       // دریافت اطلاعات کاربر برای context
       final userContext = await _getUserContext();
 
@@ -418,6 +430,43 @@ class AIChatService {
       }
       throw Exception('خطا در ارسال پیام: $e');
     }
+  }
+
+  Future<ChatMessage> _sendMessageWithCoachV2({
+    required String sessionId,
+    required String content,
+    required List<ChatMessage> chatHistory,
+  }) async {
+    final userId = _supabase.auth.currentUser?.id ?? 'local_user';
+    final integrationResult = await _coachIntegrationService.processMessage(
+      userId: userId,
+      userMessage: content,
+      metadata: const <String, Object?>{'surface': 'chat'},
+    );
+
+    final decision = integrationResult.decision;
+    if (!decision.shouldCallAI) {
+      final localResponse =
+          decision.followUpQuestion ??
+          decision.localResponse ??
+          'برای ادامه، لطفاً اطلاعات بیشتری بدهید.';
+      await saveAIMessage(sessionId: sessionId, content: localResponse);
+      return ChatMessage.ai(content: localResponse);
+    }
+
+    final promptPackage = integrationResult.promptPackage;
+    if (promptPackage == null) {
+      throw Exception('Coach v2 prompt package was not created.');
+    }
+
+    final systemPrompt = PromptPackageRenderer.render(promptPackage);
+    final aiResponse = await _openAIService.sendMessage(
+      messages: chatHistory,
+      systemPrompt: systemPrompt,
+    );
+
+    await saveAIMessage(sessionId: sessionId, content: aiResponse.content);
+    return aiResponse;
   }
 
   /// دریافت نام کاربر برای استفاده در پیام‌های خوش‌آمدگویی
@@ -469,8 +518,9 @@ class AIChatService {
         print('AI Chat: Cache not found, fetching from database');
       }
 
-      final profileResponse =
-          await ProfileRepository.instance.fetchProfile(userId);
+      final profileResponse = await ProfileRepository.instance.fetchProfile(
+        userId,
+      );
 
       return {'profile': profileResponse};
     } catch (e) {

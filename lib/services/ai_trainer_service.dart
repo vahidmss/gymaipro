@@ -26,7 +26,7 @@ class AITrainerService {
       final configuredId = AppConfig.aiTrainerProfileId.trim();
       if (configuredId.isNotEmpty) {
         final byId = await ProfileRepository.instance.fetchProfile(configuredId);
-        if (byId != null && byId['role'] == 'trainer') {
+        if (byId != null) {
           _aiTrainerId = byId['id'] as String;
           debugPrint('AI Trainer ID پیدا شد با config: $_aiTrainerId');
           return _aiTrainerId;
@@ -35,9 +35,16 @@ class AITrainerService {
 
       final byUsername =
           await ProfileRepository.instance.fetchProfileByUsername(systemUsername);
-      if (byUsername != null && byUsername['role'] == 'trainer') {
+      if (byUsername != null) {
         _aiTrainerId = byUsername['id'] as String;
-        debugPrint('AI Trainer ID پیدا شد با username: $_aiTrainerId');
+        final role = byUsername['role']?.toString() ?? '';
+        if (role != 'trainer') {
+          debugPrint(
+            'AI Trainer با username پیدا شد ولی role=$role است (trainer انتظار می‌رود)',
+          );
+        } else {
+          debugPrint('AI Trainer ID پیدا شد با username: $_aiTrainerId');
+        }
         return _aiTrainerId;
       }
 
@@ -125,6 +132,21 @@ class AITrainerService {
       debugPrint('AI Trainer با موفقیت ایجاد شد');
       return true;
     } catch (e) {
+      final message = e.toString();
+      if (message.contains('profiles_username_key') ||
+          message.contains('23505')) {
+        final existing =
+            await ProfileRepository.instance.fetchProfileByUsername(
+          systemUsername,
+        );
+        if (existing != null) {
+          _aiTrainerId = existing['id'] as String;
+          debugPrint(
+            'AI Trainer از قبل وجود داشت — ID بازیابی شد: $_aiTrainerId',
+          );
+          return true;
+        }
+      }
       debugPrint('خطا در ایجاد AI Trainer: $e');
       return false;
     }

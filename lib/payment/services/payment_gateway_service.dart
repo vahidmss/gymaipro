@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/core/client_secret_guard.dart';
 import 'package:gymaipro/payment/models/payment_transaction.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:http/http.dart' as http;
@@ -15,6 +16,17 @@ class PaymentGatewayService {
       PaymentGatewayService._internal();
 
   final http.Client _client = http.Client();
+
+  Uri get _zibalWordPressProxyBase =>
+      Uri.parse('${AppConfig.wordpressApiOrigin}/wp-json/gymaipro/v1/zibal');
+
+  void _ensureDirectGatewayAllowed() {
+    if (ClientSecretGuard.blocksDirectPaymentGatewayApi) {
+      throw Exception(
+        'درگاه پرداخت مستقیم روی وب پشتیبانی نمی‌شود. از زیبال (WordPress proxy) استفاده کنید.',
+      );
+    }
+  }
 
   /// درخواست پرداخت از زیبال
   Future<Map<String, dynamic>?> requestZibalPayment({
@@ -169,6 +181,27 @@ class PaymentGatewayService {
     required String trackId,
   }) async {
     try {
+      if (ClientSecretGuard.blocksDirectPaymentGatewayApi) {
+        final proxyUrl = Uri.parse('${_zibalWordPressProxyBase}/inquiry');
+        final response = await _client
+            .post(
+              proxyUrl,
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+              },
+              body: jsonEncode({'trackId': trackId}),
+            )
+            .timeout(PaymentConstants.connectionTimeout);
+
+        if (response.statusCode == 200) {
+          final responseData =
+              jsonDecode(response.body) as Map<String, dynamic>;
+          return {'success': true, 'data': responseData};
+        }
+        throw HttpException('خطا در استعلام: ${response.statusCode}');
+      }
+
       final url = Uri.parse(
         '${PaymentConstants.zibalBaseUrl}${PaymentConstants.zibalInquiryEndpoint}',
       );
@@ -213,6 +246,8 @@ class PaymentGatewayService {
     Map<String, dynamic>? metadata,
   }) async {
     try {
+      _ensureDirectGatewayAllowed();
+
       if (kDebugMode) {
         print(
           'درخواست پرداخت زرین‌پال - مبلغ: ${PaymentConstants.formatAmount(amount)}',
@@ -292,6 +327,8 @@ class PaymentGatewayService {
     required int amount,
   }) async {
     try {
+      _ensureDirectGatewayAllowed();
+
       if (kDebugMode) {
         print('تایید پرداخت زرین‌پال - authority: $authority');
       }

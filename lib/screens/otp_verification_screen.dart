@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/auth/utils/otp_autofill_helper.dart';
 import 'package:gymaipro/auth/screens/profile_completion_screen.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
 import 'package:gymaipro/debug/database_debug_service.dart';
@@ -37,7 +38,6 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
   Timer? _resendTimer;
   int _remainingTime = 60;
   bool _canResend = false;
-  String? _appSignature;
 
   @override
   void initState() {
@@ -48,41 +48,38 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
 
   Future<void> _initSmsAutofill() async {
     try {
-      // دریافت app signature برای Android SMS Retriever API
-      _appSignature = await sms.SmsAutoFill().getAppSignature;
-      if (_appSignature != null && mounted) {
-        debugPrint('📱 App Signature: $_appSignature');
-      }
-
-      // گوش دادن به SMS های دریافتی
-      listenForCode();
+      await OtpAutofillHelper.fetchAppSignature();
+      listenForCode(
+        smsCodeRegexPattern: OtpAutofillHelper.smsCodeRegexPattern,
+      );
     } catch (e) {
       debugPrint('⚠️ SMS Autofill initialization error: $e');
-      // اگر خطا داشت، ادامه می‌دهیم بدون autofill
     }
+  }
+
+  Future<void> _restartSmsAutofill() async {
+    await OtpAutofillHelper.restartNativeListener(cancel, listenForCode);
   }
 
   @override
   void codeUpdated() {
-    final digits = _extractOtpDigits(code);
-    if (digits == null || digits.length != 6) return;
+    final digits = OtpAutofillHelper.extractDigits(code);
+    if (digits == null || digits.length != OtpAutofillHelper.codeLength) {
+      return;
+    }
     if (!mounted || !_isActive || _isDisposed) return;
     if (!_otpController.isSafe) return;
 
-    _otpController.safeSetText(digits);
-    Future.delayed(const Duration(milliseconds: 500), () {
+    WidgetSafetyUtils.safeSetState(this, () {
+      _otpController.safeSetText(digits);
+      _errorMessage = null;
+    });
+
+    Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted && _isActive && !_isDisposed) {
         _verifyAndNavigate();
       }
     });
-  }
-
-  String? _extractOtpDigits(String? raw) {
-    if (raw == null || raw.isEmpty) return null;
-    final match = RegExp(r'\d{6}').firstMatch(raw);
-    if (match != null) return match.group(0);
-    final digitsOnly = raw.replaceAll(RegExp(r'\D'), '');
-    return digitsOnly.length >= 6 ? digitsOnly.substring(0, 6) : null;
   }
 
   @override
@@ -155,6 +152,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
       }
 
       await OTPService.sendOTP(widget.phoneNumber);
+      await _restartSmsAutofill();
 
       if (!_isActive || !mounted || _isDisposed) return;
 

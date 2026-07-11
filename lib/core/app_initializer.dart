@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:gymaipro/ai/config/ai_engine_config.dart';
 import 'package:gymaipro/ai/services/user_context_cache_service.dart';
 import 'package:gymaipro/auth/services/auth_state_service.dart';
 import 'package:gymaipro/config/app_config.dart';
@@ -185,28 +186,41 @@ class AppInitializer {
   }
 
   static Future<void> _loadEnvironmentVariables() async {
-    // Release و Web: فقط --dart-define (امنیت — .env در bundle وب قابل مشاهده است).
+    // Release و Web: فقط --dart-define (امنیت).
     if (kReleaseMode || kIsWeb) return;
     if (dotenv.isInitialized) return;
 
+    // اولویت: --dart-define-from-file=.env (بدون نیاز به asset در APK)
+    if (AppConfig.supabaseAnonKey.isNotEmpty) {
+      debugPrint('✅ Config loaded (--dart-define-from-file)');
+      final engine = AiEngineConfig.mode.name;
+      final route = AiEngineConfig.usesServerProxyRoute
+          ? 'server-proxy'
+          : (AppConfig.openaiApiKey.isNotEmpty ? 'direct' : 'none');
+      debugPrint('✅ AI engine: $engine (route=$route)');
+      return;
+    }
+
+    // fallback قدیمی: asset .env (اگر دوباره به pubspec اضافه شود)
     try {
       await dotenv.load();
-      debugPrint('✅ Environment variables loaded from .env');
-      final anon = dotenv.env['SUPABASE_ANON_KEY']?.trim() ?? '';
-      if (anon.isEmpty) {
-        debugPrint(
-          '⚠️ SUPABASE_ANON_KEY خالی است — ANON_KEY واقعی سرور را در .env بگذارید',
-        );
+      debugPrint('✅ Environment variables loaded from .env asset');
+      if (AppConfig.supabaseAnonKey.isEmpty) {
+        debugPrint('⚠️ SUPABASE_ANON_KEY خالی است');
       }
-      final engine = dotenv.env['AI_ENGINE_MODE'] ?? 'rule_based';
-      debugPrint('✅ AI engine: $engine');
     } catch (e) {
-      debugPrint('⚠️ Could not load .env: $e');
+      debugPrint('❌ Config not loaded: $e');
       debugPrint(
-        '   فایل .env در ریشه پروژه باشد و در pubspec.yaml تحت assets ثبت شده باشد.',
+        '   Android/iOS debug: flutter run --dart-define-from-file=.env',
       );
       debugPrint(
-        '   یا: flutter run --dart-define-from-file=.env',
+        '   یا از Cursor: Run → GymAI Pro (Android / iOS)',
+      );
+      debugPrint(
+        '   یا: .\\scripts\\run-android-debug.ps1',
+      );
+      debugPrint(
+        '   فایل .env: copy .env.example .env و SUPABASE_ANON_KEY را پر کنید',
       );
     }
   }

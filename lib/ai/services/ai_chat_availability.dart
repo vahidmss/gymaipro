@@ -18,8 +18,8 @@ String gymAiChatUnavailableMessage([AppAccessConfig? access]) {
   }
   if (!AiEngineConfig.canAttemptOpenAi) {
     return 'اتصال به سرویس هوش مصنوعی برقرار نیست. '
-        'OPENAI_USE_PROXY=true یا OPENAI_API_KEY را در .env تنظیم کنید '
-        '(یا AI_ENGINE_MODE=openai).';
+        'OPENAI_API_KEY را در env.web.json (وب) یا .env (موبایل) تنظیم کنید '
+        'و کلید را در OpenAI محدود کنید.';
   }
   return AppConfig.aiChatUnavailableMessage;
 }

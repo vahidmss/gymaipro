@@ -1883,36 +1883,133 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen>
               handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
             ),
             SliverToBoxAdapter(
-              child: AddCommentFormWidget(
-                focusNode: _commentFocusNode,
-                onSubmit: _addComment,
-                isLoading: _isSubmittingComment,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 12.h),
+                child: AddCommentFormWidget(
+                  focusNode: _commentFocusNode,
+                  onSubmit: _addComment,
+                  isLoading: _isSubmittingComment,
+                ),
               ),
             ),
-            if (_comments.isEmpty)
-              const SliverToBoxAdapter(child: SizedBox.shrink())
-            else
-              SliverList.separated(
-                itemCount: _comments.length,
-                separatorBuilder: (_, __) => Divider(
-                  height: 1,
-                  indent: 16.w,
-                  endIndent: 16.w,
-                  color: context.separatorColor.withValues(alpha: 0.5),
+            if (_comments.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 10.h),
+                  child: Row(
+                    children: [
+                      Icon(
+                        LucideIcons.messagesSquare,
+                        size: 18.sp,
+                        color: AppTheme.goldColor,
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        'نظرات کاربران',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: AppTheme.goldColor,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10.w,
+                          vertical: 4.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.goldColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20.r),
+                          border: Border.all(
+                            color: AppTheme.goldColor.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Text(
+                          '${_comments.length} نظر',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            color: context.textColor,
+                            fontSize: 11.5.sp,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                itemBuilder: (context, index) {
-                  final comment = _comments[index];
-                  return CommentCardWidget(
-                    comment: comment,
-                    onDelete: () => _deleteComment(comment.id),
-                    onReactionsChanged: () => _loadComments(silent: true),
-                  );
-                },
               ),
-            SliverPadding(padding: EdgeInsets.only(bottom: 12.h)),
+            if (_comments.isEmpty)
+              SliverToBoxAdapter(child: _buildEmptyCommentsState())
+            else
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 12.h),
+                sliver: SliverList.separated(
+                  itemCount: _comments.length,
+                  separatorBuilder: (_, __) => SizedBox(height: 12.h),
+                  itemBuilder: (context, index) {
+                    final comment = _comments[index];
+                    return CommentCardWidget(
+                      comment: comment,
+                      onDelete: () => _deleteComment(comment.id),
+                      onReactionsChanged: () => _loadComments(silent: true),
+                    );
+                  },
+                ),
+              ),
+            SliverPadding(padding: EdgeInsets.only(bottom: 24.h)),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildEmptyCommentsState() {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 24.h),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
+        decoration: BoxDecoration(
+          color: context.cardColor,
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(
+            color: context.separatorColor,
+            width: 1.5,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              LucideIcons.messageCircle,
+              color: context.textSecondary,
+              size: 52.sp,
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'هنوز نظری ثبت نشده',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textColor,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            SizedBox(height: 6.h),
+            Text(
+              'اولین نفری باشید که تجربه خود را می‌نویسد',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textSecondary,
+                fontSize: 13.sp,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

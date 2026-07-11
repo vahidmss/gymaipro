@@ -7,6 +7,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/achievements/services/achievement_service.dart';
 import 'package:gymaipro/chat/services/chat_unread_notifier.dart';
+import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/core/app_error_handler.dart';
 import 'package:gymaipro/core/app_initializer.dart';
 import 'package:gymaipro/core/app_navigator.dart';
@@ -55,7 +56,12 @@ class BootstrapApp extends StatefulWidget {
 
 enum _BootPhase { loading, done, failed }
 
-enum _BootFailureReason { noNetwork, serverUnreachable, initError }
+enum _BootFailureReason {
+  noNetwork,
+  serverUnreachable,
+  initError,
+  missingConfig,
+}
 
 class _BootstrapAppState extends State<BootstrapApp> {
   _BootPhase _phase = _BootPhase.loading;
@@ -116,6 +122,15 @@ class _BootstrapAppState extends State<BootstrapApp> {
       if (!mounted) return;
 
       if (result.success) {
+        if (kDebugMode &&
+            !AppInitializer.isSupabaseReady &&
+            AppConfig.supabaseAnonKey.isEmpty) {
+          setState(() {
+            _phase = _BootPhase.failed;
+            _failureReason = _BootFailureReason.missingConfig;
+          });
+          return;
+        }
         setState(() {
           _phase = _BootPhase.done;
           _result = result;
@@ -284,6 +299,12 @@ class _SplashScreenState extends State<_SplashScreen>
         title = 'اتصال اینترنت نیست';
         subtitle = 'اینترنت را روشن کنید و دوباره تلاش کنید';
         failureIcon = Icons.wifi_off_rounded;
+      case _BootFailureReason.missingConfig:
+        title = 'تنظیمات env لود نشده';
+        subtitle =
+            'فایل .env را بسازید و با --dart-define-from-file=.env اجرا کنید\n'
+            '(Run → GymAI Pro Android / iOS)';
+        failureIcon = Icons.settings_outlined;
     }
 
     return Directionality(
@@ -598,45 +619,56 @@ class _MyAppState extends State<MyApp> {
                 builder: (context, child) {
                   final isDark =
                       Theme.of(context).brightness == Brightness.dark;
-                  return ResponsiveBreakpoints.builder(
-                    breakpoints: const [
-                      Breakpoint(start: 0, end: 450, name: MOBILE),
-                      Breakpoint(start: 451, end: 800, name: TABLET),
-                      Breakpoint(start: 801, end: 1200, name: DESKTOP),
-                      Breakpoint(start: 1201, end: double.infinity, name: '4K'),
-                    ],
-                    child: Container(
-                      color: isDark ? AppTheme.darkBackgroundColor : null,
-                      decoration: isDark
-                          ? null
-                          : BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  const Color(0xFFDDD0B8),
-                                  const Color(0xFFEDE4D4),
-                                  AppTheme.lightCardColor,
-                                  AppTheme.lightGradientEnd.withValues(
-                                    alpha: 0.12,
-                                  ),
-                                ],
-                                stops: const [0.0, 0.08, 0.22, 1.0],
+                  // Cap system text scaling to 1.2 so huge device fonts don't
+                  // break fixed-height layouts or clip text silently.
+                  final mq = MediaQuery.of(context);
+                  final cappedScaler = mq.textScaler.clamp(maxScaleFactor: 1.2);
+                  return MediaQuery(
+                    data: mq.copyWith(textScaler: cappedScaler),
+                    child: ResponsiveBreakpoints.builder(
+                      breakpoints: const [
+                        Breakpoint(start: 0, end: 450, name: MOBILE),
+                        Breakpoint(start: 451, end: 800, name: TABLET),
+                        Breakpoint(start: 801, end: 1200, name: DESKTOP),
+                        Breakpoint(
+                          start: 1201,
+                          end: double.infinity,
+                          name: '4K',
+                        ),
+                      ],
+                      child: Container(
+                        color: isDark ? AppTheme.darkBackgroundColor : null,
+                        decoration: isDark
+                            ? null
+                            : BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    const Color(0xFFDDD0B8),
+                                    const Color(0xFFEDE4D4),
+                                    AppTheme.lightCardColor,
+                                    AppTheme.lightGradientEnd.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                  ],
+                                  stops: const [0.0, 0.08, 0.22, 1.0],
+                                ),
                               ),
-                            ),
-                      child: AppUpdateCoordinator(
-                        child: Stack(
-                          children: [
-                            SafeArea(
-                              top: false,
-                              child: Directionality(
-                                textDirection: TextDirection.rtl,
-                                child: child ?? const SizedBox.shrink(),
+                        child: AppUpdateCoordinator(
+                          child: Stack(
+                            children: [
+                              SafeArea(
+                                top: false,
+                                child: Directionality(
+                                  textDirection: TextDirection.rtl,
+                                  child: child ?? const SizedBox.shrink(),
+                                ),
                               ),
-                            ),
-                            const OfflineBanner(),
-                            const VpnWarningBanner(),
-                          ],
+                              const OfflineBanner(),
+                              const VpnWarningBanner(),
+                            ],
+                          ),
                         ),
                       ),
                     ),

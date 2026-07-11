@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/auth/utils/otp_autofill_helper.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
 import 'package:gymaipro/auth/utils/phone_utils.dart';
 import 'package:gymaipro/auth/widgets/auth_gradient_background.dart';
@@ -293,6 +294,7 @@ class _RegisterScreenState extends State<RegisterScreen>
 
       // تولید و ارسال کد OTP
       if (!mounted) return;
+      await OtpAutofillHelper.primeNativeListener();
       final success = await OTPService.sendOTP(normalizedPhone);
 
       if (!mounted) return;

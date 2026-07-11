@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/ai/config/ai_engine_config.dart';
 import 'package:gymaipro/ai/models/ai_chat_message.dart';
+import 'package:gymaipro/ai/services/openai_client_rate_limiter.dart';
+import 'package:gymaipro/ai/services/openai_http_client.dart';
 import 'package:gymaipro/config/app_config.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// سرویس AI — روی وب و حالت proxy فقط از Edge Function `openai-chat` استفاده می‌کند.
+/// سرویس AI — مسیر proxy (`openai-chat`) یا مستقیم کلاینت بسته به OPENAI_USE_PROXY.
 class OpenAIService {
   OpenAIService({ChatSettings? settings})
     : _settings =
@@ -21,24 +23,25 @@ class OpenAIService {
   bool get _useServerProxy => AiEngineConfig.usesServerProxyRoute;
 
   bool get _canUseDirect =>
-      !kIsWeb && !AppConfig.openaiUseProxy && _apiKey.isNotEmpty;
+      !AppConfig.openaiUseProxy && _apiKey.isNotEmpty;
 
-  final http.Client _client = http.Client();
   final ChatSettings _settings;
+
+  static const int _directMaxAttempts = 3;
 
   void _ensureCallable() {
     if (_useServerProxy) {
       return;
     }
     if (_apiKey.isEmpty) {
-      throw const OpenAIException(
-        kIsWeb
-            ? 'چت هوش مصنوعی روی وب فقط از طریق سرور فعال است. '
-                  'OPENAI_USE_PROXY=true و Edge Function openai-chat را deploy کنید.'
+      throw OpenAIException(
+        AppConfig.openaiUseProxy
+            ? 'OPENAI_USE_PROXY=true است اما proxy در دسترس نیست. '
+                  'Edge Function openai-chat را deploy کنید یا OPENAI_USE_PROXY=false بگذارید.'
             : 'کلید OPENAI_API_KEY تنظیم نشده است.\n'
-                  '۱) فایل .env در ریشه پروژه بسازید و OPENAI_API_KEY=... را پر کنید.\n'
-                  '۲) یا OPENAI_USE_PROXY=true برای مسیر امن سرور.\n'
-                  '۳) اپ را کاملاً ببندید و دوباره Run کنید.',
+                  'در env.web.json (وب) یا --dart-define-from-file=.env (موبایل) '
+                  'OPENAI_API_KEY=... را قرار دهید.\n'
+                  'کلید را در داشبورد OpenAI محدود کنید (سقف هزینه + محدودیت مدل).',
       );
     }
   }
@@ -62,17 +65,8 @@ class OpenAIService {
       if (responseFormat != null) 'response_format': responseFormat,
     };
 
-    if (_useServerProxy) {
-      return _proxyCompletion(
-        requestBody,
-        requestTimeout ?? const Duration(seconds: 90),
-      );
-    }
-
-    return _directCompletion(
-      requestBody,
-      requestTimeout ?? const Duration(seconds: 90),
-    );
+    final timeout = requestTimeout ?? const Duration(seconds: 90);
+    return _complete(requestBody, timeout);
   }
 
   /// ارسال پیام به AI
@@ -100,15 +94,8 @@ class OpenAIService {
         requestBody['stream'] = true;
       }
 
-      final content = _useServerProxy
-          ? await _proxyCompletion(
-              requestBody,
-              const Duration(seconds: 90),
-            )
-          : await _directCompletion(
-              requestBody,
-              const Duration(seconds: 90),
-            );
+      final timeout = const Duration(seconds: 90);
+      final content = await _complete(requestBody, timeout);
 
       if (kDebugMode) {
         debugPrint(
@@ -125,9 +112,32 @@ class OpenAIService {
         debugPrint('OpenAI: Exception: $e');
       }
       if (_isNetworkError(e)) {
-        throw const OpenAIException('خطا در اتصال به اینترنت');
+        throw OpenAIException(_networkErrorMessage(e));
       }
       throw OpenAIException('خطای غیرمنتظره: $e');
+    }
+  }
+
+  Future<String> _complete(
+    Map<String, dynamic> requestBody,
+    Duration timeout,
+  ) async {
+    if (_useServerProxy) {
+      return _proxyCompletion(requestBody, timeout);
+    }
+
+    try {
+      return await _directCompletion(requestBody, timeout);
+    } catch (e) {
+      if (_canFallbackToProxy(e)) {
+        if (kDebugMode) {
+          debugPrint(
+            'OpenAI: direct route failed ($e) — falling back to server-proxy',
+          );
+        }
+        return _proxyCompletion(requestBody, timeout);
+      }
+      rethrow;
     }
   }
 
@@ -153,26 +163,56 @@ class OpenAIService {
     Map<String, dynamic> requestBody,
     Duration timeout,
   ) async {
-    final baseUrl = AppConfig.openaiDirectBaseUrl;
-    final response = await _client
-        .post(
-          Uri.parse('$baseUrl/v1/chat/completions'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $_apiKey',
-          },
-          body: jsonEncode(requestBody),
-        )
-        .timeout(timeout);
+    await OpenAiClientRateLimiter.instance.acquire();
 
-    if (response.statusCode == 200) {
-      return _parseCompletionPayload(response.body);
+    final baseUrl = AppConfig.openaiDirectBaseUrl;
+    Object? lastError;
+
+    for (var attempt = 1; attempt <= _directMaxAttempts; attempt++) {
+      http.Client? client;
+      try {
+        if (attempt > 1) {
+          final delayMs = 400 * attempt;
+          if (kDebugMode) {
+            debugPrint('OpenAI: direct retry $attempt/$_directMaxAttempts');
+          }
+          await Future<void>.delayed(Duration(milliseconds: delayMs));
+        }
+
+        client = createOpenAiHttpClient();
+        final response = await client
+            .post(
+              Uri.parse('$baseUrl/v1/chat/completions'),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $_apiKey',
+              },
+              body: jsonEncode(requestBody),
+            )
+            .timeout(timeout);
+
+        if (response.statusCode == 200) {
+          return _parseCompletionPayload(response.body);
+        }
+
+        final errorMessage = _extractErrorMessage(response.body);
+        throw OpenAIException(
+          'خطا در ارتباط با AI: $errorMessage',
+        );
+      } catch (e) {
+        lastError = e;
+        if (e is OpenAIException || !_isRetryableNetworkError(e)) {
+          rethrow;
+        }
+        if (attempt == _directMaxAttempts) {
+          rethrow;
+        }
+      } finally {
+        client?.close();
+      }
     }
 
-    final errorMessage = _extractErrorMessage(response.body);
-    throw OpenAIException(
-      'خطا در ارتباط با AI: $errorMessage',
-    );
+    throw lastError ?? const OpenAIException('خطا در اتصال به OpenAI');
   }
 
   String _parseCompletionPayload(dynamic payload) {
@@ -232,7 +272,41 @@ class OpenAIService {
     return text.contains('socket') ||
         text.contains('network') ||
         text.contains('connection') ||
-        text.contains('timeout');
+        text.contains('timeout') ||
+        text.contains('cancelled') ||
+        text.contains('canceled');
+  }
+
+  bool _isRetryableNetworkError(Object e) {
+    if (e is OpenAIException) return false;
+    final text = e.toString().toLowerCase();
+    return text.contains('cancelled') ||
+        text.contains('canceled') ||
+        text.contains('already closed') ||
+        text.contains('connection reset') ||
+        text.contains('broken pipe') ||
+        text.contains('timed out') ||
+        text.contains('failed host lookup') ||
+        text.contains('network is unreachable');
+  }
+
+  bool _canFallbackToProxy(Object e) {
+    if (!AppConfig.openaiUseProxy || _useServerProxy || !_isNetworkError(e)) {
+      return false;
+    }
+    return AppConfig.supabaseEdgeFunctionsEnabled &&
+        Supabase.instance.client.auth.currentSession != null;
+  }
+
+  String _networkErrorMessage(Object e) {
+    final text = e.toString().toLowerCase();
+    if (text.contains('cancelled') || text.contains('canceled')) {
+      return 'اتصال به OpenAI قطع شد. لطفاً دوباره تلاش کنید.';
+    }
+    if (text.contains('timeout') || text.contains('timed out')) {
+      return 'پاسخ OpenAI زمان‌بر شد. دوباره تلاش کنید.';
+    }
+    return 'خطا در اتصال به OpenAI. اینترنت را بررسی کنید و دوباره امتحان کنید.';
   }
 
   List<Map<String, String>> _buildMessages(
@@ -257,6 +331,23 @@ class OpenAIService {
     return apiMessages;
   }
 
+  Future<http.Response> _getDirect(
+    Uri uri, {
+    required Duration timeout,
+  }) async {
+    final client = createOpenAiHttpClient();
+    try {
+      return await client
+          .get(
+            uri,
+            headers: {'Authorization': 'Bearer $_apiKey'},
+          )
+          .timeout(timeout);
+    } finally {
+      client.close();
+    }
+  }
+
   /// تست اتصال — روی proxy فقط نشست کاربر را بررسی می‌کند.
   Future<bool> testConnection() async {
     try {
@@ -266,9 +357,9 @@ class OpenAIService {
       if (!_canUseDirect) return false;
 
       final baseUrl = AppConfig.openaiDirectBaseUrl;
-      final response = await _client.get(
+      final response = await _getDirect(
         Uri.parse('$baseUrl/v1/models'),
-        headers: {'Authorization': 'Bearer $_apiKey'},
+        timeout: const Duration(seconds: 30),
       );
       return response.statusCode == 200;
     } catch (e) {
@@ -286,9 +377,9 @@ class OpenAIService {
 
     try {
       final baseUrl = AppConfig.openaiDirectBaseUrl;
-      final response = await _client.get(
+      final response = await _getDirect(
         Uri.parse('$baseUrl/v1/models'),
-        headers: {'Authorization': 'Bearer $_apiKey'},
+        timeout: const Duration(seconds: 30),
       );
 
       if (response.statusCode == 200) {
@@ -310,9 +401,7 @@ class OpenAIService {
     }
   }
 
-  void dispose() {
-    _client.close();
-  }
+  void dispose() {}
 }
 
 class OpenAIException implements Exception {

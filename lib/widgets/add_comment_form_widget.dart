@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class AddCommentFormWidget extends StatefulWidget {
   const AddCommentFormWidget({
@@ -22,7 +23,6 @@ class AddCommentFormWidget extends StatefulWidget {
 }
 
 class _AddCommentFormWidgetState extends State<AddCommentFormWidget> {
-  final _formKey = GlobalKey<FormState>();
   final _contentController = TextEditingController();
   int? _selectedRating;
   bool _showRating = false;
@@ -32,211 +32,205 @@ class _AddCommentFormWidgetState extends State<AddCommentFormWidget> {
     super.initState();
     _contentController.text = widget.initialContent ?? '';
     _selectedRating = widget.initialRating;
+    _showRating = widget.initialRating != null;
+    _contentController.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
-    _contentController.dispose();
+    _contentController
+      ..removeListener(_onTextChanged)
+      ..dispose();
     super.dispose();
   }
 
+  void _onTextChanged() => setState(() {});
+
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: context.cardColor,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(16.w),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final canSend = _contentController.text.trim().isNotEmpty && !widget.isLoading;
+    final fieldFill = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.04);
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_showRating) ...[
+            _buildStarSelector(),
+            SizedBox(height: 8.h),
+          ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Header
-              Row(
-                children: [
-                  const Icon(
-                    Icons.comment,
-                    color: AppTheme.goldColor,
-                    size: 24,
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: fieldFill,
+                    borderRadius: BorderRadius.circular(24.r),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '??? ??? ?? ???????',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Content Input
-              TextFormField(
-                controller: _contentController,
-                focusNode: widget.focusNode,
-                maxLines: 4,
-                maxLength: 500,
-                textInputAction: TextInputAction.done,
-                keyboardType: TextInputType.multiline,
-                decoration: InputDecoration(
-                  hintText: '??? ??? ?? ????? ???????...',
-                  hintStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
-                  ),
-                  filled: true,
-                  fillColor: Colors.black.withValues(alpha: 0.2),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.r),
-                    borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.r),
-                    borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.r),
-                    borderSide: BorderSide(
-                      color: AppTheme.goldColor,
-                      width: 2.w,
-                    ),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.r),
-                    borderSide: const BorderSide(color: Colors.red, width: 2),
-                  ),
-                ),
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return '????? ??? ??? ?? ???????';
-                  }
-                  if (value.trim().length < 10) {
-                    return '??? ???? ????? 10 ??????? ????';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Rating Toggle
-              Row(
-                children: [
-                  Text(
-                    '?????? ????:',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 14.sp,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Switch(
-                    value: _showRating,
-                    onChanged: (value) {
-                      setState(() {
-                        _showRating = value;
-                        if (!value) _selectedRating = null;
-                      });
-                    },
-                    activeThumbColor: AppTheme.goldColor,
-                  ),
-                ],
-              ),
-
-              // Rating Stars
-              if (_showRating) ...[
-                const SizedBox(height: 12),
-                _buildRatingStars(),
-                const SizedBox(height: 16),
-              ],
-
-              // Submit Button
-              SizedBox(
-                width: double.infinity,
-                height: 48.h,
-                child: ElevatedButton(
-                  onPressed: widget.isLoading ? null : _submitForm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.goldColor,
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: widget.isLoading
-                      ? SizedBox(
-                          width: 24.w,
-                          height: 24.h,
-                          child: const CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.black,
-                            ),
-                          ),
-                        )
-                      : Text(
-                          '????? ???',
+                  padding: EdgeInsets.only(right: 6.w, left: 12.w),
+                  child: Row(
+                    children: [
+                      _buildRatingToggle(),
+                      Expanded(
+                        child: TextField(
+                          controller: _contentController,
+                          focusNode: widget.focusNode,
+                          enabled: !widget.isLoading,
+                          minLines: 1,
+                          maxLines: 4,
+                          maxLength: 500,
+                          textDirection: TextDirection.rtl,
+                          textAlign: TextAlign.right,
+                          textInputAction: TextInputAction.newline,
+                          keyboardType: TextInputType.multiline,
+                          cursorColor: AppTheme.goldColor,
                           style: TextStyle(
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w600,
+                            fontFamily: AppTheme.fontFamily,
+                            color: context.textColor,
+                            fontSize: 14.sp,
+                            height: 1.5,
+                          ),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            counterText: '',
+                            hintText: 'نظرت رو بنویس…',
+                            hintStyle: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              color: context.textSecondary,
+                              fontSize: 13.5.sp,
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 10.h),
                           ),
                         ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+              SizedBox(width: 8.w),
+              _buildSendButton(canSend: canSend),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildRatingStars() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(5, (index) {
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              _selectedRating = index + 1;
-            });
-          },
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            child: Icon(
-              index < (_selectedRating ?? 0) ? Icons.star : Icons.star_border,
-              color: AppTheme.goldColor,
-              size: 32.sp,
+  Widget _buildRatingToggle() {
+    final active = _showRating || _selectedRating != null;
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: BoxConstraints(minWidth: 34.w, minHeight: 34.h),
+      tooltip: 'امتیاز',
+      onPressed: () => setState(() => _showRating = !_showRating),
+      icon: Icon(
+        active ? Icons.star_rounded : Icons.star_outline_rounded,
+        size: 20.sp,
+        color: active
+            ? AppTheme.goldColor
+            : context.textSecondary.withValues(alpha: 0.7),
+      ),
+    );
+  }
+
+  Widget _buildSendButton({required bool canSend}) {
+    return GestureDetector(
+      onTap: canSend ? _submitForm : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 44.w,
+        height: 44.w,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: canSend
+              ? AppTheme.goldColor
+              : AppTheme.goldColor.withValues(alpha: 0.25),
+        ),
+        alignment: Alignment.center,
+        child: widget.isLoading
+            ? SizedBox(
+                width: 18.w,
+                height: 18.w,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                ),
+              )
+            : Icon(
+                LucideIcons.send,
+                size: 18.sp,
+                color: canSend ? Colors.black : Colors.black.withValues(alpha: 0.5),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildStarSelector() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.04)
+            : AppTheme.goldColor.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16.r),
+      ),
+      child: Row(
+        children: [
+          Text(
+            'امتیازت',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textSecondary,
+              fontSize: 12.5.sp,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        );
-      }),
+          const Spacer(),
+          ...List.generate(5, (index) {
+            final filled = index < (_selectedRating ?? 0);
+            return GestureDetector(
+              onTap: () => setState(() {
+                _selectedRating = _selectedRating == index + 1 ? null : index + 1;
+              }),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 2.w),
+                child: Icon(
+                  filled ? Icons.star_rounded : Icons.star_outline_rounded,
+                  size: 24.sp,
+                  color: filled
+                      ? AppTheme.goldColor
+                      : context.textSecondary.withValues(alpha: 0.4),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 
   Future<void> _submitForm() async {
-    if (_formKey.currentState!.validate()) {
-      final content = _contentController.text.trim();
-      final ok = await widget.onSubmit(content, _selectedRating);
-      if (!ok) return;
+    final content = _contentController.text.trim();
+    if (content.isEmpty) return;
 
-      // Clear form after submission
-      _contentController.clear();
-      if (mounted) {
-        setState(() {
-          _selectedRating = null;
-          _showRating = false;
-        });
-      }
-    }
+    final ok = await widget.onSubmit(content, _selectedRating);
+    if (!ok || !mounted) return;
+
+    _contentController.clear();
+    setState(() {
+      _selectedRating = null;
+      _showRating = false;
+    });
   }
 }

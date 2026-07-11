@@ -589,9 +589,11 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                 SizedBox(width: 8.w),
                 Text(
                   'نظرات کاربران',
-                  style: AppTheme.headingStyle.copyWith(
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: AppTheme.goldColor,
                     fontSize: 15.sp,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -610,30 +612,10 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
               ],
             ),
             SizedBox(height: 8.h),
-            const Divider(color: Colors.white12, height: 1),
+            Divider(color: context.separatorColor, height: 1),
             SizedBox(height: 8.h),
             if (_comments.isEmpty)
-              Row(
-                children: [
-                  Icon(
-                    LucideIcons.info,
-                    size: 16.sp,
-                    color: context.textSecondary,
-                  ),
-                  SizedBox(width: 8.w),
-                  Expanded(
-                    child: Text(
-                      'نظری ثبت نشده است. اولین نفر باش!',
-                      style: AppTheme.bodyStyle.copyWith(
-                        fontSize: 12.sp,
-                        color: context.textSecondary,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              )
+              _buildEmptyCommentsState()
             else
               ListView.separated(
                 physics: const NeverScrollableScrollPhysics(),
@@ -641,7 +623,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                 padding: EdgeInsets.zero,
                 itemCount: _comments.length,
                 separatorBuilder: (_, __) =>
-                    const Divider(color: Colors.white12, height: 16),
+                    Divider(color: context.separatorColor, height: 16),
                 itemBuilder: (context, i) {
                   final c = _comments[i];
                   final userId = (c['user_id'] ?? '').toString();
@@ -683,6 +665,54 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyCommentsState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 28.h),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.04)
+            : AppTheme.goldColor.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: context.separatorColor.withValues(alpha: 0.8),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            LucideIcons.messageCircle,
+            color: context.textSecondary,
+            size: 44.sp,
+          ),
+          SizedBox(height: 14.h),
+          Text(
+            'هنوز نظری ثبت نشده',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textColor,
+              fontSize: 15.5.sp,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          SizedBox(height: 6.h),
+          Text(
+            'اولین نفری باشید که نظر خود را می‌نویسد',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textSecondary,
+              fontSize: 13.sp,
+              height: 1.55,
+            ),
+          ),
+        ],
       ),
     );
   }

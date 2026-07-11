@@ -3,6 +3,11 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/trainer_channel/constants/trainer_channel_constants.dart';
+import 'package:gymaipro/trainer_channel/models/trainer_channel.dart';
+import 'package:gymaipro/trainer_channel/screens/trainer_channel_manage_screen.dart';
+import 'package:gymaipro/trainer_channel/screens/trainer_channel_screen.dart';
+import 'package:gymaipro/trainer_channel/services/trainer_channel_service.dart';
 import 'package:gymaipro/trainer_dashboard/screens/certificate_upload_screen.dart';
 import 'package:gymaipro/trainer_ranking/models/certificate.dart';
 import 'package:gymaipro/trainer_ranking/services/certificate_service.dart';
@@ -34,11 +39,16 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
 
   bool _isLoading = true;
   UserProfile? _profile;
+  TrainerChannel? _channel;
+  int _remainingPostsToday = TrainerChannelConstants.maxPostsPerDay;
+  bool _channelLoading = true;
+  final TrainerChannelService _channelService = TrainerChannelService();
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
+    _loadChannelSummary();
   }
 
   @override
@@ -161,6 +171,8 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
                   ? null
                   : (int.tryParse(v) == null ? 'عدد نامعتبر' : null),
             ),
+            SizedBox(height: 24.h),
+            _buildChannelSection(),
             SizedBox(height: 24.h),
             _buildCertificatesSection(),
             SizedBox(height: 24.h),
@@ -486,6 +498,259 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
         ),
       ),
       contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+    );
+  }
+
+  Future<void> _loadChannelSummary() async {
+    setState(() => _channelLoading = true);
+    try {
+      final channel = await _channelService.ensureChannelForCurrentTrainer();
+      final remaining = await _channelService.remainingPostsToday(channel.id);
+      if (!mounted) return;
+      setState(() {
+        _channel = channel;
+        _remainingPostsToday = remaining;
+        _channelLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _channelLoading = false);
+    }
+  }
+
+  Future<void> _openChannelManage() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => const TrainerChannelManageScreen(),
+      ),
+    );
+    if (changed ?? false) {
+      await _loadChannelSummary();
+    }
+  }
+
+  void _openChannelPreview() {
+    final profile = _profile;
+    if (profile == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TrainerChannelScreen(trainer: profile),
+      ),
+    );
+  }
+
+  Widget _buildChannelSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final channel = _channel;
+    final isEnabled = channel?.isEnabled ?? false;
+    final postCount = channel?.postCount ?? 0;
+    final isPublic = channel?.isVisibleToPublic ?? false;
+
+    return Container(
+      padding: EdgeInsets.all(20.w),
+      decoration: BoxDecoration(
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.2),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.3)
+                : AppTheme.goldColor.withValues(alpha: 0.08),
+            blurRadius: 12.r,
+            offset: Offset(0, 4.h),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(8.w),
+                decoration: BoxDecoration(
+                  color: AppTheme.goldColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Icon(
+                  LucideIcons.radio,
+                  color: AppTheme.goldColor,
+                  size: 20.sp,
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Text(
+                  'کانال',
+                  style: TextStyle(
+                    color: context.textColor,
+                    fontSize: 17.sp,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _channelLoading ? null : _openChannelManage,
+                icon: Icon(LucideIcons.settings2, size: 16.sp),
+                label: Text(
+                  'مدیریت',
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.goldColor,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12.w,
+                    vertical: 8.h,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                    side: BorderSide(
+                      color: AppTheme.goldColor.withValues(alpha: 0.3),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12.h),
+          Text(
+            'برند شخصی و جذب شاگرد — متن، عکس، ویدیو و ویس (مثل کانال تلگرام)',
+            style: TextStyle(
+              color: context.textSecondary,
+              fontSize: 13.sp,
+              height: 1.5,
+            ),
+          ),
+          SizedBox(height: 14.h),
+          if (_channelLoading)
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.h),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  color: AppTheme.goldColor,
+                  strokeWidth: 2.5,
+                ),
+              ),
+            )
+          else ...[
+            Wrap(
+              spacing: 8.w,
+              runSpacing: 8.h,
+              children: [
+                _channelStatusChip(
+                  label: isEnabled ? 'فعال' : 'غیرفعال',
+                  color: isEnabled ? AppTheme.successColor : context.textSecondary,
+                  isDark: isDark,
+                ),
+                _channelStatusChip(
+                  label: '$postCount پست',
+                  color: AppTheme.goldColor,
+                  isDark: isDark,
+                ),
+                _channelStatusChip(
+                  label:
+                      'امروز $_remainingPostsToday از ${TrainerChannelConstants.maxPostsPerDay}',
+                  color: context.textSecondary,
+                  isDark: isDark,
+                ),
+                if (isEnabled && postCount == 0)
+                  _channelStatusChip(
+                    label: 'منتظر اولین پست',
+                    color: Colors.orange.shade700,
+                    isDark: isDark,
+                  )
+                else if (isPublic)
+                  _channelStatusChip(
+                    label: 'قابل مشاهده عمومی',
+                    color: AppTheme.successColor,
+                    isDark: isDark,
+                  ),
+              ],
+            ),
+            SizedBox(height: 14.h),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _openChannelManage,
+                    icon: Icon(LucideIcons.send, size: 16.sp),
+                    label: Text(
+                      postCount == 0 ? 'ساخت کانال' : 'ارسال پست',
+                      style: TextStyle(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.goldColor,
+                      foregroundColor: AppTheme.onGoldColor,
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _profile == null ? null : _openChannelPreview,
+                    icon: Icon(LucideIcons.eye, size: 16.sp),
+                    label: Text(
+                      'پیش‌نمایش',
+                      style: TextStyle(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.goldColor,
+                      side: BorderSide(
+                        color: AppTheme.goldColor.withValues(alpha: 0.45),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _channelStatusChip({
+    required String label,
+    required Color color,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.18 : 0.12),
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11.sp,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 

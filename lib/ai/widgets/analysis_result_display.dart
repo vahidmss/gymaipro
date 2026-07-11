@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/ai/widgets/ai_hub_ui.dart';
+import 'package:gymaipro/ai/widgets/progress_analysis_ui.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -15,16 +17,15 @@ class AnalysisResultDisplay extends StatelessWidget {
     final sections = _parseContent(content);
 
     return Container(
-      constraints: const BoxConstraints(),
-      padding: EdgeInsets.all(16.w),
+      width: double.infinity,
+      padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
         color: isDark
-            ? context.backgroundColor.withValues(alpha: 0.5)
-            : Colors.white.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(12.r),
+            ? context.backgroundColor.withValues(alpha: 0.45)
+            : Colors.white.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(14.r),
         border: Border.all(
-          color: AppTheme.goldColor.withValues(alpha: 0.15),
-          width: 1.w,
+          color: kProgressAccent.withValues(alpha: 0.14),
         ),
       ),
       child: Column(
@@ -50,12 +51,10 @@ class AnalysisResultDisplay extends StatelessWidget {
     for (final line in lines) {
       final trimmed = line.trim();
 
-      // تشخیص عنوان‌ها (## یا خطوطی که با ** شروع و تمام می‌شوند)
       if (trimmed.startsWith('##') ||
           (trimmed.startsWith('**') &&
               trimmed.endsWith('**') &&
               trimmed.length < 100)) {
-        // ذخیره بخش قبلی
         if (currentSection != null) {
           if (currentItems.isNotEmpty) {
             currentSection = currentSection.copyWith(items: currentItems);
@@ -73,9 +72,7 @@ class AnalysisResultDisplay extends StatelessWidget {
           title: title,
           items: [],
         );
-      }
-      // تشخیص لیست‌ها
-      else if (trimmed.startsWith('-') ||
+      } else if (trimmed.startsWith('-') ||
           trimmed.startsWith('•') ||
           trimmed.startsWith('*') ||
           trimmed.startsWith('✓') ||
@@ -99,9 +96,7 @@ class AnalysisResultDisplay extends StatelessWidget {
         if (item.isNotEmpty) {
           currentItems.add(item);
         }
-      }
-      // تشخیص اعداد در ابتدای خط
-      else if (RegExp(r'^\d+[\.\)]\s').hasMatch(trimmed)) {
+      } else if (RegExp(r'^\d+[\.\)]\s').hasMatch(trimmed)) {
         if (currentSection == null ||
             currentSection.type != SectionType.numberedList) {
           if (currentSection != null && currentItems.isNotEmpty) {
@@ -118,9 +113,7 @@ class AnalysisResultDisplay extends StatelessWidget {
         if (item.isNotEmpty) {
           currentItems.add(item);
         }
-      }
-      // متن عادی
-      else {
+      } else {
         if (currentSection == null ||
             currentSection.type == SectionType.heading ||
             currentSection.type == SectionType.list ||
@@ -141,7 +134,6 @@ class AnalysisResultDisplay extends StatelessWidget {
       }
     }
 
-    // اضافه کردن آخرین بخش
     if (currentSection != null) {
       if (currentItems.isNotEmpty) {
         currentSection = currentSection.copyWith(items: currentItems);
@@ -149,7 +141,6 @@ class AnalysisResultDisplay extends StatelessWidget {
       sections.add(currentSection);
     }
 
-    // اگر هیچ بخشی پیدا نشد، کل متن را به عنوان پاراگراف نمایش بده
     if (sections.isEmpty) {
       sections.add(
         ContentSection(
@@ -180,48 +171,29 @@ class AnalysisResultDisplay extends StatelessWidget {
   }
 
   Widget _buildHeading(BuildContext context, String title, bool isDark) {
-    // تشخیص نوع عنوان بر اساس محتوا
-    IconData icon = LucideIcons.sparkles;
-    Color iconColor = AppTheme.goldColor;
+    final style = _headingStyle(title);
 
-    if (title.contains('قوت') || title.contains('موفقیت')) {
-      icon = LucideIcons.trendingUp;
-      iconColor = Colors.green;
-    } else if (title.contains('بهبود') || title.contains('ضعف')) {
-      icon = LucideIcons.target;
-      iconColor = Colors.orange;
-    } else if (title.contains('راهکار') || title.contains('پیشنهاد')) {
-      icon = LucideIcons.lightbulb;
-      iconColor = AppTheme.goldColor;
-    } else if (title.contains('انگیزه') || title.contains('تشویق')) {
-      icon = LucideIcons.heart;
-      iconColor = Colors.pink;
-    }
-
-    return Container(
-      margin: EdgeInsets.only(top: 20.h, bottom: 12.h),
-      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
-      decoration: BoxDecoration(
-        color: iconColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8.r),
-        border: Border(
-          right: BorderSide(color: iconColor, width: 3.w),
-        ),
-      ),
+    return Padding(
+      padding: EdgeInsets.only(top: 14.h, bottom: 8.h),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(icon, color: iconColor, size: 16.sp),
+          AiHubIconBadge(
+            icon: style.icon,
+            gradientColors: aiHubAccentGradient(style.color),
+            size: 34.w,
+            iconSize: 16.sp,
+          ),
           SizedBox(width: 10.w),
           Expanded(
             child: Text(
               title,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.2,
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w800,
+                height: 1.35,
                 color: context.textColor,
-                height: 1.4.h,
               ),
             ),
           ),
@@ -230,42 +202,65 @@ class AnalysisResultDisplay extends StatelessWidget {
     );
   }
 
+  _HeadingStyle _headingStyle(String title) {
+    if (title.contains('قوت') || title.contains('موفقیت')) {
+      return _HeadingStyle(LucideIcons.trendingUp, AppTheme.proteinColor);
+    }
+    if (title.contains('بهبود') || title.contains('ضعف')) {
+      return _HeadingStyle(LucideIcons.target, AppTheme.fatColor);
+    }
+    if (title.contains('راهکار') || title.contains('پیشنهاد')) {
+      return _HeadingStyle(LucideIcons.lightbulb, AppTheme.carbsColor);
+    }
+    if (title.contains('انگیزه') || title.contains('تشویق')) {
+      return _HeadingStyle(LucideIcons.heart, Colors.pink.shade400);
+    }
+    return _HeadingStyle(LucideIcons.sparkles, kProgressAccent);
+  }
+
   Widget _buildList(
     BuildContext context,
     List<String> items,
     bool isDark, {
     required bool isBullet,
   }) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 16.h),
+    return Padding(
+      padding: EdgeInsets.only(bottom: 10.h, right: 4.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: items.asMap().entries.map((entry) {
           final index = entry.key;
           final item = entry.value;
           return Padding(
-            padding: EdgeInsets.only(bottom: 10.h),
+            padding: EdgeInsets.only(bottom: 8.h),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               textDirection: TextDirection.rtl,
               children: [
                 Container(
-                  margin: EdgeInsets.only(left: 10.w, top: 6.h),
-                  width: 5.w,
-                  height: 5.w,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.goldColor,
-                    shape: BoxShape.circle,
+                  margin: EdgeInsets.only(left: 8.w, top: 5.h),
+                  width: 18.w,
+                  height: 18.w,
+                  decoration: BoxDecoration(
+                    color: kProgressAccent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6.r),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    isBullet ? '•' : '${index + 1}',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: isBullet ? 12.sp : 10.sp,
+                      fontWeight: FontWeight.w800,
+                      color: kProgressAccent,
+                      height: 1,
+                    ),
                   ),
                 ),
                 Expanded(
                   child: RichText(
                     textDirection: TextDirection.rtl,
-                    text: _buildRichText(
-                      context,
-                      isBullet ? item : '${index + 1}. $item',
-                      isDark,
-                    ),
+                    text: _buildRichText(context, item, isDark),
                   ),
                 ),
               ],
@@ -284,7 +279,6 @@ class AnalysisResultDisplay extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: paragraphs.map((para) {
-        // بررسی وجود نکات مهم
         final isImportant =
             para.contains('!') ||
             para.contains('مهم') ||
@@ -295,14 +289,14 @@ class AnalysisResultDisplay extends StatelessWidget {
             para.contains('توصیه');
 
         return Padding(
-          padding: EdgeInsets.only(bottom: 14.h),
+          padding: EdgeInsets.only(bottom: 10.h),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             textDirection: TextDirection.rtl,
             children: [
               if (isImportant)
                 Padding(
-                  padding: EdgeInsets.only(left: 10.w, top: 4.h),
+                  padding: EdgeInsets.only(left: 8.w, top: 2.h),
                   child: Icon(
                     LucideIcons.star,
                     color: AppTheme.goldColor,
@@ -324,37 +318,21 @@ class AnalysisResultDisplay extends StatelessWidget {
 
   TextSpan _buildRichText(BuildContext context, String text, bool isDark) {
     final spans = <TextSpan>[];
-
-    // Pattern برای تشخیص بخش‌های مختلف متن
     final pattern = RegExp(
       r'(\*\*[^*]+\*\*|\d+[\.\)]?\s|\d+%|✅|✓|⚠️|💪|📊|⚖️|📈|📏|💡|🎯|🔥|⭐)',
     );
 
     int lastIndex = 0;
     for (final match in pattern.allMatches(text)) {
-      // اضافه کردن متن قبل از match
       if (match.start > lastIndex) {
         final beforeText = text.substring(lastIndex, match.start);
         if (beforeText.isNotEmpty) {
-          spans.add(
-            TextSpan(
-              text: beforeText,
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w400,
-                color: context.textColor,
-                height: 1.7.h,
-                letterSpacing: 0.2,
-              ),
-            ),
-          );
+          spans.add(_plainSpan(context, beforeText));
         }
       }
 
       final matched = match.group(0) ?? '';
 
-      // تشخیص متن bold
       if (matched.startsWith('**') && matched.endsWith('**')) {
         final boldText = matched.substring(2, matched.length - 2);
         spans.add(
@@ -362,41 +340,34 @@ class AnalysisResultDisplay extends StatelessWidget {
             text: boldText,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.goldColor,
-              letterSpacing: 0.1,
-              height: 1.7.h,
+              fontSize: 13.5.sp,
+              fontWeight: FontWeight.w800,
+              color: kProgressAccent,
+              height: 1.55,
             ),
           ),
         );
-      }
-      // تشخیص اعداد و درصد
-      else if (RegExp(r'^\d+').hasMatch(matched)) {
-        spans.add(
-          TextSpan(
-            text: matched,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 15.sp,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.goldColor,
-              letterSpacing: 0.2,
-              height: 1.7.h,
-            ),
-          ),
-        );
-      }
-      // ایموجی‌ها
-      else {
+      } else if (RegExp(r'^\d+').hasMatch(matched)) {
         spans.add(
           TextSpan(
             text: matched,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
-              height: 1.7.h,
+              fontWeight: FontWeight.w800,
+              color: kProgressAccent,
+              height: 1.55,
+            ),
+          ),
+        );
+      } else {
+        spans.add(
+          TextSpan(
+            text: matched,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 13.5.sp,
+              height: 1.55,
             ),
           ),
         );
@@ -405,41 +376,36 @@ class AnalysisResultDisplay extends StatelessWidget {
       lastIndex = match.end;
     }
 
-    // اضافه کردن باقی متن
     if (lastIndex < text.length) {
-      final remaining = text.substring(lastIndex);
-      spans.add(
-        TextSpan(
-          text: remaining,
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w400,
-            color: context.textColor,
-            height: 1.7.h,
-            letterSpacing: 0.2,
-          ),
-        ),
-      );
+      spans.add(_plainSpan(context, text.substring(lastIndex)));
     }
 
-    // اگر هیچ match پیدا نشد، کل متن را برگردان
     if (spans.isEmpty) {
-      return TextSpan(
-        text: text,
-        style: TextStyle(
-          fontFamily: AppTheme.fontFamily,
-          fontSize: 14.sp,
-          fontWeight: FontWeight.w400,
-          color: context.textColor,
-          height: 1.7.h,
-          letterSpacing: 0.2,
-        ),
-      );
+      return _plainSpan(context, text);
     }
 
     return TextSpan(children: spans);
   }
+
+  TextSpan _plainSpan(BuildContext context, String text) {
+    return TextSpan(
+      text: text,
+      style: TextStyle(
+        fontFamily: AppTheme.fontFamily,
+        fontSize: 13.5.sp,
+        fontWeight: FontWeight.w400,
+        color: context.textColor,
+        height: 1.55,
+      ),
+    );
+  }
+}
+
+class _HeadingStyle {
+  const _HeadingStyle(this.icon, this.color);
+
+  final IconData icon;
+  final Color color;
 }
 
 class ContentSection {

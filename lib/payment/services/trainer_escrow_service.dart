@@ -296,40 +296,53 @@ class TrainerEscrowService {
           .toList(),
     );
 
+    final settings = await _commissionService.getActiveSettings();
+    final holdDays = settings?.holdDays ?? 3;
+    final editWindowDays = settings?.editWindowDays ?? defaultEditWindowDays;
+    final commissionPct = settings?.commissionPercentage ?? 0.0;
+
     int onHold = 0;
+    int frozen = 0;
     int withdrawable = 0;
     int totalVisible = 0;
+    int pendingProgram = 0;
+    int inEditWindow = 0;
+    int pendingProgramCount = 0;
+    int inEditWindowCount = 0;
     final visibleEarnings = <Map<String, dynamic>>[];
+    final allEarnings = <Map<String, dynamic>>[];
 
     for (final row in rows) {
       final status = row['earnings_escrow_status'] as String? ?? 'in_platform';
-
-      // مربی فقط hold و withdrawable را می‌بیند
-      if (status == 'in_platform' ||
-          status == 'edit_window' ||
-          status == 'paid_out') {
-        continue;
-      }
-
       final share = _resolveTrainerShare(row, txById);
       if (share <= 0) continue;
 
-      if (status == 'frozen') {
-        onHold += share;
-        totalVisible += share;
-        visibleEarnings.add(_mapEarningRow(row, share, status));
-        continue;
-      }
+      final earning = _mapEarningRow(row, share, status);
 
-      if (status == 'withdrawable') {
+      if (status == 'paid_out') continue;
+
+      allEarnings.add(earning);
+
+      if (status == 'in_platform') {
+        pendingProgram += share;
+        pendingProgramCount++;
+      } else if (status == 'edit_window') {
+        inEditWindow += share;
+        inEditWindowCount++;
+      } else if (status == 'frozen') {
+        frozen += share;
+        totalVisible += share;
+        onHold += share;
+        visibleEarnings.add(earning);
+      } else if (status == 'withdrawable') {
         withdrawable += share;
         totalVisible += share;
+        visibleEarnings.add(earning);
       } else if (status == 'hold') {
         onHold += share;
         totalVisible += share;
+        visibleEarnings.add(earning);
       }
-
-      visibleEarnings.add(_mapEarningRow(row, share, status));
     }
 
     // کسر برداشت‌های در جریان
@@ -338,9 +351,19 @@ class TrainerEscrowService {
 
     return {
       'onHold': onHold,
+      'frozen': frozen,
       'withdrawable': withdrawable,
       'total': totalVisible,
+      'pendingProgram': pendingProgram,
+      'pendingProgramCount': pendingProgramCount,
+      'inEditWindow': inEditWindow,
+      'inEditWindowCount': inEditWindowCount,
+      'pendingPayouts': pendingPayouts,
+      'holdDays': holdDays,
+      'editWindowDays': editWindowDays,
+      'commissionPercentage': commissionPct,
       'visibleEarnings': visibleEarnings,
+      'allEarnings': allEarnings,
     };
   }
 
@@ -657,6 +680,10 @@ class TrainerEscrowService {
     int share,
     String status,
   ) {
+    final isFrozen = status == 'frozen' || row['earnings_frozen'] == true;
+    final isVisible = status == 'hold' ||
+        status == 'withdrawable' ||
+        status == 'frozen';
     return {
       'id': row['id'],
       'amount': share,
@@ -664,10 +691,14 @@ class TrainerEscrowService {
       'status': status,
       'status_label': TrainerEarningsEscrowStatus.fromDb(status)?.labelFa ??
           status,
-      'is_available': status == 'withdrawable',
-      'is_frozen': status == 'frozen' || row['earnings_frozen'] == true,
+      'is_available': status == 'withdrawable' && !isFrozen,
+      'is_frozen': isFrozen,
+      'is_visible': isVisible,
+      'is_pending_program': status == 'in_platform',
+      'is_edit_window': status == 'edit_window',
       'hold_until': row['earnings_withdrawable_at'],
       'hold_start': row['earnings_hold_start_at'],
+      'edit_until': row['program_edit_until'],
       'created_at': row['created_at'],
       'buyer': row['buyer'],
     };

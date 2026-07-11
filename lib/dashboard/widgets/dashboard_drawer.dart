@@ -13,6 +13,7 @@ import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/admin/screens/admin_dashboard_screen.dart';
+import 'package:gymaipro/trainer_channel/screens/trainer_channel_manage_screen.dart';
 import 'package:gymaipro/trainer_dashboard/screens/trainer_dashboard_screen.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -456,6 +457,30 @@ class _DashboardDrawerState extends State<DashboardDrawer>
                 }
               : null,
         ),
+        if (widget.userRole == 'trainer' || widget.userRole == 'admin')
+          _buildMenuItem(
+            context,
+            icon: LucideIcons.radio,
+            title: 'کانال من',
+            onTap: () {
+              final guideService = Provider.of<GuideService>(
+                context,
+                listen: false,
+              );
+              if (guideService.hasActiveGuide &&
+                  guideService.activeGuide?.id == 'drawer_guide') {
+                return;
+              }
+
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (context) => const TrainerChannelManageScreen(),
+                ),
+              );
+            },
+          ),
         Divider(
           height: 1,
           thickness: 1,

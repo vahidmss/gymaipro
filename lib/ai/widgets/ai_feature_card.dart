@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/ai/widgets/ai_hub_ui.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -29,22 +30,16 @@ class _AIFeatureCardState extends State<AIFeatureCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
-  late Animation<double> _opacityAnimation;
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 160),
       vsync: this,
     );
-
-    _scaleAnimation = Tween<double>(begin: 1, end: 0.95).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-
-    _opacityAnimation = Tween<double>(begin: 1, end: 0.8).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    _scaleAnimation = Tween<double>(begin: 1, end: 0.98).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
   }
 
@@ -57,10 +52,13 @@ class _AIFeatureCardState extends State<AIFeatureCard>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = widget.color;
+    final borderColor = Color.lerp(context.separatorColor, accent, 0.45)!;
+
     return GestureDetector(
-      onTapDown: (_) => _animationController.safeForward(),
-      onTapUp: (_) => _animationController.safeReverse(),
-      onTapCancel: () => _animationController.safeReverse(),
+      onTapDown: widget.isComingSoon ? null : (_) => _animationController.safeForward(),
+      onTapUp: widget.isComingSoon ? null : (_) => _animationController.safeReverse(),
+      onTapCancel: widget.isComingSoon ? null : () => _animationController.safeReverse(),
       onTap: widget.isComingSoon ? null : widget.onTap,
       child: AnimatedBuilder(
         animation: _animationController,
@@ -68,67 +66,33 @@ class _AIFeatureCardState extends State<AIFeatureCard>
           return Transform.scale(
             scale: _scaleAnimation.value,
             child: Opacity(
-              opacity: _opacityAnimation.value,
+              opacity: widget.isComingSoon ? 0.72 : 1,
               child: Container(
-                padding: EdgeInsets.all(16.w),
+                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
                 decoration: BoxDecoration(
-                  gradient: isDark
-                      ? null
-                      : LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            widget.color.withValues(alpha: 0.15),
-                            context.cardColor,
-                            widget.color.withValues(alpha: 0.1),
-                          ],
-                        ),
-                  color: isDark ? context.cardColor : null,
-                  borderRadius: BorderRadius.circular(20.r),
+                  color: context.cardColor,
+                  borderRadius: BorderRadius.circular(18.r),
                   border: Border.all(
-                    color: widget.color.withValues(alpha: isDark ? 0.3 : 0.5),
-                    width: 1.5.w,
+                    color: borderColor.withValues(alpha: isDark ? 0.75 : 0.65),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: widget.color.withValues(
-                        alpha: isDark ? 0.15 : 0.35,
-                      ),
-                      blurRadius: 16.r,
-                      offset: Offset(0.w, 6.h),
-                      spreadRadius: 1.r,
-                    ),
-                    BoxShadow(
-                      color: isDark
-                          ? Colors.black.withValues(alpha: 0.5)
-                          : context.textColor.withValues(alpha: 0.08),
-                      blurRadius: 8.r,
-                      offset: Offset(0.w, 2.h),
+                      color: context.headerShadowColor,
+                      blurRadius: 12.r,
+                      offset: Offset(0, 4.h),
                     ),
                   ],
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      padding: EdgeInsets.all(12.w),
-                      decoration: BoxDecoration(
-                        color: widget.color.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: widget.color.withValues(alpha: 0.2),
-                            blurRadius: 6.r,
-                            offset: Offset(0.w, 2.h),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        widget.icon,
-                        color: widget.color,
-                        size: 24.sp,
-                      ),
+                    AiHubIconBadge(
+                      icon: widget.icon,
+                      gradientColors: aiHubAccentGradient(accent),
+                      dimmed: widget.isComingSoon,
+                      size: 52.w,
+                      iconSize: 24.sp,
                     ),
-                    SizedBox(width: 16.w),
+                    SizedBox(width: 14.w),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,52 +103,32 @@ class _AIFeatureCardState extends State<AIFeatureCard>
                                 child: Text(
                                   widget.title,
                                   style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                                    fontSize: 18.sp,
-                                    fontWeight: FontWeight.bold,
+                                    fontFamily: AppTheme.fontFamily,
+                                    fontSize: 16.sp,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.25,
                                     color: context.textColor,
                                   ),
-                                  maxLines: 1,
+                                  maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (widget.isComingSoon)
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 8.w,
-                                    vertical: 4.h,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.goldColor.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8.r),
-                                    border: Border.all(
-                                      color: AppTheme.goldColor.withValues(
-                                        alpha: 0.4,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'به زودی',
-                                    style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                                      fontSize: 10.sp,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.goldColor,
-                                    ),
-                                  ),
-                                ),
+                              if (widget.isComingSoon) ...[
+                                SizedBox(width: 8.w),
+                                _ComingSoonChip(),
+                              ],
                             ],
                           ),
-                          SizedBox(height: 4.h),
+                          SizedBox(height: 5.h),
                           Text(
                             widget.description,
                             style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                              fontSize: 14.sp,
-                              color: context.textSecondary,
-                              height: 1.5.h,
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 13.sp,
+                              height: 1.5,
+                              color: context.textSecondary.withValues(
+                                alpha: isDark ? 0.92 : 0.88,
+                              ),
                               fontWeight: FontWeight.w500,
                             ),
                             maxLines: 2,
@@ -193,11 +137,13 @@ class _AIFeatureCardState extends State<AIFeatureCard>
                         ],
                       ),
                     ),
-                    SizedBox(width: 8.w),
+                    SizedBox(width: 6.w),
                     Icon(
                       LucideIcons.chevronLeft,
-                      color: widget.color.withValues(alpha: 0.6),
-                      size: 20.sp,
+                      color: widget.isComingSoon
+                          ? context.textSecondary.withValues(alpha: 0.35)
+                          : accent.withValues(alpha: isDark ? 0.85 : 0.75),
+                      size: 22.sp,
                     ),
                   ],
                 ),
@@ -205,6 +151,31 @@ class _AIFeatureCardState extends State<AIFeatureCard>
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _ComingSoonChip extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      decoration: BoxDecoration(
+        color: AppTheme.goldColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: 0.28),
+        ),
+      ),
+      child: Text(
+        'به‌زودی',
+        style: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontSize: 10.sp,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.darkGold,
+        ),
       ),
     );
   }

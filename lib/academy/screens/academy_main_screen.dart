@@ -18,6 +18,7 @@ class AcademyMainScreen extends StatefulWidget {
 
   /// تب اولیه (۰=مقالات، ۱=موزیک، ۲=ویدیو، ۳=اساطیر) - برای ناوبری از کاروسل
   final int? initialTabIndex;
+
   /// موزیکی که باید بعد از ورود پخش شود
   final WorkoutMusic? initialMusicToPlay;
 
@@ -189,25 +190,25 @@ class _AcademyMainScreenState extends State<AcademyMainScreen>
                     Tab(
                       icon: Icon(LucideIcons.bookOpen, size: 14.sp),
                       text: 'مقالات',
-                      height: 40.h,
+                      height: 46.h,
                       iconMargin: EdgeInsets.only(bottom: 4.h),
                     ),
                     Tab(
                       icon: Icon(LucideIcons.music, size: 14.sp),
                       text: 'موزیک',
-                      height: 40.h,
+                      height: 46.h,
                       iconMargin: EdgeInsets.only(bottom: 4.h),
                     ),
                     Tab(
                       icon: Icon(LucideIcons.video, size: 14.sp),
                       text: 'ویدیو',
-                      height: 40.h,
+                      height: 46.h,
                       iconMargin: EdgeInsets.only(bottom: 4.h),
                     ),
                     Tab(
                       icon: Icon(LucideIcons.trophy, size: 14.sp),
                       text: 'اساطیر',
-                      height: 40.h,
+                      height: 46.h,
                       iconMargin: EdgeInsets.only(bottom: 4.h),
                     ),
                   ],

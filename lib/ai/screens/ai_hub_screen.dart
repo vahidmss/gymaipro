@@ -6,6 +6,7 @@ import 'package:gymaipro/ai/screens/ai_programs_screen.dart';
 import 'package:gymaipro/ai/screens/ai_progress_analysis_screen.dart';
 import 'package:gymaipro/ai/screens/chat_screen.dart';
 import 'package:gymaipro/ai/widgets/ai_feature_card.dart';
+import 'package:gymaipro/ai/widgets/ai_hub_ui.dart';
 import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
@@ -306,17 +307,7 @@ class _AIHubScreenState extends State<AIHubScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'شروع سریع',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
-                color: context.textSecondary.withValues(alpha: 0.9),
-              ),
-            ),
-            SizedBox(height: 10.h),
+            const AiHubSectionTitle(title: 'شروع سریع'),
             Row(
               children: [
                 Expanded(
@@ -326,7 +317,7 @@ class _AIHubScreenState extends State<AIHubScreen>
                     icon: LucideIcons.messageCircle,
                     title: 'چت',
                     subtitle: 'هر سوالی بپرس',
-                    color: AppTheme.goldColor,
+                    accent: AppTheme.carbsColor,
                     onTap: () {
                       unawaited(
                         Navigator.push<void>(
@@ -347,7 +338,7 @@ class _AIHubScreenState extends State<AIHubScreen>
                     icon: LucideIcons.dumbbell,
                     title: 'برنامه تمرین',
                     subtitle: 'برنامهٔ شخصی',
-                    color: AppTheme.goldColor,
+                    accent: AppTheme.goldColor,
                     onTap: () {
                       unawaited(
                         Navigator.push<void>(
@@ -369,7 +360,7 @@ class _AIHubScreenState extends State<AIHubScreen>
               icon: LucideIcons.barChart3,
               title: 'تحلیل پیشرفت',
               subtitle: 'روند تمرین و پیشنهاد بهبود',
-              color: AppTheme.darkGold,
+              accent: AppTheme.proteinColor,
               fullWidth: true,
               onTap: () {
                 unawaited(
@@ -394,13 +385,13 @@ class _AIHubScreenState extends State<AIHubScreen>
     required IconData icon,
     required String title,
     required String subtitle,
-    required Color color,
+    required Color accent,
     required VoidCallback onTap,
     bool fullWidth = false,
   }) {
-    final radius = BorderRadius.circular(20.r);
-    final cg = context.goldGradientColors;
-    final borderColor = Color.lerp(context.separatorColor, color, 0.52)!;
+    final radius = BorderRadius.circular(18.r);
+    final borderColor = Color.lerp(context.separatorColor, accent, 0.42)!;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -409,26 +400,14 @@ class _AIHubScreenState extends State<AIHubScreen>
         child: Ink(
           width: fullWidth ? double.infinity : null,
           padding: EdgeInsets.symmetric(
-            horizontal: fullWidth ? 18.w : 14.w,
-            vertical: fullWidth ? 16.h : 15.h,
+            horizontal: fullWidth ? 16.w : 12.w,
+            vertical: fullWidth ? 14.h : 16.h,
           ),
           decoration: BoxDecoration(
-            gradient: isDark
-                ? null
-                : LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color.lerp(context.cardColor, cg[0], 0.08)!,
-                      context.cardColor,
-                      Color.lerp(context.cardColor, cg[1], 0.05)!,
-                    ],
-                  ),
-            color: isDark ? context.cardColor : null,
+            color: context.cardColor,
             borderRadius: radius,
             border: Border.all(
-              color: borderColor.withValues(alpha: isDark ? 0.88 : 0.72),
-              width: 1.w,
+              color: borderColor.withValues(alpha: isDark ? 0.72 : 0.62),
             ),
             boxShadow: [
               BoxShadow(
@@ -436,40 +415,18 @@ class _AIHubScreenState extends State<AIHubScreen>
                 blurRadius: 10.r,
                 offset: Offset(0, 3.h),
               ),
-              BoxShadow(
-                color: color.withValues(alpha: isDark ? 0.07 : 0.09),
-                blurRadius: 20.r,
-                spreadRadius: -4,
-                offset: Offset(0, 6.h),
-              ),
             ],
           ),
           child: fullWidth
               ? Row(
                   children: [
-                    Container(
-                      padding: EdgeInsets.all(12.w),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            color.withValues(alpha: isDark ? 0.2 : 0.16),
-                            color.withValues(alpha: isDark ? 0.1 : 0.08),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(14.r),
-                        border: Border.all(
-                          color: color.withValues(alpha: 0.22),
-                        ),
-                      ),
-                      child: Icon(
-                        icon,
-                        color: color,
-                        size: 22.sp,
-                      ),
+                    AiHubIconBadge(
+                      icon: icon,
+                      gradientColors: aiHubAccentGradient(accent),
+                      size: 48.w,
+                      iconSize: 22.sp,
                     ),
-                    SizedBox(width: 14.w),
+                    SizedBox(width: 12.w),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -479,18 +436,22 @@ class _AIHubScreenState extends State<AIHubScreen>
                             title,
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w800,
+                              height: 1.2,
                               color: context.textColor,
                             ),
                           ),
-                          SizedBox(height: 2.h),
+                          SizedBox(height: 3.h),
                           Text(
                             subtitle,
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
                               fontSize: 12.5.sp,
-                              color: context.textSecondary,
+                              height: 1.35,
+                              color: context.textSecondary.withValues(
+                                alpha: 0.9,
+                              ),
                             ),
                           ),
                         ],
@@ -498,52 +459,42 @@ class _AIHubScreenState extends State<AIHubScreen>
                     ),
                     Icon(
                       LucideIcons.chevronLeft,
-                      color: color.withValues(alpha: 0.55),
-                      size: 22.sp,
+                      color: accent.withValues(alpha: 0.7),
+                      size: 20.sp,
                     ),
                   ],
                 )
               : Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: EdgeInsets.all(11.w),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            color.withValues(alpha: isDark ? 0.22 : 0.16),
-                            color.withValues(alpha: isDark ? 0.11 : 0.08),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(14.r),
-                        border: Border.all(
-                          color: color.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: Icon(icon, color: color, size: 22.sp),
+                    AiHubIconBadge(
+                      icon: icon,
+                      gradientColors: aiHubAccentGradient(accent),
+                      size: 46.w,
+                      iconSize: 22.sp,
                     ),
                     SizedBox(height: 10.h),
                     Text(
                       title,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
                         color: context.textColor,
                       ),
                       textAlign: TextAlign.center,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(height: 3.h),
+                    SizedBox(height: 4.h),
                     Text(
                       subtitle,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 12.sp,
-                        color: context.textSecondary,
+                        fontSize: 11.5.sp,
+                        height: 1.35,
+                        color: context.textSecondary.withValues(alpha: 0.9),
                       ),
                       textAlign: TextAlign.center,
                       maxLines: 2,
@@ -557,10 +508,10 @@ class _AIHubScreenState extends State<AIHubScreen>
   }
 
   Widget _buildHighlightsStrip(BuildContext context, bool isDark) {
-    final items = <(IconData, String, String)>[
-      (LucideIcons.zap, 'پاسخ آنی', 'چت'),
-      (LucideIcons.target, 'شخصی‌سازی', 'برنامه'),
-      (LucideIcons.lineChart, 'بر پایه داده', 'تحلیل'),
+    final items = <(IconData, String, String, Color)>[
+      (LucideIcons.zap, 'پاسخ آنی', 'چت', AppTheme.carbsColor),
+      (LucideIcons.target, 'شخصی‌سازی', 'برنامه', AppTheme.goldColor),
+      (LucideIcons.lineChart, 'بر پایه داده', 'تحلیل', AppTheme.proteinColor),
     ];
     final stripBorder = Color.lerp(
       context.separatorColor,
@@ -598,6 +549,7 @@ class _AIHubScreenState extends State<AIHubScreen>
                 icon: items[i].$1,
                 title: items[i].$2,
                 caption: items[i].$3,
+                accent: items[i].$4,
               ),
             ),
           ],
@@ -613,17 +565,7 @@ class _AIHubScreenState extends State<AIHubScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'همهٔ ابزارها',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
-                color: context.textSecondary.withValues(alpha: 0.9),
-              ),
-            ),
-            SizedBox(height: 12.h),
+            const AiHubSectionTitle(title: 'همهٔ ابزارها'),
             AIFeatureCard(
               icon: LucideIcons.dumbbell,
               title: 'برنامه‌ریزی تمرینی',
@@ -646,7 +588,7 @@ class _AIHubScreenState extends State<AIHubScreen>
               icon: LucideIcons.apple,
               title: 'برنامه‌ریزی غذایی',
               description: 'رژیم متعادل بر اساس نیازت — به‌زودی',
-              color: AppTheme.goldColor,
+              color: AppTheme.fatColor,
               isComingSoon: true,
               onTap: () {},
             ),
@@ -655,7 +597,7 @@ class _AIHubScreenState extends State<AIHubScreen>
               icon: LucideIcons.barChart3,
               title: 'تحلیل پیشرفت',
               description: 'مرور روند تمرین و پیشنهادهای عملی برای بهبود',
-              color: AppTheme.goldColor,
+              color: AppTheme.proteinColor,
               onTap: () {
                 unawaited(
                   Navigator.push<void>(
@@ -679,35 +621,36 @@ class _HighlightCell extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.caption,
+    required this.accent,
   });
 
   final IconData icon;
   final String title;
   final String caption;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 4.w),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 18.sp,
-            color: isDark
-                ? AppTheme.goldColor.withValues(alpha: 0.78)
-                : AppTheme.darkGold.withValues(alpha: 0.88),
+          AiHubIconBadge(
+            icon: icon,
+            gradientColors: aiHubAccentGradient(accent),
+            size: 36.w,
+            iconSize: 17.sp,
           ),
-          SizedBox(height: 6.h),
+          SizedBox(height: 8.h),
           Text(
             title,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 12.sp,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
+              height: 1.2,
               color: context.textColor,
             ),
           ),
@@ -718,7 +661,8 @@ class _HighlightCell extends StatelessWidget {
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 10.5.sp,
-              color: context.textSecondary,
+              height: 1.25,
+              color: context.textSecondary.withValues(alpha: 0.9),
             ),
           ),
         ],

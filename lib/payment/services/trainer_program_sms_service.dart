@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/core/client_secret_guard.dart';
 import 'package:gymaipro/services/pattern_sms_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -16,6 +17,15 @@ class TrainerProgramSmsService {
   }) async {
     final sentViaServer = await _sendViaServer(subscriptionId: subscriptionId);
     if (sentViaServer) return;
+
+    if (ClientSecretGuard.blocksClientSmsCredentials) {
+      if (kDebugMode) {
+        debugPrint(
+          'TrainerProgramSmsService: server SMS failed; client fallback blocked on web',
+        );
+      }
+      return;
+    }
 
     await notifyCoachNewProgramRequest(
       trainerProfileOrAuthId: trainerProfileOrAuthId,

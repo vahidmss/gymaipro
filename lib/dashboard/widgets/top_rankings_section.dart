@@ -225,7 +225,10 @@ class _TopRankingsSectionState extends State<TopRankingsSection> {
     );
   }
 
-  Widget _buildLeaderboardPage(BuildContext context, {required bool isAthletes}) {
+  Widget _buildLeaderboardPage(
+    BuildContext context, {
+    required bool isAthletes,
+  }) {
     final palette = _palette(context);
     final items = _buildItems(isAthletes: isAthletes);
     if (items.isEmpty) return const SizedBox.shrink();
@@ -253,7 +256,8 @@ class _TopRankingsSectionState extends State<TopRankingsSection> {
                         item: item,
                         isAthletes: isAthletes,
                         palette: palette,
-                        onTap: () => _openRankingDetail(item, isAthletes: isAthletes),
+                        onTap: () =>
+                            _openRankingDetail(item, isAthletes: isAthletes),
                       ),
                     ),
                   ),
@@ -313,15 +317,21 @@ class _TopRankingsSectionState extends State<TopRankingsSection> {
     if (item.userId.isEmpty) return;
 
     if (isAthletes) {
-      await Navigator.pushNamed(context, '/user-profile', arguments: item.userId);
+      await Navigator.pushNamed(
+        context,
+        '/user-profile',
+        arguments: item.userId,
+      );
       return;
     }
 
     final trainer = item.trainerProfile;
     if (trainer == null) return;
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => TrainerDetailScreen(trainer: trainer)));
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TrainerDetailScreen(trainer: trainer),
+      ),
+    );
   }
 
   Widget _buildSeeAllButton(BuildContext context) {
@@ -354,9 +364,7 @@ class _TopRankingsSectionState extends State<TopRankingsSection> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                isAthletes
-                    ? 'مشاهده همه ورزشکاران'
-                    : 'مشاهده همه مربیان',
+                isAthletes ? 'مشاهده همه ورزشکاران' : 'مشاهده همه مربیان',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontWeight: FontWeight.w600,
@@ -544,7 +552,9 @@ class _TabChip extends StatelessWidget {
           padding: EdgeInsets.symmetric(vertical: 7.h),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8.r),
-            color: selected ? palette.chipSelectedBackground : Colors.transparent,
+            color: selected
+                ? palette.chipSelectedBackground
+                : Colors.transparent,
             border: selected
                 ? Border.all(
                     color: AppTheme.goldColor.withValues(alpha: 0.2),
@@ -605,7 +615,7 @@ class _TopChampionCard extends StatelessWidget {
         highlightColor: Colors.transparent,
         splashColor: AppTheme.goldColor.withValues(alpha: 0.08),
         child: Container(
-          height: 94.h,
+          constraints: BoxConstraints(minHeight: 94.h),
           padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12.r),
@@ -708,7 +718,7 @@ class _CompactRankCard extends StatelessWidget {
         highlightColor: Colors.transparent,
         splashColor: AppTheme.goldColor.withValues(alpha: 0.08),
         child: Container(
-          height: 58.h,
+          constraints: BoxConstraints(minHeight: 58.h),
           padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 7.h),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10.r),
@@ -787,7 +797,10 @@ class _RankAvatar extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: _ringColor.withValues(alpha: 0.9), width: 1.3.w),
+            border: Border.all(
+              color: _ringColor.withValues(alpha: 0.9),
+              width: 1.3.w,
+            ),
           ),
           child: ClipOval(
             child: item.avatarUrl != null && item.avatarUrl!.isNotEmpty
@@ -828,11 +841,7 @@ class _RankAvatar extends StatelessWidget {
   Widget _fallbackAvatar() {
     return ColoredBox(
       color: _ringColor.withValues(alpha: 0.16),
-      child: Icon(
-        LucideIcons.user,
-        size: size * 0.45,
-        color: _ringColor,
-      ),
+      child: Icon(LucideIcons.user, size: size * 0.45, color: _ringColor),
     );
   }
 }

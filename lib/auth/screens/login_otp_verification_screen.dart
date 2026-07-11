@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/auth/utils/otp_autofill_helper.dart';
 import 'package:gymaipro/auth/services/auth_state_service.dart';
 import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
@@ -42,37 +43,38 @@ class _LoginOTPVerificationScreenState extends State<LoginOTPVerificationScreen>
 
   Future<void> _initSmsAutofill() async {
     try {
-      final signature = await sms.SmsAutoFill().getAppSignature;
-      if (mounted) {
-        debugPrint('📱 Login OTP app signature: $signature');
-      }
-      listenForCode();
+      await OtpAutofillHelper.fetchAppSignature();
+      listenForCode(
+        smsCodeRegexPattern: OtpAutofillHelper.smsCodeRegexPattern,
+      );
     } catch (e) {
       debugPrint('SMS Autofill error: $e');
     }
   }
 
+  Future<void> _restartSmsAutofill() async {
+    await OtpAutofillHelper.restartNativeListener(cancel, listenForCode);
+  }
+
   @override
   void codeUpdated() {
-    final digits = _extractOtpDigits(code);
-    if (digits == null || digits.length != 6) return;
+    final digits = OtpAutofillHelper.extractDigits(code);
+    if (digits == null || digits.length != OtpAutofillHelper.codeLength) {
+      return;
+    }
     if (!mounted || !_isActive) return;
     if (!_otpController.isSafe) return;
 
-    _otpController.safeSetText(digits);
-    Future.delayed(const Duration(milliseconds: 500), () {
+    WidgetSafetyUtils.safeSetState(this, () {
+      _otpController.safeSetText(digits);
+      _errorMessage = null;
+    });
+
+    Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted && _isActive) {
         _verifyAndLogin();
       }
     });
-  }
-
-  String? _extractOtpDigits(String? raw) {
-    if (raw == null || raw.isEmpty) return null;
-    final match = RegExp(r'\d{6}').firstMatch(raw);
-    if (match != null) return match.group(0);
-    final digitsOnly = raw.replaceAll(RegExp(r'\D'), '');
-    return digitsOnly.length >= 6 ? digitsOnly.substring(0, 6) : null;
   }
 
   @override
@@ -134,6 +136,7 @@ class _LoginOTPVerificationScreenState extends State<LoginOTPVerificationScreen>
       }
 
       await OTPService.sendOTP(widget.phoneNumber);
+      await _restartSmsAutofill();
 
       if (!_isActive || !mounted) return;
 

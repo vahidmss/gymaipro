@@ -22,17 +22,102 @@ class TrainerFinanceService {
       return {
         'available': visible['withdrawable'] as int? ?? 0,
         'onHold': visible['onHold'] as int? ?? 0,
+        'frozen': visible['frozen'] as int? ?? 0,
         'total': visible['total'] as int? ?? 0,
         'withdrawable': visible['withdrawable'] as int? ?? 0,
+        'pendingProgram': visible['pendingProgram'] as int? ?? 0,
+        'pendingProgramCount': visible['pendingProgramCount'] as int? ?? 0,
+        'inEditWindow': visible['inEditWindow'] as int? ?? 0,
+        'inEditWindowCount': visible['inEditWindowCount'] as int? ?? 0,
+        'pendingPayouts': visible['pendingPayouts'] as int? ?? 0,
+        'holdDays': visible['holdDays'] as int? ?? 3,
+        'editWindowDays': visible['editWindowDays'] as int? ?? 3,
+        'commissionPercentage':
+            (visible['commissionPercentage'] as num?)?.toDouble() ?? 0.0,
+      };
+    } catch (_) {
+      return _emptyBalances();
+    }
+  }
+
+  Map<String, dynamic> _emptyBalances() => {
+        'available': 0,
+        'onHold': 0,
+        'frozen': 0,
+        'total': 0,
+        'withdrawable': 0,
+        'pendingProgram': 0,
+        'pendingProgramCount': 0,
+        'inEditWindow': 0,
+        'inEditWindowCount': 0,
+        'pendingPayouts': 0,
+        'holdDays': 3,
+        'editWindowDays': 3,
+        'commissionPercentage': 0.0,
+      };
+
+  /// نمای کامل مالی برای تب مالی مربی
+  Future<Map<String, dynamic>> getTrainerFinanceOverview(
+    String trainerId,
+  ) async {
+    try {
+      final visible = await _escrowService.getTrainerVisibleBalances(trainerId);
+      final stats = await getTrainerStats(trainerId);
+
+      final allEarnings =
+          (visible['allEarnings'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+      return {
+        ...getTrainerBalancesFromSnapshot(visible),
+        'lifetimeNetEarnings': stats['netEarnings'] as int? ?? 0,
+        'lifetimeRevenue': stats['totalRevenue'] as int? ?? 0,
+        'lifetimeCommission': stats['totalCommission'] as int? ?? 0,
+        'monthly': Map<String, int>.from(
+          (stats['monthly'] as Map?)?.map(
+                (k, v) => MapEntry(k.toString(), (v as num?)?.toInt() ?? 0),
+              ) ??
+              {},
+        ),
+        'monthlySubscriptions': Map<String, int>.from(
+          (stats['monthlySubscriptions'] as Map?)?.map(
+                (k, v) => MapEntry(k.toString(), (v as num?)?.toInt() ?? 0),
+              ) ??
+              {},
+        ),
+        'allEarnings': allEarnings,
       };
     } catch (_) {
       return {
-        'available': 0,
-        'onHold': 0,
-        'total': 0,
-        'withdrawable': 0,
+        ..._emptyBalances(),
+        'lifetimeNetEarnings': 0,
+        'lifetimeRevenue': 0,
+        'lifetimeCommission': 0,
+        'monthly': <String, int>{},
+        'monthlySubscriptions': <String, int>{},
+        'allEarnings': <Map<String, dynamic>>[],
       };
     }
+  }
+
+  Map<String, dynamic> getTrainerBalancesFromSnapshot(
+    Map<String, dynamic> visible,
+  ) {
+    return {
+      'available': visible['withdrawable'] as int? ?? 0,
+      'onHold': visible['onHold'] as int? ?? 0,
+      'frozen': visible['frozen'] as int? ?? 0,
+      'total': visible['total'] as int? ?? 0,
+      'withdrawable': visible['withdrawable'] as int? ?? 0,
+      'pendingProgram': visible['pendingProgram'] as int? ?? 0,
+      'pendingProgramCount': visible['pendingProgramCount'] as int? ?? 0,
+      'inEditWindow': visible['inEditWindow'] as int? ?? 0,
+      'inEditWindowCount': visible['inEditWindowCount'] as int? ?? 0,
+      'pendingPayouts': visible['pendingPayouts'] as int? ?? 0,
+      'holdDays': visible['holdDays'] as int? ?? 3,
+      'editWindowDays': visible['editWindowDays'] as int? ?? 3,
+      'commissionPercentage':
+          (visible['commissionPercentage'] as num?)?.toDouble() ?? 0.0,
+    };
   }
 
   /// درآمدهای اخیر قابل مشاهده برای مربی

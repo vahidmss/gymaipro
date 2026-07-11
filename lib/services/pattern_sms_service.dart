@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/core/client_secret_guard.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:http/http.dart' as http;
 
@@ -13,6 +14,15 @@ class PatternSmsService {
     required int bodyId,
     required List<String> parameters,
   }) async {
+    if (ClientSecretGuard.blocksClientSmsCredentials) {
+      if (kDebugMode) {
+        debugPrint(
+          'PatternSmsService: client SMS blocked on web — use Edge Function',
+        );
+      }
+      return false;
+    }
+
     if (bodyId <= 0) {
       if (kDebugMode) {
         debugPrint('PatternSmsService: invalid bodyId ($bodyId)');

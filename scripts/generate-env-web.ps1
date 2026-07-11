@@ -1,5 +1,8 @@
-# Generate env.web.json from local .env (public keys only — safe for web build)
+# Generate env.web.json from local .env (public + OpenAI direct key for web)
 #   .\scripts\generate-env-web.ps1
+#
+# OPENAI_API_KEY goes into the web bundle (direct client route). Restrict it in
+# OpenAI dashboard: usage limits + model allowlist.
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
@@ -19,7 +22,8 @@ Get-Content $LocalEnv -Encoding UTF8 | ForEach-Object {
 $web = [ordered]@{
   SUPABASE_URL = if ($vars["SUPABASE_URL"]) { $vars["SUPABASE_URL"] } else { "https://api.gymaipro.ir" }
   SUPABASE_ANON_KEY = $vars["SUPABASE_ANON_KEY"]
-  OPENAI_USE_PROXY = "true"
+  OPENAI_USE_PROXY = "false"
+  OPENAI_API_KEY = $vars["OPENAI_API_KEY"]
   SUPABASE_EDGE_FUNCTIONS_ENABLED = "true"
   OTP_USE_SERVER = "true"
   AI_ENGINE_MODE = "openai"
@@ -28,6 +32,10 @@ $web = [ordered]@{
 }
 
 if (-not $web.SUPABASE_ANON_KEY) { Write-Error "SUPABASE_ANON_KEY missing in .env" }
+if (-not $web.OPENAI_API_KEY) {
+  Write-Warning "OPENAI_API_KEY missing in .env — AI chat will not work on web until set"
+}
 
 $web | ConvertTo-Json | Set-Content -Path $Out -Encoding UTF8
-Write-Host "Created $Out (public keys only - run build-web.ps1 next)"
+Write-Host "Created $Out (direct OpenAI route; no SMS/payment secrets)"
+Write-Host "Run: .\scripts\build-web.ps1"

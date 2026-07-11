@@ -15,6 +15,7 @@ const MAX_SENDS_PER_IP_HOUR = 30
 
 type SendOtpRequest = {
   phone_number?: string
+  app_signature?: string
 }
 
 function normalizePhone(phone: string): string {
@@ -45,6 +46,7 @@ function clientIp(req: Request): string {
 async function sendSms(
   internationalPhone: string,
   code: string,
+  appSignature?: string,
 ): Promise<{ ok: boolean; detail?: string }> {
   const baseUrl =
     Deno.env.get('SMS_API_BASE_URL')?.trim() ||
@@ -59,8 +61,18 @@ async function sendSms(
     return { ok: false, detail: 'missing SMS env in container' }
   }
 
-  // Payamak pattern (bodyId): text = variable(s) only, not full free text
-  const message = bodyId > 0 ? code : `کد تایید شما: ${code}\nGymAI Pro`
+  const hash = appSignature?.trim() ?? ''
+
+  // Payamak pattern (bodyId): متغیر الگو — برای autofill اندروید hash باید خط جدا باشد.
+  // الگوی پیشنهادی در پنل: <#> کد تایید جیم‌آی: %1  (مقدار = code + newline + hash)
+  let message: string
+  if (bodyId > 0) {
+    message = hash ? `${code}\n${hash}` : code
+  } else if (hash) {
+    message = `<#> کد تایید جیم‌آی: ${code}\n${hash}`
+  } else {
+    message = `کد تایید شما: ${code}\nGymAI Pro`
+  }
   const form = new URLSearchParams({
     username,
     password,
@@ -142,6 +154,7 @@ serve(async (req) => {
 
     const body = (await req.json()) as SendOtpRequest
     const rawPhone = body.phone_number?.trim() ?? ''
+    const appSignature = body.app_signature?.trim() ?? ''
     if (!/^09\d{9}$/.test(normalizePhone(rawPhone))) {
       return new Response(
         JSON.stringify({
@@ -220,7 +233,11 @@ serve(async (req) => {
       ip_address: ip,
     })
 
-    const smsResult = await sendSms(toInternationalPhone(phone), code)
+    const smsResult = await sendSms(
+      toInternationalPhone(phone),
+      code,
+      appSignature || undefined,
+    )
 
     return new Response(
       JSON.stringify({

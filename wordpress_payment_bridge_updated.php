@@ -54,6 +54,11 @@ add_action('rest_api_init', function () {
     'callback' => 'gymai_zibal_proxy_verify',
     'permission_callback' => '__return_true',
   ]);
+  register_rest_route('gymaipro/v1', '/zibal/inquiry', [
+    'methods' => 'POST',
+    'callback' => 'gymai_zibal_proxy_inquiry',
+    'permission_callback' => '__return_true',
+  ]);
 });
 
 function gymai_zibal_proxy_request($request) {
@@ -88,6 +93,22 @@ function gymai_zibal_proxy_verify($request) {
     return new WP_Error('missing_trackid', 'trackId الزامی است', ['status' => 400]);
   }
   $response = wp_remote_post('https://gateway.zibal.ir/v1/verify', [
+    'timeout' => 15,
+    'headers' => ['Content-Type' => 'application/json', 'Accept' => 'application/json'],
+    'body' => wp_json_encode(['merchant' => GYM_TOPUP_MERCHANT, 'trackId' => sanitize_text_field($params['trackId'])]),
+  ]);
+  if (is_wp_error($response)) {
+    return new WP_Error('zibal_error', $response->get_error_message(), ['status' => 500]);
+  }
+  return new WP_REST_Response(json_decode(wp_remote_retrieve_body($response), true), wp_remote_retrieve_response_code($response));
+}
+
+function gymai_zibal_proxy_inquiry($request) {
+  $params = $request->get_json_params();
+  if (empty($params['trackId'])) {
+    return new WP_Error('missing_trackid', 'trackId الزامی است', ['status' => 400]);
+  }
+  $response = wp_remote_post('https://gateway.zibal.ir/v1/inquiry', [
     'timeout' => 15,
     'headers' => ['Content-Type' => 'application/json', 'Accept' => 'application/json'],
     'body' => wp_json_encode(['merchant' => GYM_TOPUP_MERCHANT, 'trackId' => sanitize_text_field($params['trackId'])]),

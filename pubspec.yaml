@@ -123,8 +123,7 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    # فقط برای debug/profile — release از --dart-define استفاده می‌کند
-    - .env
+    # env: فقط --dart-define-from-file (env.web.json / .env) — .env در bundle نباشد
     - images/
     - assets/sounds/
     - lib/workout_questionnaire/data/workout_questions.json

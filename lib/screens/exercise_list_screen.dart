@@ -47,7 +47,6 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
   Map<String, List<String>> _availableFilters = {};
   bool _showAdvancedFilters = false;
 
-
   @override
   void initState() {
     super.initState();
@@ -78,10 +77,10 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
               _filteredExercises = cachedExercises;
               _isLoading = false;
             });
-            
+
             // بارگذاری فیلترها در background
             _loadFiltersInBackground();
-            
+
             // به‌روزرسانی داده‌ها در background
             _refreshDataInBackground();
             return;
@@ -99,7 +98,9 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
 
     try {
       await _exerciseService.init();
-      final exercises = await _exerciseService.getExercises(forceRefresh: forceRefresh);
+      final exercises = await _exerciseService.getExercises(
+        forceRefresh: forceRefresh,
+      );
       final availableFilters = await _exerciseService.getAvailableFilters();
 
       if (mounted) {
@@ -146,19 +147,21 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
   Future<void> _refreshDataInBackground() async {
     try {
       final exercises = await _exerciseService.getExercises();
-      
+
       if (mounted && exercises.isNotEmpty) {
         exercises.sort((a, b) => b.likes.compareTo(a.likes));
-        
+
         // فقط اگر داده‌ها تغییر کرده باشند، به‌روزرسانی می‌کنیم
         if (exercises.length != _exercises.length ||
-            exercises.any((e) => !_exercises.any((existing) => existing.id == e.id))) {
+            exercises.any(
+              (e) => !_exercises.any((existing) => existing.id == e.id),
+            )) {
           WidgetSafetyUtils.safeSetState(this, () {
             _exercises = exercises;
             // اگر فیلتر فعال نیست، filteredExercises را هم به‌روزرسانی کن
-            if (_searchQuery.isEmpty && 
-                _selectedDifficulty.isEmpty && 
-                _selectedEquipment.isEmpty && 
+            if (_searchQuery.isEmpty &&
+                _selectedDifficulty.isEmpty &&
+                _selectedEquipment.isEmpty &&
                 _selectedExerciseType.isEmpty) {
               _filteredExercises = exercises;
             }
@@ -343,11 +346,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
         ),
         title: Row(
           children: [
-            Icon(
-              LucideIcons.filter,
-              color: AppTheme.goldColor,
-              size: 20.sp,
-            ),
+            Icon(LucideIcons.filter, color: AppTheme.goldColor, size: 20.sp),
             SizedBox(width: 8.w),
             Text(
               'فیلتر پیشرفته',
@@ -454,10 +453,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                 ),
               ),
               dropdownColor: context.cardColor,
-              style: TextStyle(
-                color: context.textColor,
-                fontSize: 14.sp,
-              ),
+              style: TextStyle(color: context.textColor, fontSize: 14.sp),
               items: [
                 DropdownMenuItem(
                   value: '',
@@ -605,10 +601,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                 style: ElevatedButton.styleFrom(
                   foregroundColor: AppTheme.goldColor,
                   backgroundColor: Colors.transparent,
-                  side: const BorderSide(
-                    color: AppTheme.goldColor,
-                    width: 1.5,
-                  ),
+                  side: const BorderSide(color: AppTheme.goldColor, width: 1.5),
                   padding: EdgeInsets.symmetric(vertical: 14.h),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12.r),
@@ -639,8 +632,8 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
             color: hasValue
                 ? AppTheme.goldColor
                 : (isDark
-                    ? Colors.white.withValues(alpha: 0.2)
-                    : AppTheme.goldColor.withValues(alpha: 0.3)),
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : AppTheme.goldColor.withValues(alpha: 0.3)),
             width: 1.5,
           ),
           borderRadius: BorderRadius.circular(20.r),
@@ -651,9 +644,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
             Text(
               label,
               style: TextStyle(
-                color: hasValue
-                    ? AppTheme.goldColor
-                    : context.textSecondary,
+                color: hasValue ? AppTheme.goldColor : context.textSecondary,
                 fontSize: 13.sp,
                 fontWeight: hasValue ? FontWeight.bold : FontWeight.w600,
               ),
@@ -832,9 +823,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
             ),
             IconButton(
               icon: Icon(
-                _showAdvancedFilters
-                    ? LucideIcons.filterX
-                    : LucideIcons.filter,
+                _showAdvancedFilters ? LucideIcons.filterX : LucideIcons.filter,
                 color: _showAdvancedFilters
                     ? Colors.red[600]
                     : AppTheme.goldColor,
@@ -902,9 +891,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                               ConnectionState.waiting) {
                             return _buildLoadingIndicator();
                           }
-                          return _buildScrollableContent(
-                            snapshot.data ?? [],
-                          );
+                          return _buildScrollableContent(snapshot.data ?? []);
                         },
                       ),
                     ),
@@ -932,10 +919,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
       onSubmitted: (_) => FocusScope.of(context).unfocus(),
       decoration: InputDecoration(
         hintText: 'جستجوی تمرین...',
-        hintStyle: TextStyle(
-          color: context.textSecondary,
-          fontSize: 15.sp,
-        ),
+        hintStyle: TextStyle(color: context.textSecondary, fontSize: 15.sp),
         border: InputBorder.none,
         prefixIcon: Icon(
           LucideIcons.search,
@@ -975,9 +959,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
           baseColor: isDark
               ? context.cardColor
               : context.cardColor.withValues(alpha: 0.5),
-          highlightColor: isDark
-              ? Colors.grey[800]!
-              : Colors.grey[300]!,
+          highlightColor: isDark ? Colors.grey[800]! : Colors.grey[300]!,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -1050,9 +1032,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
       slivers: [
         // فیلترهای پیشرفته - فقط برای تب اول (همه تمرینات)
         if (_tabController.index == 0 && _showAdvancedFilters)
-          SliverToBoxAdapter(
-            child: _buildAdvancedFiltersPanel(),
-          ),
+          SliverToBoxAdapter(child: _buildAdvancedFiltersPanel()),
 
         // لیست تمرینات
         if (exercises.isEmpty)
@@ -1070,12 +1050,9 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
               ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  return _buildExerciseCard(exercises[index]);
-                },
-                childCount: exercises.length,
-              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                return _buildExerciseCard(exercises[index]);
+              }, childCount: exercises.length),
             ),
           ),
       ],
@@ -1097,13 +1074,14 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
         }
 
         final userRole = roleSnapshot.data;
-        
+
         // اگر کاربر مربی است، تمرینات اختصاصی خودش را نمایش می‌دهیم
         if (userRole == 'trainer') {
           return FutureBuilder<List<Exercise>>(
             future: _loadMyCustomExercises(),
             builder: (context, exercisesSnapshot) {
-              if (exercisesSnapshot.connectionState == ConnectionState.waiting) {
+              if (exercisesSnapshot.connectionState ==
+                  ConnectionState.waiting) {
                 return _buildLoadingIndicator();
               }
 
@@ -1125,7 +1103,9 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
             }
 
             final trainers = trainerSnapshot.data ?? [];
-            final activeTrainers = trainers.where((t) => t['status'] == 'active').toList();
+            final activeTrainers = trainers
+                .where((t) => t['status'] == 'active')
+                .toList();
 
             if (activeTrainers.isEmpty) {
               return _buildNoTrainerEmptyState();
@@ -1134,7 +1114,8 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
             return FutureBuilder<List<Exercise>>(
               future: _loadTrainerExercises(user.id),
               builder: (context, exercisesSnapshot) {
-                if (exercisesSnapshot.connectionState == ConnectionState.waiting) {
+                if (exercisesSnapshot.connectionState ==
+                    ConnectionState.waiting) {
                   return _buildLoadingIndicator();
                 }
 
@@ -1147,12 +1128,14 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
       },
     );
   }
-  
+
   /// بارگذاری تمرینات اختصاصی خود مربی
   Future<List<Exercise>> _loadMyCustomExercises() async {
     try {
       final customExercises = await _customExerciseService.getMyExercises();
-      return await _customExerciseService.customExercisesToExercises(customExercises);
+      return await _customExerciseService.customExercisesToExercises(
+        customExercises,
+      );
     } catch (e) {
       debugPrint('Error loading my custom exercises: $e');
       return [];
@@ -1162,16 +1145,18 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
   Future<List<Exercise>> _loadTrainerExercises(String clientId) async {
     try {
       final exercises = <Exercise>[];
-      
+
       // 1. دریافت تمرینات اختصاصی مربی‌های کاربر (اگر کاربر شاگرد باشد)
       try {
-        final customExercises = await _customExerciseService.getTrainerExercisesForClient(clientId);
-        final trainerExercises = await _customExerciseService.customExercisesToExercises(customExercises);
+        final customExercises = await _customExerciseService
+            .getTrainerExercisesForClient(clientId);
+        final trainerExercises = await _customExerciseService
+            .customExercisesToExercises(customExercises);
         exercises.addAll(trainerExercises);
       } catch (e) {
         debugPrint('Error loading trainer exercises for client: $e');
       }
-      
+
       // 2. بررسی اینکه آیا خود کاربر هم مربی است
       try {
         final user = Supabase.instance.client.auth.currentUser;
@@ -1180,13 +1165,15 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
             select: 'role',
           );
           final profileResponse = profile;
-          
+
           final role = profileResponse?['role'] as String?;
           if (role == 'trainer') {
             // اگر کاربر مربی است، تمرینات اختصاصی خودش را هم اضافه می‌کنیم
-            final myCustomExercises = await _customExerciseService.getMyExercises();
-            final myExercises = await _customExerciseService.customExercisesToExercises(myCustomExercises);
-            
+            final myCustomExercises = await _customExerciseService
+                .getMyExercises();
+            final myExercises = await _customExerciseService
+                .customExercisesToExercises(myCustomExercises);
+
             // جلوگیری از تکرار: فقط تمریناتی که قبلاً اضافه نشده‌اند
             final existingIds = exercises.map((e) => e.id).toSet();
             for (final exercise in myExercises) {
@@ -1199,24 +1186,24 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
       } catch (e) {
         debugPrint('Error checking trainer role or loading own exercises: $e');
       }
-      
+
       return exercises;
     } catch (e) {
       debugPrint('Error loading trainer exercises: $e');
       return [];
     }
   }
-  
+
   Widget? _buildFloatingActionButton() {
     // فقط در تب تمرینات مربی (index 2) نمایش داده می‌شود
     if (_tabController.index != 2) return null;
-    
+
     return FutureBuilder<String?>(
       future: _getUserRole(),
       builder: (context, snapshot) {
         // فقط برای مربی‌ها نمایش داده می‌شود
         if (snapshot.data != 'trainer') return const SizedBox.shrink();
-        
+
         return DecoratedBox(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
@@ -1261,16 +1248,16 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
       },
     );
   }
-  
+
   Future<String?> _getUserRole() async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return null;
-      
+
       final profile = await SimpleProfileService.queryCurrentUserProfile(
         select: 'role',
       );
-      
+
       return profile?['role'] as String?;
     } catch (e) {
       debugPrint('Error getting user role: $e');
@@ -1356,10 +1343,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
               decoration: BoxDecoration(
                 color: context.cardColor,
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: context.separatorColor,
-                  width: 2,
-                ),
+                border: Border.all(color: context.separatorColor, width: 2),
               ),
               child: Icon(
                 _tabController.index == 2
@@ -1391,17 +1375,13 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                 _searchQuery.isNotEmpty || _selectedMuscleGroup.isNotEmpty
                     ? 'جستجو یا فیلتر خود را تغییر دهید.'
                     : 'لیست تمرینات خالی است.',
-                style: TextStyle(
-                  color: context.textSecondary,
-                  fontSize: 14.sp,
-                ),
+                style: TextStyle(color: context.textSecondary, fontSize: 14.sp),
               ),
           ],
         ),
       ),
     );
   }
-
 
   /// ساخت placeholder یکسان و زیبا برای عکس‌های تمرین
   Widget _buildImagePlaceholder(bool isDark) {
@@ -1415,10 +1395,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                   Colors.grey[900]!.withValues(alpha: 0.8),
                   Colors.grey[800]!.withValues(alpha: 0.6),
                 ]
-              : [
-                  Colors.grey[200]!,
-                  Colors.grey[100]!,
-                ],
+              : [Colors.grey[200]!, Colors.grey[100]!],
         ),
       ),
       child: Center(
@@ -1487,7 +1464,8 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                         fit: BoxFit.cover,
                         fadeInDuration: const Duration(milliseconds: 300),
                         fadeOutDuration: const Duration(milliseconds: 100),
-                        placeholder: (context, url) => _buildImagePlaceholder(isDark),
+                        placeholder: (context, url) =>
+                            _buildImagePlaceholder(isDark),
                         errorWidget: (context, url, error) =>
                             _buildImagePlaceholder(isDark),
                         memCacheWidth: 400, // Optimize memory usage
@@ -1521,7 +1499,9 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                         shadowColor: Colors.black.withValues(alpha: 0.3),
                         child: InkWell(
                           onTap: () => _toggleFavorite(exercise),
-                          splashColor: AppTheme.goldColor.withValues(alpha: 0.3),
+                          splashColor: AppTheme.goldColor.withValues(
+                            alpha: 0.3,
+                          ),
                           child: Padding(
                             padding: EdgeInsets.all(8.w),
                             child: Icon(
@@ -1531,8 +1511,8 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                               color: exercise.isFavorite
                                   ? AppTheme.goldColor
                                   : (isDark
-                                      ? Colors.white.withValues(alpha: 0.85)
-                                      : context.textSecondary),
+                                        ? Colors.white.withValues(alpha: 0.85)
+                                        : context.textSecondary),
                               size: 20.sp,
                             ),
                           ),
@@ -1612,7 +1592,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                             color: context.textColor,
                             fontWeight: FontWeight.bold,
                             fontSize: 15.sp,
-                            height: 1.4.h,
+                            height: 1.3,
                             letterSpacing: 0.2,
                           ),
                           maxLines: 2,
@@ -1621,7 +1601,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                       ),
 
                       // اطلاعات اضافی
-                      SizedBox(height: 8.h),
+                      SizedBox(height: 6.h),
                       Row(
                         children: [
                           Icon(
@@ -1630,12 +1610,16 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                             size: 15.sp,
                           ),
                           SizedBox(width: 6.w),
-                          Text(
-                            '${(exercise.estimatedDuration / 60).round()} دقیقه',
-                            style: TextStyle(
-                              color: context.textSecondary,
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w600,
+                          Flexible(
+                            child: Text(
+                              '${(exercise.estimatedDuration / 60).round()} دقیقه',
+                              style: TextStyle(
+                                color: context.textSecondary,
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const Spacer(),
@@ -1661,7 +1645,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                       ),
                       // نمایش نویسنده
                       if (exercise.author != null) ...[
-                        SizedBox(height: 6.h),
+                        SizedBox(height: 4.h),
                         Row(
                           children: [
                             Icon(
@@ -1674,7 +1658,9 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                               child: Text(
                                 exercise.author!,
                                 style: TextStyle(
-                                  color: AppTheme.goldColor.withValues(alpha: 0.8),
+                                  color: AppTheme.goldColor.withValues(
+                                    alpha: 0.8,
+                                  ),
                                   fontSize: 11.5.sp,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1685,7 +1671,7 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                           ],
                         ),
                       ],
-                      SizedBox(height: 8.h),
+                      SizedBox(height: 6.h),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -1694,10 +1680,12 @@ class _ExerciseListScreenState extends State<ExerciseListScreen>
                             child: InkWell(
                               onTap: () => _toggleLike(exercise),
                               borderRadius: BorderRadius.circular(10.r),
-                              splashColor: AppTheme.goldColor.withValues(alpha: 0.2),
+                              splashColor: AppTheme.goldColor.withValues(
+                                alpha: 0.2,
+                              ),
                               child: Padding(
                                 padding: EdgeInsets.symmetric(
-                                  vertical: 6.h,
+                                  vertical: 4.h,
                                   horizontal: 8.w,
                                 ),
                                 child: Row(

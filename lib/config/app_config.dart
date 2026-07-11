@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:gymaipro/core/client_secret_guard.dart';
 
 class AppConfig {
   /// Safe read from `.env` after dotenv.load; returns null if unset or not loaded.
@@ -185,9 +186,9 @@ class AppConfig {
     return supabaseEdgeFunctionsEnabled;
   }
 
-  /// اگر true باشد، درخواست‌های AI از طریق Edge Function روی api.gymaipro.ir
-  /// به OpenAI پروکسی می‌شوند (برای انتشار عمومی + امنیت کلید).
-  /// روی وب همیشه از proxy استفاده می‌شود (در OpenAIService).
+  /// اگر true باشد، درخواست‌های AI از Edge Function سرور (`openai-chat`) می‌روند.
+  /// پیش‌فرض false — مسیر مستقیم کلاینت (برای سرورهای فیلترشده).
+  /// با OPENAI_USE_PROXY=true می‌توان به proxy سرور برگشت.
   static bool get openaiUseProxy {
     const env = String.fromEnvironment('OPENAI_USE_PROXY');
     if (env.isNotEmpty) {
@@ -248,11 +249,20 @@ class AppConfig {
   }
 
   // Payment gateway configuration
-  static String get zibalMerchantId => _envString('ZIBAL_MERCHANT_ID');
+  static String get zibalMerchantId {
+    if (ClientSecretGuard.blocksDirectPaymentGatewayApi) return '';
+    return _envString('ZIBAL_MERCHANT_ID');
+  }
 
-  static String get zibalApiKey => _envString('ZIBAL_API_KEY');
+  static String get zibalApiKey {
+    if (ClientSecretGuard.blocksDirectPaymentGatewayApi) return '';
+    return _envString('ZIBAL_API_KEY');
+  }
 
-  static String get zarinpalMerchantId => _envString('ZARINPAL_MERCHANT_ID');
+  static String get zarinpalMerchantId {
+    if (ClientSecretGuard.blocksDirectPaymentGatewayApi) return '';
+    return _envString('ZARINPAL_MERCHANT_ID');
+  }
 
   // Zibal requires callbackUrl domain to match merchant; use gymaipro.ir
   static const String zibalCallbackUrl = 'https://gymaipro.ir/payment/callback';
@@ -270,6 +280,7 @@ class AppConfig {
   }
 
   static String get smsApiUsername {
+    if (ClientSecretGuard.blocksClientSmsCredentials) return '';
     const envUsername = String.fromEnvironment('SMS_API_USERNAME');
     if (envUsername.isNotEmpty) {
       return envUsername;
@@ -283,6 +294,7 @@ class AppConfig {
   }
 
   static String get smsApiPassword {
+    if (ClientSecretGuard.blocksClientSmsCredentials) return '';
     const envPassword = String.fromEnvironment('SMS_API_PASSWORD');
     if (envPassword.isNotEmpty) {
       return envPassword;

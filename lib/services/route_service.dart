@@ -43,6 +43,8 @@ import 'package:gymaipro/trainer_dashboard/screens/client_management/client_mana
 import 'package:gymaipro/trainer_dashboard/screens/trainer_dashboard_screen.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/ranking/screens/leaderboard_screen.dart';
+import 'package:gymaipro/trainer_channel/screens/trainer_channel_manage_screen.dart';
+import 'package:gymaipro/trainer_channel/screens/trainer_channel_screen.dart';
 import 'package:gymaipro/trainer_ranking/screens/trainer_detail_screen.dart';
 import 'package:gymaipro/trainer_ranking/screens/trainer_ranking_screen.dart';
 import 'package:gymaipro/trainer_ranking/services/trainer_ranking_service.dart';
@@ -368,6 +370,21 @@ class RouteService {
           builder: (_) => TrainerDashboardScreen(
             initialTabIndex: initialTabIndex.clamp(0, 8),
           ),
+        );
+      case '/trainer-channel':
+        return MaterialPageRoute(
+          builder: (_) => const TrainerChannelManageScreen(),
+        );
+      case '/trainer-channel-preview':
+        final args = settings.arguments as Map<String, dynamic>?;
+        final trainer = args?['trainer'] as UserProfile?;
+        if (trainer == null) {
+          return MaterialPageRoute(
+            builder: (_) => const TrainerChannelManageScreen(),
+          );
+        }
+        return MaterialPageRoute(
+          builder: (_) => TrainerChannelScreen(trainer: trainer),
         );
       case '/notifications':
         return MaterialPageRoute(builder: (_) => const NotificationsScreen());

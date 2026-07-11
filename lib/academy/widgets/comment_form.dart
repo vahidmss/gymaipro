@@ -17,10 +17,20 @@ class _CommentFormState extends State<CommentForm> {
   bool _isSubmitting = false;
 
   @override
+  void initState() {
+    super.initState();
+    _commentCtrl.addListener(_onTextChanged);
+  }
+
+  @override
   void dispose() {
-    _commentCtrl.dispose();
+    _commentCtrl
+      ..removeListener(_onTextChanged)
+      ..dispose();
     super.dispose();
   }
+
+  void _onTextChanged() => setState(() {});
 
   Future<void> _handleSubmit() async {
     final text = _commentCtrl.text.trim();
@@ -36,105 +46,86 @@ class _CommentFormState extends State<CommentForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.cardColor,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.18)),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.goldColor.withValues(alpha: 0.08),
-            blurRadius: 8.r,
-            offset: Offset(0, 2.h),
-          ),
-        ],
-      ),
-      padding: EdgeInsets.all(16.w),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final canSend = _commentCtrl.text.trim().isNotEmpty && !_isSubmitting;
+    final fieldFill = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.04);
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Row(
-            children: [
-              Icon(
-                LucideIcons.messageSquarePlus,
-                size: 18.sp,
-                color: AppTheme.goldColor,
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: fieldFill,
+                borderRadius: BorderRadius.circular(24.r),
               ),
-              SizedBox(width: 8.w),
-              Text(
-                'ثبت نظر جدید',
-                style: AppTheme.headingStyle.copyWith(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w700,
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              child: TextField(
+                controller: _commentCtrl,
+                enabled: !_isSubmitting,
+                minLines: 1,
+                maxLines: 4,
+                textDirection: TextDirection.rtl,
+                textAlign: TextAlign.right,
+                textInputAction: TextInputAction.newline,
+                keyboardType: TextInputType.multiline,
+                cursorColor: AppTheme.goldColor,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textColor,
+                  fontSize: 14.sp,
+                  height: 1.5,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-          SizedBox(height: 12.h),
-          TextField(
-            controller: _commentCtrl,
-            minLines: 3,
-            maxLines: 6,
-            textDirection: TextDirection.rtl,
-            enabled: !_isSubmitting,
-            decoration: InputDecoration(
-              hintText: 'نظر خود را اینجا بنویسید...',
-              hintStyle: AppTheme.bodyStyle.copyWith(
-                color: context.textSecondary,
-                fontSize: 13.sp,
-              ),
-              filled: true,
-              fillColor: context.backgroundColor,
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 14.w,
-                vertical: 12.h,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10.r),
-                borderSide: BorderSide(
-                  color: AppTheme.goldColor.withValues(alpha: 0.2),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'نظرت رو بنویس…',
+                  hintStyle: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textSecondary,
+                    fontSize: 13.5.sp,
+                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 10.h),
                 ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10.r),
-                borderSide: BorderSide(
-                  color: AppTheme.goldColor.withValues(alpha: 0.2),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10.r),
-                borderSide: const BorderSide(color: AppTheme.goldColor, width: 1.5),
               ),
             ),
-            style: AppTheme.bodyStyle.copyWith(fontSize: 13.sp, height: 1.5),
           ),
-          SizedBox(height: 12.h),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilledButton.icon(
-              onPressed: _isSubmitting ? null : _handleSubmit,
-              style: AppTheme.primaryButtonStyle.copyWith(
-                padding: WidgetStateProperty.all(
-                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
-                ),
+          SizedBox(width: 8.w),
+          GestureDetector(
+            onTap: canSend ? _handleSubmit : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 44.w,
+              height: 44.w,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: canSend
+                    ? AppTheme.goldColor
+                    : AppTheme.goldColor.withValues(alpha: 0.25),
               ),
-              icon: _isSubmitting
+              alignment: Alignment.center,
+              child: _isSubmitting
                   ? SizedBox(
-                      width: 16.w,
-                      height: 16.h,
+                      width: 18.w,
+                      height: 18.w,
                       child: const CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.black,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
                       ),
                     )
-                  : Icon(LucideIcons.send, size: 18.sp),
-              label: Text(
-                _isSubmitting ? 'در حال ارسال...' : 'ارسال نظر',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+                  : Icon(
+                      LucideIcons.send,
+                      size: 18.sp,
+                      color: canSend
+                          ? Colors.black
+                          : Colors.black.withValues(alpha: 0.5),
+                    ),
             ),
           ),
         ],

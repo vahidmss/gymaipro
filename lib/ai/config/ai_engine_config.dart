@@ -31,18 +31,16 @@ class AiEngineConfig {
 
   static bool get useOpenAiEngine => mode == AiEngineMode.openAi;
 
-  static bool get usesDeviceDirectRoute =>
-      !kIsWeb && AppConfig.aiUsesDeviceDirectRoute;
+  /// مسیر مستقیم کلاینت → OpenAI (وب و موبایل وقتی OPENAI_USE_PROXY=false).
+  static bool get usesDeviceDirectRoute => AppConfig.aiUsesDeviceDirectRoute;
 
-  /// روی وب همیشه proxy؛ روی موبایل با OPENAI_USE_PROXY=true.
+  /// فقط وقتی OPENAI_USE_PROXY=true و Edge Functions فعال است.
   static bool get usesServerProxyRoute =>
-      (kIsWeb || AppConfig.openaiUseProxy) &&
-      AppConfig.supabaseEdgeFunctionsEnabled;
+      AppConfig.openaiUseProxy && AppConfig.supabaseEdgeFunctionsEnabled;
 
   static bool get canAttemptOpenAi =>
       useOpenAiEngine &&
-      (usesServerProxyRoute ||
-          (!kIsWeb && AppConfig.openaiApiKey.isNotEmpty));
+      (usesServerProxyRoute || AppConfig.openaiApiKey.isNotEmpty);
 
   static AiEngineMode _parseMode(String raw) {
     final v = raw.trim().toLowerCase();

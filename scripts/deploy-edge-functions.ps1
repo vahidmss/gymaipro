@@ -15,7 +15,8 @@ $Functions = @(
   "send-program-sms",
   "send-notifications",
   "send-chat-notification",
-  "music-proxy"
+  "music-proxy",
+  "wallet-topup-confirm"
 )
 
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false

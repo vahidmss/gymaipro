@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/core/web_interaction.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/trainer_channel/screens/trainer_channel_manage_screen.dart';
 import 'package:gymaipro/trainer_dashboard/screens/client_management/client_management_screen.dart';
 import 'package:gymaipro/trainer_dashboard/screens/trainer_activities_tab.dart';
 import 'package:gymaipro/trainer_dashboard/screens/trainer_profile_tab.dart';
@@ -92,6 +93,23 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen>
               ),
             ),
             centerTitle: true,
+            actions: [
+              IconButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const TrainerChannelManageScreen(),
+                    ),
+                  );
+                },
+                icon: Icon(
+                  LucideIcons.radio,
+                  color: isDark ? AppTheme.goldColor : context.textColor,
+                  size: 22.sp,
+                ),
+                tooltip: 'کانال من',
+              ),
+            ],
             bottom: PreferredSize(
               preferredSize: Size.fromHeight(56.h),
               child: DecoratedBox(

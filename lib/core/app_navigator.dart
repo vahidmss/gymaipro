@@ -134,6 +134,11 @@ bool tryNavigateIntegratedRoute(
     case '/trainer-dashboard':
       openMainTrainerDashboard(initialTab: subTab ?? 0);
       return true;
+    case '/trainer-channel':
+      final navigator = rootNavigator;
+      if (navigator == null) return false;
+      navigator.pushNamed('/trainer-channel');
+      return true;
     default:
       return false;
   }

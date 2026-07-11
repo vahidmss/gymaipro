@@ -25,7 +25,8 @@ if (-not (Test-Path $EnvFile)) {
   Write-Error @"
 env.web.json not found.
 Copy env.web.example.json to env.web.json and set SUPABASE_ANON_KEY.
-Do NOT put OPENAI_API_KEY, SMS passwords, or payment secrets in this file.
+Do NOT put SMS passwords, payment secrets, or SERVICE_ROLE in this file.
+OPENAI_API_KEY is required for direct client AI (restrict in OpenAI dashboard).
 "@
 }
 
