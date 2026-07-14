@@ -232,7 +232,7 @@ class SupersetItemLog {
 }
 
 class ExerciseSetLog {
-  ExerciseSetLog({this.reps, this.seconds, this.weight});
+  ExerciseSetLog({this.reps, this.seconds, this.weight, this.rpe, this.notes});
 
   factory ExerciseSetLog.fromJson(Map<String, dynamic> json) {
     return ExerciseSetLog(
@@ -247,11 +247,17 @@ class ExerciseSetLog {
                 ? (json['weight'] as num).toDouble()
                 : double.tryParse(json['weight'].toString()))
           : null,
+      rpe: json['rpe'] is int
+          ? json['rpe'] as int?
+          : int.tryParse(json['rpe']?.toString() ?? ''),
+      notes: json['notes'] as String?,
     );
   }
   int? reps;
   int? seconds;
   double? weight;
+  int? rpe;
+  String? notes;
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = {};
@@ -259,6 +265,8 @@ class ExerciseSetLog {
     if (reps != null) data['reps'] = reps;
     if (seconds != null) data['seconds'] = seconds;
     if (weight != null) data['weight'] = weight;
+    if (rpe != null) data['rpe'] = rpe;
+    if (notes != null && notes!.isNotEmpty) data['notes'] = notes;
 
     return data;
   }

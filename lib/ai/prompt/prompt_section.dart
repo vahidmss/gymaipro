@@ -2,6 +2,7 @@ import 'package:gymaipro/ai/context/context_models.dart';
 
 /// Type of structured data included in a prompt package.
 enum PromptSectionType {
+  system,
   intent,
   currentQuestion,
   profile,
@@ -15,6 +16,9 @@ enum PromptSectionType {
   apiUsage,
   recovery,
   knowledge,
+  conversation,
+  state,
+  strategy,
   notes,
 }
 

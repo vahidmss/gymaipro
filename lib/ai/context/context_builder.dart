@@ -1,6 +1,6 @@
+import 'package:gymaipro/ai/context/coach_context_patch.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/context_repository.dart';
-import 'package:gymaipro/ai/context/prompt_context.dart';
 import 'package:gymaipro/ai/context/providers/active_program_context_provider.dart';
 import 'package:gymaipro/ai/context/providers/api_usage_context_provider.dart';
 import 'package:gymaipro/ai/context/providers/base_context_provider.dart';
@@ -16,8 +16,8 @@ import 'package:gymaipro/ai/context/providers/workout_history_context_provider.d
 
 /// Builds intermediate provider patches for coach context assembly.
 ///
-/// Providers return partial patches only. The unified output is assembled by
-/// the coach context assembler in the engine layer.
+/// Providers return partial [CoachContextPatch] values. The unified output is
+/// assembled by [CoachContextAssembler] in the engine layer.
 class AIContextBuilder {
   AIContextBuilder({List<AIContextProvider> providers = const []})
     : _providers = List<AIContextProvider>.unmodifiable(providers);
@@ -50,26 +50,26 @@ class AIContextBuilder {
   List<AIContextProvider> get providers => _providers;
 
   /// Builds context by applying provider patches in registration order.
-  Future<PromptContext> build(
+  Future<CoachContextPatch> build(
     AIContextRequest request, {
-    PromptContext seed = const PromptContext.empty(),
+    CoachContextPatch seed = CoachContextPatch.empty,
   }) async {
     return buildForProviders(request, _providers, seed: seed);
   }
 
   /// Builds context using only the selected providers.
-  Future<PromptContext> buildForProviders(
+  Future<CoachContextPatch> buildForProviders(
     AIContextRequest request,
     List<AIContextProvider> providers, {
-    PromptContext seed = const PromptContext.empty(),
+    CoachContextPatch seed = CoachContextPatch.empty,
   }) async {
-    var context = seed;
+    var patch = seed;
 
     for (final provider in providers) {
-      final patch = await provider.build(request);
-      context = context.merge(patch);
+      final providerPatch = await provider.build(request);
+      patch = patch.merge(providerPatch);
     }
 
-    return context;
+    return patch;
   }
 }

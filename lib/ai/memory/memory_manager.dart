@@ -21,6 +21,17 @@ class MemoryWriteResult {
   final List<String> conflictReasons;
 }
 
+/// Result returned after replacing a resolved memory snapshot.
+class MemorySnapshotWriteResult {
+  const MemorySnapshotWriteResult({
+    required this.saved,
+    required this.validation,
+  });
+
+  final bool saved;
+  final MemoryValidationResult validation;
+}
+
 /// High-level API for the Coach Memory Engine.
 ///
 /// The manager is infrastructure only. Nothing in the current app calls it yet.
@@ -77,6 +88,30 @@ class MemoryManager {
   /// Loads all non-expired memories.
   Future<List<CoachMemory>> loadActiveMemories(String userId) {
     return _repository.pruneExpired(userId);
+  }
+
+  /// Saves a fully resolved memory snapshot without merging again.
+  Future<MemorySnapshotWriteResult> saveResolvedMemories(
+    String userId,
+    List<CoachMemory> memories,
+  ) async {
+    final errors = <String>[];
+    for (final memory in memories) {
+      final validation = _validator.validate(memory);
+      if (validation.isValid) continue;
+      errors.addAll(validation.errors);
+    }
+
+    final validation = MemoryValidationResult(
+      isValid: errors.isEmpty,
+      errors: List<String>.unmodifiable(errors),
+    );
+    if (!validation.isValid) {
+      return MemorySnapshotWriteResult(saved: false, validation: validation);
+    }
+
+    await _repository.saveMemories(userId, memories);
+    return MemorySnapshotWriteResult(saved: true, validation: validation);
   }
 
   /// Loads permanent memories only.

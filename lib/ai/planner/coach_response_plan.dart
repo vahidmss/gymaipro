@@ -1,8 +1,8 @@
 import 'package:gymaipro/ai/coach/coach_decision.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
-import 'package:gymaipro/ai/context/intent_definitions.dart';
 import 'package:gymaipro/ai/context/intent_detector.dart';
-import 'package:gymaipro/ai/context/providers/base_context_provider.dart';
+import 'package:gymaipro/ai/knowledge/knowledge_requirement.dart';
+import 'package:gymaipro/ai/knowledge/runtime/coach_knowledge_result.dart';
 import 'package:gymaipro/ai/planner/coach_action.dart';
 import 'package:gymaipro/ai/planner/response_priority.dart';
 import 'package:gymaipro/ai/planner/response_step.dart';
@@ -31,35 +31,44 @@ class CoachResponsePlan {
     this.steps = const <ResponseStep>[],
   });
 
-  /// Builds a plan from the existing coach decision layer.
-  factory CoachResponsePlan.fromDecision({
+  /// Builds a plan from the Coach v2 knowledge-driven decision layer.
+  factory CoachResponsePlan.fromKnowledgeDecision({
     required CoachDecision decision,
-    required AIIntentDefinition intentDefinition,
-    required AIContextProviderSelection providerSelection,
+    required CoachKnowledgeResult knowledgeResult,
   }) {
+    final node = knowledgeResult.selectedNode;
     final action = _actionForDecision(decision);
     final contextKeys = <AIContextProviderKey>{
-      ...intentDefinition.requiredProviders,
-      ...intentDefinition.optionalProviders,
+      for (final requirement in <KnowledgeRequirement>[
+        ...node.requiredKnowledge,
+        ...node.optionalKnowledge,
+      ])
+        requirement.providerKey,
     };
 
     return CoachResponsePlan(
-      id: _planId(intentDefinition.intent, action),
-      intent: intentDefinition.intent,
+      id: '${node.id}_${action.name}_plan',
+      intent: node.intent ?? AIIntent.generalChat,
       action: action,
       requiresAI: decision.shouldCallAI,
-      requiredProviders: intentDefinition.requiredProviders,
+      requiredProviders: decision.requiredProviders,
       missingProviders: decision.missingProviders,
       followUpQuestions: <String>[
         if (decision.followUpQuestion != null) decision.followUpQuestion!,
       ],
       localMessage: decision.localResponse,
-      promptTemplateId: decision.shouldCallAI ? intentDefinition.id : null,
+      promptTemplateId: decision.shouldCallAI ? node.id : null,
       contextKeys: Set<AIContextProviderKey>.unmodifiable(contextKeys),
       confidence: decision.confidence,
-      estimatedTokens: _estimatedTokens(decision, intentDefinition),
-      estimatedCost: _estimatedCost(decision, providerSelection),
-      estimatedLatency: _estimatedLatency(decision, providerSelection),
+      estimatedTokens: decision.shouldCallAI
+          ? node.requiredKnowledge.length * 250 +
+              node.optionalKnowledge.length * 120 +
+              600
+          : 0,
+      estimatedCost: decision.shouldCallAI ? 1 : 0,
+      estimatedLatency: decision.shouldCallAI
+          ? const Duration(seconds: 3)
+          : Duration.zero,
       notes: decision.notes,
       steps: <ResponseStep>[
         ResponseStep(
@@ -128,42 +137,5 @@ class CoachResponsePlan {
     if (decision.shouldCallAI) return CoachAction.callOpenAI;
     if (decision.hasLocalResponse) return CoachAction.localResponse;
     return CoachAction.error;
-  }
-
-  static String _planId(AIIntent intent, CoachAction action) {
-    return '${intent.name}_${action.name}_plan';
-  }
-
-  static int _estimatedTokens(
-    CoachDecision decision,
-    AIIntentDefinition intentDefinition,
-  ) {
-    if (!decision.shouldCallAI) return 0;
-    return intentDefinition.requiredProviders.length * 250 +
-        intentDefinition.optionalProviders.length * 120 +
-        600;
-  }
-
-  static double _estimatedCost(
-    CoachDecision decision,
-    AIContextProviderSelection providerSelection,
-  ) {
-    final providerCost = providerSelection.providers.fold<double>(
-      0,
-      (total, provider) => total + provider.estimatedCost,
-    );
-    return decision.shouldCallAI ? providerCost + 1 : providerCost;
-  }
-
-  static Duration _estimatedLatency(
-    CoachDecision decision,
-    AIContextProviderSelection providerSelection,
-  ) {
-    final providerLatency = providerSelection.providers.fold<Duration>(
-      Duration.zero,
-      (total, provider) => total + provider.estimatedLatency,
-    );
-    if (!decision.shouldCallAI) return providerLatency;
-    return providerLatency + const Duration(seconds: 3);
   }
 }

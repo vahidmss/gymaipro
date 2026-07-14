@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/ai/config/coach_v2_config.dart';
 import 'package:gymaipro/ai/integration/coach_integration_service.dart';
+import 'package:gymaipro/ai/integration/coach_state_integration.dart';
 import 'package:gymaipro/ai/models/ai_chat_message.dart';
 import 'package:gymaipro/ai/prompt/prompt_package_renderer.dart';
 import 'package:gymaipro/ai/services/message_rate_limiter_service.dart';
@@ -441,12 +442,22 @@ class AIChatService {
     final integrationResult = await _coachIntegrationService.processMessage(
       userId: userId,
       userMessage: content,
-      metadata: const <String, Object?>{'surface': 'chat'},
+      metadata: <String, Object?>{
+        'surface': 'chat',
+        CoachStateMetadataKeys.sessionId: sessionId,
+      },
     );
 
     final decision = integrationResult.decision;
     if (!decision.shouldCallAI) {
+      final pendingQuestions =
+          integrationResult.conversationState?.pendingQuestions;
+      final pendingPrompt =
+          pendingQuestions != null && pendingQuestions.isNotEmpty
+          ? pendingQuestions.last.prompt
+          : null;
       final localResponse =
+          pendingPrompt ??
           decision.followUpQuestion ??
           decision.localResponse ??
           'برای ادامه، لطفاً اطلاعات بیشتری بدهید.';

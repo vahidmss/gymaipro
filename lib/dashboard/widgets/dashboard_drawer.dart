@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -12,6 +15,7 @@ import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/widgets/gymai_network_image.dart';
+import 'package:gymaipro/features/coach/presentation/screens/coach_home_screen.dart';
 import 'package:gymaipro/admin/screens/admin_dashboard_screen.dart';
 import 'package:gymaipro/trainer_channel/screens/trainer_channel_manage_screen.dart';
 import 'package:gymaipro/trainer_dashboard/screens/trainer_dashboard_screen.dart';
@@ -674,6 +678,7 @@ class _DashboardDrawerState extends State<DashboardDrawer>
             }
           },
         ),
+        if (kDebugMode) ..._buildCoachV2PreviewItems(context, isDark),
         Divider(
           height: 1,
           thickness: 1,
@@ -703,6 +708,63 @@ class _DashboardDrawerState extends State<DashboardDrawer>
         ),
       ],
     );
+  }
+
+  List<Widget> _buildCoachV2PreviewItems(BuildContext context, bool isDark) {
+    return <Widget>[
+      Divider(
+        height: 1,
+        thickness: 1,
+        color: isDark
+            ? AppTheme.darkGreySeparator.withValues(alpha: 0.3)
+            : AppTheme.lightDividerColor.withValues(alpha: 0.5),
+      ),
+      Padding(
+        padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 4.h),
+        child: Text(
+          'مرکز هوش مصنوعی',
+          style: TextStyle(
+            color: AppTheme.goldColor.withValues(alpha: 0.9),
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      _buildMenuItem(
+        context,
+        icon: LucideIcons.sparkles,
+        title: 'صفحه مربی',
+        onTap: () {
+          Navigator.pop(context);
+          unawaited(
+            Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => const CoachHomeScreen(),
+              ),
+            ),
+          );
+        },
+      ),
+      _buildMenuItem(
+        context,
+        icon: LucideIcons.dumbbell,
+        title: 'تمرین امروز',
+        onTap: () {
+          Navigator.pop(context);
+          unawaited(Navigator.pushNamed(context, '/workout-today'));
+        },
+      ),
+      _buildMenuItem(
+        context,
+        icon: LucideIcons.messageCircle,
+        title: 'چت با مربی',
+        onTap: () {
+          Navigator.pop(context);
+          unawaited(Navigator.pushNamed(context, '/coach-chat'));
+        },
+      ),
+    ];
   }
 
   Widget _buildMenuItem(

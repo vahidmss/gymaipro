@@ -1,6 +1,15 @@
 import 'package:gymaipro/ai/coach/coach_reason.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 
+/// Final entitlement-aware status for a Coach decision.
+enum CoachDecisionStatus {
+  allowed,
+  upgradeRequired,
+  usageExceeded,
+  featureDisabled,
+  temporarilyLocked,
+}
+
 /// Immutable decision returned by the GymAI Coach Brain.
 ///
 /// This object only describes what should happen next. It never calls OpenAI,
@@ -14,6 +23,10 @@ class CoachDecision {
     required this.decisionReason,
     required this.confidence,
     required this.notes,
+    this.status = CoachDecisionStatus.allowed,
+    this.selectedKnowledgeId,
+    this.knowledgeConfidence,
+    this.knowledgeReasons = const <String>[],
     this.localResponse,
     this.followUpQuestion,
   });
@@ -44,6 +57,18 @@ class CoachDecision {
 
   /// Internal notes for future diagnostics.
   final List<String> notes;
+
+  /// Entitlement-aware decision status.
+  final CoachDecisionStatus status;
+
+  /// Knowledge node selected by the Knowledge Runtime.
+  final String? selectedKnowledgeId;
+
+  /// Confidence emitted by Knowledge Runtime.
+  final double? knowledgeConfidence;
+
+  /// Human-readable reasons for the selected knowledge node.
+  final List<String> knowledgeReasons;
 
   /// Convenience flag for follow-up routing.
   bool get requiresFollowUp => followUpQuestion != null;

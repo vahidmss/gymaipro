@@ -1,3 +1,4 @@
+import 'package:gymaipro/ai/context/coach_context_patch.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/context_repository.dart';
 import 'package:gymaipro/ai/context/providers/base_context_provider.dart';
@@ -63,10 +64,8 @@ class ActiveProgramContextProvider implements AIContextProvider {
   Duration get ttl => const Duration(minutes: 2);
 
   @override
-  Future<PromptContextPatch> build(AIContextRequest request) async {
+  Future<CoachContextPatch> build(AIContextRequest request) async {
     final activeProgram = await _repository.getActiveProgram();
-    return PromptContextPatch(
-      workout: AIWorkoutContext(activeProgram: activeProgram),
-    );
+    return CoachContextPatch(activeProgram: activeProgram);
   }
 }

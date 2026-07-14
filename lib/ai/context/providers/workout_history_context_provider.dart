@@ -1,3 +1,4 @@
+import 'package:gymaipro/ai/context/coach_context_patch.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/context_repository.dart';
 import 'package:gymaipro/ai/context/providers/base_context_provider.dart';
@@ -63,8 +64,8 @@ class WorkoutHistoryContextProvider implements AIContextProvider {
   Duration get ttl => const Duration(minutes: 5);
 
   @override
-  Future<PromptContextPatch> build(AIContextRequest request) async {
+  Future<CoachContextPatch> build(AIContextRequest request) async {
     final history = await _repository.getWorkoutHistory(request.userId);
-    return PromptContextPatch(workout: AIWorkoutContext(history: history));
+    return CoachContextPatch(workoutHistory: history);
   }
 }

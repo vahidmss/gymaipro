@@ -12,7 +12,7 @@ class MemoryDeduplicationResult {
     required this.conflictCount,
   });
 
-  /// Deduplicated memory candidates.
+  /// Full deduplicated memory snapshot.
   final List<CoachMemory> memories;
 
   /// Reasons emitted during deduplication.
@@ -46,7 +46,6 @@ class MemoryDeduplicator {
     final byKey = <String, CoachMemory>{
       for (final memory in existing) memory.key: memory,
     };
-    final emitted = <CoachMemory>[];
     final reasons = <MemoryExtractionReason>{};
     var duplicateCount = 0;
     var conflictCount = 0;
@@ -55,7 +54,6 @@ class MemoryDeduplicator {
       final current = byKey[candidate.key];
       if (current == null) {
         byKey[candidate.key] = candidate;
-        emitted.add(candidate);
         continue;
       }
 
@@ -72,11 +70,10 @@ class MemoryDeduplicator {
         mergeResult: mergeResult,
       );
       byKey[candidate.key] = resolution.memory;
-      emitted.add(resolution.memory);
     }
 
     return MemoryDeduplicationResult(
-      memories: List<CoachMemory>.unmodifiable(emitted),
+      memories: List<CoachMemory>.unmodifiable(byKey.values),
       reasons: Set<MemoryExtractionReason>.unmodifiable(reasons),
       duplicateCount: duplicateCount,
       conflictCount: conflictCount,

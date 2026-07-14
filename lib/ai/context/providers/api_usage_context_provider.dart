@@ -1,3 +1,4 @@
+import 'package:gymaipro/ai/context/coach_context_patch.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/context_repository.dart';
 import 'package:gymaipro/ai/context/providers/base_context_provider.dart';
@@ -64,8 +65,8 @@ class ApiUsageContextProvider implements AIContextProvider {
   Duration get ttl => const Duration(minutes: 1);
 
   @override
-  Future<PromptContextPatch> build(AIContextRequest request) async {
+  Future<CoachContextPatch> build(AIContextRequest request) async {
     final usage = await _repository.getApiUsage(request.userId);
-    return PromptContextPatch(apiUsage: AIAPIUsageContext(data: usage));
+    return CoachContextPatch(apiUsage: usage);
   }
 }

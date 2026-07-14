@@ -2,12 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:gymaipro/ai/screens/ai_programs_screen.dart';
 import 'package:gymaipro/ai/screens/ai_progress_analysis_screen.dart';
-import 'package:gymaipro/ai/screens/chat_screen.dart';
 import 'package:gymaipro/ai/widgets/ai_feature_card.dart';
 import 'package:gymaipro/ai/widgets/ai_hub_ui.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/features/coach_chat/navigation/coach_chat_navigation.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -315,18 +314,11 @@ class _AIHubScreenState extends State<AIHubScreen>
                     context: context,
                     isDark: isDark,
                     icon: LucideIcons.messageCircle,
-                    title: 'چت',
-                    subtitle: 'هر سوالی بپرس',
+                    title: 'چت با مربی',
+                    subtitle: 'سؤال بپرس',
                     accent: AppTheme.carbsColor,
                     onTap: () {
-                      unawaited(
-                        Navigator.push<void>(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (context) => const ChatScreen(),
-                          ),
-                        ),
-                      );
+                      unawaited(Navigator.pushNamed(context, '/coach-chat'));
                     },
                   ),
                 ),
@@ -335,43 +327,48 @@ class _AIHubScreenState extends State<AIHubScreen>
                   child: _buildQuickActionCard(
                     context: context,
                     isDark: isDark,
-                    icon: LucideIcons.dumbbell,
-                    title: 'برنامه تمرین',
-                    subtitle: 'برنامهٔ شخصی',
+                    icon: LucideIcons.calendarCheck,
+                    title: 'تمرین امروز',
+                    subtitle: 'برنامهٔ روز',
                     accent: AppTheme.goldColor,
                     onTap: () {
-                      unawaited(
-                        Navigator.push<void>(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (context) => const AIProgramsScreen(),
-                          ),
-                        ),
-                      );
+                      unawaited(Navigator.pushNamed(context, '/workout-today'));
                     },
                   ),
                 ),
               ],
             ),
             SizedBox(height: 12.h),
-            _buildQuickActionCard(
-              context: context,
-              isDark: isDark,
-              icon: LucideIcons.barChart3,
-              title: 'تحلیل پیشرفت',
-              subtitle: 'روند تمرین و پیشنهاد بهبود',
-              accent: AppTheme.proteinColor,
-              fullWidth: true,
-              onTap: () {
-                unawaited(
-                  Navigator.push<void>(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (context) => const AIProgressAnalysisScreen(),
-                    ),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildQuickActionCard(
+                    context: context,
+                    isDark: isDark,
+                    icon: LucideIcons.play,
+                    title: 'شروع جلسه',
+                    subtitle: 'تمرین زنده',
+                    accent: AppTheme.proteinColor,
+                    onTap: () {
+                      unawaited(Navigator.pushNamed(context, '/live-workout'));
+                    },
                   ),
-                );
-              },
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: _buildQuickActionCard(
+                    context: context,
+                    isDark: isDark,
+                    icon: LucideIcons.sparkles,
+                    title: 'پنل مربی',
+                    subtitle: 'خلاصه وضعیت',
+                    accent: AppTheme.darkGold,
+                    onTap: () {
+                      unawaited(Navigator.pushNamed(context, '/coach'));
+                    },
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -509,9 +506,9 @@ class _AIHubScreenState extends State<AIHubScreen>
 
   Widget _buildHighlightsStrip(BuildContext context, bool isDark) {
     final items = <(IconData, String, String, Color)>[
-      (LucideIcons.zap, 'پاسخ آنی', 'چت', AppTheme.carbsColor),
-      (LucideIcons.target, 'شخصی‌سازی', 'برنامه', AppTheme.goldColor),
-      (LucideIcons.lineChart, 'بر پایه داده', 'تحلیل', AppTheme.proteinColor),
+      (LucideIcons.messageCircle, 'گفتگو', 'چت مربی', AppTheme.carbsColor),
+      (LucideIcons.dumbbell, 'تمرین', 'امروز و زنده', AppTheme.goldColor),
+      (LucideIcons.lineChart, 'تحلیل', 'پیشرفت', AppTheme.proteinColor),
     ];
     final stripBorder = Color.lerp(
       context.separatorColor,
@@ -567,30 +564,58 @@ class _AIHubScreenState extends State<AIHubScreen>
           children: [
             const AiHubSectionTitle(title: 'همهٔ ابزارها'),
             AIFeatureCard(
-              icon: LucideIcons.dumbbell,
-              title: 'برنامه‌ریزی تمرینی',
-              description:
-                  'برنامهٔ تمرین متناسب با هدف، سطح و تجهیزاتت',
+              icon: LucideIcons.sparkles,
+              title: 'پنل مربی',
+              description: 'خلاصه روزانه، ریکاوری و پیشنهاد تمرین',
               color: AppTheme.goldColor,
               onTap: () {
-                unawaited(
-                  Navigator.push<void>(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (context) => const AIProgramsScreen(),
-                    ),
-                  ),
-                );
+                unawaited(Navigator.pushNamed(context, '/coach'));
               },
             ),
             SizedBox(height: 10.h),
             AIFeatureCard(
-              icon: LucideIcons.apple,
-              title: 'برنامه‌ریزی غذایی',
-              description: 'رژیم متعادل بر اساس نیازت — به‌زودی',
-              color: AppTheme.fatColor,
-              isComingSoon: true,
-              onTap: () {},
+              icon: LucideIcons.messageCircle,
+              title: 'چت با مربی',
+              description: 'سؤال بپرس، برنامه را اصلاح کن یا تحلیل بگیر',
+              color: AppTheme.carbsColor,
+              onTap: () {
+                unawaited(Navigator.pushNamed(context, '/coach-chat'));
+              },
+            ),
+            SizedBox(height: 10.h),
+            AIFeatureCard(
+              icon: LucideIcons.calendarCheck,
+              title: 'تمرین امروز',
+              description: 'برنامهٔ امروز با جزئیات حرکات و ست‌ها',
+              color: AppTheme.goldColor,
+              onTap: () {
+                unawaited(Navigator.pushNamed(context, '/workout-today'));
+              },
+            ),
+            SizedBox(height: 10.h),
+            AIFeatureCard(
+              icon: LucideIcons.play,
+              title: 'تمرین زنده',
+              description: 'ثبت ست‌ها، تایمر استراحت و پایان جلسه',
+              color: AppTheme.proteinColor,
+              onTap: () {
+                unawaited(Navigator.pushNamed(context, '/live-workout'));
+              },
+            ),
+            SizedBox(height: 10.h),
+            AIFeatureCard(
+              icon: LucideIcons.clipboardList,
+              title: 'ساخت برنامه',
+              description: 'مربی هوش مصنوعی بر اساس هدف و تجهیزاتت برنامه می‌سازد',
+              color: AppTheme.darkGold,
+              onTap: () {
+                unawaited(
+                  CoachChatNavigation.open(
+                    context,
+                    quickActionId: 'build_program',
+                  ),
+                );
+              },
             ),
             SizedBox(height: 10.h),
             AIFeatureCard(
@@ -608,6 +633,15 @@ class _AIHubScreenState extends State<AIHubScreen>
                   ),
                 );
               },
+            ),
+            SizedBox(height: 10.h),
+            AIFeatureCard(
+              icon: LucideIcons.apple,
+              title: 'برنامه غذایی',
+              description: 'رژیم متعادل بر اساس نیازت — به‌زودی',
+              color: AppTheme.fatColor,
+              isComingSoon: true,
+              onTap: () {},
             ),
           ],
         ),

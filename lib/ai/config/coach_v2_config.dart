@@ -1,13 +1,21 @@
+import 'package:flutter/foundation.dart';
 import 'package:gymaipro/config/app_config.dart';
 
 /// Feature flags for GymAI Coach v2 runtime integration.
 ///
-/// Default is disabled so existing chat behavior remains unchanged.
+/// Enabled by default for product builds; set `COACH_V2_ENABLED=false` to
+/// fall back to preview/dry-run paths in facades.
 class CoachV2Config {
   const CoachV2Config._();
 
+  @visibleForTesting
+  static bool? debugOverride;
+
   /// Enables the Coach v2 chat pipeline when true.
   static bool get coachV2Enabled {
+    if (debugOverride != null) {
+      return debugOverride!;
+    }
     const env = String.fromEnvironment('COACH_V2_ENABLED');
     if (env.isNotEmpty) {
       return _isTruthy(env);
@@ -16,7 +24,7 @@ class CoachV2Config {
     if (dotenv != null && dotenv.isNotEmpty) {
       return _isTruthy(dotenv);
     }
-    return false;
+    return true;
   }
 
   static bool _isTruthy(String value) {

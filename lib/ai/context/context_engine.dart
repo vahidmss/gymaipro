@@ -5,6 +5,7 @@ import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/intent_detector.dart';
 import 'package:gymaipro/ai/context/intent_definitions.dart';
 import 'package:gymaipro/ai/context/providers/base_context_provider.dart';
+import 'package:gymaipro/ai/intent/intent_intelligence_engine.dart';
 
 /// Facade for GymAI Coach v2 context selection and CoachContext assembly.
 ///
@@ -12,10 +13,11 @@ import 'package:gymaipro/ai/context/providers/base_context_provider.dart';
 /// OpenAI, assemble existing prompts, or change current app behavior.
 class AIContextEngine {
   AIContextEngine({
-    AIIntentDetector intentDetector = const AIIntentDetector(),
+    IntentIntelligenceEngine? intentIntelligenceEngine,
     AIContextBuilder? contextBuilder,
     CoachContextAssembler? coachContextAssembler,
-  }) : _intentDetector = intentDetector,
+  }) : _intentIntelligenceEngine =
+           intentIntelligenceEngine ?? IntentIntelligenceEngine(),
        _contextBuilder = contextBuilder ?? AIContextBuilder.standard(),
        _coachContextAssembler =
            coachContextAssembler ??
@@ -23,7 +25,7 @@ class AIContextEngine {
              contextBuilder: contextBuilder ?? AIContextBuilder.standard(),
            );
 
-  final AIIntentDetector _intentDetector;
+  final IntentIntelligenceEngine _intentIntelligenceEngine;
   final AIContextBuilder _contextBuilder;
   final CoachContextAssembler _coachContextAssembler;
 
@@ -124,9 +126,9 @@ class AIContextEngine {
       return AIIntent.generalChat;
     }
 
-    final result = _intentDetector.detect(
+    final result = _intentIntelligenceEngine.detect(
       IntentDetectionRequest(message: currentQuestion, metadata: metadata),
     );
-    return result.intent;
+    return result.primaryIntent;
   }
 }

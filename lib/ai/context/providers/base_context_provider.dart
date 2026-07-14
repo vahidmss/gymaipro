@@ -1,3 +1,4 @@
+import 'package:gymaipro/ai/context/coach_context_patch.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/intent_definitions.dart';
 
@@ -62,8 +63,8 @@ abstract interface class AIContextProvider {
   /// Suggested cache TTL.
   Duration get ttl;
 
-  /// Builds a partial prompt context for the given request.
-  Future<PromptContextPatch> build(AIContextRequest request);
+  /// Builds a partial coach context patch for the given request.
+  Future<CoachContextPatch> build(AIContextRequest request);
 }
 
 /// Provider selection result for a resolved intent.

@@ -10,6 +10,11 @@ import 'package:gymaipro/chat/screens/chat_main_screen.dart';
 import 'package:gymaipro/chat/screens/chat_screen.dart';
 import 'package:gymaipro/dashboard/screens/dashboard_screen.dart';
 import 'package:gymaipro/dashboard/screens/program_type_selection_screen.dart';
+import 'package:gymaipro/features/coach/navigation/coach_home_route.dart';
+import 'package:gymaipro/features/coach_chat/navigation/coach_chat_route.dart';
+import 'package:gymaipro/features/live_workout/navigation/live_workout_route.dart';
+import 'package:gymaipro/features/legal/navigation/legal_routes.dart';
+import 'package:gymaipro/features/workout_today/navigation/workout_today_route.dart';
 import 'package:gymaipro/meal_log/screens/meal_log_screen.dart';
 import 'package:gymaipro/meal_plan_builder/screens/meal_plan_builder_screen.dart';
 import 'package:gymaipro/models/exercise.dart';
@@ -165,6 +170,14 @@ class RouteService {
         );
       case '/dashboard':
         return MaterialPageRoute(builder: (_) => const DashboardScreen());
+      case CoachHomeRoute.routeName:
+        return CoachHomeRoute.build(settings);
+      case CoachChatRoute.routeName:
+        return CoachChatRoute.build(settings);
+      case LiveWorkoutRoute.routeName:
+        return LiveWorkoutRoute.build(settings);
+      case WorkoutTodayRoute.routeName:
+        return WorkoutTodayRoute.build(settings);
       case '/profile':
         return MaterialPageRoute(builder: (_) => const ProfileScreen());
       case '/welcome':
@@ -403,6 +416,11 @@ class RouteService {
         return MaterialPageRoute(builder: (_) => const ReferralGuideScreen());
       case '/help':
         return MaterialPageRoute(builder: (_) => const HelpScreen());
+      case LegalRoutes.privacy:
+      case LegalRoutes.terms:
+      case LegalRoutes.about:
+      case LegalRoutes.licenses:
+        return LegalRoutes.build(settings);
 
       // Payment routes
       case '/payment':

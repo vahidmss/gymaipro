@@ -1,3 +1,4 @@
+import 'package:gymaipro/ai/context/coach_context_patch.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/context_repository.dart';
 import 'package:gymaipro/ai/context/providers/base_context_provider.dart';
@@ -64,8 +65,8 @@ class HeatmapContextProvider implements AIContextProvider {
   Duration get ttl => const Duration(minutes: 10);
 
   @override
-  Future<PromptContextPatch> build(AIContextRequest request) async {
+  Future<CoachContextPatch> build(AIContextRequest request) async {
     final heatmap = await _repository.getWeeklyHeatmap(request.userId);
-    return PromptContextPatch(heatmap: AIHeatmapContext(weekly: heatmap));
+    return CoachContextPatch(weeklyHeatmap: heatmap);
   }
 }

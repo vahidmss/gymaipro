@@ -359,6 +359,47 @@ class _SettingsScreenState extends State<SettingsScreen>
               _buildModernListTile(
                 context: context,
                 isDark: isDark,
+                icon: LucideIcons.shield,
+                title: 'حریم خصوصی',
+                subtitle: 'نحوه استفاده از داده‌هایت',
+                onTap: () => Navigator.pushNamed(context, '/privacy-policy'),
+              ),
+              SizedBox(height: 12.h),
+
+              _buildModernListTile(
+                context: context,
+                isDark: isDark,
+                icon: LucideIcons.fileText,
+                title: 'قوانین استفاده',
+                subtitle: 'شرایط و مسئولیت‌ها',
+                onTap: () => Navigator.pushNamed(context, '/terms-of-service'),
+              ),
+              SizedBox(height: 12.h),
+
+              _buildModernListTile(
+                context: context,
+                isDark: isDark,
+                icon: LucideIcons.bookOpen,
+                title: 'مجوزهای متن‌باز',
+                subtitle: 'پکیج‌های استفاده‌شده',
+                onTap: () =>
+                    Navigator.pushNamed(context, '/open-source-licenses'),
+              ),
+              SizedBox(height: 12.h),
+
+              _buildModernListTile(
+                context: context,
+                isDark: isDark,
+                icon: LucideIcons.sparkles,
+                title: 'درباره GymAI',
+                subtitle: 'ماموریت و نسخه فعلی',
+                onTap: () => Navigator.pushNamed(context, '/about-app'),
+              ),
+              SizedBox(height: 12.h),
+
+              _buildModernListTile(
+                context: context,
+                isDark: isDark,
                 icon: LucideIcons.messageCircle,
                 title: 'ارتباط با ما',
                 subtitle: SupportLauncher.supportPhone.isNotEmpty

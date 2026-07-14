@@ -1,3 +1,4 @@
+import 'package:gymaipro/ai/context/coach_context_patch.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/context_repository.dart';
 import 'package:gymaipro/ai/context/providers/base_context_provider.dart';
@@ -64,10 +65,7 @@ class ChatContextProvider implements AIContextProvider {
   Duration get ttl => const Duration(minutes: 5);
 
   @override
-  Future<PromptContextPatch> build(AIContextRequest request) async {
-    return PromptContextPatch(
-      currentQuestion: AICurrentQuestionContext(text: request.currentQuestion),
-      chat: const AIChatContext(),
-    );
+  Future<CoachContextPatch> build(AIContextRequest request) async {
+    return CoachContextPatch(currentQuestion: request.currentQuestion);
   }
 }

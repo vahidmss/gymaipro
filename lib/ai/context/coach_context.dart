@@ -2,7 +2,6 @@ import 'package:gymaipro/ai/context/coach_context_metadata.dart';
 import 'package:gymaipro/ai/context/coach_conversation_summary.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/intent_detector.dart';
-import 'package:gymaipro/ai/context/prompt_context.dart';
 import 'package:gymaipro/ai/memory/coach_memory.dart';
 import 'package:gymaipro/services/weekly_muscle_heatmap_service.dart';
 import 'package:gymaipro/workout_log/models/workout_program_log.dart';
@@ -50,6 +49,32 @@ class CoachContext {
   /// Current schema version for CoachContext.
   static const String contextVersion = 'v1';
 
+  static const Set<String> _profileKeys = <String>{
+    'age',
+    'height',
+    'weight',
+    'first_name',
+    'last_name',
+    'gender',
+    'experience_level',
+  };
+
+  static const Set<String> _goalKeys = <String>{
+    'goal',
+    'goals',
+    'fitness_goals',
+    'primary_goals',
+  };
+
+  static const Set<String> _restrictionKeys = <String>{
+    'restrictions',
+    'injuries',
+    'medical_conditions',
+    'injury',
+  };
+
+  static const Set<String> _equipmentKeys = <String>{'equipment', 'equipments'};
+
   /// Resolved intent for this package.
   final AIIntent intent;
 
@@ -92,43 +117,83 @@ class CoachContext {
   /// Assembly metadata.
   final CoachContextMetadata metadata;
 
-  /// Converts this package to the legacy prompt context shape.
-  ///
-  /// Existing dry-run modules may use this bridge until they migrate to
-  /// CoachContext directly. No runtime behavior is changed by this helper.
-  PromptContext toPromptContext() {
-    return PromptContext(
-      userProfile: profile.isEmpty ? null : AIUserProfileContext(data: profile),
-      goal: goals.isEmpty ? null : AIGoalContext(goals: goals),
-      workout: (activeProgram == null && workoutHistory.isEmpty)
-          ? null
-          : AIWorkoutContext(
-              activeProgram: activeProgram,
-              history: workoutHistory,
-            ),
-      heatmap: weeklyHeatmap == null
-          ? null
-          : AIHeatmapContext(weekly: weeklyHeatmap),
-      equipment: equipment.isEmpty
-          ? null
-          : AIEquipmentContext(items: equipment),
-      restrictions: restrictions.isEmpty
-          ? null
-          : AIRestrictionsContext(items: restrictions),
-      preferences: preferences.isEmpty
-          ? null
-          : AIPreferencesContext(items: preferences),
-      memory: memories.isEmpty
-          ? null
-          : AIMemoryContext(
-              items: <String, Object?>{
-                for (final memory in memories) memory.key: memory.value,
-              },
-            ),
-      currentQuestion: currentQuestion == null
-          ? null
-          : AICurrentQuestionContext(text: currentQuestion),
-      apiUsage: apiUsage.isEmpty ? null : AIAPIUsageContext(data: apiUsage),
+  /// Applies conversation-state collected fields on top of this context.
+  CoachContext withCollectedFields(Map<String, Object?> collectedFields) {
+    if (collectedFields.isEmpty) return this;
+
+    final profile = Map<String, Object?>.from(this.profile);
+    final goals = List<String>.from(this.goals);
+    final restrictions = List<String>.from(this.restrictions);
+    final equipment = List<String>.from(this.equipment);
+    final preferences = Map<String, Object?>.from(this.preferences);
+
+    for (final entry in collectedFields.entries) {
+      final key = entry.key.trim();
+      final value = entry.value;
+      if (key.isEmpty || value == null) continue;
+
+      if (_profileKeys.contains(key)) {
+        profile[key] = value;
+        continue;
+      }
+
+      if (_goalKeys.contains(key)) {
+        goals.addAll(_asStringList(value));
+        continue;
+      }
+
+      if (_restrictionKeys.contains(key)) {
+        restrictions.addAll(_asStringList(value));
+        continue;
+      }
+
+      if (_equipmentKeys.contains(key)) {
+        equipment.addAll(_asStringList(value));
+        continue;
+      }
+
+      preferences['conversation_state_$key'] = value;
+    }
+
+    return CoachContext(
+      intent: intent,
+      metadata: metadata,
+      profile: Map<String, Object?>.unmodifiable(profile),
+      goals: List<String>.unmodifiable(_uniqueStrings(goals)),
+      restrictions: List<String>.unmodifiable(_uniqueStrings(restrictions)),
+      equipment: List<String>.unmodifiable(_uniqueStrings(equipment)),
+      preferences: Map<String, Object?>.unmodifiable(preferences),
+      activeProgram: activeProgram,
+      workoutHistory: workoutHistory,
+      weeklyHeatmap: weeklyHeatmap,
+      memories: memories,
+      apiUsage: apiUsage,
+      currentQuestion: currentQuestion,
+      conversationSummary: conversationSummary,
     );
+  }
+
+  static List<String> _asStringList(Object? value) {
+    if (value is String) {
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? const <String>[] : <String>[trimmed];
+    }
+    if (value is Iterable<Object?>) {
+      return value
+          .map((item) => item?.toString().trim() ?? '')
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false);
+    }
+    final text = value.toString().trim();
+    return text.isEmpty ? const <String>[] : <String>[text];
+  }
+
+  static List<String> _uniqueStrings(List<String> values) {
+    final seen = <String>{};
+    final unique = <String>[];
+    for (final value in values) {
+      if (seen.add(value)) unique.add(value);
+    }
+    return unique;
   }
 }

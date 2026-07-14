@@ -1,3 +1,4 @@
+import 'package:gymaipro/ai/context/coach_context_patch.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/context_repository.dart';
 import 'package:gymaipro/ai/context/providers/base_context_provider.dart';
@@ -57,9 +58,7 @@ class RecoveryContextProvider implements AIContextProvider {
   Duration get ttl => const Duration(minutes: 10);
 
   @override
-  Future<PromptContextPatch> build(AIContextRequest request) async {
-    // TODO(ai-context): Replace this placeholder when a stable recovery source
-    // exists (sleep, soreness, readiness, or rest-day state).
-    return const PromptContextPatch(recovery: AIRecoveryContext());
+  Future<CoachContextPatch> build(AIContextRequest request) async {
+    return CoachContextPatch.empty;
   }
 }

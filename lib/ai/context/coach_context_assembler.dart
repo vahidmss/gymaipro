@@ -1,12 +1,13 @@
 import 'package:gymaipro/ai/context/adapters/memory_context_adapter.dart';
 import 'package:gymaipro/ai/context/coach_context.dart';
 import 'package:gymaipro/ai/context/coach_context_metadata.dart';
+import 'package:gymaipro/ai/context/coach_context_patch.dart';
 import 'package:gymaipro/ai/context/context_builder.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/intent_detector.dart';
-import 'package:gymaipro/ai/context/prompt_context.dart';
 import 'package:gymaipro/ai/context/providers/base_context_provider.dart';
 import 'package:gymaipro/ai/memory/coach_memory.dart';
+import 'package:gymaipro/ai/memory/memory_context_projector.dart';
 import 'package:gymaipro/services/weekly_muscle_heatmap_service.dart';
 import 'package:gymaipro/workout_log/models/workout_program_log.dart';
 
@@ -15,11 +16,14 @@ class CoachContextAssembler {
   CoachContextAssembler({
     AIContextBuilder? contextBuilder,
     MemoryContextAdapter? memoryAdapter,
+    MemoryContextProjector memoryProjector = const MemoryContextProjector(),
   }) : _contextBuilder = contextBuilder ?? AIContextBuilder.standard(),
-       _memoryAdapter = memoryAdapter ?? MemoryContextAdapter();
+       _memoryAdapter = memoryAdapter ?? MemoryContextAdapter(),
+       _memoryProjector = memoryProjector;
 
   final AIContextBuilder _contextBuilder;
   final MemoryContextAdapter _memoryAdapter;
+  final MemoryContextProjector _memoryProjector;
 
   /// Builds a unified coach context for [intent] and [selection].
   Future<CoachContext> assemble({
@@ -29,16 +33,18 @@ class CoachContextAssembler {
     DateTime? buildTime,
   }) async {
     final resolvedBuildTime = buildTime ?? DateTime.now();
-    final promptContext = await _contextBuilder.buildForProviders(
+    final patch = await _contextBuilder.buildForProviders(
       request,
       selection.providers,
     );
-    final memories = await _memoryAdapter.loadActiveMemories(request.userId);
+    final memories =
+        request.memorySnapshot ??
+        await _memoryAdapter.loadActiveMemories(request.userId);
 
     return _mapToCoachContext(
       intent: intent,
       request: request,
-      promptContext: promptContext,
+      patch: patch,
       memories: memories,
       selection: selection,
       buildTime: resolvedBuildTime,
@@ -48,37 +54,38 @@ class CoachContextAssembler {
   CoachContext _mapToCoachContext({
     required AIIntent intent,
     required AIContextRequest request,
-    required PromptContext promptContext,
+    required CoachContextPatch patch,
     required List<CoachMemory> memories,
     required AIContextProviderSelection selection,
     required DateTime buildTime,
   }) {
     final profile = Map<String, Object?>.from(
-      promptContext.userProfile?.data ?? const <String, Object?>{},
+      patch.profile ?? const <String, Object?>{},
     );
-    final goals = List<String>.from(
-      promptContext.goal?.goals ?? const <String>[],
-    );
+    final goals = List<String>.from(patch.goals ?? const <String>[]);
     final restrictions = List<String>.from(
-      promptContext.restrictions?.items ?? const <String>[],
+      patch.restrictions ?? const <String>[],
     );
-    final equipment = List<String>.from(
-      promptContext.equipment?.items ?? const <String>[],
-    );
+    final equipment = List<String>.from(patch.equipment ?? const <String>[]);
     final preferences = Map<String, Object?>.from(
-      promptContext.preferences?.items ?? const <String, Object?>{},
+      patch.preferences ?? const <String, Object?>{},
     );
-    final activeProgram = promptContext.workout?.activeProgram == null
+    final memoryProjection = _memoryProjector.project(memories);
+    profile.addAll(memoryProjection.profile);
+    goals.addAll(memoryProjection.goals);
+    restrictions.addAll(memoryProjection.restrictions);
+    equipment.addAll(memoryProjection.equipment);
+    preferences.addAll(memoryProjection.preferences);
+    final activeProgram = patch.activeProgram == null
         ? null
-        : Map<String, Object?>.from(promptContext.workout!.activeProgram!);
+        : Map<String, Object?>.from(patch.activeProgram!);
     final workoutHistory = List<WorkoutDailyLog>.from(
-      promptContext.workout?.history ?? const <WorkoutDailyLog>[],
+      patch.workoutHistory ?? const <WorkoutDailyLog>[],
     );
     final apiUsage = Map<String, Object?>.from(
-      promptContext.apiUsage?.data ?? const <String, Object?>{},
+      patch.apiUsage ?? const <String, Object?>{},
     );
-    final currentQuestion =
-        promptContext.currentQuestion?.text ?? request.currentQuestion;
+    final currentQuestion = patch.currentQuestion ?? request.currentQuestion;
 
     final sourceCount = _sourceCount(
       profile: profile,
@@ -88,7 +95,7 @@ class CoachContextAssembler {
       preferences: preferences,
       activeProgram: activeProgram,
       workoutHistory: workoutHistory,
-      weeklyHeatmap: promptContext.heatmap?.weekly,
+      weeklyHeatmap: patch.weeklyHeatmap,
       memories: memories,
       apiUsage: apiUsage,
       currentQuestion: currentQuestion,
@@ -108,7 +115,7 @@ class CoachContextAssembler {
       preferences: preferences,
       activeProgram: activeProgram,
       workoutHistory: workoutHistory,
-      weeklyHeatmap: promptContext.heatmap?.weekly,
+      weeklyHeatmap: patch.weeklyHeatmap,
       memories: memories,
       apiUsage: apiUsage,
       currentQuestion: currentQuestion,

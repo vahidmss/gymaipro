@@ -1,68 +1,89 @@
-import 'package:gymaipro/ai/coach/coach_brain.dart';
-import 'package:gymaipro/ai/context/coach_context.dart';
+import 'package:gymaipro/ai/config/coach_v2_config.dart';
 import 'package:gymaipro/ai/context/context_builder.dart';
 import 'package:gymaipro/ai/context/context_engine.dart';
-import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/context_repository.dart';
-import 'package:gymaipro/ai/context/intent_detector.dart';
+import 'package:gymaipro/ai/coach/coach_brain.dart';
+import 'package:gymaipro/ai/entity/entity_extractor.dart';
 import 'package:gymaipro/ai/integration/coach_integration_result.dart';
+import 'package:gymaipro/ai/integration/coach_pipeline_dependencies_factory.dart';
+import 'package:gymaipro/ai/integration/coach_state_integration.dart';
+import 'package:gymaipro/ai/integration/entity_memory_integration.dart';
 import 'package:gymaipro/ai/integration/integration_event.dart';
 import 'package:gymaipro/ai/integration/integration_logger.dart';
-import 'package:gymaipro/ai/planner/coach_action.dart';
+import 'package:gymaipro/ai/pipeline/coach_pipeline.dart';
+import 'package:gymaipro/ai/pipeline/coach_pipeline_builder.dart';
+import 'package:gymaipro/ai/pipeline/coach_pipeline_context.dart';
+import 'package:gymaipro/ai/pipeline/coach_pipeline_dependencies.dart';
+import 'package:gymaipro/ai/pipeline/coach_pipeline_mode.dart';
+import 'package:gymaipro/ai/pipeline/coach_pipeline_result.dart';
 import 'package:gymaipro/ai/planner/coach_executor.dart';
 import 'package:gymaipro/ai/prompt/prompt_builder.dart';
+import 'package:gymaipro/ai/context/coach_context.dart';
 
-/// Integration service for GymAI Coach v2.
+/// Single integration entry point for GymAI Coach v2.
 ///
-/// When the feature flag is enabled, chat uses the full pipeline:
-/// user message -> CoachContext -> CoachBrain -> CoachResponsePlan ->
-/// PromptBuilder -> PromptPackage -> existing OpenAIService.
+/// Production chat gates on [CoachV2Config.coachV2Enabled] in [AIChatService]
+/// before calling [processMessage]. When the flag is off, chat uses OpenAI
+/// directly and this service is not invoked.
 class CoachIntegrationService {
   CoachIntegrationService({
-    AIIntentDetector intentDetector = const AIIntentDetector(),
     AIContextRepository? contextRepository,
     AIContextEngine? contextEngine,
     CoachBrain? coachBrain,
     CoachExecutor executor = const CoachExecutor(),
     PromptBuilder? promptBuilder,
     IntegrationLogger? logger,
-  }) : _contextRepository = contextRepository ?? AIContextRepository(),
-       _intentDetector = intentDetector,
-       _contextEngine =
-           contextEngine ??
-           AIContextEngine(
-             intentDetector: intentDetector,
-             contextBuilder: AIContextBuilder.standard(
-               repository: contextRepository ?? AIContextRepository(),
-             ),
-           ),
-       _coachBrain =
-           coachBrain ??
-           CoachBrain(
+    CoachStateIntegration? stateIntegration,
+    EntityExtractor? entityExtractor,
+    EntityMemoryIntegration? entityMemoryIntegration,
+    CoachPipeline? pipeline,
+    CoachPipelineDependencies? pipelineDependencies,
+  }) : _logger = logger ?? IntegrationLogger(),
+       _pipelineDependencies =
+           pipelineDependencies ??
+           CoachPipelineDependenciesFactory.standard(
+             contextRepository: contextRepository,
              contextEngine:
                  contextEngine ??
-                 AIContextEngine(intentDetector: intentDetector),
+                 AIContextEngine(
+                   contextBuilder: AIContextBuilder.standard(
+                     repository: contextRepository ?? AIContextRepository(),
+                   ),
+                 ),
+             coachBrain: coachBrain,
+             executor: executor,
+             promptBuilder: promptBuilder,
+             logger: logger,
+             stateIntegration: stateIntegration,
+             entityExtractor: entityExtractor,
+             entityMemoryIntegration: entityMemoryIntegration,
            ),
-       _executor = executor,
-       _promptBuilder = promptBuilder ?? const PromptBuilder(),
-       _logger = logger ?? IntegrationLogger();
+       _pipeline = pipeline;
 
-  final AIContextRepository _contextRepository;
-  final AIIntentDetector _intentDetector;
-  final AIContextEngine _contextEngine;
-  final CoachBrain _coachBrain;
-  final CoachExecutor _executor;
-  final PromptBuilder _promptBuilder;
   final IntegrationLogger _logger;
+  final CoachPipelineDependencies _pipelineDependencies;
+  final CoachPipeline? _pipeline;
 
-  /// Runs the full Coach v2 pipeline for a user message.
+  late final CoachPipelineBuilder _pipelineBuilder = CoachPipelineBuilder(
+    dependencies: _pipelineDependencies,
+  );
+
+  /// Runs the Coach v2 pipeline for a user message.
+  ///
+  /// Requires [CoachV2Config.coachV2Enabled]. Production callers gate at
+  /// [AIChatService]; direct callers must check the flag first.
   Future<CoachIntegrationResult> processMessage({
     required String userId,
     required String userMessage,
     Map<String, Object?> metadata = const <String, Object?>{},
   }) async {
-    final startedAt = DateTime.now();
-    _contextRepository.clearFieldCache();
+    if (!CoachV2Config.coachV2Enabled) {
+      throw UnsupportedError(
+        'Coach v2 is disabled. Use AIChatService for flag-off chat.',
+      );
+    }
+
+    _pipelineBuilder.clearFieldCache();
     _logger
       ..clear()
       ..log(
@@ -71,196 +92,91 @@ class CoachIntegrationService {
         metadata: <String, Object?>{'messageLength': userMessage.length},
       );
 
-    final detection = _intentDetector.detect(
-      IntentDetectionRequest(message: userMessage, metadata: metadata),
-    );
-    _logger.log(
-      IntegrationEventType.intentDetected,
-      'Intent detected: ${detection.intent.name}.',
-      metadata: <String, Object?>{
-        'confidence': detection.confidence,
-        'reason': detection.reason,
-        'strategy': detection.strategy?.name,
-      },
-    );
-
-    final request = AIContextRequest(
-      userId: userId,
-      intent: detection.intent,
-      currentQuestion: userMessage,
-      source: 'chat',
-      metadata: metadata,
-    );
-
-    final coachContext = await _contextEngine.buildCoachContextForQuestion(
-      request: request,
-      intent: detection.intent,
-      buildTime: startedAt,
-    );
-    _logger.log(
-      IntegrationEventType.coachContextBuilt,
-      'CoachContext assembled.',
-      metadata: <String, Object?>{
-        'sourceCount': coachContext.metadata.sourceCount,
-        'contextVersion': coachContext.metadata.contextVersion,
-        'confidence': coachContext.metadata.confidence,
-      },
-    );
-
-    final providerSelection = _contextEngine.selectProviders(detection.intent);
-    _logger.log(
-      IntegrationEventType.providersSelected,
-      'Providers selected.',
-      metadata: <String, Object?>{
-        'requiredProviders': providerSelection.requiredProviders
-            .map((provider) => provider.id)
-            .toList(growable: false),
-        'optionalProviders': providerSelection.optionalProviders
-            .map((provider) => provider.id)
-            .toList(growable: false),
-      },
-    );
-
-    if (providerSelection.missingRequiredProviders.isNotEmpty ||
-        providerSelection.missingOptionalProviders.isNotEmpty) {
-      _logger.log(
-        IntegrationEventType.missingProviders,
-        'Missing providers detected.',
-        metadata: <String, Object?>{
-          'missingRequired': providerSelection.missingRequiredProviders
-              .map((provider) => provider.name)
-              .toList(growable: false),
-          'missingOptional': providerSelection.missingOptionalProviders
-              .map((provider) => provider.name)
-              .toList(growable: false),
-        },
-      );
-    }
-
-    final decision = _coachBrain.decideForSelection(
-      providerSelection: providerSelection,
-      context: coachContext,
-    );
-    _logger.log(
-      IntegrationEventType.decisionCreated,
-      'Coach decision created.',
-      metadata: <String, Object?>{
-        'shouldCallAI': decision.shouldCallAI,
-        'missingData': decision.missingData,
-        'confidence': decision.confidence,
-      },
-    );
-
-    final responsePlan = _coachBrain.planForSelection(
-      providerSelection: providerSelection,
-      context: coachContext,
-    );
-    _logger.log(
-      IntegrationEventType.responsePlanCreated,
-      'Response plan created: ${responsePlan.action.wireName}.',
-      metadata: <String, Object?>{
-        'estimatedCost': responsePlan.estimatedCost,
-        'estimatedTokens': responsePlan.estimatedTokens,
-        'estimatedLatencyMs': responsePlan.estimatedLatency.inMilliseconds,
-        'confidence': responsePlan.confidence,
-      },
-    );
-
-    final promptPackage = _promptBuilder.buildFromCoachContext(
-      CoachPromptBuildRequest(
-        coachContext: coachContext,
-        createdAt: coachContext.metadata.buildTime,
+    final pipeline = _pipeline ?? _pipelineBuilder.build();
+    final result = await pipeline.run(
+      CoachPipelineContext.initial(
+        userId: userId,
+        userMessage: userMessage,
+        metadata: metadata,
       ),
     );
-    _logger.log(
-      IntegrationEventType.promptPackageCreated,
-      'Prompt package created.',
-      metadata: <String, Object?>{
-        'packageId': promptPackage.id,
-        'sectionCount': promptPackage.sections.length,
-        'estimatedTokens': promptPackage.metadata.estimatedTokens,
-      },
-    );
 
-    final executorPreview = _executor.preview(responsePlan);
-    _logger.log(
-      IntegrationEventType.executorPreviewCreated,
-      'Executor preview created.',
-      metadata: <String, Object?>{
-        'executionType': executorPreview.target.name,
-        'wouldExecute': executorPreview.wouldExecute,
-      },
-    );
-
-    final processingTime = DateTime.now().difference(startedAt);
-    _logger.log(
-      IntegrationEventType.pipelineCompleted,
-      'Coach v2 pipeline completed.',
-      metadata: <String, Object?>{
-        'processingTimeMs': processingTime.inMilliseconds,
-      },
-    );
-
-    return CoachIntegrationResult(
-      intent: detection.intent,
-      coachContext: coachContext,
-      providerSelection: providerSelection,
-      decision: decision,
-      responsePlan: responsePlan,
-      promptPackage: promptPackage,
-      executorPreview: executorPreview,
-      processingTime: processingTime,
-      missingProviders: responsePlan.missingProviders,
-      missingData: decision.missingData,
-      confidence: responsePlan.confidence,
-      estimatedCost: responsePlan.estimatedCost,
-      estimatedTokens: responsePlan.estimatedTokens,
-      estimatedLatency: responsePlan.estimatedLatency,
-      logs: _logger.events,
-    );
+    return _mapPipelineResult(result);
   }
 
-  /// Runs a lightweight preview without building CoachContext or prompt data.
-  CoachIntegrationResult previewMessage({
+  /// Runs a dry-run preview through the same [CoachPipeline] stages as runtime.
+  Future<CoachIntegrationResult> previewMessage({
     required String userMessage,
+    String userId = 'preview_user',
     CoachContext? context,
     Map<String, Object?> metadata = const <String, Object?>{},
-  }) {
-    final effectiveSeed = context ?? CoachContext.empty();
-    final startedAt = DateTime.now();
+  }) async {
+    _pipelineBuilder.clearFieldCache();
     _logger
       ..clear()
       ..log(
         IntegrationEventType.pipelineStarted,
-        'Coach integration preview started.',
-        metadata: <String, Object?>{'messageLength': userMessage.length},
+        'Coach v2 preview pipeline started.',
+        metadata: <String, Object?>{
+          'messageLength': userMessage.length,
+          'mode': CoachPipelineMode.preview.name,
+        },
       );
 
-    final detection = _intentDetector.detect(
-      IntentDetectionRequest(message: userMessage, metadata: metadata),
+    final pipeline = _pipeline ?? _pipelineBuilder.build();
+    final result = await pipeline.run(
+      CoachPipelineContext.initial(
+        userId: userId,
+        userMessage: userMessage,
+        metadata: metadata,
+        mode: CoachPipelineMode.preview,
+        seedCoachContext: context,
+      ),
     );
-    final providerSelection = _contextEngine.selectProviders(detection.intent);
-    final effectiveContext = _contextWithQuestion(effectiveSeed, userMessage);
 
-    final decision = _coachBrain.decideForSelection(
-      providerSelection: providerSelection,
-      context: effectiveContext,
-    );
-    final responsePlan = _coachBrain.planForSelection(
-      providerSelection: providerSelection,
-      context: effectiveContext,
-    );
-    final executorPreview = _executor.preview(responsePlan);
-    final processingTime = DateTime.now().difference(startedAt);
+    return _mapPipelineResult(result);
+  }
+
+  CoachIntegrationResult _mapPipelineResult(CoachPipelineResult result) {
+    final context = result.context;
+    final coachContext = context.coachContext;
+
+    if (coachContext == null) {
+      throw StateError('Coach pipeline did not produce coach context.');
+    }
+
+    if (context.localSkillHandled && context.skillExecutionResult != null) {
+      return CoachIntegrationResult.local(
+        intent: context.intent,
+        coachContext: coachContext,
+        skillExecution: context.skillExecutionResult!,
+        conversationState: context.conversationState,
+        processingTime: result.trace.totalDuration,
+        logs: _logger.events,
+        pipelineTrace: result.trace,
+        pipelineMode: result.mode,
+      );
+    }
+
+    final decision = context.decision;
+    final responsePlan = context.responsePlan;
+    final executorPreview = context.executorPreview;
+
+    if (decision == null ||
+        responsePlan == null ||
+        executorPreview == null) {
+      throw StateError('Coach pipeline did not produce a complete result.');
+    }
 
     return CoachIntegrationResult(
-      intent: detection.intent,
-      coachContext: effectiveContext,
-      providerSelection: providerSelection,
+      intent: context.intent,
+      coachContext: coachContext,
       decision: decision,
       responsePlan: responsePlan,
+      promptPackage: context.promptPackage,
+      conversationState: context.conversationState,
       executorPreview: executorPreview,
-      processingTime: processingTime,
+      processingTime: result.trace.totalDuration,
       missingProviders: responsePlan.missingProviders,
       missingData: decision.missingData,
       confidence: responsePlan.confidence,
@@ -268,30 +184,8 @@ class CoachIntegrationService {
       estimatedTokens: responsePlan.estimatedTokens,
       estimatedLatency: responsePlan.estimatedLatency,
       logs: _logger.events,
-    );
-  }
-
-  CoachContext _contextWithQuestion(CoachContext context, String userMessage) {
-    if (context.currentQuestion != null &&
-        context.currentQuestion!.trim().isNotEmpty) {
-      return context;
-    }
-
-    return CoachContext(
-      intent: context.intent,
-      metadata: context.metadata,
-      profile: context.profile,
-      goals: context.goals,
-      restrictions: context.restrictions,
-      equipment: context.equipment,
-      preferences: context.preferences,
-      activeProgram: context.activeProgram,
-      workoutHistory: context.workoutHistory,
-      weeklyHeatmap: context.weeklyHeatmap,
-      memories: context.memories,
-      apiUsage: context.apiUsage,
-      currentQuestion: userMessage,
-      conversationSummary: context.conversationSummary,
+      pipelineTrace: result.trace,
+      pipelineMode: result.mode,
     );
   }
 }
