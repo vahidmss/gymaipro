@@ -1,7 +1,8 @@
-import 'package:gymaipro/ai/exercise/models/exercise_intelligence_query.dart';
+import 'package:gymaipro/ai/workout/equipment/workout_equipment_tokens.dart';
 import 'package:gymaipro/ai/workout/blueprint/workout_blueprint.dart';
 import 'package:gymaipro/ai/workout/blueprint/workout_recovery_strategy.dart';
 import 'package:gymaipro/ai/workout/planner/workout_split_planner.dart';
+import 'package:gymaipro/ai/exercise/models/exercise_intelligence_query.dart';
 
 /// Maps workout planning artifacts to exercise intelligence queries.
 class WorkoutExerciseIntelligenceQueryBuilder {
@@ -15,38 +16,25 @@ class WorkoutExerciseIntelligenceQueryBuilder {
     return ExerciseIntelligenceQuery(
       goal: blueprint.goal,
       experience: blueprint.experience,
-      availableEquipment: _equipmentWithGymDefaults(blueprint.equipment),
+      availableEquipment: WorkoutEquipmentTokens.expand(blueprint.equipment),
       limitations: blueprint.limitations,
-      recoveryScore: blueprint.trace.recoveryScore,
+      // Program generation is multi-day planning, not an acute live session.
+      // Floor recovery so a heavy heatmap week cannot empty the catalog.
+      recoveryScore: blueprint.trace.recoveryScore.clamp(0.7, 1.0),
       avoidExerciseNames: blueprint.avoidExercises,
       maxFatigueBudget: _maxFatigueBudget(blueprint),
       sessionFatigueAccumulated: sessionFatigueAccumulated,
     );
   }
 
-  List<String> _equipmentWithGymDefaults(List<String> equipment) {
-    final normalized = List<String>.from(equipment);
-    final impliesGym = normalized.any(
-      (item) =>
-          item.contains('هالتر') ||
-          item.contains('barbell') ||
-          item.contains('باشگاه') ||
-          item.contains('gym'),
-    );
-    if (impliesGym && !normalized.any((item) => item.contains('دستگاه'))) {
-      normalized.add('دستگاه');
-    }
-    return normalized;
-  }
-
   // Day muscle targeting is enforced by selector bucket gate before evaluate().
 
   double _maxFatigueBudget(WorkoutBlueprint blueprint) {
-    final base = switch (blueprint.recoveryStrategy) {
-      WorkoutRecoveryStrategy.conservative => 0.6,
-      WorkoutRecoveryStrategy.normal => 0.9,
+    // FatigueEngine multiplies this by recoveryScore — keep base generous.
+    return switch (blueprint.recoveryStrategy) {
+      WorkoutRecoveryStrategy.conservative => 0.85,
+      WorkoutRecoveryStrategy.normal => 0.95,
       WorkoutRecoveryStrategy.aggressive => 1,
     };
-    return (base * blueprint.trace.recoveryScore.clamp(0.4, 1.0)).clamp(0.35, 1.0);
   }
 }

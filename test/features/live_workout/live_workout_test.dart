@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gymaipro/ai/context/coach_context.dart';
 import 'package:gymaipro/ai/context/coach_context_metadata.dart';
@@ -22,56 +23,65 @@ import 'package:gymaipro/features/live_workout/presentation/screens/live_workout
 import 'package:gymaipro/features/live_workout/state/live_workout_completion_summary.dart';
 import 'package:gymaipro/features/live_workout/state/live_workout_state.dart';
 import 'package:gymaipro/features/live_workout/view_models/live_workout_view_model.dart';
+import 'package:gymaipro/features/product_experience/active_program_catalog_service.dart';
+import 'package:gymaipro/features/product_experience/active_workout_session_service.dart';
 import 'package:gymaipro/features/product_experience/coach_program_resolver.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
+import 'package:gymaipro/models/exercise.dart';
+import 'package:gymaipro/services/muscle_heatmap_aggregate.dart';
 import 'package:gymaipro/services/route_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setMockInitialValues(<String, Object>{});
 
+  setUpAll(() async {
+    await Supabase.initialize(
+      url: 'https://example.supabase.co',
+      anonKey: 'test-anon-key',
+    );
+  });
+
   test('LiveWorkoutFacade maps activeProgram', () async {
-    Map<String, Object?>? metadataSeen;
     final facade = LiveWorkoutFacade(
       seedLoader: const _FakeSeedLoader(),
+      programCatalog: _StubProgramCatalog(_testProgram),
+      sessionGateway: const _FakeSessionGateway(selectedDay: 'Upper'),
       programResolver: CoachProgramResolver(programLoader: (_) async => null),
-      coachLoader: ({
-        required userMessage,
-        userId = 'preview_user',
-        context,
-        metadata = const <String, Object?>{},
-      }) async {
-        metadataSeen = metadata;
-        expect(userMessage, 'تمرین امروزم رو شروع کن');
-        expect(context, isNotNull);
-        return _integrationResult(activeProgram: _activeProgram);
-      },
     );
 
-    final result = await facade.load();
+    final result = await facade.map(
+      _integrationResult(activeProgram: _activeProgram),
+      userId: 'user_1',
+    );
 
-    expect(metadataSeen?['feature'], 'live_workout');
     expect(result.state.isLoaded, true);
     expect(result.state.session!.totalExercises, 2);
     expect(result.state.session!.totalSets, 5);
-    expect(
-      result.state.session!.currentSet()?.status,
-      WorkoutSetSessionStatus.current,
+    expect(result.state.session!.currentSetPointer, isNull);
+  });
+
+  test('LiveWorkoutFacade returns awaitingSession without day pick', () async {
+    final facade = LiveWorkoutFacade(
+      programCatalog: _StubProgramCatalog(_testProgram),
+      sessionGateway: const _FakeSessionGateway(selectedDay: null),
+      programResolver: CoachProgramResolver(programLoader: (_) async => null),
     );
+
+    final result = await facade.map(
+      _integrationResult(activeProgram: _activeProgram),
+    );
+
+    expect(result.state.isAwaitingSession, true);
   });
 
   test('LiveWorkoutFacade returns empty without workout data', () async {
     final facade = LiveWorkoutFacade(
+      programCatalog: _StubProgramCatalog(_testProgram),
+      sessionGateway: const _FakeSessionGateway(selectedDay: 'Upper'),
       programResolver: CoachProgramResolver(programLoader: (_) async => null),
-      coachLoader: ({
-        required userMessage,
-        userId = 'preview_user',
-        context,
-        metadata = const <String, Object?>{},
-      }) async {
-        return _integrationResult(activeProgram: const <String, Object?>{});
-      },
     );
 
     final mapped = await facade.map(
@@ -81,7 +91,7 @@ void main() {
     expect(mapped.state.isEmpty, true);
   });
 
-  test('LiveWorkoutViewModel advances sets through session', () async {
+  test('LiveWorkoutViewModel saves sets in real time', () async {
     final session = const LiveWorkoutSessionFactory().fromPreview(
       preview: _previewSession(),
       userId: 'user_1',
@@ -100,22 +110,21 @@ void main() {
     );
 
     await viewModel.load();
-    var guard = 0;
-    while (!viewModel.state.isSessionCompleted && guard < 30) {
-      guard++;
-      if (viewModel.state.rest.active) {
-        viewModel.skipRest();
-      } else {
-        viewModel.completePrimaryAction();
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 5));
-    }
+    final exerciseKey =
+        viewModel.displayExercises.first.exerciseId.toString();
+    viewModel.exerciseControllers[exerciseKey]![0]['reps']!.text = '10';
+    viewModel.exerciseControllers[exerciseKey]![0]['weight']!.text = '60';
+    viewModel.saveSet(exerciseKey, 0);
 
-    expect(viewModel.state.isSessionCompleted, true);
-    expect(viewModel.state.completionSummary?.completedSets, session.totalSets);
+    expect(viewModel.savedSetsCount, 1);
+    expect(viewModel.setSavedStatus[exerciseKey]![0], isTrue);
+    expect(
+      viewModel.state.session!.exercises.first.sets.first.actualReps,
+      10,
+    );
   });
 
-  test('LiveWorkoutViewModel persists completion summary', () async {
+  test('LiveWorkoutViewModel finalizes workout when all sets saved', () async {
     final session = const LiveWorkoutSessionFactory().fromPreview(
       preview: _previewSession(),
       userId: 'user_1',
@@ -143,8 +152,10 @@ void main() {
 
     await viewModel.finishWorkout();
 
-    expect(viewModel.state.isSessionCompleted, true);
-    expect(viewModel.state.completionSummary?.completedSets, session.totalSets);
+    expect(viewModel.state.isLoaded, isTrue);
+    expect(viewModel.state.completionSummary, isNotNull);
+    expect(viewModel.state.session, isNotNull);
+    expect(viewModel.isCompleting, isFalse);
   });
 
   testWidgets('LiveWorkoutScreen renders loaded session', (tester) async {
@@ -153,30 +164,31 @@ void main() {
       userId: 'user_1',
     );
     await tester.pumpWidget(
-      MaterialApp(
-        home: LiveWorkoutScreen(
-          autoLoad: false,
-          viewModel: LiveWorkoutViewModel(
-            initialState: LiveWorkoutState.loaded(
-              session: session,
-              userId: 'user_1',
-              coachTips: const <String>['Keep your form tight.'],
-              explainability: const <String>['Preview selected today workout.'],
+      ScreenUtilInit(
+        designSize: const Size(375, 812),
+        builder: (context, child) => MaterialApp(
+          home: LiveWorkoutScreen(
+            autoLoad: false,
+            viewModel: LiveWorkoutViewModel(
+              initialState: LiveWorkoutState.loaded(
+                session: session,
+                userId: 'user_1',
+                coachTips: const <String>['Keep your form tight.'],
+                explainability: const <String>['Preview selected today workout.'],
+              ),
+              sessionStore: _NoopSessionStore(),
             ),
-            sessionStore: _NoopSessionStore(),
           ),
         ),
       ),
     );
 
     expect(find.text(ProductCopy.workoutSession), findsOneWidget);
-    expect(find.text('Pull Day'), findsOneWidget);
-    expect(find.text('Bench Press'), findsOneWidget);
-    expect(find.text(ProductCopy.sets), findsOneWidget);
-    expect(
-      find.text(ProductCopy.completeSet),
-      findsOneWidget,
-    );
+    expect(find.text('Pull Day'), findsWidgets);
+    expect(find.text(ProductCopy.liveSessionInProgress), findsOneWidget);
+    expect(find.text('Bench Press'), findsWidgets);
+    expect(find.text('0/5 ست'), findsOneWidget);
+    expect(find.text(ProductCopy.completeSet), findsNothing);
   });
 
   testWidgets('LiveWorkoutRoute is registered', (tester) async {
@@ -238,14 +250,92 @@ class _FakeSeedLoader implements CoachPreviewSeedProvider {
   }
 }
 
+const _testProgram = ActiveProgramOption(
+  id: 'program_1',
+  title: 'برنامه تست',
+  creatorLabel: 'GymAI',
+  isActive: true,
+  isAiSupervised: true,
+);
+
+class _StubProgramCatalog extends ActiveProgramCatalogService {
+  _StubProgramCatalog(this._active) : super();
+
+  final ActiveProgramOption _active;
+
+  @override
+  Future<ActiveProgramOption?> getActiveProgramOption() async => _active;
+
+  @override
+  Future<List<ActiveProgramOption>> listWorkoutPrograms() async => [_active];
+}
+
+class _FakeSessionGateway implements WorkoutSessionSelectionGateway {
+  const _FakeSessionGateway({required this.selectedDay});
+
+  final String? selectedDay;
+
+  @override
+  Future<void> applySessionChangeCleanup({
+    required String sessionDayToDelete,
+    String? userId,
+  }) async {}
+
+  @override
+  Future<void> clearSelection({String? userId}) async {}
+
+  @override
+  SessionChangeEvaluation evaluateSessionChange({
+    required ActiveWorkoutSessionContext context,
+    required String newSessionDay,
+    String? currentSessionDay,
+  }) {
+    return const SessionChangeEvaluation.none();
+  }
+
+  @override
+  SessionChangeEvaluation evaluateProgramChange({
+    required ActiveWorkoutSessionContext context,
+  }) {
+    return const SessionChangeEvaluation.none();
+  }
+
+  @override
+  Future<ActiveWorkoutSessionContext> loadContext({
+    required String programId,
+    String? userId,
+  }) async {
+    return ActiveWorkoutSessionContext(
+      programId: programId,
+      programName: 'برنامه تست',
+      sessions: const [],
+      selectedSessionDay: selectedDay,
+      loggedSessionDay: null,
+      hasSavedLog: false,
+      hasLiveDraft: false,
+    );
+  }
+
+  @override
+  Future<void> saveSelection({
+    required String programId,
+    required String sessionDay,
+    String? userId,
+  }) async {}
+}
+
 class _FakeLiveWorkoutFacade extends LiveWorkoutFacade {
   _FakeLiveWorkoutFacade(this.result)
-    : super(coachLoader: _unusedCoachLoader);
+    : super(
+        coachLoader: _unusedCoachLoader,
+        programResolver: CoachProgramResolver(programLoader: (_) async => null),
+      );
 
   final LiveWorkoutFacadeResult result;
 
   @override
-  Future<LiveWorkoutFacadeResult> load() async => result;
+  Future<LiveWorkoutFacadeResult> load({bool enrichWithCoach = false}) async =>
+      result;
 
   @override
   Future<String> resolveUserId() async => 'user_1';
@@ -267,21 +357,15 @@ class _FakeCompletionService extends LiveWorkoutCompletionService {
   Future<LiveWorkoutCompletionResult> complete({
     required WorkoutSession session,
     required String userId,
-    required List<String> coachTips,
-    required List<String> explainability,
+    Map<int, Exercise> exerciseById = const <int, Exercise>{},
   }) async {
     return LiveWorkoutCompletionResult(
-      summary: LiveWorkoutCompletionSummary(
-        title: session.title,
+      summary: LiveWorkoutCompletionSummary.fromSessionStats(
         focus: session.focus,
-        durationMinutes: 45,
-        completedExercises: session.finishedExercises,
-        totalExercises: session.totalExercises,
         completedSets: session.completedSets,
         totalSets: session.totalSets,
         totalVolumeKg: 1000,
-        coachMessage: 'جلسه عالی بود.',
-        highlights: const <String>['۵ ست'],
+        heatmap: MuscleHeatmapSnapshot.empty(),
         synced: true,
       ),
       persistence: const LiveWorkoutPersistenceResult(synced: true),

@@ -11,6 +11,7 @@ import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
+import 'package:gymaipro/workout_plan_builder/utils/workout_program_name_uniquifier.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -382,7 +383,19 @@ class WorkoutProgramService {
     // بررسی اینکه آیا نام برنامه تکراری است یا خیر
     final existingPrograms = await getPrograms();
     if (existingPrograms.any((p) => p.name == program.name)) {
-      throw Exception('برنامه‌ای با این نام قبلاً ثبت شده است');
+      if (autoSend) {
+        // AI / auto-send path: never block generation on a duplicate title.
+        final unique = ensureUniqueWorkoutProgramName(
+          program.name,
+          existingPrograms.map((p) => p.name),
+        );
+        debugPrint(
+          'نام تکراری «${program.name}» → «$unique» برای ذخیره خودکار',
+        );
+        program.name = unique;
+      } else {
+        throw Exception('برنامه‌ای با این نام قبلاً ثبت شده است');
+      }
     }
 
     // Update timestamps

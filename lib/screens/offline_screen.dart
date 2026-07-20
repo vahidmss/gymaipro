@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/core/app_initializer.dart';
 import 'package:gymaipro/core/app_navigator.dart';
+import 'package:gymaipro/auth/services/auth_state_service.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/backend_reachability_service.dart';
 import 'package:gymaipro/services/route_service.dart';
@@ -107,6 +108,7 @@ class _OfflineScreenState extends State<OfflineScreen>
 
       setState(() => _statusMessage = 'در حال آماده‌سازی برنامه...');
 
+      AuthStateService.resumeAutoRefresh();
       await AppInitializer.initialize();
 
       if (!AppInitializer.isSupabaseReady) {

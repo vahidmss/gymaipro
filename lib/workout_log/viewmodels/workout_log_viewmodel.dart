@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:gymaipro/models/exercise.dart';
+import 'package:gymaipro/features/product_experience/active_workout_session_service.dart';
+import 'package:gymaipro/features/product_experience/domain/workout_exercise_coach_feedback.dart';
 import 'package:gymaipro/services/active_program_service.dart';
 import 'package:gymaipro/services/muscle_heatmap_aggregate.dart';
 import 'package:gymaipro/services/custom_exercise_service.dart';
@@ -30,6 +32,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
   final Map<String, List<Map<String, FocusNode>>> _exerciseFocusNodes = {};
   final Map<int, Exercise> _exerciseDetails = {};
   final Map<String, bool> _collapsedExercises = {};
+  final Map<String, WorkoutExerciseCoachFeedback> _exerciseCoachFeedback = {};
 
   bool _hasTodayLog = false;
   bool _isLoadingTodayLog = true;
@@ -59,6 +62,8 @@ class WorkoutLogViewModel extends ChangeNotifier {
       _exerciseFocusNodes;
   Map<int, Exercise> get exerciseDetails => _exerciseDetails;
   Map<String, bool> get collapsedExercises => _collapsedExercises;
+  Map<String, WorkoutExerciseCoachFeedback> get exerciseCoachFeedback =>
+      _exerciseCoachFeedback;
   bool get hasTodayLog => _hasTodayLog;
   bool get isLoadingTodayLog => _isLoadingTodayLog;
   bool get isLoadingDayLog => _isLoadingDayLog;
@@ -139,7 +144,6 @@ class WorkoutLogViewModel extends ChangeNotifier {
       _selectedSession = null;
       _safeNotifyListeners();
 
-      // پیش‌بارگذاری تمرینات سشن اول برای سرعت بیشتر
       if (program != null && program.sessions.isNotEmpty) {
         _preloadFirstSessionExercises(program.sessions.first);
       }
@@ -225,27 +229,32 @@ class WorkoutLogViewModel extends ChangeNotifier {
         .toList();
 
     if (idsToLoad.isEmpty) {
+      _refreshAllExerciseCoachFeedback();
       bumpSessionHeatmapPreview();
       _safeNotifyListeners();
       return;
     }
 
     // بارگذاری تمرین‌های اختصاصی مربی برنامه (اگر برنامه توسط مربی ساخته شده باشد)
-    if (_selectedProgram?.trainerId != null && _selectedProgram!.trainerId!.isNotEmpty) {
+    if (_selectedProgram?.trainerId != null &&
+        _selectedProgram!.trainerId!.isNotEmpty) {
       try {
         final customExerciseService = CustomExerciseService();
         // دریافت تمرین‌های اختصاصی مربی برنامه
         final trainerCustomExercises = await customExerciseService
             .getTrainerExercisesById(_selectedProgram!.trainerId!);
-        
+
         // تبدیل CustomExercise به Exercise و اضافه کردن به exerciseDetails
         final trainerExercises = await customExerciseService
             .customExercisesToExercises(trainerCustomExercises);
-        
+
         for (final exercise in trainerExercises) {
-          if (idsToLoad.contains(exercise.id) && !_exerciseDetails.containsKey(exercise.id)) {
+          if (idsToLoad.contains(exercise.id) &&
+              !_exerciseDetails.containsKey(exercise.id)) {
             _exerciseDetails[exercise.id] = exercise;
-            debugPrint('✅ تمرین اختصاصی مربی بارگذاری شد: ${exercise.name} (ID: ${exercise.id})');
+            debugPrint(
+              '✅ تمرین اختصاصی مربی بارگذاری شد: ${exercise.name} (ID: ${exercise.id})',
+            );
           }
         }
       } catch (e) {
@@ -260,6 +269,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
         .toList();
 
     if (remainingIdsToLoad.isEmpty) {
+      _refreshAllExerciseCoachFeedback();
       bumpSessionHeatmapPreview();
       _safeNotifyListeners();
       return;
@@ -316,6 +326,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
       }
     }
 
+    _refreshAllExerciseCoachFeedback();
     bumpSessionHeatmapPreview();
     _safeNotifyListeners();
   }
@@ -350,10 +361,12 @@ class WorkoutLogViewModel extends ChangeNotifier {
       final weightController = TextEditingController();
       final repsController = TextEditingController();
       final timeController = TextEditingController();
+      final rpeController = TextEditingController();
 
       final repsFocusNode = FocusNode();
       final timeFocusNode = FocusNode();
       final weightFocusNode = FocusNode();
+      final rpeFocusNode = FocusNode();
 
       final setKey = '$exerciseId-$i';
       weightController.addListener(
@@ -361,17 +374,20 @@ class WorkoutLogViewModel extends ChangeNotifier {
       );
       repsController.addListener(() => scheduleAutoSave(setKey, exerciseId, i));
       timeController.addListener(() => scheduleAutoSave(setKey, exerciseId, i));
+      rpeController.addListener(() => scheduleAutoSave(setKey, exerciseId, i));
 
       _exerciseControllers[exerciseId]!.add({
         'weight': weightController,
         'reps': repsController,
         'time': timeController,
+        'rpe': rpeController,
       });
       _setSavedStatus[exerciseId]!.add(false);
       _exerciseFocusNodes[exerciseId]!.add({
         'weight': weightFocusNode,
         'reps': repsFocusNode,
         'time': timeFocusNode,
+        'rpe': rpeFocusNode,
       });
     }
   }
@@ -389,10 +405,12 @@ class WorkoutLogViewModel extends ChangeNotifier {
         final weightController = TextEditingController();
         final repsController = TextEditingController();
         final timeController = TextEditingController();
+        final rpeController = TextEditingController();
 
         final repsFocusNode = FocusNode();
         final timeFocusNode = FocusNode();
         final weightFocusNode = FocusNode();
+        final rpeFocusNode = FocusNode();
 
         final setKey = '$exerciseId-$i';
         weightController.addListener(
@@ -404,17 +422,22 @@ class WorkoutLogViewModel extends ChangeNotifier {
         timeController.addListener(
           () => scheduleAutoSave(setKey, exerciseId, i),
         );
+        rpeController.addListener(
+          () => scheduleAutoSave(setKey, exerciseId, i),
+        );
 
         _exerciseControllers[exerciseId]!.add({
           'weight': weightController,
           'reps': repsController,
           'time': timeController,
+          'rpe': rpeController,
         });
         _setSavedStatus[exerciseId]!.add(false);
         _exerciseFocusNodes[exerciseId]!.add({
           'weight': weightFocusNode,
           'reps': repsFocusNode,
           'time': timeFocusNode,
+          'rpe': rpeFocusNode,
         });
       }
     }
@@ -430,6 +453,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
     }
     _exerciseControllers.clear();
     _setSavedStatus.clear();
+    _exerciseCoachFeedback.clear();
 
     for (final exerciseFocusNodes in _exerciseFocusNodes.values) {
       for (final setFocusNodes in exerciseFocusNodes) {
@@ -461,13 +485,17 @@ class WorkoutLogViewModel extends ChangeNotifier {
           savedStatus[setIndex]) {
         savedStatus[setIndex] = false;
         bumpSessionHeatmapPreview();
+        _refreshExerciseCoachFeedback(exerciseId);
         _safeNotifyListeners();
       }
       return;
     }
 
     _heatmapPreviewTimers[setKey]?.cancel();
-    _heatmapPreviewTimers[setKey] = Timer(const Duration(milliseconds: 350), bumpSessionHeatmapPreview);
+    _heatmapPreviewTimers[setKey] = Timer(
+      const Duration(milliseconds: 350),
+      bumpSessionHeatmapPreview,
+    );
 
     _autoSaveTimers[setKey] = Timer(const Duration(seconds: 1), () {
       saveSet(exerciseId, setIndex);
@@ -476,7 +504,8 @@ class WorkoutLogViewModel extends ChangeNotifier {
 
   Future<void> saveSet(String exerciseId, int setIndex) async {
     final savedStatus = _setSavedStatus[exerciseId];
-    final wasSaved = savedStatus != null &&
+    final wasSaved =
+        savedStatus != null &&
         savedStatus.length > setIndex &&
         savedStatus[setIndex];
     try {
@@ -488,14 +517,16 @@ class WorkoutLogViewModel extends ChangeNotifier {
           ? (double.tryParse(weightText) ?? 0.0)
           : 0.0;
       final reps = repsText.isNotEmpty ? (int.tryParse(repsText) ?? 0) : 0;
-      final timeSeconds =
-          timeText.isNotEmpty ? (int.tryParse(timeText) ?? 0) : 0;
+      final timeSeconds = timeText.isNotEmpty
+          ? (int.tryParse(timeText) ?? 0)
+          : 0;
 
       if (savedStatus != null && savedStatus.length > setIndex) {
         savedStatus[setIndex] = true;
       }
 
       bumpSessionHeatmapPreview();
+      _refreshExerciseCoachFeedback(exerciseId);
       if (!wasSaved) {
         _safeNotifyListeners();
       }
@@ -516,9 +547,98 @@ class WorkoutLogViewModel extends ChangeNotifier {
       // Rollback optimistic update on failure
       if (savedStatus != null && savedStatus.length > setIndex && !wasSaved) {
         savedStatus[setIndex] = false;
+        _refreshExerciseCoachFeedback(exerciseId, notify: false);
         _safeNotifyListeners();
       }
     }
+  }
+
+  void _refreshAllExerciseCoachFeedback() {
+    _exerciseCoachFeedback.clear();
+    if (_selectedProgram?.isSelfServiceAi != true) return;
+    for (final exerciseKey in _exerciseControllers.keys) {
+      _refreshExerciseCoachFeedback(exerciseKey, notify: false);
+    }
+  }
+
+  void _refreshExerciseCoachFeedback(String exerciseKey, {bool notify = true}) {
+    if (_isDisposed) return;
+
+    // نکته مربی فقط برای برنامه‌های هوش مصنوعی / شروع باشگاه
+    if (_selectedProgram?.isSelfServiceAi != true) {
+      _exerciseCoachFeedback.remove(exerciseKey);
+      if (notify) _safeNotifyListeners();
+      return;
+    }
+
+    final resolved = _resolveExerciseForCoachFeedback(exerciseKey);
+    final controllers = _exerciseControllers[exerciseKey];
+    final savedStatus = _setSavedStatus[exerciseKey];
+    if (resolved == null || controllers == null || savedStatus == null) {
+      _exerciseCoachFeedback.remove(exerciseKey);
+      if (notify) _safeNotifyListeners();
+      return;
+    }
+
+    final details = _exerciseDetails[resolved.exerciseId];
+    final feedback = WorkoutExerciseCoachFeedbackEngine.fromControllers(
+      prescription: resolved.sets,
+      setValues: controllers
+          .map(
+            (setControllers) => <String, String>{
+              'weight': setControllers['weight']?.text.trim() ?? '',
+              'reps': setControllers['reps']?.text.trim() ?? '',
+              'time': setControllers['time']?.text.trim() ?? '',
+              'rpe': setControllers['rpe']?.text.trim() ?? '',
+            },
+          )
+          .toList(),
+      savedStatus: savedStatus,
+      style: resolved.style,
+      formTipSource: WorkoutExerciseCoachFeedbackEngine.resolveFormTipSource(
+        tips: details?.tips ?? const <String>[],
+        programNote: resolved.note,
+      ),
+    );
+
+    if (feedback == null) {
+      _exerciseCoachFeedback.remove(exerciseKey);
+    } else {
+      _exerciseCoachFeedback[exerciseKey] = feedback;
+    }
+    if (notify) _safeNotifyListeners();
+  }
+
+  ({int exerciseId, List<ExerciseSet> sets, ExerciseStyle style, String? note})?
+  _resolveExerciseForCoachFeedback(String exerciseKey) {
+    final session = _selectedSession;
+    if (session == null) return null;
+
+    for (final exercise in session.exercises) {
+      if (exercise is NormalExercise) {
+        if (exercise.exerciseId.toString() == exerciseKey) {
+          return (
+            exerciseId: exercise.exerciseId,
+            sets: exercise.sets,
+            style: exercise.style,
+            note: exercise.note,
+          );
+        }
+      } else if (exercise is SupersetExercise) {
+        for (final item in exercise.exercises) {
+          final itemId = '${exercise.id}_${item.exerciseId}';
+          if (itemId == exerciseKey) {
+            return (
+              exerciseId: item.exerciseId,
+              sets: item.sets,
+              style: item.style,
+              note: exercise.note,
+            );
+          }
+        }
+      }
+    }
+    return null;
   }
 
   Future<void> _saveSetToDatabase(
@@ -606,9 +726,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
       for (final session in dailyLog.sessions) {
         if (session.day == activeDay) {
           activeFound = true;
-          updatedSessions.add(
-            _buildCurrentSessionLog(existingId: session.id),
-          );
+          updatedSessions.add(_buildCurrentSessionLog(existingId: session.id));
         } else {
           updatedSessions.add(session);
         }
@@ -755,9 +873,13 @@ class WorkoutLogViewModel extends ChangeNotifier {
       final repsText = setControllers['reps']?.text.trim() ?? '';
       final timeText = setControllers['time']?.text.trim() ?? '';
       final weightText = setControllers['weight']?.text.trim() ?? '';
+      final rpeText = setControllers['rpe']?.text.trim() ?? '';
 
       final hasData =
-          repsText.isNotEmpty || timeText.isNotEmpty || weightText.isNotEmpty;
+          repsText.isNotEmpty ||
+          timeText.isNotEmpty ||
+          weightText.isNotEmpty ||
+          rpeText.isNotEmpty;
 
       if (hasData) {
         sets.add(
@@ -765,6 +887,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
             reps: repsText.isNotEmpty ? int.tryParse(repsText) : null,
             seconds: timeText.isNotEmpty ? int.tryParse(timeText) : null,
             weight: weightText.isNotEmpty ? double.tryParse(weightText) : null,
+            rpe: rpeText.isNotEmpty ? int.tryParse(rpeText) : null,
           ),
         );
       }
@@ -831,7 +954,8 @@ class WorkoutLogViewModel extends ChangeNotifier {
 
   /// تغییر تاریخ تقویم: فرم خالی + بارگذاری لاگ همان روز (در صورت وجود).
   Future<void> changeSelectedDate(Jalali date) async {
-    final sameDay = date.year == _selectedDate.year &&
+    final sameDay =
+        date.year == _selectedDate.year &&
         date.month == _selectedDate.month &&
         date.day == _selectedDate.day;
     if (sameDay) return;
@@ -949,12 +1073,14 @@ class WorkoutLogViewModel extends ChangeNotifier {
     final currentSessionDay = _selectedSession?.day;
 
     // فقط تداخل سشن‌های همان روز تقویم (نه نام سشن در روز دیگر).
-    final conflictWithSavedLog = _hasTodayLog &&
+    final conflictWithSavedLog =
+        _hasTodayLog &&
         _hasLoggedSessionOnSelectedDate &&
         _loggedSessionDay != null &&
         _loggedSessionDay != newSession.day;
 
-    final conflictWithDraft = hasUnsaved &&
+    final conflictWithDraft =
+        hasUnsaved &&
         currentSessionDay != null &&
         currentSessionDay != newSession.day;
 
@@ -1058,6 +1184,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
     }
 
     _isLoadingData = false;
+    _refreshAllExerciseCoachFeedback();
     bumpSessionHeatmapPreview();
   }
 
@@ -1088,6 +1215,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
       setControllers['weight']?.clear();
       setControllers['reps']?.clear();
       setControllers['time']?.clear();
+      setControllers['rpe']?.clear();
     }
   }
 
@@ -1109,11 +1237,15 @@ class WorkoutLogViewModel extends ChangeNotifier {
       if (set.seconds != null && set.seconds! > 0) {
         setControllers['time']?.text = set.seconds.toString();
       }
+      if (set.rpe != null && set.rpe! > 0) {
+        setControllers['rpe']?.text = set.rpe.toString();
+      }
 
       final hasData =
           (set.weight != null && set.weight! > 0) ||
           (set.reps != null && set.reps! > 0) ||
-          (set.seconds != null && set.seconds! > 0);
+          (set.seconds != null && set.seconds! > 0) ||
+          (set.rpe != null && set.rpe! > 0);
       if (hasData && _setSavedStatus[exerciseId] != null) {
         if (_setSavedStatus[exerciseId]!.length > i) {
           _setSavedStatus[exerciseId]![i] = true;
@@ -1149,6 +1281,16 @@ class WorkoutLogViewModel extends ChangeNotifier {
     _isLoadingData = false;
     bumpSessionHeatmapPreview();
     _safeNotifyListeners();
+
+    final programId = _selectedProgram?.id;
+    if (programId != null && programId.isNotEmpty) {
+      unawaited(
+        ActiveWorkoutSessionService().saveSelection(
+          programId: programId,
+          sessionDay: session.day,
+        ),
+      );
+    }
   }
 
   Future<void> loadSavedDataForSession(WorkoutSession session) async {
@@ -1325,10 +1467,10 @@ class SessionChangePrompt {
   });
 
   const SessionChangePrompt.none()
-      : requiresConfirmation = false,
-        sessionDayToDelete = null,
-        hasUnsavedData = false,
-        loggedSessionDayForDialog = '';
+    : requiresConfirmation = false,
+      sessionDayToDelete = null,
+      hasUnsavedData = false,
+      loggedSessionDayForDialog = '';
 
   factory SessionChangePrompt.needConfirm({
     required String? sessionDayToDelete,

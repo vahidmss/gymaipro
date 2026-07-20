@@ -11,6 +11,7 @@ class WorkoutTodayDomainModel {
     required this.intensity,
     required this.coachNotes,
     required this.reasons,
+    this.readinessHint = '',
   });
 
   final String userName;
@@ -23,6 +24,7 @@ class WorkoutTodayDomainModel {
   final String intensity;
   final List<String> coachNotes;
   final List<String> reasons;
+  final String readinessHint;
 }
 
 class WorkoutTodayExercise {

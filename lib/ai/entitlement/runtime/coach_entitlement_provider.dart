@@ -1,8 +1,9 @@
 import 'package:gymaipro/ai/context/coach_context.dart';
 import 'package:gymaipro/ai/entitlement/coach_entitlement.dart';
-import 'package:gymaipro/ai/entitlement/coach_subscription_plan.dart';
 import 'package:gymaipro/ai/entitlement/runtime/coach_entitlement_snapshot.dart';
+import 'package:gymaipro/payment/models/coach_plan_catalog.dart';
 import 'package:gymaipro/payment/models/subscription.dart';
+import 'package:gymaipro/payment/services/subscription_service.dart';
 
 /// Read-only adapter boundary for Coach entitlement snapshots.
 class CoachEntitlementProvider {
@@ -21,12 +22,16 @@ class CoachEntitlementProvider {
   }
 }
 
-/// Temporary adapter for current subscription data already available in memory.
+/// Adapter that prefers explicit metadata, then peeks the active subscription.
 ///
-/// This adapter intentionally does not call subscription services because the
-/// existing service can mutate expired subscription state.
+/// Uses [SubscriptionService.peekActiveSubscription] so expired rows are not
+/// mutated during entitlement reads.
 class CurrentSubscriptionAdapter extends CoachEntitlementProvider {
-  const CurrentSubscriptionAdapter();
+  const CurrentSubscriptionAdapter({
+    SubscriptionService? subscriptionService,
+  }) : _subscriptionService = subscriptionService;
+
+  final SubscriptionService? _subscriptionService;
 
   @override
   Future<CoachEntitlementSnapshot> snapshotFor({
@@ -61,6 +66,12 @@ class CurrentSubscriptionAdapter extends CoachEntitlementProvider {
       );
     }
 
+    final service = _subscriptionService ?? SubscriptionService();
+    final active = await service.peekActiveSubscription(userId: userId);
+    if (active != null) {
+      return _fromSubscription(userId: userId, subscription: active);
+    }
+
     return CoachEntitlementSnapshot.free(
       userId: userId,
       capturedAt: DateTime.now(),
@@ -71,34 +82,25 @@ class CurrentSubscriptionAdapter extends CoachEntitlementProvider {
     required String userId,
     required Subscription subscription,
   }) {
-    final active = subscription.status == SubscriptionStatus.active &&
+    final active =
+        subscription.status == SubscriptionStatus.active &&
         !DateTime.now().isAfter(subscription.expiryDate);
     return CoachEntitlementSnapshot(
       entitlement: CoachEntitlement(
         userId: subscription.userId.isNotEmpty ? subscription.userId : userId,
-        plan: _planFor(subscription.type),
+        plan: CoachPlanCatalog.planFromSubscriptionType(subscription.type),
         planActive: active,
         metadata: <String, Object?>{
           'subscriptionId': subscription.id,
           'subscriptionType': subscription.type.name,
           'subscriptionStatus': subscription.status.name,
+          'planId': CoachPlanCatalog.idFromPlan(
+            CoachPlanCatalog.planFromSubscriptionType(subscription.type),
+          ),
         },
       ),
       source: 'current_subscription_adapter',
       capturedAt: DateTime.now(),
     );
-  }
-
-  CoachSubscriptionPlan _planFor(SubscriptionType type) {
-    switch (type) {
-      case SubscriptionType.monthly:
-        return CoachSubscriptionPlan.coachPro;
-      case SubscriptionType.aiPremium:
-        return CoachSubscriptionPlan.ultimateAI;
-      case SubscriptionType.trainerAccess:
-        return CoachSubscriptionPlan.coachPro;
-      case SubscriptionType.fullAccess:
-        return CoachSubscriptionPlan.ultimateAI;
-    }
   }
 }

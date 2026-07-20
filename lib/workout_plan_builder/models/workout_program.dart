@@ -123,7 +123,9 @@ class WorkoutProgram {
       createdAt: createdAt,
       updatedAt: updatedAt,
       sentAt: sentAt,
-      isSelfServiceAi: json['is_self_service_ai'] == true,
+      isSelfServiceAi:
+          json['is_self_service_ai'] == true ||
+          json['generated_by'] == 'gymai_starter',
     );
   }
 

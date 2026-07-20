@@ -33,7 +33,11 @@ class AppConfig {
     }
     final dotenvUrl = dotenvValue('BACKEND_HEALTHCHECK_URL');
     if (dotenvUrl != null) return dotenvUrl;
-    return '${supabaseUrl.replaceFirst(RegExp(r'/$'), '')}/auth/v1/health';
+    // Prefer URL without forced `:443` for plain HTTP health probes.
+    final base = supabaseUrl
+        .replaceFirst(RegExp(r':443(?=/|$)'), '')
+        .replaceFirst(RegExp(r'/$'), '');
+    return '$base/auth/v1/health';
   }
 
   // Supabase configuration

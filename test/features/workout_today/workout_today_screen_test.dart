@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gymaipro/design_system/components/gym_skeleton.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
+import 'package:gymaipro/features/product_experience/active_workout_session_service.dart';
 import 'package:gymaipro/features/workout_today/application/workout_today_facade.dart';
 import 'package:gymaipro/features/workout_today/application/workout_today_facade_result.dart';
 import 'package:gymaipro/features/workout_today/domain/workout_today_domain_model.dart';
@@ -42,7 +43,6 @@ void main() {
     expect(find.textContaining('سلام وحید'), findsOneWidget);
     expect(find.text('امروز روز تمرین بالاتنه است.'), findsOneWidget);
     expect(find.text(ProductCopy.startWorkout), findsWidgets);
-    expect(find.text(ProductCopy.workoutSummary), findsOneWidget);
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -900));
     await tester.pumpAndSettle();
@@ -145,6 +145,16 @@ void main() {
 }
 
 WorkoutTodayState _loadedState() {
+  const sessionContext = ActiveWorkoutSessionContext(
+    programId: 'program_1',
+    programName: 'برنامه تست',
+    sessions: [],
+    selectedSessionDay: 'روز ۱',
+    loggedSessionDay: null,
+    hasSavedLog: false,
+    hasLiveDraft: false,
+  );
+
   return const WorkoutTodayState.loaded(
     WorkoutTodayData(
       workout: WorkoutTodayDomainModel(
@@ -209,6 +219,7 @@ WorkoutTodayState _loadedState() {
           routeName: '/coach',
         ),
       ],
+      sessionContext: sessionContext,
     ),
   );
 }
@@ -227,7 +238,7 @@ class _FakeWorkoutTodayFacade extends WorkoutTodayFacade {
   final bool shouldThrow;
 
   @override
-  Future<WorkoutTodayFacadeResult> load() async {
+  Future<WorkoutTodayFacadeResult> load({bool enrichWithCoach = false}) async {
     if (shouldThrow) throw StateError('preview failed');
     return result!;
   }

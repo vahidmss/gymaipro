@@ -127,10 +127,19 @@ class ExerciseProfileMapper {
     if (text.contains('دمبل') || text.contains('dumbbell')) {
       out.add(ExerciseEquipmentType.dumbbell);
     }
-    if (text.contains('دستگاه') || text.contains('machine') || text.contains('پولی')) {
+    if (text.contains('دستگاه') ||
+        text.contains('machine') ||
+        text.contains('اسمیت') ||
+        text.contains('smith') ||
+        text.contains('پولی') ||
+        text.contains('نیمکت') ||
+        text.contains('bench')) {
       out.add(ExerciseEquipmentType.machine);
     }
-    if (text.contains('کابل') || text.contains('cable')) {
+    if (text.contains('کابل') ||
+        text.contains('سیمکش') ||
+        text.contains('سیم‌کش') ||
+        text.contains('cable')) {
       out.add(ExerciseEquipmentType.cable);
     }
     if (text.contains('بدون') ||
@@ -141,7 +150,8 @@ class ExerciseProfileMapper {
     if (text.contains('کتل') || text.contains('kettlebell')) {
       out.add(ExerciseEquipmentType.kettlebell);
     }
-    if (text.contains('کش') || text.contains('band')) {
+    if ((text.contains('کش') && !text.contains('سیم')) ||
+        text.contains('band')) {
       out.add(ExerciseEquipmentType.band);
     }
     if (out.isEmpty) out.add(ExerciseEquipmentType.other);

@@ -13,8 +13,7 @@ class ApiUsageContextProvider implements AIContextProvider {
   /// Architecture documentation for this provider.
   AIContextProviderDescriptor
   get descriptor => const AIContextProviderDescriptor(
-    dataSource:
-        'SharedPreferences ai_chat_daily_messages and progress_analysis_free_usage_count',
+    dataSource: 'SharedPreferences progress_analysis_free_usage_count',
     readStrategy:
         'Read-only local snapshot adapter; avoids mutating usage services.',
     cacheStrategy: 'Cacheable for 1 minute; counters may change after AI use.',

@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/foundation.dart';
+import 'package:gymaipro/ai/exercise/ai_exercise_muscle_normalizer.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -23,11 +24,25 @@ class AIExerciseReadService {
 
   Exercise _mapRowToExercise(dynamic row) {
     final Map<String, dynamic> r = Map<String, dynamic>.from(row as Map);
+    final name = (r['name'] as String?) ?? '';
+    final storedMuscle = (r['main_muscle'] as String?) ?? '';
+    final mainMuscle = AiExerciseMuscleNormalizer.resolveMainMuscle(
+      name: name,
+      storedMainMuscle: storedMuscle,
+    );
+    if (kDebugMode &&
+        mainMuscle != storedMuscle &&
+        storedMuscle.trim().isNotEmpty) {
+      debugPrint(
+        '[AIExerciseRead] muscle fix id=${r['id']} "$name": '
+        '$storedMuscle → $mainMuscle',
+      );
+    }
     return Exercise(
       id: (r['id'] as int?) ?? 0,
-      title: (r['name'] as String?) ?? '',
-      name: (r['name'] as String?) ?? '',
-      mainMuscle: (r['main_muscle'] as String?) ?? '',
+      title: name,
+      name: name,
+      mainMuscle: mainMuscle,
       secondaryMuscles: (r['secondary_muscles'] as String?) ?? '',
       tips:
           (r['tips'] as List<dynamic>?)?.whereType<String>().toList() ??

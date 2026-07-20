@@ -39,15 +39,21 @@ class WorkoutSetSession {
     int? restSeconds,
     WorkoutSetSessionStatus? status,
     bool clearNotes = false,
+    bool clearActualReps = false,
+    bool clearActualWeightKg = false,
+    bool clearRpe = false,
+    bool clearDurationSeconds = false,
   }) {
     return WorkoutSetSession(
       index: index,
       targetReps: targetReps,
       targetWeightKg: targetWeightKg,
-      actualReps: actualReps ?? this.actualReps,
-      actualWeightKg: actualWeightKg ?? this.actualWeightKg,
-      rpe: rpe ?? this.rpe,
-      durationSeconds: durationSeconds ?? this.durationSeconds,
+      actualReps: clearActualReps ? null : (actualReps ?? this.actualReps),
+      actualWeightKg:
+          clearActualWeightKg ? null : (actualWeightKg ?? this.actualWeightKg),
+      rpe: clearRpe ? null : (rpe ?? this.rpe),
+      durationSeconds:
+          clearDurationSeconds ? null : (durationSeconds ?? this.durationSeconds),
       notes: clearNotes ? null : (notes ?? this.notes),
       restSeconds: restSeconds ?? this.restSeconds,
       status: status ?? this.status,

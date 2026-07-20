@@ -1,3 +1,7 @@
+import 'package:gymaipro/features/live_workout/domain/session/workout_exercise_session.dart';
+import 'package:gymaipro/features/live_workout/domain/session/workout_session.dart';
+import 'package:gymaipro/features/live_workout/domain/session/workout_set_session.dart';
+import 'package:gymaipro/features/live_workout/domain/session/workout_set_session_status.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/models/muscle_targets.dart';
 import 'package:gymaipro/workout_log/models/workout_program_log.dart';
@@ -86,10 +90,67 @@ abstract final class MuscleHeatmapAggregate {
     );
   }
 
+  /// Live workout runtime session → same visual heatmap as dashboard/log.
+  static MuscleHeatmapSnapshot fromLiveSession(
+    WorkoutSession session,
+    Map<int, Exercise> exerciseById,
+  ) {
+    final raw = <String, double>{};
+    var completedSets = 0;
+    var exercisesWithSets = 0;
+
+    for (final exercise in session.exercises) {
+      final workedSets = exercise.sets.where(_liveSetHasWork).toList();
+      if (workedSets.isEmpty) continue;
+      exercisesWithSets++;
+      completedSets += workedSets.length;
+
+      final targets = _targetsForLiveExercise(exercise, exerciseById);
+      if (targets.isEmpty) continue;
+      for (final entry in targets.entries) {
+        if (entry.value <= 0) continue;
+        raw[entry.key] =
+            (raw[entry.key] ?? 0) + entry.value * workedSets.length;
+      }
+    }
+
+    return MuscleHeatmapSnapshot(
+      targets: _normalize(raw),
+      completedSets: completedSets,
+      exercisesWithSets: exercisesWithSets,
+    );
+  }
+
+  static Map<String, int> _targetsForLiveExercise(
+    WorkoutExerciseSession exercise,
+    Map<int, Exercise> exerciseById,
+  ) {
+    final exerciseId = exercise.exerciseId ?? 0;
+    if (exerciseId > 0) {
+      final catalog = exerciseById[exerciseId];
+      if (catalog != null && MuscleTargets.hasData(catalog.muscleTargets)) {
+        return catalog.muscleTargets;
+      }
+    }
+    final key = MuscleTargets.keyForTag(exercise.primaryMuscle);
+    if (key == null) return const <String, int>{};
+    return <String, int>{key: 70};
+  }
+
   static bool setHasWork(ExerciseSetLog set) {
     return (set.reps != null && set.reps! > 0) ||
         (set.seconds != null && set.seconds! > 0) ||
         (set.weight != null && set.weight! > 0);
+  }
+
+  static bool _liveSetHasWork(WorkoutSetSession set) {
+    if (set.status == WorkoutSetSessionStatus.completed ||
+        set.status == WorkoutSetSessionStatus.failed) {
+      return true;
+    }
+    return (set.actualReps != null && set.actualReps! > 0) ||
+        (set.actualWeightKg != null && set.actualWeightKg! > 0) ||
+        (set.durationSeconds != null && set.durationSeconds! > 0);
   }
 
   static int _accumulate(
@@ -105,7 +166,6 @@ abstract final class MuscleHeatmapAggregate {
 
     final exercise = byId[exerciseId];
     if (exercise == null || !MuscleTargets.hasData(exercise.muscleTargets)) {
-      // ست‌ها شمارش می‌شوند حتی اگر نقشهٔ عضلانی برای حرکت نباشد.
       return completedSets;
     }
 

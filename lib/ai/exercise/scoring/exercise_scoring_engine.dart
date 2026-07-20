@@ -134,13 +134,20 @@ class ExerciseScoringEngine {
               available.contains('پولی'),
         ExerciseEquipmentType.bodyweight =>
           available.contains('بدون') ||
+              available.contains('وزن بدن') ||
               available.contains('bodyweight') ||
               homeGym,
         ExerciseEquipmentType.kettlebell =>
           available.contains('کتل') || available.contains('kettlebell'),
         ExerciseEquipmentType.band =>
           available.contains('کش') || available.contains('band') || homeGym,
-        ExerciseEquipmentType.other => homeGym,
+        ExerciseEquipmentType.other =>
+          homeGym ||
+              available.contains('باشگاه') ||
+              available.contains('gym') ||
+              available.contains('دستگاه') ||
+              available.contains('هالتر') ||
+              available.contains('دمبل'),
       };
     });
   }

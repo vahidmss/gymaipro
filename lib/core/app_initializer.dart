@@ -43,7 +43,7 @@ class AppInitializer {
   static bool get isSupabaseReady => _supabaseInitialized;
 
   /// Maximum time the entire initialization is allowed to take.
-  static const Duration _globalTimeout = Duration(seconds: 10);
+  static const Duration _globalTimeout = Duration(seconds: 25);
 
   /// Initialize all app services and dependencies.
   ///
@@ -88,23 +88,15 @@ class AppInitializer {
       );
     }
 
-    // If a local session exists, never send the user to welcome on slow DNS.
     try {
       final authService = AuthStateService();
       final restored = await authService
           .restoreSession()
-          .timeout(const Duration(seconds: 1), onTimeout: () => null);
-      if (restored != null) {
+          .timeout(const Duration(seconds: 10), onTimeout: () => null);
+      if (restored != null && !restored.isExpired) {
         if (kDebugMode) {
-          debugPrint('Bootstrap best-effort: local session → /main');
+          debugPrint('Bootstrap best-effort: valid session → /main');
         }
-        return AppInitResult(
-          success: true,
-          initialRoute: '/main',
-          supabaseService: SupabaseService(),
-        );
-      }
-      if (Supabase.instance.client.auth.currentSession != null) {
         return AppInitResult(
           success: true,
           initialRoute: '/main',
@@ -113,33 +105,15 @@ class AppInitializer {
       }
     } catch (_) {}
 
-    String routeOnTimeout() {
-      if (Supabase.instance.client.auth.currentSession != null) {
-        return '/main';
-      }
-      return _supabaseInitialized ? '/welcome' : '/offline';
+    // Never open /main with an expired/unusable session (broken "کاربر عزیز" UI).
+    if (kDebugMode) {
+      debugPrint('Bootstrap best-effort: no usable session → /offline');
     }
-
-    try {
-      final route = await _determineInitialRoute().timeout(
-        const Duration(seconds: 4),
-        onTimeout: routeOnTimeout,
-      );
-      return AppInitResult(
-        success: true,
-        initialRoute: route,
-        supabaseService: SupabaseService(),
-      );
-    } catch (_) {
-      final session = Supabase.instance.client.auth.currentSession;
-      return AppInitResult(
-        success: true,
-        initialRoute: session != null
-            ? '/main'
-            : (_supabaseInitialized ? '/welcome' : '/offline'),
-        supabaseService: SupabaseService(),
-      );
-    }
+    return AppInitResult(
+      success: true,
+      initialRoute: '/offline',
+      supabaseService: SupabaseService(),
+    );
   }
 
   static Future<AppInitResult> _doInitialize() async {
@@ -598,7 +572,7 @@ class AppInitializer {
       // Small delay to let Supabase finish session hydration from storage
       await Future<void>.delayed(const Duration(milliseconds: 100));
 
-      // تلاش برای بازیابی نشست (حتی در حالت آفلاین)
+      // بازیابی نشست usable (رفرش شکست → null)
       final session = await authService.restoreSession();
 
       if (session != null) {
@@ -608,23 +582,17 @@ class AppInitializer {
           );
         }
 
-        if (session.isExpired) {
-          await AuthStateService.ensureFreshSession();
-        }
-
         // Heavy profile/cache checks should not block startup route resolution.
         if (canUseBackend) {
           unawaited(_verifyAndRefreshProfileInBackground(session));
-        } else {
-          if (kDebugMode) {
-            debugPrint(
-              'No backend DNS/network - skipping profile verification and cache refresh',
-            );
-          }
+        } else if (kDebugMode) {
+          debugPrint(
+            'No backend DNS/network - skipping profile verification and cache refresh',
+          );
         }
       } else {
         if (kDebugMode) {
-          debugPrint('No valid session found - user needs to login');
+          debugPrint('No valid session found - user needs offline/login');
         }
       }
     } catch (e, stackTrace) {
@@ -638,9 +606,8 @@ class AppInitializer {
 
   static Future<void> _verifyAndRefreshProfileInBackground(Session session) async {
     try {
-      await AuthStateService.ensureFreshSession();
       final hasProfile = await _verifyUserProfile(session.user.id, session.user)
-          .timeout(const Duration(seconds: 5), onTimeout: () => false);
+          .timeout(const Duration(seconds: 5), onTimeout: () => true);
       if (!hasProfile) {
         if (kDebugMode) {
           debugPrint(

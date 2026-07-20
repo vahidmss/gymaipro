@@ -1,42 +1,93 @@
 import 'package:flutter/material.dart';
+import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/design_system/animations/shimmer.dart';
-import 'package:gymaipro/design_system/components/gym_avatar.dart';
 import 'package:gymaipro/design_system/components/gym_card.dart';
 import 'package:gymaipro/design_system/components/gym_error_state.dart';
-import 'package:gymaipro/design_system/components/gym_loading_state.dart';
-import 'package:gymaipro/design_system/icons/gym_icons.dart';
-import 'package:gymaipro/design_system/theme/gym_colors.dart';
 import 'package:gymaipro/design_system/theme/gym_spacing.dart';
-import 'package:gymaipro/design_system/theme/gym_typography.dart';
+import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
+import 'package:gymaipro/features/coach/presentation/widgets/coach_presence_core.dart';
 import 'package:gymaipro/features/coach_chat/domain/coach_chat_models.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
+import 'package:gymaipro/theme/app_theme.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-class CoachChatHeader extends StatelessWidget {
-  const CoachChatHeader({super.key});
+/// Top bar matching private-chat chrome (avatar + name + online).
+class CoachChatAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const CoachChatAppBar({this.onBack, super.key});
+
+  final VoidCallback? onBack;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: GymSpacing.lg),
-      child: Row(
+    return AppBar(
+      backgroundColor: context.cardColor,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      leading: IconButton(
+        icon: Icon(LucideIcons.arrowRight, color: context.textColor),
+        onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+      ),
+      title: Row(
+        textDirection: TextDirection.rtl,
         children: <Widget>[
-          const GymAvatar(
-            size: GymAvatarSize.lg,
-            icon: GymIcons.coach,
-            showOnline: true,
-          ),
-          GymSpacing.gapLg,
+          const _CoachChatAvatar(size: 40),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(ProductCopy.coachName, style: GymTypography.display),
-                GymSpacing.gapSm,
+                Row(
+                  textDirection: TextDirection.rtl,
+                  children: <Widget>[
+                    Flexible(
+                      child: Text(
+                        ProductCopy.coachName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: context.textColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: context.goldGradientColors
+                              .map((c) => c.withValues(alpha: 0.22))
+                              .toList(),
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        AppConfig.gymAiDisplayName,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: context.gymPrimary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 Text(
-                  '${ProductCopy.online} • ${ProductCopy.todayProgram}',
-                  style: GymTypography.body.copyWith(
-                    color: GymColors.textTertiary,
-                    fontSize: 15,
+                  ProductCopy.online,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: Colors.green.shade400,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -48,36 +99,68 @@ class CoachChatHeader extends StatelessWidget {
   }
 }
 
+/// Kept for backward compatibility with older list-header usage.
+class CoachChatHeader extends StatelessWidget {
+  const CoachChatHeader({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.shrink();
+  }
+}
+
 class CoachChatEmptyHero extends StatelessWidget {
   const CoachChatEmptyHero({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Align(
-      alignment: Alignment.centerRight,
+      alignment: Alignment.centerLeft,
       child: Container(
         width: double.infinity,
-        padding: GymSpacing.card,
+        margin: const EdgeInsets.only(right: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: GymColors.surface,
+          color: context.cardColor,
           borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(GymSpacing.xl),
-            topRight: Radius.circular(GymSpacing.xl),
-            bottomLeft: Radius.circular(GymSpacing.xl),
-            bottomRight: Radius.circular(GymSpacing.sm),
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+            bottomLeft: Radius.circular(4),
+            bottomRight: Radius.circular(20),
           ),
+          border: Border.all(
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.22 : 0.3),
+          ),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.1 : 0.14),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text('سلام 👋', style: GymTypography.headline),
-            GymSpacing.gapMd,
+            Text(
+              'سلام 👋',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: context.textColor,
+              ),
+            ),
+            const SizedBox(height: 8),
             Text(
               'من مربی هستم.\nامروز روی چی کار کنیم؟',
-              style: GymTypography.body.copyWith(
-                fontSize: 16,
-                height: 1.65,
-                color: GymColors.textPrimary,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 15,
+                height: 1.55,
+                fontWeight: FontWeight.w600,
+                color: context.textColor,
               ),
             ),
           ],
@@ -95,31 +178,45 @@ class CoachChatMessageCardView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = ProductCopy.localizeCardTitle(card.title);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(top: GymSpacing.md),
-      child: GymExpandableCard(
-        title: title,
-        subtitle: card.items.isNotEmpty
-            ? ProductCopy.humanizeReason(card.items.first)
-            : null,
-        variant: GymCardVariant.compact,
-        initiallyExpanded: card.type == CoachChatCardType.explanation,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            for (final item in card.items.take(4))
-              Padding(
-                padding: const EdgeInsets.only(bottom: GymSpacing.sm),
-                child: Text(
-                  ProductCopy.humanizeReason(item),
-                  style: GymTypography.body.copyWith(
-                    fontSize: 15,
-                    height: 1.6,
-                    color: GymColors.textPrimary,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.black.withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.28),
+          ),
+        ),
+        child: GymExpandableCard(
+          title: title,
+          subtitle: card.items.isNotEmpty
+              ? ProductCopy.humanizeReason(card.items.first)
+              : null,
+          variant: GymCardVariant.compact,
+          initiallyExpanded: card.type == CoachChatCardType.explanation,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              for (final item in card.items.take(4))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: GymSpacing.sm),
+                  child: Text(
+                    ProductCopy.humanizeReason(item),
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 14,
+                      height: 1.55,
+                      fontWeight: FontWeight.w600,
+                      color: context.textColor,
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -133,25 +230,60 @@ class CoachChatThinkingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        padding: GymSpacing.paddingLg,
+        margin: const EdgeInsets.only(right: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: GymColors.surface,
-          borderRadius: BorderRadius.circular(GymSpacing.xl),
-          border: Border.all(color: GymColors.borderSubtle),
+          color: context.cardColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.22 : 0.3),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            GymLoadingState(message: ProductCopy.thinking, compact: true),
-            GymSpacing.gapMd,
-            for (final step in steps)
-              Padding(
-                padding: const EdgeInsets.only(bottom: GymSpacing.xs),
-                child: Text(step, style: GymTypography.caption),
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: context.gymPrimary,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  ProductCopy.thinking,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: context.gymPrimary,
+                  ),
+                ),
+              ],
+            ),
+            if (steps.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 10),
+              for (final step in steps)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    step,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 12,
+                      color: context.textSecondary,
+                    ),
+                  ),
+                ),
+            ],
           ],
         ),
       ),
@@ -184,27 +316,51 @@ class CoachChatTypingIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        padding: GymSpacing.paddingMd,
+        margin: const EdgeInsets.only(right: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: GymColors.surface,
-          borderRadius: BorderRadius.circular(GymSpacing.xl),
+          color: context.cardColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.18 : 0.25),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             const GymShimmerBlock(width: 8, height: 8),
-            GymSpacing.gapSm,
+            const SizedBox(width: 6),
             const GymShimmerBlock(width: 8, height: 8),
-            GymSpacing.gapSm,
+            const SizedBox(width: 6),
             const GymShimmerBlock(width: 8, height: 8),
-            GymSpacing.gapMd,
-            Text(ProductCopy.typing, style: GymTypography.caption),
+            const SizedBox(width: 10),
+            Text(
+              ProductCopy.typing,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: context.textSecondary,
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+}
+
+class _CoachChatAvatar extends StatelessWidget {
+  const _CoachChatAvatar({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return CoachPresenceCore(size: size, compact: true);
   }
 }

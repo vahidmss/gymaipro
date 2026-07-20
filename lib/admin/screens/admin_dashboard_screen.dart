@@ -13,6 +13,7 @@ import 'package:gymaipro/admin/screens/admin_wallet_actions_screen.dart';
 import 'package:gymaipro/admin/screens/admin_wallets_screen.dart';
 import 'package:gymaipro/admin/screens/admin_certificates_screen.dart';
 import 'package:gymaipro/admin/screens/admin_commission_settings_screen.dart';
+import 'package:gymaipro/admin/screens/admin_ai_plan_prices_screen.dart';
 import 'package:gymaipro/admin/screens/admin_trainer_escrow_screen.dart';
 import 'package:gymaipro/admin/screens/admin_payout_requests_screen.dart';
 import 'package:gymaipro/admin/screens/admin_broadcast_screen.dart';
@@ -42,8 +43,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   void initState() {
     super.initState();
-    // 19 تب
-    _tabController = TabController(length: 19, vsync: this);
+    // 20 تب
+    _tabController = TabController(length: 20, vsync: this);
     _checkAdminStatus();
   }
 
@@ -170,6 +171,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             Tab(icon: Icon(LucideIcons.history), text: 'تاریخچه کیف پول'),
             Tab(icon: Icon(LucideIcons.award), text: 'مدارک مربی'),
             Tab(icon: Icon(LucideIcons.percent), text: 'تنظیمات کمیسیون'),
+            Tab(icon: Icon(LucideIcons.sparkles), text: 'هزینه هوش مصنوعی'),
             Tab(
               icon: Icon(LucideIcons.arrowUpCircle),
               text: 'درخواست‌های برداشت',
@@ -198,6 +200,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           AdminWalletActionsScreen(),
           AdminCertificatesScreen(),
           AdminCommissionSettingsScreen(),
+          AdminAiPlanPricesScreen(),
           AdminPayoutRequestsScreen(),
           AdminBroadcastScreen(),
           AdminAnnouncementsScreen(),

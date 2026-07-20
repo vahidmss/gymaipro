@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/achievements/screens/achievements_screen.dart';
+import 'package:gymaipro/features/product_experience/navigation/workout_program_request_navigation.dart';
 import 'package:gymaipro/ranking/screens/leaderboard_screen.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_ranking/screens/trainer_ranking_screen.dart';
@@ -37,7 +40,7 @@ class QuickActionButtons extends StatelessWidget {
   Widget _buildQuickProgramButton(BuildContext context) {
     return _TapScaleButton(
       onTap: () {
-        Navigator.pushNamed(context, '/program-type-selection');
+        unawaited(WorkoutProgramRequestNavigation.open(context));
       },
       child: LayoutBuilder(
         builder: (context, constraints) {

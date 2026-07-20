@@ -1,0 +1,38 @@
+wrong_count=37
+4115	هیپ تراست هالتر	back_lat	->glutes
+4105	کول دمبل	full_body	->traps
+4123	ددلیفت رومانیایی تک پا	hamstrings	->lower_back
+4102	شراگ اسمیت	full_body	->traps
+4092	رویینگ معکوس	full_body	->back_lat
+4100	رومانیایی هالتر	back_lat	->hamstrings
+4119	ساق دونکی	calves	->calves
+4087	زیربغل سینه روی نیمکت	full_body	->back_lat
+4098	رویینگ کابل ایستاده	full_body	->back_lat
+4081	جلو بازو بار نشسته	back_lat	->biceps
+4042	کلین و پرس	back_lat	->full_body
+4080	جلو بازو ۲۱	back_lat	->biceps
+4068	جلو بازو بار EZ	back_lat	->biceps
+4066	جلو بازو پریچر	back_lat	->biceps
+4031	چرخش روسی سیمکش	abs	->obliques
+3987	پرس سینه شیب منفی	triceps	->chest
+3985	پرس سینه دست جمع	triceps	->chest
+3972	شراگ دمبل	full_body	->traps
+4001	پرس ساق	quads	->calves
+4000	ساق نشسته	calves	->calves
+3970	زیربغل یک دست دمبل	full_body	->back_lat
+3950	هیپ تراست	back_lat	->glutes
+3940	شنا سوئدی	triceps	->chest
+3967	پل باسن	back_lat	->glutes
+3947	پرس سرشانه با دمبل	triceps	->shoulder_anterior
+3937	پرس سینه با هالتر	triceps	->chest
+3938	پرس سرشانه با هالتر	triceps	->shoulder_anterior
+3956	ساق ایستاده	back_lat	->calves
+3945	جلو بازو هالتر	back_lat	->biceps
+3935	رویینگ سیمکش	full_body	->back_lat
+3944	پرس سینه شیب دار	triceps	->chest
+3960	پرس سینه مایل دمبل	triceps	->chest
+3931	کول هالتر	back_lat	->traps
+3857	ددلیفت رومانیایی	hamstrings	->lower_back
+3924	پرس سینه با دمبل	triceps	->chest
+3832	پرس سینه دستگاه	triceps	->chest
+3831	پرس سرشانه دستگاه	triceps	->shoulder_anterior

@@ -69,6 +69,55 @@ class MuscleTargets {
   static String label(String key) =>
       persianLabels[key] ?? key.replaceAll('_', ' ');
 
+  /// Resolves a free-form primary-muscle tag (Persian/English) to a heatmap key.
+  static String? keyForTag(String? raw) {
+    final tag = (raw ?? '').trim().toLowerCase();
+    if (tag.isEmpty) return null;
+
+    for (final entry in persianLabels.entries) {
+      if (entry.value == raw?.trim()) return entry.key;
+      if (tag.contains(entry.value)) return entry.key;
+    }
+
+    const aliases = <String, String>{
+      'سینه': 'chest_middle',
+      'chest': 'chest_middle',
+      'pec': 'chest_middle',
+      'شانه': 'shoulder_lateral',
+      'سرشانه': 'shoulder_lateral',
+      'shoulder': 'shoulder_lateral',
+      'پشت': 'back_lat',
+      'زیربغل': 'back_lat',
+      'back': 'back_lat',
+      'lat': 'back_lat',
+      'پا': 'quads',
+      'ران': 'quads',
+      'leg': 'quads',
+      'quad': 'quads',
+      'همسترینگ': 'hamstrings',
+      'hamstring': 'hamstrings',
+      'باسن': 'glutes',
+      'glute': 'glutes',
+      'ساق': 'calf',
+      'calf': 'calf',
+      'شکم': 'abs',
+      'core': 'abs',
+      'abs': 'abs',
+      'جلوبازو': 'biceps',
+      'بازو': 'biceps',
+      'bicep': 'biceps',
+      'پشت‌بازو': 'triceps',
+      'پشت بازو': 'triceps',
+      'tricep': 'triceps',
+      'ساعد': 'forearms',
+      'کمر': 'lower_back',
+    };
+    for (final entry in aliases.entries) {
+      if (tag.contains(entry.key.toLowerCase())) return entry.value;
+    }
+    return null;
+  }
+
   /// پارس از meta وردپرس، jsonb سوپابیس، یا رشته JSON
   static Map<String, int> parse(dynamic raw) {
     if (raw == null) return {};

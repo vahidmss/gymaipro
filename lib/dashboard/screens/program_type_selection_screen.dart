@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/features/product_experience/navigation/workout_program_request_navigation.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
-import 'package:gymaipro/workout_questionnaire/screens/workout_questionnaire_screen.dart';
 import 'package:gymaipro/trainer_ranking/screens/trainer_ranking_screen.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -115,10 +117,7 @@ class ProgramTypeSelectionScreen extends StatelessWidget {
                           'برنامه تمرینی کامل و حرفه‌ای که بر اساس اطلاعات شما طراحی می‌شود',
                       accentColor: AppTheme.goldColor,
                       onTap: () {
-                        WidgetSafetyUtils.safeNavigate(
-                          context,
-                          () => const WorkoutQuestionnaireScreen(),
-                        );
+                        unawaited(WorkoutProgramRequestNavigation.open(context));
                       },
                     ),
                     SizedBox(height: 16.h),

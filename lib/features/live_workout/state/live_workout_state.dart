@@ -2,11 +2,13 @@ import 'package:gymaipro/features/live_workout/domain/session/workout_exercise_s
 import 'package:gymaipro/features/live_workout/domain/session/workout_session.dart';
 import 'package:gymaipro/features/live_workout/domain/session/workout_set_session.dart';
 import 'package:gymaipro/features/live_workout/domain/session/workout_set_session_status.dart';
+import 'package:gymaipro/features/product_experience/active_program_catalog_service.dart';
+import 'package:gymaipro/features/product_experience/active_workout_session_service.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
 import 'package:gymaipro/features/live_workout/state/live_workout_completion_summary.dart';
 import 'package:gymaipro/features/live_workout/state/live_workout_rest_state.dart';
 
-enum LiveWorkoutStatus { loading, loaded, empty, error, sessionCompleted }
+enum LiveWorkoutStatus { loading, loaded, empty, error, sessionCompleted, awaitingSession }
 
 class LiveWorkoutState {
   const LiveWorkoutState({
@@ -15,9 +17,12 @@ class LiveWorkoutState {
     this.userId,
     this.coachTips = const <String>[],
     this.explainability = const <String>[],
+    this.readinessHint,
     this.rest = const LiveWorkoutRestState.idle(),
     this.completionSummary,
     this.errorMessage,
+    this.activeProgram,
+    this.sessionContext,
   });
 
   const LiveWorkoutState.loading()
@@ -26,9 +31,12 @@ class LiveWorkoutState {
       userId = null,
       coachTips = const <String>[],
       explainability = const <String>[],
+      readinessHint = null,
       rest = const LiveWorkoutRestState.idle(),
       completionSummary = null,
-      errorMessage = null;
+      errorMessage = null,
+      activeProgram = null,
+      sessionContext = null;
 
   const LiveWorkoutState.empty()
     : status = LiveWorkoutStatus.empty,
@@ -36,9 +44,25 @@ class LiveWorkoutState {
       userId = null,
       coachTips = const <String>[],
       explainability = const <String>[],
+      readinessHint = null,
       rest = const LiveWorkoutRestState.idle(),
       completionSummary = null,
-      errorMessage = null;
+      errorMessage = null,
+      activeProgram = null,
+      sessionContext = null;
+
+  const LiveWorkoutState.awaitingSession({
+    required this.activeProgram,
+    required this.sessionContext,
+  }) : status = LiveWorkoutStatus.awaitingSession,
+       session = null,
+       userId = null,
+       coachTips = const <String>[],
+       explainability = const <String>[],
+       readinessHint = null,
+       rest = const LiveWorkoutRestState.idle(),
+       completionSummary = null,
+       errorMessage = null;
 
   const LiveWorkoutState.error(String message)
     : status = LiveWorkoutStatus.error,
@@ -46,20 +70,26 @@ class LiveWorkoutState {
       userId = null,
       coachTips = const <String>[],
       explainability = const <String>[],
+      readinessHint = null,
       rest = const LiveWorkoutRestState.idle(),
       completionSummary = null,
-      errorMessage = message;
+      errorMessage = message,
+      activeProgram = null,
+      sessionContext = null;
 
   const LiveWorkoutState.loaded({
     required WorkoutSession session,
     required String userId,
     this.coachTips = const <String>[],
     this.explainability = const <String>[],
+    this.readinessHint,
     this.rest = const LiveWorkoutRestState.idle(),
+    this.activeProgram,
+    this.sessionContext,
+    this.completionSummary,
   }) : status = LiveWorkoutStatus.loaded,
        session = session,
        userId = userId,
-       completionSummary = null,
        errorMessage = null;
 
   const LiveWorkoutState.sessionCompleted({
@@ -71,22 +101,29 @@ class LiveWorkoutState {
        userId = null,
        coachTips = coachTips,
        explainability = explainability,
+       readinessHint = null,
        rest = const LiveWorkoutRestState.idle(),
        completionSummary = summary,
-       errorMessage = null;
+       errorMessage = null,
+       activeProgram = null,
+       sessionContext = null;
 
   final LiveWorkoutStatus status;
   final WorkoutSession? session;
   final String? userId;
   final List<String> coachTips;
   final List<String> explainability;
+  final String? readinessHint;
   final LiveWorkoutRestState rest;
   final LiveWorkoutCompletionSummary? completionSummary;
   final String? errorMessage;
+  final ActiveProgramOption? activeProgram;
+  final ActiveWorkoutSessionContext? sessionContext;
 
   bool get isLoading => status == LiveWorkoutStatus.loading;
   bool get isLoaded => status == LiveWorkoutStatus.loaded;
   bool get isEmpty => status == LiveWorkoutStatus.empty;
+  bool get isAwaitingSession => status == LiveWorkoutStatus.awaitingSession;
   bool get hasError => status == LiveWorkoutStatus.error;
   bool get isSessionCompleted => status == LiveWorkoutStatus.sessionCompleted;
 
@@ -136,9 +173,6 @@ class LiveWorkoutState {
 
   String get primaryButtonLabel {
     if (rest.active) return ProductCopy.skipRest;
-    if (isLastExercise && currentExerciseCompleted) {
-      return ProductCopy.finishWorkout;
-    }
     if (currentExerciseCompleted) return ProductCopy.nextExercise;
     return ProductCopy.completeSet;
   }
@@ -167,9 +201,12 @@ class LiveWorkoutState {
     String? userId,
     List<String>? coachTips,
     List<String>? explainability,
+    String? readinessHint,
     LiveWorkoutRestState? rest,
     LiveWorkoutCompletionSummary? completionSummary,
     String? errorMessage,
+    ActiveProgramOption? activeProgram,
+    ActiveWorkoutSessionContext? sessionContext,
   }) {
     return LiveWorkoutState(
       status: status ?? this.status,
@@ -177,9 +214,12 @@ class LiveWorkoutState {
       userId: userId ?? this.userId,
       coachTips: coachTips ?? this.coachTips,
       explainability: explainability ?? this.explainability,
+      readinessHint: readinessHint ?? this.readinessHint,
       rest: rest ?? this.rest,
       completionSummary: completionSummary ?? this.completionSummary,
       errorMessage: errorMessage ?? this.errorMessage,
+      activeProgram: activeProgram ?? this.activeProgram,
+      sessionContext: sessionContext ?? this.sessionContext,
     );
   }
 }

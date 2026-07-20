@@ -74,6 +74,11 @@ class CoachChatState {
   static const List<CoachChatSuggestedPrompt> defaultSuggestedPrompts =
       <CoachChatSuggestedPrompt>[
         CoachChatSuggestedPrompt(
+          id: 'build_program',
+          label: 'درخواست برنامه',
+          prompt: 'می‌خوام برنامه تمرینی بگیرم',
+        ),
+        CoachChatSuggestedPrompt(
           id: 'today_workout',
           label: 'تمرین امروز',
           prompt: 'تمرین امروز من چیه؟',
@@ -86,7 +91,8 @@ class CoachChatState {
         CoachChatSuggestedPrompt(
           id: 'modify_workout',
           label: 'اصلاح برنامه',
-          prompt: 'تمرین امروز من را اصلاح کن',
+          prompt:
+              'برنامه‌ام را اصلاح کن: اگر لازم است حرکت عوض شود، ست کم/زیاد شود، یا جلسه سبک‌تر/سنگین‌تر شود.',
         ),
         CoachChatSuggestedPrompt(
           id: 'recovery',
@@ -96,12 +102,7 @@ class CoachChatState {
         CoachChatSuggestedPrompt(
           id: 'nutrition',
           label: 'تغذیه',
-          prompt: 'برای تمرین امروز چی بخورم؟',
-        ),
-        CoachChatSuggestedPrompt(
-          id: 'supplements',
-          label: 'مکمل‌ها',
-          prompt: 'مکمل‌های امروز من چی باشه؟',
+          prompt: 'نکته کوتاه تغذیه برای تمرین امروز',
         ),
         CoachChatSuggestedPrompt(
           id: 'progress',

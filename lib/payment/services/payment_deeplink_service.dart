@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:gymaipro/core/foreground_resume_coordinator.dart';
 import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/payment/services/payment_resume_tracker.dart';
+import 'package:gymaipro/payment/services/coach_plan_payment_service.dart';
 import 'package:gymaipro/payment/services/trainer_payment_service.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/payment/utils/wallet_refresh_notifier.dart';
@@ -137,6 +138,9 @@ class PaymentDeeplinkService {
     switch (pathSegments[0]) {
       case 'trainer':
         _handleTrainerPayment(uri);
+      case 'coach-plan':
+      case 'coach_plan':
+        _handleCoachPlanPayment(uri);
       default:
         if (kDebugMode) {
           print('مسیر پرداخت نامعتبر: ${pathSegments[0]}');
@@ -301,6 +305,115 @@ class PaymentDeeplinkService {
     });
   }
 
+  void _handleCoachPlanPayment(Uri uri) {
+    uri = _normalizeDeeplinkUri(uri);
+    ForegroundResumeCoordinator.markPaymentReturnHandling();
+
+    final status = uri.queryParameters['status'];
+    final transactionId =
+        uri.queryParameters['transactionId'] ??
+        uri.queryParameters['orderId'] ??
+        uri.queryParameters['tx'] ??
+        uri.queryParameters['oid'];
+    final trackId =
+        uri.queryParameters['trackId'] ??
+        uri.queryParameters['track_id'] ??
+        uri.queryParameters['tid'];
+
+    if (_context == null) {
+      if (kDebugMode) {
+        print('Context موجود نیست برای پردازش پرداخت پلن مربی');
+      }
+      return;
+    }
+
+    if (kDebugMode) {
+      print(
+        'نتیجه پرداخت پلن مربی: status=$status tx=$transactionId track=$trackId',
+      );
+    }
+
+    if (status != 'success' || transactionId == null || trackId == null) {
+      _withNavigatorContext((ctx) async {
+        _collapseTransientPaymentRoutes(ctx);
+        if (!ctx.mounted) return;
+        await showDialog<void>(
+          context: ctx,
+          builder: (d) => AlertDialog(
+            title: const Text('پرداخت ناموفق'),
+            content: const Text(
+              'پرداخت پلن مربی هوشمند ناموفق بود. لطفاً مجدد تلاش کنید.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(d, rootNavigator: true).pop(),
+                child: const Text('باشه'),
+              ),
+            ],
+          ),
+        );
+      });
+      return;
+    }
+
+    _withNavigatorContext((ctx) async {
+      _collapseTransientPaymentRoutes(ctx);
+      try {
+        final service = CoachPlanPaymentService();
+        final result = await service.verifyDirectPayment(
+          transactionId: transactionId,
+          trackId: trackId,
+        );
+
+        final success = result['success'] == true;
+        if (!ctx.mounted) return;
+
+        if (success) {
+          final planTitle =
+              result['plan_title']?.toString() ?? 'پلن مربی هوشمند';
+          await PurchaseSuccessDialog.show(
+            ctx,
+            serviceName: planTitle,
+            trainerName: 'مربی هوشمند',
+            onViewPrograms: () {
+              _collapseTransientPaymentRoutes(ctx);
+              try {
+                Navigator.of(ctx).pushNamedAndRemoveUntil(
+                  '/coach',
+                  (route) => route.isFirst,
+                );
+              } catch (_) {}
+            },
+          );
+          if (ctx.mounted) {
+            _collapseTransientPaymentRoutes(ctx);
+          }
+        } else {
+          await showDialog<void>(
+            context: ctx,
+            barrierDismissible: false,
+            builder: (d) => AlertDialog(
+              title: const Text('پرداخت ناموفق'),
+              content: Text(
+                result['error']?.toString() ?? 'تایید پرداخت ناموفق بود.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(d, rootNavigator: true).pop(),
+                  child: const Text('باشه'),
+                ),
+              ],
+            ),
+          );
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('خطا در تایید پرداخت پلن مربی: $e');
+        }
+      }
+    });
+  }
+
   /// پردازش deeplink شارژ کیف پول
   void _handleTopupDeeplink(Uri uri) {
     final status = uri.queryParameters['status'];
@@ -374,7 +487,9 @@ class PaymentDeeplinkService {
       if (name == '/payment-deeplink-shim' ||
           name == '/topup-deeplink-shim' ||
           name == '/trainer' ||
-          name == '/payment/trainer') {
+          name == '/payment/trainer' ||
+          name == '/payment/coach-plan' ||
+          name == '/payment/coach_plan') {
         return false;
       }
       return true;
@@ -422,6 +537,11 @@ class PaymentDeeplinkService {
 
     if (type == 'trainer') {
       _handleTrainerPayment(uri);
+      return;
+    }
+
+    if (type == 'coach_plan' || type == 'coach-plan') {
+      _handleCoachPlanPayment(uri);
       return;
     }
 

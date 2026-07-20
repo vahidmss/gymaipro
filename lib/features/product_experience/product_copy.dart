@@ -7,6 +7,7 @@ abstract final class ProductCopy {
   static const String whyThisSuggestion = 'چرا این پیشنهاد؟';
   static const String coachOpinion = 'نظر مربی';
   static const String mySuggestion = 'پیشنهاد من';
+  static const String myCoachTitle = 'مربی من';
   static const String todayWorkout = 'تمرین امروز';
   static const String recovery = 'ریکاوری';
   static const String workoutSummary = 'خلاصه تمرین';
@@ -14,8 +15,33 @@ abstract final class ProductCopy {
   static const String exerciseTimeline = 'برنامه حرکات';
   static const String coachNotes = 'یادداشت مربی';
   static const String quickActions = 'دسترسی سریع';
-  static const String startWorkout = 'شروع تمرین';
-  static const String workoutSession = 'جلسه تمرین';
+  static const String quickTools = 'ابزارهای سریع';
+  static const String progressAnalysis = 'تحلیل پیشرفت';
+  static const String logWorkout = 'ثبت تمرین';
+  static const String programOrbit = 'درخواست برنامه';
+  static const String requestWorkoutProgram = 'درخواست برنامه تمرینی';
+  static const String chatWithCoach = 'مشاوره با من';
+  static const String mealPlanOrbit = 'برنامه غذایی';
+  static const String mealPlanComingSoon = 'برنامه غذایی به‌زودی فعال می‌شود.';
+  static const String chatNoProgramRedirect =
+      'من داخل چت برنامه تمرینی یا غذایی کامل نمی‌دم.\n\n'
+      'اگر می‌خوای برنامه بگیری:\n'
+      '• از بخش «مربیان» مربی اختصاصی بگیر\n'
+      '• یا از «مربی هوشمند» → درخواست برنامه تمرینی استفاده کن '
+      '(با اشتراک و توکن ساخت)\n\n'
+      'چت فقط برای مشاوره، تمرین امروز، ریکاوری و راهنمایی کوتاهه.';
+  static const String coachMonitorTitle = 'وضعیت امروز';
+  static const String coachTipTitle = 'نکته مربی';
+  static const String coachGuideTitle = 'راهنمای سریع';
+  static const String startWorkout = 'شروع ثبت ست‌ها';
+  static const String goToTodayWorkout = 'برو به تمرین امروز';
+  static const String workoutSession = 'ثبت ست‌ها';
+  static const String liveSessionModeHint =
+      'اینجا فقط ست‌ها را ثبت کن. برنامه و روز را از تمرین امروز عوض کن.';
+  static const String liveSessionInProgress = 'در حال اجرا';
+  static const String coachHelp = 'کمک مربی';
+  static const String changeSessionInToday =
+      'برای عوض کردن روز یا برنامه، به تمرین امروز برگرد.';
   static const String sets = 'ست‌ها';
   static const String restTimer = 'استراحت بین ست';
   static const String currentExercise = 'حرکت فعلی';
@@ -23,6 +49,7 @@ abstract final class ProductCopy {
   static const String coachTips = 'نکته مربی';
   static const String progress = 'پیشرفت';
   static const String today = 'امروز';
+  static const String todayOrbit = 'تمرین امروز';
   static const String coachName = 'مربی';
   static const String online = 'آنلاین';
   static const String typing = 'در حال نوشتن...';
@@ -33,6 +60,8 @@ abstract final class ProductCopy {
   @Deprecated('Use coachLoadFailed')
   static const String previewLoadFailed = coachLoadFailed;
   static const String buildProgram = 'ساخت برنامه';
+  static const String programReadySnackbar =
+      'برنامه‌ات آماده شد — از «تمرین امروز» یا لیست برنامه‌ها ببینش.';
   static const String difficultyLabel = 'سطح سختی';
   static const String exercisesCount = 'حرکت';
   static const String minutes = 'دقیقه';
@@ -44,6 +73,15 @@ abstract final class ProductCopy {
   static const String coachDisabledTitle = 'مربی هنوز فعال نیست';
   static const String retry = 'دوباره امتحان کن';
   static const String genericError = 'یه مشکلی پیش اومد';
+  static const String askFormTip = 'فرم اجرا';
+  static const String askFormPrompt = 'تکنیک و فرم حرکتم رو چک کن و راهنمایی بده.';
+  static const String weeklyFocusFallback =
+      'این هفته روی ثبات تمرین تمرکز کن — کیفیت ست‌ها مهم‌تر از وزنه اضافیه.';
+  static const String todayPrepHint =
+      'این صفحه برای انتخاب برنامه و مرور جلسه‌ست. ثبت ست‌ها بعد از شروع.';
+  static const String modifyProgramTitle = 'اصلاح برنامه';
+  static const String modifyProgramHint =
+      'انتخاب کن چه می‌خواهی. مربی یک پیشنهاد واضح می‌دهد؛ با تأیید روی برنامه ذخیره می‌شود.';
 
   static String buildCoachBrief(CoachHomeState state) {
     if (state.coachBrief.trim().isNotEmpty) return state.coachBrief;

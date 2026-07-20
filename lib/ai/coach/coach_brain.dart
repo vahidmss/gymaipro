@@ -1,5 +1,6 @@
 import 'package:gymaipro/ai/coach/coach_decision.dart';
 import 'package:gymaipro/ai/coach/coach_reason.dart';
+import 'package:gymaipro/ai/coach/coach_rules.dart';
 import 'package:gymaipro/ai/context/coach_context.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/entitlement/runtime/coach_entitlement_runtime.dart';
@@ -7,6 +8,7 @@ import 'package:gymaipro/ai/knowledge/knowledge_node.dart';
 import 'package:gymaipro/ai/knowledge/runtime/coach_knowledge_result.dart';
 import 'package:gymaipro/ai/planner/coach_action.dart';
 import 'package:gymaipro/ai/planner/coach_response_plan.dart';
+import 'package:gymaipro/features/coach_chat/application/coach_chat_program_policy.dart';
 
 /// Coordinates knowledge-driven validation and route decision.
 ///
@@ -34,10 +36,32 @@ class CoachBrain {
       );
     }
 
+    // ساخت برنامه تمرینی/غذایی داخل چت ممنوع — فقط هدایت.
+    if (_isBlockedProgramNode(node, context)) {
+      return CoachDecision(
+        shouldCallAI: false,
+        localResponse: CoachChatProgramPolicy.redirectMessage,
+        missingData: const <String>[],
+        requiredProviders: requiredProviders,
+        missingProviders: const <AIContextProviderKey>{},
+        decisionReason: const <CoachReason>{
+          CoachReason.enoughContext,
+          CoachReason.localAnswer,
+        },
+        confidence: 1,
+        notes: _notesFor(knowledgeResult, <String>[
+          'Chat program delivery blocked; redirect to dedicated flows.',
+        ]),
+        selectedKnowledgeId: node.id,
+        knowledgeConfidence: knowledgeResult.confidence,
+        knowledgeReasons: knowledgeResult.reasons,
+      );
+    }
+
     if (missingProviders.isNotEmpty) {
       return CoachDecision(
         shouldCallAI: false,
-        followUpQuestion: node.recommendedFollowUp,
+        followUpQuestion: _followUpForMissingProviders(node, missingProviders),
         missingData: _providerNames(missingProviders),
         requiredProviders: requiredProviders,
         missingProviders: missingProviders,
@@ -92,6 +116,30 @@ class CoachBrain {
       decision: decision,
       knowledgeResult: knowledgeResult,
     );
+  }
+
+  bool _isBlockedProgramNode(KnowledgeNode node, CoachContext context) {
+    return CoachChatProgramPolicy.shouldBlockChatProgramDelivery(
+      intent: node.intent ?? context.intent,
+      knowledgeId: node.id,
+      userMessage: context.currentQuestion,
+    );
+  }
+
+  String _followUpForMissingProviders(
+    KnowledgeNode node,
+    Set<AIContextProviderKey> missingProviders,
+  ) {
+    if (missingProviders.contains(AIContextProviderKey.equipment)) {
+      return CoachRules.followUpPromptFor('equipment');
+    }
+    if (missingProviders.contains(AIContextProviderKey.goals)) {
+      return CoachRules.followUpPromptFor('goal');
+    }
+    if (missingProviders.contains(AIContextProviderKey.profile)) {
+      return CoachRules.followUpPromptFor('age');
+    }
+    return node.recommendedFollowUp;
   }
 
   CoachDecision _blockedDecision({

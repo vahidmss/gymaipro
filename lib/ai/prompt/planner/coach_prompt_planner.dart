@@ -103,9 +103,12 @@ class CoachPromptPlanner {
         id: 'system.coach',
         title: 'System',
         type: CoachPromptSectionType.system,
-        content: 'You are GymAI Coach. Use provided context only.',
+        content:
+            'You are GymAI Coach. Use provided context only. '
+            'Never write a full workout or meal/diet plan in chat. '
+            'Redirect program requests to trainers or AI coach program request.',
         priority: CoachPromptPriority.critical,
-        estimatedTokens: 80,
+        estimatedTokens: 100,
         required: true,
       ),
     ];

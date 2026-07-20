@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gymaipro/academy/models/workout_music.dart';
 import 'package:gymaipro/academy/screens/academy_main_screen.dart';
-import 'package:gymaipro/ai/screens/ai_hub_screen.dart';
+import 'package:gymaipro/features/coach/presentation/screens/coach_home_screen.dart';
 import 'package:gymaipro/core/startup_bootstrap.dart';
 import 'package:gymaipro/dashboard/screens/dashboard_screen.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
@@ -225,7 +225,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget _buildTabContent(int index) {
     switch (index) {
       case NavigationConstants.chatIndex:
-        return const AIHubScreen();
+        return const CoachHomeScreen();
       case NavigationConstants.academyIndex:
         return AcademyMainScreen(
           initialTabIndex: _pendingAcademyTabIndex,

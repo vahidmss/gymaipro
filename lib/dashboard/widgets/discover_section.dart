@@ -5,6 +5,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/core/web_interaction.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/models/custom_exercise.dart';
+import 'package:gymaipro/models/exercise.dart';
+import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
@@ -133,17 +135,41 @@ class _DiscoverSectionState extends State<DiscoverSection>
 
   Future<void> _loadAll() async {
     // Preload catalog so carousel reads URLs that are already in memory/disk cache.
-    await Future.wait([
-      _exerciseService.getExercises(),
-      _foodService.getFoods(),
-    ]);
+    // Catalog failures (e.g. WordPress timeout) must not crash the dashboard.
+    try {
+      await Future.wait([
+        _exerciseService.getExercises().catchError((Object e) {
+          debugPrint('Discover preload exercises failed: $e');
+          return <Exercise>[];
+        }),
+        _foodService.getFoods().catchError((Object e) {
+          debugPrint('Discover preload foods failed: $e');
+          return <Food>[];
+        }),
+      ]);
+    } catch (e) {
+      debugPrint('Discover catalog preload failed: $e');
+    }
+
     await Future.wait([_loadExercises(), _loadFoods()]);
 
     if (mounted && _itemsMissingImages) {
-      await Future.wait([
-        _exerciseService.getExercises(forceRefresh: true),
-        _foodService.getFoods(forceRefresh: true),
-      ]);
+      try {
+        await Future.wait([
+          _exerciseService.getExercises(forceRefresh: true).catchError((
+            Object e,
+          ) {
+            debugPrint('Discover refresh exercises failed: $e');
+            return <Exercise>[];
+          }),
+          _foodService.getFoods(forceRefresh: true).catchError((Object e) {
+            debugPrint('Discover refresh foods failed: $e');
+            return <Food>[];
+          }),
+        ]);
+      } catch (e) {
+        debugPrint('Discover catalog refresh failed: $e');
+      }
       await Future.wait([_loadExercises(), _loadFoods()]);
     }
 

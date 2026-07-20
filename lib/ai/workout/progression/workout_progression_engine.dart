@@ -62,15 +62,16 @@ class WorkoutProgressionEngine {
 
   int _setCountFromBlueprint(WorkoutBlueprint blueprint, bool isCompound) {
     final perExercise =
-        (blueprint.weeklySetsTarget / (blueprint.daysPerWeek * blueprint.exercisesPerSession))
+        (blueprint.weeklySetsTarget /
+                (blueprint.daysPerWeek * blueprint.exercisesPerSession))
             .round()
-            .clamp(2, 6);
+            .clamp(3, 5);
     if (blueprint.preferredExerciseComplexity ==
             WorkoutExerciseComplexity.basic &&
         !isCompound) {
-      return perExercise.clamp(2, 3);
+      return perExercise.clamp(3, 4);
     }
-    return perExercise;
+    return isCompound ? perExercise.clamp(3, 5) : perExercise.clamp(3, 4);
   }
 
   String _strategyDescription(WorkoutProgressionStrategy strategy) {

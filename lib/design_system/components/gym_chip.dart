@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:gymaipro/design_system/theme/gym_colors.dart';
+import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 import 'package:gymaipro/design_system/theme/gym_radius.dart';
 import 'package:gymaipro/design_system/theme/gym_spacing.dart';
-import 'package:gymaipro/design_system/theme/gym_typography.dart';
 
 enum GymChipVariant { filled, outline, ghost }
 
@@ -25,23 +24,24 @@ class GymChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primary = context.gymPrimary;
     final background = selected
-        ? GymColors.primary.withValues(alpha: 0.16)
+        ? primary.withValues(alpha: 0.14)
         : switch (variant) {
-            GymChipVariant.filled => GymColors.surface,
+            GymChipVariant.filled => context.gymCard,
             GymChipVariant.outline => Colors.transparent,
             GymChipVariant.ghost => Colors.transparent,
           };
 
     final borderColor = selected
-        ? GymColors.primary
+        ? primary
         : switch (variant) {
-            GymChipVariant.filled => GymColors.borderSubtle,
-            GymChipVariant.outline => GymColors.border,
+            GymChipVariant.filled => context.gymBorderSubtle,
+            GymChipVariant.outline => context.gymBorder,
             GymChipVariant.ghost => Colors.transparent,
           };
 
-    final textColor = selected ? GymColors.primary : GymColors.textSecondary;
+    final textColor = selected ? primary : context.gymTextSecondary;
 
     return Material(
       color: background,
@@ -67,7 +67,11 @@ class GymChip extends StatelessWidget {
               ],
               Text(
                 label,
-                style: GymTypography.caption.copyWith(color: textColor),
+                style: context.gymTextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
+                ),
               ),
             ],
           ),

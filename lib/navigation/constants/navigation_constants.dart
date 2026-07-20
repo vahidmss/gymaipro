@@ -14,7 +14,7 @@ class NavigationConstants {
   static const int socialIndex = 4; // اجتماعی - گفتگوها، چت عمومی، مربیان
 
   // Navigation labels
-  static const String chatLabel = 'جیم‌آی';
+  static const String chatLabel = 'مربی من';
   static const String academyLabel = 'آکادمی';
   static const String dashboardLabel = 'داشبورد';
   static const String myClubLabel = 'باشگاه من';

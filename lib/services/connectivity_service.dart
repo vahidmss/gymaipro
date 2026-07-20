@@ -102,9 +102,27 @@ class ConnectivityService {
   Future<bool> canReachAppBackend() async {
     if (!await checkNow()) return false;
     try {
+      // Avoid forced `:443` in the URL — it can hang/fail on some Android stacks.
+      final base = AppConfig.supabaseUrl
+          .replaceFirst(RegExp(r':443(?=/|$)'), '')
+          .replaceFirst(RegExp(r'/$'), '');
+      final uri = Uri.parse(
+        AppConfig.backendHealthCheckUrl.contains('://')
+            ? AppConfig.backendHealthCheckUrl
+                .replaceFirst(RegExp(r':443(?=/|$)'), '')
+            : '$base/auth/v1/health',
+      );
+      final headers = <String, String>{
+        'Accept': 'application/json',
+      };
+      final key = AppConfig.supabaseAnonKey;
+      if (key.isNotEmpty) {
+        headers['apikey'] = key;
+        headers['Authorization'] = 'Bearer $key';
+      }
       final response = await http
-          .get(Uri.parse(AppConfig.backendHealthCheckUrl))
-          .timeout(const Duration(seconds: 8));
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 3));
       return response.statusCode >= 200 && response.statusCode < 500;
     } catch (_) {
       return false;

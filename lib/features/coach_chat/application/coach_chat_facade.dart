@@ -1,8 +1,10 @@
-import 'package:gymaipro/ai/context/coach_context.dart';
 import 'package:gymaipro/ai/context/intent_detector.dart';
 import 'package:gymaipro/ai/integration/coach_integration_result.dart';
+import 'package:gymaipro/ai/integration/coach_state_integration.dart';
 import 'package:gymaipro/ai/intent/intent_intelligence_engine.dart';
+import 'package:gymaipro/ai/memory/memory_fact_confirmation_service.dart';
 import 'package:gymaipro/ai/models/ai_chat_message.dart';
+import 'package:gymaipro/ai/persistence/conversation_summary_service.dart';
 import 'package:gymaipro/ai/skills/runtime/coach_skill_response.dart';
 import 'package:gymaipro/ai/workout_modify/models/workout_modify_enums.dart';
 import 'package:gymaipro/ai/workout_modify/models/workout_modify_result.dart';
@@ -10,12 +12,13 @@ import 'package:gymaipro/ai/workout_review/models/workout_review_result.dart';
 import 'package:gymaipro/features/coach/application/coach_preview_seed_loader.dart';
 import 'package:gymaipro/features/coach_chat/application/coach_chat_completion_service.dart';
 import 'package:gymaipro/features/coach_chat/application/coach_chat_facade_result.dart';
+import 'package:gymaipro/features/coach_chat/application/coach_chat_program_policy.dart';
+import 'package:gymaipro/features/coach_chat/application/coach_chat_storage_service.dart';
 import 'package:gymaipro/features/coach_chat/domain/coach_chat_models.dart';
 import 'package:gymaipro/features/coach_chat/state/coach_chat_state.dart';
 import 'package:gymaipro/features/product_experience/coach_experience_runtime_bridge.dart';
 import 'package:gymaipro/features/product_experience/coach_feature_integration.dart';
 import 'package:gymaipro/features/product_experience/coach_program_resolver.dart';
-import 'package:gymaipro/features/coach_chat/application/coach_chat_storage_service.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
 import 'package:gymaipro/features/product_experience/product_experience_formatter.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
@@ -33,6 +36,8 @@ class CoachChatFacade {
     CoachExperienceRuntimeBridge? runtimeBridge,
     CoachChatCompletionService? completionService,
     CoachChatStorageService? storageService,
+    ConversationSummaryService? summaryService,
+    MemoryFactConfirmationService? confirmationService,
   }) : _coachLoader =
            coachLoader ??
            previewLoader ??
@@ -43,7 +48,10 @@ class CoachChatFacade {
        _runtimeBridge = runtimeBridge ?? const CoachExperienceRuntimeBridge(),
        _completionService =
            completionService ?? CoachChatCompletionService(),
-       _storageService = storageService ?? CoachChatStorageService();
+       _storageService = storageService ?? CoachChatStorageService(),
+       _summaryService = summaryService ?? ConversationSummaryService(),
+       _confirmationService =
+           confirmationService ?? MemoryFactConfirmationService();
 
   final CoachFeatureLoader _coachLoader;
   final CoachPreviewSeedProvider? _seedLoader;
@@ -52,6 +60,8 @@ class CoachChatFacade {
   final CoachExperienceRuntimeBridge _runtimeBridge;
   final CoachChatCompletionService _completionService;
   final CoachChatStorageService _storageService;
+  final ConversationSummaryService _summaryService;
+  final MemoryFactConfirmationService _confirmationService;
 
   Future<CoachChatFacadeResult> load() async {
     final userId = _safeUserId();
@@ -80,15 +90,70 @@ class CoachChatFacade {
     final userId = _safeUserId();
     if (userId == null) return;
     await _storageService.saveMessages(userId, messages);
+    try {
+      await _summaryService.refreshIfNeeded(
+        userId: userId,
+        messages: messages,
+        allowLlm: false,
+      );
+    } on Object {
+      // Summary refresh must never block chat persistence.
+    }
   }
 
   Future<CoachChatPreviewResponse> send(
     String prompt, {
     List<ChatMessage> history = const <ChatMessage>[],
   }) async {
+    final userId = _safeUserId();
+    if (userId != null) {
+      final resolution = await _confirmationService.tryResolveFromUserMessage(
+        userId: userId,
+        message: prompt,
+      );
+      if (resolution != null) {
+        return CoachChatPreviewResponse(
+          message: CoachChatMessage(
+            id: 'coach_confirm_${DateTime.now().microsecondsSinceEpoch}',
+            role: CoachChatMessageRole.coach,
+            type: CoachChatMessageType.memoryUpdate,
+            text: resolution.reply,
+            createdAt: DateTime.now(),
+            cards: <CoachChatMessageCard>[
+              CoachChatMessageCard(
+                type: CoachChatCardType.memoryUpdate,
+                title: ProductCopy.coachOpinion,
+                items: <String>[
+                  resolution.confirmed
+                      ? 'ذخیره شد: ${resolution.pending.value}'
+                      : 'ذخیره نشد: ${resolution.pending.value}',
+                ],
+              ),
+            ],
+          ),
+        );
+      }
+    }
+
     final intent = _intentEngine
         .detect(IntentDetectionRequest(message: prompt))
         .primaryIntent;
+
+    if (CoachChatProgramPolicy.shouldBlockChatProgramDelivery(
+      intent: intent,
+      userMessage: prompt,
+    )) {
+      return CoachChatPreviewResponse(
+        message: CoachChatMessage(
+          id: 'coach_program_redirect_${DateTime.now().microsecondsSinceEpoch}',
+          role: CoachChatMessageRole.coach,
+          type: CoachChatMessageType.normal,
+          text: CoachChatProgramPolicy.redirectMessage,
+          createdAt: DateTime.now(),
+        ),
+      );
+    }
+
     final seed = await (_seedLoader ?? CoachPreviewSeedLoader()).load(
       intent: intent,
       message: prompt,
@@ -97,12 +162,17 @@ class CoachChatFacade {
       userMessage: prompt,
       userId: seed.userId,
       context: seed.context,
-      metadata: const <String, Object?>{'feature': 'coach_chat'},
+      metadata: <String, Object?>{
+        'feature': 'coach_chat',
+        'surface': 'coach_chat',
+        CoachStateMetadataKeys.sessionId: 'coach_chat_${seed.userId}',
+      },
     );
     final text = await _completionService.resolveResponse(
       result: result,
       userMessage: prompt,
       history: history,
+      intent: intent,
     );
     return map(
       result,
@@ -120,12 +190,21 @@ class CoachChatFacade {
   }) async {
     final resolvedIntent = intent ?? result.intent;
     final response = result.skillExecutionResult?.response;
-    final text = resolvedText ??
+    var text = resolvedText ??
         response?.message ??
         result.responsePlan.localMessage ??
         result.decision.localResponse ??
         result.decision.followUpQuestion ??
-        'پاسخی از موتور مربی دریافت نشد.';
+        'الان پاسخی آماده نشد. لطفاً دوباره بپرس.';
+
+    final pending = result.memoryApplication?.pendingConfirmations ??
+        const <PendingMemoryConfirmation>[];
+    if (pending.isNotEmpty) {
+      final confirmPrompt = pending.last.prompt;
+      if (!text.contains(confirmPrompt)) {
+        text = '${text.trim()}\n\n$confirmPrompt';
+      }
+    }
 
     final resolved = await _programResolver.resolve(result: result);
     final review = resolvedIntent == AIIntent.progressAnalysis
@@ -155,25 +234,41 @@ class CoachChatFacade {
       prompt: prompt,
       review: review,
       modification: modification,
+      pending: pending,
     );
 
     return CoachChatPreviewResponse(
       message: CoachChatMessage(
         id: 'coach_${DateTime.now().microsecondsSinceEpoch}',
         role: CoachChatMessageRole.coach,
-        type: result.isLocalResponse
-            ? CoachChatMessageType.localSkillResponse
-            : result.responsePlan.requiresAI
-            ? CoachChatMessageType.aiResponse
-            : CoachChatMessageType.normal,
+        type: pending.isNotEmpty
+            ? CoachChatMessageType.followUpQuestion
+            : _messageType(result),
         text: text.trim().isEmpty
-            ? 'پاسخی از موتور مربی دریافت نشد.'
-            : (resolvedText != null ? text : ProductExperienceFormatter.humanizeReason(text)),
+            ? 'الان پاسخی آماده نشد. لطفاً دوباره بپرس.'
+            : (resolvedText != null
+                ? text
+                : ProductExperienceFormatter.humanizeReason(text)),
         createdAt: DateTime.now(),
         cards: cards,
       ),
       thinkingSteps: ProductExperienceFormatter.thinkingSteps(result),
     );
+  }
+
+  CoachChatMessageType _messageType(CoachIntegrationResult result) {
+    if (result.decision.requiresFollowUp ||
+        result.decision.missingData.isNotEmpty ||
+        (result.conversationState?.pendingQuestions.isNotEmpty ?? false)) {
+      return CoachChatMessageType.followUpQuestion;
+    }
+    if (result.isLocalResponse) {
+      return CoachChatMessageType.localSkillResponse;
+    }
+    if (result.responsePlan.requiresAI) {
+      return CoachChatMessageType.aiResponse;
+    }
+    return CoachChatMessageType.normal;
   }
 
   List<CoachChatMessageCard> _buildCards({
@@ -183,6 +278,7 @@ class CoachChatFacade {
     required String prompt,
     required WorkoutReviewResult? review,
     required WorkoutModificationResult? modification,
+    required List<PendingMemoryConfirmation> pending,
   }) {
     final coachNotes = ProductExperienceFormatter.coachNotes(result);
     final trainingInsights = ProductExperienceFormatter.insights(
@@ -249,6 +345,12 @@ class CoachChatFacade {
               'Follow-up Question',
             ),
             items: result.responsePlan.followUpQuestions,
+          ),
+        if (pending.isNotEmpty)
+          _card(
+            type: CoachChatCardType.memoryUpdate,
+            title: 'تأیید اطلاعات',
+            items: pending.map((item) => item.prompt).toList(),
           ),
       ].whereType<CoachChatMessageCard>(),
       if (review != null && review.enabled)

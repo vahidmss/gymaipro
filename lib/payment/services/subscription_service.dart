@@ -50,6 +50,131 @@ class SubscriptionService {
     }
   }
 
+  /// خواندن اشتراک فعال بدون تغییر وضعیت (برای entitlement)
+  Future<Subscription?> peekActiveSubscription({String? userId}) async {
+    try {
+      final effectiveUserId = (userId == null || userId.trim().isEmpty)
+          ? await AuthHelper.getCurrentUserId()
+          : userId;
+      if (effectiveUserId == null) return null;
+
+      final response = await _client
+          .from('subscriptions')
+          .select()
+          .eq('user_id', effectiveUserId)
+          .eq('status', 'active')
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (response == null) return null;
+
+      final subscription = Subscription.fromJson(response);
+      if (subscription.isExpired) return null;
+      return subscription;
+    } catch (e) {
+      if (kDebugMode) {
+        print('خطا در peek اشتراک فعال: $e');
+      }
+      return null;
+    }
+  }
+
+  /// ایجاد و فعال‌سازی اشتراک پلن مربی هوشمند پس از پرداخت موفق
+  Future<Subscription?> createAndActivateCoachPlan({
+    required SubscriptionType type,
+    required int price,
+    required int validityDays,
+    required String transactionId,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final userId = await AuthHelper.getCurrentUserId();
+      if (userId == null) throw Exception('کاربر وارد نشده است');
+
+      final existing = await peekActiveSubscription(userId: userId);
+      final now = DateTime.now();
+      final days = validityDays > 0 ? validityDays : 31;
+
+      // تمدید همان پلن: انقضا را از الان (یا از تاریخ فعلی انقضا اگر هنوز معتبر است) جلو ببر
+      if (existing != null && existing.type == type) {
+        final base = existing.expiryDate.isAfter(now)
+            ? existing.expiryDate
+            : now;
+        await _client
+            .from('subscriptions')
+            .update({
+              'expiry_date': base.add(Duration(days: days)).toIso8601String(),
+              'last_payment_date': now.toIso8601String(),
+              'last_transaction_id': transactionId,
+              'price': price,
+              'status': SubscriptionStatus.active.name,
+              'updated_at': now.toIso8601String(),
+              if (metadata != null) 'metadata': metadata,
+            })
+            .eq('id', existing.id);
+
+        await _addSubscriptionHistory(
+          subscriptionId: existing.id,
+          action: 'renewed',
+          description: 'پلن مربی هوشمند تمدید شد (+ توکن ساخت)',
+          transactionId: transactionId,
+        );
+
+        return existing.copyWith(
+          expiryDate: base.add(Duration(days: days)),
+          lastPaymentDate: now,
+          lastTransactionId: transactionId,
+          price: price,
+          updatedAt: now,
+        );
+      }
+
+      if (existing != null) {
+        await cancelSubscription(
+          subscriptionId: existing.id,
+          reason: 'ارتقاء به پلن مربی هوشمند جدید',
+        );
+      }
+
+      final subscription = Subscription(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        userId: userId,
+        type: type,
+        status: SubscriptionStatus.active,
+        price: price,
+        startDate: now,
+        expiryDate: now.add(Duration(days: days)),
+        lastPaymentDate: now,
+        lastTransactionId: transactionId,
+        autoRenewal: false,
+        metadata: metadata,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      final response = await _client
+          .from('subscriptions')
+          .insert(subscription.toJson())
+          .select()
+          .single();
+
+      await _addSubscriptionHistory(
+        subscriptionId: subscription.id,
+        action: 'activated',
+        description: 'پلن مربی هوشمند فعال شد',
+        transactionId: transactionId,
+      );
+
+      return Subscription.fromJson(response);
+    } catch (e) {
+      if (kDebugMode) {
+        print('خطا در ایجاد پلن مربی هوشمند: $e');
+      }
+      rethrow;
+    }
+  }
+
   /// دریافت تمام اشتراک‌های کاربر
   Future<List<Subscription>> getUserSubscriptions() async {
     try {

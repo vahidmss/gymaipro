@@ -23,7 +23,12 @@ extension GymThemeContext on BuildContext {
       ? GymColors.textTertiary
       : textSecondary.withValues(alpha: 0.78);
 
-  Color get gymPrimary => AppTheme.goldColor;
+  /// Brand accent. Gold only on dark; deep bronze on light so small text stays readable.
+  Color get gymPrimary =>
+      gymIsDark ? AppTheme.goldColor : const Color(0xFF5C4A28);
+
+  /// Soft gold fill/border ok on light; never use this for body/caption text.
+  Color get gymGold => AppTheme.goldColor;
 
   Color get gymBorderSubtle => separatorColor.withValues(
     alpha: gymIsDark ? 0.9 : 0.75,

@@ -38,7 +38,6 @@ class AIContextBuilder {
         ApiUsageContextProvider(repository: sharedRepository),
         // ignore: deprecated_member_use_from_same_package
         ChatContextProvider(repository: sharedRepository),
-        // ignore: deprecated_member_use_from_same_package
         RecoveryContextProvider(repository: sharedRepository),
       ],
     );

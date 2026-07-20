@@ -2,6 +2,7 @@ import 'package:gymaipro/ai/knowledge/workout_science.dart';
 import 'package:gymaipro/ai/workout/blueprint/workout_blueprint.dart';
 import 'package:gymaipro/ai/workout/blueprint/workout_recovery_strategy.dart';
 import 'package:gymaipro/ai/workout/blueprint/workout_split_strategy.dart';
+import 'package:gymaipro/ai/workout/labels/workout_session_labels.dart';
 import 'package:gymaipro/ai/workout/models/workout_generator_reason.dart';
 
 /// Planned split for one training day.
@@ -29,11 +30,11 @@ class WorkoutSplitPlanner {
 
   List<WorkoutDayPlan> planFromBlueprint(WorkoutBlueprint blueprint) {
     final days = blueprint.daysPerWeek;
-    final labels = WorkoutScience.dayLabels(days);
     final buckets = _bucketsForStrategy(
       blueprint.splitStrategy,
       days,
     );
+    final labels = _labelsForStrategy(blueprint.splitStrategy, days);
     final recoveryAdjusted = _applyRecoveryStrategy(
       buckets,
       blueprint.recoveryStrategy,
@@ -44,12 +45,17 @@ class WorkoutSplitPlanner {
     );
 
     return List<WorkoutDayPlan>.generate(days, (index) {
+      // Start from the day's planned focus only — do NOT merge priority
+      // muscles into every day (that turns PPL into a mashup).
       var target = Set<MuscleBucket>.from(recoveryAdjusted[index]);
       if (priorityBuckets.isNotEmpty) {
-        target = <MuscleBucket>{...target, ...priorityBuckets};
+        final overlap = priorityBuckets.intersection(target);
+        if (overlap.isNotEmpty) {
+          // Keep day focus; priority only boosts slots already on-plan.
+          target = <MuscleBucket>{...target};
+        }
       }
-      final exerciseCount =
-          perSession + (priorityBuckets.isNotEmpty ? 1 : 0);
+      final exerciseCount = perSession;
       return WorkoutDayPlan(
         dayIndex: index,
         label: labels[index],
@@ -62,11 +68,16 @@ class WorkoutSplitPlanner {
             because: <String>[
               'Muscles=${target.map((b) => b.name).join(',')}',
               'ExerciseSlots=$exerciseCount',
+              'Split=${blueprint.splitStrategy.name}',
             ],
           ),
         ],
       );
     });
+  }
+
+  List<String> _labelsForStrategy(WorkoutSplitStrategy strategy, int days) {
+    return WorkoutSessionLabels.forStrategy(strategy, days);
   }
 
   List<Set<MuscleBucket>> _bucketsForStrategy(
@@ -149,19 +160,25 @@ class WorkoutSplitPlanner {
     List<Set<MuscleBucket>> buckets,
     WorkoutRecoveryStrategy recoveryStrategy,
   ) {
+    // Never strip a day's primary focus. Conservative recovery is handled by
+    // lower fatigue budgets / volume — not by deleting legs from leg day.
     if (recoveryStrategy != WorkoutRecoveryStrategy.conservative) {
       return buckets;
     }
-    return buckets
-        .map(
-          (day) => day
-              .where(
-                (bucket) =>
-                    bucket != MuscleBucket.quads &&
-                    bucket != MuscleBucket.hamstrings,
-              )
-              .toSet(),
-        )
-        .toList();
+    return buckets.map((day) {
+      final isLegDay =
+          day.contains(MuscleBucket.quads) ||
+          day.contains(MuscleBucket.hamstrings) ||
+          day.contains(MuscleBucket.glutes);
+      if (isLegDay) return day;
+      // On non-leg days, drop leftover leg accessories only.
+      return day
+          .where(
+            (bucket) =>
+                bucket != MuscleBucket.quads &&
+                bucket != MuscleBucket.hamstrings,
+          )
+          .toSet();
+    }).toList();
   }
 }

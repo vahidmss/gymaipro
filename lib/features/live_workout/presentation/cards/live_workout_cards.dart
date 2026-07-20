@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:gymaipro/design_system/components/gym_badge.dart';
+import 'package:gymaipro/design_system/components/gym_button.dart';
 import 'package:gymaipro/design_system/components/gym_card.dart';
-import 'package:gymaipro/design_system/components/gym_divider.dart';
 import 'package:gymaipro/design_system/components/gym_progress_bar.dart';
 import 'package:gymaipro/design_system/components/gym_progress_ring.dart';
 import 'package:gymaipro/design_system/icons/gym_icons.dart';
-import 'package:gymaipro/design_system/theme/gym_colors.dart';
-import 'package:gymaipro/design_system/theme/gym_radius.dart';
 import 'package:gymaipro/design_system/theme/gym_spacing.dart';
-import 'package:gymaipro/design_system/theme/gym_typography.dart';
+import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 import 'package:gymaipro/features/live_workout/domain/session/workout_exercise_session.dart';
 import 'package:gymaipro/features/live_workout/domain/session/workout_session.dart';
 import 'package:gymaipro/features/live_workout/domain/session/workout_set_session.dart';
-import 'package:gymaipro/features/live_workout/domain/session/workout_set_session_status.dart';
+import 'package:gymaipro/features/live_workout/presentation/live_workout_theme.dart';
 import 'package:gymaipro/features/live_workout/state/live_workout_completion_summary.dart';
-import 'package:gymaipro/features/live_workout/state/live_workout_rest_state.dart';
 import 'package:gymaipro/features/live_workout/state/live_workout_state.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
+import 'package:gymaipro/features/product_experience/product_experience_formatter.dart';
+import 'package:gymaipro/models/muscle_targets.dart';
+import 'package:gymaipro/widgets/exercise_muscle_heatmap_widget.dart';
+import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
+import 'package:gymaipro/workout_log/widgets/workout_set_entry_row.dart';
+import 'package:gymaipro/workout_plan_builder/models/workout_program.dart'
+    show ExerciseStyle;
 
 class LiveWorkoutHeroCard extends StatelessWidget {
   const LiveWorkoutHeroCard({required this.session, super.key});
@@ -25,35 +29,38 @@ class LiveWorkoutHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(ProductCopy.todayProgram, style: GymTypography.overline),
-        GymSpacing.gapSm,
-        Text(session.focus, style: GymTypography.display),
-        GymSpacing.gapLg,
-        Wrap(
-          spacing: GymSpacing.md,
-          runSpacing: GymSpacing.sm,
-          children: <Widget>[
-            GymBadge(
-              label: '${session.estimatedMinutes} ${ProductCopy.minutes}',
-              variant: GymBadgeVariant.neutral,
-              icon: GymIcons.clock,
-            ),
-            GymBadge(
-              label: '${session.totalExercises} ${ProductCopy.exercisesCount}',
-              variant: GymBadgeVariant.neutral,
-              icon: GymIcons.workout,
-            ),
-            GymBadge(
-              label: '${session.totalSets} ست',
-              variant: GymBadgeVariant.neutral,
-              icon: GymIcons.activity,
-            ),
-          ],
-        ),
-      ],
+    return GymCard(
+      variant: GymCardVariant.hero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(ProductCopy.todayProgram, style: context.lwCaption),
+          GymSpacing.gapSm,
+          Text(session.focus, style: context.lwTitle),
+          GymSpacing.gapLg,
+          Wrap(
+            spacing: GymSpacing.sm,
+            runSpacing: GymSpacing.sm,
+            children: <Widget>[
+              GymBadge(
+                label: '${session.estimatedMinutes} ${ProductCopy.minutes}',
+                variant: GymBadgeVariant.neutral,
+                icon: GymIcons.clock,
+              ),
+              GymBadge(
+                label: '${session.totalExercises} ${ProductCopy.exercisesCount}',
+                variant: GymBadgeVariant.neutral,
+                icon: GymIcons.workout,
+              ),
+              GymBadge(
+                label: '${session.totalSets} ست',
+                variant: GymBadgeVariant.neutral,
+                icon: GymIcons.activity,
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -75,29 +82,29 @@ class LiveWorkoutProgressCard extends StatelessWidget {
           value: progress.clamp(0, 1),
           label: '${(progress * 100).round()}٪',
           size: 84,
-          color: GymColors.textPrimary,
+          color: context.gymPrimary,
         ),
         GymSpacing.gapLg,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(ProductCopy.progress, style: GymTypography.title),
+              Text(ProductCopy.progress, style: context.lwSection),
               GymSpacing.gapSm,
               Text(
                 '$exerciseNumber از ${state.totalExercises} حرکت',
-                style: GymTypography.bodyStrong,
+                style: context.lwBodyStrong,
               ),
               GymSpacing.gapSm,
               Text(
                 '${state.completedSets} از ${state.totalSets} ست',
-                style: GymTypography.caption,
+                style: context.lwCaption,
               ),
               GymSpacing.gapMd,
               GymProgressBar(
                 value: progress.clamp(0, 1),
                 animated: true,
-                color: GymColors.textPrimary,
+                color: context.gymPrimary,
               ),
             ],
           ),
@@ -107,37 +114,148 @@ class LiveWorkoutProgressCard extends StatelessWidget {
   }
 }
 
+class SessionExerciseListCard extends StatelessWidget {
+  const SessionExerciseListCard({required this.state, super.key});
+
+  final LiveWorkoutState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final session = state.session;
+    if (session == null || session.exercises.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final currentIndex = state.currentExerciseIndex ?? 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const LiveWorkoutSectionHeader(title: 'برنامه حرکات'),
+        GymCard(
+          variant: GymCardVariant.insight,
+          padding: const EdgeInsets.symmetric(
+            horizontal: GymSpacing.lg,
+            vertical: GymSpacing.md,
+          ),
+          child: Column(
+            children: <Widget>[
+              for (var i = 0; i < session.exercises.length; i++) ...<Widget>[
+                _ExerciseListRow(
+                  index: i,
+                  exercise: session.exercises[i],
+                  isCurrent: i == currentIndex,
+                  isDone: i < currentIndex,
+                ),
+                if (i < session.exercises.length - 1)
+                  Divider(height: GymSpacing.lg, color: context.gymBorderSubtle),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExerciseListRow extends StatelessWidget {
+  const _ExerciseListRow({
+    required this.index,
+    required this.exercise,
+    required this.isCurrent,
+    required this.isDone,
+  });
+
+  final int index;
+  final WorkoutExerciseSession exercise;
+  final bool isCurrent;
+  final bool isDone;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayName = _displayName(exercise, index);
+    return Row(
+      children: <Widget>[
+        Container(
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isCurrent
+                ? context.gymPrimary.withValues(alpha: 0.16)
+                : context.gymElevated.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            '${index + 1}',
+            style: context.gymTextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: isCurrent ? context.gymPrimary : context.gymTextSecondary,
+            ),
+          ),
+        ),
+        GymSpacing.gapMd,
+        Expanded(
+          child: Text(
+            displayName,
+            style: isCurrent ? context.lwBodyStrong : context.lwBody,
+          ),
+        ),
+        if (isDone)
+          Icon(Icons.check_circle_rounded, color: context.gymPrimary, size: 20),
+        if (isCurrent)
+          Text(
+            'فعلی',
+            style: context.gymTextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: context.gymPrimary,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class CurrentExerciseCard extends StatelessWidget {
   const CurrentExerciseCard({
     required this.exercise,
     required this.currentSet,
+    required this.exerciseIndex,
     super.key,
   });
 
   final WorkoutExerciseSession exercise;
   final WorkoutSetSession? currentSet;
+  final int exerciseIndex;
 
   @override
   Widget build(BuildContext context) {
     final set = currentSet ?? exercise.sets.firstOrNull;
+    final displayName = _displayName(exercise, exerciseIndex);
+    final muscle = ProductExperienceFormatter.displayMuscle(exercise.primaryMuscle);
     return GymCard(
       variant: GymCardVariant.action,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(ProductCopy.currentExercise, style: GymTypography.overline),
-          GymSpacing.gapSm,
-          Text(exercise.name, style: GymTypography.display),
-          GymSpacing.gapSm,
+          Text(ProductCopy.currentExercise, style: context.lwCaption),
+          GymSpacing.gapMd,
+          Text(displayName, style: context.lwExerciseName),
+          if (muscle.isNotEmpty) ...<Widget>[
+            GymSpacing.gapSm,
+            Text(muscle, style: context.lwCaption),
+          ],
+          GymSpacing.gapMd,
           Text(
             '${exercise.sets.length} ست  •  ست ${set?.index ?? 1}',
-            style: GymTypography.body,
+            style: context.lwBody,
           ),
           if (set != null) ...<Widget>[
-            GymSpacing.gapLg,
+            GymSpacing.gapMd,
             Text(
               'هدف: ${set.targetReps} تکرار  •  ${_formatWeight(set.targetWeightKg)} کیلو',
-              style: GymTypography.caption.copyWith(color: GymColors.textPrimary),
+              style: context.lwBodyStrong,
             ),
           ],
         ],
@@ -147,24 +265,33 @@ class CurrentExerciseCard extends StatelessWidget {
 }
 
 class UpcomingExerciseCard extends StatelessWidget {
-  const UpcomingExerciseCard({required this.exercise, super.key});
+  const UpcomingExerciseCard({
+    required this.exercise,
+    required this.exerciseIndex,
+    super.key,
+  });
 
   final WorkoutExerciseSession exercise;
+  final int exerciseIndex;
 
   @override
   Widget build(BuildContext context) {
+    final muscle = ProductExperienceFormatter.displayMuscle(exercise.primaryMuscle);
     return GymCard(
       variant: GymCardVariant.insight,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(ProductCopy.upcomingExercise, style: GymTypography.overline),
-          GymSpacing.gapSm,
-          Text(exercise.name, style: GymTypography.title),
+          Text(ProductCopy.upcomingExercise, style: context.lwCaption),
           GymSpacing.gapSm,
           Text(
-            '${exercise.sets.length} ست  •  ${exercise.primaryMuscle}',
-            style: GymTypography.caption,
+            _displayName(exercise, exerciseIndex),
+            style: context.lwBodyStrong,
+          ),
+          GymSpacing.gapSm,
+          Text(
+            '${exercise.sets.length} ست${muscle.isNotEmpty ? '  •  $muscle' : ''}',
+            style: context.lwCaption,
           ),
         ],
       ),
@@ -174,158 +301,191 @@ class UpcomingExerciseCard extends StatelessWidget {
 
 class SetTrackerCard extends StatelessWidget {
   const SetTrackerCard({
-    required this.state,
-    required this.onSetTap,
-    required this.onSetChanged,
+    required this.exercise,
+    required this.setControllers,
+    required this.setSavedStatus,
+    required this.setFocusNodes,
+    required this.onSaveSet,
+    required this.onFocusNextSet,
     super.key,
   });
 
-  final LiveWorkoutState state;
-  final ValueChanged<int> onSetTap;
-  final void Function({
-    int? reps,
-    double? weightKg,
-    int? rpe,
-    int? durationSeconds,
-    String? notes,
-  })
-  onSetChanged;
+  final WorkoutExerciseSession exercise;
+  final List<Map<String, TextEditingController>> setControllers;
+  final List<bool> setSavedStatus;
+  final List<Map<String, FocusNode>> setFocusNodes;
+  final void Function(int setIndex) onSaveSet;
+  final void Function(int nextSetIndex, String fieldType) onFocusNextSet;
 
   @override
   Widget build(BuildContext context) {
-    final exercise = state.currentExercise;
-    if (exercise == null) return const SizedBox.shrink();
+    if (exercise.sets.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(ProductCopy.sets, style: GymTypography.title),
-        GymSpacing.gapMd,
-        for (final set in exercise.sets) ...<Widget>[
-          _SetRow(
-            set: set,
-            status: set.status,
-            isCurrent: set.status == WorkoutSetSessionStatus.current,
-            onTap: () => onSetTap(set.index - 1),
-          ),
-          if (set.status == WorkoutSetSessionStatus.current)
-            _CurrentSetEditor(
-              set: set,
-              onChanged: onSetChanged,
+        LiveWorkoutSectionHeader(title: ProductCopy.sets),
+        GymCard(
+          variant: GymCardVariant.insight,
+          padding: EdgeInsets.zero,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: WorkoutLogColors.setsPanelBackground(context),
+              borderRadius: BorderRadius.circular(12),
             ),
-          if (set != exercise.sets.last) const GymDivider(),
-        ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: GymSpacing.sm,
+                vertical: GymSpacing.sm,
+              ),
+              child: Column(
+                children: List.generate(exercise.sets.length, (setIndex) {
+                  if (setControllers.length <= setIndex) {
+                    return const SizedBox.shrink();
+                  }
+                  final set = exercise.sets[setIndex];
+                  return WorkoutSetEntryRow(
+                    setIndex: setIndex,
+                    isSaved: setSavedStatus.length > setIndex &&
+                        setSavedStatus[setIndex],
+                    setControllers: setControllers[setIndex],
+                    style: ExerciseStyle.setsReps,
+                    focusNodes: setFocusNodes.length > setIndex
+                        ? setFocusNodes[setIndex]
+                        : null,
+                    isLastSet: setIndex == exercise.sets.length - 1,
+                    defaultReps: set.targetReps,
+                    onSaveSet: () => onSaveSet(setIndex),
+                    onFocusNextSet: onFocusNextSet,
+                  );
+                }),
+              ),
+            ),
+          ),
+        ),
       ],
-    );
-  }
-}
-
-class RestTimerCard extends StatelessWidget {
-  const RestTimerCard({
-    required this.rest,
-    required this.onPause,
-    required this.onResume,
-    required this.onSkip,
-    required this.onExtend,
-    super.key,
-  });
-
-  final LiveWorkoutRestState rest;
-  final VoidCallback onPause;
-  final VoidCallback onResume;
-  final VoidCallback onSkip;
-  final VoidCallback onExtend;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!rest.active) return const SizedBox.shrink();
-
-    return GymCard(
-      child: Row(
-        children: <Widget>[
-          const Icon(GymIcons.clock, color: GymColors.textPrimary, size: 34),
-          GymSpacing.gapLg,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(ProductCopy.restTimer, style: GymTypography.title),
-                GymSpacing.gapXs,
-                Text(
-                  '${rest.remainingSeconds} ثانیه',
-                  style: GymTypography.metric,
-                ),
-                if (rest.paused)
-                  Text(
-                    'متوقف شده',
-                    style: GymTypography.caption.copyWith(
-                      color: GymColors.textSecondary,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: rest.paused ? 'ادامه' : 'توقف',
-            onPressed: rest.paused ? onResume : onPause,
-            icon: Icon(rest.paused ? Icons.play_arrow_rounded : Icons.pause),
-          ),
-          IconButton(
-            tooltip: '+۳۰ ثانیه',
-            onPressed: onExtend,
-            icon: const Icon(Icons.add),
-          ),
-          IconButton(
-            tooltip: 'رد کردن',
-            onPressed: onSkip,
-            icon: const Icon(Icons.skip_next_rounded),
-          ),
-        ],
-      ),
     );
   }
 }
 
 class LiveWorkoutCompletionCard extends StatelessWidget {
-  const LiveWorkoutCompletionCard({required this.summary, super.key});
+  const LiveWorkoutCompletionCard({
+    required this.summary,
+    this.onOpenAnalysis,
+    super.key,
+  });
 
   final LiveWorkoutCompletionSummary summary;
+  final VoidCallback? onOpenAnalysis;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(summary.focus, style: GymTypography.display),
-        GymSpacing.gapSm,
-        Text(summary.coachMessage, style: GymTypography.body),
-        GymSpacing.gapLg,
-        Wrap(
-          spacing: GymSpacing.sm,
-          runSpacing: GymSpacing.sm,
-          children: summary.highlights
-              .map(
-                (item) => GymBadge(
-                  label: item,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return GymCard(
+      variant: GymCardVariant.insight,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(GymIcons.success, color: context.gymPrimary, size: 22),
+              GymSpacing.gapSm,
+              Expanded(
+                child: Text(summary.headline, style: context.lwTitle),
+              ),
+            ],
+          ),
+          GymSpacing.gapSm,
+          Text(summary.bodyLine, style: context.lwBody),
+          GymSpacing.gapMd,
+          Wrap(
+            spacing: GymSpacing.sm,
+            runSpacing: GymSpacing.sm,
+            children: <Widget>[
+              GymBadge(
+                label: '${summary.completedSets} ست',
+                variant: GymBadgeVariant.neutral,
+                icon: GymIcons.activity,
+              ),
+              if (summary.totalVolumeKg > 0)
+                GymBadge(
+                  label:
+                      '${LiveWorkoutCompletionSummary.formatVolume(summary.totalVolumeKg)} کیلو',
+                  variant: GymBadgeVariant.neutral,
+                  icon: GymIcons.workout,
+                ),
+              if (summary.focus.trim().isNotEmpty)
+                GymBadge(
+                  label: summary.focus,
                   variant: GymBadgeVariant.neutral,
                 ),
-              )
-              .toList(growable: false),
-        ),
-        GymSpacing.gapLg,
-        Text(
-          '${summary.durationMinutes} ${ProductCopy.minutes}  •  '
-          '${summary.completedSets}/${summary.totalSets} ست',
-          style: GymTypography.caption,
-        ),
-        if (!summary.synced) ...<Widget>[
-          GymSpacing.gapSm,
-          Text(
-            'آفلاین ذخیره شد؛ بعداً همگام‌سازی می‌شود.',
-            style: GymTypography.caption.copyWith(color: GymColors.warning),
+            ],
           ),
+          if (summary.hasHeatmapData) ...<Widget>[
+            GymSpacing.gapLg,
+            Text(
+              'نقشهٔ عضلانی این جلسه',
+              style: context.lwCaption.copyWith(fontWeight: FontWeight.w700),
+            ),
+            GymSpacing.gapSm,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: ColoredBox(
+                color: isDark
+                    ? const Color(0xFF0E1016)
+                    : Colors.white.withValues(alpha: 0.55),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: ExerciseMuscleHeatmapWidget(
+                    key: ValueKey(
+                      summary.muscleTargets.entries
+                          .map((e) => '${e.key}:${e.value}')
+                          .join(','),
+                    ),
+                    muscleTargets: summary.muscleTargets,
+                    compact: true,
+                    mapHeight: 200,
+                  ),
+                ),
+              ),
+            ),
+            if (summary.topMuscleLabel != null) ...<Widget>[
+              GymSpacing.gapSm,
+              Wrap(
+                spacing: GymSpacing.sm,
+                children: MuscleTargets.sortedEntries(summary.muscleTargets)
+                    .take(3)
+                    .map(
+                      (e) => GymBadge(
+                        label: MuscleTargets.label(e.key),
+                        variant: GymBadgeVariant.neutral,
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            ],
+          ],
+          GymSpacing.gapMd,
+          Text(summary.tipLine, style: context.lwCaption),
+          if (!summary.synced) ...<Widget>[
+            GymSpacing.gapSm,
+            Text(
+              'آفلاین ذخیره شد؛ وقتی آنلاین شوی همگام می‌شود.',
+              style: context.lwCaption.copyWith(color: context.gymWarning),
+            ),
+          ],
+          if (onOpenAnalysis != null) ...<Widget>[
+            GymSpacing.gapLg,
+            GymButton(
+              label: 'برو به تحلیل امروز',
+              fullWidth: true,
+              icon: GymIcons.progress,
+              onPressed: onOpenAnalysis,
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -342,295 +502,41 @@ class LiveWorkoutTextListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayItems =
-        items.isEmpty ? const <String>['فعلاً نکته‌ای ثبت نشده.'] : items;
+    final displayItems = items
+        .map(ProductCopy.humanizeReason)
+        .where((item) => item.trim().isNotEmpty)
+        .toList();
+    if (displayItems.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(title, style: GymTypography.overline),
-        GymSpacing.gapMd,
-        for (final item in displayItems)
-          Padding(
-            padding: const EdgeInsets.only(bottom: GymSpacing.sm),
-            child: Text(
-              ProductCopy.humanizeReason(item),
-              style: GymTypography.body.copyWith(
-                fontSize: 15,
-                height: 1.6,
-                color: GymColors.textPrimary,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _CurrentSetEditor extends StatefulWidget {
-  const _CurrentSetEditor({
-    required this.set,
-    required this.onChanged,
-  });
-
-  final WorkoutSetSession set;
-  final void Function({
-    int? reps,
-    double? weightKg,
-    int? rpe,
-    int? durationSeconds,
-    String? notes,
-  })
-  onChanged;
-
-  @override
-  State<_CurrentSetEditor> createState() => _CurrentSetEditorState();
-}
-
-class _CurrentSetEditorState extends State<_CurrentSetEditor> {
-  late final TextEditingController _repsController;
-  late final TextEditingController _weightController;
-  late final TextEditingController _rpeController;
-  late final TextEditingController _durationController;
-  late final TextEditingController _notesController;
-
-  @override
-  void initState() {
-    super.initState();
-    _repsController = TextEditingController(
-      text: '${widget.set.effectiveReps}',
-    );
-    _weightController = TextEditingController(
-      text: _formatWeight(widget.set.effectiveWeightKg),
-    );
-    _rpeController = TextEditingController(
-      text: widget.set.rpe?.toString() ?? '',
-    );
-    _durationController = TextEditingController(
-      text: widget.set.durationSeconds?.toString() ?? '',
-    );
-    _notesController = TextEditingController(text: widget.set.notes ?? '');
-  }
-
-  @override
-  void didUpdateWidget(covariant _CurrentSetEditor oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.set.index != widget.set.index) {
-      _repsController.text = '${widget.set.effectiveReps}';
-      _weightController.text = _formatWeight(widget.set.effectiveWeightKg);
-      _rpeController.text = widget.set.rpe?.toString() ?? '';
-      _durationController.text = widget.set.durationSeconds?.toString() ?? '';
-      _notesController.text = widget.set.notes ?? '';
-    }
-  }
-
-  @override
-  void dispose() {
-    _repsController.dispose();
-    _weightController.dispose();
-    _rpeController.dispose();
-    _durationController.dispose();
-    _notesController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: GymSpacing.md),
-      child: Column(
-        children: <Widget>[
-          Row(
+        LiveWorkoutSectionHeader(title: title),
+        GymCard(
+          variant: GymCardVariant.insight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Expanded(
-                child: _MetricField(
-                  label: 'تکرار',
-                  controller: _repsController,
-                  keyboardType: TextInputType.number,
-                  onSubmitted: (_) => _emit(),
+              for (final item in displayItems)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: GymSpacing.sm),
+                  child: Text(item, style: context.lwBody),
                 ),
-              ),
-              GymSpacing.gapMd,
-              Expanded(
-                child: _MetricField(
-                  label: 'وزن (کیلو)',
-                  controller: _weightController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onSubmitted: (_) => _emit(),
-                ),
-              ),
-            ],
-          ),
-          GymSpacing.gapSm,
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: _MetricField(
-                  label: 'شدت تلاش',
-                  controller: _rpeController,
-                  keyboardType: TextInputType.number,
-                  onSubmitted: (_) => _emit(),
-                ),
-              ),
-              GymSpacing.gapMd,
-              Expanded(
-                child: _MetricField(
-                  label: 'مدت (ثانیه)',
-                  controller: _durationController,
-                  keyboardType: TextInputType.number,
-                  onSubmitted: (_) => _emit(),
-                ),
-              ),
-            ],
-          ),
-          GymSpacing.gapSm,
-          _MetricField(
-            label: 'یادداشت',
-            controller: _notesController,
-            onSubmitted: (_) => _emit(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _emit() {
-    widget.onChanged(
-      reps: int.tryParse(_repsController.text.trim()),
-      weightKg: double.tryParse(_weightController.text.trim()),
-      rpe: int.tryParse(_rpeController.text.trim()),
-      durationSeconds: int.tryParse(_durationController.text.trim()),
-      notes: _notesController.text.trim(),
-    );
-  }
-}
-
-class _MetricField extends StatelessWidget {
-  const _MetricField({
-    required this.label,
-    required this.controller,
-    this.keyboardType,
-    this.onSubmitted,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final TextInputType? keyboardType;
-  final ValueChanged<String>? onSubmitted;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      style: GymTypography.body,
-      decoration: InputDecoration(
-        labelText: label,
-        isDense: true,
-        border: const OutlineInputBorder(borderRadius: GymRadius.radiusMd),
-      ),
-      onSubmitted: onSubmitted,
-      onEditingComplete: () => onSubmitted?.call(controller.text),
-    );
-  }
-}
-
-class _SetRow extends StatelessWidget {
-  const _SetRow({
-    required this.set,
-    required this.status,
-    required this.isCurrent,
-    required this.onTap,
-  });
-
-  final WorkoutSetSession set;
-  final WorkoutSetSessionStatus status;
-  final bool isCurrent;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: isCurrent ? GymColors.elevated : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: GymRadius.radiusLg,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: GymSpacing.md),
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  'ست ${set.index}',
-                  style: GymTypography.bodyStrong.copyWith(
-                    color: isCurrent ? GymColors.textPrimary : null,
-                  ),
-                ),
-              ),
-              _SmallMetric(
-                label: 'وزن',
-                value: '${_formatWeight(set.effectiveWeightKg)} کیلو',
-              ),
-              GymSpacing.gapLg,
-              _SmallMetric(label: 'تکرار', value: '${set.effectiveReps}'),
-              GymSpacing.gapLg,
-              _StatusIcon(status: status),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _StatusIcon extends StatelessWidget {
-  const _StatusIcon({required this.status});
-
-  final WorkoutSetSessionStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    return switch (status) {
-      WorkoutSetSessionStatus.completed => const Icon(
-        Icons.check_circle_rounded,
-        color: GymColors.textPrimary,
-      ),
-      WorkoutSetSessionStatus.skipped => const Icon(
-        Icons.remove_circle_outline,
-        color: GymColors.textSecondary,
-      ),
-      WorkoutSetSessionStatus.failed => const Icon(
-        Icons.error_outline,
-        color: GymColors.warning,
-      ),
-      WorkoutSetSessionStatus.current => const Icon(
-        Icons.play_circle_fill_rounded,
-        color: GymColors.textPrimary,
-      ),
-      WorkoutSetSessionStatus.pending => const Icon(
-        Icons.radio_button_unchecked,
-        color: GymColors.textDisabled,
-      ),
-    };
-  }
-}
-
-class _SmallMetric extends StatelessWidget {
-  const _SmallMetric({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(label, style: GymTypography.overline),
-        Text(value, style: GymTypography.caption),
       ],
     );
   }
+}
+
+String _displayName(WorkoutExerciseSession exercise, int index) {
+  return ProductExperienceFormatter.displayExerciseName(
+    name: exercise.name,
+    primaryMuscle: exercise.primaryMuscle,
+    exerciseId: exercise.exerciseId,
+    orderIndex: index,
+  );
 }
 
 String _formatWeight(double value) {

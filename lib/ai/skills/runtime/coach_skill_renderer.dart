@@ -28,6 +28,11 @@ class CoachSkillRenderer {
     return _builder.buildMotivation(context);
   }
 
+  /// Renders recovery / readiness guidance from local training signals.
+  CoachSkillResponse renderRecovery(CoachContext context) {
+    return _builder.buildRecovery(context);
+  }
+
   /// Renders local app-help guidance from the current question.
   CoachSkillResponse renderAppHelp({
     required CoachContext context,

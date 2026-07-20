@@ -78,6 +78,8 @@ class AIIntentDefinitions {
             AIContextProviderKey.workoutHistory,
             AIContextProviderKey.heatmap,
             AIContextProviderKey.profile,
+            AIContextProviderKey.recovery,
+            AIContextProviderKey.preferences,
           },
           localResponseSupported: true,
         ),
@@ -164,6 +166,7 @@ class AIIntentDefinitions {
           },
           optionalProviders: <AIContextProviderKey>{
             AIContextProviderKey.recovery,
+            AIContextProviderKey.preferences,
             AIContextProviderKey.memory,
           },
           localResponseSupported: true,

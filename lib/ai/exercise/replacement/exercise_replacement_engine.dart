@@ -105,12 +105,61 @@ class ExerciseReplacementEngine {
     ExerciseProfile candidate,
     ExerciseProfile original,
   ) {
-    return candidate.primaryMuscles.any(
-      (muscle) => original.primaryMuscles.any(
-        (originalMuscle) =>
-            muscle.contains(originalMuscle) ||
-            originalMuscle.contains(muscle),
-      ),
-    );
+    for (final muscle in candidate.primaryMuscles) {
+      final family = _muscleFamily(muscle);
+      if (family == null) continue;
+      for (final originalMuscle in original.primaryMuscles) {
+        final originalFamily = _muscleFamily(originalMuscle);
+        if (originalFamily != null && originalFamily == family) return true;
+      }
+    }
+    return false;
+  }
+
+  String? _muscleFamily(String raw) {
+    final text = raw.trim().toLowerCase();
+    if (text.length < 2) return null;
+    if (text.contains('سینه') || text.contains('chest') || text.contains('pec')) {
+      return 'chest';
+    }
+    if (text.contains('سرشانه') ||
+        text.contains('شانه') ||
+        text.contains('shoulder') ||
+        text.contains('deltoid')) {
+      return 'shoulder';
+    }
+    if (text.contains('پشت') ||
+        text.contains('زیربغل') ||
+        text.contains('لت') ||
+        text.contains('back') ||
+        text.contains('lat')) {
+      return 'back';
+    }
+    if (text.contains('پا') ||
+        text.contains('ران') ||
+        text.contains('چهارسر') ||
+        text.contains('همستر') ||
+        text.contains('ساق') ||
+        text.contains('quad') ||
+        text.contains('ham') ||
+        text.contains('glute') ||
+        text.contains('leg')) {
+      return 'legs';
+    }
+    if (text.contains('جلو بازو') ||
+        text.contains('پشت بازو') ||
+        text.contains('بازو') ||
+        text.contains('bicep') ||
+        text.contains('tricep') ||
+        text.contains('arm')) {
+      return 'arms';
+    }
+    if (text.contains('شکم') ||
+        text.contains('core') ||
+        text.contains('abs')) {
+      return 'core';
+    }
+    // Avoid ultra-short substring matches like "" or "ا".
+    return text.length >= 3 ? text : null;
   }
 }

@@ -59,9 +59,10 @@ class WorkoutModifyEngine {
     final query = ExerciseIntelligenceQuery(
       goal: original.goal,
       experience: experience,
-      availableEquipment: request.context.equipment,
+      availableEquipment: _expandEquipment(request.context.equipment),
       limitations: request.context.restrictions,
       recoveryScore: 0.85,
+      avoidExerciseNames: _avoidNamesFromOptions(request.options),
     );
 
     final ruleCtx = WorkoutModifyRuleContext(
@@ -159,5 +160,34 @@ class WorkoutModifyEngine {
       summary: summary,
       engineVersion: engineVersion,
     );
+  }
+
+  /// Expands coarse labels like «باشگاه» so dumbbell/machine candidates can match.
+  static List<String> _expandEquipment(List<String> raw) {
+    if (raw.isEmpty) {
+      return const <String>['هالتر', 'دمبل', 'دستگاه', 'کابل', 'پولی', 'باشگاه'];
+    }
+    final joined = raw.join(' ').toLowerCase();
+    final gymLike = joined.contains('باشگاه') ||
+        joined.contains('gym') ||
+        joined.contains('فول') ||
+        joined.contains('full');
+    if (!gymLike) return List<String>.from(raw);
+    return <String>{
+      ...raw,
+      'هالتر',
+      'دمبل',
+      'دستگاه',
+      'کابل',
+      'پولی',
+      'نیمکت',
+      'باشگاه',
+    }.toList(growable: false);
+  }
+
+  static List<String> _avoidNamesFromOptions(Map<String, Object?> options) {
+    final name = options['avoidExerciseName']?.toString().trim();
+    if (name == null || name.isEmpty) return const <String>[];
+    return <String>[name];
   }
 }

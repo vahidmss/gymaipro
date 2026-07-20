@@ -14,6 +14,9 @@ import 'package:gymaipro/features/coach/navigation/coach_home_route.dart';
 import 'package:gymaipro/features/coach_chat/navigation/coach_chat_route.dart';
 import 'package:gymaipro/features/live_workout/navigation/live_workout_route.dart';
 import 'package:gymaipro/features/legal/navigation/legal_routes.dart';
+import 'package:gymaipro/features/product_experience/navigation/form_guidance_route.dart';
+import 'package:gymaipro/features/product_experience/navigation/program_modify_route.dart';
+import 'package:gymaipro/features/product_experience/navigation/recovery_route.dart';
 import 'package:gymaipro/features/workout_today/navigation/workout_today_route.dart';
 import 'package:gymaipro/meal_log/screens/meal_log_screen.dart';
 import 'package:gymaipro/meal_plan_builder/screens/meal_plan_builder_screen.dart';
@@ -40,7 +43,6 @@ import 'package:gymaipro/screens/offline_screen.dart';
 import 'package:gymaipro/screens/settings_screen.dart';
 import 'package:gymaipro/screens/welcome_screen.dart';
 import 'package:gymaipro/store/screens/store_screen.dart';
-import 'package:gymaipro/core/app_initializer.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/backend_reachability_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
@@ -125,6 +127,9 @@ class RouteService {
 
   static bool _isPaymentDeeplinkShimPath(String path, String rawName) {
     if (path == '/trainer' || path == '/payment/trainer') return true;
+    if (path == '/payment/coach-plan' || path == '/payment/coach_plan') {
+      return true;
+    }
     if (path.startsWith('/payment/') && rawName.contains('status=')) {
       return true;
     }
@@ -178,6 +183,12 @@ class RouteService {
         return LiveWorkoutRoute.build(settings);
       case WorkoutTodayRoute.routeName:
         return WorkoutTodayRoute.build(settings);
+      case ProgramModifyRoute.routeName:
+        return ProgramModifyRoute.build(settings);
+      case RecoveryRoute.routeName:
+        return RecoveryRoute.build(settings);
+      case FormGuidanceRoute.routeName:
+        return FormGuidanceRoute.build(settings);
       case '/profile':
         return MaterialPageRoute(builder: (_) => const ProfileScreen());
       case '/welcome':
@@ -449,7 +460,7 @@ class RouteService {
       debugPrint('=== ROUTE SERVICE: Starting getInitialRoute ===');
       final authService = AuthStateService();
 
-      // Hydrate persisted session before any network gate (especially on web).
+      // Hydrate + refresh if needed. Null means no usable session.
       await authService.restoreSession();
       final isLoggedIn = await authService.isLoggedIn();
       debugPrint('=== ROUTE SERVICE: Login state: $isLoggedIn ===');
@@ -461,15 +472,41 @@ class RouteService {
         );
 
         if (currentUser != null) {
-          final complete = await _isProfileCompleteForCurrentUser();
-          if (complete) {
-            debugPrint('=== ROUTE SERVICE: Profile complete. Returning /main ===');
-            return '/main';
+          try {
+            final profile = await SimpleProfileService.getCurrentProfile();
+            if (profile == null) {
+              final backendOk =
+                  await BackendReachabilityService.isBackendReachable(
+                timeout: const Duration(seconds: 4),
+              );
+              if (!backendOk) {
+                debugPrint(
+                  '=== ROUTE SERVICE: Profile fetch failed, backend down → /offline ===',
+                );
+                return '/offline';
+              }
+              debugPrint(
+                '=== ROUTE SERVICE: Profile incomplete/missing. Keeping session and returning /register ===',
+              );
+              return '/register';
+            }
+            final username = profile['username'] as String?;
+            if (_isProfileUsernameValid(username)) {
+              debugPrint(
+                '=== ROUTE SERVICE: Profile complete. Returning /main ===',
+              );
+              return '/main';
+            }
+            debugPrint(
+              '=== ROUTE SERVICE: Profile incomplete/missing. Keeping session and returning /register ===',
+            );
+            return '/register';
+          } catch (e) {
+            debugPrint(
+              '=== ROUTE SERVICE: Profile check error ($e) → /offline ===',
+            );
+            return '/offline';
           }
-          debugPrint(
-            '=== ROUTE SERVICE: Profile incomplete/missing. Keeping session and returning /register ===',
-          );
-          return '/register';
         }
 
         debugPrint(
@@ -478,31 +515,37 @@ class RouteService {
         return '/welcome';
       }
 
-      // Not logged in — only block on true device offline.
       final isOnline = await ConnectivityService.instance.checkNow();
       if (!isOnline) {
-        debugPrint('=== ROUTE SERVICE: Offline detected, returning /offline ===');
+        debugPrint(
+          '=== ROUTE SERVICE: Offline detected, returning /offline ===',
+        );
         return '/offline';
       }
 
-      // Supabase already initialized → allow welcome; health probes can lag on cold start.
-      if (AppInitializer.isSupabaseReady) {
+      // Expired local session that failed to refresh = backend/DNS problem.
+      final stale = Supabase.instance.client.auth.currentSession;
+      if (stale != null && stale.isExpired) {
         debugPrint(
-          '=== ROUTE SERVICE: Supabase ready — returning /welcome (soft backend gate) ===',
+          '=== ROUTE SERVICE: Expired session, refresh failed. Returning /offline ===',
         );
-        return '/welcome';
+        return '/offline';
       }
 
-      final backendReachable = await BackendReachabilityService
-          .isBackendReachable();
+      final backendReachable =
+          await BackendReachabilityService.isBackendReachable(
+        timeout: const Duration(seconds: 5),
+      );
       if (!backendReachable) {
         debugPrint(
-          '=== ROUTE SERVICE: Network is available but backend is unreachable. Returning /offline ===',
+          '=== ROUTE SERVICE: Backend unreachable. Returning /offline ===',
         );
         return '/offline';
       }
 
-      debugPrint('=== ROUTE SERVICE: User not logged in, returning /welcome ===');
+      debugPrint(
+        '=== ROUTE SERVICE: User not logged in, returning /welcome ===',
+      );
       return '/welcome';
     } catch (e) {
       debugPrint('=== ROUTE SERVICE: Error in getInitialRoute: $e ===');
@@ -511,7 +554,7 @@ class RouteService {
           return '/main';
         }
       } catch (_) {}
-      return '/welcome';
+      return '/offline';
     }
   }
 

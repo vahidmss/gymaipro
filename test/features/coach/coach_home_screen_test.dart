@@ -12,7 +12,7 @@ import 'package:gymaipro/features/product_experience/coach_program_resolver.dart
 import 'package:gymaipro/services/route_service.dart';
 
 void main() {
-  testWidgets('CoachHomeScreen renders facade state cards', (tester) async {
+  testWidgets('CoachHomeScreen renders orbit hub', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Directionality(
@@ -26,23 +26,23 @@ void main() {
       ),
     );
 
-    await tester.pumpAndSettle();
+    await tester.pump();
+    // Entrance + continuous presence/orbit tickers never fully settle.
+    await tester.pump(const Duration(milliseconds: 900));
 
-    expect(find.textContaining('سلام وحید'), findsOneWidget);
-    expect(find.textContaining('سینه + پشت بازو'), findsWidgets);
-    expect(find.text(ProductCopy.startWorkout), findsOneWidget);
-    expect(find.text(ProductCopy.coachBriefTitle), findsOneWidget);
-    expect(
-      find.textContaining('پیشنهاد می‌کنم تمرین سینه + پشت بازو'),
-      findsOneWidget,
-    );
-
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
-    await tester.pumpAndSettle();
-
-    expect(find.text(ProductCopy.quickActions), findsOneWidget);
-    expect(find.textContaining('ساخت برنامه'), findsOneWidget);
-    expect(find.text(ProductCopy.whyThisSuggestion), findsOneWidget);
+    expect(find.text(ProductCopy.myCoachTitle), findsOneWidget);
+    expect(find.text(ProductCopy.programOrbit), findsOneWidget);
+    expect(find.text(ProductCopy.todayOrbit), findsOneWidget);
+    expect(find.text(ProductCopy.mealPlanOrbit), findsOneWidget);
+    expect(find.text(ProductCopy.chatWithCoach), findsWidgets);
+    expect(find.text(ProductCopy.goToTodayWorkout), findsOneWidget);
+    expect(find.text(ProductCopy.coachMonitorTitle), findsOneWidget);
+    expect(find.text(ProductCopy.quickTools), findsOneWidget);
+    expect(find.text(ProductCopy.progressAnalysis), findsOneWidget);
+    expect(find.text(ProductCopy.logWorkout), findsNothing);
+    expect(find.text(ProductCopy.startWorkout), findsNothing);
+    expect(find.textContaining('امروز انرژی خوبی داری'), findsOneWidget);
+    expect(find.textContaining('آمادگی 76٪'), findsOneWidget);
   });
 
   testWidgets('CoachHomeScreen keeps UI behind CoachV2 gate', (tester) async {
@@ -61,7 +61,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(ProductCopy.coachDisabledTitle), findsOneWidget);
-    expect(find.textContaining('سلام وحید'), findsNothing);
+    expect(find.text(ProductCopy.myCoachTitle), findsNothing);
   });
 
   testWidgets('CoachHomeRoute is registered in RouteService', (tester) async {

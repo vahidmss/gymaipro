@@ -7,7 +7,9 @@ import 'package:gymaipro/ai/workout/models/workout_program.dart' as ai;
 import 'package:gymaipro/ai/workout/models/workout_set.dart' as ai;
 import 'package:gymaipro/ai/workout/models/workout_week.dart' as ai;
 import 'package:gymaipro/features/product_experience/coach_resolved_program.dart';
+import 'package:gymaipro/features/product_experience/product_experience_formatter.dart';
 import 'package:gymaipro/models/exercise.dart';
+import 'package:gymaipro/models/exercise_display_labels.dart';
 import 'package:gymaipro/services/active_program_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart'
@@ -27,29 +29,40 @@ class CoachProgramResolver {
            programLoader ??
            ((id) => WorkoutProgramService().getProgramById(id)),
        _activeProgramService = activeProgramService ?? ActiveProgramService(),
-       _exerciseService = exerciseService;
+       _exerciseServiceOrCreate = exerciseService;
 
   final CoachStoredProgramLoader _programLoader;
   final ActiveProgramService _activeProgramService;
-  final ExerciseService? _exerciseService;
+  final ExerciseService? _exerciseServiceOrCreate;
+  ExerciseService? _exerciseServiceCache;
+
+  ExerciseService get _exerciseService =>
+      _exerciseServiceCache ??=
+          _exerciseServiceOrCreate ?? ExerciseService();
 
   Future<CoachResolvedTodayWorkout?> resolve({
     required CoachIntegrationResult result,
   }) async {
+    final catalogById = await _loadCatalogById();
+
     final skillData =
         result.skillExecutionResult?.response.structuredData ??
         const <String, Object?>{};
     final programJson = skillData['workoutProgram'];
     if (programJson is Map<String, Object?>) {
       final program = ai.WorkoutProgram.fromJson(programJson);
-      return _fromAiProgram(program, result.coachContext);
+      return _fromAiProgram(program, result.coachContext, catalogById);
     }
 
     final activeProgram =
         (skillData['program'] as Map<String, Object?>?) ??
         result.coachContext.activeProgram;
     if (activeProgram != null && activeProgram.isNotEmpty) {
-      final fromMap = _fromActiveProgramMap(activeProgram, result.coachContext);
+      final fromMap = _fromActiveProgramMap(
+        activeProgram,
+        result.coachContext,
+        catalogById,
+      );
       if (fromMap != null) return fromMap;
     }
 
@@ -59,11 +72,95 @@ class CoachProgramResolver {
     final storedProgram = await _programLoader(programId);
     if (storedProgram == null) return null;
 
-    final catalog = _exerciseService == null
-        ? const <Exercise>[]
-        : await _exerciseService!.getExercises();
-    final byId = {for (final exercise in catalog) exercise.id: exercise};
-    return _fromStoredProgram(storedProgram, byId);
+    return _fromStoredProgram(storedProgram, catalogById);
+  }
+
+  /// Resolves a stored program for an explicit session day (no auto-guess).
+  Future<CoachResolvedTodayWorkout?> resolveStoredProgram(
+    String programId, {
+    required String sessionDay,
+  }) async {
+    if (programId.trim().isEmpty || sessionDay.trim().isEmpty) return null;
+    final catalogById = await _loadCatalogById();
+    final storedProgram = await _programLoader(programId);
+    if (storedProgram == null) return null;
+    final session = _findSessionByDay(storedProgram.sessions, sessionDay);
+    if (session == null) return null;
+    return _fromStoredProgramSession(storedProgram, session, catalogById);
+  }
+
+  stored.WorkoutSession? _findSessionByDay(
+    List<stored.WorkoutSession> sessions,
+    String sessionDay,
+  ) {
+    for (final session in sessions) {
+      if (session.day == sessionDay && session.exercises.isNotEmpty) {
+        return session;
+      }
+    }
+    return null;
+  }
+
+  Future<Map<int, Exercise>> _loadCatalogById() async {
+    try {
+      final catalog = await _exerciseService.getExercises();
+      return {for (final exercise in catalog) exercise.id: exercise};
+    } on Object {
+      return const <int, Exercise>{};
+    }
+  }
+
+  String _resolveExerciseName({
+    required String rawName,
+    required int? exerciseId,
+    required Map<int, Exercise> catalogById,
+  }) {
+    final id = exerciseId ?? 0;
+    if (id > 0) {
+      final fromCatalog = _catalogLabel(catalogById[id]);
+      if (fromCatalog.isNotEmpty) return fromCatalog;
+    }
+
+    return ProductExperienceFormatter.displayExerciseName(
+      name: rawName,
+      exerciseId: id > 0 ? id : null,
+    );
+  }
+
+  String _catalogLabel(Exercise? catalog) {
+    if (catalog == null) return '';
+    final name = catalog.name.trim();
+    if (name.isNotEmpty) return name;
+    return catalog.title.trim();
+  }
+
+  String _resolvePrimaryMuscle({
+    required Map<int, Exercise> catalogById,
+    int? exerciseId,
+    String? rawMuscle,
+    String? tag,
+  }) {
+    if (exerciseId != null && exerciseId > 0) {
+      final fromCatalog = _catalogMuscle(catalogById[exerciseId]);
+      if (fromCatalog.isNotEmpty) return fromCatalog;
+    }
+
+    final localizedRaw = _localizeMuscle(rawMuscle);
+    if (localizedRaw.isNotEmpty) return localizedRaw;
+
+    return _localizeMuscle(tag);
+  }
+
+  String _catalogMuscle(Exercise? catalog) {
+    if (catalog == null) return '';
+    final main = catalog.mainMuscle.trim();
+    if (main.isNotEmpty) return _localizeMuscle(main);
+    return _localizeMuscle(catalog.targetArea);
+  }
+
+  String _localizeMuscle(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return '';
+    return ExerciseDisplayLabels.musclesCsv(raw.trim());
   }
 
   Future<String?> _resolveProgramId(CoachContext context) async {
@@ -80,6 +177,7 @@ class CoachProgramResolver {
   CoachResolvedTodayWorkout? _fromActiveProgramMap(
     Map<String, Object?> active,
     CoachContext context,
+    Map<int, Exercise> catalogById,
   ) {
     final rawExercises =
         (active['exercises'] as List<Object?>?) ??
@@ -87,7 +185,7 @@ class CoachProgramResolver {
         const <Object?>[];
     final exercises = rawExercises
         .whereType<Map<String, Object?>>()
-        .map(_exerciseFromMap)
+        .map((item) => _exerciseFromMap(item, catalogById))
         .where((exercise) => exercise.name.isNotEmpty)
         .toList(growable: false);
     if (exercises.isEmpty) return null;
@@ -120,12 +218,13 @@ class CoachProgramResolver {
   CoachResolvedTodayWorkout _fromAiProgram(
     ai.WorkoutProgram program,
     CoachContext context,
+    Map<int, Exercise> catalogById,
   ) {
     final day = program.allDays.firstOrNull;
     final exercises = day == null
         ? const <CoachResolvedExercise>[]
         : day.exercises
-              .map(_exerciseFromAi)
+              .map((exercise) => _exerciseFromAi(exercise, catalogById))
               .where((exercise) => exercise.name.isNotEmpty)
               .toList(growable: false);
     final muscles = exercises
@@ -155,14 +254,26 @@ class CoachProgramResolver {
   ) {
     final session = _pickTodaySession(program.sessions);
     if (session == null) return null;
+    return _fromStoredProgramSession(program, session, catalogById);
+  }
 
+  CoachResolvedTodayWorkout? _fromStoredProgramSession(
+    stored.WorkoutProgram program,
+    stored.WorkoutSession session,
+    Map<int, Exercise> catalogById,
+  ) {
     final exercises = <CoachResolvedExercise>[];
     var order = 0;
     for (final block in session.exercises) {
       if (block is stored.NormalExercise) {
         final catalog = catalogById[block.exerciseId];
         exercises.add(
-          _exerciseFromStoredNormal(block, catalog, order: order++),
+          _exerciseFromStoredNormal(
+            block,
+            catalog,
+            catalogById,
+            order: order++,
+          ),
         );
       } else if (block is stored.SupersetExercise) {
         for (final item in block.exercises) {
@@ -171,6 +282,7 @@ class CoachProgramResolver {
             _exerciseFromStoredSupersetItem(
               item,
               catalog,
+              catalogById,
               block.note,
               order: order++,
             ),
@@ -218,11 +330,15 @@ class CoachProgramResolver {
     for (final block in session.exercises) {
       if (block is stored.NormalExercise) {
         final catalog = catalogById[block.exerciseId];
-        exercises.add(_aiExerciseFromStoredNormal(block, catalog, order++));
+        exercises.add(
+          _aiExerciseFromStoredNormal(block, catalog, catalogById, order++),
+        );
       } else if (block is stored.SupersetExercise) {
         for (final item in block.exercises) {
           final catalog = catalogById[item.exerciseId];
-          exercises.add(_aiExerciseFromStoredSuperset(item, catalog, order++));
+          exercises.add(
+            _aiExerciseFromStoredSuperset(item, catalog, catalogById, order++),
+          );
         }
       }
     }
@@ -265,18 +381,37 @@ class CoachProgramResolver {
     );
   }
 
-  CoachResolvedExercise _exerciseFromMap(Map<String, Object?> item) {
+  CoachResolvedExercise _exerciseFromMap(
+    Map<String, Object?> item,
+    Map<int, Exercise> catalogById,
+  ) {
     final rawSets = item['sets'];
     final setCount = rawSets is List<Object?>
         ? rawSets.whereType<Map<String, Object?>>().length
         : _readInt(rawSets, fallback: 1);
     final reps = _readInt(item['reps'], fallback: 0);
+    final exerciseId = _readInt(
+      item['exerciseId'] ?? item['catalogExerciseId'],
+    );
     return CoachResolvedExercise(
-      name: item['name']?.toString() ?? item['title']?.toString() ?? '',
-      primaryMuscle:
-          item['primaryMuscle']?.toString() ??
-          item['mainMuscle']?.toString() ??
-          '',
+      exerciseId: exerciseId == 0 ? null : exerciseId,
+      name: _resolveExerciseName(
+        rawName:
+            item['name']?.toString() ??
+            item['title']?.toString() ??
+            item['exerciseName']?.toString() ??
+            '',
+        exerciseId: exerciseId == 0 ? null : exerciseId,
+        catalogById: catalogById,
+      ),
+      primaryMuscle: _resolvePrimaryMuscle(
+        exerciseId: exerciseId == 0 ? null : exerciseId,
+        rawMuscle:
+            item['primaryMuscle']?.toString() ??
+            item['mainMuscle']?.toString(),
+        tag: item['tag']?.toString(),
+        catalogById: catalogById,
+      ),
       sets: setCount == 0 ? 1 : setCount,
       reps: reps,
       restSeconds: _readInt(item['restSeconds'], fallback: 0) == 0
@@ -288,11 +423,25 @@ class CoachProgramResolver {
     );
   }
 
-  CoachResolvedExercise _exerciseFromAi(ai.WorkoutExercise exercise) {
+  CoachResolvedExercise _exerciseFromAi(
+    ai.WorkoutExercise exercise,
+    Map<int, Exercise> catalogById,
+  ) {
     final firstSet = exercise.sets.firstOrNull;
+    final catalogId =
+        exercise.catalogExerciseId == 0 ? null : exercise.catalogExerciseId;
     return CoachResolvedExercise(
-      name: exercise.name,
-      primaryMuscle: exercise.primaryMuscle,
+      exerciseId: catalogId,
+      name: _resolveExerciseName(
+        rawName: exercise.name,
+        exerciseId: catalogId,
+        catalogById: catalogById,
+      ),
+      primaryMuscle: _resolvePrimaryMuscle(
+        exerciseId: catalogId,
+        rawMuscle: exercise.primaryMuscle,
+        catalogById: catalogById,
+      ),
       sets: exercise.sets.length,
       reps: firstSet?.reps ?? 0,
       restSeconds: firstSet?.rir == null ? 90 : null,
@@ -303,15 +452,23 @@ class CoachProgramResolver {
 
   CoachResolvedExercise _exerciseFromStoredNormal(
     stored.NormalExercise exercise,
-    Exercise? catalog, {
+    Exercise? catalog,
+    Map<int, Exercise> catalogById, {
     required int order,
   }) {
     final firstSet = exercise.sets.firstOrNull;
     return CoachResolvedExercise(
-      name: catalog?.name ?? catalog?.title ?? 'حرکت ${exercise.exerciseId}',
-      primaryMuscle: exercise.tag.isNotEmpty
-          ? exercise.tag
-          : (catalog?.mainMuscle ?? ''),
+      exerciseId: exercise.exerciseId,
+      name: _resolveExerciseName(
+        rawName: catalog?.name ?? catalog?.title ?? '',
+        exerciseId: exercise.exerciseId,
+        catalogById: catalogById,
+      ),
+      primaryMuscle: _resolvePrimaryMuscle(
+        exerciseId: exercise.exerciseId,
+        tag: exercise.tag,
+        catalogById: catalogById,
+      ),
       sets: exercise.sets.length,
       reps: firstSet?.reps ?? firstSet?.timeSeconds ?? 0,
       restSeconds: 90,
@@ -323,13 +480,22 @@ class CoachProgramResolver {
   CoachResolvedExercise _exerciseFromStoredSupersetItem(
     stored.SupersetItem item,
     Exercise? catalog,
+    Map<int, Exercise> catalogById,
     String? blockNote, {
     required int order,
   }) {
     final firstSet = item.sets.firstOrNull;
     return CoachResolvedExercise(
-      name: catalog?.name ?? catalog?.title ?? 'حرکت ${item.exerciseId}',
-      primaryMuscle: catalog?.mainMuscle ?? '',
+      exerciseId: item.exerciseId,
+      name: _resolveExerciseName(
+        rawName: catalog?.name ?? catalog?.title ?? '',
+        exerciseId: item.exerciseId,
+        catalogById: catalogById,
+      ),
+      primaryMuscle: _resolvePrimaryMuscle(
+        exerciseId: item.exerciseId,
+        catalogById: catalogById,
+      ),
       sets: item.sets.length,
       reps: firstSet?.reps ?? firstSet?.timeSeconds ?? 0,
       restSeconds: 90,
@@ -341,15 +507,22 @@ class CoachProgramResolver {
   ai.WorkoutExercise _aiExerciseFromStoredNormal(
     stored.NormalExercise exercise,
     Exercise? catalog,
+    Map<int, Exercise> catalogById,
     int order,
   ) {
     return ai.WorkoutExercise(
       id: exercise.id,
       catalogExerciseId: exercise.exerciseId,
-      name: catalog?.name ?? catalog?.title ?? 'حرکت ${exercise.exerciseId}',
-      primaryMuscle: exercise.tag.isNotEmpty
-          ? exercise.tag
-          : (catalog?.mainMuscle ?? ''),
+      name: _resolveExerciseName(
+        rawName: catalog?.name ?? catalog?.title ?? '',
+        exerciseId: exercise.exerciseId,
+        catalogById: catalogById,
+      ),
+      primaryMuscle: _resolvePrimaryMuscle(
+        exerciseId: exercise.exerciseId,
+        tag: exercise.tag,
+        catalogById: catalogById,
+      ),
       order: order,
       sets: exercise.sets
           .asMap()
@@ -373,13 +546,21 @@ class CoachProgramResolver {
   ai.WorkoutExercise _aiExerciseFromStoredSuperset(
     stored.SupersetItem item,
     Exercise? catalog,
+    Map<int, Exercise> catalogById,
     int order,
   ) {
     return ai.WorkoutExercise(
       id: '${item.exerciseId}_$order',
       catalogExerciseId: item.exerciseId,
-      name: catalog?.name ?? catalog?.title ?? 'حرکت ${item.exerciseId}',
-      primaryMuscle: catalog?.mainMuscle ?? '',
+      name: _resolveExerciseName(
+        rawName: catalog?.name ?? catalog?.title ?? '',
+        exerciseId: item.exerciseId,
+        catalogById: catalogById,
+      ),
+      primaryMuscle: _resolvePrimaryMuscle(
+        exerciseId: item.exerciseId,
+        catalogById: catalogById,
+      ),
       order: order,
       sets: item.sets
           .asMap()

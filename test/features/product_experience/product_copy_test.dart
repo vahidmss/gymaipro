@@ -93,10 +93,48 @@ void main() {
       ),
       isEmpty,
     );
+    expect(
+      ProductExperienceFormatter.humanizeReason(
+        'Knowledge node general_chat selected route source.',
+      ),
+      isEmpty,
+    );
+    expect(
+      ProductExperienceFormatter.humanizeReason(
+        'Entitlement blocked knowledge node workout_generation.',
+      ),
+      isEmpty,
+    );
+    expect(
+      ProductExperienceFormatter.humanizeReason('female'),
+      isEmpty,
+    );
+    expect(
+      ProductExperienceFormatter.humanizeReason(
+        'Upgrade to coach_pro to use this coach capability.',
+      ),
+      contains('اشتراک مربی پیشرفته'),
+    );
 
     expect(
       ProductExperienceFormatter.humanizeReason('Recovery پایین بود.'),
       'چون ریکاوری کامل نبود، تمرین سبک‌تر پیشنهاد شد.',
+    );
+    expect(
+      ProductExperienceFormatter.humanizeReason('Heatmap snapshot is missing.'),
+      isEmpty,
+    );
+    expect(
+      ProductExperienceFormatter.humanizeReason('Local coach route selected.'),
+      isEmpty,
+    );
+    expect(
+      ProductExperienceFormatter.humanizeReason('هیت‌مپ هفتگی را بررسی کن'),
+      'نقشه عضلانی هفتگی را بررسی کن',
+    );
+    expect(
+      ProductExperienceFormatter.humanizeReason('پایین‌تنه امروز ضعیف بود.'),
+      'پایین‌تنه امروز ضعیف بود.',
     );
   });
 
@@ -105,6 +143,14 @@ void main() {
     expect(
       ProductExperienceFormatter.localizeCardTitle('Coach Notes'),
       ProductCopy.coachNotes,
+    );
+    expect(
+      ProductExperienceFormatter.localizeCardTitle('Heatmap Explanation'),
+      'نقشه عضلانی',
+    );
+    expect(
+      ProductExperienceFormatter.localizeCardTitle('Random English Title'),
+      'جزئیات',
     );
   });
 
@@ -116,6 +162,40 @@ void main() {
     expect(
       ProductExperienceFormatter.localizePrimaryAction('Finish Workout'),
       'پایان تمرین',
+    );
+  });
+
+  test('displayMuscle localizes English muscle keys', () {
+    expect(ProductExperienceFormatter.displayMuscle('chest'), 'سینه');
+    expect(ProductExperienceFormatter.displayMuscle('hamstrings'), 'همسترینگ');
+    expect(ProductExperienceFormatter.displayMuscle('سینه'), 'سینه');
+  });
+
+  test('displayExerciseName avoids bare numeric placeholders', () {
+    expect(
+      ProductExperienceFormatter.displayExerciseName(name: 'پرس سینه هالتر'),
+      'پرس سینه هالتر',
+    );
+    expect(
+      ProductExperienceFormatter.displayExerciseName(
+        name: '1',
+        primaryMuscle: 'سینه',
+      ),
+      'سینه',
+    );
+    expect(
+      ProductExperienceFormatter.displayExerciseName(
+        name: '2',
+        exerciseId: 42,
+      ),
+      'حرکت 42',
+    );
+    expect(
+      ProductExperienceFormatter.displayExerciseName(
+        name: '3',
+        orderIndex: 2,
+      ),
+      'حرکت 3',
     );
   });
 }

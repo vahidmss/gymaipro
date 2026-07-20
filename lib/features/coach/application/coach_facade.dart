@@ -1,5 +1,7 @@
 import 'package:gymaipro/ai/context/coach_context.dart';
 import 'package:gymaipro/ai/context/intent_detector.dart';
+import 'package:gymaipro/ai/entitlement/coach_subscription_plan.dart';
+import 'package:gymaipro/ai/entitlement/runtime/coach_entitlement_provider.dart';
 import 'package:gymaipro/ai/integration/coach_integration_result.dart';
 import 'package:gymaipro/features/coach/application/coach_facade_result.dart';
 import 'package:gymaipro/features/coach/application/coach_preview_seed_loader.dart';
@@ -9,6 +11,8 @@ import 'package:gymaipro/features/product_experience/coach_feature_integration.d
 import 'package:gymaipro/features/product_experience/coach_program_resolver.dart';
 import 'package:gymaipro/features/product_experience/coach_resolved_program.dart';
 import 'package:gymaipro/features/product_experience/product_experience_formatter.dart';
+import 'package:gymaipro/payment/models/coach_plan_catalog.dart';
+import 'package:gymaipro/payment/services/subscription_service.dart';
 
 @Deprecated('Use CoachFeatureLoader')
 typedef CoachPreviewLoader = CoachFeatureLoader;
@@ -21,18 +25,25 @@ class CoachFacade {
     CoachPreviewSeedProvider? seedLoader,
     CoachProgramResolver? programResolver,
     CoachExperienceRuntimeBridge? runtimeBridge,
+    SubscriptionService? subscriptionService,
+    CoachEntitlementProvider? entitlementProvider,
   }) : _coachLoader =
            coachLoader ??
            previewLoader ??
            CoachFeatureIntegration.defaultLoader(),
        _seedLoader = seedLoader,
        _programResolver = programResolver ?? CoachProgramResolver(),
-       _runtimeBridge = runtimeBridge ?? const CoachExperienceRuntimeBridge();
+       _runtimeBridge = runtimeBridge ?? const CoachExperienceRuntimeBridge(),
+       _subscriptionService = subscriptionService ?? SubscriptionService(),
+       _entitlementProvider =
+           entitlementProvider ?? const CurrentSubscriptionAdapter();
 
   final CoachFeatureLoader _coachLoader;
   final CoachPreviewSeedProvider? _seedLoader;
   final CoachProgramResolver _programResolver;
   final CoachExperienceRuntimeBridge _runtimeBridge;
+  final SubscriptionService _subscriptionService;
+  final CoachEntitlementProvider _entitlementProvider;
 
   CoachIntegrationResult? _lastResult;
   CoachResolvedTodayWorkout? _lastResolved;
@@ -49,7 +60,7 @@ class CoachFacade {
       context: seed.context,
       metadata: const <String, Object?>{'feature': 'coach_home'},
     );
-    return map(result);
+    return map(result, userId: seed.userId);
   }
 
   Future<CoachQuickActionResult> runQuickAction(String actionId) async {
@@ -83,7 +94,10 @@ class CoachFacade {
     );
   }
 
-  Future<CoachFacadeResult> map(CoachIntegrationResult result) async {
+  Future<CoachFacadeResult> map(
+    CoachIntegrationResult result, {
+    String? userId,
+  }) async {
     _lastResult = result;
     final gaps = <String>[];
 
@@ -122,6 +136,7 @@ class CoachFacade {
       context: context,
       reviewResult: review,
       generatorReasons: resolved?.aiProgram?.programReasons ?? const [],
+      recovery: recovery,
     );
     if (reasons.isEmpty) {
       gaps.add('توضیح‌پذیری در دسترس نبود.');
@@ -134,6 +149,11 @@ class CoachFacade {
       workout: resolved,
       memories: memories,
       insights: insights,
+    );
+
+    final planInfo = await _resolvePlan(
+      userId: userId ?? '',
+      context: context,
     );
 
     return CoachFacadeResult(
@@ -150,10 +170,42 @@ class CoachFacade {
           question: 'چرا امروز این پیشنهاد را می‌بینم؟',
           reasons: reasons,
         ),
+        plan: planInfo.plan,
+        planLabel: planInfo.label,
       ),
       gaps: List<String>.unmodifiable(gaps),
       previewDuration: result.processingTime,
     );
+  }
+
+  Future<({CoachSubscriptionPlan plan, String label})> _resolvePlan({
+    required String userId,
+    required CoachContext context,
+  }) async {
+    final effectiveUserId = userId.trim().isEmpty ? null : userId;
+    try {
+      final snapshot = await _entitlementProvider.snapshotFor(
+        userId: effectiveUserId ?? '',
+        context: context,
+        metadata: const <String, Object?>{},
+      );
+      final plan = snapshot.entitlement.planActive
+          ? snapshot.entitlement.plan
+          : CoachSubscriptionPlan.free;
+      return (plan: plan, label: CoachPlanCatalog.persianTitle(plan));
+    } on Object {
+      final active = await _subscriptionService.peekActiveSubscription(
+        userId: effectiveUserId,
+      );
+      if (active == null) {
+        return (
+          plan: CoachSubscriptionPlan.free,
+          label: CoachPlanCatalog.persianTitle(CoachSubscriptionPlan.free),
+        );
+      }
+      final plan = CoachPlanCatalog.planFromSubscriptionType(active.type);
+      return (plan: plan, label: CoachPlanCatalog.persianTitle(plan));
+    }
   }
 
   String _profileName(CoachContext context) {
@@ -193,8 +245,12 @@ class CoachFacade {
 
   String _routeForQuickAction(String id) {
     return switch (id) {
-      'build_program' ||
+      'build_program' => '/workout-program-request',
       'modify_program' ||
+      'modify' ||
+      'modify_workout' ||
+      'replace' ||
+      'replace_exercise' => '/program-modify',
       'review_program' ||
       'ask_coach' => '/coach-chat',
       'today_program' => '/workout-today',
@@ -206,14 +262,15 @@ class CoachFacade {
     CoachQuickAction(
       id: 'build_program',
       label: 'ساخت برنامه',
-      routeName: '/coach-chat',
-      previewMessage: 'برای من یک برنامه تمرینی بساز',
+      routeName: '/workout-program-request',
+      previewMessage: 'می‌خواهم برنامه تمرینی جدید بسازم',
     ),
     CoachQuickAction(
       id: 'modify_program',
       label: 'اصلاح برنامه',
-      routeName: '/coach-chat',
-      previewMessage: 'تمرین امروز من را اصلاح کن',
+      routeName: '/program-modify',
+      previewMessage:
+          'برنامه‌ام را اصلاح کن: اگر لازم است حرکت عوض شود، ست کم/زیاد شود، یا جلسه سبک‌تر/سنگین‌تر شود.',
     ),
     CoachQuickAction(
       id: 'review_program',

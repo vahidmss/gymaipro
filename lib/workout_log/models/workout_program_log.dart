@@ -44,6 +44,30 @@ class WorkoutDailyLog {
   DateTime createdAt;
   DateTime updatedAt;
 
+  /// True when at least one set has real entered values.
+  /// Empty shells / placeholders must not block session switches.
+  bool get hasMeaningfulLoggedSets {
+    for (final session in sessions) {
+      for (final exercise in session.exercises) {
+        if (exercise is NormalExerciseLog) {
+          if (exercise.sets.any(_setHasMeaningfulData)) return true;
+        } else if (exercise is SupersetExerciseLog) {
+          for (final item in exercise.exercises) {
+            if (item.sets.any(_setHasMeaningfulData)) return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  static bool _setHasMeaningfulData(ExerciseSetLog set) {
+    return (set.reps != null && set.reps! > 0) ||
+        (set.seconds != null && set.seconds! > 0) ||
+        (set.weight != null && set.weight! > 0) ||
+        (set.rpe != null && set.rpe! > 0);
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

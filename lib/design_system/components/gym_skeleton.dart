@@ -70,16 +70,24 @@ class _CardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Prefer content-sized height. A tight fixed height (e.g. 72) used to
+    // overflow the Column by a few pixels under padding + shimmer blocks.
+    final fixedHeight = height;
     return GymShimmer(
       child: Container(
         width: width ?? double.infinity,
-        height: height ?? 96,
+        height: fixedHeight,
+        constraints: fixedHeight == null
+            ? const BoxConstraints(minHeight: 96)
+            : null,
         padding: GymSpacing.paddingLg,
         decoration: const BoxDecoration(
           color: GymColors.neutral800,
           borderRadius: GymRadius.radiusXl,
         ),
+        clipBehavior: Clip.hardEdge,
         child: const Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             GymShimmerBlock(width: 80, height: 12, radius: GymRadius.sm),

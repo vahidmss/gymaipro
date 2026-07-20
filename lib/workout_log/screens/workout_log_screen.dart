@@ -141,18 +141,19 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
               upgradedFromVersion: result.upgradedFromVersion,
               rebuiltProgram: result.rebuiltProgram,
             ),
-            style: WorkoutLogTypography.dialogBody(context).copyWith(
-              fontSize: 13.5.sp,
-            ),
+            style: WorkoutLogTypography.dialogBody(
+              context,
+            ).copyWith(fontSize: 13.5.sp),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
               child: Text(
                 'باشه، شروع می‌کنم',
-              style: WorkoutLogTypography.chip(context, selected: true).copyWith(
-                fontSize: 14.sp,
-              ),
+                style: WorkoutLogTypography.chip(
+                  context,
+                  selected: true,
+                ).copyWith(fontSize: 14.sp),
               ),
             ),
           ],
@@ -540,10 +541,7 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
         await _viewModel.deleteSessionLog(dayToDelete);
       }
 
-      await _viewModel.onSessionSelected(
-        session,
-        startFresh: true,
-      );
+      await _viewModel.onSessionSelected(session, startFresh: true);
       return;
     }
 
@@ -720,17 +718,18 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
             padding: EdgeInsets.symmetric(horizontal: 20.w),
             child: RepaintBoundary(
               child: ExerciseCard(
-              exercise: exercise,
-              exerciseDetails: _viewModel.exerciseDetails,
-              exerciseControllers: _viewModel.exerciseControllers,
-              exerciseFocusNodes: _viewModel.exerciseFocusNodes,
-              setSavedStatus: _viewModel.setSavedStatus,
-              collapsedExercises: _viewModel.collapsedExercises,
-              onToggleCollapse: _toggleExerciseCollapse,
-              onNavigateToTutorial: _navigateToExerciseTutorial,
-              onSaveSet: _viewModel.saveSet,
-              onDismissKeyboard: _dismissKeyboard,
-            ),
+                exercise: exercise,
+                exerciseDetails: _viewModel.exerciseDetails,
+                exerciseControllers: _viewModel.exerciseControllers,
+                exerciseFocusNodes: _viewModel.exerciseFocusNodes,
+                setSavedStatus: _viewModel.setSavedStatus,
+                collapsedExercises: _viewModel.collapsedExercises,
+                exerciseCoachFeedback: _viewModel.exerciseCoachFeedback,
+                onToggleCollapse: _toggleExerciseCollapse,
+                onNavigateToTutorial: _navigateToExerciseTutorial,
+                onSaveSet: _viewModel.saveSet,
+                onDismissKeyboard: _dismissKeyboard,
+              ),
             ),
           );
         }),

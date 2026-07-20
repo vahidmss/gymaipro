@@ -129,6 +129,10 @@ class WorkoutSession {
     String? notes,
     WorkoutSetSessionStatus? status,
     bool clearNotes = false,
+    bool clearActualReps = false,
+    bool clearActualWeightKg = false,
+    bool clearRpe = false,
+    bool clearDurationSeconds = false,
   }) {
     final exercise = exerciseAt(exerciseIndex);
     if (exercise == null || setIndex < 0 || setIndex >= exercise.sets.length) {
@@ -144,6 +148,10 @@ class WorkoutSession {
       notes: notes,
       status: status,
       clearNotes: clearNotes,
+      clearActualReps: clearActualReps,
+      clearActualWeightKg: clearActualWeightKg,
+      clearRpe: clearRpe,
+      clearDurationSeconds: clearDurationSeconds,
     );
 
     final updatedExercises = List<WorkoutExerciseSession>.from(exercises);
@@ -189,6 +197,7 @@ class WorkoutSession {
   }
 
   WorkoutSession copyWith({
+    String? id,
     String? title,
     String? focus,
     int? estimatedMinutes,
@@ -198,7 +207,7 @@ class WorkoutSession {
     String? userId,
   }) {
     return WorkoutSession(
-      id: id,
+      id: id ?? this.id,
       title: title ?? this.title,
       focus: focus ?? this.focus,
       estimatedMinutes: estimatedMinutes ?? this.estimatedMinutes,

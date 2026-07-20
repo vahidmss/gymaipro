@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/features/product_experience/navigation/workout_program_request_navigation.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/screens/exercise_detail_screen.dart';
 import 'package:gymaipro/services/ai_trainer_service.dart';
@@ -587,10 +588,7 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
   }
 
   void _requestNewProgram() {
-    debugPrint('=== شروع navigation به ProgramTypeSelectionScreen ===');
-    Navigator.pushNamed(context, '/program-type-selection').then((_) {
-      debugPrint('=== بازگشت از ProgramTypeSelectionScreen ===');
-      // بعد از بازگشت، برنامه‌ها را دوباره بارگذاری کن
+    WorkoutProgramRequestNavigation.open(context).then((_) {
       if (mounted) {
         _loadAIPrograms();
       }

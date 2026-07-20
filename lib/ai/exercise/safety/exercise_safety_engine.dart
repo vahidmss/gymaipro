@@ -15,6 +15,7 @@ class ExerciseSafetyEngine {
     var safe = true;
 
     for (final limitation in query.limitations) {
+      if (_isNoInjuryLabel(limitation)) continue;
       final normalized = limitation.toLowerCase();
       if (_kneeLimitation(normalized) && exercise.kneeLoad >= 0.45) {
         safe = false;
@@ -57,7 +58,9 @@ class ExerciseSafetyEngine {
       }
     }
 
-    if (exercise.injuryRisk >= 0.75 && query.limitations.isNotEmpty) {
+    final meaningfulLimitations =
+        query.limitations.where((item) => !_isNoInjuryLabel(item)).toList();
+    if (exercise.injuryRisk >= 0.75 && meaningfulLimitations.isNotEmpty) {
       safe = false;
       reasons.add(
         ExerciseIntelligenceReason(
@@ -100,5 +103,17 @@ class ExerciseSafetyEngine {
         limitation.contains('پشت') ||
         limitation.contains('back') ||
         limitation.contains('دیسک');
+  }
+
+  bool _isNoInjuryLabel(String limitation) {
+    final text = limitation.trim().toLowerCase();
+    if (text.isEmpty) return true;
+    return text == 'ندارم' ||
+        text == 'هیچکدام' ||
+        text == 'هیچ کدام' ||
+        text == 'none' ||
+        text == 'no' ||
+        text.contains('ندارم') ||
+        text.contains('هیچکدام');
   }
 }

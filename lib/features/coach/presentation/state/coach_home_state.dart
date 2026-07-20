@@ -1,3 +1,5 @@
+import 'package:gymaipro/ai/entitlement/coach_subscription_plan.dart';
+
 enum CoachHomeStatus { loading, loaded, error }
 
 /// Immutable view state for the Coach home experience.
@@ -14,6 +16,8 @@ class CoachHomeState {
     this.coachBrief = '',
     this.status = CoachHomeStatus.loaded,
     this.errorMessage,
+    this.plan = CoachSubscriptionPlan.free,
+    this.planLabel = 'رایگان',
   });
 
   const CoachHomeState.loading()
@@ -35,7 +39,9 @@ class CoachHomeState {
         reasons: <String>[],
       ),
       coachBrief = '',
-      errorMessage = null;
+      errorMessage = null,
+      plan = CoachSubscriptionPlan.free,
+      planLabel = 'رایگان';
 
   const CoachHomeState.error(String message)
     : status = CoachHomeStatus.error,
@@ -56,7 +62,9 @@ class CoachHomeState {
         reasons: <String>[],
       ),
       coachBrief = '',
-      errorMessage = message;
+      errorMessage = message,
+      plan = CoachSubscriptionPlan.free,
+      planLabel = 'رایگان';
 
   final CoachHomeStatus status;
   final String greeting;
@@ -69,6 +77,8 @@ class CoachHomeState {
   final CoachExplainabilityItem explainability;
   final String coachBrief;
   final String? errorMessage;
+  final CoachSubscriptionPlan plan;
+  final String planLabel;
 
   bool get isLoading => status == CoachHomeStatus.loading;
   bool get isLoaded => status == CoachHomeStatus.loaded;
@@ -86,6 +96,8 @@ class CoachHomeState {
     CoachExplainabilityItem? explainability,
     String? coachBrief,
     String? errorMessage,
+    CoachSubscriptionPlan? plan,
+    String? planLabel,
   }) {
     return CoachHomeState(
       status: status ?? this.status,
@@ -99,6 +111,8 @@ class CoachHomeState {
       explainability: explainability ?? this.explainability,
       coachBrief: coachBrief ?? this.coachBrief,
       errorMessage: errorMessage ?? this.errorMessage,
+      plan: plan ?? this.plan,
+      planLabel: planLabel ?? this.planLabel,
     );
   }
 }
@@ -123,12 +137,16 @@ class CoachRecoverySnapshot {
     required this.fatigue,
     required this.sleep,
     required this.readiness,
+    this.daysSinceLastWorkout,
   });
 
   final int recovery;
   final int fatigue;
   final int sleep;
   final int readiness;
+
+  /// Calendar days since last logged workout (`0` = trained today).
+  final int? daysSinceLastWorkout;
 }
 
 class CoachQuickAction {

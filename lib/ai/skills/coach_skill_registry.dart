@@ -6,6 +6,7 @@ import 'package:gymaipro/ai/skills/coach_skill_type.dart';
 import 'package:gymaipro/ai/skills/runtime/coach_skill_renderer.dart';
 import 'package:gymaipro/ai/skills/runtime/coach_skill_response.dart';
 import 'package:gymaipro/ai/skills/skill_capability.dart';
+import 'package:gymaipro/ai/workout/runtime/workout_generation_skill.dart';
 
 const CoachSkillRenderer _skillRenderer = CoachSkillRenderer();
 
@@ -22,6 +23,9 @@ class CoachSkillRegistry {
     ProgressSummarySkill(),
     MotivationSkill(),
     AppHelpSkill(),
+    // Offline generator: asks follow-ups when profile/goals/equipment missing;
+    // falls back to AI when exercise catalog is not injected yet.
+    WorkoutGenerationSkill(),
   ];
 
   final List<CoachSkill> skills;
@@ -249,7 +253,7 @@ class HeatmapSkill extends CoachRunnableSkill {
 }
 
 /// Provides recovery guidance from local training signals.
-class RecoverySkill extends CoachSkill {
+class RecoverySkill extends CoachRunnableSkill {
   const RecoverySkill();
 
   @override
@@ -266,26 +270,27 @@ class RecoverySkill extends CoachSkill {
 
   @override
   Set<AIContextProviderKey> get requiredContext => const <AIContextProviderKey>{
-    AIContextProviderKey.workoutHistory,
-    AIContextProviderKey.heatmap,
-    AIContextProviderKey.profile,
+    AIContextProviderKey.currentQuestion,
   };
 
   @override
   Set<AIContextProviderKey> get optionalContext => const <AIContextProviderKey>{
-    AIContextProviderKey.restrictions,
     AIContextProviderKey.recovery,
+    AIContextProviderKey.preferences,
+    AIContextProviderKey.profile,
+    AIContextProviderKey.heatmap,
+    AIContextProviderKey.workoutHistory,
     AIContextProviderKey.memory,
   };
 
   @override
-  double get baseConfidence => 0.82;
+  double get baseConfidence => 0.86;
 
   @override
-  Duration get estimatedLatency => const Duration(milliseconds: 180);
+  Duration get estimatedLatency => const Duration(milliseconds: 120);
 
   @override
-  bool get requiresAIFallback => true;
+  bool get requiresAIFallback => false;
 
   @override
   SkillCapability get capability => const SkillCapability(
@@ -329,16 +334,21 @@ class RecoverySkill extends CoachSkill {
     return SkillEvaluation(
       skillId: id,
       skillType: type,
-      outcome: SkillOutcome.partialLocal,
+      outcome: SkillOutcome.handledLocally,
       confidence: confidence,
       estimatedLatency: estimatedLatency,
-      requiresAIFallback: true,
+      requiresAIFallback: false,
       missingContext: const <AIContextProviderKey>[],
-      previewMessage: 'Local recovery summary is available with AI fallback.',
-      notes: const <String>[
-        'Recovery skill can answer locally but may still request AI.',
-      ],
+      previewMessage: 'Local recovery summary is available.',
     );
+  }
+
+  @override
+  CoachSkillResponse execute({
+    required CoachContext context,
+    required AIIntent intent,
+  }) {
+    return _skillRenderer.renderRecovery(context);
   }
 }
 

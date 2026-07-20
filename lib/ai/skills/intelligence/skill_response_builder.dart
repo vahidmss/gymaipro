@@ -7,6 +7,7 @@ import 'package:gymaipro/ai/skills/intelligence/skill_reason.dart';
 import 'package:gymaipro/ai/skills/intelligence/skill_reason_type.dart';
 import 'package:gymaipro/ai/skills/intelligence/skill_recommendation.dart';
 import 'package:gymaipro/ai/skills/runtime/coach_skill_response.dart';
+import 'package:gymaipro/features/product_experience/recovery/recovery_guidance.dart';
 import 'package:gymaipro/models/muscle_targets.dart';
 import 'package:gymaipro/services/weekly_muscle_heatmap_service.dart';
 
@@ -142,7 +143,7 @@ class SkillResponseBuilder {
     }
 
     final explanation = SkillExplanation(
-      summary: 'این تمرکز بر اساس هیت‌مپ، تاریخچه و هدف فعلی پیشنهاد شد.',
+        summary: 'این تمرکز بر اساس نقشه عضلانی، تاریخچه و هدف فعلی پیشنهاد شد.',
       bullets: reasons.map((reason) => reason.message).take(5).toList(),
     );
 
@@ -166,7 +167,7 @@ class SkillResponseBuilder {
       warnings: warnings,
       nextActions: <String>[
         'برنامه امروز را باز کن',
-        if (heatmap?.hasHeatmapData ?? false) 'هیت‌مپ هفتگی را بررسی کن',
+        if (heatmap?.hasHeatmapData ?? false) 'نقشه عضلانی هفته را ببین',
       ],
     );
   }
@@ -226,11 +227,11 @@ class SkillResponseBuilder {
       reasons.add(
         SkillReason(
           type: SkillReasonType.heatmapSignal,
-          message: 'عدم تعادل عضلانی: ${heatmap.balanceLine}',
+          message: 'نابرابری عضلانی: ${heatmap.balanceLine}',
           weight: 0.15,
         ),
       );
-      warnings.add('تعادل عضلانی هفته جاری نامتعادل است.');
+      warnings.add('تعادل عضلانی این هفته به‌هم خورده است.');
     }
 
     if (heatmap.weekTrendLine != null) {
@@ -251,7 +252,7 @@ class SkillResponseBuilder {
       );
     }
 
-    final message = StringBuffer('تحلیل هیت‌مپ هفتگی')
+    final message = StringBuffer('تحلیل نقشه عضلانی هفته')
       ..write('\n${heatmap.activityLine}');
     if (mostTrained != null) {
       message.write('\nبیشترین تمرین: $mostTrained');
@@ -260,10 +261,10 @@ class SkillResponseBuilder {
       message.write('\nکمترین تمرین: $leastTrained');
     }
     if (heatmap.balanceLine != null) {
-      message.write('\nعدم تعادل: ${heatmap.balanceLine}');
+      message.write('\nنابرابری عضلانی: ${heatmap.balanceLine}');
     }
     if (recommendations.isNotEmpty) {
-      message.write('\nپیشنهاد تمرکز: ${recommendations.first.detail}');
+      message.write('\nپیشنهاد: ${recommendations.first.detail}');
     }
 
     return CoachSkillResponse(
@@ -280,7 +281,7 @@ class SkillResponseBuilder {
       actions: const <CoachAction>[CoachAction.showHeatmap],
       reasons: reasons,
       explanation: SkillExplanation(
-        summary: 'تحلیل از داده‌های هیت‌مپ موجود در CoachContext ساخته شد.',
+        summary: 'این تحلیل از نقشه عضلانی هفته ساخته شد.',
         bullets: reasons.map((reason) => reason.message).toList(),
       ),
       recommendations: recommendations,
@@ -288,6 +289,61 @@ class SkillResponseBuilder {
       nextActions: const <String>[
         'نقشه هفتگی را در بخش پیشرفت باز کن',
         'تمرکز بعدی را در برنامه امروز اعمال کن',
+      ],
+    );
+  }
+
+  /// Builds recovery / readiness guidance from local training signals.
+  CoachSkillResponse buildRecovery(CoachContext context) {
+    final coverage = _validator.recovery(context);
+    final guidance = RecoveryGuidance.fromContext(context);
+
+    final reasons = <SkillReason>[
+      SkillReason(
+        type: SkillReasonType.recoveryStatus,
+        message: guidance.headline,
+        weight: 0.35,
+      ),
+      if (guidance.snapshot.readiness > 0)
+        SkillReason(
+          type: SkillReasonType.recoveryStatus,
+          message: 'آمادگی ${guidance.snapshot.readiness}٪',
+          weight: 0.25,
+        ),
+      if (guidance.daysSinceLastWorkout != null)
+        SkillReason(
+          type: SkillReasonType.trainingGap,
+          message:
+              'فاصله از آخرین تمرین: ${guidance.daysSinceLastWorkout} روز',
+          weight: 0.15,
+        ),
+      ..._coverageReasons(coverage),
+    ];
+
+    return CoachSkillResponse(
+      message: guidance.chatMessage,
+      confidence: coverage.confidence.clamp(0.55, 0.95),
+      requiresAI: false,
+      structuredData: <String, Object?>{
+        'readinessPercent': guidance.snapshot.readiness,
+        'recovery': guidance.snapshot.recovery,
+        'fatigue': guidance.snapshot.fatigue,
+        'sleep': guidance.snapshot.sleep,
+        'band': guidance.band.name,
+        'suggestLighterSession': guidance.suggestLighterSession,
+      },
+      reasons: reasons,
+      explanation: SkillExplanation(
+        summary: guidance.headline,
+        bullets: guidance.tips,
+      ),
+      nextActions: <String>[
+        if (guidance.suggestLighterSession) 'جلسه را سبک‌تر کن',
+        if (guidance.suggestStartWorkout) 'شروع تمرین امروز',
+        if (guidance.scenario == RecoveryScenario.postSessionToday)
+          'روی خواب و تغذیه امشب تمرکز کن'
+        else
+          'از مربی بیشتر بپرس',
       ],
     );
   }
@@ -666,10 +722,11 @@ class SkillResponseBuilder {
 
     if (normalizedQuestion.contains('هیت') ||
         normalizedQuestion.contains('heatmap') ||
+        normalizedQuestion.contains('نقشه') ||
         normalizedQuestion.contains('پیشرفت')) {
       return hasHistory
-          ? 'هیت‌مپ و پیشرفت هفتگی در بخش پیشرفت نمایش داده می‌شود.'
-          : 'برای دیدن هیت‌مپ، ابتدا چند جلسه تمرین را ثبت کن.';
+          ? 'نقشه عضلانی و پیشرفت هفتگی را در بخش پیشرفت می‌بینی.'
+          : 'برای دیدن نقشه عضلانی، ابتدا چند جلسه تمرین ثبت کن.';
     }
 
     if (normalizedQuestion.contains('چت') ||
@@ -681,7 +738,7 @@ class SkillResponseBuilder {
     }
 
     return hasProgram
-        ? 'از منوی اصلی به برنامه، پیشرفت و تنظیمات دسترسی داری. برنامه فعال هم اکنون فعال است.'
+        ? 'از منوی اصلی به برنامه، پیشرفت و تنظیمات دسترسی داری. الان هم برنامه فعال داری.'
         : 'از منوی اصلی به برنامه، پیشرفت و تنظیمات دسترسی داری.';
   }
 
@@ -696,11 +753,12 @@ class SkillResponseBuilder {
       ];
     }
     if (normalizedQuestion.contains('پیشرفت') ||
-        normalizedQuestion.contains('هیت')) {
+        normalizedQuestion.contains('هیت') ||
+        normalizedQuestion.contains('نقشه')) {
       return const <SkillRecommendation>[
         SkillRecommendation(
           title: 'پیشرفت هفتگی',
-          detail: 'هیت‌مپ هفتگی را در بخش پیشرفت ببین.',
+          detail: 'نقشه عضلانی هفته را در بخش پیشرفت ببین.',
           priority: 1,
         ),
       ];

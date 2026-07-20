@@ -25,7 +25,6 @@ import 'package:gymaipro/ai/workout/blueprint/workout_exercise_complexity.dart';
 import 'package:gymaipro/ai/workout/blueprint/workout_exercise_replacement_policy.dart';
 import 'package:gymaipro/ai/workout/blueprint/workout_training_style.dart';
 import 'package:gymaipro/ai/workout/blueprint/workout_volume_strategy.dart';
-import 'package:gymaipro/ai/workout/blueprint/workout_blueprint_versions.dart';
 import 'package:gymaipro/ai/workout/models/workout_progression.dart';
 import 'package:gymaipro/ai/exercise/runtime/exercise_catalog_adapter.dart';
 import 'package:gymaipro/ai/workout/generator/coach_workout_generator.dart';
@@ -383,7 +382,7 @@ void main() {
       expect(json['goal'], 'hypertrophy');
     });
 
-    test('workout generation skill returns typed program payload', () {
+    test('workout generation skill does not author offline programs', () {
       final skill = WorkoutGenerationSkill(
         catalog: rawCatalog,
         userId: 'skill_user',
@@ -402,9 +401,13 @@ void main() {
         intent: AIIntent.workoutGeneration,
       );
 
-      expect(response.requiresAI, isFalse);
-      expect(response.structuredData?['workoutProgram'], isA<Map<Object?, Object?>>());
-      expect(response.confidence, greaterThan(0.8));
+      expect(response.message, isNotNull);
+      expect(response.structuredData['workoutProgram'], isNull);
+      expect(
+        response.structuredData['navigateTo'] == 'workout_program_request' ||
+            response.structuredData['error'] == 'ai_unavailable',
+        isTrue,
+      );
     });
   });
 }

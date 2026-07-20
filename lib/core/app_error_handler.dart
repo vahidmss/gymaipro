@@ -108,6 +108,7 @@ class AppErrorHandler {
         errorString.contains('SocketException') ||
         errorString.contains('Failed host lookup') ||
         errorString.contains('No address associated with hostname') ||
+        errorString.contains('name resolution failed') ||
         errorString.contains('ClientException');
   }
 

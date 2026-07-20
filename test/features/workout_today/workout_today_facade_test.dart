@@ -8,36 +8,46 @@ import 'package:gymaipro/ai/skills/runtime/coach_skill_execution_result.dart';
 import 'package:gymaipro/ai/skills/runtime/coach_skill_response.dart';
 import 'package:gymaipro/features/workout_today/application/workout_today_facade.dart';
 import 'package:gymaipro/features/coach/application/coach_preview_seed_loader.dart';
+import 'package:gymaipro/features/product_experience/active_program_catalog_service.dart';
+import 'package:gymaipro/features/product_experience/active_workout_session_service.dart';
 import 'package:gymaipro/features/product_experience/coach_program_resolver.dart';
 
 void main() {
-  test('WorkoutTodayFacade calls coach loader and maps activeProgram', () async {
-    Map<String, Object?>? metadataSeen;
+  test('WorkoutTodayFacade maps coach result with selected session', () async {
     final facade = WorkoutTodayFacade(
       seedLoader: _FakeSeedLoader(),
+      programCatalog: _StubProgramCatalog(_testProgram),
+      sessionGateway: const _FakeSessionGateway(selectedDay: 'Upper'),
       programResolver: CoachProgramResolver(programLoader: (_) async => null),
-      coachLoader: ({
-        required userMessage,
-        userId = 'preview_user',
-        context,
-        metadata = const <String, Object?>{},
-      }) async {
-        metadataSeen = metadata;
-        expect(context, isNotNull);
-        return _integrationResult(activeProgram: _activeProgram);
-      },
     );
 
-    final result = await facade.load();
+    final result = await facade.map(
+      _integrationResult(activeProgram: _activeProgram),
+    );
 
-    expect(metadataSeen?['feature'], 'workout_today');
     expect(result.state.isLoaded, true);
     expect(result.state.data!.workout.exercises.length, 2);
     expect(result.hasGaps, isFalse);
   });
 
+  test('WorkoutTodayFacade returns awaitingSession when day not selected', () async {
+    final facade = WorkoutTodayFacade(
+      programCatalog: _StubProgramCatalog(_testProgram),
+      sessionGateway: const _FakeSessionGateway(selectedDay: null),
+      programResolver: CoachProgramResolver(programLoader: (_) async => null),
+    );
+
+    final mapped = await facade.map(
+      _integrationResult(activeProgram: _activeProgram),
+    );
+
+    expect(mapped.state.isAwaitingSession, true);
+  });
+
   test('WorkoutTodayFacade returns empty when no workout data', () async {
     final facade = WorkoutTodayFacade(
+      programCatalog: _StubProgramCatalog(_testProgram),
+      sessionGateway: const _FakeSessionGateway(selectedDay: 'Upper'),
       programResolver: CoachProgramResolver(programLoader: (_) async => null),
       coachLoader: ({
         required userMessage,
@@ -56,6 +66,14 @@ void main() {
     expect(mapped.state.isEmpty, true);
   });
 }
+
+const _testProgram = ActiveProgramOption(
+  id: 'program_1',
+  title: 'برنامه تست',
+  creatorLabel: 'GymAI',
+  isActive: true,
+  isAiSupervised: true,
+);
 
 const Map<String, Object?> _activeProgram = <String, Object?>{
   'headline': 'امروز روز تمرین بالاتنه است.',
@@ -135,4 +153,70 @@ class _FakeSeedLoader implements CoachPreviewSeedProvider {
       ),
     );
   }
+}
+
+class _StubProgramCatalog extends ActiveProgramCatalogService {
+  _StubProgramCatalog(this._active) : super();
+
+  final ActiveProgramOption _active;
+
+  @override
+  Future<ActiveProgramOption?> getActiveProgramOption() async => _active;
+
+  @override
+  Future<List<ActiveProgramOption>> listWorkoutPrograms() async => [_active];
+}
+
+class _FakeSessionGateway implements WorkoutSessionSelectionGateway {
+  const _FakeSessionGateway({required this.selectedDay});
+
+  final String? selectedDay;
+
+  @override
+  Future<void> applySessionChangeCleanup({
+    required String sessionDayToDelete,
+    String? userId,
+  }) async {}
+
+  @override
+  Future<void> clearSelection({String? userId}) async {}
+
+  @override
+  SessionChangeEvaluation evaluateSessionChange({
+    required ActiveWorkoutSessionContext context,
+    required String newSessionDay,
+    String? currentSessionDay,
+  }) {
+    return const SessionChangeEvaluation.none();
+  }
+
+  @override
+  SessionChangeEvaluation evaluateProgramChange({
+    required ActiveWorkoutSessionContext context,
+  }) {
+    return const SessionChangeEvaluation.none();
+  }
+
+  @override
+  Future<ActiveWorkoutSessionContext> loadContext({
+    required String programId,
+    String? userId,
+  }) async {
+    return ActiveWorkoutSessionContext(
+      programId: programId,
+      programName: 'برنامه تست',
+      sessions: const [],
+      selectedSessionDay: selectedDay,
+      loggedSessionDay: null,
+      hasSavedLog: false,
+      hasLiveDraft: false,
+    );
+  }
+
+  @override
+  Future<void> saveSelection({
+    required String programId,
+    required String sessionDay,
+    String? userId,
+  }) async {}
 }

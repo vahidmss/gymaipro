@@ -3,6 +3,7 @@ import 'package:gymaipro/features/live_workout/domain/session/workout_exercise_s
 import 'package:gymaipro/features/live_workout/domain/session/workout_session.dart';
 import 'package:gymaipro/features/live_workout/domain/session/workout_set_session.dart';
 import 'package:gymaipro/features/product_experience/coach_resolved_program.dart';
+import 'package:gymaipro/features/product_experience/product_experience_formatter.dart';
 import 'package:uuid/uuid.dart';
 
 /// Builds typed runtime sessions from preview/resolved workout data.
@@ -18,9 +19,13 @@ class LiveWorkoutSessionFactory {
         .map(
           (exercise) => WorkoutExerciseSession(
             id: const Uuid().v4(),
-            name: exercise.name,
+            name: ProductExperienceFormatter.displayExerciseName(
+              name: exercise.name,
+              primaryMuscle: exercise.primaryMuscle,
+              exerciseId: exercise.exerciseId,
+            ),
             primaryMuscle: exercise.primaryMuscle,
-            exerciseId: null,
+            exerciseId: exercise.exerciseId,
             defaultRestSeconds: exercise.restSeconds ?? 90,
             sets: List<WorkoutSetSession>.generate(
               exercise.sets,
@@ -44,7 +49,7 @@ class LiveWorkoutSessionFactory {
       startedAt: DateTime.now(),
       programId: programId,
       userId: userId,
-    ).initializeCurrentSet();
+    );
   }
 
   WorkoutSession fromPreview({
@@ -80,6 +85,30 @@ class LiveWorkoutSessionFactory {
       startedAt: DateTime.now(),
       programId: programId,
       userId: userId,
-    ).initializeCurrentSet();
+    );
+  }
+
+  WorkoutSession withDisplayNames(WorkoutSession session) {
+    return session.copyWith(
+      exercises: session.exercises
+          .asMap()
+          .entries
+          .map(
+            (entry) => WorkoutExerciseSession(
+              id: entry.value.id,
+              name: ProductExperienceFormatter.displayExerciseName(
+                name: entry.value.name,
+                primaryMuscle: entry.value.primaryMuscle,
+                exerciseId: entry.value.exerciseId,
+                orderIndex: entry.key,
+              ),
+              primaryMuscle: entry.value.primaryMuscle,
+              exerciseId: entry.value.exerciseId,
+              defaultRestSeconds: entry.value.defaultRestSeconds,
+              sets: entry.value.sets,
+            ),
+          )
+          .toList(growable: false),
+    );
   }
 }

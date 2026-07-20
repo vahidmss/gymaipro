@@ -91,6 +91,24 @@ class SkillDataValidator {
     );
   }
 
+  /// Assesses data for recovery / readiness skill intelligence.
+  SkillDataCoverage recovery(CoachContext context) {
+    return _assess(
+      weights: <String, double>{
+        'recovery': 0.4,
+        'question': 0.2,
+        'history': 0.2,
+        'heatmap': 0.2,
+      },
+      present: <String, bool>{
+        'recovery': _hasRecoverySignal(context) || _hasProfileRecovery(context),
+        'question': _hasCurrentQuestion(context),
+        'history': context.workoutHistory.isNotEmpty,
+        'heatmap': context.weeklyHeatmap?.hasHeatmapData ?? false,
+      },
+    );
+  }
+
   /// Assesses data for app-help skill intelligence.
   SkillDataCoverage appHelp({
     required CoachContext context,
@@ -168,6 +186,17 @@ class SkillDataValidator {
     final recovery = context.preferences['recovery'];
     final recoveryScore = context.preferences['recovery_score'];
     final sleepHours = context.preferences['bb_sleep_hours'];
-    return recovery != null || recoveryScore != null || sleepHours != null;
+    final days = context.preferences['days_since_last_workout'];
+    return recovery != null ||
+        recoveryScore != null ||
+        sleepHours != null ||
+        days != null;
+  }
+
+  bool _hasProfileRecovery(CoachContext context) {
+    return context.profile['recovery'] != null ||
+        context.profile['readiness'] != null ||
+        context.profile['fatigue'] != null ||
+        context.profile['sleep'] != null;
   }
 }

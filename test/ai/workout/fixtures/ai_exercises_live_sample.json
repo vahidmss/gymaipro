@@ -1,0 +1,1714 @@
+[
+ {
+  "id": 4125,
+  "name": "پرس پا پا باز",
+  "main_muscle": "quads",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4115,
+  "name": "هیپ تراست هالتر",
+  "main_muscle": "glutes",
+  "equipment": "هالتر، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4105,
+  "name": "کول دمبل",
+  "main_muscle": "traps",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4095,
+  "name": "زیربغل وی بار",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4124,
+  "name": "اسکوات پرش",
+  "main_muscle": "quads",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4114,
+  "name": "پشت پا نشسته دستگاه",
+  "main_muscle": "hamstrings",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4104,
+  "name": "پشت کمر دستگاه",
+  "main_muscle": "lower_back",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4085,
+  "name": "پشت بازو بند کشی",
+  "main_muscle": "triceps",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4123,
+  "name": "ددلیفت رومانیایی تک پا",
+  "main_muscle": "hamstrings",
+  "equipment": "دمبل",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4113,
+  "name": "پشت پا خوابیده",
+  "main_muscle": "hamstrings",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4103,
+  "name": "خیز بالا پرچم",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4094,
+  "name": "پول اور دمبل",
+  "main_muscle": "chest",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4122,
+  "name": "ددلیفت رک",
+  "main_muscle": "lower_back",
+  "equipment": "هالتر",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4112,
+  "name": "همسترینگ نوردیک",
+  "main_muscle": "hamstrings",
+  "equipment": "نیمکت",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4102,
+  "name": "شراگ اسمیت",
+  "main_muscle": "traps",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4093,
+  "name": "لندماین رویینگ",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4121,
+  "name": "ددلیفت بلوک",
+  "main_muscle": "lower_back",
+  "equipment": "هالتر",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4111,
+  "name": "لگ پرس تک پا",
+  "main_muscle": "quads",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4101,
+  "name": "ددلیفت قاپ باز",
+  "main_muscle": "lower_back",
+  "equipment": "هالتر",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4092,
+  "name": "رویینگ معکوس",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4120,
+  "name": "ددلیفت تراپ بار",
+  "main_muscle": "lower_back",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4110,
+  "name": "لندماین اسکات",
+  "main_muscle": "quads",
+  "equipment": "هالتر",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4100,
+  "name": "رومانیایی هالتر",
+  "main_muscle": "hamstrings",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4091,
+  "name": "رویینگ هالتر معکوس",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4119,
+  "name": "ساق دونکی",
+  "main_muscle": "calves",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4109,
+  "name": "اسکات تک پا باکس",
+  "main_muscle": "quads",
+  "equipment": "نیمکت",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4099,
+  "name": "شنا حلقه",
+  "main_muscle": "full_body",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4090,
+  "name": "بارفیکس آرچر",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4118,
+  "name": "لانج اسکی",
+  "main_muscle": "quads",
+  "equipment": "دمبل",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4108,
+  "name": "اسکات کوزاک",
+  "main_muscle": "quads",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4117,
+  "name": "لانج جانبی",
+  "main_muscle": "quads",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4107,
+  "name": "اسکات بلغاری هالتر",
+  "main_muscle": "quads",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4116,
+  "name": "پل باسن تک پا",
+  "main_muscle": "glutes",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4106,
+  "name": "اسکات جعبه",
+  "main_muscle": "quads",
+  "equipment": "هالتر، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4096,
+  "name": "زیربغل پشت گردن",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4087,
+  "name": "زیربغل سینه روی نیمکت",
+  "main_muscle": "back_lat",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4098,
+  "name": "رویینگ کابل ایستاده",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4089,
+  "name": "بارفیکس دست باز",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4079,
+  "name": "پشت بازو تک بازو سیمکش",
+  "main_muscle": "triceps",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4070,
+  "name": "جلو بازو اسپایدر",
+  "main_muscle": "biceps",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4097,
+  "name": "بارفیکس استرالیایی",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4088,
+  "name": "زیربغل دست صاف",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4078,
+  "name": "ساعد معکوس",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4069,
+  "name": "جلو بازو تمرکزی",
+  "main_muscle": "biceps",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4086,
+  "name": "زیربغل مدوز",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4076,
+  "name": "ساعد هالتر",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4067,
+  "name": "جلو بازو کابل",
+  "main_muscle": "biceps",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4057,
+  "name": "نشر پشت سیمکش",
+  "main_muscle": "shoulder_posterior",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4084,
+  "name": "جلو بازو کابل چکشی",
+  "main_muscle": "biceps",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4074,
+  "name": "پشت بازو دیپ وزنه",
+  "main_muscle": "triceps",
+  "equipment": "نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4065,
+  "name": "پرس سینه کابل تک بازو",
+  "main_muscle": "chest",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4055,
+  "name": "نشر جانب نشسته",
+  "main_muscle": "shoulder_lateral",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4083,
+  "name": "پشت بازو لازر",
+  "main_muscle": "triceps",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4073,
+  "name": "پشت بازو پشت سر دمبل",
+  "main_muscle": "triceps",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4064,
+  "name": "هنداستند پوش آپ",
+  "main_muscle": "shoulder_anterior",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4054,
+  "name": "پرس سرشانه نشسته",
+  "main_muscle": "shoulders",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4082,
+  "name": "پشت بازو تک بازو دمبل",
+  "main_muscle": "triceps",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4072,
+  "name": "پشت بازو نشسته دمبل",
+  "main_muscle": "triceps",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4063,
+  "name": "شنا دیواری",
+  "main_muscle": "shoulder_anterior",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4053,
+  "name": "پرس سرشانه اسمیت",
+  "main_muscle": "shoulders",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4081,
+  "name": "جلو بازو بار نشسته",
+  "main_muscle": "biceps",
+  "equipment": "هالتر، نیمکت",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4062,
+  "name": "فلای معکوس اینکلاین",
+  "main_muscle": "shoulder_posterior",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4052,
+  "name": "پرس پین",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر، نیمکت",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4042,
+  "name": "کلین و پرس",
+  "main_muscle": "full_body",
+  "equipment": "هالتر",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4080,
+  "name": "جلو بازو ۲۱",
+  "main_muscle": "biceps",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4071,
+  "name": "جلو بازو چکش کابل",
+  "main_muscle": "biceps",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4061,
+  "name": "پرس پشت سر",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4051,
+  "name": "شنا کلاپ",
+  "main_muscle": "chest",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4077,
+  "name": "ساعد دمبل",
+  "main_muscle": "forearms",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4068,
+  "name": "جلو بازو بار EZ",
+  "main_muscle": "biceps",
+  "equipment": "هالتر",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4058,
+  "name": "پرس لندماین",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4048,
+  "name": "فلای اینکلاین دمبل",
+  "main_muscle": "chest",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4075,
+  "name": "پشت بازو دستگاه",
+  "main_muscle": "triceps",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4066,
+  "name": "جلو بازو پریچر",
+  "main_muscle": "biceps",
+  "equipment": "هالتر، نیمکت",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4056,
+  "name": "نشر جانب خم",
+  "main_muscle": "shoulder_lateral",
+  "equipment": "دمبل",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4046,
+  "name": "پرس سینه دمبل شیب",
+  "main_muscle": "chest",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4060,
+  "name": "نشر جانب کج",
+  "main_muscle": "shoulder_lateral",
+  "equipment": "دمبل",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4050,
+  "name": "پرس سوندر",
+  "main_muscle": "chest",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4040,
+  "name": "پوش پرس",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4030,
+  "name": "هالو بادی",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4059,
+  "name": "پرس سرشانه تک بازو",
+  "main_muscle": "shoulders",
+  "equipment": "دمبل",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4049,
+  "name": "فلای اینکلاین سیمکش",
+  "main_muscle": "chest",
+  "equipment": "نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4039,
+  "name": "کتل سوینگ آمریکایی",
+  "main_muscle": "glutes",
+  "equipment": "کتل‌بل",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4029,
+  "name": "وی آپ",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4047,
+  "name": "فلای زمین دمبل",
+  "main_muscle": "chest",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4037,
+  "name": "کتل کلین",
+  "main_muscle": "full_body",
+  "equipment": "کتل‌بل",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4028,
+  "name": "پای دراز خوابیده",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4018,
+  "name": "ددباگ",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4045,
+  "name": "فارمر واک سنگین",
+  "main_muscle": "full_body",
+  "equipment": "دمبل",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4035,
+  "name": "طناب نبرد",
+  "main_muscle": "full_body",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4026,
+  "name": "پلانک شانه لمس",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4016,
+  "name": "اسکات با مکث",
+  "main_muscle": "quads",
+  "equipment": "هالتر",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4044,
+  "name": "اسکیپ طناب",
+  "main_muscle": "calves",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4034,
+  "name": "پرش پرنده",
+  "main_muscle": "full_body",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4025,
+  "name": "وال سیت",
+  "main_muscle": "quads",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4015,
+  "name": "دیپ وزن بدن",
+  "main_muscle": "triceps",
+  "equipment": "بدون تجهیزات / وزن بدن، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4043,
+  "name": "توپ پزشکی ضربه",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4033,
+  "name": "هیز چopper سیمکش",
+  "main_muscle": "obliques",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4024,
+  "name": "پشت بازو سیمکش معکوس",
+  "main_muscle": "triceps",
+  "equipment": "کابل / سیم‌کش",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4014,
+  "name": "فلای پک دستگاه",
+  "main_muscle": "chest",
+  "equipment": "ماشین / دستگاه",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4041,
+  "name": "تراستر",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4031,
+  "name": "چرخش روسی سیمکش",
+  "main_muscle": "obliques",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4022,
+  "name": "لانج با هالتر",
+  "main_muscle": "quads",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4012,
+  "name": "کرانچ سیمکش",
+  "main_muscle": "abs",
+  "equipment": "کابل / سیم‌کش",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4038,
+  "name": "کتل قاپ",
+  "main_muscle": "full_body",
+  "equipment": "کتل‌بل",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4019,
+  "name": "پالوف پرس",
+  "main_muscle": "abs",
+  "equipment": "کابل / سیم‌کش",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4036,
+  "name": "پرش جعبه",
+  "main_muscle": "quads",
+  "equipment": "نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4027,
+  "name": "پلانک خرس",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4017,
+  "name": "بورپی",
+  "main_muscle": "full_body",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4032,
+  "name": "خم جانبی دمبل",
+  "main_muscle": "obliques",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4023,
+  "name": "لانج عقب",
+  "main_muscle": "quads",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4013,
+  "name": "زیربغل تک بازو سیمکش",
+  "main_muscle": "back_lat",
+  "equipment": "کابل / سیم‌کش",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4021,
+  "name": "زیربغل نشسته سیمکش",
+  "main_muscle": "back_lat",
+  "equipment": "کابل / سیم‌کش",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4011,
+  "name": "فشار پشت بازو هالتر",
+  "main_muscle": "triceps",
+  "equipment": "هالتر، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4020,
+  "name": "پرس سینه دمبل تک دست",
+  "main_muscle": "chest",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4010,
+  "name": "پشت بازو خرچنگ سیمکش",
+  "main_muscle": "triceps",
+  "equipment": "کابل / سیم‌کش",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4009,
+  "name": "جلو بازو اینکلاین دمبل",
+  "main_muscle": "biceps",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3999,
+  "name": "استپ آپ",
+  "main_muscle": "quads",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3989,
+  "name": "فلای معکوس سیمکش",
+  "main_muscle": "shoulder_posterior",
+  "equipment": "کابل / سیم‌کش",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3979,
+  "name": "فارمر واک",
+  "main_muscle": "full_body",
+  "equipment": "دمبل، کتل‌بل",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4008,
+  "name": "لگ پرس",
+  "main_muscle": "quads",
+  "equipment": "ماشین / دستگاه",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3998,
+  "name": "کیک بک باسن سیمکش",
+  "main_muscle": "glutes",
+  "equipment": "کابل / سیم‌کش",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3988,
+  "name": "فلای سیمکش",
+  "main_muscle": "chest",
+  "equipment": "کابل / سیم‌کش",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3978,
+  "name": "سومو ددلیفت",
+  "main_muscle": "lower_back",
+  "equipment": "هالتر",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4007,
+  "name": "پرس سینه اسمیت",
+  "main_muscle": "chest",
+  "equipment": "ماشین / دستگاه، نیمکت",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3997,
+  "name": "نشر پشت با دمبل",
+  "main_muscle": "shoulder_posterior",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3987,
+  "name": "پرس سینه شیب منفی",
+  "main_muscle": "chest",
+  "equipment": "هالتر، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3977,
+  "name": "رومانیایی دمبل",
+  "main_muscle": "hamstrings",
+  "equipment": "دمبل",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4006,
+  "name": "شنا با زانو",
+  "main_muscle": "chest",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3996,
+  "name": "نشر جانب با هالتر",
+  "main_muscle": "shoulder_lateral",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3986,
+  "name": "اسکات اسمیت",
+  "main_muscle": "quads",
+  "equipment": "ماشین / دستگاه",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3976,
+  "name": "دیپ بین نیمکت",
+  "main_muscle": "triceps",
+  "equipment": "نیمکت",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4005,
+  "name": "سوپرمن",
+  "main_muscle": "lower_back",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3995,
+  "name": "پرس آرنولد",
+  "main_muscle": "shoulder_anterior",
+  "equipment": "دمبل",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3985,
+  "name": "پرس سینه دست جمع",
+  "main_muscle": "chest",
+  "equipment": "هالتر، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3975,
+  "name": "شنا شیب منفی",
+  "main_muscle": "chest_upper",
+  "equipment": "نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 4004,
+  "name": "کرانچ دوچرخه",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3994,
+  "name": "پرس زمین هالتر",
+  "main_muscle": "triceps",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3984,
+  "name": "جمع زانو پلانک",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3974,
+  "name": "کراس باز سیمکش",
+  "main_muscle": "shoulder_posterior",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 4003,
+  "name": "چرخ شکم",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3993,
+  "name": "رویینگ پندلی",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3983,
+  "name": "پشت بازو پشت سر سیمکش",
+  "main_muscle": "triceps",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3973,
+  "name": "پشت بازو بالای سر سیمکش",
+  "main_muscle": "triceps",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 4002,
+  "name": "گود مورنینگ",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3992,
+  "name": "چین آپ",
+  "main_muscle": "biceps",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3982,
+  "name": "پشت بازو دمبل خوابیده",
+  "main_muscle": "triceps",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3972,
+  "name": "شراگ دمبل",
+  "main_muscle": "traps",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 4001,
+  "name": "پرس ساق",
+  "main_muscle": "calves",
+  "equipment": "ماشین / دستگاه",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3991,
+  "name": "بارفیکس کمکی",
+  "main_muscle": "back_lat",
+  "equipment": "ماشین / دستگاه",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3981,
+  "name": "کوهنورد",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "هوازی"
+ },
+ {
+  "id": 3971,
+  "name": "نشر از جلو",
+  "main_muscle": "back_lat",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 4000,
+  "name": "ساق نشسته",
+  "main_muscle": "calves",
+  "equipment": "ماشین / دستگاه",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3990,
+  "name": "زیربغل تی بار",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر، ماشین / دستگاه",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3980,
+  "name": "چرخش روسی",
+  "main_muscle": "obliques",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3970,
+  "name": "زیربغل یک دست دمبل",
+  "main_muscle": "back_lat",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3969,
+  "name": "زیربغل دست جمع",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3959,
+  "name": "پاروی صورت",
+  "main_muscle": "shoulder_posterior",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3951,
+  "name": "رویینگ هالتر",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3941,
+  "name": "ددلیفت",
+  "main_muscle": "lower_back",
+  "equipment": "هالتر",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3968,
+  "name": "جمع زانو آویزان",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3958,
+  "name": "پلانک جانبی",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3950,
+  "name": "هیپ تراست",
+  "main_muscle": "glutes",
+  "equipment": "هالتر، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3940,
+  "name": "شنا سوئدی",
+  "main_muscle": "chest",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3967,
+  "name": "پل باسن",
+  "main_muscle": "glutes",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3957,
+  "name": "دراز و نشست",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3949,
+  "name": "اکستنشن پا",
+  "main_muscle": "hamstrings",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3939,
+  "name": "بارفیکس",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3966,
+  "name": "اسکات فرانت",
+  "main_muscle": "quads",
+  "equipment": "هالتر",
+  "difficulty": "پیشرفته",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3947,
+  "name": "پرس سرشانه با دمبل",
+  "main_muscle": "shoulder_anterior",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3937,
+  "name": "پرس سینه با هالتر",
+  "main_muscle": "chest",
+  "equipment": "هالتر، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3927,
+  "name": "جلو بازو دمبل",
+  "main_muscle": "biceps",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3965,
+  "name": "هاک اسکات",
+  "main_muscle": "quads",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3948,
+  "name": "زیربغل سیمکش",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3938,
+  "name": "پرس سرشانه با هالتر",
+  "main_muscle": "shoulder_anterior",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3928,
+  "name": "کرانچ",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3964,
+  "name": "لانج راه رفتن",
+  "main_muscle": "quads",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3956,
+  "name": "ساق ایستاده",
+  "main_muscle": "calves",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3946,
+  "name": "اسکات گابلت",
+  "main_muscle": "quads",
+  "equipment": "دمبل، کتل‌بل",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3936,
+  "name": "شنا الماسی",
+  "main_muscle": "triceps",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3963,
+  "name": "پشت بازو کیک بک",
+  "main_muscle": "triceps",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3955,
+  "name": "پشت پا ایستاده",
+  "main_muscle": "hamstrings",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3945,
+  "name": "جلو بازو هالتر",
+  "main_muscle": "biceps",
+  "equipment": "هالتر",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3935,
+  "name": "رویینگ سیمکش",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3962,
+  "name": "جلو بازو سیمکش",
+  "main_muscle": "biceps",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3954,
+  "name": "اسپلیت اسکات بلغاری",
+  "main_muscle": "quads",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3944,
+  "name": "پرس سینه شیب دار",
+  "main_muscle": "chest",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3934,
+  "name": "کتله بل سوینگ",
+  "main_muscle": "glutes",
+  "equipment": "کتل‌بل",
+  "difficulty": "متوسط",
+  "exercise_type": "توان / انفجاری"
+ },
+ {
+  "id": 3961,
+  "name": "پول اور",
+  "main_muscle": "chest",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3953,
+  "name": "جلو بازو چکشی",
+  "main_muscle": "biceps",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3943,
+  "name": "کراس سیمکش",
+  "main_muscle": "chest",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3933,
+  "name": "پای آویزان",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3960,
+  "name": "پرس سینه مایل دمبل",
+  "main_muscle": "chest",
+  "equipment": "دمبل",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3952,
+  "name": "نشر جانب سیمکش",
+  "main_muscle": "shoulder_lateral",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3942,
+  "name": "فلای دمبل",
+  "main_muscle": "chest",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3932,
+  "name": "پشت بازو دمبل",
+  "main_muscle": "triceps",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3931,
+  "name": "کول هالتر",
+  "main_muscle": "traps",
+  "equipment": "هالتر",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3857,
+  "name": "ددلیفت رومانیایی",
+  "main_muscle": "hamstrings",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3930,
+  "name": "پشت بازو پشت سر",
+  "main_muscle": "triceps",
+  "equipment": "هالتر، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3855,
+  "name": "زیربغل هالتر خمیده",
+  "main_muscle": "back_lat",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3929,
+  "name": "لانج",
+  "main_muscle": "quads",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3853,
+  "name": "پشت بازو سیم کش",
+  "main_muscle": "triceps",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3924,
+  "name": "پرس سینه با دمبل",
+  "main_muscle": "chest",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3847,
+  "name": "اسکات هالتر",
+  "main_muscle": "quads",
+  "equipment": "هالتر",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3910,
+  "name": "هایپراکستنشن",
+  "main_muscle": "lower_back",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3844,
+  "name": "زیربغل سیم کش دست باز",
+  "main_muscle": "back_lat",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3908,
+  "name": "دیپ پارالل",
+  "main_muscle": "triceps",
+  "equipment": "پارالل",
+  "difficulty": "متوسط",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3842,
+  "name": "پشت پا دستگاه",
+  "main_muscle": "hamstrings",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3906,
+  "name": "پلانک",
+  "main_muscle": "abs",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3832,
+  "name": "پرس سینه دستگاه",
+  "main_muscle": "chest",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3887,
+  "name": "پرس پا دستگاه",
+  "main_muscle": "quads",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3831,
+  "name": "پرس سرشانه دستگاه",
+  "main_muscle": "shoulder_anterior",
+  "equipment": "بدون تجهیزات / وزن بدن",
+  "difficulty": "مبتدی",
+  "exercise_type": "قدرتی"
+ },
+ {
+  "id": 3851,
+  "name": "نشر جانب دمبل",
+  "main_muscle": "shoulder_lateral",
+  "equipment": "دمبل",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ },
+ {
+  "id": 3849,
+  "name": "جلوبازو دمبل نشسته",
+  "main_muscle": "biceps",
+  "equipment": "دمبل، نیمکت",
+  "difficulty": "مبتدی",
+  "exercise_type": "حجمی / هایپرتروفی"
+ }
+]

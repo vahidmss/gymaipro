@@ -1,128 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:gymaipro/design_system/animations/scale_in.dart';
-import 'package:gymaipro/design_system/components/gym_button.dart';
-import 'package:gymaipro/design_system/components/gym_progress_ring.dart';
-import 'package:gymaipro/design_system/theme/gym_colors.dart';
 import 'package:gymaipro/design_system/theme/gym_spacing.dart';
-import 'package:gymaipro/design_system/theme/gym_typography.dart';
+import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
 import 'package:gymaipro/features/workout_today/domain/workout_today_domain_model.dart';
+import 'package:gymaipro/features/workout_today/presentation/cards/coach_speech_card.dart';
+import 'package:gymaipro/features/workout_today/presentation/workout_today_theme.dart';
 
 class WorkoutHeroCard extends StatelessWidget {
   const WorkoutHeroCard({
     required this.workout,
-    required this.onStart,
     super.key,
   });
 
   final WorkoutTodayDomainModel workout;
-  final VoidCallback onStart;
 
   @override
   Widget build(BuildContext context) {
     return GymScaleIn(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            'سلام ${workout.userName} 👋',
-            style: GymTypography.display,
-          ),
-          GymSpacing.gapMd,
-          Text(
-            workout.headline,
-            style: GymTypography.headline.copyWith(
-              fontWeight: FontWeight.w700,
+      child: CoachSpeechCard(
+        avatarSize: 44,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'سلام ${workout.userName}',
+              style: context.gymTextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                height: 1.2,
+              ),
             ),
-          ),
-          GymSpacing.gapXl,
-          Wrap(
-            spacing: GymSpacing.xl,
-            runSpacing: GymSpacing.md,
-            children: <Widget>[
-              _HeroMetric(
-                value: '${workout.exercises.length}',
-                label: ProductCopy.exercisesCount,
+            const SizedBox(height: 4),
+            Text(
+              workout.headline,
+              style: context.gymTextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+                color: context.gymTextSecondary,
               ),
-              _HeroMetric(
-                value: '${workout.durationMinutes}',
-                label: ProductCopy.minutes,
-              ),
-              _HeroMetric(
-                value: workout.intensity,
-                label: ProductCopy.difficultyLabel,
-              ),
-            ],
-          ),
-          GymSpacing.gapXxl,
-          GymButton(
-            label: ProductCopy.startWorkout,
-            fullWidth: true,
-            onPressed: onStart,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class WorkoutRecoveryRingCard extends StatelessWidget {
-  const WorkoutRecoveryRingCard({required this.percent, super.key});
-
-  final int percent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        GymProgressRing(
-          value: percent / 100,
-          label: '$percent٪',
-          size: 88,
-          color: GymColors.textPrimary,
-        ),
-        GymSpacing.gapLg,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(ProductCopy.recovery, style: GymTypography.title),
-              GymSpacing.gapSm,
+            ),
+            GymSpacing.gapSm,
+            Text(
+              '${workout.exercises.length} ${ProductCopy.exercisesCount}'
+              '  ·  ${workout.durationMinutes} ${ProductCopy.minutes}'
+              '  ·  ${workout.totalSets} ست',
+              style: context.wtCaption.copyWith(fontSize: 11),
+            ),
+            if (workout.readinessHint.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 4),
               Text(
-                percent >= 70
-                    ? 'بدنت برای تمرین امروز آماده است.'
-                    : 'امروز بهتر است با شدت کنترل‌شده تمرین کنی.',
-                style: GymTypography.body.copyWith(
-                  fontSize: 15,
-                  height: 1.6,
-                  color: GymColors.textPrimary,
-                ),
+                workout.readinessHint,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: context.wtCaption.copyWith(fontSize: 11, height: 1.3),
               ),
             ],
-          ),
+          ],
         ),
-      ],
-    );
-  }
-}
-
-class _HeroMetric extends StatelessWidget {
-  const _HeroMetric({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(value, style: GymTypography.metric),
-        Text(
-          label,
-          style: GymTypography.caption.copyWith(color: GymColors.textTertiary),
-        ),
-      ],
+      ),
     );
   }
 }

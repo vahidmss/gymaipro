@@ -127,84 +127,95 @@ class WorkoutProgramMutator {
   WorkoutProgram adjustVolume({
     required WorkoutProgram program,
     required int deltaSets,
+    String? dayLabel,
   }) {
-    return _mapExercises(program, (exercise) {
-      if (deltaSets == 0) return exercise;
-      final sets = List<WorkoutSet>.from(exercise.sets);
-      if (deltaSets > 0) {
-        final last = sets.isNotEmpty ? sets.last : null;
-        final reps = last?.reps ?? 10;
-        for (var i = 0; i < deltaSets; i++) {
-          sets.add(
-            WorkoutSet(
-              id: '${exercise.id}-extra-${sets.length}',
-              order: sets.length,
-              type: WorkoutSetType.reps,
-              reps: reps,
-            ),
-          );
+    return _mapExercises(
+      program,
+      (exercise) {
+        if (deltaSets == 0) return exercise;
+        final sets = List<WorkoutSet>.from(exercise.sets);
+        if (deltaSets > 0) {
+          final last = sets.isNotEmpty ? sets.last : null;
+          final reps = last?.reps ?? 10;
+          for (var i = 0; i < deltaSets; i++) {
+            sets.add(
+              WorkoutSet(
+                id: '${exercise.id}-extra-${sets.length}',
+                order: sets.length,
+                type: WorkoutSetType.reps,
+                reps: reps,
+              ),
+            );
+          }
+        } else if (sets.length > 1) {
+          sets.removeLast();
         }
-      } else if (sets.length > 1) {
-        sets.removeLast();
-      }
-      return WorkoutExercise(
-        id: exercise.id,
-        catalogExerciseId: exercise.catalogExerciseId,
-        name: exercise.name,
-        primaryMuscle: exercise.primaryMuscle,
-        secondaryMuscles: exercise.secondaryMuscles,
-        equipment: exercise.equipment,
-        difficulty: exercise.difficulty,
-        isCompound: exercise.isCompound,
-        order: exercise.order,
-        sets: sets,
-        notes: exercise.notes,
-        selectionReasons: exercise.selectionReasons,
-      );
-    });
+        return WorkoutExercise(
+          id: exercise.id,
+          catalogExerciseId: exercise.catalogExerciseId,
+          name: exercise.name,
+          primaryMuscle: exercise.primaryMuscle,
+          secondaryMuscles: exercise.secondaryMuscles,
+          equipment: exercise.equipment,
+          difficulty: exercise.difficulty,
+          isCompound: exercise.isCompound,
+          order: exercise.order,
+          sets: sets,
+          notes: exercise.notes,
+          selectionReasons: exercise.selectionReasons,
+        );
+      },
+      dayLabel: dayLabel,
+    );
   }
 
   WorkoutProgram adjustIntensity({
     required WorkoutProgram program,
     required int repDelta,
+    String? dayLabel,
   }) {
-    return _mapExercises(program, (exercise) {
-      final sets = exercise.sets
-          .map(
-            (set) => WorkoutSet(
-              id: set.id,
-              order: set.order,
-              type: set.type,
-              reps: set.reps == null
-                  ? null
-                  : (set.reps! + repDelta).clamp(1, 30),
-              timeSeconds: set.timeSeconds,
-              weightKg: set.weightKg,
-              rir: set.rir,
-              progression: set.progression,
-            ),
-          )
-          .toList();
-      return WorkoutExercise(
-        id: exercise.id,
-        catalogExerciseId: exercise.catalogExerciseId,
-        name: exercise.name,
-        primaryMuscle: exercise.primaryMuscle,
-        secondaryMuscles: exercise.secondaryMuscles,
-        equipment: exercise.equipment,
-        difficulty: exercise.difficulty,
-        isCompound: exercise.isCompound,
-        order: exercise.order,
-        sets: sets,
-        notes: exercise.notes,
-        selectionReasons: exercise.selectionReasons,
-      );
-    });
+    return _mapExercises(
+      program,
+      (exercise) {
+        final sets = exercise.sets
+            .map(
+              (set) => WorkoutSet(
+                id: set.id,
+                order: set.order,
+                type: set.type,
+                reps: set.reps == null
+                    ? null
+                    : (set.reps! + repDelta).clamp(1, 30),
+                timeSeconds: set.timeSeconds,
+                weightKg: set.weightKg,
+                rir: set.rir,
+                progression: set.progression,
+              ),
+            )
+            .toList();
+        return WorkoutExercise(
+          id: exercise.id,
+          catalogExerciseId: exercise.catalogExerciseId,
+          name: exercise.name,
+          primaryMuscle: exercise.primaryMuscle,
+          secondaryMuscles: exercise.secondaryMuscles,
+          equipment: exercise.equipment,
+          difficulty: exercise.difficulty,
+          isCompound: exercise.isCompound,
+          order: exercise.order,
+          sets: sets,
+          notes: exercise.notes,
+          selectionReasons: exercise.selectionReasons,
+        );
+      },
+      dayLabel: dayLabel,
+    );
   }
 
   WorkoutProgram shortenSessions({
     required WorkoutProgram program,
     int removeExercisesPerDay = 1,
+    String? dayLabel,
   }) {
     final weeks = program.weeks
         .map(
@@ -214,6 +225,7 @@ class WorkoutProgramMutator {
             days: week.days
                 .map(
                   (day) {
+                    if (!_dayMatchesLabel(day.label, dayLabel)) return day;
                     if (day.exercises.length <= 2) return day;
                     final sorted = List<WorkoutExercise>.from(day.exercises)
                       ..sort((a, b) => b.order.compareTo(a.order));
@@ -261,8 +273,9 @@ class WorkoutProgramMutator {
 
   WorkoutProgram _mapExercises(
     WorkoutProgram program,
-    WorkoutExercise Function(WorkoutExercise exercise) transform,
-  ) {
+    WorkoutExercise Function(WorkoutExercise exercise) transform, {
+    String? dayLabel,
+  }) {
     final weeks = program.weeks
         .map(
           (week) => WorkoutWeek(
@@ -270,19 +283,36 @@ class WorkoutProgramMutator {
             weekIndex: week.weekIndex,
             days: week.days
                 .map(
-                  (day) => WorkoutDay(
-                    id: day.id,
-                    dayIndex: day.dayIndex,
-                    label: day.label,
-                    exercises: day.exercises.map(transform).toList(),
-                    notes: day.notes,
-                  ),
+                  (day) {
+                    if (!_dayMatchesLabel(day.label, dayLabel)) return day;
+                    return WorkoutDay(
+                      id: day.id,
+                      dayIndex: day.dayIndex,
+                      label: day.label,
+                      exercises: day.exercises.map(transform).toList(),
+                      notes: day.notes,
+                    );
+                  },
                 )
                 .toList(),
           ),
         )
         .toList();
     return _rebuild(program, weeks);
+  }
+
+  bool _dayMatchesLabel(String dayLabel, String? filter) {
+    final wanted = filter?.trim() ?? '';
+    if (wanted.isEmpty) return true;
+    final current = dayLabel.trim();
+    if (current == wanted) return true;
+    if (current.contains(wanted) || wanted.contains(current)) return true;
+    final wantedNum = RegExp(r'روز\s*([0-9۰-۹]+)').firstMatch(wanted)?.group(1);
+    final currentNum =
+        RegExp(r'روز\s*([0-9۰-۹]+)').firstMatch(current)?.group(1);
+    return wantedNum != null &&
+        currentNum != null &&
+        wantedNum == currentNum;
   }
 
   WorkoutProgram _mapDays(

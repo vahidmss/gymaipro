@@ -52,10 +52,10 @@ extension SafeAnimationController on AnimationController {
   }
 
   /// فراخوانی ایمن repeat
-  void safeRepeat() {
+  void safeRepeat({bool reverse = false}) {
     if (_isDisposed) return;
     try {
-      repeat();
+      repeat(reverse: reverse);
     } catch (e) {
       // ignore - controller already disposed
     }

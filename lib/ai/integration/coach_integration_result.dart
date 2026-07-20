@@ -3,6 +3,7 @@ import 'package:gymaipro/ai/coach/coach_reason.dart';
 import 'package:gymaipro/ai/context/coach_context.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/intent_detector.dart';
+import 'package:gymaipro/ai/integration/entity_memory_integration.dart';
 import 'package:gymaipro/ai/integration/integration_event.dart';
 import 'package:gymaipro/ai/planner/coach_action.dart';
 import 'package:gymaipro/ai/planner/coach_executor.dart';
@@ -33,6 +34,7 @@ class CoachIntegrationResult {
     required this.logs,
     this.promptPackage,
     this.conversationState,
+    this.memoryApplication,
     this.pipelineTrace,
     this.skillExecutionResult,
     this.isLocalResponse = false,
@@ -47,6 +49,7 @@ class CoachIntegrationResult {
     required Duration processingTime,
     required List<IntegrationEvent> logs,
     CoachConversationState? conversationState,
+    EntityMemoryApplicationResult? memoryApplication,
     CoachPipelineTrace? pipelineTrace,
     CoachPipelineMode? pipelineMode,
   }) {
@@ -110,6 +113,7 @@ class CoachIntegrationResult {
       estimatedLatency: skillExecution.executionTime,
       logs: logs,
       conversationState: conversationState,
+      memoryApplication: memoryApplication,
       pipelineTrace: pipelineTrace,
       skillExecutionResult: skillExecution,
       isLocalResponse: true,
@@ -134,6 +138,9 @@ class CoachIntegrationResult {
 
   /// Conversation state snapshot after state-engine integration.
   final CoachConversationState? conversationState;
+
+  /// Memory write result for this turn (auto + pending confirmations).
+  final EntityMemoryApplicationResult? memoryApplication;
 
   /// Dry-run execution preview.
   final CoachExecutionPreview executorPreview;

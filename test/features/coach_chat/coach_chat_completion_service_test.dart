@@ -64,6 +64,39 @@ void main() {
     expect(text, contains('سلام'));
     expect(text, isNot(contains('knowledge node')));
   });
+
+  test('CoachChatCompletionService localizes entitlement upgrade message', () async {
+    final service = CoachChatCompletionService();
+    final result = _integrationResult(
+      shouldCallAI: false,
+      status: CoachDecisionStatus.upgradeRequired,
+      localResponse: 'Upgrade to coach_pro to use this coach capability.',
+    );
+
+    final text = await service.resolveResponse(
+      result: result,
+      userMessage: 'برای من یک برنامه تمرینی بساز',
+    );
+
+    expect(text, contains('اشتراک مربی پیشرفته'));
+    expect(text, isNot(contains('coach_pro')));
+  });
+
+  test('CoachChatCompletionService prefers follow-up over OpenAI for generation', () async {
+    final service = CoachChatCompletionService();
+    final result = _integrationResult(
+      shouldCallAI: true,
+      followUpQuestion: 'برای ساخت برنامه دقیق، سنت چند سال است؟',
+      missingData: const <String>['age', 'height'],
+    );
+
+    final text = await service.resolveResponse(
+      result: result,
+      userMessage: 'برای من یک برنامه تمرینی بساز',
+    );
+
+    expect(text, contains('سنت چند سال'));
+  });
 }
 
 CoachIntegrationResult _integrationResult({
@@ -72,17 +105,23 @@ CoachIntegrationResult _integrationResult({
   List<String> knowledgeReasons = const <String>[],
   bool isLocalResponse = false,
   String? skillMessage,
+  CoachDecisionStatus status = CoachDecisionStatus.allowed,
+  String? localResponse,
+  String? followUpQuestion,
+  List<String> missingData = const <String>[],
 }) {
   final decision = CoachDecision(
     shouldCallAI: shouldCallAI,
-    localResponse: shouldCallAI ? null : null,
-    missingData: const <String>[],
+    localResponse: localResponse,
+    followUpQuestion: followUpQuestion,
+    missingData: missingData,
     requiredProviders: const <AIContextProviderKey>{},
     missingProviders: const <AIContextProviderKey>{},
     decisionReason: const <CoachReason>{CoachReason.localAnswer},
     confidence: 0.5,
     notes: const <String>[],
     knowledgeReasons: knowledgeReasons,
+    status: status,
   );
   final responsePlan = CoachResponsePlan(
     id: 'test_plan',
@@ -91,7 +130,9 @@ CoachIntegrationResult _integrationResult({
     requiresAI: shouldCallAI,
     requiredProviders: const <AIContextProviderKey>{},
     missingProviders: const <AIContextProviderKey>{},
-    followUpQuestions: const <String>[],
+    followUpQuestions: <String>[
+      if (followUpQuestion != null) followUpQuestion,
+    ],
     contextKeys: const <AIContextProviderKey>{},
     confidence: 0.5,
     estimatedTokens: 0,
@@ -130,7 +171,7 @@ CoachIntegrationResult _integrationResult({
     ),
     processingTime: Duration.zero,
     missingProviders: const <AIContextProviderKey>{},
-    missingData: const <String>[],
+    missingData: missingData,
     confidence: 0.5,
     estimatedCost: 0,
     estimatedTokens: 0,

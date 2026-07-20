@@ -19,17 +19,17 @@ class NotificationIcon extends StatefulWidget {
 
 class _NotificationIconState extends State<NotificationIcon>
     with TickerProviderStateMixin {
-  late AnimationController _pulseController;
+  late AnimationController _badgePulseController;
   late AnimationController _bounceController;
-  late Animation<double> _pulseAnimation;
+  late Animation<double> _badgePulseAnimation;
   late Animation<double> _bounceAnimation;
 
   @override
   void initState() {
     super.initState();
 
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
+    _badgePulseController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
 
@@ -38,15 +38,17 @@ class _NotificationIconState extends State<NotificationIcon>
       vsync: this,
     );
 
-    _pulseAnimation = Tween<double>(begin: 1, end: 1.1).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    _badgePulseAnimation = Tween<double>(begin: 1, end: 1.12).animate(
+      CurvedAnimation(
+        parent: _badgePulseController,
+        curve: Curves.easeInOut,
+      ),
     );
 
     _bounceAnimation = Tween<double>(begin: 1, end: 0.9).animate(
       CurvedAnimation(parent: _bounceController, curve: Curves.elasticOut),
     );
 
-    // Load unread count on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<NotificationProvider>();
       provider.attachForCurrentUser();
@@ -59,18 +61,18 @@ class _NotificationIconState extends State<NotificationIcon>
     super.didChangeDependencies();
     final provider = context.watch<NotificationProvider>();
     final hasUnread = provider.unreadCount > 0;
-    
+
     if (hasUnread) {
-      _pulseController.safeRepeat();
+      _badgePulseController.safeRepeat(reverse: true);
     } else {
-      _pulseController.safeStop();
-      _pulseController.safeReset();
+      _badgePulseController.safeStop();
+      _badgePulseController.safeReset();
     }
   }
 
   @override
   void dispose() {
-    _pulseController.dispose();
+    _badgePulseController.dispose();
     _bounceController.dispose();
     super.dispose();
   }
@@ -89,44 +91,30 @@ class _NotificationIconState extends State<NotificationIcon>
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final hasUnread = provider.unreadCount > 0;
         final unreadCount = provider.unreadCount;
-        final iconColor = hasUnread
-            ? AppTheme.goldColor
-            : context.textSecondary;
 
         return GestureDetector(
           onTap: _handleTap,
           child: AnimatedBuilder(
-            animation: Listenable.merge([_pulseAnimation, _bounceAnimation]),
+            animation: Listenable.merge([
+              _badgePulseAnimation,
+              _bounceAnimation,
+            ]),
             builder: (context, child) {
               return Transform.scale(
                 scale: _bounceAnimation.value,
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    // Main notification container
                     Container(
                       padding: EdgeInsets.all(10.w),
                       decoration: BoxDecoration(
-                        gradient: hasUnread
-                            ? LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  AppTheme.goldColor.withValues(alpha: 0.2),
-                                  AppTheme.darkGold.withValues(alpha: 0.15),
-                                ],
-                              )
-                            : LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [context.cardColor, context.cardColor],
-                              ),
+                        color: context.cardColor,
                         borderRadius: BorderRadius.circular(14.r),
                         border: Border.all(
                           color: hasUnread
-                              ? AppTheme.goldColor.withValues(alpha: 0.5)
+                              ? const Color(0xFFE53E3E).withValues(alpha: 0.45)
                               : context.separatorColor,
-                          width: hasUnread ? 1.5.w : 1.w,
+                          width: 1.w,
                         ),
                         boxShadow: [
                           BoxShadow(
@@ -136,108 +124,53 @@ class _NotificationIconState extends State<NotificationIcon>
                             blurRadius: 6.r,
                             offset: Offset(0.w, 2.h),
                           ),
-                          if (hasUnread)
-                            BoxShadow(
-                              color: AppTheme.goldColor.withValues(
-                                alpha: 0.4 * _pulseAnimation.value,
-                              ),
-                              blurRadius: 12 * _pulseAnimation.value,
-                              spreadRadius: 2 * _pulseAnimation.value,
-                            ),
                         ],
                       ),
-                      child: Center(
-                        child: Icon(
-                          LucideIcons.bellRing,
-                          color: iconColor,
-                          size: 22.sp,
-                          shadows: hasUnread
-                              ? [
-                                  Shadow(
-                                    color: AppTheme.goldColor.withValues(
-                                      alpha: 0.4,
-                                    ),
-                                    blurRadius: 6.r,
-                                    offset: Offset(0.w, 0.h),
-                                  ),
-                                ]
-                              : null,
-                        ),
+                      child: Icon(
+                        hasUnread ? LucideIcons.bellRing : LucideIcons.bell,
+                        color: context.textColor,
+                        size: 22.sp,
                       ),
                     ),
-                    // Unread count badge or red dot
                     if (hasUnread)
                       Positioned(
-                        right: -3,
-                        top: -3,
+                        right: -4.w,
+                        top: -4.h,
                         child: Transform.scale(
-                          scale: _pulseAnimation.value,
-                          child: unreadCount > 0
-                              ? Container(
-                                  constraints: BoxConstraints(
-                                    minWidth: 20.w,
-                                    minHeight: 20.h,
-                                  ),
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: unreadCount > 9 ? 6.w : 5.w,
-                                    vertical: 3.h,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFFFF4444),
-                                        Color(0xFFE53E3E),
-                                      ],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12.r),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.red.withValues(alpha: 0.5),
-                                        blurRadius: 6.r,
-                                        offset: Offset(0.w, 2.h),
-                                        spreadRadius: 1.r,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      unreadCount > 99
-                                          ? '99+'
-                                          : unreadCount.toString(),
-                                      style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                                        color: Colors.white,
-                                        fontSize: 11.sp,
-                                        fontWeight: FontWeight.bold,
-                                        height: 1,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                )
-                              : // Red dot when has unread but count is 0
-                                Container(
-                                  width: 12.w,
-                                  height: 12.h,
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFFFF4444),
-                                        Color(0xFFE53E3E),
-                                      ],
-                                    ),
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.red.withValues(alpha: 0.6),
-                                        blurRadius: 6.r,
-                                        spreadRadius: 1.5.r,
-                                      ),
-                                    ],
-                                  ),
+                          scale: _badgePulseAnimation.value,
+                          child: Container(
+                            constraints: BoxConstraints(
+                              minWidth: 18.w,
+                              minHeight: 18.h,
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: unreadCount > 9 ? 5.w : 4.w,
+                              vertical: 2.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE53E3E),
+                              borderRadius: BorderRadius.circular(10.r),
+                              border: Border.all(
+                                color: context.cardColor,
+                                width: 1.5.w,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                unreadCount > 99
+                                    ? '99+'
+                                    : unreadCount.toString(),
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  color: Colors.white,
+                                  fontSize: 10.sp,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1,
                                 ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                   ],

@@ -6,7 +6,8 @@ import 'package:gymaipro/features/live_workout/application/live_workout_session_
 import 'package:gymaipro/features/live_workout/domain/session/workout_session.dart';
 import 'package:gymaipro/features/live_workout/domain/session/workout_set_session_status.dart';
 import 'package:gymaipro/features/live_workout/state/live_workout_completion_summary.dart';
-import 'package:gymaipro/features/product_experience/product_experience_formatter.dart';
+import 'package:gymaipro/models/exercise.dart';
+import 'package:gymaipro/services/muscle_heatmap_aggregate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LiveWorkoutCompletionResult {
@@ -19,7 +20,7 @@ class LiveWorkoutCompletionResult {
   final LiveWorkoutPersistenceResult persistence;
 }
 
-/// Integrates completion side-effects: persist, memory, recovery, coach message.
+/// Integrates completion side-effects: persist, memory, recovery, summary.
 class LiveWorkoutCompletionService {
   LiveWorkoutCompletionService({
     LiveWorkoutSessionPersistence? persistence,
@@ -36,16 +37,10 @@ class LiveWorkoutCompletionService {
   Future<LiveWorkoutCompletionResult> complete({
     required WorkoutSession session,
     required String userId,
-    required List<String> coachTips,
-    required List<String> explainability,
+    Map<int, Exercise> exerciseById = const <int, Exercise>{},
   }) async {
-    final previousSets = await _persistence.countCompletedSetsForDate(
-      userId: userId,
-      date: session.startedAt.subtract(const Duration(days: 1)),
-    );
     final currentSets = session.completedSets;
     final volume = _totalVolume(session);
-    final durationMinutes = DateTime.now().difference(session.startedAt).inMinutes;
 
     final persistence = await _persistence.persistSession(
       session: session,
@@ -64,38 +59,36 @@ class LiveWorkoutCompletionService {
       completedSets: currentSets,
     );
 
-    final coachMessage = ProductExperienceFormatter.postWorkoutCoachMessage(
-      sessionTitle: session.title,
-      completedSets: currentSets,
-      previousSessionSets: previousSets,
-      totalVolumeKg: volume,
-      coachTips: coachTips,
-    );
-
-    final summary = LiveWorkoutCompletionSummary(
-      title: session.title,
-      focus: session.focus,
-      durationMinutes: durationMinutes.clamp(1, 999),
-      completedExercises: session.finishedExercises,
-      totalExercises: session.totalExercises,
-      completedSets: currentSets,
-      totalSets: session.totalSets,
-      totalVolumeKg: volume,
-      coachMessage: coachMessage,
-      highlights: ProductExperienceFormatter.workoutCompletionHighlights(
-        completedExercises: session.finishedExercises,
-        totalExercises: session.totalExercises,
-        completedSets: currentSets,
-        totalSets: session.totalSets,
-        totalVolumeKg: volume,
-        explainability: explainability,
-      ),
+    final summary = buildSummary(
+      session: session,
+      exerciseById: exerciseById,
       synced: persistence.synced,
     );
 
     return LiveWorkoutCompletionResult(
       summary: summary,
       persistence: persistence,
+    );
+  }
+
+  /// Rebuilds the on-screen completion card without re-running side effects.
+  /// Used when reopening today's already-logged session.
+  LiveWorkoutCompletionSummary buildSummary({
+    required WorkoutSession session,
+    Map<int, Exercise> exerciseById = const <int, Exercise>{},
+    bool synced = true,
+  }) {
+    final heatmap = MuscleHeatmapAggregate.fromLiveSession(
+      session,
+      exerciseById,
+    );
+    return LiveWorkoutCompletionSummary.fromSessionStats(
+      focus: session.focus,
+      completedSets: session.completedSets,
+      totalSets: session.totalSets,
+      totalVolumeKg: _totalVolume(session),
+      heatmap: heatmap,
+      synced: synced,
     );
   }
 

@@ -1,0 +1,24 @@
+POP20 BATCH SOURCE:
+pop20-batch1.php | پرس سینه با هالتر | ?
+pop20-batch1.php | پرس سینه با دمبل | ?
+pop20-batch1.php | پرس سرشانه با هالتر | ?
+pop20-batch1.php | جلو بازو هالتر | ?
+pop20-batch10.php | جلو بازو هالتر | biceps
+pop20-batch11.php | پرس سرشانه با هالتر | shoulder_anterior
+pop20-batch2.php | جلو بازو هالتر | biceps
+pop20-batch3.php | پرس سرشانه با هالتر | shoulder_anterior
+pop20-batch3.php | جلو بازو هالتر | biceps
+pop20-batch3.php | هیپ تراست | ?
+pop20-batch3.php | پل باسن | glutes
+pop20-batch4.php | پرس سینه با دمبل | triceps
+pop20-batch4.php | هیپ تراست | glutes
+pop20-batch4.php | پل باسن | ?
+pop20-batch5.php | پرس سینه با هالتر | chest
+pop20-batch5.php | هیپ تراست | glutes
+pop20-batch6.php | پرس سینه با دمبل | chest
+pop20-batch7.php | هیپ تراست | ?
+pop20-batch7.php | پل باسن | ?
+pop20-batch9.php | پرس سینه با هالتر | chest
+pop20-batch9.php | پرس سرشانه با هالتر | shoulder_anterior
+
+V36 API DUMP:

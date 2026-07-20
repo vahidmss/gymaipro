@@ -128,11 +128,23 @@ class WorkoutDailyLogService {
         await saveLogLocal(log);
         return log;
       }
+
+      // Remote empty: only wipe local *ghost shells*. Never delete a log that
+      // has real sets — save may still be pending / offline.
+      final cached = await loadLogLocal(userId, date);
+      if (cached == null) return null;
+      if (cached.hasMeaningfulLoggedSets) return cached;
+      await deleteLogLocal(userId, date);
       return null;
     } catch (e) {
       debugPrint('Error fetching daily log by date: $e');
-      // If database fails, try cache as fallback
-      return loadLogLocal(userId, date);
+      // Offline fallback: only keep local cache if it has real sets.
+      // Empty shells must not trigger "session already logged" warnings.
+      final cached = await loadLogLocal(userId, date);
+      if (cached == null) return null;
+      if (cached.hasMeaningfulLoggedSets) return cached;
+      await deleteLogLocal(userId, date);
+      return null;
     }
   }
 
@@ -157,6 +169,9 @@ class WorkoutDailyLogService {
         if (dbLog.updatedAt.isAfter(cachedLog.updatedAt)) {
           await saveLogLocal(dbLog);
         }
+      } else if (!cachedLog.hasMeaningfulLoggedSets) {
+        // Only clear empty shells when remote has nothing.
+        await deleteLogLocal(userId, date);
       }
     } catch (e) {
       debugPrint('Error updating cache from database: $e');

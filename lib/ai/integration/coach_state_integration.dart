@@ -239,7 +239,8 @@ class CoachStateIntegration {
   ConversationFlowType _flowTypeForIntent(AIIntent intent) {
     switch (intent) {
       case AIIntent.workoutGeneration:
-        return ConversationFlowType.workoutGeneration;
+        // Programs are not authored in chat; keep flow generic.
+        return ConversationFlowType.general;
       case AIIntent.progressAnalysis:
         return ConversationFlowType.progressAnalysis;
       case AIIntent.workoutToday:

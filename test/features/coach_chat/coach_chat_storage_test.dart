@@ -23,7 +23,7 @@ void main() {
   group('CoachChatStorageService', () {
     test('round-trips messages for a user', () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
-      final storage = CoachChatStorageService();
+      final storage = CoachChatStorageService(enableRemoteSync: false);
       const userId = 'user_123';
       final messages = <CoachChatMessage>[
         CoachChatMessage(

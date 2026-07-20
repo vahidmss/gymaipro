@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/ai/services/ai_chat_availability.dart';
 import 'package:gymaipro/ai/services/ai_workout_generator_service.dart';
+import 'package:gymaipro/services/active_program_service.dart';
 import 'package:gymaipro/services/ai_trainer_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
@@ -262,50 +264,45 @@ class _WorkoutQuestionnaireScreenState
     try {
       debugPrint('شروع ذخیره برنامه در دیتابیس...');
 
-      // دریافت شناسه AI Trainer (ایجاد در صورت عدم وجود)
-      debugPrint('دریافت شناسه AI Trainer...');
       final aiTrainerId = await AITrainerService.ensureAITrainerExists();
       debugPrint('شناسه AI Trainer: $aiTrainerId');
 
-      // ذخیره برنامه در دیتابیس
-      debugPrint('ذخیره برنامه در دیتابیس...');
-      final savedProgram = await WorkoutProgramService().createProgram(
+      program.isSelfServiceAi = true;
+
+      final programService = WorkoutProgramService();
+      final savedProgram = await programService.createProgram(
         program,
         trainerId: aiTrainerId,
+        autoSend: true,
       );
-
       debugPrint('برنامه با موفقیت ذخیره شد: ${savedProgram.name}');
 
-      // پاک کردن پاسخ‌های پرسشنامه از SharedPreferences بعد از تولید موفق برنامه
+      await programService.sendProgram(savedProgram.id);
+      await ActiveProgramService().setActiveProgram(savedProgram.id);
+      debugPrint('برنامه فعال شد: ${savedProgram.id}');
+
       if (_userId != null) {
         await _localStorage.clearResponses(_userId!);
         debugPrint('پاسخ‌های پرسشنامه از SharedPreferences پاک شدند');
       }
 
-      // نمایش پیام موفقیت
       if (mounted) {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
-          'برنامه تمرینی شما آماده و ذخیره شد! 🎉',
+          'برنامه تمرینی شما آماده شد — از «تمرین امروز» شروع کن! 🎉',
           backgroundColor: Colors.green,
         );
 
-        WidgetSafetyUtils.safePop(context);
-
-        // هدایت به صفحه برنامه‌های AI
-        WidgetSafetyUtils.safePushReplacementNamed(
-          context,
-          '/ai-programs',
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/workout-today',
+          (route) => route.isFirst,
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('خطا در ذخیره برنامه: $e');
+      debugPrint('Stack trace: $stackTrace');
       if (mounted) {
-        WidgetSafetyUtils.safeShowSnackBar(
-          context,
-          'خطا در ذخیره برنامه: $e',
-          backgroundColor: Colors.red,
-        );
+        _showError('خطا در ذخیره برنامه: $e');
       }
     }
   }
@@ -862,7 +859,7 @@ class _WorkoutGenerationDialogState extends State<_WorkoutGenerationDialog> {
         _isGenerating = false;
         _statusMessage = program != null
             ? 'برنامه تمرینی شما آماده است! 🎉'
-            : 'خطا در تولید برنامه. لطفاً دوباره تلاش کنید.';
+            : gymAiModelsUnavailableMessage;
       });
 
       // فراخوانی callback

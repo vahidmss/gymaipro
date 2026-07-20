@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:gymaipro/design_system/theme/gym_colors.dart';
 import 'package:gymaipro/design_system/theme/gym_spacing.dart';
-import 'package:gymaipro/design_system/theme/gym_typography.dart';
+import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
 import 'package:gymaipro/features/product_experience/product_experience_formatter.dart';
 import 'package:gymaipro/features/workout_today/domain/workout_today_domain_model.dart';
+import 'package:gymaipro/features/workout_today/presentation/cards/coach_speech_card.dart';
 
 class ExerciseTimelineCard extends StatelessWidget {
   const ExerciseTimelineCard({required this.exercises, super.key});
@@ -13,84 +13,85 @@ class ExerciseTimelineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(ProductCopy.exerciseTimeline, style: GymTypography.title),
-        GymSpacing.gapLg,
-        for (var i = 0; i < exercises.length; i++)
-          _TimelineItem(
-            exercise: exercises[i],
-            index: i,
-            isLast: i == exercises.length - 1,
-          ),
-      ],
+    if (exercises.isEmpty) return const SizedBox.shrink();
+
+    return CoachSpeechCard(
+      title: ProductCopy.exerciseTimeline,
+      child: Column(
+        children: <Widget>[
+          for (var i = 0; i < exercises.length; i++) ...<Widget>[
+            _ScrollableExerciseRow(exercise: exercises[i], index: i),
+            if (i < exercises.length - 1)
+              Divider(
+                height: 8,
+                thickness: 0.5,
+                color: context.gymBorderSubtle,
+              ),
+          ],
+        ],
+      ),
     );
   }
 }
 
-class _TimelineItem extends StatelessWidget {
-  const _TimelineItem({
+class _ScrollableExerciseRow extends StatelessWidget {
+  const _ScrollableExerciseRow({
     required this.exercise,
     required this.index,
-    required this.isLast,
   });
 
   final WorkoutTodayExercise exercise;
   final int index;
-  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicHeight(
+    final name = ProductExperienceFormatter.displayExerciseName(
+      name: exercise.name,
+      primaryMuscle: exercise.primaryMuscle,
+      orderIndex: index,
+    );
+    final meta = ProductExperienceFormatter.timelineSubtitle(exercise);
+    final textStyle = context.gymTextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w500,
+      height: 1.2,
+      color: context.gymTextPrimary,
+    );
+    final metaStyle = context.gymTextStyle(
+      fontSize: 10,
+      fontWeight: FontWeight.w500,
+      height: 1.2,
+      color: context.gymTextSecondary,
+    );
+
+    return SizedBox(
+      height: 22,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Column(
-            children: <Widget>[
-              Container(
-                width: 10,
-                height: 10,
-                margin: const EdgeInsets.only(top: GymSpacing.sm),
-                decoration: BoxDecoration(
-                  color: index.isEven
-                      ? GymColors.textPrimary
-                      : GymColors.neutral600,
-                  shape: BoxShape.circle,
-                ),
+          SizedBox(
+            width: 16,
+            child: Text(
+              '${index + 1}',
+              style: context.gymTextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: context.gymPrimary,
               ),
-              if (!isLast)
-                Expanded(
-                  child: Container(
-                    width: 2,
-                    margin: const EdgeInsets.symmetric(vertical: GymSpacing.xs),
-                    color: GymColors.border,
-                  ),
-                ),
-            ],
+            ),
           ),
-          GymSpacing.gapMd,
+          GymSpacing.gapXs,
           Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : GymSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
                 children: <Widget>[
-                  Text(exercise.name, style: GymTypography.bodyStrong),
-                  GymSpacing.gapXs,
-                  Text(
-                    ProductExperienceFormatter.timelineSubtitle(exercise),
-                    style: GymTypography.caption,
+                  Text(name, style: textStyle),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Text('·', style: metaStyle),
                   ),
-                  if (exercise.notes != null && exercise.notes!.trim().isNotEmpty) ...<Widget>[
-                    GymSpacing.gapXs,
-                    Text(
-                      exercise.notes!,
-                      style: GymTypography.caption.copyWith(
-                        color: GymColors.textSecondary,
-                      ),
-                    ),
-                  ],
+                  Text(meta, style: metaStyle),
                 ],
               ),
             ),

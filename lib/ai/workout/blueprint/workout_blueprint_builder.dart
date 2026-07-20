@@ -1,4 +1,5 @@
 import 'package:gymaipro/ai/context/coach_context.dart';
+import 'package:gymaipro/ai/context/profile_age_resolver.dart';
 import 'package:gymaipro/ai/entitlement/coach_capability.dart';
 import 'package:gymaipro/ai/entitlement/runtime/coach_entitlement_snapshot.dart';
 import 'package:gymaipro/ai/entitlement/subscription_capability_map.dart';
@@ -353,7 +354,7 @@ class WorkoutBlueprintBuilder {
     required int sessionMinutes,
   }) {
     final missing = <String>[];
-    final age = _asInt(profile['age']);
+    final age = _asInt(profile['age']) ?? ProfileAgeResolver.resolve(profile);
     final height = _asDouble(profile['height']);
     final weight = _asDouble(profile['weight']);
     if (age == null || age <= 0) missing.add('age');
@@ -396,7 +397,9 @@ class WorkoutBlueprintBuilder {
       case WorkoutFrequencyStrategy.two:
         return WorkoutSplitStrategy.fullBody;
       case WorkoutFrequencyStrategy.three:
-        if (goal == TrainingGoal.fatLoss || isBeginner) {
+        // 3-day programs use PPL so day labels (فشار/کشش/پا) match muscle focus.
+        // Full-body remains for true beginners only.
+        if (isBeginner) {
           return WorkoutSplitStrategy.fullBody;
         }
         return WorkoutSplitStrategy.pushPullLegs;

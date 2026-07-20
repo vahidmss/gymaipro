@@ -2,12 +2,14 @@ import 'package:gymaipro/ai/context/adapters/memory_context_adapter.dart';
 import 'package:gymaipro/ai/context/coach_context.dart';
 import 'package:gymaipro/ai/context/coach_context_metadata.dart';
 import 'package:gymaipro/ai/context/coach_context_patch.dart';
+import 'package:gymaipro/ai/context/coach_conversation_summary.dart';
 import 'package:gymaipro/ai/context/context_builder.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/intent_detector.dart';
 import 'package:gymaipro/ai/context/providers/base_context_provider.dart';
 import 'package:gymaipro/ai/memory/coach_memory.dart';
 import 'package:gymaipro/ai/memory/memory_context_projector.dart';
+import 'package:gymaipro/ai/persistence/conversation_summary_repository.dart';
 import 'package:gymaipro/services/weekly_muscle_heatmap_service.dart';
 import 'package:gymaipro/workout_log/models/workout_program_log.dart';
 
@@ -17,13 +19,17 @@ class CoachContextAssembler {
     AIContextBuilder? contextBuilder,
     MemoryContextAdapter? memoryAdapter,
     MemoryContextProjector memoryProjector = const MemoryContextProjector(),
+    ConversationSummaryRepository? summaryRepository,
   }) : _contextBuilder = contextBuilder ?? AIContextBuilder.standard(),
        _memoryAdapter = memoryAdapter ?? MemoryContextAdapter(),
-       _memoryProjector = memoryProjector;
+       _memoryProjector = memoryProjector,
+       _summaryRepository =
+           summaryRepository ?? ConversationSummaryRepository();
 
   final AIContextBuilder _contextBuilder;
   final MemoryContextAdapter _memoryAdapter;
   final MemoryContextProjector _memoryProjector;
+  final ConversationSummaryRepository _summaryRepository;
 
   /// Builds a unified coach context for [intent] and [selection].
   Future<CoachContext> assemble({
@@ -40,12 +46,16 @@ class CoachContextAssembler {
     final memories =
         request.memorySnapshot ??
         await _memoryAdapter.loadActiveMemories(request.userId);
+    final conversationSummary = await _summaryRepository.loadSummary(
+      request.userId,
+    );
 
     return _mapToCoachContext(
       intent: intent,
       request: request,
       patch: patch,
       memories: memories,
+      conversationSummary: conversationSummary,
       selection: selection,
       buildTime: resolvedBuildTime,
     );
@@ -56,6 +66,7 @@ class CoachContextAssembler {
     required AIContextRequest request,
     required CoachContextPatch patch,
     required List<CoachMemory> memories,
+    required CoachConversationSummary conversationSummary,
     required AIContextProviderSelection selection,
     required DateTime buildTime,
   }) {
@@ -119,6 +130,7 @@ class CoachContextAssembler {
       memories: memories,
       apiUsage: apiUsage,
       currentQuestion: currentQuestion,
+      conversationSummary: conversationSummary,
       metadata: CoachContextMetadata(
         buildTime: buildTime,
         sourceCount: sourceCount,

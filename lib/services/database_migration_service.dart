@@ -104,6 +104,15 @@ class DatabaseMigrationService {
       return false;
     } catch (e) {
       debugPrint('Error checking if column exists: $e');
+      // Network/auth failures must not be treated as "column missing".
+      final msg = e.toString();
+      if (msg.contains('AuthRetryableFetchException') ||
+          msg.contains('SocketException') ||
+          msg.contains('name resolution') ||
+          msg.contains('Failed host lookup') ||
+          msg.contains('TimeoutException')) {
+        return true; // assume schema OK; skip destructive migration
+      }
       return false;
     }
   }

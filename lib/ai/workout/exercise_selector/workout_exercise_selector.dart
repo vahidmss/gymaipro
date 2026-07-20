@@ -78,23 +78,22 @@ class WorkoutExerciseSelector {
       blueprint: blueprint,
       dayPlan: dayPlan,
     );
+    final allowedBuckets = Set<MuscleBucket>.from(dayPlan.targetBuckets);
 
     for (final entry in entries) {
       if (usedInProgram.contains(entry.profile.id)) continue;
 
       final bucket = WorkoutScience.muscleBucket(entry.exercise.mainMuscle);
-      if (!dayPlan.targetBuckets.contains(bucket) &&
-          bucket != MuscleBucket.other) {
-        continue;
-      }
+      if (!_isAllowedForDay(bucket, allowedBuckets)) continue;
 
       filteredCount++;
-      final selection = _evaluateWithReplacement(
+      final selection = _evaluateStrict(
         entry: entry,
         catalog: catalog,
         profiles: profiles,
         query: baseQuery,
         usedInProgram: usedInProgram,
+        allowedBuckets: allowedBuckets,
       );
 
       if (selection == null) {
@@ -111,27 +110,20 @@ class WorkoutExerciseSelector {
 
     final uniqueCandidates = <int, WorkoutExerciseSelection>{};
     for (final candidate in candidates) {
+      final bucket = WorkoutScience.muscleBucket(candidate.exercise.mainMuscle);
+      // Drop any leaked off-day muscles (e.g. bad replacement).
+      if (!_isAllowedForDay(bucket, allowedBuckets)) continue;
       uniqueCandidates[candidate.exercise.id] = candidate;
     }
-    final dedupedCandidates = uniqueCandidates.values.toList()
-      ..sort((a, b) => b.score.compareTo(a.score));
 
-    final selected = _pickWithBucketBalance(
+    final dedupedCandidates = uniqueCandidates.values.toList()
+      ..sort(_compareCandidates);
+
+    final selected = _pickForDay(
       candidates: dedupedCandidates,
       dayPlan: dayPlan,
+      allowedBuckets: allowedBuckets,
     );
-
-    if (selected.length < 2 && dedupedCandidates.isNotEmpty) {
-      for (final candidate in dedupedCandidates) {
-        if (selected.any(
-          (item) => item.exercise.id == candidate.exercise.id,
-        )) {
-          continue;
-        }
-        selected.add(candidate);
-        if (selected.length >= 2) break;
-      }
-    }
 
     trace = trace.copyWith(
       filteredCount: filteredCount,
@@ -141,6 +133,7 @@ class WorkoutExerciseSelector {
       finalCount: selected.length,
       steps: <String>[
         ...trace.steps,
+        'AllowedBuckets=${allowedBuckets.map((b) => b.name).join(',')}',
         'Filtered=$filteredCount',
         'Rejected=$rejectedCount',
         'Replaced=$replacedCount',
@@ -152,12 +145,19 @@ class WorkoutExerciseSelector {
     return WorkoutDaySelectionResult(selected: selected, trace: trace);
   }
 
-  WorkoutExerciseSelection? _evaluateWithReplacement({
+  bool _isAllowedForDay(MuscleBucket bucket, Set<MuscleBucket> allowed) {
+    if (allowed.contains(bucket)) return true;
+    // Never let misc/cardio/full-body leak into a focused day.
+    return false;
+  }
+
+  WorkoutExerciseSelection? _evaluateStrict({
     required ExerciseCatalogEntry entry,
     required ExerciseCatalogAdapter catalog,
     required List<ExerciseProfile> profiles,
     required ExerciseIntelligenceQuery query,
     required Set<int> usedInProgram,
+    required Set<MuscleBucket> allowedBuckets,
   }) {
     final evaluation = _intelligenceRuntime.evaluate(
       exercise: entry.profile,
@@ -172,15 +172,23 @@ class WorkoutExerciseSelector {
       );
     }
 
+    // Only replace with exercises that still fit THIS day's muscle focus.
+    final dayProfiles = profiles.where((profile) {
+      final entryForProfile = catalog.findById(profile.id);
+      if (entryForProfile == null) return false;
+      final bucket = WorkoutScience.muscleBucket(
+        entryForProfile.exercise.mainMuscle,
+      );
+      return _isAllowedForDay(bucket, allowedBuckets);
+    }).toList(growable: false);
+
     final replacement = _intelligenceRuntime.findReplacement(
       original: entry.profile,
-      catalog: profiles,
+      catalog: dayProfiles,
       query: query,
     );
 
-    if (replacement.candidates.isEmpty) {
-      return null;
-    }
+    if (replacement.candidates.isEmpty) return null;
 
     for (final candidate in replacement.candidates) {
       final replacementEntry = catalog.findById(candidate.exercise.id);
@@ -188,6 +196,11 @@ class WorkoutExerciseSelector {
           usedInProgram.contains(replacementEntry.profile.id)) {
         continue;
       }
+
+      final bucket = WorkoutScience.muscleBucket(
+        replacementEntry.exercise.mainMuscle,
+      );
+      if (!_isAllowedForDay(bucket, allowedBuckets)) continue;
 
       final replacementEvaluation = _intelligenceRuntime.evaluate(
         exercise: candidate.exercise,
@@ -215,25 +228,99 @@ class WorkoutExerciseSelector {
     return null;
   }
 
-  List<WorkoutExerciseSelection> _pickWithBucketBalance({
+  int _compareCandidates(
+    WorkoutExerciseSelection a,
+    WorkoutExerciseSelection b,
+  ) {
+    final aCompound = a.evaluation.exercise.compound ? 1 : 0;
+    final bCompound = b.evaluation.exercise.compound ? 1 : 0;
+    if (aCompound != bCompound) return bCompound.compareTo(aCompound);
+    return b.score.compareTo(a.score);
+  }
+
+  /// Round-robin across the day's target buckets, compounds first.
+  List<WorkoutExerciseSelection> _pickForDay({
     required List<WorkoutExerciseSelection> candidates,
     required WorkoutDayPlan dayPlan,
+    required Set<MuscleBucket> allowedBuckets,
   }) {
     final selected = <WorkoutExerciseSelection>[];
-    final bucketsFilled = <MuscleBucket>{};
+    final usedIds = <int>{};
+    final perBucketCount = <MuscleBucket, int>{
+      for (final bucket in allowedBuckets) bucket: 0,
+    };
 
+    final byBucket = <MuscleBucket, List<WorkoutExerciseSelection>>{};
     for (final candidate in candidates) {
-      if (selected.length >= dayPlan.exerciseCount) break;
       final bucket = WorkoutScience.muscleBucket(candidate.exercise.mainMuscle);
-      if (bucketsFilled.contains(bucket) &&
-          !candidate.evaluation.exercise.compound &&
-          selected.length >= dayPlan.exerciseCount - 1) {
-        continue;
+      if (!_isAllowedForDay(bucket, allowedBuckets)) continue;
+      byBucket.putIfAbsent(bucket, () => <WorkoutExerciseSelection>[]).add(
+        candidate,
+      );
+    }
+
+    final orderedBuckets = allowedBuckets.toList(growable: false);
+    // Prefer large movers first (chest/back/quads before arms/core/calves).
+    orderedBuckets.sort((a, b) {
+      return _bucketPriority(a).compareTo(_bucketPriority(b));
+    });
+
+    while (selected.length < dayPlan.exerciseCount) {
+      var addedThisRound = false;
+      for (final bucket in orderedBuckets) {
+        if (selected.length >= dayPlan.exerciseCount) break;
+        final pool = byBucket[bucket];
+        if (pool == null || pool.isEmpty) continue;
+
+        // Soft cap: accessories (core/calves/arms) max 1–2 depending on day size.
+        final maxForBucket = _maxPerBucket(
+          bucket,
+          dayPlan.exerciseCount,
+          orderedBuckets.length,
+        );
+        if ((perBucketCount[bucket] ?? 0) >= maxForBucket) continue;
+
+        final nextIndex = pool.indexWhere(
+          (item) => !usedIds.contains(item.exercise.id),
+        );
+        if (nextIndex < 0) continue;
+
+        final pick = pool.removeAt(nextIndex);
+        selected.add(pick);
+        usedIds.add(pick.exercise.id);
+        perBucketCount[bucket] = (perBucketCount[bucket] ?? 0) + 1;
+        addedThisRound = true;
       }
-      selected.add(candidate);
-      bucketsFilled.add(bucket);
+      if (!addedThisRound) break;
     }
 
     return selected;
+  }
+
+  int _bucketPriority(MuscleBucket bucket) {
+    return switch (bucket) {
+      MuscleBucket.chest ||
+      MuscleBucket.back ||
+      MuscleBucket.quads ||
+      MuscleBucket.hamstrings ||
+      MuscleBucket.glutes ||
+      MuscleBucket.shoulders => 0,
+      MuscleBucket.biceps || MuscleBucket.triceps => 1,
+      MuscleBucket.core || MuscleBucket.calves => 2,
+      MuscleBucket.fullBody || MuscleBucket.cardio || MuscleBucket.other => 3,
+    };
+  }
+
+  int _maxPerBucket(MuscleBucket bucket, int daySize, int bucketCount) {
+    final isAccessory =
+        bucket == MuscleBucket.core ||
+        bucket == MuscleBucket.calves ||
+        bucket == MuscleBucket.biceps ||
+        bucket == MuscleBucket.triceps;
+    if (isAccessory) {
+      return daySize <= 4 ? 1 : 2;
+    }
+    // Primary movers can take more slots.
+    return (daySize / bucketCount).ceil().clamp(1, daySize);
   }
 }

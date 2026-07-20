@@ -12,10 +12,11 @@ class AuthStateService {
   AuthStateService._internal();
   static final AuthStateService _instance = AuthStateService._internal();
 
+  static Future<AuthResponse>? _refreshInFlight;
+  static DateTime? _lastRefreshFailureAt;
+  static const Duration _refreshFailureCooldown = Duration(seconds: 8);
+
   /// Save authentication state after login/signup.
-  ///
-  /// Critical local persistence runs first; FCM/topic sync is best-effort in the
-  /// background so signup/login never hangs on Firebase/network blips.
   Future<void> saveAuthState(Session session, {String? phoneNumber}) async {
     try {
       await _checkAndClearCacheOnUserChange(session.user.id);
@@ -53,7 +54,6 @@ class AuthStateService {
     }
   }
 
-  /// Check if user changed and clear cache if needed
   Future<void> _checkAndClearCacheOnUserChange(String newUserId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -68,7 +68,6 @@ class AuthStateService {
     }
   }
 
-  /// Save current user ID for future checks
   Future<void> _saveCurrentUserId(String userId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -78,34 +77,18 @@ class AuthStateService {
     }
   }
 
-  /// Check if user is logged in (fast, non-blocking).
-  ///
-  /// Does NOT call refreshSession() to avoid blocking on slow/offline networks.
-  /// Supabase autoRefreshToken handles token refresh in the background.
+  /// True only when there is a usable (non-expired) session.
   Future<bool> isLoggedIn() async {
     try {
       final currentSession = Supabase.instance.client.auth.currentSession;
       if (currentSession == null) return false;
-
-      // Valid, non-expired session
-      if (currentSession.accessToken.isNotEmpty && !currentSession.isExpired) {
-        return true;
-      }
-
-      // Expired but has a refresh token → Supabase auto-refresh will handle it.
-      // Treat user as "logged in" so routing proceeds immediately.
-      if (currentSession.refreshToken?.isNotEmpty ?? false) {
-        return true;
-      }
-
-      return false;
+      return currentSession.accessToken.isNotEmpty && !currentSession.isExpired;
     } catch (e) {
       debugPrint('Error in isLoggedIn: $e');
       return false;
     }
   }
 
-  /// Clear authentication state
   Future<void> clearAuthState() async {
     try {
       try {
@@ -120,14 +103,10 @@ class AuthStateService {
     }
   }
 
-  /// Restore user session with timeout protection.
-  ///
-  /// If the session is expired, tries to refresh with a 5-second timeout.
-  /// On failure, returns the expired session instead of signing out,
-  /// so Supabase autoRefreshToken can recover later.
+  /// Restore a usable session. Returns null when expired and refresh fails
+  /// (caller should show offline / login — never enter the app half-loaded).
   Future<Session?> restoreSession() async {
     try {
-      // Wait for Supabase to restore from localStorage / secure storage.
       Session? currentSession;
       const maxAttempts = kIsWeb ? 12 : 3;
       for (var attempt = 0; attempt < maxAttempts; attempt++) {
@@ -135,7 +114,9 @@ class AuthStateService {
         if (currentSession != null) break;
         if (attempt < maxAttempts - 1) {
           await Future<void>.delayed(
-            Duration(milliseconds: kIsWeb ? 60 * (attempt + 1) : 100 * (attempt + 1)),
+            Duration(
+              milliseconds: kIsWeb ? 60 * (attempt + 1) : 100 * (attempt + 1),
+            ),
           );
         }
       }
@@ -144,46 +125,35 @@ class AuthStateService {
 
       if (kDebugMode) {
         debugPrint(
-          'restoreSession: hasSession=true expired=${currentSession.isExpired} hasRefreshToken=${currentSession.refreshToken?.isNotEmpty ?? false}',
+          'restoreSession: hasSession=true expired=${currentSession.isExpired} '
+          'hasRefreshToken=${currentSession.refreshToken?.isNotEmpty ?? false}',
         );
       }
 
-      // Valid, non-expired session
       if (currentSession.accessToken.isNotEmpty && !currentSession.isExpired) {
         await _checkAndClearCacheOnUserChange(currentSession.user.id);
         await _saveCurrentUserId(currentSession.user.id);
         return currentSession;
       }
 
-      // Expired but has a refresh token → try refresh with strict timeout
       if (currentSession.isExpired &&
           (currentSession.refreshToken?.isNotEmpty ?? false)) {
-        try {
-          final response = await Supabase.instance.client.auth
-              .refreshSession()
-              .timeout(const Duration(seconds: 5));
-          if (response.session != null && !response.session!.isExpired) {
-            await _checkAndClearCacheOnUserChange(response.session!.user.id);
-            await _saveCurrentUserId(response.session!.user.id);
-            return response.session;
-          }
-        } catch (_) {
-          // Refresh failed (timeout or network).
-          // Return the expired session so the user stays "logged in".
-          // Supabase autoRefreshToken will retry in the background.
-          if (kDebugMode) {
-            debugPrint(
-              'Session refresh failed — returning expired session for offline use',
-            );
-          }
-          await _saveCurrentUserId(currentSession.user.id);
-          return currentSession;
+        final refreshed = await tryRefreshSession();
+        if (refreshed != null && !refreshed.isExpired) {
+          await _checkAndClearCacheOnUserChange(refreshed.user.id);
+          await _saveCurrentUserId(refreshed.user.id);
+          return refreshed;
         }
+        // Stop GoTrue from hammering refresh (ANR) while backend/DNS is down.
+        _pauseAutoRefresh();
+        if (kDebugMode) {
+          debugPrint(
+            'Session refresh failed — no usable session (show offline/login)',
+          );
+        }
+        return null;
       }
 
-      // No refresh token → session is not recoverable right now.
-      // Do NOT force signOut here; keep startup non-destructive and let
-      // user authenticate explicitly if needed.
       return null;
     } catch (e) {
       debugPrint('Error in restoreSession: $e');
@@ -191,17 +161,77 @@ class AuthStateService {
     }
   }
 
-  static Future<void> ensureFreshSession() async {
+  /// Single-flight refresh with cooldown — prevents ANR refresh storms.
+  static Future<Session?> tryRefreshSession({
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
     try {
       final session = Supabase.instance.client.auth.currentSession;
-      if (session == null) return;
-      if (!session.isExpired) return;
-      if (session.refreshToken?.isEmpty ?? true) return;
-      await Supabase.instance.client.auth
-          .refreshSession()
-          .timeout(const Duration(seconds: 5));
+      if (session == null) return null;
+      if (!session.isExpired) return session;
+      if (session.refreshToken?.isEmpty ?? true) return null;
+
+      final lastFailure = _lastRefreshFailureAt;
+      if (lastFailure != null &&
+          DateTime.now().difference(lastFailure) < _refreshFailureCooldown) {
+        if (kDebugMode) {
+          debugPrint('tryRefreshSession: skipped (cooldown)');
+        }
+        return null;
+      }
+
+      final inFlight = _refreshInFlight;
+      if (inFlight != null) {
+        try {
+          final response = await inFlight.timeout(timeout);
+          return response.session;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      // Ensure GoTrue ticker is allowed to run before we refresh.
+      resumeAutoRefresh();
+
+      final future = Supabase.instance.client.auth.refreshSession();
+      _refreshInFlight = future;
+      try {
+        final response = await future.timeout(timeout);
+        _lastRefreshFailureAt = null;
+        return response.session;
+      } catch (e) {
+        _lastRefreshFailureAt = DateTime.now();
+        _pauseAutoRefresh();
+        if (kDebugMode) {
+          debugPrint('tryRefreshSession failed: $e');
+        }
+        return null;
+      } finally {
+        _refreshInFlight = null;
+      }
     } catch (e) {
-      debugPrint('ensureFreshSession: $e');
+      if (kDebugMode) {
+        debugPrint('tryRefreshSession error: $e');
+      }
+      return null;
     }
+  }
+
+  static Future<void> ensureFreshSession() async {
+    await tryRefreshSession();
+  }
+
+  static void _pauseAutoRefresh() {
+    try {
+      Supabase.instance.client.auth.stopAutoRefresh();
+    } catch (_) {}
+  }
+
+  /// Call when backend is reachable again (e.g. offline screen reconnect).
+  static void resumeAutoRefresh() {
+    try {
+      Supabase.instance.client.auth.startAutoRefresh();
+      _lastRefreshFailureAt = null;
+    } catch (_) {}
   }
 }

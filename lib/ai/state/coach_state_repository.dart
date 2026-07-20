@@ -1,20 +1,27 @@
 import 'dart:convert';
 
+import 'package:gymaipro/ai/persistence/coach_persistence_keys.dart';
+import 'package:gymaipro/ai/persistence/coach_persistence_sync.dart';
+import 'package:gymaipro/ai/persistence/coach_state_remote_store.dart';
 import 'package:gymaipro/ai/state/coach_conversation_state.dart';
 import 'package:gymaipro/ai/state/conversation_phase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Persistence adapter for coach conversation state.
-///
-/// This repository is infrastructure-only. It stores data only when future
-/// callers explicitly use it and does not change existing runtime behavior.
 class CoachStateRepository {
   CoachStateRepository({
     SharedPreferences? preferences,
-    this.storagePrefix = 'gym_ai_coach_conversation_state',
-  }) : _preferences = preferences;
+    CoachStateRemoteStore? remoteStore,
+    this.storagePrefix = CoachPersistenceKeys.statePrefix,
+    this.enableRemoteSync = true,
+  }) : _preferences = preferences,
+       _remoteStore = enableRemoteSync
+           ? (remoteStore ?? CoachStateRemoteStore())
+           : null;
 
   final SharedPreferences? _preferences;
+  final CoachStateRemoteStore? _remoteStore;
+  final bool enableRemoteSync;
   final Map<String, CoachConversationState> _memory =
       <String, CoachConversationState>{};
 
@@ -56,6 +63,37 @@ class CoachStateRepository {
       for (final state in _memory.values)
         if (state.userId == userId) state.id: state,
     };
+
+    if (enableRemoteSync && _remoteStore != null) {
+      try {
+        final remote = await _remoteStore!.fetchStates(userId);
+        for (final state in remote) {
+          final existing = merged[state.id];
+          if (existing == null ||
+              state.updatedAt.isAfter(existing.updatedAt)) {
+            merged[state.id] = state;
+          }
+        }
+        if (remote.isNotEmpty) {
+          await _persistStates(
+            userId,
+            merged.values.toList(growable: false),
+            prefs,
+          );
+        } else if (merged.isNotEmpty) {
+          CoachPersistenceSync.run(
+            'state_bootstrap',
+            () => _remoteStore!.upsertStates(
+              userId,
+              merged.values.toList(growable: false),
+            ),
+          );
+        }
+      } on Object {
+        // Keep local snapshot when remote is unavailable.
+      }
+    }
+
     final values = merged.values.toList(growable: false)
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return List<CoachConversationState>.unmodifiable(values);
@@ -81,6 +119,12 @@ class CoachStateRepository {
     final states = await _loadPersistedStates(userId, prefs: prefs);
     states.remove(stateId);
     await _persistStates(userId, states.values.toList(growable: false), prefs);
+    if (enableRemoteSync && _remoteStore != null) {
+      CoachPersistenceSync.run(
+        'state_delete',
+        () => _remoteStore!.deleteState(userId, stateId),
+      );
+    }
   }
 
   /// Marks expired states and returns the updated list for [userId].
@@ -149,6 +193,12 @@ class CoachStateRepository {
         .map((state) => state.toJson())
         .toList(growable: false);
     await prefs.setString(_storageKey(userId), jsonEncode(payload));
+    if (enableRemoteSync && _remoteStore != null) {
+      CoachPersistenceSync.run(
+        'state_upsert',
+        () => _remoteStore!.upsertStates(userId, states),
+      );
+    }
   }
 
   String _storageKey(String userId) => '$storagePrefix:$userId';

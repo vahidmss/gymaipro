@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/features/product_experience/product_experience_formatter.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
@@ -244,9 +245,10 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
         return;
       }
 
+      final selected = _catalogExerciseById(_selectedExerciseId!);
       exercise = NormalExercise(
         exerciseId: _selectedExerciseId!,
-        tag: MuscleTags.availableTags.first,
+        tag: _muscleTagForExercise(selected),
         style: ExerciseStyle.setsReps,
         sets: [ExerciseSet(reps: 10, timeSeconds: 60, weight: 0)],
       );
@@ -263,12 +265,39 @@ class _AddExerciseScreenState extends State<AddExerciseScreen>
 
       exercise = SupersetExercise(
         exercises: _selectedExercises,
-        tag: MuscleTags.availableTags.first,
+        tag: _muscleTagForSuperset(),
         style: ExerciseStyle.setsReps,
       );
     }
 
     Navigator.of(context).pop({'exercise': exercise});
+  }
+
+  Exercise? _catalogExerciseById(int id) {
+    for (final exercise in _allExercises) {
+      if (exercise.id == id) return exercise;
+    }
+    return null;
+  }
+
+  String _muscleTagForExercise(Exercise? exercise) {
+    if (exercise == null) return MuscleTags.availableTags.first;
+    final localized = ProductExperienceFormatter.displayMuscle(
+      exercise.mainMuscle.isNotEmpty ? exercise.mainMuscle : exercise.targetArea,
+    );
+    if (localized.isNotEmpty) return localized;
+    return MuscleTags.availableTags.first;
+  }
+
+  String _muscleTagForSuperset() {
+    final labels = _selectedExercises
+        .map((item) => _muscleTagForExercise(_catalogExerciseById(item.exerciseId)))
+        .where((label) => label.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    if (labels.length == 1) return labels.first;
+    if (labels.isNotEmpty) return labels.take(2).join(' + ');
+    return MuscleTags.availableTags.first;
   }
 
   @override

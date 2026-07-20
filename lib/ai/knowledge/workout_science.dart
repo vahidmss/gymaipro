@@ -2,6 +2,8 @@
 /// مراجع: ACSM Guidelines, Schoenfeld (حجم هفتگی)، NSCA Basics.
 library;
 
+import 'package:gymaipro/ai/workout/labels/workout_session_labels.dart';
+
 /// هدف تمرینی استاندارد
 enum TrainingGoal {
   hypertrophy,
@@ -155,7 +157,9 @@ class WorkoutScience {
     if (m.contains('پشت') ||
         m.contains('کول') ||
         m.contains('back') ||
-        m.contains('لت')) {
+        m.contains('lat') ||
+        m.contains('لت') ||
+        m.contains('trap')) {
       return MuscleBucket.back;
     }
     if (m.contains('شانه') || m.contains('دلتو') || m.contains('shoulder')) {
@@ -164,18 +168,29 @@ class WorkoutScience {
     if (m.contains('چهار') ||
         m.contains('ران') ||
         m.contains('quad') ||
-        m.contains('پا') && !m.contains('پشت')) {
+        (m.contains('پا') && !m.contains('پشت') && !m.contains('ساق'))) {
       return MuscleBucket.quads;
     }
     if (m.contains('همستر') || m.contains('hamstring') || m.contains('پشت پا')) {
       return MuscleBucket.hamstrings;
     }
-    if (m.contains('گلوت') || m.contains('باسن')) return MuscleBucket.glutes;
-    if (m.contains('دوسر') || m.contains('بایسپ') || m.contains('bicep')) {
+    if (m.contains('گلوت') ||
+        m.contains('باسن') ||
+        m.contains('glute') ||
+        m.contains('hip')) {
+      return MuscleBucket.glutes;
+    }
+    if (m.contains('دوسر') ||
+        m.contains('بایسپ') ||
+        m.contains('جلوبازو') ||
+        m.contains('جلو بازو') ||
+        m.contains('bicep')) {
       return MuscleBucket.biceps;
     }
     if (m.contains('سه‌سر') ||
         m.contains('سه سر') ||
+        m.contains('پشت‌بازو') ||
+        m.contains('پشت بازو') ||
         m.contains('tricep')) {
       return MuscleBucket.triceps;
     }
@@ -183,6 +198,9 @@ class WorkoutScience {
         m.contains('کرانچ') ||
         m.contains('پهلو') ||
         m.contains('core') ||
+        m.contains('abs') ||
+        m.contains('abdominal') ||
+        m.contains('oblique') ||
         m.contains('شكم')) {
       return MuscleBucket.core;
     }
@@ -192,48 +210,18 @@ class WorkoutScience {
         m.contains('cardio')) {
       return MuscleBucket.cardio;
     }
-    if (m.contains('تمام') || m.contains('full')) return MuscleBucket.fullBody;
+    if (m.contains('تمام') ||
+        m.contains('full') ||
+        m.contains('کل بدن') ||
+        m.contains('whole')) {
+      return MuscleBucket.fullBody;
+    }
     return MuscleBucket.other;
   }
 
   /// برچسب‌های روز برای هر تعداد جلسه در هفته
   static List<String> dayLabels(int daysPerWeek) {
-    final d = daysPerWeek.clamp(2, 6);
-    const names2 = ['روز الف — تمام‌بدن', 'روز ب — تمام‌بدن'];
-    const names3 = ['روز ۱ — فشار', 'روز ۲ — کشش', 'روز ۳ — پا'];
-    const names4 = [
-      'روز ۱ — بالاتنه',
-      'روز ۲ — پایین‌تنه',
-      'روز ۳ — بالاتنه',
-      'روز ۴ — پایین‌تنه',
-    ];
-    const names5 = [
-      'روز ۱ — سینه/شانه/بازو',
-      'روز ۲ — پشت',
-      'روز ۳ — پا',
-      'روز ۴ — بالاتنه',
-      'روز ۵ — پایین‌تنه',
-    ];
-    const names6 = [
-      'روز ۱ — فشار',
-      'روز ۲ — کشش',
-      'روز ۳ — پا',
-      'روز ۴ — فشار',
-      'روز ۵ — کشش',
-      'روز ۶ — پا',
-    ];
-    switch (d) {
-      case 2:
-        return names2;
-      case 3:
-        return names3;
-      case 4:
-        return names4;
-      case 5:
-        return names5;
-      default:
-        return names6;
-    }
+    return WorkoutSessionLabels.forDaysPerWeek(daysPerWeek);
   }
 
   /// گروه‌های عضلانی هدف هر روز

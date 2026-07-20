@@ -1,7 +1,6 @@
 /// Placeholder conversation summary for future chat history integration.
 ///
-/// No chat service is connected yet. This model exists so CoachContext can
-/// carry a stable boundary for future summarization.
+/// Populated by [ConversationSummaryService] after enough chat turns.
 class CoachConversationSummary {
   const CoachConversationSummary({
     this.summary,

@@ -235,21 +235,20 @@ class FoodService {
     try {
       final isOnline = await ConnectivityService.instance.checkNow();
       if (!isOnline) {
-        // If offline and no cache, return empty (UI should handle gracefully)
+        // Offline: cache if present, otherwise empty — never crash the app.
         return await _applyUserData(_cachedFoods ?? []);
       }
       final foods = await _fetchAllFoodsFromApi();
-        _cachedFoods = foods;
-        debugPrint(
-          'Foods loaded: ${foods.length} items',
-        );
-        return await _applyUserData(foods);
+      _cachedFoods = foods;
+      debugPrint('Foods loaded: ${foods.length} items');
+      return await _applyUserData(foods);
     } catch (e) {
-      // On error (including offline), if we have cache return it; otherwise a friendly error
+      // WordPress timeouts / host cooldown / parse errors must not crash callers.
+      debugPrint('FoodService: failed to fetch foods: $e');
       if (_cachedFoods != null) {
         return _applyUserData(_cachedFoods!);
       }
-      throw Exception('عدم دسترسی به اینترنت یا خطا در دریافت خوراکی‌ها');
+      return [];
     }
   }
 
@@ -267,6 +266,7 @@ class FoodService {
       final response = await wordpressGet(
         uri,
         headers: {'Content-Type': 'application/json'},
+        timeout: const Duration(seconds: 15),
       );
       if (response.statusCode != 200) {
         throw Exception('Failed to load foods: ${response.statusCode}');

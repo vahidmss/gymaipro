@@ -344,11 +344,17 @@ function gymai_handle_callback(){
   $payment_type = isset($_GET['type']) ? sanitize_text_field($_GET['type']) : 'topup';
   $order_id = isset($_GET['orderId']) ? sanitize_text_field($_GET['orderId']) : '';
   $trainer_id = isset($_GET['trainerId']) ? sanitize_text_field($_GET['trainerId']) : '';
-  $sid = $payment_type === 'trainer' ? $order_id : (isset($_GET['sid']) ? preg_replace('/[^A-Za-z0-9_\-]/', '', $_GET['sid']) : '');
+  $is_coach_plan = ($payment_type === 'coach_plan' || $payment_type === 'coach-plan');
+  $sid = ($payment_type === 'trainer' || $is_coach_plan)
+    ? $order_id
+    : (isset($_GET['sid']) ? preg_replace('/[^A-Za-z0-9_\-]/', '', $_GET['sid']) : '');
 
   if ($payment_type === 'trainer' && !empty($trainer_id)) {
     $deeplink_ok = 'gymaipro://payment/trainer?status=success&transactionId=' . urlencode($order_id) . '&trainerId=' . urlencode($trainer_id);
     $deeplink_fail = 'gymaipro://payment/trainer?status=failed&transactionId=' . urlencode($order_id) . '&trainerId=' . urlencode($trainer_id);
+  } elseif ($is_coach_plan) {
+    $deeplink_ok = 'gymaipro://payment/coach-plan?status=success&transactionId=' . urlencode($order_id);
+    $deeplink_fail = 'gymaipro://payment/coach-plan?status=failed&transactionId=' . urlencode($order_id);
   } else {
     $deeplink_ok = GYM_TOPUP_DEEPLINK_OK;
     $deeplink_fail = GYM_TOPUP_DEEPLINK_FAIL;
@@ -403,7 +409,7 @@ function gymai_handle_callback(){
     if (empty($ref)) $ref = (string)($_REQUEST['trackId'] ?? $sid);
   }
 
-  if ($ok && $sid) {
+  if ($ok && $sid && $payment_type !== 'trainer' && !$is_coach_plan) {
     $apply = gymai_apply_wallet_topup($sid, $ref);
     $wallet_applied = !empty($apply['ok']);
     if (!$wallet_applied) {
@@ -419,6 +425,10 @@ function gymai_handle_callback(){
   if ($payment_type === 'trainer' && $ok && !empty($trackId)) {
     $deeplink = 'gymaipro://payment/trainer?status=success&transactionId=' . urlencode($order_id) . '&trackId=' . urlencode($trackId) . '&trainerId=' . urlencode($trainer_id);
   } elseif ($payment_type === 'trainer' && !$ok) {
+    $deeplink = $deeplink_fail;
+  } elseif ($is_coach_plan && $ok && !empty($trackId)) {
+    $deeplink = 'gymaipro://payment/coach-plan?status=success&transactionId=' . urlencode($order_id) . '&trackId=' . urlencode($trackId);
+  } elseif ($is_coach_plan && !$ok) {
     $deeplink = $deeplink_fail;
   }
 

@@ -3473,7 +3473,289 @@ Final polish epic — **no new engines, prompts, intents, generators, or busines
 
 ---
 
-## EPIC 36 — Production Migration (Preview → Runtime)
+## EPIC 36 — GymAI Coach Product Architecture
+
+> **Scope:** Product design and subscription architecture only.  
+> **Out of scope:** Runtime changes, new engines, pipeline changes, duplicate models, implementation tasks.  
+> This section defines how GymAI presents ONE coach to the user, regardless of how many internal engines exist.
+
+### Product philosophy
+
+GymAI has many internal capabilities — Workout Generator, Exercise Intelligence, Workout Review, Workout Modify, Knowledge Runtime, Pipeline, Blueprint, Memory, Context — but **the user must never need to know they exist**. Those are implementation details.
+
+The entire AI experience must feel like **ONE coach** with different capabilities depending on subscription:
+
+| Principle | Rule |
+|-----------|------|
+| Single coach identity | One name, one voice, one chat — never “AI Generator” vs “AI Review” as separate products |
+| Program-agnostic execution | The coach helps execute **any** `WorkoutProgram` — human coach, AI-generated, manual, imported, or future PDF |
+| Single runtime | `WorkoutProgram` → Live Workout → `WorkoutSession` → History → AI Analysis — source of program never changes runtime |
+| Capability gating, not product splitting | Subscription unlocks capabilities; it does not create separate apps or runtimes |
+| ثبت تمرین vs تمرین زیر نظارت AI | Manual logging (`WorkoutLog`) and AI-supervised execution (`LiveWorkout`) are complementary surfaces sharing **one active program selection** — not competing products |
+
+**What the user should feel:**
+
+> “I always have ONE AI coach. Sometimes it creates a program for me. Sometimes it just helps me execute the program my human coach gave me. The coach never changes — only what it can do.”
+
+---
+
+### Subscription model
+
+Create **ONLY TWO** customer-facing AI plans. Internal entitlement enums may remain granular during migration; product and paywall copy expose only these two tiers.
+
+#### Plan 1 — GymAI Coach
+
+**Purpose:** The AI becomes the user's intelligent workout **partner**. It does **NOT** create workout programs. It works with **any** existing `WorkoutProgram`.
+
+**Supported program sources:**
+
+| Source | Today | Notes |
+|--------|-------|-------|
+| GymAI-generated program (assigned to user) | Yes | Created elsewhere (Pro or human coach); Coach tier executes only |
+| Human coach program | Yes | Primary Journey A |
+| Manual / builder program | Yes | `WorkoutProgramService` |
+| Imported program | Partial | Same model; import UX TBD |
+| Future PDF import | Roadmap | Same `WorkoutProgram` target |
+
+**Capabilities (product surface):**
+
+- Live Workout guidance (AI-supervised session)
+- Coach Chat
+- Workout Review
+- Workout Modify
+- Recovery / readiness analysis
+- Exercise replacement suggestions
+- Heatmap explainability
+- Progress analysis
+- Memory (coach remembers preferences, injuries, context)
+- Explainability (“why this suggestion”)
+- Intelligent recommendations during session
+- Session summary
+- Smart rest timer
+- Performance tracking (via session → history)
+
+#### Plan 2 — GymAI Coach Pro
+
+**Everything in GymAI Coach, PLUS:**
+
+- AI Workout Generation (multi-session programs)
+- Multi-week planning / periodization (blueprint-level)
+- Nutrition Coach
+- Future premium AI features (voice, video form, etc.)
+
+**Product rule:** Pro adds **creation and planning** capabilities. Execution, chat, review, and modify remain identical to Coach tier — same Live Workout UX, same `WorkoutSession` runtime.
+
+---
+
+### Capability matrix
+
+| Feature (user-facing) | GymAI Coach | GymAI Coach Pro | Internal capability (implementation) | Notes |
+|------------------------|:-----------:|:---------------:|--------------------------------------|-------|
+| Live Workout | ✓ | ✓ | — (product surface) | Same runtime for all program sources |
+| Coach Chat | ✓ | ✓ | `coachConversation` | Single chat identity |
+| Workout Review | ✓ | ✓ | `aiWorkoutReview`, `aiProgramReview` | Never exposed as separate “Review product” |
+| Workout Modify | ✓ | ✓ | `modifyWorkout` | Quick actions → chat/runtime bridge |
+| Recovery / readiness | ✓ | ✓ | `recoveryAnalysis` | Shown as “آمادگی تمرین” with ℹ️ guide |
+| Heatmap | ✓ | ✓ | `explainHeatmap` | Workout log + coach context |
+| Progress analysis | ✓ | ✓ | `analyzeProgress` | History + heatmap aggregation |
+| Memory | ✓ | ✓ | `advancedMemory` | Surfaced as “یادداشت مربی” / coach notes |
+| Explainability | ✓ | ✓ | knowledge + generator reasons | Filtered via `ProductExperienceFormatter` |
+| Exercise replacement | ✓ | ✓ | Exercise Intelligence + Modify runtime | User sees “جایگزینی حرکت” only |
+| Session summary | ✓ | ✓ | Live Workout completion | Post-session Persian summary |
+| Smart rest timer | ✓ | ✓ | `LiveWorkoutRestTimer` | Per-set rest from program |
+| Performance tracking | ✓ | ✓ | `WorkoutDailyLog` + completion service | Shared history regardless of log path |
+| **Workout generation** | — | ✓ | `generateWorkout` | Pro-only; output is still `WorkoutProgram` |
+| Multi-week planning | — | ✓ | Blueprint + generator | Pro-only |
+| Nutrition coach | — | ✓ | `nutritionPlanning`, `aiNutritionReview` | Pro-only |
+| Periodization | — | ✓ | Blueprint strategies | Pro-only |
+| Future premium AI | — | ✓ | TBD | Voice, PDF import coach, etc. |
+
+**Free tier (product):** Limited chat + heatmap preview only — not a third “coach product”; marketing positions upgrade to GymAI Coach.
+
+---
+
+### User journeys
+
+#### Journey A — Human coach program, AI supervision
+
+```
+User receives workout from human coach
+        ↓
+Program stored as WorkoutProgram (trainer_id → human coach)
+        ↓
+User selects active program (name + creator shown)
+        ↓
+Workout Today → preview today’s session
+        ↓
+Live Workout → AI coach guides execution (same runtime as any program)
+        ↓
+WorkoutSession logged → WorkoutDailyLog / history
+        ↓
+AI Review + Modify + replacement suggestions
+        ↓
+Progress + heatmap + memory inform next session
+```
+
+**Key invariant:** Human coach remains “creator” in UI; GymAI remains “supervisor” during Live Workout — never a second coach product.
+
+#### Journey B — AI creates program, same execution
+
+```
+User (Pro) asks coach to create program
+        ↓
+GymAI Coach Pro → WorkoutProgram (generated_by / is_self_service_ai)
+        ↓
+Program activated (same selector as Journey A)
+        ↓
+Live Workout → identical execution UX to Journey A
+        ↓
+Same history, review, modify, progress pipeline
+```
+
+**Key invariant:** Journey B differs only in **program origin** and **subscription** — not in session runtime or UI chrome.
+
+#### Journey C — Manual logging (complementary)
+
+```
+User opens ثبت تمرین (Workout Log)
+        ↓
+Same active WorkoutProgram + session day selection
+        ↓
+Manual set entry (weight, reps, RPE) — no AI pipeline required
+        ↓
+Same WorkoutDailyLog storage
+        ↓
+Coach tier can still Review / analyze logged data later
+```
+
+**Product separation:** Workout Log = manual ledger; Live Workout = AI-supervised execution. Shared: program selection, set model, history.
+
+---
+
+### Runtime invariants
+
+These rules are **non-negotiable** for all future EPICs:
+
+```
+WorkoutProgram          ← ONLY workout definition model (stored + AI + human)
+       ↓
+Live Workout            ← ONLY AI-supervised execution entry (Coach product)
+       ↓
+WorkoutSession          ← ONLY in-session runtime (lib/features/live_workout/domain/session/)
+       ↓
+WorkoutDailyLog         ← ONLY persisted history (workout_log models)
+       ↓
+AI Analysis             ← Review / Modify / Chat / Progress (read history + program)
+```
+
+**Forbidden (never introduce):**
+
+| Anti-pattern | Why |
+|--------------|-----|
+| `HumanWorkoutSession` / `AIWorkoutSession` / `CoachWorkoutSession` | Duplicates runtime; breaks Journey A/B parity |
+| Separate pipeline per program source | Source is metadata on `WorkoutProgram`, not a runtime fork |
+| Multiple coach personas in UI | One coach; capabilities gated silently |
+| “Generator app” vs “Coach app” navigation | Single AI hub → one coach |
+
+**Allowed program metadata (does not fork runtime):**
+
+- `trainer_id`, `user_id`, `generated_by`, `is_self_service_ai`
+- `ActiveProgramService.active_program_id` (shared across Workout Today, Live Workout, Workout Log)
+
+---
+
+### Product UX map (surfaces → ONE coach)
+
+| Surface | Route | User sees | Must NOT expose |
+|---------|-------|-----------|-----------------|
+| AI Hub | `/ai` or tab | “مربی هوش مصنوعی” entry points | Pipeline, skills, engines |
+| Coach Home | `/coach` | Greeting, readiness, quick actions | `CoachPipelineTrace` (debug only) |
+| Workout Today | `/workout-today` | Today’s session + start | Resolver, context providers |
+| Live Workout | `/live-workout` | Guided session | Generator, blueprint |
+| Coach Chat | `/coach-chat` | Conversation with coach | Intent names, entitlement IDs |
+| Workout Log | `/workout-log` | Manual ثبت تمرین | “Different workout system” |
+| My Programs | programs screen | Select/activate program | Internal storage schema |
+
+**Copy rule:** All Persian strings go through `ProductCopy` / `ProductExperienceFormatter` — no engine identifiers in user-visible text (enforced in EPIC 33, 35).
+
+---
+
+### Migration audit — capabilities vs EPICs
+
+Audit of **existing implementation** against product capabilities. Status: **Engine/runtime exists** vs **Product wiring** vs **Gap (wiring only)**.
+
+| Capability | Satisfying EPICs | Engine / integration | Product wiring status | Wiring gap (no new engines) |
+|------------|------------------|----------------------|------------------------|----------------------------|
+| Unified Coach Pipeline | 10, 15, 17, 18, 27, 33, 36→37 | `CoachPipeline`, `CoachFeatureIntegration` | Runtime default on | None — keep internal |
+| Coach Home | 25, 31, 33, 35 | `CoachFacade` + formatter | Live | — |
+| Workout Today | 26, 31, 33, 35 | `WorkoutTodayFacade` + resolver | Live | Program selector + readiness guide (post-35 polish) |
+| Live Workout session | 28, 34, 35 | `WorkoutSession`, persistence, completion | Live | Program selector bar; RPE guide |
+| Coach Chat | 29, 33, 35 | Chat facade + completion service | Live | Single coach voice; hide trace in release |
+| Workout Review | 23, 33 | `WorkoutReviewRuntime` | Wired via quick actions | Surface as coach action, not “Review Engine” |
+| Workout Modify | 24, 33 | `WorkoutModifyRuntime` | Wired via quick actions | Same |
+| Workout Generation | 19, 20, 20.5, 21 | Generator + Blueprint | Engine complete | **Paywall:** Pro-only in product; hide from Coach tier UX |
+| Exercise Intelligence | 21, 22 | Replacement/scoring engines | Runtime internal | User label: “جایگزینی حرکت” only |
+| Recovery analysis | 2, 13, 33 | Context + `recoverySnapshot` | Live in Hero/cards | ℹ️ explanation copy (`TrainingMetricGuides`) |
+| Heatmap | 3, 33 | `HeatmapContextProvider`, log aggregate | Live in log + context | Coach tier explainability |
+| Memory | 2, 9, 33 | `MemoryManager`, context projection | Partial in coach notes | More memory in chat/home cards |
+| Explainability | 12, 13, 33 | Knowledge + formatter filters | Live (filtered) | Continue stripping technical EN |
+| Entitlement | 7, 13 | `EntitlementEngine`, capability map | **Multi-plan enum** | **Product:** collapse to Coach / Coach Pro in paywall |
+| Design system | 30, 31, 32 | `lib/design_system/` | Applied to coach features | Extend to Workout Log parity where needed |
+| Active program selection | 33, 35, 36 (this doc) | `ActiveProgramService` | Shared selector added | Session-day picker; My Programs deep link |
+| Workout Log (manual) | pre-EPIC, 34 bridge | `WorkoutLogViewModel` | Live | RPE parity + shared program bar |
+| Nutrition | skills + `nutritionPro` plan | Nutrition capabilities | Engine partial | **Pro product** — single “مربی تغذیه” under same coach |
+| Production migration | 36→37 (renamed) | `CoachFeatureIntegration` | Runtime on | — |
+
+**Summary:** Core engines and runtimes from EPICs 2–24 and integration EPICs 25–35 **already satisfy** the capability matrix. Remaining work is **product wiring and subscription simplification** — not new engines or duplicate runtimes.
+
+---
+
+### Entitlement migration (product → existing code)
+
+Current code (`CoachSubscriptionPlan`) defines: `free`, `coachPro`, `nutritionPro`, `recoveryPro`, `ultimateAI`, `enterprise`, `lifetime`.
+
+**Target product mapping (documentation only; implementation in future entitlement EPIC):**
+
+| Product plan | Maps from (interim) | Capability bundle |
+|--------------|---------------------|-------------------|
+| **GymAI Coach** | `coachPro` minus `generateWorkout` OR new `coach` plan id | Execution + chat + review + modify + recovery + memory |
+| **GymAI Coach Pro** | `ultimateAI` / `coachPro` + generation + nutrition | All Coach capabilities + `generateWorkout` + `nutritionPlanning` + planning |
+
+**Rule:** Runtime continues to check `CoachCapability` — never `CoachSubscriptionPlan` in feature code. Paywall copy references two plans only.
+
+---
+
+### Future roadmap (product-only)
+
+| Phase | Theme | Deliverable |
+|-------|-------|-------------|
+| 36.1 | Subscription UX | Two-plan paywall; capability-based upgrade prompts |
+| 36.2 | Program sources | PDF import → `WorkoutProgram`; same selector |
+| 36.3 | Coach identity | Unified avatar, name (`AppConfig.gymAiDisplayName`), tone across chat/live/home |
+| 36.4 | Journey polish | Session-day picker; resume draft banners; Pro generation entry in chat only |
+| 36.5 | Nutrition (Pro) | Nutrition under same coach chat — not separate “Nutrition AI app” |
+| 36.6 | Analytics | Funnel: program selected → today viewed → live started → completed → review used |
+
+---
+
+### Explicit non-goals (EPIC 36)
+
+- No new `CoachPipeline` stages
+- No new generator, review, or modify engines
+- No `AIWorkoutSession` or parallel history models
+- No duplicate Live Workout runtime for human vs AI programs
+- No user-facing exposure of: Blueprint, Entity Engine, Intent Intelligence, Knowledge Runtime, Prompt Planner
+- No implementation tasks in this EPIC — architecture and product rules only
+
+---
+
+### Relationship to EPIC 35 code freeze
+
+EPIC 35 declared **bug fixes only** after release candidate polish. EPIC 36 is a **product architecture document** that guides future wiring EPICs (36.x) without violating the engine freeze: all changes must be integration, copy, paywall, and selector UX — aligned with `lib/features/product_experience/`.
+
+---
+
+## EPIC 37 — Production Migration (Preview → Runtime)
 
 ### Goal
 

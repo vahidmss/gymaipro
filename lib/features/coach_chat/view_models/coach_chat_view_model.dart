@@ -18,34 +18,48 @@ class CoachChatViewModel extends ChangeNotifier {
   final CoachChatFacade? _facade;
   CoachChatState _state;
   bool _loaded = false;
+  bool _isDisposed = false;
+  int _requestToken = 0;
 
   CoachChatState get state => _state;
 
+  @override
+  void dispose() {
+    _isDisposed = true;
+    _requestToken++;
+    super.dispose();
+  }
+
   Future<void> load() async {
-    if (_loaded) return;
+    if (_loaded || _isDisposed) return;
     _loaded = true;
     await _fetch();
   }
 
   Future<void> refresh() async {
+    if (_isDisposed) return;
     _loaded = false;
     await load();
   }
 
   Future<void> _fetch() async {
+    if (_isDisposed) return;
+    final token = ++_requestToken;
     _setState(const CoachChatState.loading());
     try {
       final result = await (_facade ?? CoachChatFacade()).load();
+      if (_isDisposed || token != _requestToken) return;
       ProductAnalytics.track(ProductAnalyticsEvent.coachChatOpened);
       _setState(result.state);
     } on Object catch (error) {
+      if (_isDisposed || token != _requestToken) return;
       _setState(CoachChatState.error(error.toString()));
     }
   }
 
   Future<void> sendMessage(String text) async {
     final prompt = text.trim();
-    if (prompt.isEmpty || _state.isThinking) return;
+    if (prompt.isEmpty || _state.isThinking || _isDisposed) return;
 
     ProductAnalytics.track(ProductAnalyticsEvent.coachChatMessageSent);
 
@@ -56,6 +70,7 @@ class CoachChatViewModel extends ChangeNotifier {
       text: prompt,
       createdAt: DateTime.now(),
     );
+    final token = ++_requestToken;
     _setState(
       _state.copyWith(
         status: CoachChatStatus.loaded,
@@ -83,6 +98,7 @@ class CoachChatViewModel extends ChangeNotifier {
         prompt,
         history: history,
       );
+      if (_isDisposed || token != _requestToken) return;
       _setState(
         _state.copyWith(
           status: CoachChatStatus.loaded,
@@ -95,8 +111,10 @@ class CoachChatViewModel extends ChangeNotifier {
           errorMessage: '',
         ),
       );
+      if (_isDisposed || token != _requestToken) return;
       await (_facade ?? CoachChatFacade()).persistMessages(_state.messages);
     } on Object catch (error) {
+      if (_isDisposed || token != _requestToken) return;
       _setState(
         _state.copyWith(
           status: CoachChatStatus.error,
@@ -112,6 +130,7 @@ class CoachChatViewModel extends ChangeNotifier {
   }
 
   void retryLast() {
+    if (_isDisposed) return;
     final lastUserMessage = _state.messages.reversed
         .where((message) => message.role == CoachChatMessageRole.user)
         .firstOrNull;
@@ -121,6 +140,7 @@ class CoachChatViewModel extends ChangeNotifier {
   }
 
   void _setState(CoachChatState state) {
+    if (_isDisposed) return;
     _state = state;
     notifyListeners();
   }

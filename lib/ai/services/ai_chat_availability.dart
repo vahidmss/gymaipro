@@ -2,6 +2,10 @@ import 'package:gymaipro/ai/config/ai_engine_config.dart';
 import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/services/app_access_control_service.dart';
 
+/// پیام واحد وقتی مدل‌های هوش مصنوعی در دسترس نیستند (ساخت برنامه و مسیرهای AI).
+const String gymAiModelsUnavailableMessage =
+    'در حال حاضر دسترسی به مدل‌های هوش مصنوعی امکان‌پذیر نیست.';
+
 /// آیا چت GPT برای کاربر فعال است؟
 bool isGymAiChatAvailable([AppAccessConfig? access]) {
   final cfg = access ?? AppAccessControlService.instance.configNotifier.value;
@@ -17,9 +21,7 @@ String gymAiChatUnavailableMessage([AppAccessConfig? access]) {
     return AppConfig.aiChatUnavailableMessage;
   }
   if (!AiEngineConfig.canAttemptOpenAi) {
-    return 'اتصال به سرویس هوش مصنوعی برقرار نیست. '
-        'OPENAI_API_KEY را در env.web.json (وب) یا .env (موبایل) تنظیم کنید '
-        'و کلید را در OpenAI محدود کنید.';
+    return gymAiModelsUnavailableMessage;
   }
   return AppConfig.aiChatUnavailableMessage;
 }

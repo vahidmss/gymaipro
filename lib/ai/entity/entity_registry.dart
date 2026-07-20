@@ -275,15 +275,43 @@ class EntityRegistry {
       synonyms: <EntitySynonym>[
         EntitySynonym(
           value: 'knee_pain',
-          terms: <String>['زانو درد', 'knee pain'],
+          terms: <String>[
+            'زانو درد',
+            'درد زانو',
+            'آسیب زانو',
+            'زانوم آسیب',
+            'زانو آسیب دیده',
+            'knee pain',
+            'bad knee',
+          ],
         ),
         EntitySynonym(
           value: 'back_pain',
-          terms: <String>['کمر درد', 'back pain'],
+          terms: <String>[
+            'کمر درد',
+            'درد کمر',
+            'آسیب کمر',
+            'کمردرد',
+            'back pain',
+            'bad back',
+          ],
         ),
         EntitySynonym(
           value: 'shoulder_pain',
-          terms: <String>['شانه درد', 'shoulder pain'],
+          terms: <String>[
+            'شانه درد',
+            'درد شانه',
+            'آسیب شانه',
+            'shoulder pain',
+          ],
+        ),
+        EntitySynonym(
+          value: 'wrist_pain',
+          terms: <String>['مچ درد', 'درد مچ', 'آسیب مچ', 'wrist pain'],
+        ),
+        EntitySynonym(
+          value: 'elbow_pain',
+          terms: <String>['آرنج درد', 'درد آرنج', 'آسیب آرنج', 'elbow pain'],
         ),
       ],
     ),

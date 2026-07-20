@@ -22,9 +22,7 @@ import 'package:gymaipro/ai/context/coach_context.dart';
 
 /// Single integration entry point for GymAI Coach v2.
 ///
-/// Production chat gates on [CoachV2Config.coachV2Enabled] in [AIChatService]
-/// before calling [processMessage]. When the flag is off, chat uses OpenAI
-/// directly and this service is not invoked.
+/// Production chat uses [CoachChatFacade] and this service for pipeline work.
 class CoachIntegrationService {
   CoachIntegrationService({
     AIContextRepository? contextRepository,
@@ -70,8 +68,8 @@ class CoachIntegrationService {
 
   /// Runs the Coach v2 pipeline for a user message.
   ///
-  /// Requires [CoachV2Config.coachV2Enabled]. Production callers gate at
-  /// [AIChatService]; direct callers must check the flag first.
+  /// Requires [CoachV2Config.coachV2Enabled]. Callers should gate on the flag
+  /// before invoking this service.
   Future<CoachIntegrationResult> processMessage({
     required String userId,
     required String userMessage,
@@ -79,7 +77,7 @@ class CoachIntegrationService {
   }) async {
     if (!CoachV2Config.coachV2Enabled) {
       throw UnsupportedError(
-        'Coach v2 is disabled. Use AIChatService for flag-off chat.',
+        'Coach v2 is disabled.',
       );
     }
 
@@ -151,6 +149,7 @@ class CoachIntegrationService {
         coachContext: coachContext,
         skillExecution: context.skillExecutionResult!,
         conversationState: context.conversationState,
+        memoryApplication: context.memoryApplication,
         processingTime: result.trace.totalDuration,
         logs: _logger.events,
         pipelineTrace: result.trace,
@@ -175,6 +174,7 @@ class CoachIntegrationService {
       responsePlan: responsePlan,
       promptPackage: context.promptPackage,
       conversationState: context.conversationState,
+      memoryApplication: context.memoryApplication,
       executorPreview: executorPreview,
       processingTime: result.trace.totalDuration,
       missingProviders: responsePlan.missingProviders,

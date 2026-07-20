@@ -7,6 +7,7 @@ class CoachResolvedExercise {
     required this.primaryMuscle,
     required this.sets,
     required this.reps,
+    this.exerciseId,
     this.restSeconds,
     this.tempo,
     this.notes,
@@ -14,6 +15,7 @@ class CoachResolvedExercise {
   });
 
   final String name;
+  final int? exerciseId;
   final String primaryMuscle;
   final int sets;
   final int reps;

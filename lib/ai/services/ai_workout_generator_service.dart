@@ -3,10 +3,9 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/ai/config/ai_engine_config.dart';
+import 'package:gymaipro/ai/services/ai_chat_availability.dart';
 import 'package:gymaipro/ai/services/openai_service.dart';
 import 'package:gymaipro/config/app_config.dart';
-import 'package:gymaipro/ai/services/rule_based_program_variety_store.dart';
-import 'package:gymaipro/ai/services/rule_based_workout_program_engine.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/services/ai_exercise_read_service.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
@@ -192,60 +191,36 @@ class AIWorkoutGeneratorService {
         return _createLimitedOptionsProgram();
       }
 
-      // مسیر OpenAI (اولویت وقتی پروکسی/کلید در دسترس است)
-      if (AiEngineConfig.canAttemptOpenAi) {
-        print('\n--- ساخت پرامپت و تولید برنامه با OpenAI ---');
-        final prompt = await _buildScientificPrompt(
-          userProfile,
-          analysis,
-          suitableExercises,
-        );
-        print('✅ پرامپت علمی ساخته شد (${prompt.length} کاراکتر)');
-
-        final program = await _generateFromPromptWithRetry(prompt, analysis);
-        if (program != null) {
-          print('\n========================================');
-          print('✅ برنامه (OpenAI) با موفقیت تولید شد!');
-          print('  - نام برنامه: ${program.name}');
-          print('  - تعداد جلسات: ${program.sessions.length}');
-          print('========================================\n');
-          return program;
-        }
-        print('⚠️ OpenAI برنامه نساخت؛ تلاش با موتور علمی محلی (fallback)...');
-      } else {
+      if (!AiEngineConfig.canAttemptOpenAi) {
         print(
-          '⚠️ مسیر OpenAI غیرفعال است (AI_ENGINE_MODE=rule_based یا کلید/پروکسی نیست) — موتور محلی',
+          '⚠️ مسیر OpenAI غیرفعال است — بدون fallback آفلاین: '
+          '$gymAiModelsUnavailableMessage',
         );
+        return null;
       }
 
-      print('\n--- تولید برنامه با موتور علمی محلی (پشتیبان) ---');
-      final recentIds =
-          await RuleBasedProgramVarietyStore.loadRecentExerciseIds();
-      final rawProgram = RuleBasedWorkoutProgramEngine().build(
-        userProfile: userProfile,
-        analysis: analysis,
-        exercises: suitableExercises,
-        programName: _generateProgramNameFromProfile(userProfile),
-        sessionVolumeHint: _extractSessionDuration(userProfile),
-        daysPerWeek: _extractDaysFromProfile(userProfile),
-        recentlyUsedExerciseIds: recentIds,
-        priorityMuscleText:
-            userProfile['bb_priority_muscles']?.toString() ?? '',
+      print('\n--- ساخت پرامپت و تولید برنامه با OpenAI ---');
+      final prompt = await _buildScientificPrompt(
+        userProfile,
+        analysis,
+        suitableExercises,
       );
-      if (rawProgram != null) {
-        final program = _scientificPostProcessing(rawProgram, analysis);
-        await RuleBasedProgramVarietyStore.rememberProgramExercises(
-          RuleBasedWorkoutProgramEngine.collectExerciseIds(program),
-        );
+      print('✅ پرامپت علمی ساخته شد (${prompt.length} کاراکتر)');
+
+      final program = await _generateFromPromptWithRetry(prompt, analysis);
+      if (program != null) {
         print('\n========================================');
-        print('✅ برنامه (موتور محلی) با موفقیت تولید شد!');
+        print('✅ برنامه (OpenAI) با موفقیت تولید شد!');
         print('  - نام برنامه: ${program.name}');
         print('  - تعداد جلسات: ${program.sessions.length}');
         print('========================================\n');
         return program;
       }
 
-      print('\n❌ خطا در تولید برنامه - عدم امکان ایجاد برنامه مناسب');
+      print(
+        '\n❌ OpenAI برنامه نساخت — بدون fallback آفلاین: '
+        '$gymAiModelsUnavailableMessage',
+      );
       return null;
     } catch (e, stackTrace) {
       print('\n❌❌❌ خطا در تولید برنامه تمرینی ❌❌❌');
@@ -1632,10 +1607,8 @@ ${analysis.experience == 'مبتدی'
       );
     }
 
-    return program.copyWith(
-      sessions: processedSessions,
-      name: _generateScientificProgramName(analysis),
-    );
+    // Keep LLM program name; only enrich session notes for safety UX.
+    return program.copyWith(sessions: processedSessions);
   }
 
   /// بهبود توضیحات جلسات بر اساس تحلیل کاربر
@@ -1902,7 +1875,8 @@ ${analysis.experience == 'مبتدی'
     }
   }
 
-  /// تولید نام علمی برای برنامه
+  /// تولید نام علمی برای برنامه (نگه داشته شده برای سازگاری داخلی)
+  // ignore: unused_element
   String _generateScientificProgramName(UserAnalysis analysis) {
     final goal = analysis.goals.isNotEmpty ? analysis.goals.first : 'فیتنس';
     final level = analysis.experience;
