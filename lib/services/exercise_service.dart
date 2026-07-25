@@ -86,11 +86,12 @@ exercise_difficulty_score, estimated_1rm_formula, views_count, likes_count, sour
   /// این برای باز کردن فوری bottom sheet انتخاب تمرین مناسب است.
   List<Exercise> get cachedExercisesSync => _cachedExercises ?? const [];
 
-  // Clear all cached data
-  void clearCache() {
+  // Clear all cached data (await prefs wipe on logout).
+  Future<void> clearCache() async {
     _cachedExercises = null;
     _lastCacheTime = null;
-    _clearPersistentCache();
+    _inFlightLoad = null;
+    await _clearPersistentCache();
   }
 
   /// پاک کردن cache پایدار

@@ -9,18 +9,37 @@
 class WordPressMedia {
   const WordPressMedia._();
 
-  /// Preferred size keys, largest-useful first. `large` (~1024px) is plenty for
-  /// full-width phone cards; smaller ones are used only if `large` is missing.
+  /// Preferred size keys for cards/lists. Prefer mid sizes to cut WiFi usage;
+  /// fall back to larger only if smaller variants are missing.
   static const List<String> _preferredSizes = [
-    'large',
     'medium_large',
     'medium',
+    'large',
+  ];
+
+  /// Tiny variants for story circles / avatars (~64–150px on screen).
+  static const List<String> _thumbnailSizes = [
+    'medium',
+    'thumbnail',
+    'medium_large',
   ];
 
   /// Returns the best featured image URL for the given WordPress post JSON,
   /// preferring a resized variant over the full-size original. Returns null
   /// when no image is embedded.
   static String? bestFeaturedImageUrl(Map<String, dynamic> json) {
+    return _pickFromEmbedded(json, _preferredSizes);
+  }
+
+  /// Smaller featured URL for story circles and compact thumbnails.
+  static String? bestThumbnailUrl(Map<String, dynamic> json) {
+    return _pickFromEmbedded(json, _thumbnailSizes);
+  }
+
+  static String? _pickFromEmbedded(
+    Map<String, dynamic> json,
+    List<String> preferredSizes,
+  ) {
     try {
       final embedded = json['_embedded'];
       if (embedded is! Map<String, dynamic>) return null;
@@ -35,7 +54,7 @@ class WordPressMedia {
       if (details is Map<String, dynamic>) {
         final sizes = details['sizes'];
         if (sizes is Map<String, dynamic>) {
-          for (final key in _preferredSizes) {
+          for (final key in preferredSizes) {
             final size = sizes[key];
             if (size is Map<String, dynamic>) {
               final url = size['source_url']?.toString();

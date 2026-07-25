@@ -1,0 +1,5 @@
+storePassword=CHANGE_ME
+keyPassword=CHANGE_ME
+keyAlias=gymaipro
+# Path relative to android/app/ (this module)
+storeFile=../upload-keystore.jks

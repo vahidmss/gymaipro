@@ -16,6 +16,10 @@ class MealLogService {
   final String _tableName = 'food_logs';
   String? _cachedProfileUserId;
 
+  void clearProfileIdCache() {
+    _cachedProfileUserId = null;
+  }
+
   static Timer? _rankingScoreDebounceTimer;
   static String? _pendingRankingUserId;
   static const Duration _rankingScoreDebounce = Duration(seconds: 25);

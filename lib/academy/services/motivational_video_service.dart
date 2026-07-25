@@ -12,6 +12,7 @@ class MotivationalVideoService {
 
   static Future<List<MotivationalVideo>> fetchVideos({
     bool forceRefresh = false,
+    int perPage = 100,
   }) async {
     // Check cache
     if (!forceRefresh) {
@@ -29,10 +30,12 @@ class MotivationalVideoService {
     }
 
     try {
+      // Cap page size — dashboard hero only needs a few thumbs.
+      final pageSize = perPage.clamp(1, 100);
       // Try multiple WordPress REST API endpoints
       final endpoints = [
-        'https://gymaipro.ir/wp-json/wp/v2/video?per_page=100&_embed=true',
-        'https://gymaipro.ir/wp-json/wp/v2/posts?per_page=100&_embed=true',
+        'https://gymaipro.ir/wp-json/wp/v2/video?per_page=$pageSize&_embed=true',
+        'https://gymaipro.ir/wp-json/wp/v2/posts?per_page=$pageSize&_embed=true',
       ];
 
       for (final endpointUrl in endpoints) {

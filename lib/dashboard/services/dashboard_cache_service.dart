@@ -1,5 +1,5 @@
 import 'package:gymaipro/academy/models/article.dart';
-import 'package:gymaipro/models/exercise.dart';
+import 'package:gymaipro/dashboard/models/dashboard_snapshot.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -20,24 +20,21 @@ class DashboardCacheService {
   final Map<String, _CacheEntry> _cache = {};
 
   // Realtime subscriptions برای invalidation
-  RealtimeChannel? _exercisesChannel;
   RealtimeChannel? _foodsChannel;
   RealtimeChannel? _articlesChannel;
   RealtimeChannel? _weightsChannel;
   bool _isInitialized = false;
 
   // TTL برای هر نوع داده (می‌تواند بر اساس نوع داده متفاوت باشد)
-  static const Duration _exercisesTTL = Duration(minutes: 10);
   static const Duration _foodsTTL = Duration(minutes: 10);
   static const Duration _articlesTTL = Duration(minutes: 15);
   static const Duration _weightDataTTL = Duration(minutes: 5);
   static const Duration _profileDataTTL = Duration(minutes: 30);
 
   // Cache keys
-  static const String _keyExercises = 'dashboard_exercises';
   static const String _keyFoods = 'dashboard_foods';
   static const String _keyArticles = 'dashboard_articles';
-  static const String _keyWeightData = 'dashboard_weight_data';
+  static const String _keyWeightHistory = 'dashboard_weight_history';
   static const String _keyProfileData = 'dashboard_profile_data';
   static const String _keyLatestWeight = 'dashboard_latest_weight';
 
@@ -57,18 +54,6 @@ class DashboardCacheService {
     try {
       // پاک کردن subscription های قبلی اگر وجود داشته باشند
       await _cleanupSubscriptions();
-
-      // Subscribe به تغییرات exercises
-      _exercisesChannel = client.channel('dashboard_exercises_changes')
-        ..onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'exercise_likes',
-          callback: (payload) {
-            invalidate(_keyExercises);
-          },
-        )
-        ..subscribe();
 
       // Subscribe به تغییرات foods
       _foodsChannel = client.channel('dashboard_foods_changes')
@@ -108,7 +93,7 @@ class DashboardCacheService {
               value: user.id,
             ),
             callback: (payload) {
-              invalidate(_keyWeightData);
+              invalidate(_keyWeightHistory);
               invalidate(_keyLatestWeight);
             },
           )
@@ -123,27 +108,15 @@ class DashboardCacheService {
   /// پاک کردن subscription های قبلی
   Future<void> _cleanupSubscriptions() async {
     try {
-      await _exercisesChannel?.unsubscribe();
       await _foodsChannel?.unsubscribe();
       await _articlesChannel?.unsubscribe();
       await _weightsChannel?.unsubscribe();
-      _exercisesChannel = null;
       _foodsChannel = null;
       _articlesChannel = null;
       _weightsChannel = null;
     } catch (e) {
       // Ignore errors during cleanup
     }
-  }
-
-  /// دریافت تمرینات از کش یا null
-  List<Exercise>? getExercises() {
-    return _get<List<Exercise>>(_keyExercises);
-  }
-
-  /// ذخیره تمرینات در کش
-  void setExercises(List<Exercise> exercises) {
-    _set(_keyExercises, exercises, _exercisesTTL);
   }
 
   /// دریافت غذاها از کش یا null
@@ -166,14 +139,19 @@ class DashboardCacheService {
     _set(_keyArticles, articles, _articlesTTL);
   }
 
-  /// دریافت داده‌های وزن از کش یا null
-  Map<String, dynamic>? getWeightData() {
-    return _get<Map<String, dynamic>>(_keyWeightData);
+  /// Full weight history (oldest → newest) shared by WeightChart / metrics.
+  List<Map<String, dynamic>>? getWeightHistory() {
+    return _get<List<Map<String, dynamic>>>(_keyWeightHistory);
   }
 
-  /// ذخیره داده‌های وزن در کش
-  void setWeightData(Map<String, dynamic> data) {
-    _set(_keyWeightData, data, _weightDataTTL);
+  /// Cache history and derive latest weight when possible.
+  void setWeightHistory(List<Map<String, dynamic>> history) {
+    _set(_keyWeightHistory, history, _weightDataTTL);
+    if (history.isEmpty) return;
+    final latest = history.last['weight'];
+    if (latest is num) {
+      setLatestWeight(latest.toDouble());
+    }
   }
 
   /// دریافت آخرین وزن از کش یا null
@@ -194,6 +172,27 @@ class DashboardCacheService {
   /// ذخیره داده‌های پروفایل در کش
   void setProfileData(Map<String, dynamic> data) {
     _set(_keyProfileData, data, _profileDataTTL);
+  }
+
+  /// Compose shell snapshot from existing profile (+ optional latest weight) keys.
+  DashboardSnapshot? getSnapshot() {
+    final profile = getProfileData();
+    if (profile == null) return null;
+    final map = Map<String, dynamic>.from(profile);
+    final cachedLatest = getLatestWeight();
+    if (cachedLatest != null && map['latest_weight'] == null) {
+      map['latest_weight'] = cachedLatest;
+    }
+    return DashboardSnapshot.fromProfileMap(map);
+  }
+
+  /// Persist shell snapshot without touching section caches.
+  void setSnapshot(DashboardSnapshot snapshot) {
+    setProfileData(Map<String, dynamic>.from(snapshot.profileData));
+    final weight = snapshot.latestWeight;
+    if (weight != null) {
+      setLatestWeight(weight);
+    }
   }
 
   /// دریافت generic از کش
@@ -233,10 +232,9 @@ class DashboardCacheService {
 
   /// Invalidate همه داده‌های داشبورد
   void invalidateDashboard() {
-    invalidate(_keyExercises);
     invalidate(_keyFoods);
     invalidate(_keyArticles);
-    invalidate(_keyWeightData);
+    invalidate(_keyWeightHistory);
     invalidate(_keyLatestWeight);
     invalidate(_keyProfileData);
   }

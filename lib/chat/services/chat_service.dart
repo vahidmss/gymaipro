@@ -659,8 +659,9 @@ class ChatService {
     unawaited(_cache.persistMessages(otherUserId, sorted));
   }
 
-  Future<void> clearAllCaches() async {
-    await _cache.clearAllForCurrentUser();
+  Future<void> clearAllCaches({String? forUserId}) async {
+    final target = forUserId ?? Supabase.instance.client.auth.currentUser?.id;
+    await _cache.clearForUser(target);
     ChatCacheService.clearAllMemory();
   }
 

@@ -27,14 +27,14 @@ class DashboardDrawer extends StatefulWidget {
   const DashboardDrawer({
     required this.username,
     required this.userRole,
-    required this.walletBalance,
+    required this.walletBalanceListenable,
     required this.onSignOut,
     super.key,
   });
 
   final String? username;
   final String? userRole;
-  final int? walletBalance;
+  final ValueListenable<int?> walletBalanceListenable;
   final VoidCallback onSignOut;
 
   @override
@@ -323,16 +323,21 @@ class _DashboardDrawerState extends State<DashboardDrawer>
                 ),
               ),
               SizedBox(width: 10.w),
-              Text(
-                PaymentConstants.formatAmount(widget.walletBalance ?? 0),
-                style: TextStyle(
-                  color: isDark
-                      ? AppTheme.darkTextColor.withValues(alpha: 0.9)
-                      : AppTheme.lightTextColor.withValues(alpha: 0.9),
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.2,
-                ),
+              ValueListenableBuilder<int?>(
+                valueListenable: widget.walletBalanceListenable,
+                builder: (context, balance, _) {
+                  return Text(
+                    PaymentConstants.formatAmount(balance ?? 0),
+                    style: TextStyle(
+                      color: isDark
+                          ? AppTheme.darkTextColor.withValues(alpha: 0.9)
+                          : AppTheme.lightTextColor.withValues(alpha: 0.9),
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.2,
+                    ),
+                  );
+                },
               ),
             ],
           ),

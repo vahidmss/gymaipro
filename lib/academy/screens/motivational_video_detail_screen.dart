@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:chewie/chewie.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/motivational_video.dart';
@@ -43,9 +44,9 @@ class _MotivationalVideoDetailScreenState
 
     try {
       final videoCacheService = VideoCacheService();
-      final cachedPath = await videoCacheService.getCachedVideoPath(
-        widget.video.videoUrl,
-      );
+      final cachedPath = kIsWeb
+          ? null
+          : await videoCacheService.getCachedVideoPath(widget.video.videoUrl);
 
       VideoPlayerController controller;
       if (cachedPath != null) {

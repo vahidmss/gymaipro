@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -257,13 +258,40 @@ class _SettingsScreenState extends State<SettingsScreen>
             title: 'اعلان‌ها',
             icon: LucideIcons.bell,
             children: [
+              if (kIsWeb) ...[
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(12.w),
+                  decoration: BoxDecoration(
+                    color: AppTheme.goldColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(
+                      color: AppTheme.goldColor.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Text(
+                    'روی وب‌اپ iOS، اعلان سیستمی (Push) فعلاً فعال نیست. اعلان‌های داخل برنامه و پیام‌های داخل اپ همچنان کار می‌کنند. برای پوش سیستمی از اپ اندروید استفاده کنید.',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 11.sp,
+                      height: 1.45,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.85)
+                          : AppTheme.backgroundColor.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 12.h),
+              ],
               // فعال‌سازی نوتیفیکیشن
               _buildModernSwitchTile(
                 context: context,
                 isDark: isDark,
                 icon: LucideIcons.bell,
                 title: 'نوتیفیکیشن‌ها',
-                subtitle: 'دریافت اعلان‌های برنامه',
+                subtitle: kIsWeb
+                    ? 'ترجیح نمایش اعلان داخل برنامه'
+                    : 'دریافت اعلان‌های برنامه',
                 value: _notificationsEnabled,
                 onChanged: (value) {
                   setState(() {
@@ -289,23 +317,25 @@ class _SettingsScreenState extends State<SettingsScreen>
                   _saveSettings();
                 },
               ),
-              SizedBox(height: 12.h),
+              if (!kIsWeb) ...[
+                SizedBox(height: 12.h),
 
-              // لرزش
-              _buildModernSwitchTile(
-                context: context,
-                isDark: isDark,
-                icon: LucideIcons.vibrate,
-                title: 'لرزش',
-                subtitle: 'لرزش دستگاه هنگام دریافت اعلان',
-                value: _vibrationEnabled,
-                onChanged: (value) {
-                  setState(() {
-                    _vibrationEnabled = value;
-                  });
-                  _saveSettings();
-                },
-              ),
+                // لرزش
+                _buildModernSwitchTile(
+                  context: context,
+                  isDark: isDark,
+                  icon: LucideIcons.vibrate,
+                  title: 'لرزش',
+                  subtitle: 'لرزش دستگاه هنگام دریافت اعلان',
+                  value: _vibrationEnabled,
+                  onChanged: (value) {
+                    setState(() {
+                      _vibrationEnabled = value;
+                    });
+                    _saveSettings();
+                  },
+                ),
+              ],
             ],
           ),
 
@@ -318,10 +348,35 @@ class _SettingsScreenState extends State<SettingsScreen>
             title: 'ذخیره‌سازی',
             icon: LucideIcons.hardDrive,
             children: [
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 0.w),
-                child: const ComprehensiveCacheInfoWidget(),
-              ),
+              if (kIsWeb)
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(12.w),
+                  margin: EdgeInsets.only(bottom: 12.h),
+                  decoration: BoxDecoration(
+                    color: AppTheme.goldColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(
+                      color: AppTheme.goldColor.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Text(
+                    'روی وب‌اپ، کش سنگین ویدیو/موزیک مثل اپ اندروید نیست. لاگین و داده‌های سبک در مرورگر می‌مانند؛ دانلود موزیک فایل را به Downloads مرورگر می‌فرستد.',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 11.sp,
+                      height: 1.45,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.85)
+                          : AppTheme.backgroundColor.withValues(alpha: 0.85),
+                    ),
+                  ),
+                )
+              else
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 0.w),
+                  child: const ComprehensiveCacheInfoWidget(),
+                ),
             ],
           ),
 

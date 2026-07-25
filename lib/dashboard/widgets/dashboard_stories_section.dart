@@ -42,7 +42,7 @@ class _DashboardStoriesSectionState extends State<DashboardStoriesSection> {
       if (cachedArticles != null && cachedArticles.isNotEmpty) {
         rawArticles = cachedArticles;
       } else {
-        rawArticles = await ArticleService.fetchArticles(perPage: 12);
+        rawArticles = await ArticleService.fetchArticles(perPage: 8);
         _cacheService.setArticles(rawArticles);
       }
       final articles = rawArticles

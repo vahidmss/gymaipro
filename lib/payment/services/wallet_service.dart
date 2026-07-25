@@ -27,6 +27,12 @@ class WalletService {
     _inFlightWallet = null;
   }
 
+  /// Called on logout / account switch so the next user never sees old balance.
+  void clearCacheForLogout() {
+    _invalidateWalletCache();
+    _inFlightRefresh = null;
+  }
+
   /// پاک کردن کش و دریافت مجدد موجودی (بعد از شارژ آنلاین)
   Future<Wallet?> refreshUserWallet() async {
     if (_inFlightRefresh != null) {

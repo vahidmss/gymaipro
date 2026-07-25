@@ -203,21 +203,72 @@ class FoodService {
   }
 
   /// Returns cached foods immediately when available (no network).
-  Future<List<Food>?> getFoodsFromCache() async {
+  Future<List<Food>?> getFoodsFromCache({bool applyUserData = true}) async {
     if (_cachedFoods == null || _cachedFoods!.isEmpty) return null;
-    return _applyUserData(List<Food>.from(_cachedFoods!));
+    final raw = List<Food>.from(_cachedFoods!);
+    if (!applyUserData) return raw;
+    return _applyUserData(raw);
   }
 
-  Future<List<Food>> getFoods({bool forceRefresh = false}) async {
+  /// In-memory catalog without network / prefs (null if not warmed yet).
+  List<Food>? peekCachedFoods() {
+    if (_cachedFoods == null || _cachedFoods!.isEmpty) return null;
+    return List<Food>.from(_cachedFoods!);
+  }
+
+  /// Lightweight first-page fetch for dashboard Discover only.
+  /// Does NOT replace the full catalog cache (avoids poisoning food list).
+  Future<List<Food>> fetchRecentFoodsSlim({int limit = 12}) async {
+    final peeked = peekCachedFoods();
+    if (peeked != null && peeked.isNotEmpty) {
+      return peeked;
+    }
+    try {
+      final isOnline = await ConnectivityService.instance.checkNow();
+      if (!isOnline) return [];
+
+      // Drop heavy HTML content; keep meta + embed for thumbs.
+      final uri = Uri.parse(
+        '$_foodsApiBase&per_page=$limit&page=1'
+        '&_fields=id,date,modified,slug,status,type,link,title,'
+        'featured_media,meta,food-categories,class_list,_links,_embedded',
+      );
+      final response = await wordpressGet(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        timeout: const Duration(seconds: 12),
+      );
+      if (response.statusCode != 200) return [];
+      final data = json.decode(response.body) as List<dynamic>;
+      return data
+          .map((item) => Food.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('FoodService.fetchRecentFoodsSlim failed: $e');
+      return [];
+    }
+  }
+
+  /// [applyUserData] false skips like/favorite queries — use for carousels.
+  Future<List<Food>> getFoods({
+    bool forceRefresh = false,
+    bool applyUserData = true,
+  }) async {
+    final raw = await _ensureFoodsLoaded(forceRefresh: forceRefresh);
+    if (!applyUserData) return List<Food>.from(raw);
+    return _applyUserData(List<Food>.from(raw));
+  }
+
+  Future<List<Food>> _ensureFoodsLoaded({required bool forceRefresh}) async {
     if (!forceRefresh && _cachedFoods != null) {
-      return _applyUserData(_cachedFoods!);
+      return _cachedFoods!;
     }
     if (!forceRefresh && _inFlightFoodsLoad != null) {
       return _inFlightFoodsLoad!;
     }
 
+    final future = _fetchRawFoodsFromNetwork();
     if (!forceRefresh) {
-      final future = _fetchFoodsFromNetwork(forceRefresh: false);
       _inFlightFoodsLoad = future;
       try {
         return await future;
@@ -227,28 +278,24 @@ class FoodService {
         }
       }
     }
-
-    return _fetchFoodsFromNetwork(forceRefresh: true);
+    return future;
   }
 
-  Future<List<Food>> _fetchFoodsFromNetwork({required bool forceRefresh}) async {
+  Future<List<Food>> _fetchRawFoodsFromNetwork() async {
     try {
       final isOnline = await ConnectivityService.instance.checkNow();
       if (!isOnline) {
         // Offline: cache if present, otherwise empty — never crash the app.
-        return await _applyUserData(_cachedFoods ?? []);
+        return _cachedFoods ?? [];
       }
       final foods = await _fetchAllFoodsFromApi();
       _cachedFoods = foods;
       debugPrint('Foods loaded: ${foods.length} items');
-      return await _applyUserData(foods);
+      return foods;
     } catch (e) {
       // WordPress timeouts / host cooldown / parse errors must not crash callers.
       debugPrint('FoodService: failed to fetch foods: $e');
-      if (_cachedFoods != null) {
-        return _applyUserData(_cachedFoods!);
-      }
-      return [];
+      return _cachedFoods ?? [];
     }
   }
 

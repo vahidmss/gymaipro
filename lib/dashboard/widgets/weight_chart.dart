@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
@@ -69,9 +70,23 @@ class _WeightChartState extends State<WeightChart>
         return;
       }
 
+      final cache = DashboardCacheService();
+      final cached = cache.getWeightHistory();
+      if (cached != null) {
+        if (mounted) {
+          setState(() {
+            _weightData = cached;
+            _isLoading = false;
+          });
+          _animationController.safeForward();
+        }
+        return;
+      }
+
       final data = await WeeklyWeightService.getFullWeightHistory(
         widget.userId,
       );
+      cache.setWeightHistory(data);
 
       if (mounted) {
         setState(() {

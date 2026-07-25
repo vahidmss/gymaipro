@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/achievements/screens/achievements_screen.dart';
 import 'package:gymaipro/achievements/services/achievement_service.dart';
 import 'package:gymaipro/core/gamification_labels.dart';
+import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/guide/data/dashboard_guide_data.dart';
 import 'package:gymaipro/services/avatar_refresh_notifier.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
@@ -205,11 +206,14 @@ class _AppBarAvatarButton extends StatefulWidget {
 
 class _AppBarAvatarButtonState extends State<_AppBarAvatarButton> {
   int _refreshKey = 0;
+  String? _avatarUrl;
+  bool _loadingNetworkFallback = false;
 
   @override
   void initState() {
     super.initState();
     AvatarRefreshNotifier.instance.addListener(_onAvatarUpdated);
+    _resolveAvatarUrl();
   }
 
   @override
@@ -219,101 +223,125 @@ class _AppBarAvatarButtonState extends State<_AppBarAvatarButton> {
   }
 
   void _onAvatarUpdated() {
-    if (mounted) setState(() => _refreshKey++);
+    if (!mounted) return;
+    setState(() => _refreshKey++);
+    _resolveAvatarUrl(forceNetwork: true);
+  }
+
+  Future<void> _resolveAvatarUrl({bool forceNetwork = false}) async {
+    final cached =
+        DashboardCacheService().getProfileData()?['avatar_url']?.toString();
+    if (!forceNetwork && cached != null && cached.isNotEmpty) {
+      if (mounted) setState(() => _avatarUrl = cached);
+      return;
+    }
+
+    if (_loadingNetworkFallback) return;
+    _loadingNetworkFallback = true;
+    try {
+      final profile = await SimpleProfileService.queryCurrentUserProfile(
+        select: 'avatar_url',
+      );
+      final url = profile?['avatar_url']?.toString();
+      if (mounted) {
+        setState(() => _avatarUrl = url);
+      }
+    } catch (_) {
+      // Keep cached/empty avatar on failure.
+    } finally {
+      _loadingNetworkFallback = false;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, dynamic>?>(
-      key: ValueKey<int>(_refreshKey),
-      future: SimpleProfileService.queryCurrentUserProfile(
-        select: 'avatar_url',
-      ),
-      builder: (context, snapshot) {
-        final avatarUrl = snapshot.data?['avatar_url'] as String?;
-        final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
+    final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
+    // Prefer dashboard profile cache on each rebuild (set after _loadUserData).
+    final cached =
+        DashboardCacheService().getProfileData()?['avatar_url']?.toString();
+    final avatarUrl =
+        (cached != null && cached.isNotEmpty) ? cached : _avatarUrl;
 
-        return GestureDetector(
-          onTap: () {
-            if (userId.isNotEmpty) {
-              Navigator.pushNamed(context, '/profile');
-            }
-          },
-          child: Container(
-            margin: EdgeInsets.symmetric(vertical: 8.h),
-            width: ResponsiveValue(
-              context,
-              defaultValue: 40.w,
-              conditionalValues: [
-                Condition.smallerThan(name: MOBILE, value: 36.w),
-                Condition.largerThan(name: TABLET, value: 44.w),
-              ],
-            ).value,
-            height: ResponsiveValue(
-              context,
-              defaultValue: 40.h,
-              conditionalValues: [
-                Condition.smallerThan(name: MOBILE, value: 36.h),
-                Condition.largerThan(name: TABLET, value: 44.h),
-              ],
-            ).value,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppTheme.goldColor.withValues(alpha: 0.4),
-                width: 2.w,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.goldColor.withValues(alpha: 0.15),
-                  blurRadius: 6.r,
-                  offset: Offset(0.w, 2.h),
-                ),
-              ],
+    return GestureDetector(
+      key: ValueKey<int>(_refreshKey),
+      onTap: () {
+        if (userId.isNotEmpty) {
+          Navigator.pushNamed(context, '/profile');
+        }
+      },
+      child: Container(
+        margin: EdgeInsets.symmetric(vertical: 8.h),
+        width: ResponsiveValue(
+          context,
+          defaultValue: 40.w,
+          conditionalValues: [
+            Condition.smallerThan(name: MOBILE, value: 36.w),
+            Condition.largerThan(name: TABLET, value: 44.w),
+          ],
+        ).value,
+        height: ResponsiveValue(
+          context,
+          defaultValue: 40.h,
+          conditionalValues: [
+            Condition.smallerThan(name: MOBILE, value: 36.h),
+            Condition.largerThan(name: TABLET, value: 44.h),
+          ],
+        ).value,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: AppTheme.goldColor.withValues(alpha: 0.4),
+            width: 2.w,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.goldColor.withValues(alpha: 0.15),
+              blurRadius: 6.r,
+              offset: Offset(0.w, 2.h),
             ),
-            child: avatarUrl != null && avatarUrl.isNotEmpty
-                ? ClipOval(
-                    child: GymaiNetworkImage(
-                      imageUrl: avatarUrl,
-                      placeholder: ColoredBox(
-                        color: AppTheme.goldColor.withValues(alpha: 0.1),
-                        child: Icon(
-                          LucideIcons.user,
-                          color: AppTheme.goldColor,
-                          size: 20.sp,
-                        ),
-                      ),
-                      errorWidget: ColoredBox(
-                        color: AppTheme.goldColor.withValues(alpha: 0.1),
-                        child: Icon(
-                          LucideIcons.user,
-                          color: AppTheme.goldColor,
-                          size: 20.sp,
-                        ),
-                      ),
-                    ),
-                  )
-                : DecoratedBox(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppTheme.goldColor.withValues(alpha: 0.1),
-                    ),
+          ],
+        ),
+        child: avatarUrl != null && avatarUrl.isNotEmpty
+            ? ClipOval(
+                child: GymaiNetworkImage(
+                  imageUrl: avatarUrl,
+                  placeholder: ColoredBox(
+                    color: AppTheme.goldColor.withValues(alpha: 0.1),
                     child: Icon(
                       LucideIcons.user,
-                      color: context.textColor,
-                      size: ResponsiveValue(
-                        context,
-                        defaultValue: 20.sp,
-                        conditionalValues: [
-                          Condition.smallerThan(name: MOBILE, value: 18.sp),
-                          Condition.largerThan(name: TABLET, value: 22.sp),
-                        ],
-                      ).value,
+                      color: AppTheme.goldColor,
+                      size: 20.sp,
                     ),
                   ),
-          ),
-        );
-      },
+                  errorWidget: ColoredBox(
+                    color: AppTheme.goldColor.withValues(alpha: 0.1),
+                    child: Icon(
+                      LucideIcons.user,
+                      color: AppTheme.goldColor,
+                      size: 20.sp,
+                    ),
+                  ),
+                ),
+              )
+            : DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppTheme.goldColor.withValues(alpha: 0.1),
+                ),
+                child: Icon(
+                  LucideIcons.user,
+                  color: context.textColor,
+                  size: ResponsiveValue(
+                    context,
+                    defaultValue: 20.sp,
+                    conditionalValues: [
+                      Condition.smallerThan(name: MOBILE, value: 18.sp),
+                      Condition.largerThan(name: TABLET, value: 22.sp),
+                    ],
+                  ).value,
+                ),
+              ),
+      ),
     );
   }
 }

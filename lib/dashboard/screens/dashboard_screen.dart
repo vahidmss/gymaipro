@@ -9,8 +9,8 @@ import 'package:gymaipro/announcements/widgets/in_app_announcement_modal.dart';
 import 'package:gymaipro/chat/services/chat_unread_notifier.dart';
 import 'package:gymaipro/core/web_interaction.dart';
 import 'package:gymaipro/core/app_navigator.dart';
+import 'package:gymaipro/dashboard/models/dashboard_snapshot.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
-import 'package:gymaipro/dashboard/services/dashboard_profile_mapper.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_animated_section.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_app_bar.dart';
 import 'package:gymaipro/dashboard/widgets/dashboard_deferred_gate.dart';
@@ -81,19 +81,22 @@ class _DashboardScreenState extends State<DashboardScreen>
   Animation<double>? _logoutFadeAnimation;
   bool _isLoggingOut = false;
 
-  Map<String, dynamic> _profileData = {};
-  String? _username;
-  String? _userRole;
+  DashboardSnapshot? _snapshot;
   bool _isLoading = true;
-  int? _walletAvailableBalance;
+
+  String? get _username => _snapshot?.username;
+  String? get _userRole => _snapshot?.userRole;
+  Map<String, dynamic> get _profileData =>
+      _snapshot?.profileData ?? const <String, dynamic>{};
+  final ValueNotifier<int?> _walletAvailableBalance = ValueNotifier<int?>(null);
   int _refreshKey = 0; // برای force rebuild ویجت‌های فرزند
   bool _gamificationBootstrapScheduled = false;
+  bool _announcementScheduled = false;
   final InAppAnnouncementService _announcementService =
       InAppAnnouncementService();
   bool _isAnnouncementDialogVisible = false;
   final ScrollController _scrollController = ScrollController();
   late final DashboardDeferredReveal _deferredReveal;
-  bool _deferredSectionsReady = false;
   bool _dashboardTourCheckRunning = false;
   late final VoidCallback _dashboardForegroundListener;
 
@@ -161,8 +164,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   void _onDeferredRevealChanged() {
-    if (!_deferredReveal.ready || !mounted) return;
-    setState(() => _deferredSectionsReady = true);
+    if (!mounted) return;
+    // Rebuild so staggered DashboardDeferredGate sections can mount one-by-one.
+    setState(() {});
   }
 
   void _registerGuides() {
@@ -244,6 +248,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
     _deferredReveal.dispose();
     _scrollController.dispose();
+    _walletAvailableBalance.dispose();
     AvatarRefreshNotifier.instance.removeListener(_onAvatarUpdated);
     _animation.dispose();
     _logoutAnimationController?.dispose();
@@ -257,8 +262,13 @@ class _DashboardScreenState extends State<DashboardScreen>
         final latestWeight = await WeeklyWeightService.getLatestWeight(
           (profileData['id'] ?? '').toString(),
         );
+        final snapshot = DashboardSnapshot.fromRaw(
+          profileData,
+          latestWeight: latestWeight,
+        );
+        DashboardCacheService().setSnapshot(snapshot);
         WidgetSafetyUtils.safeSetState(this, () {
-          _profileData = _buildProfileData(profileData, latestWeight);
+          _snapshot = snapshot;
         });
       }
     } catch (_) {}
@@ -268,100 +278,79 @@ class _DashboardScreenState extends State<DashboardScreen>
     final cacheService = DashboardCacheService();
 
     try {
-      // بررسی کش برای profile data - اما ابتدا بررسی کنیم که متعلق به کاربر فعلی است
+      // Shell snapshot from cache — validate it belongs to the current user.
       final currentUser = Supabase.instance.client.auth.currentUser;
-      Map<String, dynamic>? cachedProfileData = cacheService.getProfileData();
+      var cachedSnapshot = cacheService.getSnapshot();
 
-      // بررسی اینکه کش متعلق به کاربر فعلی است
-      if (cachedProfileData != null && currentUser != null) {
-        final cachedUserId = cachedProfileData['id']?.toString();
+      if (cachedSnapshot != null && currentUser != null) {
+        final cachedUserId = cachedSnapshot.userId;
         if (cachedUserId != currentUser.id) {
-          // کش متعلق به کاربر قبلی است - پاک می‌کنیم
           cacheService.invalidateDashboard();
-          cachedProfileData = null;
-        } else if (_getDisplayName(cachedProfileData) == 'کاربر عزیز') {
-          // کش ناقص (مثلاً قبل از تکمیل ثبت‌نام) — از سرور بگیر
+          cachedSnapshot = null;
+        } else if (cachedSnapshot.username == 'کاربر عزیز') {
+          // Incomplete cache (e.g. before profile completion) — refetch.
           cacheService.invalidateDashboard();
-          cachedProfileData = null;
+          cachedSnapshot = null;
           SimpleProfileService.invalidateCache();
         }
       }
 
-      if (cachedProfileData != null && currentUser != null) {
-        final profileData = cachedProfileData; // برای null safety
+      if (cachedSnapshot != null && currentUser != null) {
         if (mounted) {
-          final role = (profileData['role'] as String?) ?? 'athlete';
           WidgetSafetyUtils.safeSetState(this, () {
-            _username = _getDisplayName(profileData);
-            _userRole = role;
-            _profileData = profileData;
+            _snapshot = cachedSnapshot;
             _isLoading = false;
           });
         }
-        // بارگذاری کیف پول (نیازی به کش ندارد - حساس است)
         unawaited(_loadWallet());
-        // به‌روزرسانی streak و دستاوردهای membership (بعد از first frame)
         _scheduleGamificationBootstrap();
         _scheduleDashboardTourCheck();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _tryShowAnnouncement();
-        });
+        _scheduleAnnouncement();
         return;
       }
 
-      // بارگذاری از API
       final profileData = await SimpleProfileService.getCurrentProfile();
 
-      // کیف پول فقط برای drawer — UI را block نمی‌کند
+      // Wallet is drawer-only — do not block shell paint.
       unawaited(_loadWallet());
 
       if (profileData != null && mounted) {
-        // بارگذاری آخرین وزن ثبت شده
         double? latestWeight;
         try {
           final profileId = (profileData['id'] ?? '').toString();
           if (profileId.isNotEmpty) {
             latestWeight = await WeeklyWeightService.getLatestWeight(profileId);
-            if (latestWeight != null) {
-              cacheService.setLatestWeight(latestWeight);
-            }
           }
         } catch (e) {
           // Error handled silently
         }
 
-        final builtProfileData = _buildProfileData(profileData, latestWeight);
+        final snapshot = DashboardSnapshot.fromRaw(
+          profileData,
+          latestWeight: latestWeight,
+        );
+        cacheService.setSnapshot(snapshot);
 
-        // ذخیره در کش
-        cacheService.setProfileData(builtProfileData);
-
-        final role = (profileData['role'] as String?) ?? 'athlete';
         WidgetSafetyUtils.safeSetState(this, () {
-          _username = _getDisplayName(profileData);
-          _userRole = role;
-          _profileData = builtProfileData;
+          _snapshot = snapshot;
           _isLoading = false;
         });
 
         _scheduleDashboardTourCheck();
-
-        // به‌روزرسانی streak و دستاوردهای membership (بعد از first frame)
         _scheduleGamificationBootstrap();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _tryShowAnnouncement();
-        });
+        _scheduleAnnouncement();
       } else {
         if (mounted) {
           SafeSetState.call(this, () {
             _isLoading = false;
-            _profileData = _getDefaultProfileData();
+            _snapshot = DashboardSnapshot.empty();
           });
         }
       }
     } catch (e) {
       SafeSetState.call(this, () {
         _isLoading = false;
-        _profileData = _getDefaultProfileData();
+        _snapshot = DashboardSnapshot.empty();
       });
     }
   }
@@ -370,15 +359,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     try {
       final wallet = await WalletService().getUserWallet();
       if (mounted) {
-        setState(() {
-          _walletAvailableBalance = wallet?.availableBalance ?? wallet?.balance;
-        });
+        // Drawer-only: avoid setState on the whole dashboard scaffold.
+        _walletAvailableBalance.value =
+            wallet?.availableBalance ?? wallet?.balance;
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _walletAvailableBalance = null;
-        });
+        _walletAvailableBalance.value = null;
       }
     }
   }
@@ -386,9 +373,20 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _scheduleGamificationBootstrap() {
     if (_gamificationBootstrapScheduled) return;
     _gamificationBootstrapScheduled = true;
-    Future<void>.delayed(const Duration(milliseconds: 2500), () {
+    // After deferred stagger wave (~2.2s + ~600ms) so it does not contend
+    // with heatmap / chart / discover network + paint.
+    Future<void>.delayed(const Duration(milliseconds: 4000), () {
       if (!mounted) return;
       unawaited(_updateStreakAndMembershipAchievements());
+    });
+  }
+
+  void _scheduleAnnouncement() {
+    if (_announcementScheduled) return;
+    _announcementScheduled = true;
+    Future<void>.delayed(const Duration(milliseconds: 4500), () {
+      if (!mounted) return;
+      unawaited(_tryShowAnnouncement());
     });
   }
 
@@ -424,56 +422,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  String _getDisplayName(Map<String, dynamic> profileData) {
-    final firstName = (profileData['first_name'] ?? '').toString();
-    final lastName = (profileData['last_name'] ?? '').toString();
-    final username = (profileData['username'] ?? '').toString();
-    final phone = (profileData['phone_number'] ?? '').toString();
-    final email = (profileData['email'] ?? '').toString();
-
-    final fullName = '$firstName $lastName'.trim();
-    if (fullName.isNotEmpty) return fullName;
-    if (username.isNotEmpty) return username;
-    if (phone.isNotEmpty) return phone;
-    if (email.isNotEmpty) return email.split('@').first;
-    return 'کاربر عزیز';
-  }
-
-  Map<String, dynamic> _buildProfileData(
-    Map<String, dynamic> profileData,
-    double? latestWeight,
-  ) {
-    return DashboardProfileMapper.fromRaw(profileData, latestWeight: latestWeight);
-  }
-
-  Map<String, dynamic> _getDefaultProfileData() {
-    return {
-      'first_name': '',
-      'last_name': '',
-      'height': '0',
-      'weight': '0',
-      'arm_circumference': '',
-      'chest_circumference': '',
-      'waist_circumference': '',
-      'hip_circumference': '',
-      'experience_level': '',
-      'preferred_training_days': '',
-      'preferred_training_time': '',
-      'fitness_goals': '',
-      'medical_conditions': '',
-      'dietary_preferences': '',
-      'birth_date': '',
-      'gender': 'male',
-      'activity_level': 'moderate',
-      'weight_history': <dynamic>[],
-      'username': '',
-      'phone_number': '',
-      'avatar_url': '',
-      'role': 'athlete',
-      'login_streak': 0,
-    };
-  }
-
   Future<void> _refreshAll() async {
     // If offline, show hint and stop refresh quickly
     try {
@@ -504,7 +452,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     // Clear all caches
     try {
       FoodService().clearCache();
-      ExerciseService().clearCache();
+      unawaited(ExerciseService().clearCache());
       DashboardCacheService().invalidateDashboard();
     } catch (_) {}
 
@@ -563,8 +511,12 @@ class _DashboardScreenState extends State<DashboardScreen>
       // کمی تاخیر برای نمایش انیمیشن
       await Future<void>.delayed(const Duration(milliseconds: 300));
 
-      // پاک کردن تمام کش‌ها و داده‌های کاربر قبل از logout
-      await LogoutCacheClearService.clearAllUserData();
+      // پاک کردن تمام کش‌ها قبل از signOut — با id کاربر فعلی
+      final loggingOutUserId =
+          Supabase.instance.client.auth.currentUser?.id;
+      await LogoutCacheClearService.clearAllUserData(
+        previousUserId: loggingOutUserId,
+      );
 
       // پاک کردن AppState
       await AppState().logout();
@@ -688,7 +640,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 drawer: DashboardDrawer(
                   username: _username,
                   userRole: _userRole,
-                  walletBalance: _walletAvailableBalance,
+                  walletBalanceListenable: _walletAvailableBalance,
                   onSignOut: _signOut,
                 ),
                 body: _isLoading
@@ -764,8 +716,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           DashboardWelcomeHelpers.getWelcomeMessage(),
                       welcomeIcon: DashboardWelcomeHelpers.getWelcomeIcon(),
                       profileData: _profileData,
-                      streak:
-                          (_profileData['login_streak'] as num?)?.toInt() ?? 0,
+                      streak: _snapshot?.loginStreak ?? 0,
                     ),
                   ),
                   SizedBox(height: 16.h),
@@ -808,7 +759,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                   // ── ۵. هیت‌مپ عضلانی هفتگی ──
                   DashboardDeferredGate(
-                    ready: _deferredSectionsReady,
+                    ready: _deferredReveal.isSectionReady(
+                      DashboardDeferredSection.heatmap,
+                    ),
                     placeholderHeight: 160.h,
                     child: DashboardAnimatedSection(
                       index: 5,
@@ -821,7 +774,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                   // ── ۶. متریک‌های فیتنس ──
                   DashboardDeferredGate(
-                    ready: _deferredSectionsReady,
+                    ready: _deferredReveal.isSectionReady(
+                      DashboardDeferredSection.metrics,
+                    ),
                     placeholderHeight: 100.h,
                     child: DashboardAnimatedSection(
                       index: 6,
@@ -835,7 +790,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                   // ── ۷. نمودار وزن ──
                   DashboardDeferredGate(
-                    ready: _deferredSectionsReady,
+                    ready: _deferredReveal.isSectionReady(
+                      DashboardDeferredSection.chart,
+                    ),
                     placeholderHeight: 200.h,
                     child: DashboardAnimatedSection(
                       index: 7,
@@ -856,7 +813,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                   // ── ۸. محتوای پیشنهادی - ویدیو، مقاله، موزیک ──
                   DashboardDeferredGate(
-                    ready: _deferredSectionsReady,
+                    ready: _deferredReveal.isSectionReady(
+                      DashboardDeferredSection.hero,
+                    ),
                     placeholderHeight: 180.h,
                     child: const DashboardAnimatedSection(
                       index: 8,
@@ -867,7 +826,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                   // ── ۹. کشف جدیدها - تمرینات و تغذیه ──
                   DashboardDeferredGate(
-                    ready: _deferredSectionsReady,
+                    ready: _deferredReveal.isSectionReady(
+                      DashboardDeferredSection.discover,
+                    ),
                     placeholderHeight: 220.h,
                     child: DashboardAnimatedSection(
                       index: 9,
@@ -878,7 +839,9 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                   // ── ۱۰. رتبه‌بندی ──
                   DashboardDeferredGate(
-                    ready: _deferredSectionsReady,
+                    ready: _deferredReveal.isSectionReady(
+                      DashboardDeferredSection.rankings,
+                    ),
                     placeholderHeight: 180.h,
                     child: const DashboardAnimatedSection(
                       index: 10,

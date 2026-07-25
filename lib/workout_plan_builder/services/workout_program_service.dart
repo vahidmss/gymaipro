@@ -28,6 +28,11 @@ class WorkoutProgramService {
   List<WorkoutProgram> _cachedPrograms = [];
   bool _initialized = false;
 
+  void clearMemoryCache() {
+    _cachedPrograms = [];
+    _initialized = false;
+  }
+
   Future<void> init() async {
     if (_initialized) return;
     await _loadPrograms();

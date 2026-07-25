@@ -107,16 +107,23 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
         if (!mounted) return;
         if (isDownloaded) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                kIsWeb
-                    ? 'فایل در پوشه دانلود مرورگر ذخیره شد'
-                    : 'موزیک دانلود شد',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              duration: Duration(seconds: 2),
-            ),
+            kIsWeb
+                ? const SnackBar(
+                    content: Text(
+                      'فایل در Downloads مرورگر ذخیره شد. پخش آفلاین داخل وب‌اپ بعد از رفرش ممکن نیست — برای آفلاین پایدار از اپ اندروید استفاده کنید.',
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    duration: Duration(seconds: 4),
+                  )
+                : const SnackBar(
+                    content: Text(
+                      'موزیک دانلود شد',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    duration: Duration(seconds: 2),
+                  ),
           );
         } else if (path == null) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -502,7 +509,11 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                             : (_isCached ? _deleteDownload : _downloadMusic),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
-                        tooltip: _isCached ? 'حذف از حافظه' : 'دانلود',
+                        tooltip: _isCached
+                            ? 'حذف از حافظه'
+                            : (kIsWeb
+                                ? 'ذخیره در Downloads مرورگر'
+                                : 'دانلود'),
                       ),
                     ),
 

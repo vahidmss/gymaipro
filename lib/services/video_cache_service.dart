@@ -31,6 +31,10 @@ class VideoCacheService {
 
   /// اولیه‌سازی سرویس کش
   Future<void> initialize() async {
+    if (kIsWeb) {
+      debugPrint('Video cache skipped on web (no durable filesystem)');
+      return;
+    }
     try {
       final appDir = await getApplicationDocumentsDirectory();
       _cacheDir = Directory('${appDir.path}/$_cacheDirName');
@@ -54,6 +58,7 @@ class VideoCacheService {
 
   /// بررسی وجود ویدیو در کش
   Future<bool> isVideoCached(String url) async {
+    if (kIsWeb) return false;
     if (_cacheDir == null) return false;
 
     final fileName = _getCacheFileName(url);
@@ -83,6 +88,7 @@ class VideoCacheService {
 
   /// دریافت مسیر فایل کش شده
   Future<String?> getCachedVideoPath(String url) async {
+    if (kIsWeb) return null;
     if (!await isVideoCached(url)) return null;
 
     final fileName = _getCacheFileName(url);
@@ -96,6 +102,7 @@ class VideoCacheService {
 
   /// کش کردن ویدیو با دانلود chunked و timeout
   Future<bool> cacheVideo(String url) async {
+    if (kIsWeb) return false;
     if (_cacheDir == null) return false;
 
     // جلوگیری از دانلود همزمان همان ویدیو
@@ -227,6 +234,7 @@ class VideoCacheService {
     String url,
     void Function(double) onProgress,
   ) async {
+    if (kIsWeb) return false;
     if (_cacheDir == null) return false;
 
     if (_downloadingVideos[url] ?? false) {
@@ -454,7 +462,7 @@ class VideoCacheService {
 
   /// دریافت اندازه کش
   Future<int> getCacheSize() async {
-    if (_cacheDir == null) return 0;
+    if (kIsWeb || _cacheDir == null) return 0;
 
     try {
       final files = await _cacheDir!.list().toList();
@@ -474,7 +482,7 @@ class VideoCacheService {
 
   /// پاک‌سازی کامل کش
   Future<void> clearCache() async {
-    if (_cacheDir == null) return;
+    if (kIsWeb || _cacheDir == null) return;
 
     try {
       final files = await _cacheDir!.list().toList();
@@ -492,7 +500,7 @@ class VideoCacheService {
 
   /// دریافت تعداد فایل‌های کش شده
   Future<int> getCachedFilesCount() async {
-    if (_cacheDir == null) return 0;
+    if (kIsWeb || _cacheDir == null) return 0;
 
     try {
       final files = await _cacheDir!.list().toList();
@@ -505,7 +513,7 @@ class VideoCacheService {
 
   /// حذف ویدیو خاص از کش
   Future<bool> deleteCachedVideo(String url) async {
-    if (_cacheDir == null) return false;
+    if (kIsWeb || _cacheDir == null) return false;
 
     try {
       final fileName = _getCacheFileName(url);

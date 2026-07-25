@@ -44,6 +44,7 @@ class _FoodListScreenState extends State<FoodListScreen> {
 
   List<Food> _foods = [];
   List<Food> _filteredFoods = [];
+  List<String> _availableGroups = [];
   String _searchQuery = '';
   bool _isLoading = true;
   _FoodSort _sort = _FoodSort.popular;
@@ -96,10 +97,14 @@ class _FoodListScreenState extends State<FoodListScreen> {
 
     if (!forceRefresh) {
       try {
-        final cached = await _foodService.getFoodsFromCache();
+        // Paint instantly from memory (Discover may already have warmed catalog).
+        // Skip like/favorite prefs on first paint — apply in background.
+        final peeked = _foodService.peekCachedFoods();
+        final cached = peeked ??
+            await _foodService.getFoodsFromCache(applyUserData: false);
         if (cached != null && cached.isNotEmpty && mounted) {
           _setFoods(cached, loading: false);
-          unawaited(_refreshInBackground());
+          unawaited(_refreshInBackground(forceNetwork: false));
           return;
         }
       } catch (e) {
@@ -112,7 +117,10 @@ class _FoodListScreenState extends State<FoodListScreen> {
     }
 
     try {
-      final foods = await _foodService.getFoods(forceRefresh: forceRefresh);
+      final foods = await _foodService.getFoods(
+        forceRefresh: forceRefresh,
+        applyUserData: true,
+      );
       if (!mounted) return;
       _setFoods(foods, loading: false);
     } catch (e) {
@@ -126,9 +134,15 @@ class _FoodListScreenState extends State<FoodListScreen> {
     }
   }
 
-  Future<void> _refreshInBackground() async {
+  Future<void> _refreshInBackground({bool forceNetwork = false}) async {
     try {
-      final foods = await _foodService.getFoods(forceRefresh: true);
+      // Prefer memory + prefs; only hit WordPress again on pull-to-refresh
+      // or when catalog thumbnails are missing.
+      final needsImages = _foods.any((f) => f.imageUrl.trim().isEmpty);
+      final foods = await _foodService.getFoods(
+        forceRefresh: forceNetwork || needsImages,
+        applyUserData: true,
+      );
       if (!mounted || foods.isEmpty) return;
 
       final changed = foods.length != _foods.length ||
@@ -158,11 +172,20 @@ class _FoodListScreenState extends State<FoodListScreen> {
   }
 
   void _setFoods(List<Food> foods, {required bool loading}) {
+    if (!mounted) return;
+    final filtered = _computeFiltered(foods);
+    final groups = foods
+        .map((f) => f.meta.foodGroup)
+        .where((g) => g.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
     setState(() {
       _foods = foods;
+      _filteredFoods = filtered;
+      _availableGroups = groups;
       _isLoading = loading;
     });
-    _applyFilters();
   }
 
   void _onSearchChanged(String value) {
@@ -175,15 +198,20 @@ class _FoodListScreenState extends State<FoodListScreen> {
   }
 
   void _applyFilters() {
-    var result = List<Food>.from(_foods);
+    if (!mounted) return;
+    setState(() => _filteredFoods = _computeFiltered(_foods));
+  }
+
+  List<Food> _computeFiltered(List<Food> source) {
+    var result = List<Food>.from(source);
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
+      // Title + structured meta only — scanning HTML content is too expensive.
       result = result
           .where(
             (f) =>
                 f.title.toLowerCase().contains(q) ||
-                f.content.toLowerCase().contains(q) ||
                 f.meta.matchesSearch(q),
           )
           .toList();
@@ -212,10 +240,7 @@ class _FoodListScreenState extends State<FoodListScreen> {
               .compareTo(b.displayTitle.toLowerCase()),
         );
     }
-
-    if (mounted) {
-      setState(() => _filteredFoods = result);
-    }
+    return result;
   }
 
   void _setSort(_FoodSort sort) {
@@ -228,16 +253,6 @@ class _FoodListScreenState extends State<FoodListScreen> {
     if (_selectedGroup == group) return;
     setState(() => _selectedGroup = group);
     _applyFilters();
-  }
-
-  List<String> get _availableGroups {
-    final groups = _foods
-        .map((f) => f.meta.foodGroup)
-        .where((g) => g.isNotEmpty)
-        .toSet()
-        .toList();
-    groups.sort();
-    return groups;
   }
 
   void _setFilter(_FoodFilter filter) {

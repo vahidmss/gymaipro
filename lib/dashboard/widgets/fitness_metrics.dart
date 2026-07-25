@@ -39,7 +39,7 @@ class _FitnessMetricsState extends State<FitnessMetrics> {
 
   Future<void> _loadLatestWeight() async {
     try {
-      // بررسی کش
+      // Shared with WeightChart via DashboardCacheService.
       final cachedWeight = _cacheService.getLatestWeight();
       if (cachedWeight != null) {
         if (mounted) {
@@ -48,6 +48,19 @@ class _FitnessMetricsState extends State<FitnessMetrics> {
           });
         }
         return;
+      }
+
+      final history = _cacheService.getWeightHistory();
+      if (history != null && history.isNotEmpty) {
+        final latest = history.last['weight'];
+        if (latest is num) {
+          final value = latest.toDouble();
+          _cacheService.setLatestWeight(value);
+          if (mounted) {
+            setState(() => _latestWeight = value);
+          }
+          return;
+        }
       }
 
       // بارگذاری از API

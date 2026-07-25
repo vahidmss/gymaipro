@@ -83,6 +83,8 @@ class _DiscoverSectionState extends State<DiscoverSection>
   late AnimationController _tabAnimController;
   late Animation<double> _tabFadeAnimation;
 
+  bool _loadAllInFlight = false;
+
   @override
   void initState() {
     super.initState();
@@ -129,52 +131,25 @@ class _DiscoverSectionState extends State<DiscoverSection>
     }
   }
 
+  bool get _exercisesMissingImages =>
+      _exerciseItems.isNotEmpty &&
+      _exerciseItems.any((i) => i.imageUrl.isEmpty);
+
+  bool get _foodsMissingImages =>
+      _foodItems.isNotEmpty && _foodItems.any((i) => i.imageUrl.isEmpty);
+
   bool get _itemsMissingImages =>
-      _exerciseItems.any((i) => i.imageUrl.isEmpty) ||
-      _foodItems.any((i) => i.imageUrl.isEmpty);
+      _exercisesMissingImages || _foodsMissingImages;
 
   Future<void> _loadAll() async {
-    // Preload catalog so carousel reads URLs that are already in memory/disk cache.
-    // Catalog failures (e.g. WordPress timeout) must not crash the dashboard.
+    if (_loadAllInFlight) return;
+    _loadAllInFlight = true;
     try {
-      await Future.wait([
-        _exerciseService.getExercises().catchError((Object e) {
-          debugPrint('Discover preload exercises failed: $e');
-          return <Exercise>[];
-        }),
-        _foodService.getFoods().catchError((Object e) {
-          debugPrint('Discover preload foods failed: $e');
-          return <Food>[];
-        }),
-      ]);
-    } catch (e) {
-      debugPrint('Discover catalog preload failed: $e');
-    }
-
-    await Future.wait([_loadExercises(), _loadFoods()]);
-
-    if (mounted && _itemsMissingImages) {
-      try {
-        await Future.wait([
-          _exerciseService.getExercises(forceRefresh: true).catchError((
-            Object e,
-          ) {
-            debugPrint('Discover refresh exercises failed: $e');
-            return <Exercise>[];
-          }),
-          _foodService.getFoods(forceRefresh: true).catchError((Object e) {
-            debugPrint('Discover refresh foods failed: $e');
-            return <Food>[];
-          }),
-        ]);
-      } catch (e) {
-        debugPrint('Discover catalog refresh failed: $e');
-      }
+      // Do NOT preload full exercise/food catalogs here — that spikes WiFi
+      // (WP foods _embed can be multiple MB). Load only what carousels need.
       await Future.wait([_loadExercises(), _loadFoods()]);
-    }
-
-    if (mounted) {
-      setState(() => _imageReloadEpoch++);
+    } finally {
+      _loadAllInFlight = false;
     }
   }
 
@@ -230,16 +205,19 @@ class _DiscoverSectionState extends State<DiscoverSection>
               columns: 'id, username, first_name, last_name',
             );
 
+      // One query instead of N× isClientOfTrainer round-trips.
+      final activeTrainerIds =
+          (_currentUserId != null && _currentUserId!.isNotEmpty)
+          ? await _trainerService.getActiveTrainerIdsForClient(_currentUserId!)
+          : <String>{};
+
       if (_currentUserId != null && _currentUserId!.isNotEmpty) {
         for (final customEx in trainerExercises) {
           final exercise = await _customExerciseService
               .customExerciseToExercise(customEx);
           final trainerProfile = profilesById[customEx.createdBy];
           final trainerName = _getTrainerName(trainerProfile);
-          final isUserTrainer = await _trainerService.isClientOfTrainer(
-            _currentUserId!,
-            customEx.createdBy,
-          );
+          final isUserTrainer = activeTrainerIds.contains(customEx.createdBy);
 
           allExercises.add(
             _DiscoverItem(
@@ -269,11 +247,7 @@ class _DiscoverSectionState extends State<DiscoverSection>
         );
         final trainerProfile = profilesById[customEx.createdBy];
         final trainerName = _getTrainerName(trainerProfile);
-        final isUserTrainer =
-            (_currentUserId != null && _currentUserId!.isNotEmpty) && await _trainerService.isClientOfTrainer(
-                _currentUserId!,
-                customEx.createdBy,
-              );
+        final isUserTrainer = activeTrainerIds.contains(customEx.createdBy);
 
         allExercises.add(
           _DiscoverItem(
@@ -296,7 +270,12 @@ class _DiscoverSectionState extends State<DiscoverSection>
         );
       }
 
-      await _appendCatalogExercises(allExercises);
+      final withImagesSoFar =
+          allExercises.where((e) => e.imageUrl.isNotEmpty).length;
+      // Only pull full Supabase catalog if custom/public items are not enough.
+      if (withImagesSoFar < 5) {
+        await _appendCatalogExercises(allExercises);
+      }
 
       allExercises.sort((a, b) => b.date.compareTo(a.date));
       final exercisesWithImages =
@@ -323,8 +302,11 @@ class _DiscoverSectionState extends State<DiscoverSection>
 
   Future<void> _appendCatalogExercises(List<_DiscoverItem> allExercises) async {
     try {
-      final regularExercises = await _exerciseService.getExercises();
-      regularExercises.sort((a, b) => b.likes.compareTo(a.likes));
+      // Prefer memory/disk cache; avoid forcing a cold network catalog fetch.
+      final cached = await _exerciseService.getExercisesFromCache();
+      final regularExercises = List<Exercise>.from(
+        cached ?? await _exerciseService.getExercises(),
+      )..sort((a, b) => b.likes.compareTo(a.likes));
       final withImages =
           regularExercises.where((e) => e.imageUrl.isNotEmpty).toList();
       final pool = withImages.isNotEmpty ? withImages : regularExercises;
@@ -364,14 +346,28 @@ class _DiscoverSectionState extends State<DiscoverSection>
   // ─── بارگذاری غذاها ───
   Future<void> _loadFoods() async {
     try {
-      final allFoods = await _foodService.getFoods();
-      _cacheService.setFoods(allFoods);
-
-      allFoods.sort((a, b) => b.date.compareTo(a.date));
+      // Memory cache if FoodList already warmed it; else ONE slim WP page.
+      // Never download the full multi-page foods catalog from Discover.
+      // Do not write slim results into DashboardCacheService foods key
+      // (that would poison any future full-catalog consumer).
+      final peeked = _foodService.peekCachedFoods();
+      final allFoods =
+          peeked ?? await _foodService.fetchRecentFoodsSlim(limit: 12);
+      if (peeked != null && peeked.isNotEmpty) {
+        _cacheService.setFoods(peeked);
+      }
 
       final withImages =
-          allFoods.where((f) => f.imageUrl.isNotEmpty).toList();
-      final pool = withImages.isNotEmpty ? withImages : allFoods;
+          allFoods.where((f) => f.imageUrl.trim().isNotEmpty).toList()
+            ..sort((a, b) => b.date.compareTo(a.date));
+
+      final List<Food> pool;
+      if (withImages.isNotEmpty) {
+        pool = withImages;
+      } else {
+        pool = List<Food>.from(allFoods)
+          ..sort((a, b) => b.date.compareTo(a.date));
+      }
 
       final foodItems = pool.take(5).map((food) {
         final caloriesText =
@@ -381,7 +377,7 @@ class _DiscoverSectionState extends State<DiscoverSection>
             : '';
         return _DiscoverItem(
           title: food.title,
-          imageUrl: food.imageUrl,
+          imageUrl: food.imageUrl.trim(),
           subtitle: caloriesText.isNotEmpty ? caloriesText : food.title,
           subtitleIcon: caloriesText.isNotEmpty
               ? LucideIcons.flame
@@ -839,6 +835,11 @@ class _DiscoverCard extends StatelessWidget {
                               'discover_img_${item.imageUrl}_$imageReloadEpoch',
                             ),
                             imageUrl: item.imageUrl,
+                            // ~0.88 viewport card width for decode budget
+                            memCacheWidth:
+                                (MediaQuery.sizeOf(context).width * 0.88)
+                                    .round(),
+                            loadTimeout: const Duration(seconds: 8),
                             placeholder: ColoredBox(
                               color: context.placeholderColor,
                               child: const Center(

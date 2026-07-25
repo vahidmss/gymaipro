@@ -33,9 +33,10 @@ $web = [ordered]@{
 
 if (-not $web.SUPABASE_ANON_KEY) { Write-Error "SUPABASE_ANON_KEY missing in .env" }
 if (-not $web.OPENAI_API_KEY) {
-  Write-Warning "OPENAI_API_KEY missing in .env — AI chat will not work on web until set"
+  Write-Warning "OPENAI_API_KEY missing in .env - AI chat will not work on web until set"
 }
 
 $web | ConvertTo-Json | Set-Content -Path $Out -Encoding UTF8
-Write-Host "Created $Out (direct OpenAI route; no SMS/payment secrets)"
+Write-Host "Created $Out"
+Write-Host "Mode: direct OpenAI key in web bundle. No SMS or payment secrets."
 Write-Host "Run: .\scripts\build-web.ps1"

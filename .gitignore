@@ -12,6 +12,13 @@
 .swiftpm/
 migrate_working_dir/
 
+# Local recovery snapshots (never commit)
+_recovery_backup_*/
+
+# Local build/release artifacts (never commit)
+gymaipro-web-release.zip
+*.web-release.zip
+
 # IntelliJ related
 *.iml
 *.ipr
@@ -62,6 +69,13 @@ app.*.map.json
 .env.local
 .env.*.local
 env.web.json
+
+# Android release signing (never commit)
+android/key.properties
+android/keystore-password.txt
+android/*.jks
+android/*.keystore
+**/upload-keystore.jks
 
 # Firebase / secrets (never commit)
 secrets/

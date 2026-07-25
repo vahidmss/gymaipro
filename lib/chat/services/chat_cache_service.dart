@@ -192,20 +192,29 @@ class ChatCacheService {
   }
 
   Future<void> clearAllForCurrentUser() async {
-    final userId = _currentUserId();
-    if (userId == null) return;
-    _messageMemory.removeWhere((k, _) => k.contains(userId));
-    _conversationMemory.remove(userId);
+    await clearForUser(_currentUserId());
+  }
+
+  /// Clears disk + memory for [userId]. If null, clears all chat_* / avatar keys.
+  Future<void> clearForUser(String? userId) async {
+    if (userId != null && userId.isNotEmpty) {
+      _messageMemory.removeWhere((k, _) => k.contains(userId));
+      _conversationMemory.remove(userId);
+    } else {
+      clearAllMemory();
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
-      final keys = prefs.getKeys().where(
-        (k) =>
-            k == '$_conversationsPrefix$userId' ||
+      final keys = prefs.getKeys().where((k) {
+        if (userId == null || userId.isEmpty) {
+          return k.startsWith('chat_cache_') || k.startsWith('avatar_url_');
+        }
+        return k == '$_conversationsPrefix$userId' ||
             k == '$_conversationsTsPrefix$userId' ||
             k == '$_unreadPrefix$userId' ||
             k.startsWith('$_messagesPrefix${userId}_') ||
-            k.startsWith('avatar_url_'),
-      );
+            k.startsWith('avatar_url_');
+      });
       for (final key in keys) {
         await prefs.remove(key);
       }

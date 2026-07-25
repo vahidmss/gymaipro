@@ -111,7 +111,7 @@ class _DashboardHeroCarouselState extends State<DashboardHeroCarousel> {
     final cached = _cacheService.getArticles();
     if (cached != null && cached.isNotEmpty) return cached;
 
-    final articles = await ArticleService.fetchArticles(perPage: 12);
+    final articles = await ArticleService.fetchArticles(perPage: 8);
     if (articles.isNotEmpty) {
       _cacheService.setArticles(articles);
     }
@@ -123,7 +123,8 @@ class _DashboardHeroCarouselState extends State<DashboardHeroCarousel> {
 
     try {
       final results = await Future.wait<dynamic>([
-        MotivationalVideoService.fetchVideos(),
+        // Hero shows ≤2 videos — never pull 100 WP embeds on dashboard open.
+        MotivationalVideoService.fetchVideos(perPage: 8),
         _loadArticles(),
         WorkoutMusicService.fetchMusic(),
       ]);

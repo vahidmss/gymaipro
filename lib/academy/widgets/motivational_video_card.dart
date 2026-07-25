@@ -1,11 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:chewie/chewie.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/motivational_video.dart';
-import 'dart:async';
-
 import 'package:gymaipro/services/video_cache_service.dart';
 import 'package:gymaipro/services/video_download_manager.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -44,6 +44,10 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
   }
 
   Future<void> _checkCacheStatus() async {
+    if (kIsWeb) {
+      if (mounted) setState(() => _isCached = false);
+      return;
+    }
     final cached = await _cacheService.isVideoCached(widget.video.videoUrl);
     if (mounted) {
       setState(() {
@@ -93,9 +97,9 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
       _chewieController = null;
       _videoPlayerController = null;
 
-      final cachedPath = await _cacheService.getCachedVideoPath(
-        widget.video.videoUrl,
-      );
+      final cachedPath = kIsWeb
+          ? null
+          : await _cacheService.getCachedVideoPath(widget.video.videoUrl);
 
       VideoPlayerController controller;
       if (cachedPath != null) {
@@ -187,6 +191,21 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
   }
 
   Future<void> _downloadVideo() async {
+    if (kIsWeb) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'دانلود آفلاین ویدیو روی وب‌اپ iOS پشتیبانی نمی‌شود — آنلاین پخش کنید',
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
     final downloadManager = Provider.of<VideoDownloadManager>(
       context,
       listen: false,
@@ -658,7 +677,8 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                     ),
                   ),
                 ),
-              // Cache Status Badge
+              // Cache Status Badge (native offline only)
+              if (!kIsWeb)
               Positioned(
                 top: 8.h,
                 right: 8.w,
@@ -776,29 +796,34 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                       ),
                     ),
                     const Spacer(),
-                    // Download Button
-                    if (isDownloading)
-                      SizedBox(
-                        width: 24.w,
-                        height: 24.w,
-                        child: CircularProgressIndicator(
-                          value: downloadProgress,
-                          strokeWidth: 2.w,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            AppTheme.goldColor,
+                    // Download Button — native only (web has no durable video FS)
+                    if (!kIsWeb)
+                      if (isDownloading)
+                        SizedBox(
+                          width: 24.w,
+                          height: 24.w,
+                          child: CircularProgressIndicator(
+                            value: downloadProgress,
+                            strokeWidth: 2.w,
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              AppTheme.goldColor,
+                            ),
                           ),
+                        )
+                      else
+                        IconButton(
+                          icon: Icon(
+                            _isCached
+                                ? LucideIcons.trash2
+                                : LucideIcons.download,
+                            size: 18.sp,
+                            color:
+                                _isCached ? Colors.red : AppTheme.goldColor,
+                          ),
+                          onPressed:
+                              _isCached ? _deleteVideo : _downloadVideo,
+                          tooltip: _isCached ? 'حذف از حافظه' : 'دانلود',
                         ),
-                      )
-                    else
-                      IconButton(
-                        icon: Icon(
-                          _isCached ? LucideIcons.trash2 : LucideIcons.download,
-                          size: 18.sp,
-                          color: _isCached ? Colors.red : AppTheme.goldColor,
-                        ),
-                        onPressed: _isCached ? _deleteVideo : _downloadVideo,
-                        tooltip: _isCached ? 'حذف از حافظه' : 'دانلود',
-                      ),
                   ],
                 ),
                 if (widget.video.description != null &&

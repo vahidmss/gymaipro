@@ -1,4 +1,5 @@
 ﻿import 'package:gymaipro/models/food_meta.dart';
+import 'package:gymaipro/utils/wordpress_media.dart';
 
 class Food {
   Food({
@@ -23,18 +24,15 @@ class Food {
   }) : _meta = meta ?? FoodMeta.empty();
 
   factory Food.fromJson(Map<String, dynamic> json) {
-    // Get image from _embedded if available
-    String imageUrl = '';
-    if (json.containsKey('_embedded') &&
-        json['_embedded'] != null &&
-        json['_embedded']['wp:featuredmedia'] != null &&
-        (json['_embedded']['wp:featuredmedia'] as List).isNotEmpty &&
-        json['_embedded']['wp:featuredmedia'][0]['source_url'] != null) {
-      imageUrl =
-          json['_embedded']['wp:featuredmedia'][0]['source_url'] as String;
-    } else if (json['meta']?['sample_image_forapp'] != null) {
-      imageUrl = json['meta']['sample_image_forapp'] as String;
-    } else {
+    // ONLY WordPress featured image / thumbnail (same as Exercise).
+    // Do not use meta.sample_image_forapp — that is not the source of truth.
+    String imageUrl = WordPressMedia.bestFeaturedImageUrl(json) ?? '';
+    if (imageUrl.isEmpty) {
+      final fi = json['featured_image'];
+      if (fi is String && fi.isNotEmpty) imageUrl = fi;
+    }
+    // SharedPreferences / memory cache uses toJson() camelCase imageUrl.
+    if (imageUrl.isEmpty) {
       final cached = json['imageUrl'];
       if (cached is String && cached.isNotEmpty) {
         imageUrl = cached;

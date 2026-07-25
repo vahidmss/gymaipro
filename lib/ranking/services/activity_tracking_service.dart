@@ -15,6 +15,10 @@ class ActivityTrackingService {
   final String _tableName = 'user_activity_tracking';
   String? _cachedUserId;
 
+  void clearCachedUserId() {
+    _cachedUserId = null;
+  }
+
   Future<String?> _resolveUserId([String? userId]) async {
     if (userId != null && userId.isNotEmpty) return userId;
 

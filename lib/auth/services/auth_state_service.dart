@@ -61,7 +61,10 @@ class AuthStateService {
       final lastUserId = prefs.getString(lastUserIdKey);
 
       if (lastUserId != null && lastUserId != newUserId) {
-        await LogoutCacheClearService.clearAllUserData();
+        // Pass previous id — current auth session is already the new user.
+        await LogoutCacheClearService.clearAllUserData(
+          previousUserId: lastUserId,
+        );
       }
     } catch (e) {
       debugPrint('Error checking user change: $e');

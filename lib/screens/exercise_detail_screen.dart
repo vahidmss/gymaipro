@@ -130,11 +130,15 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen>
         final videoUrl = videoUrls[idx];
 
         final videoCacheService = VideoCacheService();
-        final cachedPath = await videoCacheService.getCachedVideoPath(videoUrl);
+        final cachedPath = kIsWeb
+            ? null
+            : await videoCacheService.getCachedVideoPath(videoUrl);
 
         VideoPlayerController controller;
         if (cachedPath != null) {
           controller = VideoPlayerController.file(File(cachedPath));
+        } else if (kIsWeb) {
+          controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
         } else {
           if (videoCacheService.isVideoDownloading(videoUrl)) {
             controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));

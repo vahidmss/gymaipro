@@ -274,6 +274,27 @@ class TrainerService {
     }
   }
 
+  /// One query for all active trainer IDs linked to [clientId].
+  /// Prefer this over N× [isClientOfTrainer] on dashboards/carousels.
+  Future<Set<String>> getActiveTrainerIdsForClient(String clientId) async {
+    if (clientId.isEmpty) return {};
+    try {
+      final response = await _client
+          .from('trainer_clients')
+          .select('trainer_id')
+          .eq('client_id', clientId)
+          .eq('status', 'active');
+
+      return response
+          .map((row) => (row['trainer_id'] ?? '').toString())
+          .where((id) => id.isNotEmpty)
+          .toSet();
+    } catch (e) {
+      debugPrint('Error fetching active trainer ids for client: $e');
+      return {};
+    }
+  }
+
   // Get client profile details for a trainer
   Future<List<UserProfile>> getTrainerClientProfiles(String trainerId) async {
     try {

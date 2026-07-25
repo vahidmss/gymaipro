@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:gymaipro/network/gymaipro_insecure_tls_hosts.dart';
 import 'package:gymaipro/services/video_cache_service.dart';
 import 'package:video_player/video_player.dart';
@@ -10,6 +11,10 @@ class GymaiproVideoControllerUtils {
   GymaiproVideoControllerUtils._();
 
   static Future<VideoPlayerController> createForUrl(String url) async {
+    if (kIsWeb) {
+      return VideoPlayerController.networkUrl(Uri.parse(url));
+    }
+
     final cache = VideoCacheService();
     var path = await cache.getCachedVideoPath(url);
     if (path != null) {

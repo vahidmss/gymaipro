@@ -31,6 +31,20 @@ class UserContextCacheService {
       }
       
       final cacheData = jsonDecode(cacheJson) as Map<String, dynamic>;
+
+      // Refuse cache belonging to another account (logout clear safety net).
+      final currentId = _supabase.auth.currentUser?.id;
+      final cachedId = cacheData['user_id']?.toString();
+      if (currentId == null ||
+          cachedId == null ||
+          cachedId.isEmpty ||
+          cachedId != currentId) {
+        if (kDebugMode) {
+          print('AI Context Cache: Rejected stale/mismatched user cache');
+        }
+        await clearCache();
+        return null;
+      }
       
       if (kDebugMode) {
         print('AI Context Cache: Loaded from cache');
@@ -136,6 +150,7 @@ class UserContextCacheService {
       
       // ساخت داده کش
       final cacheData = <String, dynamic>{
+        'user_id': userId,
         'profile': profile,
         'confidential_data': confidentialData,
         'latest_weight': latestWeight,
@@ -164,6 +179,8 @@ class UserContextCacheService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_cacheKey);
       await prefs.remove(_cacheTimestampKey);
+      _lastRefreshAt = null;
+      _refreshInFlight = null;
       
       if (kDebugMode) {
         print('AI Context Cache: Cache cleared');

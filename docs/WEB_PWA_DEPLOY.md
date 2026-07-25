@@ -52,9 +52,11 @@ Then on server: `docker compose restart functions`
 
 ```powershell
 .\scripts\build-web.ps1
+# subdomain root:
+.\scripts\build-web.ps1 -BaseHref "/"
 ```
 
-Upload `build/web` to HTTPS (e.g. `app.gymaipro.ir`).
+Upload `build/web` to **HTTPS** (required for PWA / Service Worker).
 
 ## 6. Local web dev
 
@@ -63,6 +65,34 @@ flutter run -d chrome --dart-define-from-file=env.web.json
 # or
 .\scripts\run-web-debug.ps1 -Chrome
 ```
+
+## 7. iOS PWA checklist (Home Screen instead of App Store)
+
+Safari has **no** auto install prompt. Users must: Share → Add to Home Screen.
+
+Already in the app / `web/`:
+
+| Item | Status |
+|------|--------|
+| `manifest.json` `display: standalone` | Yes |
+| Apple meta tags + `viewport-fit=cover` | Yes |
+| Opaque `apple-touch-icon` 180/167/152 | Yes |
+| `apple-touch-startup-image` (common iPhones) | Yes |
+| In-app Persian install guide (`IosPwaInstallBanner`) | Yes — only on iOS Safari, hidden when already installed |
+| Session (Supabase → localStorage) | Yes — ask user to log in once after first Home Screen open |
+| System Web Push | **Not enabled** on web yet (see Settings notice) |
+| Offline video download | Disabled on web (stream online) |
+| Music "download" | Saves to browser Downloads; not durable in-app offline after reload |
+
+### Manual QA on a real iPhone
+
+1. Open the HTTPS URL in **Safari** (not Chrome-in-app).
+2. Confirm install banner appears; follow guide → Add to Home Screen.
+3. Launch from icon: no Safari chrome, splash, then app.
+4. Log in once; kill app; reopen — session should restore.
+5. Play a motivational video (online only).
+6. Download a music track — file lands in Files/Downloads; message explains limits.
+7. Settings → اعلان‌ها / ذخیره‌سازی — web notices visible.
 
 ## Security model
 
@@ -85,6 +115,17 @@ Mitigations in app:
 - Require login for proxy route; direct route uses your restricted key
 
 **In OpenAI dashboard:** set monthly budget cap, restrict models to `gpt-4o-mini` / `gpt-4o`.
+
+## Android multi-phone release (sideload)
+
+```powershell
+.\scripts\setup-android-keystore.ps1   # once — creates android/upload-keystore.jks + key.properties
+.\scripts\build-android-release.ps1    # always uses --dart-define-from-file=.env
+```
+
+Release builds **do not** load `.env` from assets. Never ship an APK built without dart-defines.
+
+APK is **arm64-v8a only**. applicationId stays `com.example.gymaipro` to match `google-services.json` / FCM.
 
 ## Mobile dev (native)
 

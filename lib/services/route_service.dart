@@ -32,7 +32,7 @@ import 'package:gymaipro/payment/index.dart';
 import 'package:gymaipro/payment/screens/wallet_charge_screen.dart';
 import 'package:gymaipro/profile/screens/profile_screen.dart';
 import 'package:gymaipro/screens/exercise_detail_screen.dart';
-import 'package:gymaipro/screens/exercise_list_screen.dart';
+import 'package:gymaipro/screens/exercises/exercise_list_screen.dart';
 import 'package:gymaipro/academy/screens/music_favorites_screen.dart';
 import 'package:gymaipro/screens/favorite_foods_screen.dart';
 import 'package:gymaipro/screens/food_detail_screen.dart';

@@ -419,8 +419,9 @@ class AppInitializer {
           await _initFoodService();
         }),
       );
+      // Far after dashboard first paint — AI catalog is unused on home.
       unawaited(
-        Future<void>.delayed(const Duration(milliseconds: 2600), () async {
+        Future<void>.delayed(const Duration(seconds: 18), () async {
           await _preloadAIExercises();
         }),
       );

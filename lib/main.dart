@@ -29,6 +29,7 @@ import 'package:gymaipro/services/video_download_manager.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/theme/theme_provider.dart';
 import 'package:gymaipro/widgets/app_update_coordinator.dart';
+import 'package:gymaipro/widgets/ios_pwa_install_banner.dart';
 import 'package:gymaipro/widgets/offline_banner.dart';
 import 'package:gymaipro/widgets/vpn_warning_banner.dart';
 import 'package:provider/provider.dart';
@@ -667,6 +668,7 @@ class _MyAppState extends State<MyApp> {
                               ),
                               const OfflineBanner(),
                               const VpnWarningBanner(),
+                              const IosPwaInstallBanner(),
                             ],
                           ),
                         ),
