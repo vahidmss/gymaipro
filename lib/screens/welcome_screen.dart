@@ -59,6 +59,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       _currentPage = 0;
       _pageController = PageController();
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final page in _pages) {
+        if (!page.image.contains('poster')) continue;
+        precacheImage(AssetImage(page.image), context);
+      }
+    });
   }
 
   @override

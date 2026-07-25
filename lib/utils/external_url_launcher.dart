@@ -8,11 +8,34 @@ class ExternalUrlLauncher {
 
   static bool _paymentBrowserOpen = false;
 
-  /// درگاه پرداخت — ترجیحاً Custom Tab که با deeplink بسته می‌شود.
+  /// درگاه پرداخت — وب: همان تب (ضروری برای برگشت PWA روی iOS).
+  /// نیتیو: Custom Tab که با deeplink بسته می‌شود.
   static Future<bool> openPaymentUrl(String url) async {
     final uri = Uri.parse(url);
     if (kDebugMode) {
       debugPrint('ExternalUrlLauncher: payment URL $uri');
+    }
+
+    // Web / iOS PWA: same-tab navigation so Zibal → WP → /app/?payment=…
+    // returns into the Flutter SPA instead of a dead Safari tab.
+    if (kIsWeb) {
+      try {
+        final launched = await launchUrl(
+          uri,
+          webOnlyWindowName: '_self',
+        );
+        if (launched) {
+          _paymentBrowserOpen = true;
+          if (kDebugMode) {
+            debugPrint('ExternalUrlLauncher: web same-tab payment navigate');
+          }
+          return true;
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('ExternalUrlLauncher: web same-tab failed: $e');
+        }
+      }
     }
 
     try {

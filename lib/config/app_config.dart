@@ -268,8 +268,18 @@ class AppConfig {
     return _envString('ZARINPAL_MERCHANT_ID');
   }
 
-  // Zibal requires callbackUrl domain to match merchant; use gymaipro.ir
-  static const String zibalCallbackUrl = 'https://gymaipro.ir/payment/callback';
+  // Zibal requires callbackUrl domain to match merchant (gymaipro.ir).
+  // Must hit WordPress `/pay/callback` (not `/payment/callback`) so the bridge
+  // can verify and redirect — native → gymaipro:// , web/PWA → /app/?payment=…
+  static String get zibalCallbackUrl {
+    const env = String.fromEnvironment('ZIBAL_CALLBACK_URL');
+    if (env.isNotEmpty) return env;
+    return 'https://gymaipro.ir/pay/callback';
+  }
+
+  /// Extra query for web/PWA so WordPress returns into the SPA under /app/.
+  static String get zibalCallbackPlatformQuery =>
+      kIsWeb ? '&platform=web' : '';
 
   // OTP/SMS configuration
   static String get smsApiBaseUrl {

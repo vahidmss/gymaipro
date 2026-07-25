@@ -54,7 +54,6 @@ class SupabaseService {
   Future<bool> isUsernameUnique(String username) async {
     try {
       return await Future<bool>(() async {
-        await client.from('profiles').select('count').limit(1);
         final response = await client
             .from('profiles')
             .select('id')
@@ -101,31 +100,28 @@ class SupabaseService {
             normalizedPhone.replaceAll(RegExp(r'[^\d]'), '');
         final noLeadingZero =
             digits.startsWith('0') ? digits.substring(1) : digits;
-        final candidates = [
+        final candidates = <String>{
           normalizedPhone,
           digits,
           '+98$noLeadingZero',
           '98$noLeadingZero',
           noLeadingZero,
-        ];
+        }.where((c) => c.isNotEmpty).toList();
 
-        for (final candidate in candidates) {
-          if (candidate.isEmpty) continue;
-          try {
-            final row = await client
-                .from('profiles')
-                .select('id')
-                .eq('phone_number', candidate)
-                .maybeSingle();
-            if (row != null) return true;
-          } catch (e) {
-            if (_isInvalidSupabaseApiKey(e)) {
-              throw SupabaseBackendAuthException(_kAnonKeyMismatchUserMessage);
-            }
-            continue;
+        // One round-trip instead of up to 5 sequential profile lookups.
+        try {
+          final rows = await client
+              .from('profiles')
+              .select('id')
+              .inFilter('phone_number', candidates)
+              .limit(1);
+          return (rows as List).isNotEmpty;
+        } catch (e) {
+          if (_isInvalidSupabaseApiKey(e)) {
+            throw SupabaseBackendAuthException(_kAnonKeyMismatchUserMessage);
           }
+          return false;
         }
-        return false;
       }).timeout(
         _doesUserExistTimeout,
         onTimeout: () => false,

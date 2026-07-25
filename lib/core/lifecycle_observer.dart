@@ -10,6 +10,7 @@ import 'package:gymaipro/notification/notification_service.dart';
 import 'package:gymaipro/notification/services/notification_fallback_sync_service.dart';
 import 'package:gymaipro/notification/services/push_health_monitor.dart';
 import 'package:gymaipro/payment/services/payment_resume_tracker.dart';
+import 'package:gymaipro/payment/services/payment_deeplink_service.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/payment/utils/wallet_refresh_notifier.dart';
 import 'package:gymaipro/utils/external_url_launcher.dart';
@@ -67,6 +68,7 @@ class _LifecycleObserverState extends State<LifecycleObserver>
       }
       _markActive('resumed');
       unawaited(_pollPendingWalletTopup());
+      unawaited(_pollPendingDirectPayment());
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
       _markInactive('$state');
@@ -96,6 +98,14 @@ class _LifecycleObserverState extends State<LifecycleObserver>
         WalletRefreshNotifier.notifyRefresh();
       }
     }
+  }
+
+  Future<void> _pollPendingDirectPayment() async {
+    if (ForegroundResumeCoordinator.isPaymentReturnGraceActive) return;
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    if (ForegroundResumeCoordinator.isPaymentReturnGraceActive) return;
+    await ExternalUrlLauncher.closePaymentBrowserIfOpen();
+    await PaymentDeeplinkService().resumePendingDirectPaymentIfAny();
   }
 
   Future<void> _markActive(String source, {bool light = false}) async {

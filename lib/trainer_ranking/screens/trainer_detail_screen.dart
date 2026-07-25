@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/screens/chat_screen.dart';
 import 'package:gymaipro/payment/models/trainer_subscription.dart';
+import 'package:gymaipro/payment/services/pending_direct_payment_tracker.dart';
 import 'package:gymaipro/payment/services/trainer_payment_service.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
@@ -34,6 +35,7 @@ import 'package:gymaipro/trainer_ranking/widgets/shimmer.dart';
 import 'package:gymaipro/trainer_channel/screens/trainer_channel_screen.dart';
 import 'package:gymaipro/trainer_channel/services/trainer_channel_service.dart';
 import 'package:gymaipro/trainer_ranking/widgets/trainer_review_widget.dart';
+import 'package:gymaipro/utils/external_url_launcher.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -601,7 +603,11 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     }
   }
 
-  void _showPaymentRedirectDialog(String paymentUrl, String trackId) {
+  void _showPaymentRedirectDialog(
+    String paymentUrl,
+    String trackId,
+    String transactionId,
+  ) {
     showDialog<void>(
       context: context,
       builder: (context) {
@@ -687,14 +693,16 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
             ElevatedButton(
               onPressed: () async {
                 Navigator.of(context).pop();
-                final uri = Uri.parse(paymentUrl);
-                final can = await canLaunchUrl(uri);
-                if (can) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                } else {
-                  // fallback try without canLaunch
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                final tx = transactionId;
+                if (tx.isNotEmpty && trackId.isNotEmpty) {
+                  await PendingDirectPaymentTracker.instance.track(
+                    type: 'trainer',
+                    transactionId: tx,
+                    trackId: trackId,
+                    trainerId: widget.trainer.id,
+                  );
                 }
+                await ExternalUrlLauncher.openPaymentUrl(paymentUrl);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.goldColor,
@@ -2310,7 +2318,8 @@ class _PaymentBottomSheet extends StatefulWidget {
   final String serviceId;
   final String trainerName;
   final Future<void> Function(String serviceName) onWalletSuccess;
-  final void Function(String paymentUrl, String trackId) onDirectRedirect;
+  final void Function(String paymentUrl, String trackId, String transactionId)
+      onDirectRedirect;
 
   @override
   State<_PaymentBottomSheet> createState() => _PaymentBottomSheetState();
@@ -2378,6 +2387,7 @@ class _PaymentBottomSheetState extends State<_PaymentBottomSheet>
         widget.onDirectRedirect(
           result['payment_url']! as String,
           result['track_id']! as String,
+          (result['transaction_id'] ?? '').toString(),
         );
       }
     } else {

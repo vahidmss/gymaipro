@@ -9,6 +9,7 @@ import 'package:gymaipro/payment/models/ai_coach_plan_price.dart';
 import 'package:gymaipro/payment/models/coach_plan_catalog.dart';
 import 'package:gymaipro/payment/services/ai_coach_plan_price_service.dart';
 import 'package:gymaipro/payment/services/coach_plan_payment_service.dart';
+import 'package:gymaipro/payment/services/pending_direct_payment_tracker.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/payment/widgets/purchase_success_dialog.dart';
@@ -153,8 +154,20 @@ class _CoachPlanPurchaseSheetState extends State<CoachPlanPurchaseSheet> {
         );
       } else {
         final paymentUrl = result['payment_url']?.toString();
+        final trackId = result['track_id']?.toString();
+        final transactionId = result['transaction_id']?.toString();
         Navigator.of(context).pop(false);
         if (paymentUrl != null && paymentUrl.isNotEmpty) {
+          if (transactionId != null &&
+              trackId != null &&
+              transactionId.isNotEmpty &&
+              trackId.isNotEmpty) {
+            await PendingDirectPaymentTracker.instance.track(
+              type: 'coach_plan',
+              transactionId: transactionId,
+              trackId: trackId,
+            );
+          }
           await ExternalUrlLauncher.openPaymentUrl(paymentUrl);
         }
       }

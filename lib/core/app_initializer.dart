@@ -402,29 +402,39 @@ class AppInitializer {
     }
 
     // Network-heavy services may have been skipped on first offline launch.
+    // When logged out, push them far back so welcome/login paint stays smooth.
     if (canBackend && !_networkHeavyServicesStarted) {
       _networkHeavyServicesStarted = true;
+      final loggedIn = Supabase.instance.client.auth.currentUser != null;
+      final migrateDelay =
+          Duration(milliseconds: loggedIn ? 600 : 15000);
+      final exerciseDelay =
+          Duration(milliseconds: loggedIn ? 1400 : 18000);
+      final foodDelay =
+          Duration(milliseconds: loggedIn ? 2000 : 20000);
       unawaited(
-        Future<void>.delayed(const Duration(milliseconds: 600), () async {
+        Future<void>.delayed(migrateDelay, () async {
           await _initDatabaseMigrations();
         }),
       );
       unawaited(
-        Future<void>.delayed(const Duration(milliseconds: 1400), () async {
+        Future<void>.delayed(exerciseDelay, () async {
           await _initExerciseService();
         }),
       );
       unawaited(
-        Future<void>.delayed(const Duration(milliseconds: 2000), () async {
+        Future<void>.delayed(foodDelay, () async {
           await _initFoodService();
         }),
       );
       // Far after dashboard first paint — AI catalog is unused on home.
-      unawaited(
-        Future<void>.delayed(const Duration(seconds: 18), () async {
-          await _preloadAIExercises();
-        }),
-      );
+      if (loggedIn) {
+        unawaited(
+          Future<void>.delayed(const Duration(seconds: 18), () async {
+            await _preloadAIExercises();
+          }),
+        );
+      }
     } else if (!canBackend && kDebugMode) {
       debugPrint(
         'Skipping startup network-heavy services (exercise/food/AI preload) due to offline DNS state',

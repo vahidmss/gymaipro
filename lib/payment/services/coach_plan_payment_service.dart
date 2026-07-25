@@ -237,7 +237,7 @@ class CoachPlanPaymentService {
   ) async {
     try {
       final callbackUrl =
-          '${AppConfig.zibalCallbackUrl}?orderId=${transaction.id}&type=coach_plan';
+          '${AppConfig.zibalCallbackUrl}?orderId=${transaction.id}&type=coach_plan${AppConfig.zibalCallbackPlatformQuery}';
       final paymentResult = await _paymentGateway.processPayment(
         transaction: transaction,
         gateway: PaymentGateway.zibal,

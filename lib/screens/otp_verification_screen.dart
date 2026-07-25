@@ -5,7 +5,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/auth/utils/otp_autofill_helper.dart';
 import 'package:gymaipro/auth/screens/profile_completion_screen.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
-import 'package:gymaipro/debug/database_debug_service.dart';
 import 'package:gymaipro/services/otp_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
@@ -205,17 +204,6 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen>
       if (!isValid) {
         _showError('کد وارد شده صحیح نیست');
         return;
-      }
-
-      // اجرای diagnostics قبل از ثبت نام
-      debugPrint('=== OTP VERIFICATION: Running database diagnostics ===');
-      try {
-        await DatabaseDebugService.runFullDiagnostics();
-        debugPrint('=== OTP VERIFICATION: Database diagnostics completed ===');
-      } catch (diagError) {
-        debugPrint(
-          '=== OTP VERIFICATION: Database diagnostics failed: $diagError ===',
-        );
       }
 
       // فقط تایید OTP - ثبت‌نام در صفحه تکمیل پروفایل انجام می‌شود

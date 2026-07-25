@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/payment/models/discount_code.dart';
 import 'package:gymaipro/payment/models/payment_plan.dart';
 import 'package:gymaipro/payment/models/payment_transaction.dart';
@@ -195,7 +196,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
       final gatewayResult = await _paymentService.processPayment(
         transaction: transaction.copyWith(finalAmount: remainingAmount),
         gateway: _selectedGateway,
-        callbackUrl: 'https://app.gymaipro.ir/payment/callback',
+        callbackUrl:
+            '${AppConfig.zibalCallbackUrl}?orderId=${transaction.id}${AppConfig.zibalCallbackPlatformQuery}',
       );
 
       return gatewayResult;
@@ -211,7 +213,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return _paymentService.processPayment(
       transaction: transaction,
       gateway: _selectedGateway,
-      callbackUrl: 'https://app.gymaipro.ir/payment/callback',
+      callbackUrl:
+          '${AppConfig.zibalCallbackUrl}?orderId=${transaction.id}${AppConfig.zibalCallbackPlatformQuery}',
     );
   }
 

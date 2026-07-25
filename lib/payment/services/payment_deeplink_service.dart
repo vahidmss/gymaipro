@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:gymaipro/core/foreground_resume_coordinator.dart';
 import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/payment/services/payment_resume_tracker.dart';
+import 'package:gymaipro/payment/services/pending_direct_payment_tracker.dart';
 import 'package:gymaipro/payment/services/coach_plan_payment_service.dart';
 import 'package:gymaipro/payment/services/trainer_payment_service.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
@@ -224,6 +225,9 @@ class PaymentDeeplinkService {
         );
 
         final success = result['success'] == true;
+        if (success) {
+          unawaited(PendingDirectPaymentTracker.instance.clear());
+        }
 
         if (!ctx.mounted) return;
         if (success) {
@@ -366,6 +370,9 @@ class PaymentDeeplinkService {
         );
 
         final success = result['success'] == true;
+        if (success) {
+          unawaited(PendingDirectPaymentTracker.instance.clear());
+        }
         if (!ctx.mounted) return;
 
         if (success) {
@@ -516,12 +523,28 @@ class PaymentDeeplinkService {
     );
   }
 
-  /// Callback پرداخت از مرورگر (https://gymaipro.ir/payment/callback?...)
+  /// Callback پرداخت وب/PWA:
+  /// - مسیر قدیمی: /payment/callback یا /pay/callback
+  /// - مسیر درست PWA: /app/?payment=coach_plan|trainer&…
   bool _isWebPaymentCallback(Uri uri) {
     if (uri.scheme != 'https' && uri.scheme != 'http') return false;
     const hosts = {'gymaipro.ir', 'www.gymaipro.ir', 'app.gymaipro.ir'};
     if (!hosts.contains(uri.host)) return false;
-    return uri.path.contains('payment/callback');
+
+    final params = uri.queryParameters;
+    if (params.containsKey('payment')) return true;
+    if (uri.path.contains('payment/callback') ||
+        uri.path.contains('pay/callback')) {
+      return true;
+    }
+    // Zibal/WP may land on /app/ with trackId + orderId
+    final hasTrack =
+        params.containsKey('trackId') || params.containsKey('track_id');
+    final hasOrder = params.containsKey('orderId') ||
+        params.containsKey('transactionId') ||
+        params.containsKey('tx');
+    if (hasTrack && hasOrder) return true;
+    return false;
   }
 
   /// پردازش URL فعلی مرورگر هنگام باز شدن PWA
@@ -533,23 +556,34 @@ class PaymentDeeplinkService {
 
   void _handleWebPaymentCallback(Uri uri) {
     final params = uri.queryParameters;
-    final type = params['type'];
+    final type = params['payment'] ?? params['type'];
 
-    if (type == 'trainer') {
-      _handleTrainerPayment(uri);
-      return;
-    }
-
-    if (type == 'coach_plan' || type == 'coach-plan') {
-      _handleCoachPlanPayment(uri);
-      return;
-    }
-
+    // Zibal sends success=1; WP/native deeplink uses status=success
     final status = params['status'] ??
         (params['success'] == '1' ? 'success' : null) ??
         params['result'];
 
-    if (uri.path.contains('wallet') || params.containsKey('topup')) {
+    final normalized = uri.replace(
+      queryParameters: {
+        ...params,
+        if (status != null) 'status': status,
+        if (type != null) 'type': type,
+      },
+    );
+
+    if (type == 'trainer') {
+      _handleTrainerPayment(normalized);
+      return;
+    }
+
+    if (type == 'coach_plan' || type == 'coach-plan') {
+      _handleCoachPlanPayment(normalized);
+      return;
+    }
+
+    if (uri.path.contains('wallet') ||
+        params.containsKey('topup') ||
+        type == 'topup') {
       _handleTopupDeeplink(
         Uri(
           scheme: 'gymaipro',
@@ -561,6 +595,8 @@ class PaymentDeeplinkService {
       return;
     }
 
+    // Fallback: if trackId+orderId present without type, try coach then trainer
+    // is unsafe — require type. Treat as topup status only.
     if (status != null) {
       _handleTopupDeeplink(
         Uri(
@@ -573,11 +609,53 @@ class PaymentDeeplinkService {
     }
   }
 
+  /// After a successful verify, clear any pending web payment tracker.
+  Future<void> clearPendingDirectPayment() {
+    return PendingDirectPaymentTracker.instance.clear();
+  }
+
+  /// Safety net: verify a payment that was started but whose return deeplink
+  /// never arrived (common on iOS PWA).
+  Future<void> resumePendingDirectPaymentIfAny() async {
+    final pending = await PendingDirectPaymentTracker.instance.load();
+    if (pending == null) return;
+
+    if (kDebugMode) {
+      print(
+        'Resuming pending direct payment: ${pending.type} ${pending.transactionId}',
+      );
+    }
+
+    final synthetic = Uri(
+      scheme: 'gymaipro',
+      host: 'payment',
+      pathSegments: [pending.isCoachPlan ? 'coach-plan' : 'trainer'],
+      queryParameters: {
+        'status': 'success',
+        'transactionId': pending.transactionId,
+        'trackId': pending.trackId,
+        if (pending.trainerId != null && pending.trainerId!.isNotEmpty)
+          'trainerId': pending.trainerId!,
+      },
+    );
+
+    if (pending.isCoachPlan) {
+      _handleCoachPlanPayment(synthetic);
+    } else if (pending.isTrainer) {
+      _handleTrainerPayment(synthetic);
+    }
+  }
+
   /// بررسی و پردازش deeplink اولیه (در صورت وجود)
   Future<void> handleInitialLink() async {
     try {
       if (kIsWeb) {
         handleWebLaunchUri(Uri.base);
+        // If URL had no payment params (user reopened PWA manually), still try.
+        if (!_isWebPaymentCallback(Uri.base)) {
+          await Future<void>.delayed(const Duration(milliseconds: 900));
+          await resumePendingDirectPaymentIfAny();
+        }
         return;
       }
 
@@ -587,6 +665,9 @@ class PaymentDeeplinkService {
           print('Initial deeplink: $initialUri');
         }
         _handleDeeplink(initialUri);
+      } else {
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+        await resumePendingDirectPaymentIfAny();
       }
     } catch (e) {
       if (kDebugMode) {

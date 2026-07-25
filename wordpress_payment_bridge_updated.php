@@ -23,11 +23,13 @@ const GYM_TOPUP_CURRENCY      = 'IRT';
 add_action('init', function () {
   add_rewrite_rule('^pay/topup/?',    'index.php?app_topup=1', 'top');
   add_rewrite_rule('^pay/callback/?', 'index.php?app_callback=1', 'top');
+  // Alias used by older Flutter builds (must hit same handler)
+  add_rewrite_rule('^payment/callback/?', 'index.php?app_callback=1', 'top');
   add_rewrite_tag('%app_topup%', '1');
   add_rewrite_tag('%app_callback%', '1');
-  if (!get_option('gym_topup_rewrite_flushed')) {
+  if (!get_option('gym_topup_rewrite_flushed_v2')) {
     flush_rewrite_rules();
-    update_option('gym_topup_rewrite_flushed', 1);
+    update_option('gym_topup_rewrite_flushed_v2', 1);
   }
 });
 
@@ -40,7 +42,7 @@ add_filter('query_vars', function ($vars) {
 add_action('template_redirect', function () {
   $request_uri = isset($_SERVER['REQUEST_URI']) ? trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/') : '';
   if (get_query_var('app_topup') || $request_uri === 'pay/topup')   { gymai_render_checkout(); exit; }
-  if (get_query_var('app_callback') || $request_uri === 'pay/callback'){ gymai_handle_callback(); exit; }
+  if (get_query_var('app_callback') || $request_uri === 'pay/callback' || $request_uri === 'payment/callback'){ gymai_handle_callback(); exit; }
 });
 
 add_action('rest_api_init', function () {
@@ -344,20 +346,38 @@ function gymai_handle_callback(){
   $payment_type = isset($_GET['type']) ? sanitize_text_field($_GET['type']) : 'topup';
   $order_id = isset($_GET['orderId']) ? sanitize_text_field($_GET['orderId']) : '';
   $trainer_id = isset($_GET['trainerId']) ? sanitize_text_field($_GET['trainerId']) : '';
+  $platform = isset($_GET['platform']) ? sanitize_text_field($_GET['platform']) : '';
+  $is_web = ($platform === 'web' || $platform === 'pwa');
+  $web_base = 'https://gymaipro.ir/app/';
   $is_coach_plan = ($payment_type === 'coach_plan' || $payment_type === 'coach-plan');
   $sid = ($payment_type === 'trainer' || $is_coach_plan)
     ? $order_id
     : (isset($_GET['sid']) ? preg_replace('/[^A-Za-z0-9_\-]/', '', $_GET['sid']) : '');
 
   if ($payment_type === 'trainer' && !empty($trainer_id)) {
-    $deeplink_ok = 'gymaipro://payment/trainer?status=success&transactionId=' . urlencode($order_id) . '&trainerId=' . urlencode($trainer_id);
-    $deeplink_fail = 'gymaipro://payment/trainer?status=failed&transactionId=' . urlencode($order_id) . '&trainerId=' . urlencode($trainer_id);
+    if ($is_web) {
+      $deeplink_ok = $web_base . '?payment=trainer&status=success&transactionId=' . urlencode($order_id) . '&trainerId=' . urlencode($trainer_id);
+      $deeplink_fail = $web_base . '?payment=trainer&status=failed&transactionId=' . urlencode($order_id) . '&trainerId=' . urlencode($trainer_id);
+    } else {
+      $deeplink_ok = 'gymaipro://payment/trainer?status=success&transactionId=' . urlencode($order_id) . '&trainerId=' . urlencode($trainer_id);
+      $deeplink_fail = 'gymaipro://payment/trainer?status=failed&transactionId=' . urlencode($order_id) . '&trainerId=' . urlencode($trainer_id);
+    }
   } elseif ($is_coach_plan) {
-    $deeplink_ok = 'gymaipro://payment/coach-plan?status=success&transactionId=' . urlencode($order_id);
-    $deeplink_fail = 'gymaipro://payment/coach-plan?status=failed&transactionId=' . urlencode($order_id);
+    if ($is_web) {
+      $deeplink_ok = $web_base . '?payment=coach_plan&status=success&transactionId=' . urlencode($order_id);
+      $deeplink_fail = $web_base . '?payment=coach_plan&status=failed&transactionId=' . urlencode($order_id);
+    } else {
+      $deeplink_ok = 'gymaipro://payment/coach-plan?status=success&transactionId=' . urlencode($order_id);
+      $deeplink_fail = 'gymaipro://payment/coach-plan?status=failed&transactionId=' . urlencode($order_id);
+    }
   } else {
-    $deeplink_ok = GYM_TOPUP_DEEPLINK_OK;
-    $deeplink_fail = GYM_TOPUP_DEEPLINK_FAIL;
+    if ($is_web) {
+      $deeplink_ok = $web_base . '?payment=topup&status=success';
+      $deeplink_fail = $web_base . '?payment=topup&status=failed';
+    } else {
+      $deeplink_ok = GYM_TOPUP_DEEPLINK_OK;
+      $deeplink_fail = GYM_TOPUP_DEEPLINK_FAIL;
+    }
   }
 
   $deeplink = $deeplink_fail;
@@ -423,13 +443,25 @@ function gymai_handle_callback(){
   }
 
   if ($payment_type === 'trainer' && $ok && !empty($trackId)) {
-    $deeplink = 'gymaipro://payment/trainer?status=success&transactionId=' . urlencode($order_id) . '&trackId=' . urlencode($trackId) . '&trainerId=' . urlencode($trainer_id);
+    if ($is_web) {
+      $deeplink = $web_base . '?payment=trainer&status=success&transactionId=' . urlencode($order_id) . '&trackId=' . urlencode($trackId) . '&trainerId=' . urlencode($trainer_id);
+    } else {
+      $deeplink = 'gymaipro://payment/trainer?status=success&transactionId=' . urlencode($order_id) . '&trackId=' . urlencode($trackId) . '&trainerId=' . urlencode($trainer_id);
+    }
   } elseif ($payment_type === 'trainer' && !$ok) {
     $deeplink = $deeplink_fail;
   } elseif ($is_coach_plan && $ok && !empty($trackId)) {
-    $deeplink = 'gymaipro://payment/coach-plan?status=success&transactionId=' . urlencode($order_id) . '&trackId=' . urlencode($trackId);
+    if ($is_web) {
+      $deeplink = $web_base . '?payment=coach_plan&status=success&transactionId=' . urlencode($order_id) . '&trackId=' . urlencode($trackId);
+    } else {
+      $deeplink = 'gymaipro://payment/coach-plan?status=success&transactionId=' . urlencode($order_id) . '&trackId=' . urlencode($trackId);
+    }
   } elseif ($is_coach_plan && !$ok) {
     $deeplink = $deeplink_fail;
+  } elseif ($is_web && $ok && $payment_type === 'topup') {
+    $deeplink = $wallet_applied
+      ? ($web_base . '?payment=topup&status=success')
+      : ($web_base . '?payment=topup&status=processing');
   }
 
   $body = $ok

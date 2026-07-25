@@ -532,10 +532,15 @@ class RouteService {
         return '/offline';
       }
 
-      final backendReachable =
-          await BackendReachabilityService.isBackendReachable(
-        timeout: const Duration(seconds: 5),
-      );
+      // Prefer the cheaper cached backend probe; fall back to a short HTTP check.
+      var backendReachable =
+          await ConnectivityService.instance.canReachAppBackend();
+      if (!backendReachable) {
+        backendReachable =
+            await BackendReachabilityService.isBackendReachable(
+          timeout: const Duration(seconds: 2),
+        );
+      }
       if (!backendReachable) {
         debugPrint(
           '=== ROUTE SERVICE: Backend unreachable. Returning /offline ===',
@@ -628,21 +633,22 @@ class _ProtectedRouteWrapperState extends State<_ProtectedRouteWrapper> {
     // Cache the future on first build only
     _authCheckFuture = RouteService._checkIfUserIsLoggedIn();
     _authCheckFuture!.then((result) {
-      if (mounted) {
-        setState(() {
-          _cachedAuthResult = result;
-        });
+      if (!mounted) return;
+      setState(() {
+        _cachedAuthResult = result;
+      });
+      // Anonymous welcome/login/register must not hit the network for profile.
+      if (!result) {
+        _cachedProfileComplete = false;
+        return;
       }
-    });
-
-    // Also cache profile completeness for professional routing behavior
-    _profileCompleteFuture = RouteService._isProfileCompleteForCurrentUser();
-    _profileCompleteFuture!.then((result) {
-      if (mounted) {
+      _profileCompleteFuture = RouteService._isProfileCompleteForCurrentUser();
+      _profileCompleteFuture!.then((complete) {
+        if (!mounted) return;
         setState(() {
-          _cachedProfileComplete = result;
+          _cachedProfileComplete = complete;
         });
-      }
+      });
     });
   }
 

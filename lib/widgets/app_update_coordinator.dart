@@ -12,6 +12,7 @@ import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/widgets/app_status_card.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Maintenance / forced APK gate + optional sideload APK update prompts.
@@ -58,9 +59,15 @@ class _AppUpdateCoordinatorState extends State<AppUpdateCoordinator>
 
   Future<void> _bootstrap() async {
     await AppVersionService.instance.ensureLoaded();
-    await _refreshAccessState();
+    // One forced config fetch for maintenance gate; APK check after first paint.
+    await _refreshAccessState(forceRefresh: true);
     if (kIsWeb) return;
-    await _updateService.checkForUpdates(force: true);
+    unawaited(
+      Future<void>.delayed(const Duration(milliseconds: 2500), () async {
+        if (!mounted || LifecycleObserver.isAppInBackground) return;
+        await _updateService.checkForUpdates(force: true);
+      }),
+    );
   }
 
   @override
@@ -68,7 +75,7 @@ class _AppUpdateCoordinatorState extends State<AppUpdateCoordinator>
     if (state == AppLifecycleState.resumed) {
       unawaited(_refreshAccessState());
       if (!kIsWeb) {
-        unawaited(_updateService.checkForUpdates(force: true));
+        unawaited(_updateService.checkForUpdates());
       }
     }
   }
@@ -93,15 +100,18 @@ class _AppUpdateCoordinatorState extends State<AppUpdateCoordinator>
     }
   }
 
-  Future<void> _refreshAccessState() async {
-    final config = await _accessService.getConfig(forceRefresh: true);
+  Future<void> _refreshAccessState({bool forceRefresh = false}) async {
+    final config = await _accessService.getConfig(forceRefresh: forceRefresh);
     var isAdmin = false;
     var userRole = 'athlete';
-    try {
-      final profile = await SimpleProfileService.getCurrentProfile();
-      isAdmin = profile?['role'] == 'admin';
-      userRole = (profile?['role'] as String?) ?? 'athlete';
-    } catch (_) {}
+    // Anonymous sessions: keep default athlete role (maintenance scopes still work).
+    if (Supabase.instance.client.auth.currentUser != null) {
+      try {
+        final profile = await SimpleProfileService.getCurrentProfile();
+        isAdmin = profile?['role'] == 'admin';
+        userRole = (profile?['role'] as String?) ?? 'athlete';
+      } catch (_) {}
+    }
     if (!mounted) return;
     setState(() {
       _config = config;

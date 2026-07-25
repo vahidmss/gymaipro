@@ -66,6 +66,18 @@ flutter run -d chrome --dart-define-from-file=env.web.json
 .\scripts\run-web-debug.ps1 -Chrome
 ```
 
+## 8. Web payment return (critical)
+
+Flow after fix:
+
+1. Flutter opens Zibal **in the same browser tab** (`webOnlyWindowName: '_self'`).
+2. Callback URL is `https://gymaipro.ir/pay/callback?...&platform=web` (WordPress bridge).
+3. Bridge redirects to `https://gymaipro.ir/app/?payment=coach_plan|trainer|topup&status=…&trackId=…`.
+4. PWA boots, `PaymentDeeplinkService` verifies and activates subscription.
+5. Safety net: pending tx/trackId stored in SharedPreferences and verified on resume.
+
+**Deploy required:** upload updated `wordpress_payment_bridge_updated.php` to WordPress (flush rewrites once). Without the PHP update, web return still breaks.
+
 ## 7. iOS PWA checklist (Home Screen instead of App Store)
 
 Safari has **no** auto install prompt. Users must: Share → Add to Home Screen.

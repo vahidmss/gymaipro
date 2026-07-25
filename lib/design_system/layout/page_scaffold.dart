@@ -61,6 +61,7 @@ class GymPageScaffold extends StatelessWidget {
                 backgroundColor: Colors.transparent,
                 foregroundColor: context.gymTextPrimary,
                 elevation: 0,
+                automaticallyImplyLeading: true,
                 title: Text(
                   title!,
                   style: context.gymTextStyle(

@@ -185,6 +185,30 @@ class _TrainerRankingScreenState extends State<TrainerRankingScreen> {
       ),
       child: Row(
         children: [
+          // دکمه بازگشت (ضروری برای وب‌اپ iOS بدون gesture بک سیستم)
+          GestureDetector(
+            onTap: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: Container(
+              padding: EdgeInsets.all(8.w),
+              decoration: BoxDecoration(
+                color: AppTheme.goldColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10.r),
+                border: Border.all(
+                  color: AppTheme.goldColor.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Icon(
+                LucideIcons.arrowRight,
+                color: AppTheme.goldColor,
+                size: 20.sp,
+              ),
+            ),
+          ),
+          SizedBox(width: 12.w),
           // عنوان
           Expanded(
             child: Text(

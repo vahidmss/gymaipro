@@ -496,7 +496,7 @@ class TrainerPaymentService {
       // درخواست پرداخت از درگاه
       // اضافه کردن trainer_id به callback URL برای بازگشت به صفحه مربی
       final callbackUrl =
-          '${AppConfig.zibalCallbackUrl}?orderId=${transaction.id}&trainerId=$trainerId&type=trainer';
+          '${AppConfig.zibalCallbackUrl}?orderId=${transaction.id}&trainerId=$trainerId&type=trainer${AppConfig.zibalCallbackPlatformQuery}';
       final paymentResult = await _paymentGateway.processPayment(
         transaction: transaction,
         gateway: PaymentGateway.zibal,
