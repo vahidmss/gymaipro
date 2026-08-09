@@ -402,7 +402,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                         children: [
                           Text(
                             widget.music.title,
-                            style: AppTheme.headingStyle.copyWith(
+                            style: context.headingStyle.copyWith(
                               fontSize: 11.sp,
                               fontWeight: FontWeight.w800,
                               color: isCurrent
@@ -424,9 +424,8 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                               Expanded(
                                 child: Text(
                                   widget.music.displayArtist,
-                                  style: AppTheme.bodyStyle.copyWith(
+                                  style: context.bodyStyle.copyWith(
                                     fontSize: 8.sp,
-                                    color: context.textSecondary,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -447,9 +446,8 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                                 Expanded(
                                   child: Text(
                                     'نویسنده: ${widget.music.author}',
-                                    style: AppTheme.bodyStyle.copyWith(
+                                    style: context.bodyStyle.copyWith(
                                       fontSize: 7.sp,
-                                      color: context.textSecondary,
                                       fontWeight: FontWeight.w600,
                                     ),
                                     maxLines: 1,
@@ -690,9 +688,8 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
                     else
                       Text(
                         widget.music.formattedDuration,
-                        style: AppTheme.bodyStyle.copyWith(
+                        style: context.bodyStyle.copyWith(
                           fontSize: 9.sp,
-                          color: context.textSecondary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

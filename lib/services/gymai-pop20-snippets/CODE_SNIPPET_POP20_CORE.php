@@ -567,6 +567,7 @@ if (!function_exists('gymai_pop20_meta_label')) {
             'muscle' => array(
                 'chest' => 'سینه',
                 'chest_upper' => 'سینه بالایی',
+                // note: main_muscle should stay 'chest'; heatmap may use chest_upper
                 'chest_middle' => 'سینه میانی',
                 'chest_lower' => 'سینه پایینی',
                 'back' => 'پشت',
@@ -686,6 +687,15 @@ if (!function_exists('gymai_pop20_normalize_muscle_targets')) {
             $out[$norm_key] = isset($out[$norm_key]) ? max($out[$norm_key], $value) : $value;
         }
 
+        // main_muscle فرعی مثل chest_upper را به کلید کانونی تبدیل کن
+        $main_canon = array(
+            'chest_upper' => 'chest', 'chest_middle' => 'chest', 'chest_lower' => 'chest',
+            'shoulders' => 'shoulder_anterior', 'lats' => 'back_lat',
+            'calf' => 'calves', 'traps_upper' => 'back_trap', 'traps_middle' => 'back_trap', 'traps' => 'back_trap',
+        );
+        if (isset($main_canon[$main_muscle])) {
+            $main_muscle = $main_canon[$main_muscle];
+        }
         $main_key = isset($map[$main_muscle]) ? $map[$main_muscle] : $main_muscle;
         if ($main_key !== '' && !isset($out[$main_key])) {
             $out[$main_key] = 90;
@@ -705,7 +715,16 @@ if (!function_exists('gymai_apply_popular_exercise_meta')) {
         $app_desc = gymai_pop20_app_short_description($def);
         $secondary_muscles = gymai_pop20_meta_labels('muscle', $m['secondary_muscle_keys']);
         $equipment = gymai_pop20_meta_labels('equipment', $m['equipment_keys']);
-        $muscle_targets = gymai_pop20_normalize_muscle_targets($m['muscle_targets'], $m['main_muscle']);
+        $main_muscle = isset($m['main_muscle']) ? $m['main_muscle'] : '';
+        $main_canon = array(
+            'chest_upper' => 'chest', 'chest_middle' => 'chest', 'chest_lower' => 'chest',
+            'shoulders' => 'shoulder_anterior', 'lats' => 'back_lat',
+            'calf' => 'calves', 'traps_upper' => 'traps', 'traps_middle' => 'traps',
+        );
+        if (isset($main_canon[$main_muscle])) {
+            $main_muscle = $main_canon[$main_muscle];
+        }
+        $muscle_targets = gymai_pop20_normalize_muscle_targets($m['muscle_targets'], $main_muscle);
 
         $meta = array(
             'name_app' => $title,
@@ -713,7 +732,7 @@ if (!function_exists('gymai_apply_popular_exercise_meta')) {
             'short_description' => $app_desc,
             'detailed_description' => $app_desc,
             'seo_content' => wp_strip_all_tags($content),
-            'main_muscle' => $m['main_muscle'],
+            'main_muscle' => $main_muscle,
             'secondary_muscle_keys' => $m['secondary_muscle_keys'],
             'secondary_muscles' => $secondary_muscles,
             'target_area' => $m['target_area'],
@@ -803,6 +822,54 @@ if (!function_exists('gymai_apply_popular_exercise_meta')) {
         foreach ($rank as $rkey => $rvalue) {
             update_post_meta($post_id, $rkey, $rvalue);
         }
+    }
+}
+
+if (!function_exists('gymai_pop20_reapply_all_meta')) {
+    /**
+     * فقط meta طبقه‌بندی را از تعاریف POP20 روی پست‌های موجود می‌نویسد
+     * (بدون ساخت پست جدید). برای جلوگیری از overwrite غلط در sync به Supabase.
+     */
+    function gymai_pop20_reapply_all_meta() {
+        gymai_pop20_load_batch_files();
+        $funcs = array();
+        for ($i = 1; $i <= 16; $i++) {
+            $fn = 'gymai_pop20_batch' . $i . '_definitions';
+            if (function_exists($fn)) {
+                $funcs[] = $fn;
+            }
+        }
+        $updated = 0;
+        $skipped = 0;
+        $errors = array();
+        $touched = array();
+        foreach ($funcs as $fn) {
+            $defs = call_user_func($fn);
+            if (!is_array($defs)) {
+                continue;
+            }
+            foreach ($defs as $def) {
+                if (empty($def['slug']) || empty($def['meta'])) {
+                    continue;
+                }
+                $post = get_page_by_path($def['slug'], OBJECT, GYMAI_EXERCISE_POST_TYPE);
+                if (!$post) {
+                    $skipped++;
+                    continue;
+                }
+                $content = isset($post->post_content) ? $post->post_content : '';
+                gymai_apply_popular_exercise_meta((int) $post->ID, $def, $content);
+                $touched[] = (int) $post->ID;
+                $updated++;
+            }
+        }
+        return array(
+            'created' => 0,
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'errors' => $errors,
+            'touched_ids' => array_values(array_unique($touched)),
+        );
     }
 }
 
@@ -921,6 +988,26 @@ if (!function_exists('gymai_pop20_load_batch_files')) {
                 defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR . '/gymai-seed/pop20-batch11.php' : '',
                 defined('WP_PLUGIN_DIR') ? WP_PLUGIN_DIR . '/gymai-popular-20-seed/pop20-batch11.php' : '',
             ),
+            'gymai_pop20_batch12_definitions' => array(
+                defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR . '/gymai-seed/pop20-batch12.php' : '',
+                defined('WP_PLUGIN_DIR') ? WP_PLUGIN_DIR . '/gymai-popular-20-seed/pop20-batch12.php' : '',
+            ),
+            'gymai_pop20_batch13_definitions' => array(
+                defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR . '/gymai-seed/pop20-batch13.php' : '',
+                defined('WP_PLUGIN_DIR') ? WP_PLUGIN_DIR . '/gymai-popular-20-seed/pop20-batch13.php' : '',
+            ),
+            'gymai_pop20_batch14_definitions' => array(
+                defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR . '/gymai-seed/pop20-batch14.php' : '',
+                defined('WP_PLUGIN_DIR') ? WP_PLUGIN_DIR . '/gymai-popular-20-seed/pop20-batch14.php' : '',
+            ),
+            'gymai_pop20_batch15_definitions' => array(
+                defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR . '/gymai-seed/pop20-batch15.php' : '',
+                defined('WP_PLUGIN_DIR') ? WP_PLUGIN_DIR . '/gymai-popular-20-seed/pop20-batch15.php' : '',
+            ),
+            'gymai_pop20_batch16_definitions' => array(
+                defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR . '/gymai-seed/pop20-batch16.php' : '',
+                defined('WP_PLUGIN_DIR') ? WP_PLUGIN_DIR . '/gymai-popular-20-seed/pop20-batch16.php' : '',
+            ),
         );
 
         foreach ($map as $func => $paths) {
@@ -952,6 +1039,11 @@ if (!function_exists('gymai_pop20_batch_status')) {
             'batch9' => function_exists('gymai_pop20_batch9_definitions'),
             'batch10' => function_exists('gymai_pop20_batch10_definitions'),
             'batch11' => function_exists('gymai_pop20_batch11_definitions'),
+            'batch12' => function_exists('gymai_pop20_batch12_definitions'),
+            'batch13' => function_exists('gymai_pop20_batch13_definitions'),
+            'batch14' => function_exists('gymai_pop20_batch14_definitions'),
+            'batch15' => function_exists('gymai_pop20_batch15_definitions'),
+            'batch16' => function_exists('gymai_pop20_batch16_definitions'),
         );
     }
 }
@@ -1068,6 +1160,27 @@ if (!function_exists('gymai_pop20_handle_admin_request')) {
             } elseif ($which === '11' && $status['batch11']) {
                 $flash['result'] = gymai_pop20_run_batch(gymai_pop20_batch11_definitions(), $update);
                 $flash['batch_label'] = '۲۰ حرکت یازدهم (۱۸۱–۲۰۰)';
+            } elseif ($which === '12' && $status['batch12']) {
+                $flash['result'] = gymai_pop20_run_batch(gymai_pop20_batch12_definitions(), $update);
+                $flash['batch_label'] = '۲۰ حرکت دوازدهم (۲۰۱–۲۲۰)';
+            } elseif ($which === '13' && $status['batch13']) {
+                $flash['result'] = gymai_pop20_run_batch(gymai_pop20_batch13_definitions(), $update);
+                $flash['batch_label'] = '۲۰ حرکت سیزدهم (۲۲۱–۲۴۰)';
+            } elseif ($which === '14' && $status['batch14']) {
+                $flash['result'] = gymai_pop20_run_batch(gymai_pop20_batch14_definitions(), $update);
+                $flash['batch_label'] = '۲۰ حرکت چهاردهم (۲۴۱–۲۶۰)';
+            } elseif ($which === '15' && $status['batch15']) {
+                $flash['result'] = gymai_pop20_run_batch(gymai_pop20_batch15_definitions(), $update);
+                $flash['batch_label'] = '۲۰ حرکت پانزدهم (۲۶۱–۲۸۰)';
+            } elseif ($which === '16' && $status['batch16']) {
+                $flash['result'] = gymai_pop20_run_batch(gymai_pop20_batch16_definitions(), $update);
+                $flash['batch_label'] = '۲۰ حرکت شانزدهم (۲۸۱–۳۰۰)';
+            } elseif ($which === 'aliases' && function_exists('gymai_pop20_apply_iran_alias_patch')) {
+                $flash['result'] = gymai_pop20_apply_iran_alias_patch();
+                $flash['batch_label'] = 'بروزرسانی نام‌های جایگزین (جستجو)';
+            } elseif ($which === 'meta_reapply') {
+                $flash['result'] = gymai_pop20_reapply_all_meta();
+                $flash['batch_label'] = 'بازنویسی meta طبقه‌بندی از اسنیپت‌ها (امن برای sync)';
             } else {
                 $flash['result'] = array(
                     'created' => 0,
@@ -1140,10 +1253,16 @@ if (!function_exists('gymai_pop20_admin_page')) {
         $b9_ok = $status['batch9'];
         $b10_ok = $status['batch10'];
         $b11_ok = $status['batch11'];
-        $all_ok = $b1_ok && $b2_ok && $b3_ok && $b4_ok && $b5_ok && $b6_ok && $b7_ok && $b8_ok && $b9_ok && $b10_ok && $b11_ok;
+        $b12_ok = $status['batch12'];
+        $b13_ok = $status['batch13'];
+        $b14_ok = $status['batch14'];
+        $b15_ok = $status['batch15'];
+        $b16_ok = $status['batch16'];
+        $all_ok = $b1_ok && $b2_ok && $b3_ok && $b4_ok && $b5_ok && $b6_ok && $b7_ok && $b8_ok && $b9_ok && $b10_ok && $b11_ok && $b12_ok && $b13_ok && $b14_ok && $b15_ok && $b16_ok;
+        $alias_ok = function_exists('gymai_pop20_apply_iran_alias_patch');
         ?>
         <div class="wrap">
-            <h1>GymAI Exercises (۲۰۰ حرکت پرطرفدار)</h1>
+            <h1>GymAI Exercises (۳۰۰ حرکت پرطرفدار)</h1>
             <p>برای <strong>بروزرسانی سئو</strong> روی حرکات موجود، تیک «بروزرسانی موجود» را بزن و batch را دوباره اجرا کن.</p>
             <p>امتیاز Rank Math: بعد از ایجاد، از لیست پست‌ها «بروزرسانی» بزن (همان روشی که خودت انجام می‌دهی).</p>
 
@@ -1164,11 +1283,37 @@ if (!function_exists('gymai_pop20_admin_page')) {
                     <?php if (!$b9_ok) : ?><strong>Batch 9 لود نشد</strong> — اسنیپت یا <code>pop20-batch9.php</code><br><?php endif; ?>
                     <?php if (!$b10_ok) : ?><strong>Batch 10 لود نشد</strong> — اسنیپت یا <code>pop20-batch10.php</code><br><?php endif; ?>
                     <?php if (!$b11_ok) : ?><strong>Batch 11 لود نشد</strong> — اسنیپت یا <code>pop20-batch11.php</code><br><?php endif; ?>
+                    <?php if (!$b12_ok) : ?><strong>Batch 12 لود نشد</strong> — <code>pop20-batch12.php</code><br><?php endif; ?>
+                    <?php if (!$b13_ok) : ?><strong>Batch 13 لود نشد</strong> — <code>pop20-batch13.php</code><br><?php endif; ?>
+                    <?php if (!$b14_ok) : ?><strong>Batch 14 لود نشد</strong> — <code>pop20-batch14.php</code><br><?php endif; ?>
+                    <?php if (!$b15_ok) : ?><strong>Batch 15 لود نشد</strong> — <code>pop20-batch15.php</code><br><?php endif; ?>
+                    <?php if (!$b16_ok) : ?><strong>Batch 16 لود نشد</strong> — <code>pop20-batch16.php</code><br><?php endif; ?>
                     مسیر پیشنهادی: <code>wp-content/gymai-seed/</code>
                 </p></div>
             <?php else : ?>
-                <div class="notice notice-info"><p>هر ۱۱ batch آماده‌اند — batch 7 تا 11 = ۱۰۰ حرکت جدید (۱۰۱ تا ۲۰۰).</p></div>
+                <div class="notice notice-info"><p>هر ۱۶ batch آماده‌اند — batch 12 تا 16 = ۱۰۰ حرکت جدید (۲۰۱ تا ۳۰۰).</p></div>
             <?php endif; ?>
+
+            <h2>نام‌های جایگزین جستجو (مهم)</h2>
+            <p>اگر کاربر «پرس بالاسینه» یا «لت پولداون / لت سیکمش جلو» جستجو کند ولی عنوان رسمی «پرس سینه شیب دار» / «زیربغل سیمکش» باشد، این پچ <code>other_names</code> را غنی می‌کند.</p>
+            <form method="post" style="margin-bottom:24px;">
+                <?php wp_nonce_field('gymai_pop20', 'gymai_pop20_nonce'); ?>
+                <input type="hidden" name="batch" value="aliases" />
+                <?php if ($alias_ok) : ?>
+                    <?php submit_button('بروزرسانی نام‌های جایگزین', 'primary', 'submit', false); ?>
+                <?php else : ?>
+                    <p><em>اسنیپت <code>CODE_SNIPPET_IRAN_ALIASES_PATCH.php</code> را فعال کن.</em></p>
+                <?php endif; ?>
+            </form>
+
+            <h2>بازنویسی meta طبقه‌بندی (امن برای sync)</h2>
+            <p>قبل از «به‌روزرسانی تمرین‌ها» در اپ، این دکمه را بزن تا <code>main_muscle</code> / secondary / heatmap از اسنیپت‌های POP20 روی وردپرس نوشته شود و دادهٔ غلط سوپابیس را دوباره خراب نکند.</p>
+            <p><strong>پیش‌نیاز:</strong> اسنیپت <code>CODE_SNIPPET_V36_OUTPUT_PATCH.php</code> باید فعال باشد (API v3).</p>
+            <form method="post" style="margin-bottom:24px;">
+                <?php wp_nonce_field('gymai_pop20', 'gymai_pop20_nonce'); ?>
+                <input type="hidden" name="batch" value="meta_reapply" />
+                <?php submit_button('بازنویسی meta از اسنیپت‌ها روی پست‌های موجود', 'primary', 'submit', false); ?>
+            </form>
 
             <?php if (is_array($result)) : ?>
                 <div class="notice notice-success"><p>
@@ -1278,11 +1423,56 @@ if (!function_exists('gymai_pop20_admin_page')) {
 
             <h2>Batch 11 — حرکات ۱۸۱ تا ۲۰۰ (جدید)</h2>
             <p>V-Up، hollow body، battle ropes، box jump، thruster، clean &amp; press، jump rope، farmer walk و...</p>
-            <form method="post">
+            <form method="post" style="margin-bottom:24px;">
                 <?php wp_nonce_field('gymai_pop20', 'gymai_pop20_nonce'); ?>
                 <input type="hidden" name="batch" value="11" />
                 <p><label><input type="checkbox" name="update_existing" value="1" /> بروزرسانی موجود</label></p>
                 <?php submit_button('اجرای ۲۰ حرکت یازدهم', 'primary', 'submit', false); ?>
+            </form>
+
+            <h2>Batch 12 — حرکات ۲۰۱ تا ۲۲۰ (پا / ران / هیپ)</h2>
+            <p>داخل/خارج ران، هیپ تراست دستگاه، سیسی/بلت/زرچر اسکات، لگ پرس ۴۵، ریورس هایپر، GHR و...</p>
+            <form method="post" style="margin-bottom:24px;">
+                <?php wp_nonce_field('gymai_pop20', 'gymai_pop20_nonce'); ?>
+                <input type="hidden" name="batch" value="12" />
+                <p><label><input type="checkbox" name="update_existing" value="1" /> بروزرسانی موجود</label></p>
+                <?php submit_button('اجرای ۲۰ حرکت دوازدهم', 'primary', 'submit', false); ?>
+            </form>
+
+            <h2>Batch 13 — حرکات ۲۲۱ تا ۲۴۰ (سینه / پشت)</h2>
+            <p>قفسه بالاسینه، کراس اور بالا/پایین، پرس همر، سیل رو، دیپ دستگاه، پول‌آپ خنثی و...</p>
+            <form method="post" style="margin-bottom:24px;">
+                <?php wp_nonce_field('gymai_pop20', 'gymai_pop20_nonce'); ?>
+                <input type="hidden" name="batch" value="13" />
+                <p><label><input type="checkbox" name="update_existing" value="1" /> بروزرسانی موجود</label></p>
+                <?php submit_button('اجرای ۲۰ حرکت سیزدهم', 'secondary', 'submit', false); ?>
+            </form>
+
+            <h2>Batch 14 — حرکات ۲۴۱ تا ۲۶۰ (شانه / بازو)</h2>
+            <p>شراگ هالتر، آپرایت رو، اکسترنال روتیشن، اسکال کراشر، فرنچ پرس، دراگ/زوتمن کرل، مچ و...</p>
+            <form method="post" style="margin-bottom:24px;">
+                <?php wp_nonce_field('gymai_pop20', 'gymai_pop20_nonce'); ?>
+                <input type="hidden" name="batch" value="14" />
+                <p><label><input type="checkbox" name="update_existing" value="1" /> بروزرسانی موجود</label></p>
+                <?php submit_button('اجرای ۲۰ حرکت چهاردهم', 'primary', 'submit', false); ?>
+            </form>
+
+            <h2>Batch 15 — حرکات ۲۶۱ تا ۲۸۰ (Core / کاردیو / فانکشنال)</h2>
+            <p>برپی، مانتین کلایمبر، پاور کلین، وال بال، روئینگ/اسالت/اسکی ارگ، اسلد و...</p>
+            <form method="post" style="margin-bottom:24px;">
+                <?php wp_nonce_field('gymai_pop20', 'gymai_pop20_nonce'); ?>
+                <input type="hidden" name="batch" value="15" />
+                <p><label><input type="checkbox" name="update_existing" value="1" /> بروزرسانی موجود</label></p>
+                <?php submit_button('اجرای ۲۰ حرکت پانزدهم', 'secondary', 'submit', false); ?>
+            </form>
+
+            <h2>Batch 16 — حرکات ۲۸۱ تا ۳۰۰ (تکمیل باشگاهی)</h2>
+            <p>سامو/پلایه اسکات، کلام‌شل، پیستول، کوپنهاگن، ریورس پک‌دک، یوک واک و...</p>
+            <form method="post">
+                <?php wp_nonce_field('gymai_pop20', 'gymai_pop20_nonce'); ?>
+                <input type="hidden" name="batch" value="16" />
+                <p><label><input type="checkbox" name="update_existing" value="1" /> بروزرسانی موجود</label></p>
+                <?php submit_button('اجرای ۲۰ حرکت شانزدهم', 'primary', 'submit', false); ?>
             </form>
         </div>
         <?php

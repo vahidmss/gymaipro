@@ -349,20 +349,29 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       decoration: AppTheme.gradientDecoration,
       child: Column(
         children: [
-          Icon(LucideIcons.bell, size: 48.sp, color: Colors.white),
+          Icon(
+            LucideIcons.bell,
+            size: 48.sp,
+            color: AppTheme.onGoldColor,
+          ),
           const SizedBox(height: 12),
           Text(
             'تنظیمات نوتیفیکیشن',
             style: TextStyle(
               fontSize: 24.sp,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              fontFamily: AppTheme.fontFamily,
+              color: AppTheme.onGoldColor,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'نوتیفیکیشن‌های خود را شخصی‌سازی کنید',
-            style: TextStyle(fontSize: 16.sp, color: Colors.white70),
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontFamily: AppTheme.fontFamily,
+              color: AppTheme.onGoldColor.withValues(alpha: 0.8),
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -390,7 +399,15 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   }) {
     return Container(
       padding: EdgeInsets.all(16.w),
-      decoration: AppTheme.cardDecoration,
+      decoration: BoxDecoration(
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: context.isDark
+              ? AppTheme.goldColor.withValues(alpha: 0.1)
+              : context.separatorColor,
+        ),
+      ),
       child: Row(
         children: [
           Container(
@@ -414,7 +431,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   style: TextStyle(
                     fontSize: 16.sp,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -422,7 +440,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   subtitle,
                   style: TextStyle(
                     fontSize: 14.sp,
-                    color: Colors.white.withValues(alpha: 0.7),
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textSecondary,
                   ),
                 ),
               ],
@@ -448,7 +467,15 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   }) {
     return Container(
       padding: EdgeInsets.all(16.w),
-      decoration: AppTheme.cardDecoration,
+      decoration: BoxDecoration(
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: context.isDark
+              ? AppTheme.goldColor.withValues(alpha: 0.1)
+              : context.separatorColor,
+        ),
+      ),
       child: Row(
         children: [
           Container(
@@ -470,7 +497,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   style: TextStyle(
                     fontSize: 16.sp,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textColor,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -478,7 +506,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   subtitle,
                   style: TextStyle(
                     fontSize: 14.sp,
-                    color: Colors.white.withValues(alpha: 0.7),
+                    fontFamily: AppTheme.fontFamily,
+                    color: context.textSecondary,
                   ),
                 ),
               ],

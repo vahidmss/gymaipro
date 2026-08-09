@@ -11,6 +11,7 @@ import 'package:gymaipro/models/exercise_comment.dart';
 import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/user_preferences_service.dart';
+import 'package:gymaipro/utils/exercise_search.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -478,6 +479,12 @@ exercise_difficulty_score, estimated_1rm_formula, views_count, likes_count, sour
       bodyEngagement: (row['body_engagement'] as String?) ?? '',
       typicalRpe: parseDouble(row['typical_rpe']),
       met: parseDouble(row['met']),
+      caloriesPer1000kg: () {
+        final v = row['calories_per_1000kg'];
+        if (v == null) return null;
+        if (v is num) return v.round();
+        return int.tryParse(v.toString());
+      }(),
       author: 'جیم اِی آی',
       muscleTargets: MuscleTargets.parse(row['muscle_targets_json']),
       richMeta: includeRichMeta
@@ -555,17 +562,9 @@ exercise_difficulty_score, estimated_1rm_formula, views_count, likes_count, sour
         if (!hasMatchingMuscle) return false;
       }
 
-      // فیلتر جستجو
+      // فیلتر جستجو — نام + other_names
       if (searchQuery != null && searchQuery.isNotEmpty) {
-        final query = searchQuery.toLowerCase();
-        if (!exercise.name.toLowerCase().contains(query) &&
-            !exercise.mainMuscle.toLowerCase().contains(query) &&
-            !exercise.secondaryMuscles.toLowerCase().contains(query) &&
-            !exercise.content.toLowerCase().contains(query) &&
-            !exercise.tags.any((tag) => tag.toLowerCase().contains(query)) &&
-            !exercise.otherNames.any(
-              (name) => name.toLowerCase().contains(query),
-            )) {
+        if (!ExerciseSearch.matches(exercise, searchQuery)) {
           return false;
         }
       }
@@ -574,75 +573,12 @@ exercise_difficulty_score, estimated_1rm_formula, views_count, likes_count, sour
     }).toList();
   }
 
-  /// جستجوی هوشمند تمرینات
+  /// جستجوی هوشمند تمرینات (نام اصلی و نام‌های جایگزین)
   Future<List<Exercise>> searchExercises(String query) async {
     if (query.trim().isEmpty) return getExercises();
 
     final exercises = await getExercises();
-    final searchTerms = query
-        .toLowerCase()
-        .split(' ')
-        .where((term) => term.isNotEmpty)
-        .toList();
-
-    return exercises.where((exercise) {
-      // امتیازدهی بر اساس تطابق
-      int score = 0;
-
-      for (final term in searchTerms) {
-        // تطابق نام تمرین (بالاترین امتیاز)
-        if (exercise.name.toLowerCase().contains(term)) {
-          score += 10;
-        }
-
-        // تطابق عضله اصلی
-        if (exercise.mainMuscle.toLowerCase().contains(term)) {
-          score += 8;
-        }
-
-        // تطابق عضلات فرعی
-        if (exercise.secondaryMuscles.toLowerCase().contains(term)) {
-          score += 6;
-        }
-
-        // تطابق تگ‌ها
-        if (exercise.tags.any((tag) => tag.toLowerCase().contains(term))) {
-          score += 5;
-        }
-
-        // تطابق نام‌های دیگر
-        if (exercise.otherNames.any(
-          (name) => name.toLowerCase().contains(term),
-        )) {
-          score += 4;
-        }
-
-        // تطابق محتوا
-        if (exercise.content.toLowerCase().contains(term)) {
-          score += 2;
-        }
-
-        // تطابق تجهیزات
-        if (exercise.equipment.toLowerCase().contains(term)) {
-          score += 3;
-        }
-
-        // تطابق نوع تمرین
-        if (exercise.exerciseType.toLowerCase().contains(term)) {
-          score += 3;
-        }
-      }
-
-      return score > 0;
-    }).toList()..sort((a, b) {
-      // مرتب‌سازی بر اساس امتیاز
-      int scoreA = 0, scoreB = 0;
-      for (final term in searchTerms) {
-        if (a.name.toLowerCase().contains(term)) scoreA += 10;
-        if (b.name.toLowerCase().contains(term)) scoreB += 10;
-      }
-      return scoreB.compareTo(scoreA);
-    });
+    return ExerciseSearch.filter(exercises, query);
   }
 
   /// ترتیب‌بندی پیشرفته تمرینات

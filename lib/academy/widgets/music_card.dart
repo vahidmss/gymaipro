@@ -235,7 +235,7 @@ class _MusicCardState extends State<MusicCard> {
               children: [
                 Text(
                   widget.music.title,
-                  style: AppTheme.headingStyle.copyWith(
+                  style: context.headingStyle.copyWith(
                     fontSize: 13.sp,
                     fontWeight: FontWeight.w800,
                   ),
@@ -254,9 +254,8 @@ class _MusicCardState extends State<MusicCard> {
                     Expanded(
                       child: Text(
                         widget.music.displayArtist,
-                        style: AppTheme.bodyStyle.copyWith(
+                        style: context.bodyStyle.copyWith(
                           fontSize: 11.sp,
-                          color: context.textSecondary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -277,7 +276,7 @@ class _MusicCardState extends State<MusicCard> {
                       Expanded(
                         child: Text(
                           'نویسنده: ${widget.music.author}',
-                          style: AppTheme.bodyStyle.copyWith(
+                          style: context.bodyStyle.copyWith(
                             fontSize: 10.sp,
                             color: context.textSecondary.withValues(alpha: 0.85),
                           ),
@@ -321,11 +320,11 @@ class _MusicCardState extends State<MusicCard> {
                         children: [
                           Text(
                             _formatDuration(_position),
-                            style: AppTheme.bodyStyle.copyWith(fontSize: 9.sp),
+                            style: context.bodyStyle.copyWith(fontSize: 9.sp),
                           ),
                           Text(
                             _formatDuration(_duration),
-                            style: AppTheme.bodyStyle.copyWith(fontSize: 9.sp),
+                            style: context.bodyStyle.copyWith(fontSize: 9.sp),
                           ),
                         ],
                       ),
@@ -334,9 +333,8 @@ class _MusicCardState extends State<MusicCard> {
                 else
                   Text(
                     widget.music.formattedDuration,
-                    style: AppTheme.bodyStyle.copyWith(
+                    style: context.bodyStyle.copyWith(
                       fontSize: 10.sp,
-                      color: context.textSecondary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),

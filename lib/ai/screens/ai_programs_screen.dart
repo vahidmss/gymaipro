@@ -107,19 +107,7 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
           ),
         ),
         child: DecoratedBox(
-          decoration: isDark
-              ? const BoxDecoration()
-              : BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                      AppTheme.lightCardColor,
-                      AppTheme.lightGradientEnd.withValues(alpha: 0.1),
-                    ],
-                  ),
-                ),
+          decoration: context.pageDecoration,
           child: Scaffold(
             backgroundColor: Colors.transparent,
             appBar: AppBar(
@@ -273,7 +261,7 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
                 onPressed: _requestNewProgram,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppTheme.onGoldColor,
                   elevation: 0,
                   padding: EdgeInsets.symmetric(
                     horizontal: 24.w,

@@ -1,10 +1,17 @@
 // صفحه چت - نسخه بهبود یافته
 import 'dart:async';
+import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/chat/models/message_send_status.dart';
 import 'package:gymaipro/chat/models/user_chat_message.dart';
 import 'package:gymaipro/chat/services/chat_cache_service.dart';
+import 'package:gymaipro/chat/services/chat_media_upload_service.dart';
 import 'package:gymaipro/chat/services/chat_presence_service.dart';
 import 'package:gymaipro/chat/services/chat_service.dart';
 import 'package:gymaipro/chat/services/chat_unread_notifier.dart';
@@ -12,18 +19,23 @@ import 'package:gymaipro/chat/services/chat_unread_sync_bus.dart';
 import 'package:gymaipro/chat/widgets/chat_app_bar_widget.dart';
 import 'package:gymaipro/chat/widgets/chat_hub_ui.dart';
 import 'package:gymaipro/chat/widgets/chat_message_bubble.dart';
+import 'package:gymaipro/chat/widgets/chat_scroll_to_bottom_button.dart';
 import 'package:gymaipro/chat/widgets/error_boundary_widget.dart';
 import 'package:gymaipro/chat/widgets/message_input_widget.dart';
+import 'package:gymaipro/core/user_presence.dart';
 import 'package:gymaipro/notification/notification_service.dart';
-import 'package:gymaipro/services/simple_profile_service.dart';
+import 'package:gymaipro/services/app_feedback_service.dart';
+import 'package:gymaipro/services/presence_service.dart';
 import 'package:gymaipro/services/supabase_service.dart';
-import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/utils/text_controller_utils.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:shamsi_date/shamsi_date.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -77,17 +89,27 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   bool _peerIsActiveInChat = false;
   static const int _messagesPerPage = 20;
   final Set<String> _messageIds = {};
+  /// Live inserts get a one-shot entrance animation (not historical load).
+  final Set<String> _entranceMessageIds = {};
+  final Map<String, MessageSendStatus> _messageStatuses = {};
+  final Map<String, _PendingChatMedia> _pendingMediaByTempId = {};
+  bool _showJumpToBottom = false;
+  bool _hasUnseenIncomingWhileScrolled = false;
   Timer? _metricsDebounceTimer;
   final ChatCacheService _chatCache = ChatCacheService();
+  final ChatMediaUploadService _mediaUpload = ChatMediaUploadService();
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _scrollController.addListener(_onScrollPositionChanged);
     // برای جلوگیری از قفل شدن انیمیشن‌های ورودی/کیبورد،
     // مقداردهی اولیه‌ی سنگین را به بعد از اولین فریم موکول می‌کنیم.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        unawaited(AppFeedbackService.instance.ensureInitialized());
         _initializeChat();
       }
     });
@@ -96,6 +118,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scrollController.removeListener(_onScrollPositionChanged);
     _messageController.dispose();
     _scrollController.dispose();
     _messageSubscription?.cancel();
@@ -280,24 +303,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       SafeSetState.call(this, () {
         _otherUserRole = otherUserResponse['role'] as String?;
         _otherUserAvatar = otherUserResponse['avatar_url'] as String?;
-        _otherUserLastSeen = otherUserResponse['last_seen_at'] != null
-            ? DateTime.parse(otherUserResponse['last_seen_at'] as String)
-            : null;
+        _otherUserLastSeen = UserPresence.effectiveLastSeen(
+          lastSeenRaw: otherUserResponse['last_seen_at'],
+          lastActiveRaw: otherUserResponse['last_active_at'],
+        );
         _updateOnlineStatus();
       });
     } catch (_) {}
   }
 
   void _updateOnlineStatus() {
-    if (_otherUserLastSeen == null) {
-      _isOtherUserOnline = false;
-      return;
-    }
-
-    final now = DateTime.now();
-    final difference = now.difference(_otherUserLastSeen!);
-    _isOtherUserOnline =
-        difference.inMinutes < 5; // Online if seen in last 5 minutes
+    final globallyOnline = UserPresence.isOnline(
+      lastSeenAt: _otherUserLastSeen,
+    );
+    _isOtherUserOnline = globallyOnline || _peerIsActiveInChat;
   }
 
   Future<void> _refreshPeerPresence() async {
@@ -307,6 +326,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     SafeSetState.call(this, () {
       _peerIsActiveInChat = active.contains(widget.otherUserId);
+      _updateOnlineStatus();
     });
   }
 
@@ -332,7 +352,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             final userId = record['user_id'] as String?;
             if (userId != widget.otherUserId) return;
             final isActive = record['is_active'] as bool? ?? false;
-            SafeSetState.call(this, () => _peerIsActiveInChat = isActive);
+            SafeSetState.call(this, () {
+              _peerIsActiveInChat = isActive;
+              if (isActive) {
+                _otherUserLastSeen = DateTime.now();
+              }
+              _updateOnlineStatus();
+            });
           },
         )
         .subscribe();
@@ -373,11 +399,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _updateUserPresence(bool isOnline) async {
     try {
-      if (_currentUserId != null) {
-        await SimpleProfileService.updateProfile({
-          'last_seen_at': DateTime.now().toIso8601String(),
-          'is_online': isOnline,
-        });
+      if (_currentUserId == null) return;
+      if (isOnline) {
+        await PresenceService.instance.bumpForeground(source: 'chat');
+      } else {
+        await PresenceService.instance.markBackground(source: 'chat');
       }
     } catch (_) {}
   }
@@ -488,8 +514,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           if (message.senderId != _currentUserId) {
             final inserted = _addMessageIfNotExists(message);
             if (inserted) {
+              _entranceMessageIds.add(message.id);
+              unawaited(AppFeedbackService.instance.messageReceived());
               _syncMessagesCache();
-              _scrollToBottom();
+              _handleIncomingWhileViewing();
               ChatUnreadSyncBus.instance.ping();
               _scheduleMarkAsRead();
             } else {
@@ -550,7 +578,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (anyNew || anyUpdated) {
         _syncMessagesCache();
         if (anyNew) {
-          _scrollToBottom();
+          _handleIncomingWhileViewing();
           ChatUnreadSyncBus.instance.ping();
         }
         if (anyNew && _shouldAutoMarkAsRead()) {
@@ -602,31 +630,44 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } catch (_) {}
   }
 
-  Future<void> _sendMessage() async {
+  Future<void> _sendMessage({String? overrideText, String? retryTempId}) async {
     if (!mounted || !_messageController.isSafe) return;
-    final message = _messageController.safeText.trim();
-    if (message.isEmpty || _isSending) return;
+    final message = (overrideText ?? _messageController.safeText).trim();
+    if (message.isEmpty || (_isSending && retryTempId == null)) return;
 
-    // Create optimistic message
-    final tempMessage = ChatMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      senderId: _currentUserId!,
-      receiverId: widget.otherUserId,
-      message: message,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+    final tempId =
+        retryTempId ?? DateTime.now().millisecondsSinceEpoch.toString();
 
-    SafeSetState.call(this, () {
-      _isSending = true;
-      _messageIds.add(tempMessage.id);
-      _messages.add(tempMessage);
-    });
+    if (retryTempId == null) {
+      final tempMessage = ChatMessage(
+        id: tempId,
+        senderId: _currentUserId!,
+        receiverId: widget.otherUserId,
+        message: message,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
 
-    if (_messageController.isSafe) {
-      _messageController.safeClear();
+      SafeSetState.call(this, () {
+        _isSending = true;
+        _messageIds.add(tempId);
+        _entranceMessageIds.add(tempId);
+        _messageStatuses[tempId] = MessageSendStatus.sending;
+        _messages.add(tempMessage);
+      });
+      unawaited(AppFeedbackService.instance.messageSent());
+
+      if (_messageController.isSafe) {
+        _messageController.safeClear();
+      }
+      _scrollToBottom();
+    } else {
+      SafeSetState.call(this, () {
+        _isSending = true;
+        _messageStatuses[tempId] = MessageSendStatus.sending;
+      });
+      unawaited(AppFeedbackService.instance.lightImpact());
     }
-    _scrollToBottom();
 
     try {
       final sentMessage = await _chatService.sendMessage(
@@ -638,25 +679,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ? sentMessage.copyWith(isRead: true)
           : sentMessage;
 
-      // Replace temp message with real message
       SafeSetState.call(this, () {
-        _messageIds.remove(tempMessage.id);
-        final index = _messages.indexWhere((m) => m.id == tempMessage.id);
+        _messageIds.remove(tempId);
+        _messageStatuses.remove(tempId);
+        final index = _messages.indexWhere((m) => m.id == tempId);
         if (index != -1) {
           _messages[index] = displayMessage;
         } else if (!_messageIds.contains(sentMessage.id)) {
           _messages.add(displayMessage);
         }
         _messageIds.add(sentMessage.id);
-        // مرتب‌سازی بر اساس زمان ایجاد (قدیمی‌ترین اول)
         _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       });
       _syncMessagesCache();
     } catch (e) {
-      // Remove temp message on error
       SafeSetState.call(this, () {
-        _messageIds.remove(tempMessage.id);
-        _messages.removeWhere((m) => m.id == tempMessage.id);
+        _messageStatuses[tempId] = MessageSendStatus.failed;
       });
 
       if (mounted) {
@@ -676,7 +714,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               textColor: Colors.white,
               onPressed: () {
                 ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                _sendMessage();
+                unawaited(
+                  _sendMessage(overrideText: message, retryTempId: tempId),
+                );
               },
             ),
           ),
@@ -685,6 +725,324 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     } finally {
       SafeSetState.call(this, () => _isSending = false);
     }
+  }
+
+  void _retryFailedMessage(ChatMessage message) {
+    final pending = _pendingMediaByTempId[message.id];
+    if (pending != null) {
+      unawaited(
+        _sendMediaMessage(
+          file: pending.file,
+          messageType: pending.messageType,
+          attachmentName: pending.attachmentName,
+          attachmentType: pending.attachmentType,
+          durationSeconds: pending.durationSeconds,
+          retryTempId: message.id,
+        ),
+      );
+      return;
+    }
+    unawaited(
+      _sendMessage(overrideText: message.message, retryTempId: message.id),
+    );
+  }
+
+  Future<void> _sendMediaMessage({
+    required File file,
+    required String messageType,
+    String? attachmentName,
+    String? attachmentType,
+    int? durationSeconds,
+    String? retryTempId,
+  }) async {
+    if (!mounted || _currentUserId == null) return;
+    if (_isSending && retryTempId == null) return;
+
+    final tempId =
+        retryTempId ?? 'media_${DateTime.now().millisecondsSinceEpoch}';
+    final size = await file.length();
+
+    if (retryTempId == null) {
+      final tempMessage = ChatMessage(
+        id: tempId,
+        senderId: _currentUserId!,
+        receiverId: widget.otherUserId,
+        message: '',
+        messageType: messageType,
+        attachmentUrl: null,
+        attachmentName: attachmentName ?? file.path.split(RegExp(r'[\\/]')).last,
+        attachmentType: attachmentType,
+        attachmentSize: size,
+        durationSeconds: durationSeconds,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      SafeSetState.call(this, () {
+        _isSending = true;
+        _messageIds.add(tempId);
+        _entranceMessageIds.add(tempId);
+        _messageStatuses[tempId] = MessageSendStatus.sending;
+        _messages.add(tempMessage);
+        _pendingMediaByTempId[tempId] = _PendingChatMedia(
+          file: file,
+          messageType: messageType,
+          attachmentName: attachmentName,
+          attachmentType: attachmentType,
+          durationSeconds: durationSeconds,
+        );
+      });
+      unawaited(AppFeedbackService.instance.messageSent());
+      _scrollToBottom();
+    } else {
+      SafeSetState.call(this, () {
+        _isSending = true;
+        _messageStatuses[tempId] = MessageSendStatus.sending;
+      });
+    }
+
+    try {
+      // Ensure conversation exists so private storage path can use conversation_id.
+      if (_conversationId == null || _conversationId!.isEmpty) {
+        final conversation = await _chatService.getConversationByUserId(
+          widget.otherUserId,
+        );
+        if (conversation != null) {
+          _conversationId = conversation.id;
+        }
+      }
+
+      late final String url;
+      if (messageType == 'voice') {
+        url = await _mediaUpload.uploadVoiceFile(
+          file,
+          conversationId: _conversationId,
+        );
+      } else if (messageType == 'image') {
+        url = await _mediaUpload.uploadImage(
+          XFile(file.path),
+          conversationId: _conversationId,
+        );
+      } else {
+        url = await _mediaUpload.uploadFile(
+          file,
+          conversationId: _conversationId,
+        );
+      }
+
+      final sent = await _chatService.sendMessage(
+        receiverId: widget.otherUserId,
+        message: '',
+        messageType: messageType,
+        attachmentUrl: url,
+        attachmentType: attachmentType,
+        attachmentName: attachmentName ??
+            file.path.split(RegExp(r'[\\/]')).last,
+        attachmentSize: size,
+        durationSeconds: durationSeconds,
+      );
+
+      if (_conversationId == null || _conversationId!.isEmpty) {
+        final conversation = await _chatService.getConversationByUserId(
+          widget.otherUserId,
+        );
+        _conversationId = conversation?.id;
+      }
+
+      final display = _peerIsActiveInChat
+          ? sent.copyWith(isRead: true)
+          : sent;
+
+      SafeSetState.call(this, () {
+        _messageIds.remove(tempId);
+        _messageStatuses.remove(tempId);
+        _pendingMediaByTempId.remove(tempId);
+        final index = _messages.indexWhere((m) => m.id == tempId);
+        if (index != -1) {
+          _messages[index] = display;
+        } else if (!_messageIds.contains(sent.id)) {
+          _messages.add(display);
+        }
+        _messageIds.add(sent.id);
+        _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      });
+      _syncMessagesCache();
+      try {
+        if (await file.exists()) await file.delete();
+      } catch (_) {}
+    } catch (e) {
+      SafeSetState.call(this, () {
+        _messageStatuses[tempId] = MessageSendStatus.failed;
+      });
+      if (mounted) {
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          e.toString().replaceAll('Exception: ', ''),
+        );
+      }
+    } finally {
+      SafeSetState.call(this, () => _isSending = false);
+    }
+  }
+
+  Future<void> _pickAndSendImage({ImageSource source = ImageSource.gallery}) async {
+    try {
+      // Samsung PhotoPicker often crashes; prefer stable document picker for gallery.
+      if (source == ImageSource.gallery && !kIsWeb && Platform.isAndroid) {
+        final ok = await _pickAndSendImageViaFilePicker();
+        if (ok) return;
+      }
+
+      final picked = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1920,
+        requestFullMetadata: false,
+      );
+      if (picked == null) return;
+      if (!mounted) return;
+      await _sendMediaMessage(
+        file: File(picked.path),
+        messageType: 'image',
+        attachmentName: picked.name,
+        attachmentType: picked.mimeType ?? 'image/jpeg',
+      );
+    } catch (e) {
+      debugPrint('pick image failed: $e');
+      if (source == ImageSource.gallery && mounted) {
+        final ok = await _pickAndSendImageViaFilePicker();
+        if (ok) return;
+      }
+      if (mounted) {
+        WidgetSafetyUtils.safeShowSnackBar(context, 'خطا در انتخاب تصویر');
+      }
+    }
+  }
+
+  /// Gallery via FilePicker document UI — avoids Samsung PhotoPicker crash.
+  Future<bool> _pickAndSendImageViaFilePicker() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const [
+          'jpg',
+          'jpeg',
+          'png',
+          'gif',
+          'webp',
+          'heic',
+          'heif',
+          'bmp',
+        ],
+        allowMultiple: false,
+        withData: false,
+      );
+      if (result == null || result.files.isEmpty) return true; // cancelled
+      final picked = result.files.single;
+      final path = picked.path;
+      if (path == null || path.isEmpty) {
+        if (mounted) {
+          WidgetSafetyUtils.safeShowSnackBar(context, 'مسیر فایل نامعتبر است');
+        }
+        return true;
+      }
+      if (!mounted) return true;
+      final ext = (picked.extension ?? 'jpeg').toLowerCase();
+      await _sendMediaMessage(
+        file: File(path),
+        messageType: 'image',
+        attachmentName: picked.name,
+        attachmentType: 'image/$ext',
+      );
+      return true;
+    } catch (e) {
+      debugPrint('gallery file_picker failed: $e');
+      return false;
+    }
+  }
+
+  Future<void> _pickAndSendFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+        withData: false,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final picked = result.files.single;
+      final path = picked.path;
+      if (path == null || path.isEmpty) {
+        WidgetSafetyUtils.safeShowSnackBar(context, 'مسیر فایل نامعتبر است');
+        return;
+      }
+      final name = picked.name;
+      final ext = (picked.extension ?? '').toLowerCase();
+      final isImage = _isImageExtension(ext) ||
+          (picked.extension == null && _isImageFileName(name));
+      if (!mounted) return;
+      await _sendMediaMessage(
+        file: File(path),
+        messageType: isImage ? 'image' : 'file',
+        attachmentName: name,
+        attachmentType: isImage
+            ? 'image/${ext.isEmpty ? 'jpeg' : ext}'
+            : (picked.extension ?? 'application/octet-stream'),
+      );
+    } catch (_) {
+      if (mounted) {
+        WidgetSafetyUtils.safeShowSnackBar(context, 'خطا در انتخاب فایل');
+      }
+    }
+  }
+
+  bool _isImageExtension(String ext) {
+    const images = {
+      'jpg',
+      'jpeg',
+      'png',
+      'gif',
+      'webp',
+      'heic',
+      'heif',
+      'bmp',
+    };
+    return images.contains(ext);
+  }
+
+  bool _isImageFileName(String name) {
+    final dot = name.lastIndexOf('.');
+    if (dot < 0 || dot >= name.length - 1) return false;
+    return _isImageExtension(name.substring(dot + 1).toLowerCase());
+  }
+
+  void _onScrollPositionChanged() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final away = pos.pixels - pos.minScrollExtent;
+    final show = away > 140;
+    if (show != _showJumpToBottom) {
+      SafeSetState.call(this, () => _showJumpToBottom = show);
+    }
+    if (!show && _hasUnseenIncomingWhileScrolled) {
+      SafeSetState.call(this, () => _hasUnseenIncomingWhileScrolled = false);
+    }
+  }
+
+  bool _isNearBottom({double threshold = 140}) {
+    if (!_scrollController.hasClients) return true;
+    final pos = _scrollController.position;
+    return (pos.pixels - pos.minScrollExtent) <= threshold;
+  }
+
+  void _handleIncomingWhileViewing() {
+    if (_isNearBottom()) {
+      _scrollToBottom();
+      return;
+    }
+    SafeSetState.call(this, () {
+      _showJumpToBottom = true;
+      _hasUnseenIncomingWhileScrolled = true;
+    });
   }
 
   void _scrollToBottom({bool animate = true}) {
@@ -699,6 +1057,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         );
       } else {
         _scrollController.jumpTo(target);
+      }
+      if (_showJumpToBottom || _hasUnseenIncomingWhileScrolled) {
+        SafeSetState.call(this, () {
+          _showJumpToBottom = false;
+          _hasUnseenIncomingWhileScrolled = false;
+        });
       }
     });
   }
@@ -810,22 +1174,53 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         body: Column(
           children: [
             Expanded(
-              child: ErrorBoundaryWidget(
-                child: _buildMessagesList(),
-                onRetry: () {
-                  setState(() {
-                    _isLoading = true;
-                    _errorMessage = null;
-                  });
-                  _initializeChat();
-                },
+              child: Stack(
+                children: [
+                  ErrorBoundaryWidget(
+                    child: _buildMessagesList(),
+                    onRetry: () {
+                      setState(() {
+                        _isLoading = true;
+                        _errorMessage = null;
+                      });
+                      _initializeChat();
+                    },
+                  ),
+                  if (_showJumpToBottom)
+                    Positioned(
+                      left: 16.w,
+                      bottom: 12.h,
+                      child: ChatScrollToBottomButton(
+                        unreadHint: _hasUnseenIncomingWhileScrolled,
+                        onPressed: () {
+                          unawaited(AppFeedbackService.instance.selection());
+                          _scrollToBottom();
+                          if (_shouldAutoMarkAsRead()) {
+                            _scheduleMarkAsRead();
+                          }
+                        },
+                      ),
+                    ),
+                ],
               ),
             ),
             MessageInputWidget(
               controller: _messageController,
-              onSendPressed: _sendMessage,
+              onSendPressed: () {
+                unawaited(_sendMessage());
+              },
               onAttachmentPressed: _showAttachmentOptions,
+              onVoiceRecorded: kIsWeb
+                  ? null
+                  : (file, duration) => _sendMediaMessage(
+                        file: file,
+                        messageType: 'voice',
+                        durationSeconds: duration,
+                        attachmentName: 'voice.m4a',
+                        attachmentType: 'audio/mp4',
+                      ),
               isSending: _isSending,
+              voiceEnabled: !kIsWeb,
             ),
           ],
         ),
@@ -945,14 +1340,106 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           final int messageIndex = (_messages.length - 1) - index;
           final message = _messages[messageIndex];
           final isMe = message.senderId == _currentUserId;
+          final animateEntrance = _entranceMessageIds.remove(message.id);
+          final sendStatus = isMe ? _messageStatuses[message.id] : null;
 
-          return ChatMessageBubble(
-            key: ValueKey<String>(message.id),
+          final bubble = ChatMessageBubble(
+            key: ValueKey<String>('bubble_${message.id}'),
             message: message,
             isMe: isMe,
+            isGrouped: _isGroupedWithNext(messageIndex),
+            sendStatus: sendStatus,
             onLongPress: () => _showMessageOptions(message),
+            onRetryFailed: sendStatus == MessageSendStatus.failed
+                ? () => _retryFailedMessage(message)
+                : null,
+          );
+
+          final animatedBubble = animateEntrance
+              ? bubble
+                  .animate()
+                  .fadeIn(duration: 180.ms, curve: Curves.easeOut)
+                  .slideY(
+                    begin: isMe ? 0.12 : 0.08,
+                    end: 0,
+                    duration: 220.ms,
+                    curve: Curves.easeOutCubic,
+                  )
+                  .scale(
+                    begin: const Offset(0.96, 0.96),
+                    end: const Offset(1, 1),
+                    duration: 220.ms,
+                    curve: Curves.easeOutCubic,
+                  )
+              : bubble;
+
+          return Column(
+            key: ValueKey<String>(message.id),
+            children: [
+              if (_showDateHeader(messageIndex))
+                _buildDateChip(message.createdAt),
+              animatedBubble,
+            ],
           );
         },
+      ),
+    );
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  bool _isGroupedWithNext(int messageIndex) {
+    if (messageIndex >= _messages.length - 1) return false;
+    final curr = _messages[messageIndex];
+    final next = _messages[messageIndex + 1];
+    if (curr.senderId != next.senderId) return false;
+    if (!_isSameDay(curr.createdAt, next.createdAt)) return false;
+    return next.createdAt.difference(curr.createdAt).inMinutes < 3;
+  }
+
+  bool _showDateHeader(int messageIndex) {
+    if (messageIndex <= 0) return true;
+    return !_isSameDay(
+      _messages[messageIndex].createdAt,
+      _messages[messageIndex - 1].createdAt,
+    );
+  }
+
+  String _dateChipLabel(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(date.year, date.month, date.day);
+    if (day == today) return 'امروز';
+    if (day == today.subtract(const Duration(days: 1))) return 'دیروز';
+    final j = Jalali.fromDateTime(date);
+    return '${j.day} ${j.formatter.mN} ${j.year}';
+  }
+
+  Widget _buildDateChip(DateTime date) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 10.h),
+      child: Center(
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 5.h),
+          decoration: BoxDecoration(
+            color: context.cardColor,
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(
+              color: AppTheme.goldColor.withValues(alpha: 0.15),
+            ),
+          ),
+          child: Text(
+            _dateChipLabel(date),
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w600,
+              color: context.textSecondary,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1055,9 +1542,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _showMessageOptions(ChatMessage message) {
-    if (message.senderId != _currentUserId) return;
+    final isMine = message.senderId == _currentUserId;
 
-    showModalBottomSheet<void>(
+    unawaited(
+      showModalBottomSheet<void>(
       context: context,
       backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(
@@ -1077,23 +1565,24 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
             ),
             SizedBox(height: 16.h),
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: ListTile(
-                leading: const Icon(LucideIcons.edit, color: AppTheme.goldColor),
-                title: Text(
-                  'ویرایش',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
+            if (isMine)
+              Directionality(
+                textDirection: TextDirection.rtl,
+                child: ListTile(
+                  leading: const Icon(LucideIcons.edit, color: AppTheme.goldColor),
+                  title: Text(
+                    'ویرایش',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textColor,
+                    ),
                   ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _editMessageDialog(message);
+                  },
                 ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _editMessageDialog(message);
-                },
               ),
-            ),
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(
@@ -1107,30 +1596,39 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
                 onTap: () {
                   Navigator.pop(context);
-                  // Copy feature not implemented yet
+                  unawaited(Clipboard.setData(ClipboardData(text: message.message)));
+                  unawaited(AppFeedbackService.instance.selection());
+                  if (mounted) {
+                    WidgetSafetyUtils.safeShowSnackBar(
+                      context,
+                      'پیام کپی شد',
+                    );
+                  }
                 },
               ),
             ),
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: ListTile(
-                leading: const Icon(LucideIcons.trash2, color: AppTheme.goldColor),
-                title: const Text(
-                  'حذف',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: AppTheme.goldColor,
-                    fontWeight: FontWeight.bold,
+            if (isMine)
+              Directionality(
+                textDirection: TextDirection.rtl,
+                child: ListTile(
+                  leading: const Icon(LucideIcons.trash2, color: AppTheme.goldColor),
+                  title: const Text(
+                    'حذف',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: AppTheme.goldColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    unawaited(_deleteMessage(message));
+                  },
                 ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _deleteMessage(message);
-                },
               ),
-            ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1229,75 +1727,120 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _showAttachmentOptions() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: context.cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+    unawaited(AppFeedbackService.instance.selection());
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: context.cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+        ),
+        builder: (context) => SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 20.h),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40.w,
+                  height: 4.h,
+                  decoration: BoxDecoration(
+                    color: context.separatorColor,
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                ),
+                SizedBox(height: 14.h),
+                Text(
+                  'ارسال رسانه',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16.sp,
+                    color: context.textColor,
+                  ),
+                ),
+                SizedBox(height: 18.h),
+                Row(
+                  textDirection: TextDirection.rtl,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    if (!kIsWeb)
+                      _attachChip(
+                        icon: LucideIcons.camera,
+                        label: 'دوربین',
+                        onTap: () {
+                          Navigator.pop(context);
+                          unawaited(
+                            _pickAndSendImage(source: ImageSource.camera),
+                          );
+                        },
+                      ),
+                    _attachChip(
+                      icon: LucideIcons.image,
+                      label: 'گالری',
+                      onTap: () {
+                        Navigator.pop(context);
+                        unawaited(_pickAndSendImage());
+                      },
+                    ),
+                    _attachChip(
+                      icon: LucideIcons.file,
+                      label: 'فایل',
+                      onTap: () {
+                        Navigator.pop(context);
+                        unawaited(_pickAndSendFile());
+                      },
+                    ),
+                    if (!kIsWeb)
+                      _attachChip(
+                        icon: LucideIcons.mic,
+                        label: 'ویس',
+                        onTap: () {
+                          Navigator.pop(context);
+                          WidgetSafetyUtils.safeShowSnackBar(
+                            context,
+                            'دکمه میکروفون را نگه دارید',
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-      builder: (context) => Container(
-        padding: EdgeInsets.all(20.w),
+    );
+  }
+
+  Widget _attachChip({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16.r),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 40.w,
-              height: 4.h,
+              width: 54.w,
+              height: 54.w,
               decoration: BoxDecoration(
-                color: context.separatorColor,
-                borderRadius: BorderRadius.circular(2.r),
+                shape: BoxShape.circle,
+                gradient: LinearGradient(colors: context.goldGradientColors),
               ),
+              child: Icon(icon, color: AppTheme.onGoldColor, size: 22.sp),
             ),
-            SizedBox(height: 16.h),
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: ListTile(
-                leading: const Icon(LucideIcons.image, color: AppTheme.goldColor),
-                title: Text(
-                  'عکس',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Image picker not implemented yet
-                },
-              ),
-            ),
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: ListTile(
-                leading: const Icon(LucideIcons.file, color: AppTheme.goldColor),
-                title: Text(
-                  'فایل',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // File picker not implemented yet
-                },
-              ),
-            ),
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: ListTile(
-                leading: const Icon(LucideIcons.mic, color: AppTheme.goldColor),
-                title: Text(
-                  'صوت',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Voice recording not implemented yet
-                },
+            SizedBox(height: 8.h),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textColor,
+                fontSize: 12.sp,
               ),
             ),
           ],
@@ -1377,4 +1920,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
     );
   }
+}
+
+class _PendingChatMedia {
+  const _PendingChatMedia({
+    required this.file,
+    required this.messageType,
+    this.attachmentName,
+    this.attachmentType,
+    this.durationSeconds,
+  });
+
+  final File file;
+  final String messageType;
+  final String? attachmentName;
+  final String? attachmentType;
+  final int? durationSeconds;
 }

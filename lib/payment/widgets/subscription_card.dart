@@ -24,11 +24,11 @@ class SubscriptionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: subscription.isActive
-              ? AppTheme.goldColor.withValues(alpha: 0.1)
-              : Colors.white24,
-        ),
+          border: Border.all(
+            color: subscription.isActive
+                ? AppTheme.goldColor.withValues(alpha: 0.1)
+                : context.separatorColor,
+          ),
       ),
       child: Material(
         color: Colors.transparent,
@@ -63,10 +63,10 @@ class SubscriptionCard extends StatelessWidget {
                           Text(
                             subscription.typeText,
                             style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                              fontFamily: AppTheme.fontFamily,
                               fontSize: 16.sp,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: context.textColor,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -190,10 +190,10 @@ class SubscriptionCard extends StatelessWidget {
                 Text(
                   'ویژگی‌ها:',
                   style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                    fontFamily: AppTheme.fontFamily,
                     fontSize: 14.sp,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white70,
+                    color: context.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -214,9 +214,9 @@ class SubscriptionCard extends StatelessWidget {
                               child: Text(
                                 feature,
                                 style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                                  fontFamily: AppTheme.fontFamily,
                                   fontSize: 12.sp,
-                                  color: Colors.white70,
+                                  color: context.textSecondary,
                                 ),
                               ),
                             ),
@@ -229,9 +229,9 @@ class SubscriptionCard extends StatelessWidget {
                   Text(
                     'و ${subscription.features.length - 3} ویژگی دیگر...',
                     style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                      fontFamily: AppTheme.fontFamily,
                       fontSize: 11.sp,
-                      color: Colors.white54,
+                      color: context.textSecondary.withValues(alpha: 0.75),
                       fontStyle: FontStyle.italic,
                     ),
                   ),

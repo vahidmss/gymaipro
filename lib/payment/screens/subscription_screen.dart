@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/features/legal/legal_copy.dart';
+import 'package:gymaipro/features/legal/navigation/legal_routes.dart';
 import 'package:gymaipro/payment/models/payment_plan.dart';
 import 'package:gymaipro/payment/models/subscription.dart';
 import 'package:gymaipro/payment/screens/payment_screen.dart';
 import 'package:gymaipro/payment/services/subscription_service.dart';
 import 'package:gymaipro/payment/widgets/subscription_card.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/support_launcher.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -93,7 +96,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   void _onRenewSubscription(Subscription subscription) {
-    // پیدا کردن طرح مربوطه
     final plan = _availablePlans.firstWhere(
       (p) => p.type == PaymentPlanType.subscription,
       orElse: () => _availablePlans.first,
@@ -115,23 +117,24 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         title: const Text(
           'لغو اشتراک',
           style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+            fontFamily: AppTheme.fontFamily,
             fontWeight: FontWeight.bold,
             color: AppTheme.goldColor,
           ),
         ),
         content: const Text(
           'آیا مطمئن هستید که می‌خواهید اشتراک خود را لغو کنید؟',
-          style: TextStyle(
-    fontFamily: AppTheme.fontFamily,),
+          style: TextStyle(fontFamily: AppTheme.fontFamily),
         ),
         actions: [
           TextButton(
             onPressed: () => WidgetSafetyUtils.safePop(context, false),
-            child: const Text(
+            child: Text(
               'انصراف',
               style: TextStyle(
-    fontFamily: AppTheme.fontFamily,color: Colors.white70),
+                fontFamily: AppTheme.fontFamily,
+                color: context.textSecondary,
+              ),
             ),
           ),
           TextButton(
@@ -139,7 +142,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             child: const Text(
               'لغو اشتراک',
               style: TextStyle(
-    fontFamily: AppTheme.fontFamily,color: Colors.red),
+                fontFamily: AppTheme.fontFamily,
+                color: Colors.red,
+              ),
             ),
           ),
         ],
@@ -155,9 +160,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         backgroundColor: context.backgroundColor,
         appBar: AppBar(
           title: Text(
-            'اشتراک‌ها',
+            'اشتراک ویژه',
             style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+              fontFamily: AppTheme.fontFamily,
               fontSize: 20.sp,
               fontWeight: FontWeight.bold,
               color: AppTheme.goldColor,
@@ -179,55 +184,85 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             : RefreshIndicator(
                 onRefresh: _loadSubscriptionData,
                 color: AppTheme.goldColor,
-                child: SingleChildScrollView(
+                child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.all(16.w),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // اشتراک‌های فعلی
-                      if (_subscriptions.isNotEmpty) ...[
-                        Text(
-                          'اشتراک‌های شما',
-                          style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                            fontSize: 18.sp,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.goldColor,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ..._subscriptions.map(
-                          (subscription) => SubscriptionCard(
-                            subscription: subscription,
-                            onCancel: subscription.isActive
-                                ? () => _onCancelSubscription(subscription)
-                                : null,
-                            onRenew:
-                                subscription.status ==
-                                    SubscriptionStatus.expired
-                                ? () => _onRenewSubscription(subscription)
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                      ],
-
-                      // طرح‌های موجود
+                  padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 28.h),
+                  children: [
+                    _DemoNoticeCard(
+                      onContact: () =>
+                          Navigator.pushNamed(context, LegalRoutes.about),
+                      onCall: () => SupportLauncher.openPhone(context),
+                    ),
+                    SizedBox(height: 16.h),
+                    Text(
+                      'اشتراک یعنی چه؟',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w800,
+                        color: context.textColor,
+                      ),
+                    ),
+                    SizedBox(height: 6.h),
+                    Text(
+                      'با اشتراک، مربی هوشمند و امکانات پیشرفته‌تر باز می‌شود. '
+                      'بدون اشتراک هم می‌توانی اپ را ببینی و تمرین ثبت کنی؛ '
+                      'ولی سقف گفتگو و بعضی تحلیل‌ها محدود است.',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 13.sp,
+                        height: 1.65,
+                        color: context.textSecondary,
+                      ),
+                    ),
+                    if (_subscriptions.isNotEmpty) ...[
+                      SizedBox(height: 22.h),
                       Text(
-                        'طرح‌های اشتراک',
+                        'وضعیت فعلی تو',
                         style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.bold,
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w800,
                           color: AppTheme.goldColor,
                         ),
                       ),
-                      const SizedBox(height: 16),
-
-                      ..._availablePlans.map(_buildPlanCard),
+                      SizedBox(height: 12.h),
+                      ..._subscriptions.map(
+                        (subscription) => SubscriptionCard(
+                          subscription: subscription,
+                          onCancel: subscription.isActive
+                              ? () => _onCancelSubscription(subscription)
+                              : null,
+                          onRenew: subscription.status ==
+                                  SubscriptionStatus.expired
+                              ? () => _onRenewSubscription(subscription)
+                              : null,
+                        ),
+                      ),
                     ],
-                  ),
+                    SizedBox(height: 22.h),
+                    Text(
+                      'انتخاب پلن',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.goldColor,
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      'هر دو ماهانه هستند. Ultimate همان Coach Pro است به‌علاوه سقف بالاتر و اولویت پشتیبانی.',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 12.sp,
+                        height: 1.5,
+                        color: context.textSecondary,
+                      ),
+                    ),
+                    SizedBox(height: 14.h),
+                    ..._availablePlans.map(_buildPlanCard),
+                  ],
                 ),
               ),
       ),
@@ -235,121 +270,126 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Widget _buildPlanCard(PaymentPlan plan) {
+    final popular = plan.isPopular;
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: EdgeInsets.all(20.w),
+      margin: EdgeInsets.only(bottom: 14.h),
+      padding: EdgeInsets.all(18.w),
       decoration: BoxDecoration(
         color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
-          color: plan.isPopular
-              ? AppTheme.goldColor.withValues(alpha: 0.1)
-              : Colors.white24,
+          color: popular
+              ? AppTheme.goldColor.withValues(alpha: 0.55)
+              : context.separatorColor,
+          width: popular ? 1.5 : 1,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // هدر طرح
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      plan.name,
-                      style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.goldColor,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      plan.shortDescription,
-                      style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                        fontSize: 14.sp,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  plan.name,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.goldColor,
+                  ),
                 ),
               ),
-              if (plan.isPopular)
+              if (popular)
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
-                    color: AppTheme.goldColor.withValues(alpha: 0.1),
+                    color: AppTheme.goldColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8.r),
                   ),
                   child: Text(
-                    'محبوب',
+                    'پیشنهادی',
                     style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                      fontSize: 12.sp,
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w700,
                       color: AppTheme.goldColor,
                     ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 16),
-
-          // قیمت
+          SizedBox(height: 6.h),
+          Text(
+            plan.shortDescription,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 13.sp,
+              height: 1.45,
+              color: context.textSecondary,
+            ),
+          ),
+          SizedBox(height: 14.h),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (plan.hasDiscount) ...[
                 Text(
                   plan.formattedOriginalPrice,
                   style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                    fontSize: 16.sp,
-                    color: Colors.white54,
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 14.sp,
+                    color: context.textSecondary,
                     decoration: TextDecoration.lineThrough,
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.w),
               ],
               Text(
                 plan.formattedPrice,
                 style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                  fontSize: 24.sp,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.goldColor,
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 22.sp,
+                  fontWeight: FontWeight.w800,
+                  color: context.textColor,
                 ),
               ),
-              const SizedBox(width: 4),
-              Text(
-                '/ ماه',
-                style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                  fontSize: 14.sp,
-                  color: Colors.white70,
+              SizedBox(width: 6.w),
+              Padding(
+                padding: EdgeInsets.only(bottom: 3.h),
+                child: Text(
+                  'در ماه',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 12.sp,
+                    color: context.textSecondary,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-
-          // ویژگی‌ها
+          SizedBox(height: 14.h),
           ...plan.features.map(
             (feature) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: EdgeInsets.only(bottom: 8.h),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(LucideIcons.check, color: Colors.green, size: 16),
-                  const SizedBox(width: 8),
+                  Icon(
+                    LucideIcons.check,
+                    color: Colors.green,
+                    size: 16.sp,
+                  ),
+                  SizedBox(width: 8.w),
                   Expanded(
                     child: Text(
                       feature,
                       style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                        fontSize: 14.sp,
-                        color: Colors.white70,
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 13.sp,
+                        height: 1.4,
+                        color: context.textColor,
                       ),
                     ),
                   ),
@@ -357,32 +397,127 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 20),
-
-          // دکمه خرید
+          SizedBox(height: 12.h),
           SizedBox(
             width: double.infinity,
             height: 48.h,
             child: ElevatedButton(
               onPressed: () => _onPurchasePlan(plan),
               style: ElevatedButton.styleFrom(
-                backgroundColor: plan.isPopular
-                    ? AppTheme.goldColor
-                    : AppTheme.goldColor.withValues(alpha: 0.1),
-                foregroundColor: Colors.black,
+                backgroundColor: AppTheme.goldColor,
+                foregroundColor: AppTheme.onGoldColor,
+                elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.r),
                 ),
               ),
               child: Text(
-                'خرید اشتراک',
+                popular ? 'انتخاب Ultimate AI' : 'انتخاب Coach Pro',
                 style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.bold,
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DemoNoticeCard extends StatelessWidget {
+  const _DemoNoticeCard({
+    required this.onContact,
+    required this.onCall,
+  });
+
+  final VoidCallback onContact;
+  final VoidCallback onCall;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(14.w),
+      decoration: BoxDecoration(
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.flaskConical, color: AppTheme.goldColor, size: 20.sp),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Text(
+                  'نسخه دمو — خرید ممکن است محدود باشد',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.sp,
+                    color: context.textColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            'اگر می‌خواهی پلن را آزمایش کنی، باگ دیدی، یا نظری درباره قیمت/امکانات داری، '
+            'مستقیم بگو. شماره: ${LegalCopy.supportPhoneDisplay}',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 12.5.sp,
+              height: 1.55,
+              color: context.textSecondary,
+            ),
+          ),
+          SizedBox(height: 12.h),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onCall,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: context.textColor,
+                    side: BorderSide(color: context.separatorColor),
+                  ),
+                  child: Text(
+                    'تماس',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13.sp,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: FilledButton(
+                  onPressed: onContact,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: context.actionFill,
+                    foregroundColor: context.actionOnFill,
+                  ),
+                  child: Text(
+                    'بازخورد',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.sp,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

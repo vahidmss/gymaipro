@@ -157,7 +157,9 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
             _mealPlan = existingPlan;
           });
           // خواندن editable_until از دیتابیس
-          debugPrint('📥 برنامه موجود بارگذاری شد، در حال خواندن editable_until...');
+          debugPrint(
+            '📥 برنامه موجود بارگذاری شد، در حال خواندن editable_until...',
+          );
           await _loadEditableUntil();
         } else {
           // برنامه جدید بساز با نام خودکار
@@ -197,10 +199,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
       SafeSetState.call(this, () => _isLoading = false);
     } catch (e) {
       if (!mounted) return;
-      WidgetSafetyUtils.safeShowSnackBar(
-        context,
-        'خطا در بارگذاری: $e',
-      );
+      WidgetSafetyUtils.safeShowSnackBar(context, 'خطا در بارگذاری: $e');
       SafeSetState.call(this, () => _isLoading = false);
     }
   }
@@ -216,7 +215,9 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
 
     try {
       final client = Supabase.instance.client;
-      debugPrint('🔍 در حال خواندن editable_until برای برنامه: ${_mealPlan.id}');
+      debugPrint(
+        '🔍 در حال خواندن editable_until برای برنامه: ${_mealPlan.id}',
+      );
       final planData = await client
           .from('meal_plans')
           .select('editable_until, sent_at')
@@ -285,7 +286,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
   // ساخت خودکار نام برنامه: "رژیم غذایی-نام کاربر"
   Future<String> _generatePlanName() async {
     final dateStr = toJalali(DateTime.now());
-    
+
     if (widget.targetUserId == null) {
       return 'رژیم غذایی-$dateStr';
     }
@@ -339,7 +340,9 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
       }
 
       // بررسی اینکه آیا برنامه در دیتابیس ذخیره شده است یا نه
-      final isPlanSaved = _savedPlans.any((p) => p.id == _mealPlan.id && p.id.isNotEmpty);
+      final isPlanSaved = _savedPlans.any(
+        (p) => p.id == _mealPlan.id && p.id.isNotEmpty,
+      );
 
       // ذخیره برنامه جدید یا به‌روزرسانی برنامه موجود
       if (isPlanSaved) {
@@ -368,14 +371,14 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
         SafeSetState.call(this, () {
           _mealPlan = newPlan;
         });
-        
+
         // به‌روزرسانی لیست برنامه‌های ذخیره شده
         final updatedSavedPlans = await _mealPlanService
             .getPlansCreatedByTrainer(user.id);
         SafeSetState.call(this, () {
           _savedPlans = updatedSavedPlans;
         });
-        
+
         // خواندن editable_until از دیتابیس
         debugPrint('💾 برنامه جدید ذخیره شد، در حال خواندن editable_until...');
         await _loadEditableUntil();
@@ -437,7 +440,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
               onPressed: () => Navigator.of(context).pop(true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.goldColor,
-                foregroundColor: Colors.white,
+                foregroundColor: AppTheme.onGoldColor,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.r),
                 ),
@@ -704,19 +707,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
           ),
         ),
         child: DecoratedBox(
-          decoration: isDark
-              ? const BoxDecoration()
-              : BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                      AppTheme.lightCardColor,
-                      AppTheme.lightGradientEnd.withValues(alpha: 0.1),
-                    ],
-                  ),
-                ),
+          decoration: context.pageDecoration,
           child: Scaffold(
             backgroundColor: Colors.transparent,
             // نوار بالای صفحه
@@ -785,10 +776,13 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
                                                   Container(
                                                     width: 6.w,
                                                     height: 6.h,
-                                                    decoration: const BoxDecoration(
-                                                      color: AppTheme.goldColor,
-                                                      shape: BoxShape.circle,
-                                                    ),
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                          color: AppTheme
+                                                              .goldColor,
+                                                          shape:
+                                                              BoxShape.circle,
+                                                        ),
                                                   ),
                                                   SizedBox(width: 6.w),
                                                   Text(

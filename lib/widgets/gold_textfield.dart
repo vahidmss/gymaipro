@@ -37,14 +37,14 @@ class GoldTextField extends StatelessWidget {
           obscureText: obscureText,
           enabled: enabled,
           onChanged: onChanged,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: context.textColor,
             fontWeight: FontWeight.w500,
+            fontFamily: AppTheme.fontFamily,
           ),
-          decoration: AppTheme.textFieldDecoration(
-            label,
-            hint: hint,
-          ).copyWith(suffixIcon: suffixIcon),
+          decoration: context
+              .goldTextFieldDecoration(label, hint: hint)
+              .copyWith(suffixIcon: suffixIcon),
         ),
       ),
     );

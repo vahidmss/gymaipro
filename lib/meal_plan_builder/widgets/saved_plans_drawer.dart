@@ -49,7 +49,8 @@ class SavedPlansDrawerMealPlanBuilder extends StatelessWidget {
                     Text(
                       'برنامه‌های ذخیره‌شده',
                       style: TextStyle(
-                        color: Colors.white,
+                        fontFamily: AppTheme.fontFamily,
+                        color: context.textColor,
                         fontSize: 18.sp,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.2,
@@ -82,7 +83,8 @@ class SavedPlansDrawerMealPlanBuilder extends StatelessWidget {
                         child: Text(
                           'برنامه‌ای ذخیره نشده',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
+                            fontFamily: AppTheme.fontFamily,
+                            color: context.textSecondary,
                             fontSize: 14.sp,
                             fontWeight: FontWeight.w600,
                           ),
@@ -92,7 +94,7 @@ class SavedPlansDrawerMealPlanBuilder extends StatelessWidget {
                         padding: EdgeInsets.fromLTRB(12.w, 0.h, 12.w, 0.h),
                         itemCount: savedPlans.length,
                         separatorBuilder: (_, __) => Divider(
-                          color: Colors.white.withValues(alpha: 0.06),
+                          color: context.separatorColor,
                           height: 12.h,
                           thickness: 0.8,
                         ),
@@ -138,7 +140,8 @@ class SavedPlansDrawerMealPlanBuilder extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  fontFamily: AppTheme.fontFamily,
+                                  color: context.textColor,
                                   fontSize: 16.sp,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -146,7 +149,8 @@ class SavedPlansDrawerMealPlanBuilder extends StatelessWidget {
                               subtitle: Text(
                                 'تاریخ: ${plan.createdAt.toString().substring(0, 10)}',
                                 style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.6),
+                                  fontFamily: AppTheme.fontFamily,
+                                  color: context.textSecondary,
                                   fontSize: 12.sp,
                                 ),
                               ),

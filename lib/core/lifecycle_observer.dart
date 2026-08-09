@@ -2,17 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:gymaipro/chat/services/chat_presence_service.dart';
 import 'package:gymaipro/academy/services/music_player_service.dart';
-import 'package:gymaipro/core/foreground_resume_coordinator.dart';
+import 'package:gymaipro/chat/services/chat_presence_service.dart';
 import 'package:gymaipro/core/app_initializer.dart';
+import 'package:gymaipro/core/foreground_resume_coordinator.dart';
 import 'package:gymaipro/notification/notification_service.dart';
 import 'package:gymaipro/notification/services/notification_fallback_sync_service.dart';
 import 'package:gymaipro/notification/services/push_health_monitor.dart';
-import 'package:gymaipro/payment/services/payment_resume_tracker.dart';
 import 'package:gymaipro/payment/services/payment_deeplink_service.dart';
+import 'package:gymaipro/payment/services/payment_resume_tracker.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/payment/utils/wallet_refresh_notifier.dart';
+import 'package:gymaipro/services/presence_service.dart';
 import 'package:gymaipro/utils/external_url_launcher.dart';
 
 class LifecycleObserver extends StatefulWidget {
@@ -32,6 +33,7 @@ class _LifecycleObserverState extends State<LifecycleObserver>
     with WidgetsBindingObserver {
   NotificationService? _notificationService;
   static AppLifecycleState _currentState = AppLifecycleState.resumed;
+  Timer? _presenceHeartbeat;
 
   @override
   void initState() {
@@ -42,18 +44,32 @@ class _LifecycleObserverState extends State<LifecycleObserver>
       _notificationService = NotificationService();
     }
 
-    // Defer so Supabase is definitely ready when markUserActive runs
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future<void>.delayed(const Duration(milliseconds: 800), () {
-        if (mounted) _markActive('initState');
+        if (mounted) unawaited(_markActive('initState'));
       });
     });
   }
 
   @override
   void dispose() {
+    _presenceHeartbeat?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _startPresenceHeartbeat() {
+    _presenceHeartbeat?.cancel();
+    _presenceHeartbeat = Timer.periodic(const Duration(minutes: 2), (_) {
+      if (_currentState == AppLifecycleState.resumed) {
+        unawaited(PresenceService.instance.bumpForeground(source: 'heartbeat'));
+      }
+    });
+  }
+
+  void _stopPresenceHeartbeat() {
+    _presenceHeartbeat?.cancel();
+    _presenceHeartbeat = null;
   }
 
   @override
@@ -62,16 +78,15 @@ class _LifecycleObserverState extends State<LifecycleObserver>
 
     if (state == AppLifecycleState.resumed) {
       if (ForegroundResumeCoordinator.isPaymentReturnGraceActive) {
-        // Deeplink handler already refreshed wallet; avoid duplicate resume work.
         unawaited(_markActive('resumed', light: true));
         return;
       }
-      _markActive('resumed');
+      unawaited(_markActive('resumed'));
       unawaited(_pollPendingWalletTopup());
       unawaited(_pollPendingDirectPayment());
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
-      _markInactive('$state');
+      unawaited(_markInactive('$state'));
       if (state == AppLifecycleState.detached) {
         MusicPlayerService().handleAppDetached().catchError((Object e) {
           if (kDebugMode) {
@@ -112,9 +127,10 @@ class _LifecycleObserverState extends State<LifecycleObserver>
     if (!AppInitializer.isSupabaseReady) return;
     try {
       if (kDebugMode) debugPrint('LifecycleObserver mark active from: $source');
-      if (_notificationService != null &&
-          ForegroundResumeCoordinator.shouldBumpPresence(source)) {
-        await _notificationService!.markUserActive(source: source);
+      await PresenceService.instance.bumpForeground(source: source);
+      _startPresenceHeartbeat();
+      if (_notificationService != null) {
+        unawaited(_notificationService!.touchDeviceLastSeen());
       }
       if (!light &&
           ForegroundResumeCoordinator.shouldRunFallbackSync(source)) {
@@ -122,8 +138,6 @@ class _LifecycleObserverState extends State<LifecycleObserver>
           NotificationFallbackSyncService().syncOnForeground(reason: source),
         );
       }
-      // Re-check on every open whether FCM push works on the current network so
-      // alerts route to push (when healthy) or in-app fallback (when filtered).
       unawaited(PushHealthMonitor.instance.refresh());
     } catch (e) {
       if (kDebugMode) {
@@ -138,6 +152,8 @@ class _LifecycleObserverState extends State<LifecycleObserver>
       if (kDebugMode) {
         debugPrint('LifecycleObserver mark INACTIVE from: $source');
       }
+      _stopPresenceHeartbeat();
+      await PresenceService.instance.markBackground(source: source);
       await ChatPresenceService().markAllInactiveForCurrentUser();
     } catch (_) {}
   }

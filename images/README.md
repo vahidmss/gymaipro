@@ -1,48 +1,37 @@
-# App images for CDN upload
+# App images
 
-Upload **all files in this folder** to your server at:
+Bundled under `images/` via `pubspec.yaml` (`- images/`).
+
+## In use
+
+| File | Used for |
+|------|----------|
+| `poster1.jpg` … `poster5.jpg` | Welcome + dashboard carousel |
+| `gymai_body_front_v2.png` | Muscle heatmap (front) |
+| `gymai_body_back_v2.png` | Muscle heatmap (back) |
+| `breakfast.png` / `lunch.png` / `dinner.png` / `snack.png` | Meal section icons |
+| `gymaifoodplaceholder.png` / `food_placeholder.png` | Food placeholders |
+| `whey.png` | Supplement meal card |
+| `log.png` | Home workout hero |
+| `calorymeter.jpg` | Home calorie hero |
+| `gymaicoach.jpg` | Home AI coach banner |
+| `logoforlightmode.png` | Home AppBar (light) |
+| `logofordarkmode.png` | Home AppBar (dark) |
+| `mainlogo_no_bg.png` | App update / chrome dialog |
+| `GYMAI_logo_transparent.png` | Auth + exercise builder |
+| `GymAI.jpg` | Launcher / splash / AI trainer avatar |
+
+## Removed
+
+League badge images (`bronze.png` … `diamond.png`) — UI now uses emoji/color chips, not asset art.
+
+
+## Optional CDN
+
+If you host a copy on the server:
 
 ```
 https://gymaipro.ir/static/app-images/
 ```
 
-Each file must be reachable directly, for example:
-
-```
-https://gymaipro.ir/static/app-images/poster1.png
-https://gymaipro.ir/static/app-images/bronze.png
-```
-
-## Server setup (nginx example)
-
-```nginx
-location /static/app-images/ {
-    alias /var/www/gymaipro/static/app-images/;
-    expires 30d;
-    add_header Cache-Control "public, immutable";
-}
-```
-
-## Optional: override CDN base in `.env`
-
-```
-APP_ASSETS_CDN_BASE=https://gymaipro.ir/static/app-images
-```
-
-## Files list
-
-| File | Used for |
-|------|----------|
-| bronze.png … diamond.png | League badges |
-| poster1.png … poster5.png | Welcome + dashboard carousel |
-| gymai_body_front_premium.png | Muscle heatmap (front) |
-| gymai_body_back_premium.png | Muscle heatmap (back) |
-| gymai_anatomy_body_front_back.png | Spare / future use |
-| ai_robot.png | AI quick action button |
-
-After upload, verify in mobile browser that each URL downloads/opens the image.
-
-## Compress (recommended)
-
-Before upload, compress PNGs to ~150–300 KB (TinyPNG, Squoosh, or `pngquant`).
-WebP is supported by Flutter if you rename references in `AppAssetConfig`.
+`AppAssetConfig.remoteFileNames` is currently empty — everything loads from the APK.

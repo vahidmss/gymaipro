@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/screens/chat_conversations_screen.dart';
 import 'package:gymaipro/chat/widgets/public_chat_widget.dart';
 import 'package:gymaipro/core/web_interaction.dart';
 import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
+import 'package:gymaipro/services/app_feedback_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ChatMainScreen extends StatefulWidget {
   const ChatMainScreen({
@@ -241,13 +245,67 @@ class _ChatMainScreenState extends State<ChatMainScreen>
   }
 
   void _showChatSettings() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: context.cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: context.cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+        ),
+        builder: (context) => const _ChatSettingsSheet(),
       ),
-      builder: (context) => Container(
+    );
+  }
+}
+
+class _ChatSettingsSheet extends StatefulWidget {
+  const _ChatSettingsSheet();
+
+  @override
+  State<_ChatSettingsSheet> createState() => _ChatSettingsSheetState();
+}
+
+class _ChatSettingsSheetState extends State<_ChatSettingsSheet> {
+  bool _loading = true;
+  bool _chatSoundsEnabled = true;
+  bool _hapticsEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    final sounds = await AppFeedbackService.instance.isChatInAppSoundsEnabled();
+    final haptics = await AppFeedbackService.instance.isVibrationEnabled();
+    if (!mounted) return;
+    setState(() {
+      _chatSoundsEnabled = sounds;
+      _hapticsEnabled = haptics;
+      _loading = false;
+    });
+  }
+
+  Future<void> _setChatSounds(bool value) async {
+    setState(() => _chatSoundsEnabled = value);
+    await AppFeedbackService.instance.setChatInAppSoundsEnabled(enabled: value);
+    unawaited(AppFeedbackService.instance.selection());
+  }
+
+  Future<void> _setHaptics(bool value) async {
+    setState(() => _hapticsEnabled = value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(AppFeedbackService.vibrationEnabledKey, value);
+    if (value) {
+      unawaited(AppFeedbackService.instance.selection());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
         padding: EdgeInsets.all(20.w),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -270,58 +328,106 @@ class _ChatMainScreenState extends State<ChatMainScreen>
                 color: context.textColor,
               ),
             ),
-            SizedBox(height: 20.h),
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: ListTile(
-                leading: const Icon(
-                  LucideIcons.bell,
+            SizedBox(height: 12.h),
+            if (_loading)
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: 24.h),
+                child: const CircularProgressIndicator(
                   color: AppTheme.goldColor,
                 ),
-                title: Text(
-                  'اعلان‌ها',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
+              )
+            else ...[
+              Directionality(
+                textDirection: TextDirection.rtl,
+                child: SwitchListTile(
+                  secondary: const Icon(
+                    LucideIcons.volume2,
+                    color: AppTheme.goldColor,
                   ),
-                ),
-                onTap: () => Navigator.pop(context),
-              ),
-            ),
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: ListTile(
-                leading: const Icon(
-                  LucideIcons.shield,
-                  color: AppTheme.goldColor,
-                ),
-                title: Text(
-                  'حریم خصوصی',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
+                  title: Text(
+                    'صداهای گفتگو',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textColor,
+                    ),
                   ),
-                ),
-                onTap: () => Navigator.pop(context),
-              ),
-            ),
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: ListTile(
-                leading: const Icon(
-                  LucideIcons.download,
-                  color: AppTheme.goldColor,
-                ),
-                title: Text(
-                  'پشتیبان‌گیری',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
+                  subtitle: Text(
+                    'صدای نرم ارسال و دریافت داخل چت',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textSecondary,
+                      fontSize: 12.sp,
+                    ),
                   ),
+                  value: _chatSoundsEnabled,
+                  activeThumbColor: AppTheme.goldColor,
+                  onChanged: _setChatSounds,
                 ),
-                onTap: () => Navigator.pop(context),
               ),
-            ),
+              Directionality(
+                textDirection: TextDirection.rtl,
+                child: SwitchListTile(
+                  secondary: const Icon(
+                    LucideIcons.vibrate,
+                    color: AppTheme.goldColor,
+                  ),
+                  title: Text(
+                    'لرزش لمسی',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textColor,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'فیدبک لمسی برای اکشن‌های چت',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textSecondary,
+                      fontSize: 12.sp,
+                    ),
+                  ),
+                  value: _hapticsEnabled,
+                  activeThumbColor: AppTheme.goldColor,
+                  onChanged: _setHaptics,
+                ),
+              ),
+              Directionality(
+                textDirection: TextDirection.rtl,
+                child: ListTile(
+                  leading: const Icon(
+                    LucideIcons.bell,
+                    color: AppTheme.goldColor,
+                  ),
+                  title: Text(
+                    'اعلان‌های پیام',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textColor,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'نوتیفیکیشن، پیش‌نمایش و صدای سیستم',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textSecondary,
+                      fontSize: 12.sp,
+                    ),
+                  ),
+                  trailing: Icon(
+                    LucideIcons.chevronLeft,
+                    color: context.textSecondary,
+                  ),
+                  onTap: () {
+                    unawaited(AppFeedbackService.instance.selection());
+                    Navigator.pop(context);
+                    Navigator.of(context).pushNamed(
+                      '/private-message-notification-settings',
+                    );
+                  },
+                ),
+              ),
+            ],
+            SizedBox(height: 8.h),
           ],
         ),
       ),

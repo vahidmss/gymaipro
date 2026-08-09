@@ -32,64 +32,29 @@ class ProfileFormWidgets {
       builder: (context) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return Container(
-          margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8),
+          margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
+          padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 8.h),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDark
-                  ? [context.backgroundColor, context.backgroundColor]
-                  : [
-                      context.goldGradientColors[0].withValues(alpha: 0.15),
-                      context.cardColor,
-                      context.goldGradientColors[1].withValues(alpha: 0.1),
-                    ],
-            ),
-            borderRadius: BorderRadius.circular(24.r),
+            color: isDark ? AppTheme.darkCardColor : Colors.white,
+            borderRadius: BorderRadius.circular(14.r),
             border: Border.all(
-              color: AppTheme.goldColor.withValues(
-                alpha: isDark ? 0.4 : 0.5,
-              ),
-              width: 1.5.w,
+              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.22),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.goldColor.withValues(
-                  alpha: isDark ? 0.15 : 0.35,
-                ),
-                blurRadius: 16.r,
-                offset: Offset(0.w, 6.h),
-                spreadRadius: 1.r,
-              ),
-              BoxShadow(
-                color: isDark
-                    ? context.backgroundColor.withValues(alpha: 0.3)
-                    : AppTheme.lightTextColor.withValues(alpha: 0.08),
-                blurRadius: 8.r,
-                offset: Offset(0.w, 2.h),
-              ),
-            ],
           ),
-          child: ExpansionTile(
-            backgroundColor: Colors.transparent,
-            collapsedBackgroundColor: Colors.transparent,
-            iconColor: AppTheme.goldColor,
-            collapsedIconColor: AppTheme.goldColor,
-            title: Text(
-              title,
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                color: AppTheme.goldColor,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.right,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
-                child: Column(children: children),
+              Text(
+                title,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: isDark ? AppTheme.goldColor : context.textColor,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
+              SizedBox(height: 10.h),
+              ...children,
             ],
           ),
         );

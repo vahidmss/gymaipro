@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
+import 'package:gymaipro/dashboard/widgets/weight_chart.dart';
 import 'package:gymaipro/auth/services/supabase_service.dart';
 import 'package:gymaipro/profile/models/picked_profile_image.dart';
 import 'package:gymaipro/profile/widgets/profile_birth_date_widget.dart';
@@ -58,6 +60,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   UserRanking? _userRanking;
   RankingScoreBreakdown? _scoreBreakdown;
   TrainerKpis? _trainerKpis;
+  int _weightChartEpoch = 0;
 
   @override
   void initState() {
@@ -146,7 +149,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           try {
             final rankingService = RankingService();
             final scoreService = RankingScoreService();
-            
+
             // فقط ranking و breakdown رو بگیریم - بدون به‌روزرسانی سنگین
             // به‌روزرسانی امتیاز در background انجام میشه
             final ranking = await rankingService.getUserRanking(profileId);
@@ -158,6 +161,17 @@ class _ProfileScreenState extends State<ProfileScreen>
                 _trainerKpis = null;
               });
             }
+            // امتیاز ذخیره‌شده را با شمارش اصلاح‌شده هم‌تراز کن (پس‌زمینه)
+            unawaited(
+              scoreService.updateUserScore(profileId).then((_) async {
+                if (!mounted) return;
+                final refreshed = await rankingService.getUserRanking(profileId);
+                if (!mounted || refreshed == null) return;
+                SafeSetState.call(this, () {
+                  _userRanking = refreshed;
+                });
+              }),
+            );
           } catch (_) {}
         } else if (role == 'trainer' && userId != null) {
           final trainerId = userId as String;
@@ -265,8 +279,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       } else {
         SafeSetState.call(this, () {
           _avatarUploadStatus = AvatarUploadStatus.error;
-          _avatarUploadError =
-              'ذخیره انجام نشد. اتصال اینترنت را بررسی کنید.';
+          _avatarUploadError = 'ذخیره انجام نشد. اتصال اینترنت را بررسی کنید.';
         });
       }
     } catch (e) {
@@ -344,27 +357,42 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Future<void> _addWeightRecord(String weightStr) async {
     try {
-      final weight = double.tryParse(weightStr);
+      final weight = WeeklyWeightService.parseWeightInput(weightStr);
       if (weight == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'وزن واردشده معتبر نیست (مثلاً ۷۵.۵)',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textColor,
+              ),
+            ),
+            backgroundColor: context.cardColor,
+          ),
+        );
         return;
       }
 
-      final profileData = await SimpleProfileService.getCurrentProfile();
-      if (profileData == null) return;
+      final userId =
+          (_profileData['id'] ??
+                  SimpleProfileService.peekCachedProfile()?['id'] ??
+                  '')
+              .toString();
 
-      final userId = profileData['id'];
-      if (userId == null) return;
-
-      final success = await WeeklyWeightService.recordWeeklyWeight(
-        userId as String,
+      final result = await WeeklyWeightService.recordWeeklyWeightDetailed(
+        userId,
         weight,
-      );
+      ).timeout(const Duration(seconds: 12));
 
       if (!mounted) return;
-      if (success) {
+      if (result.success) {
+        DashboardCacheService().invalidateDashboard();
         SafeSetState.call(this, () {
           _profileData['weight'] = weight;
           _profileData['latest_weight'] = weight;
+          _weightChartEpoch++;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -383,7 +411,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'در 7 روز گذشته قبلاً وزن ثبت شده است',
+              result.message ?? 'ثبت وزن انجام نشد. دوباره تلاش کنید.',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: context.textColor,
@@ -393,8 +421,36 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
         );
       }
+    } on TimeoutException {
+      debugPrint('Timeout در _addWeightRecord');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'زمان ثبت وزن تمام شد. اتصال را بررسی کنید.',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textColor,
+            ),
+          ),
+          backgroundColor: context.cardColor,
+        ),
+      );
     } catch (e) {
-      // Error handling
+      debugPrint('خطا در _addWeightRecord: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'خطا در ثبت وزن',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: context.textColor,
+            ),
+          ),
+          backgroundColor: context.cardColor,
+        ),
+      );
     }
   }
 
@@ -432,6 +488,8 @@ class _ProfileScreenState extends State<ProfileScreen>
       }
 
       final cleanData = Map<String, dynamic>.from(_profileData);
+      // Client-only / non-column keys — never send to profiles table.
+      cleanData.remove('latest_weight');
       for (final key in [
         'height',
         'weight',
@@ -503,10 +561,25 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildProfileForm() {
+    final userId = (_profileData['id'] ?? '').toString();
     return Form(
       key: _formKey,
       child: Column(
         children: [
+          if (userId.isNotEmpty) ...[
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              child: WeightChart(
+                key: ValueKey<String>('edit_chart_$_weightChartEpoch'),
+                userId: userId,
+                currentWeight:
+                    (_profileData['latest_weight'] as num?)?.toDouble() ??
+                    double.tryParse((_profileData['weight'] ?? '').toString()),
+                minPointsExclusive: 0,
+              ),
+            ),
+            SizedBox(height: 8.h),
+          ],
           ProfileFormWidgets.buildFormSection('اطلاعات شخصی', [
             ProfileFormWidgets.buildTextField(
               'first_name',
@@ -614,20 +687,34 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             ),
           ]),
-          const SizedBox(height: 32),
-          // دکمه خروج از حالت ویرایش
+          SizedBox(height: 20.h),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _isEditing = false;
-                  });
+                onPressed: () async {
+                  _autoSaveDebounce?.cancel();
+                  try {
+                    await _saveProfileData(context);
+                    if (!mounted) return;
+                    setState(() => _isEditing = false);
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'خطا در ذخیره: $e',
+                          style: TextStyle(fontFamily: AppTheme.fontFamily),
+                        ),
+                        backgroundColor: context.cardColor,
+                      ),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.goldColor,
+                  foregroundColor: AppTheme.onGoldColor,
                   padding: EdgeInsets.symmetric(vertical: 14.h),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12.r),
@@ -637,15 +724,15 @@ class _ProfileScreenState extends State<ProfileScreen>
                   'ذخیره و بازگشت',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.onGoldColor,
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: 28.h),
         ],
       ),
     );
@@ -659,22 +746,9 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final role = (_profileData['role'] ?? 'athlete').toString();
     return DecoratedBox(
-      decoration: isDark
-          ? const BoxDecoration()
-          : BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                  AppTheme.lightCardColor,
-                  AppTheme.lightGradientEnd.withValues(alpha: 0.1),
-                ],
-              ),
-            ),
+      decoration: context.pageDecoration,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: _isLoading && _profileData.isEmpty
@@ -690,12 +764,15 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ModernProfileHeader(
                             profileData: _profileData,
                             avatarPreviewBytes: _avatarPicked?.bytes,
-                            avatarUploading: _avatarUploadStatus ==
+                            avatarUploading:
+                                _avatarUploadStatus ==
                                 AvatarUploadStatus.uploading,
-                            avatarSuccess: _avatarUploadStatus ==
+                            avatarSuccess:
+                                _avatarUploadStatus ==
                                 AvatarUploadStatus.success,
                             avatarError: _avatarUploadError,
-                            onImageTap: (_avatarUploadStatus ==
+                            onImageTap:
+                                (_avatarUploadStatus ==
                                         AvatarUploadStatus.uploading ||
                                     _avatarUploadStatus ==
                                         AvatarUploadStatus.success)
@@ -715,8 +792,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 '/my-club',
                                 arguments: {'initialTab': 2},
                               ),
-                              onMessagesTap: () =>
-                                  Navigator.pushNamed(context, '/conversations'),
+                              onMessagesTap: () => Navigator.pushNamed(
+                                context,
+                                '/conversations',
+                              ),
                               onRequestsTap: () => Navigator.pushNamed(
                                 context,
                                 '/my-club',
@@ -729,12 +808,15 @@ class _ProfileScreenState extends State<ProfileScreen>
                             ModernTrainerKpiDashboard(
                               profileData: _profileData,
                               kpis: _trainerKpis,
-                              onOpenTrainerRanking: () =>
-                                  Navigator.pushNamed(context, '/trainer-ranking'),
+                              onOpenTrainerRanking: () => Navigator.pushNamed(
+                                context,
+                                '/trainer-ranking',
+                              ),
                               onOpenTrainerDashboard: () => Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
-                                  builder: (_) => const TrainerDashboardScreen(),
+                                  builder: (_) =>
+                                      const TrainerDashboardScreen(),
                                 ),
                               ),
                             ),
@@ -749,27 +831,52 @@ class _ProfileScreenState extends State<ProfileScreen>
                                   Navigator.pushNamed(context, '/ranking'),
                             ),
                           ModernPhysicalStats(profileData: _profileData),
+                          if ((_profileData['id'] ?? '')
+                              .toString()
+                              .isNotEmpty) ...[
+                            SizedBox(height: 16.h),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16.w),
+                              child: WeightChart(
+                                key: ValueKey<int>(_weightChartEpoch),
+                                userId: _profileData['id'].toString(),
+                                currentWeight:
+                                    (_profileData['latest_weight'] as num?)
+                                        ?.toDouble() ??
+                                    double.tryParse(
+                                      (_profileData['weight'] ?? '').toString(),
+                                    ),
+                                minPointsExclusive: 3,
+                              ),
+                            ),
+                          ],
                           SizedBox(height: 80.h), // Bottom padding
                         ],
                         if (_isEditing) ...[
-                          SizedBox(height: 60.h), // Top padding for edit mode
+                          SizedBox(height: 48.h),
                           Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 20.w),
+                            padding: EdgeInsets.symmetric(horizontal: 16.w),
                             child: Row(
                               children: [
                                 Text(
                                   'ویرایش پروفایل',
                                   style: TextStyle(
                                     fontFamily: AppTheme.fontFamily,
-                                    fontSize: 20.sp,
-                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18.sp,
+                                    fontWeight: FontWeight.w700,
                                     color: context.textColor,
                                   ),
                                 ),
                                 const Spacer(),
                                 IconButton(
-                                  onPressed: () =>
-                                      setState(() => _isEditing = false),
+                                  onPressed: () async {
+                                    _autoSaveDebounce?.cancel();
+                                    try {
+                                      await _saveProfileData(context);
+                                    } catch (_) {}
+                                    if (!mounted) return;
+                                    setState(() => _isEditing = false);
+                                  },
                                   icon: Icon(
                                     LucideIcons.x,
                                     color: context.textColor,
@@ -778,7 +885,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                               ],
                             ),
                           ),
-                          SizedBox(height: 20.h),
+                          SizedBox(height: 12.h),
                           _buildProfileForm(),
                         ],
                       ],

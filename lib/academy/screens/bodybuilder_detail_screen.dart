@@ -27,7 +27,7 @@ class BodybuilderDetailScreen extends StatelessWidget {
         elevation: 0,
         title: Text(
           bodybuilder.name,
-          style: AppTheme.headingStyle.copyWith(fontSize: 18.sp),
+          style: context.headingStyle.copyWith(fontSize: 18.sp),
         ),
         centerTitle: true,
       ),
@@ -80,7 +80,7 @@ class BodybuilderDetailScreen extends StatelessWidget {
                       Expanded(
                         child: Text(
                           bodybuilder.name,
-                          style: AppTheme.headingStyle.copyWith(
+                          style: context.headingStyle.copyWith(
                             fontSize: 24.sp,
                             fontWeight: FontWeight.w800,
                           ),
@@ -145,7 +145,7 @@ class BodybuilderDetailScreen extends StatelessWidget {
                   SizedBox(height: 24.h),
 
                   // Biography
-                  _buildSectionTitle('زندگی‌نامه'),
+                  _buildSectionTitle(context, 'زندگی‌نامه'),
                   SizedBox(height: 12.h),
                   Container(
                     padding: EdgeInsets.all(16.w),
@@ -158,9 +158,10 @@ class BodybuilderDetailScreen extends StatelessWidget {
                     ),
                     child: Text(
                       bodybuilder.biography,
-                      style: AppTheme.bodyStyle.copyWith(
+                      style: context.bodyStyle.copyWith(
                         fontSize: 14.sp,
                         height: 1.8,
+                        color: context.textColor,
                       ),
                       textAlign: TextAlign.justify,
                     ),
@@ -169,7 +170,7 @@ class BodybuilderDetailScreen extends StatelessWidget {
                   // Achievements
                   if (bodybuilder.achievements.isNotEmpty) ...[
                     SizedBox(height: 24.h),
-                    _buildSectionTitle('دستاوردها'),
+                    _buildSectionTitle(context, 'دستاوردها'),
                     SizedBox(height: 12.h),
                     ...bodybuilder.achievements.map((achievement) => Padding(
                           padding: EdgeInsets.only(bottom: 8.h),
@@ -188,9 +189,10 @@ class BodybuilderDetailScreen extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   achievement,
-                                  style: AppTheme.bodyStyle.copyWith(
+                                  style: context.bodyStyle.copyWith(
                                     fontSize: 14.sp,
                                     height: 1.6,
+                                    color: context.textColor,
                                   ),
                                 ),
                               ),
@@ -204,7 +206,7 @@ class BodybuilderDetailScreen extends StatelessWidget {
                       bodybuilder.youtubeChannel != null ||
                       bodybuilder.website != null) ...[
                     SizedBox(height: 24.h),
-                    _buildSectionTitle('لینک‌های مرتبط'),
+                    _buildSectionTitle(context, 'لینک‌های مرتبط'),
                     SizedBox(height: 12.h),
                     Wrap(
                       spacing: 12.w,
@@ -259,26 +261,26 @@ class BodybuilderDetailScreen extends StatelessWidget {
         SizedBox(width: 12.w),
         Text(
           '$label: ',
-          style: AppTheme.bodyStyle.copyWith(
+          style: context.bodyStyle.copyWith(
             fontSize: 14.sp,
-            color: context.textSecondary,
           ),
         ),
         Text(
           value,
-          style: AppTheme.bodyStyle.copyWith(
+          style: context.bodyStyle.copyWith(
             fontSize: 14.sp,
             fontWeight: FontWeight.w600,
+            color: context.textColor,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(BuildContext context, String title) {
     return Text(
       title,
-      style: AppTheme.headingStyle.copyWith(
+      style: context.headingStyle.copyWith(
         fontSize: 18.sp,
         fontWeight: FontWeight.w800,
       ),
@@ -309,9 +311,10 @@ class BodybuilderDetailScreen extends StatelessWidget {
             SizedBox(width: 8.w),
             Text(
               label,
-              style: AppTheme.bodyStyle.copyWith(
+              style: context.bodyStyle.copyWith(
                 fontSize: 13.sp,
                 fontWeight: FontWeight.w600,
+                color: context.textColor,
               ),
             ),
           ],

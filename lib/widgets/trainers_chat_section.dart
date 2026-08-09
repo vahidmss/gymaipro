@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/core/user_presence.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -305,9 +306,10 @@ class _TrainersChatSectionState extends State<TrainersChatSection> {
   }
 
   Widget _buildTrainerCard(UserProfile trainer) {
-    final isOnline =
-        trainer.lastSeenAt != null &&
-        DateTime.now().difference(trainer.lastSeenAt!).inMinutes < 5;
+    final isOnline = UserPresence.isOnline(
+      lastSeenAt: trainer.lastSeenAt,
+      lastActiveAt: trainer.lastActiveAt,
+    );
 
     return GestureDetector(
       onTap: () {

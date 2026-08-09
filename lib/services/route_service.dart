@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gymaipro/academy/models/article.dart';
 import 'package:gymaipro/academy/screens/article_detail_screen.dart';
+import 'package:gymaipro/achievements/screens/achievements_screen.dart';
 import 'package:gymaipro/ai/screens/ai_programs_screen.dart';
 import 'package:gymaipro/auth/screens/login_screen.dart';
 import 'package:gymaipro/auth/screens/register_screen.dart';
@@ -38,7 +39,6 @@ import 'package:gymaipro/screens/favorite_foods_screen.dart';
 import 'package:gymaipro/screens/food_detail_screen.dart';
 import 'package:gymaipro/screens/food_list_screen.dart';
 import 'package:gymaipro/referral/screens/referral_guide_screen.dart';
-import 'package:gymaipro/screens/help_screen.dart';
 import 'package:gymaipro/screens/offline_screen.dart';
 import 'package:gymaipro/screens/settings_screen.dart';
 import 'package:gymaipro/screens/welcome_screen.dart';
@@ -301,18 +301,17 @@ class RouteService {
         final Food food = settings.arguments! as Food;
         return MaterialPageRoute(builder: (_) => FoodDetailScreen(food: food));
       case '/articles':
-        // Navigate to academy tab in main navigation
-        // Pop back to main navigation first
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          MainNavigationScreen.navigateToTab(NavigationConstants.academyIndex);
+          MainNavigationScreen.openAcademy(initialTabIndex: 0);
         });
-        // Return empty container as placeholder (will navigate to tab instead)
         return MaterialPageRoute(builder: (_) => const SizedBox.shrink());
       case '/trainer-ranking':
         return MaterialPageRoute(builder: (_) => const TrainerRankingScreen());
       case '/leaderboard':
       case '/ranking':
         return MaterialPageRoute(builder: (_) => const LeaderboardScreen());
+      case '/achievements':
+        return MaterialPageRoute(builder: (_) => const AchievementsScreen());
       case '/trainer-detail':
         final args = settings.arguments as Map<String, dynamic>?;
         final trainerId = args?['trainerId'] as String?;
@@ -392,7 +391,7 @@ class RouteService {
                 0;
         return MaterialPageRoute(
           builder: (_) => TrainerDashboardScreen(
-            initialTabIndex: initialTabIndex.clamp(0, 8),
+            initialTabIndex: initialTabIndex.clamp(0, 6),
           ),
         );
       case '/trainer-channel':
@@ -425,8 +424,6 @@ class RouteService {
       case '/referral':
       case '/invite-friends':
         return MaterialPageRoute(builder: (_) => const ReferralGuideScreen());
-      case '/help':
-        return MaterialPageRoute(builder: (_) => const HelpScreen());
       case LegalRoutes.privacy:
       case LegalRoutes.terms:
       case LegalRoutes.about:

@@ -16,6 +16,7 @@ import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:gymaipro/workout_plan_builder/services/workout_program_service.dart';
 import 'package:gymaipro/workout_plan_builder/widgets/bottom_info_bar.dart';
 import 'package:gymaipro/workout_plan_builder/widgets/day_selector.dart';
+import 'package:gymaipro/workout_plan_builder/widgets/empty_state_widget.dart';
 import 'package:gymaipro/workout_plan_builder/widgets/exercise_card.dart';
 import 'package:gymaipro/workout_plan_builder/widgets/saved_programs_drawer.dart';
 import 'package:gymaipro/workout_plan_builder/widgets/workout_program_app_bar.dart';
@@ -59,6 +60,7 @@ class _WorkoutProgramBuilderScreenState
   List<WorkoutProgram> _savedPrograms = [];
   bool _showDrawer = false;
   int _selectedDay = 0;
+  int? _expandedExerciseIndex;
   String? _targetUserName; // ??? ????? ??? ???? ???? ??? ??????
   DateTime? _editableUntil; // ????? ????? ???? ??????
 
@@ -66,7 +68,6 @@ class _WorkoutProgramBuilderScreenState
   // Getter for current session's exercises
   List<WorkoutExercise> get _selectedExercises =>
       _program.sessions[_selectedDay].exercises;
-
 
   @override
   void initState() {
@@ -109,10 +110,13 @@ class _WorkoutProgramBuilderScreenState
       // ??? ???? ??? ?? ???????? ?? ??????? ????? ???
       if (widget.targetUserId != null && user != null) {
         final loadedFromLocal = await _loadProgramLocally();
-        // ??? ?????? ???? ?????? ???????? ??? ?? ????? ??????? ??
+        // پیش‌نویس محلی فقط اگر هنوز ارسال نشده؛ بعد با دیتابیس هماهنگ می‌شود
         if (loadedFromLocal) {
+          await _reconcileLocalDraftWithRemote();
           await _ensureValidProgramName();
-          debugPrint('✅ برنامه از حافظه محلی بارگذاری شد - از بارگذاری دیتابیس صرف‌نظر می‌شود');
+          debugPrint(
+            '✅ برنامه از حافظه محلی بارگذاری شد (پس از reconcile با دیتابیس)',
+          );
           if (!mounted) return;
           SafeSetState.call(this, () {
             _isLoading = false;
@@ -150,7 +154,9 @@ class _WorkoutProgramBuilderScreenState
           });
           // ??? ??? ?????? ????? ??? ????? editable_until ?? ????
           if (_program.sentAt != null) {
-            debugPrint('📥 برنامه موجود بارگذاری شد، در حال خواندن editable_until...');
+            debugPrint(
+              '📥 برنامه موجود بارگذاری شد، در حال خواندن editable_until...',
+            );
             await _loadEditableUntil();
           }
         } else {
@@ -176,17 +182,14 @@ class _WorkoutProgramBuilderScreenState
       SafeSetState.call(this, () {
         _isLoading = false;
       });
-      
+
       // ??? ?????? ?? ??????? ???????? ?? ? ???? ????? ????? ?? ?? ???? ????? ??
       if (widget.targetUserId != null && _program.sentAt == null) {
         await _saveProgramLocally();
       }
     } catch (e) {
       if (!mounted) return;
-      WidgetSafetyUtils.safeShowSnackBar(
-        context,
-        'خطا در بارگذاری: $e',
-      );
+      WidgetSafetyUtils.safeShowSnackBar(context, 'خطا در بارگذاری: $e');
       SafeSetState.call(this, () {
         _isLoading = false;
       });
@@ -223,7 +226,7 @@ class _WorkoutProgramBuilderScreenState
   // ساخت خودکار نام برنامه: "برنامه تمرینی-نام کاربر-تاریخ"
   Future<String> _generatePlanName() async {
     final dateStr = toJalali(DateTime.now());
-    
+
     if (widget.targetUserId == null) {
       return 'برنامه تمرینی-$dateStr';
     }
@@ -277,7 +280,9 @@ class _WorkoutProgramBuilderScreenState
 
       // ??? ??? ?????? ????? ??? ???? (sent_at != null)? editable_until ?? ????
       if (planData == null || planData['sent_at'] == null) {
-        debugPrint('?? ?????? ???? ????? ???? ???. editable_until ????? ???????.');
+        debugPrint(
+          '?? ?????? ???? ????? ???? ???. editable_until ????? ???????.',
+        );
         SafeSetState.call(this, () {
           _editableUntil = null;
         });
@@ -392,7 +397,7 @@ class _WorkoutProgramBuilderScreenState
               onPressed: () => WidgetSafetyUtils.safePop(context, true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.goldColor,
-                foregroundColor: Colors.white,
+                foregroundColor: AppTheme.onGoldColor,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.r),
                 ),
@@ -411,18 +416,23 @@ class _WorkoutProgramBuilderScreenState
     );
 
     if (confirmed ?? false) {
-      // ????? ?????? ?? ?? ??????? ????? ???? (??? ???? ????? ????)
-      // ??? ????? ??? ??? ?? ?????? ?? ??????? ??????
+      // ابتدا ذخیره در دیتابیس (اگر هنوز فقط پیش‌نویس محلی است)
       await _saveProgramToDatabase();
 
-      // ??? ????? ?????? (????? sent_at? editable_until ? expiry_date)
+      // سپس ارسال رسمی (sent_at / editable_until / expiry_date)
       if (_program.id.isNotEmpty) {
         try {
           await _programService.sendProgram(
             _program.id,
             subscriptionId: widget.subscriptionId,
           );
-          // ???????? ???? ?????? ???? ?????? sentAt
+          // بلافاصله وضعیت محلی را به‌روز کن تا دکمه ارسال نماند
+          final now = DateTime.now();
+          SafeSetState.call(this, () {
+            _program = _program.copyWith(sentAt: now);
+            _editableUntil = now.add(const Duration(days: 3));
+          });
+
           final updatedProgram = await _programService.getProgramById(
             _program.id,
           );
@@ -430,10 +440,8 @@ class _WorkoutProgramBuilderScreenState
             SafeSetState.call(this, () {
               _program = updatedProgram;
             });
-            // ?????? editable_until ?? ???????
             await _loadEditableUntil();
-            
-            // ??????????? ???? ?????????? ????? ???
+
             final user = Supabase.instance.client.auth.currentUser;
             if (user != null) {
               final updatedSavedPrograms = await _programService
@@ -443,6 +451,9 @@ class _WorkoutProgramBuilderScreenState
               });
             }
           }
+
+          // پیش‌نویس محلی دیگر نباید «ارسال» را برگرداند
+          await _clearProgramLocally();
         } catch (e) {
           debugPrint('خطا در ارسال برنامه: $e');
           if (mounted) {
@@ -453,6 +464,14 @@ class _WorkoutProgramBuilderScreenState
           }
           return;
         }
+      } else {
+        if (mounted) {
+          WidgetSafetyUtils.safeShowSnackBar(
+            context,
+            'برنامه ذخیره نشد؛ ارسال انجام نشد.',
+          );
+        }
+        return;
       }
 
       if (mounted) {
@@ -510,54 +529,108 @@ class _WorkoutProgramBuilderScreenState
     }
   }
 
-  // ????? ?????? ?? ???? ???? ?? SharedPreferences
-  // ??????? ?? ???? ???? ?? ???? targetUserId ? trainerId ???? ??????? ?? ??????????
+  // ذخیره برنامه در حافظه محلی با SharedPreferences
+  // کلید بر اساس targetUserId و trainerId تا تداخل بین شاگردها پیش نیاید
   Future<void> _saveProgramLocally() async {
     try {
       if (widget.targetUserId == null) return;
-      
+
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
-      
+
+      // برنامه ارسال‌شده را به عنوان پیش‌نویس نگه نمی‌داریم
+      if (_program.sentAt != null) {
+        await _clearProgramLocally();
+        return;
+      }
+
       final prefs = await SharedPreferences.getInstance();
-      // ??????? ?? ???? ???? ?? ???? targetUserId ? trainerId
       final key = 'workout_program_draft_${widget.targetUserId}_${user.id}';
-      
-      // ??????? ?? ????? ?????? ?? ID ????? ????
+
       if (_program.id.isEmpty) {
-        // ??? ID ???? ???? ?? UUID ???? ????
         final uuid = const Uuid().v4();
         _program = _program.copyWith(id: uuid);
       }
-      
+
       await prefs.setString(key, jsonEncode(_program.toJson()));
-      debugPrint('?? ?????? ?? ???? ???? ????? ??: $key');
-      debugPrint('?? Program ID: ${_program.id}');
-      debugPrint('?? Sessions count: ${_program.sessions.length}');
+      debugPrint('💾 برنامه در حافظه محلی ذخیره شد: $key');
+      debugPrint('📦 Program ID: ${_program.id}');
+      debugPrint('📦 Sessions count: ${_program.sessions.length}');
     } catch (e) {
-      debugPrint('? ??? ?? ????? ???? ??????: $e');
+      debugPrint('❌ خطا در ذخیره پیش‌نویس محلی: $e');
     }
   }
 
-  // ???????? ?????? ?? SharedPreferences
-  // ??????? ?? ???? ???? ?? ???? targetUserId ? trainerId
+  Future<void> _clearProgramLocally() async {
+    try {
+      if (widget.targetUserId == null) return;
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'workout_program_draft_${widget.targetUserId}_${user.id}';
+      await prefs.remove(key);
+      debugPrint('🧹 پیش‌نویس محلی پاک شد: $key');
+    } catch (e) {
+      debugPrint('❌ خطا در پاک کردن پیش‌نویس محلی: $e');
+    }
+  }
+
+  /// اگر همان برنامه در دیتابیس قبلاً ارسال شده، پیش‌نویس محلی را دور می‌اندازد.
+  Future<void> _reconcileLocalDraftWithRemote() async {
+    if (_program.id.isEmpty || widget.targetUserId == null) return;
+
+    try {
+      final remote = await _programService.getProgramById(_program.id);
+      if (remote != null && remote.sentAt != null) {
+        debugPrint(
+          '🔁 پیش‌نویس محلی با برنامه ارسال‌شده دیتابیس جایگزین شد',
+        );
+        SafeSetState.call(this, () {
+          _program = remote;
+        });
+        await _clearProgramLocally();
+        await _loadEditableUntil();
+        return;
+      }
+
+      // اگر id محلی در دیتابیس نیست ولی برای این شاگرد برنامه ارسال‌شده هست
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+      final existing = await _programService.getProgramsForUserByTrainer(
+        widget.targetUserId!,
+        user.id,
+      );
+      final sent = existing.where((p) => p.sentAt != null).toList();
+      if (sent.isNotEmpty && remote == null) {
+        // پیش‌نویس یتیم؛ جدیدترین ارسال‌شده را بگیر
+        debugPrint('🔁 پیش‌نویس یتیم؛ بارگذاری آخرین برنامه ارسال‌شده');
+        SafeSetState.call(this, () {
+          _program = sent.first;
+        });
+        await _clearProgramLocally();
+        await _loadEditableUntil();
+      }
+    } catch (e) {
+      debugPrint('⚠️ reconcile پیش‌نویس محلی ناموفق: $e');
+    }
+  }
+
+  // بارگذاری برنامه از SharedPreferences
   Future<bool> _loadProgramLocally() async {
     try {
       if (widget.targetUserId == null) return false;
-      
+
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return false;
-      
+
       final prefs = await SharedPreferences.getInstance();
-      // ??????? ?? ???? ???? ?? ???? targetUserId ? trainerId
       final key = 'workout_program_draft_${widget.targetUserId}_${user.id}';
       final jsonStr = prefs.getString(key);
-      
+
       if (jsonStr != null && jsonStr.isNotEmpty) {
         final jsonMap = jsonDecode(jsonStr) as Map<String, dynamic>;
         final localProgram = WorkoutProgram.fromJson(jsonMap);
-        
-        // ??? ??? ?????? ???? ????? ???? ????? ?? ???? ???? ??????? ??
+
         if (localProgram.sentAt == null) {
           var program = localProgram;
           if (program.name.isEmpty ||
@@ -568,19 +641,20 @@ class _WorkoutProgramBuilderScreenState
             _program = program;
           });
           debugPrint('📥 برنامه از حافظه محلی بارگذاری شد');
-          debugPrint('?? Program ID: ${_program.id}');
-          debugPrint('?? Sessions count: ${_program.sessions.length}');
+          debugPrint('📦 Program ID: ${_program.id}');
+          debugPrint('📦 Sessions count: ${_program.sessions.length}');
           return true;
         } else {
-          debugPrint('?? ?????? ???? ????? ????? ??? ??? - ?? ???? ???? ??????? ???????');
+          debugPrint('📦 پیش‌نویس محلی قبلاً ارسال شده — نادیده گرفته می‌شود');
+          await _clearProgramLocally();
           return false;
         }
       } else {
-        debugPrint('?? ?????? ???? ???? ???');
+        debugPrint('📦 پیش‌نویس محلی وجود ندارد');
         return false;
       }
     } catch (e) {
-      debugPrint('? ??? ?? ???????? ???? ??????: $e');
+      debugPrint('❌ خطا در بارگذاری پیش‌نویس محلی: $e');
       return false;
     }
   }
@@ -632,12 +706,13 @@ class _WorkoutProgramBuilderScreenState
           targetUserId: widget.targetUserId,
           subscriptionId: widget.subscriptionId,
           paymentTransactionId: widget.paymentTransactionId,
-          autoSend: true, // ???? ????? ?? ??????? (??? sent_at ?? sendProgram ????? ??????)
+          autoSend:
+              true, // ???? ????? ?? ??????? (??? sent_at ?? sendProgram ????? ??????)
         );
         SafeSetState.call(this, () {
           _program = newProgram;
         });
-        
+
         // ??????????? ???? ?????????? ????? ???
         final updatedSavedPrograms = await _programService
             .getProgramsCreatedByTrainer(user.id);
@@ -645,13 +720,9 @@ class _WorkoutProgramBuilderScreenState
           _savedPrograms = updatedSavedPrograms;
         });
       }
-
     } catch (e) {
       if (mounted) {
-        WidgetSafetyUtils.safeShowSnackBar(
-          context,
-          'خطا در ذخیره برنامه: $e',
-        );
+        WidgetSafetyUtils.safeShowSnackBar(context, 'خطا در ذخیره برنامه: $e');
       }
       rethrow;
     }
@@ -691,6 +762,7 @@ class _WorkoutProgramBuilderScreenState
         WidgetSafetyUtils.safeSetState(this, () {
           final exercise = result['exercise'] as WorkoutExercise;
           _selectedExercises.add(exercise);
+          _expandedExerciseIndex = _selectedExercises.length - 1;
         });
         _autoSaveProgram();
       }
@@ -706,8 +778,13 @@ class _WorkoutProgramBuilderScreenState
   void _deleteExercise(int exerciseIndex) {
     setState(() {
       _selectedExercises.removeAt(exerciseIndex);
+      if (_expandedExerciseIndex == null) return;
+      if (_expandedExerciseIndex == exerciseIndex) {
+        _expandedExerciseIndex = null;
+      } else if (_expandedExerciseIndex! > exerciseIndex) {
+        _expandedExerciseIndex = _expandedExerciseIndex! - 1;
+      }
     });
-    // ????? ??????
     _autoSaveProgram();
   }
 
@@ -769,23 +846,12 @@ class _WorkoutProgramBuilderScreenState
           ),
         ),
         child: DecoratedBox(
-          decoration: isDark
-              ? const BoxDecoration()
-              : BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                      AppTheme.lightCardColor,
-                      AppTheme.lightGradientEnd.withValues(alpha: 0.1),
-                    ],
-                  ),
-                ),
+          decoration: context.pageDecoration,
           child: Scaffold(
             backgroundColor: Colors.transparent,
             appBar: WorkoutProgramAppBar(
               onConfirm: _showConfirmDialog,
+              isSent: _program.sentAt != null,
               showConfirmButton:
                   widget.targetUserId != null &&
                   _selectedExercises.isNotEmpty &&
@@ -793,44 +859,6 @@ class _WorkoutProgramBuilderScreenState
             ),
             drawerEdgeDragWidth: MediaQuery.of(context).size.width * 0.15,
             endDrawerEnableOpenDragGesture: false,
-            floatingActionButton: Container(
-              margin: EdgeInsets.only(bottom: 60.h),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppTheme.goldColor, AppTheme.darkGold],
-                  ),
-                  borderRadius: BorderRadius.circular(16.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.goldColor.withValues(alpha: 0.4),
-                      blurRadius: 12.r,
-                      offset: Offset(0, 6.h),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 8.r,
-                      offset: Offset(0, 3.h),
-                    ),
-                  ],
-                ),
-                child: FloatingActionButton(
-                  onPressed: _addExercise,
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  tooltip: 'افزودن حرکت',
-                  child: Icon(
-                    LucideIcons.plus,
-                    color: Colors.white,
-                    size: 28.sp,
-                  ),
-                ),
-              ),
-            ),
-            floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-            // Add drawer overlay
             body: Stack(
               children: [
                 SizedBox.expand(
@@ -845,93 +873,92 @@ class _WorkoutProgramBuilderScreenState
                             children: [
                               Row(
                                 children: [
-                                  // Badge ??????? ???? ????? ?????
-                                  Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 12.w,
-                                      vertical: 6.h,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.goldColor.withValues(
-                                        alpha: 0.1,
-                                      ),
-                                      borderRadius: BorderRadius.circular(20.r),
-                                      border: Border.all(
-                                        color: AppTheme.goldColor.withValues(
-                                          alpha: isDark ? 0.4 : 0.5,
+                                  Expanded(
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        onTap: () {
+                                          showModalBottomSheet<void>(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            backgroundColor: Colors.transparent,
+                                            builder: (context) =>
+                                                UserDetailsScreenMealPlanBuilder(
+                                              userId: widget.targetUserId!,
+                                              userName:
+                                                  widget.targetUserName ??
+                                                  'کاربر',
+                                            ),
+                                          );
+                                        },
+                                        borderRadius: BorderRadius.circular(
+                                          12.r,
                                         ),
-                                        width: 1.w,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Container(
-                                          width: 6.w,
-                                          height: 6.h,
-                                          decoration: const BoxDecoration(
-                                            color: AppTheme.goldColor,
-                                            shape: BoxShape.circle,
+                                        child: Container(
+                                          padding: EdgeInsets.symmetric(
+                                            horizontal: 12.w,
+                                            vertical: 8.h,
                                           ),
-                                        ),
-                                        SizedBox(width: 6.w),
-                                        Text(
-                                          'در حال ساخت برنامه برای ${widget.targetUserName ?? 'کاربر'}',
-                                          style: TextStyle(
-                                            fontFamily: AppTheme.fontFamily,
+                                          decoration: BoxDecoration(
                                             color: isDark
-                                                ? AppTheme.goldColor
-                                                : context.textColor,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 11.sp,
-                                            letterSpacing: 0.1,
+                                                ? Colors.white.withValues(
+                                                    alpha: 0.06,
+                                                  )
+                                                : Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              12.r,
+                                            ),
+                                            border: Border.all(
+                                              color: AppTheme.goldColor
+                                                  .withValues(
+                                                    alpha: isDark ? 0.25 : 0.3,
+                                                  ),
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  // ???? ?????? ?? ???? icon button ???????
-                                  Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: () {
-                                        showModalBottomSheet<void>(
-                                          context: context,
-                                          isScrollControlled: true,
-                                          backgroundColor: Colors.transparent,
-                                          builder: (context) =>
-                                              UserDetailsScreenMealPlanBuilder(
-                                            userId: widget.targetUserId!,
-                                            userName: widget.targetUserName ??
-                                                'کاربر',
-                                          ),
-                                        );
-                                      },
-                                      borderRadius: BorderRadius.circular(12.r),
-                                      child: Container(
-                                        padding: EdgeInsets.all(8.w),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.goldColor.withValues(
-                                            alpha: 0.1,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            12.r,
-                                          ),
-                                          border: Border.all(
-                                            color: AppTheme.goldColor
-                                                .withValues(
-                                                  alpha: isDark ? 0.3 : 0.4,
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                LucideIcons.user,
+                                                color: AppTheme.goldColor,
+                                                size: 16.sp,
+                                              ),
+                                              SizedBox(width: 8.w),
+                                              Expanded(
+                                                child: Text(
+                                                  widget.targetUserName ??
+                                                      'ورزشکار',
+                                                  style: TextStyle(
+                                                    fontFamily:
+                                                        AppTheme.fontFamily,
+                                                    color: isDark
+                                                        ? AppTheme.goldColor
+                                                        : context.textColor,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 12.sp,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
-                                            width: 1.w,
+                                              ),
+                                              Text(
+                                                'مشخصات',
+                                                style: TextStyle(
+                                                  fontFamily:
+                                                      AppTheme.fontFamily,
+                                                  color: AppTheme.goldColor,
+                                                  fontSize: 11.sp,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              SizedBox(width: 2.w),
+                                              Icon(
+                                                LucideIcons.chevronLeft,
+                                                color: AppTheme.goldColor,
+                                                size: 14.sp,
+                                              ),
+                                            ],
                                           ),
-                                        ),
-                                        child: Icon(
-                                          LucideIcons.user,
-                                          color: isDark
-                                              ? AppTheme.goldColor
-                                              : context.textColor,
-                                          size: 16.sp,
                                         ),
                                       ),
                                     ),
@@ -997,356 +1024,452 @@ class _WorkoutProgramBuilderScreenState
                       // Day selector
                       DaySelector(
                         selectedDay: _selectedDay,
-                        onDayChanged: (day) =>
-                            SafeSetState.call(this, () => _selectedDay = day),
+                        onDayChanged: (day) => SafeSetState.call(this, () {
+                          _selectedDay = day;
+                          _expandedExerciseIndex = null;
+                        }),
+                        sessions: _program.sessions,
                         currentSession: _program.sessions[_selectedDay],
                         onNotesChanged: _updateSessionNotes,
                       ),
                       const SizedBox(height: 4),
-                      // ???? ???????? (?????? ??? ??? ??? ???)
                       Expanded(
-                        child: ListView.builder(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 16.w,
-                                  vertical: 8.h,
+                        child: _selectedExercises.isEmpty
+                            ? EmptyStateWidget(onAdd: _addExercise)
+                            : ListView.builder(
+                                padding: EdgeInsets.fromLTRB(
+                                  16.w,
+                                  4.h,
+                                  16.w,
+                                  16.h,
                                 ),
-                                itemCount: _selectedExercises.length,
-                                itemBuilder: (context, exerciseIndex) => Padding(
-                                  key: ValueKey('exercise_$exerciseIndex'),
-                                  padding: const EdgeInsets.only(bottom: 16),
-                                  child: ExerciseCard(
-                                    exercise: _selectedExercises[exerciseIndex],
-                                    exerciseDetails: _exercises.firstWhere(
-                                      (e) =>
-                                          e.id ==
-                                          (_selectedExercises[exerciseIndex]
-                                                  is NormalExercise
-                                              ? (_selectedExercises[exerciseIndex]
-                                                        as NormalExercise)
-                                                    .exerciseId
-                                              : 0),
-                                      orElse: () => Exercise(
-                                        id: 0,
-                                        title: '',
-                                        name: 'حرکت ${exerciseIndex + 1}',
-                                        mainMuscle: '',
-                                        secondaryMuscles: '',
-                                        tips: [],
-                                        videoUrl: '',
-                                        imageUrl: '',
-                                        otherNames: [],
-                                        content: '',
+                                itemCount: _selectedExercises.length + 1,
+                                itemBuilder: (context, exerciseIndex) {
+                                  if (exerciseIndex ==
+                                      _selectedExercises.length) {
+                                    return Padding(
+                                      padding: EdgeInsets.only(top: 4.h),
+                                      child: OutlinedButton.icon(
+                                        onPressed: _addExercise,
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: AppTheme.goldColor,
+                                          side: BorderSide(
+                                            color: AppTheme.goldColor.withValues(
+                                              alpha: 0.45,
+                                            ),
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12.r,
+                                            ),
+                                          ),
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: 12.h,
+                                          ),
+                                        ),
+                                        icon: Icon(
+                                          LucideIcons.plus,
+                                          size: 16.sp,
+                                        ),
+                                        label: Text(
+                                          'افزودن حرکت',
+                                          style: TextStyle(
+                                            fontFamily: AppTheme.fontFamily,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13.sp,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    index: exerciseIndex,
-                                    totalExercises: _selectedExercises.length,
-                                    onDelete: () =>
-                                        _deleteExercise(exerciseIndex),
-                                    onMoveUp: exerciseIndex > 0
-                                        ? () => _moveExerciseUp(exerciseIndex)
-                                        : null,
-                                    onMoveDown:
-                                        exerciseIndex <
-                                            _selectedExercises.length - 1
-                                        ? () => _moveExerciseDown(exerciseIndex)
-                                        : null,
-                                    onNoteChanged: (note) {
-                                      setState(() {
-                                        if (_selectedExercises[exerciseIndex]
-                                            is NormalExercise) {
-                                          (_selectedExercises[exerciseIndex]
-                                                      as NormalExercise)
-                                                  .note =
-                                              note;
-                                        } else if (_selectedExercises[exerciseIndex]
-                                            is SupersetExercise) {
-                                          (_selectedExercises[exerciseIndex]
-                                                      as SupersetExercise)
-                                                  .note =
-                                              note;
-                                        }
-                                      });
-                                      // ????? ??????
-                                      _autoSaveProgram();
-                                    },
-                                    onStyleChanged: (style) {
-                                      setState(() {
-                                        if (_selectedExercises[exerciseIndex]
-                                            is NormalExercise) {
-                                          (_selectedExercises[exerciseIndex]
-                                                      as NormalExercise)
-                                                  .style =
-                                              style;
-                                          // Update sets based on new style
-                                          for (final set
-                                              in (_selectedExercises[exerciseIndex]
-                                                      as NormalExercise)
-                                                  .sets) {
-                                            if (style ==
-                                                ExerciseStyle.setsReps) {
-                                              set.reps = set.reps ?? 10;
-                                              set.timeSeconds = null;
-                                            } else {
-                                              set.timeSeconds =
-                                                  set.timeSeconds ?? 30;
-                                              set.reps = null;
-                                            }
+                                    );
+                                  }
+                                  return Padding(
+                                    key: ValueKey('exercise_$exerciseIndex'),
+                                    padding: EdgeInsets.only(bottom: 6.h),
+                                    child: ExerciseCard(
+                                      exercise:
+                                          _selectedExercises[exerciseIndex],
+                                      exerciseDetails: _exercises.firstWhere(
+                                        (e) =>
+                                            e.id ==
+                                            (_selectedExercises[exerciseIndex]
+                                                    is NormalExercise
+                                                ? (_selectedExercises[exerciseIndex]
+                                                          as NormalExercise)
+                                                      .exerciseId
+                                                : 0),
+                                        orElse: () => Exercise(
+                                          id: 0,
+                                          title: '',
+                                          name: 'حرکت ${exerciseIndex + 1}',
+                                          mainMuscle: '',
+                                          secondaryMuscles: '',
+                                          tips: [],
+                                          videoUrl: '',
+                                          imageUrl: '',
+                                          otherNames: [],
+                                          content: '',
+                                        ),
+                                      ),
+                                      index: exerciseIndex,
+                                      totalExercises:
+                                          _selectedExercises.length,
+                                      expanded:
+                                          _expandedExerciseIndex ==
+                                          exerciseIndex,
+                                      onToggleExpand: () {
+                                        SafeSetState.call(this, () {
+                                          _expandedExerciseIndex =
+                                              _expandedExerciseIndex ==
+                                                  exerciseIndex
+                                              ? null
+                                              : exerciseIndex;
+                                        });
+                                      },
+                                      onDelete: () =>
+                                          _deleteExercise(exerciseIndex),
+                                      onMoveUp: exerciseIndex > 0
+                                          ? () =>
+                                                _moveExerciseUp(exerciseIndex)
+                                          : null,
+                                      onMoveDown:
+                                          exerciseIndex <
+                                              _selectedExercises.length - 1
+                                          ? () => _moveExerciseDown(
+                                              exerciseIndex,
+                                            )
+                                          : null,
+                                      onNoteChanged: (note) {
+                                        setState(() {
+                                          if (_selectedExercises[exerciseIndex]
+                                              is NormalExercise) {
+                                            (_selectedExercises[exerciseIndex]
+                                                        as NormalExercise)
+                                                    .note =
+                                                note;
+                                          } else if (_selectedExercises[exerciseIndex]
+                                              is SupersetExercise) {
+                                            (_selectedExercises[exerciseIndex]
+                                                        as SupersetExercise)
+                                                    .note =
+                                                note;
                                           }
+                                        });
+                                        _autoSaveProgram();
+                                      },
+                              onStyleChanged: (style) {
+                                setState(() {
+                                  if (_selectedExercises[exerciseIndex]
+                                      is NormalExercise) {
+                                    (_selectedExercises[exerciseIndex]
+                                                as NormalExercise)
+                                            .style =
+                                        style;
+                                    // Update sets based on new style
+                                    for (final set
+                                        in (_selectedExercises[exerciseIndex]
+                                                as NormalExercise)
+                                            .sets) {
+                                      if (style == ExerciseStyle.setsReps) {
+                                        set.reps = set.reps ?? 10;
+                                        set.timeSeconds = null;
+                                      } else {
+                                        set.timeSeconds = set.timeSeconds ?? 30;
+                                        set.reps = null;
+                                      }
+                                    }
+                                  }
+                                });
+                                // ????? ??????
+                                _autoSaveProgram();
+                              },
+                              onSetsChanged: (sets) {
+                                setState(() {
+                                  if (_selectedExercises[exerciseIndex]
+                                      is NormalExercise) {
+                                    final exercise =
+                                        _selectedExercises[exerciseIndex]
+                                            as NormalExercise;
+                                    final current = exercise.sets.length;
+                                    if (sets > current) {
+                                      for (int i = 0; i < sets - current; i++) {
+                                        final last = exercise.sets.isNotEmpty
+                                            ? exercise.sets.last
+                                            : null;
+                                        exercise.sets.add(
+                                          ExerciseSet(
+                                            reps:
+                                                exercise.style ==
+                                                    ExerciseStyle.setsReps
+                                                ? (last?.reps ?? 10)
+                                                : null,
+                                            timeSeconds:
+                                                exercise.style ==
+                                                    ExerciseStyle.setsTime
+                                                ? (last?.timeSeconds ?? 30)
+                                                : null,
+                                            weight: last?.weight ?? 0,
+                                          ),
+                                        );
+                                      }
+                                    } else if (sets < current) {
+                                      exercise.sets.removeRange(sets, current);
+                                    }
+                                  }
+                                });
+                                _autoSaveProgram();
+                              },
+                              onRepsChanged: (reps) {
+                                setState(() {
+                                  if (_selectedExercises[exerciseIndex]
+                                      is NormalExercise) {
+                                    final exercise =
+                                        _selectedExercises[exerciseIndex]
+                                            as NormalExercise;
+                                    for (final set in exercise.sets) {
+                                      set.reps = reps;
+                                    }
+                                  }
+                                });
+                                _autoSaveProgram();
+                              },
+                              onSetRepsChanged: (setIndex, reps) {
+                                setState(() {
+                                  if (_selectedExercises[exerciseIndex]
+                                      is NormalExercise) {
+                                    final exercise =
+                                        _selectedExercises[exerciseIndex]
+                                            as NormalExercise;
+                                    if (setIndex >= 0 &&
+                                        setIndex < exercise.sets.length) {
+                                      exercise.sets[setIndex].reps = reps;
+                                    }
+                                  }
+                                });
+                                _autoSaveProgram();
+                              },
+                              onTimeChanged: (time) {
+                                setState(() {
+                                  if (_selectedExercises[exerciseIndex]
+                                      is NormalExercise) {
+                                    final exercise =
+                                        _selectedExercises[exerciseIndex]
+                                            as NormalExercise;
+                                    for (final set in exercise.sets) {
+                                      set.timeSeconds = time;
+                                    }
+                                  }
+                                });
+                                _autoSaveProgram();
+                              },
+                              onSetTimeChanged: (setIndex, time) {
+                                setState(() {
+                                  if (_selectedExercises[exerciseIndex]
+                                      is NormalExercise) {
+                                    final exercise =
+                                        _selectedExercises[exerciseIndex]
+                                            as NormalExercise;
+                                    if (setIndex >= 0 &&
+                                        setIndex < exercise.sets.length) {
+                                      exercise.sets[setIndex].timeSeconds =
+                                          time;
+                                    }
+                                  }
+                                });
+                                _autoSaveProgram();
+                              },
+                              onRestChanged: (rest) {
+                                setState(() {
+                                  if (_selectedExercises[exerciseIndex]
+                                      is NormalExercise) {
+                                    (_selectedExercises[exerciseIndex]
+                                            as NormalExercise)
+                                        .restSeconds = rest;
+                                  }
+                                });
+                                _autoSaveProgram();
+                              },
+                              onSupersetStyleChanged: (supersetExerciseIndex, style) {
+                                setState(() {
+                                  if (_selectedExercises[exerciseIndex]
+                                      is SupersetExercise) {
+                                    final exercise =
+                                        _selectedExercises[exerciseIndex]
+                                            as SupersetExercise;
+                                    if (supersetExerciseIndex <
+                                        exercise.exercises.length) {
+                                      exercise
+                                              .exercises[supersetExerciseIndex]
+                                              .style =
+                                          style;
+                                      for (final set
+                                          in exercise
+                                              .exercises[supersetExerciseIndex]
+                                              .sets) {
+                                        if (style == ExerciseStyle.setsReps) {
+                                          set.reps = set.reps ?? 10;
+                                          set.timeSeconds = null;
+                                        } else {
+                                          set.timeSeconds =
+                                              set.timeSeconds ?? 30;
+                                          set.reps = null;
                                         }
-                                      });
-                                      // ????? ??????
-                                      _autoSaveProgram();
-                                    },
-                                    onSetsChanged: (sets) {
-                                      setState(() {
-                                        if (_selectedExercises[exerciseIndex]
-                                            is NormalExercise) {
-                                          final exercise =
-                                              _selectedExercises[exerciseIndex]
-                                                  as NormalExercise;
-                                          final current = exercise.sets.length;
+                                      }
+                                    }
+                                  }
+                                });
+                                _autoSaveProgram();
+                              },
+                              onSupersetSetsChanged:
+                                  (supersetExerciseIndex, sets) {
+                                    setState(() {
+                                      if (_selectedExercises[exerciseIndex]
+                                          is SupersetExercise) {
+                                        final exercise =
+                                            _selectedExercises[exerciseIndex]
+                                                as SupersetExercise;
+                                        if (supersetExerciseIndex <
+                                            exercise.exercises.length) {
+                                          final supersetItem = exercise
+                                              .exercises[supersetExerciseIndex];
+                                          final current =
+                                              supersetItem.sets.length;
                                           if (sets > current) {
                                             for (
                                               int i = 0;
                                               i < sets - current;
                                               i++
                                             ) {
-                                              exercise.sets.add(
+                                              final last = supersetItem
+                                                      .sets.isNotEmpty
+                                                  ? supersetItem.sets.last
+                                                  : null;
+                                              supersetItem.sets.add(
                                                 ExerciseSet(
                                                   reps:
-                                                      exercise.style ==
+                                                      supersetItem.style ==
                                                           ExerciseStyle.setsReps
-                                                      ? (exercise
-                                                                .sets
-                                                                .isNotEmpty
-                                                            ? exercise
-                                                                  .sets[0]
-                                                                  .reps
-                                                            : 10)
+                                                      ? (last?.reps ?? 10)
                                                       : null,
                                                   timeSeconds:
-                                                      exercise.style ==
+                                                      supersetItem.style ==
                                                           ExerciseStyle.setsTime
-                                                      ? (exercise
-                                                                .sets
-                                                                .isNotEmpty
-                                                            ? exercise
-                                                                  .sets[0]
-                                                                  .timeSeconds
-                                                            : 30)
+                                                      ? (last?.timeSeconds ??
+                                                            30)
                                                       : null,
-                                                  weight:
-                                                      exercise.sets.isNotEmpty
-                                                      ? exercise.sets[0].weight
-                                                      : 0,
+                                                  weight: last?.weight ?? 0,
                                                 ),
                                               );
                                             }
                                           } else if (sets < current) {
-                                            exercise.sets.removeRange(
+                                            supersetItem.sets.removeRange(
                                               sets,
                                               current,
                                             );
                                           }
                                         }
-                                      });
-                                      // ????? ??????
-                                      _autoSaveProgram();
-                                    },
-                                    onRepsChanged: (reps) {
-                                      setState(() {
-                                        if (_selectedExercises[exerciseIndex]
-                                            is NormalExercise) {
-                                          final exercise =
-                                              _selectedExercises[exerciseIndex]
-                                                  as NormalExercise;
-                                          for (final set in exercise.sets) {
+                                      }
+                                    });
+                                    _autoSaveProgram();
+                                  },
+                              onSupersetRepsChanged:
+                                  (supersetExerciseIndex, reps) {
+                                    setState(() {
+                                      if (_selectedExercises[exerciseIndex]
+                                          is SupersetExercise) {
+                                        final exercise =
+                                            _selectedExercises[exerciseIndex]
+                                                as SupersetExercise;
+                                        if (supersetExerciseIndex <
+                                            exercise.exercises.length) {
+                                          final supersetItem = exercise
+                                              .exercises[supersetExerciseIndex];
+                                          for (final set in supersetItem.sets) {
                                             set.reps = reps;
                                           }
                                         }
-                                      });
-                                      // ????? ??????
-                                      _autoSaveProgram();
-                                    },
-                                    onTimeChanged: (time) {
-                                      setState(() {
-                                        if (_selectedExercises[exerciseIndex]
-                                            is NormalExercise) {
-                                          final exercise =
-                                              _selectedExercises[exerciseIndex]
-                                                  as NormalExercise;
-                                          for (final set in exercise.sets) {
+                                      }
+                                    });
+                                    _autoSaveProgram();
+                                  },
+                              onSupersetSetRepsChanged:
+                                  (supersetExerciseIndex, setIndex, reps) {
+                                    setState(() {
+                                      if (_selectedExercises[exerciseIndex]
+                                          is SupersetExercise) {
+                                        final exercise =
+                                            _selectedExercises[exerciseIndex]
+                                                as SupersetExercise;
+                                        if (supersetExerciseIndex <
+                                            exercise.exercises.length) {
+                                          final sets = exercise
+                                              .exercises[supersetExerciseIndex]
+                                              .sets;
+                                          if (setIndex >= 0 &&
+                                              setIndex < sets.length) {
+                                            sets[setIndex].reps = reps;
+                                          }
+                                        }
+                                      }
+                                    });
+                                    _autoSaveProgram();
+                                  },
+                              onSupersetTimeChanged:
+                                  (supersetExerciseIndex, time) {
+                                    setState(() {
+                                      if (_selectedExercises[exerciseIndex]
+                                          is SupersetExercise) {
+                                        final exercise =
+                                            _selectedExercises[exerciseIndex]
+                                                as SupersetExercise;
+                                        if (supersetExerciseIndex <
+                                            exercise.exercises.length) {
+                                          final supersetItem = exercise
+                                              .exercises[supersetExerciseIndex];
+                                          for (final set in supersetItem.sets) {
                                             set.timeSeconds = time;
                                           }
                                         }
-                                      });
-                                      // ????? ??????
-                                      _autoSaveProgram();
-                                    },
-                                    onWeightChanged: (weight) {
-                                      setState(() {
-                                        if (_selectedExercises[exerciseIndex]
-                                            is NormalExercise) {
-                                          final exercise =
-                                              _selectedExercises[exerciseIndex]
-                                                  as NormalExercise;
-                                          for (final set in exercise.sets) {
-                                            set.weight = weight;
+                                      }
+                                    });
+                                    _autoSaveProgram();
+                                  },
+                              onSupersetSetTimeChanged:
+                                  (supersetExerciseIndex, setIndex, time) {
+                                    setState(() {
+                                      if (_selectedExercises[exerciseIndex]
+                                          is SupersetExercise) {
+                                        final exercise =
+                                            _selectedExercises[exerciseIndex]
+                                                as SupersetExercise;
+                                        if (supersetExerciseIndex <
+                                            exercise.exercises.length) {
+                                          final sets = exercise
+                                              .exercises[supersetExerciseIndex]
+                                              .sets;
+                                          if (setIndex >= 0 &&
+                                              setIndex < sets.length) {
+                                            sets[setIndex].timeSeconds = time;
                                           }
                                         }
-                                      });
-                                      // ????? ??????
-                                      _autoSaveProgram();
-                                    },
-                                    onSupersetStyleChanged: (supersetExerciseIndex, style) {
-                                      setState(() {
-                                        if (_selectedExercises[exerciseIndex]
-                                            is SupersetExercise) {
-                                          final exercise =
-                                              _selectedExercises[exerciseIndex]
-                                                  as SupersetExercise;
-                                          if (supersetExerciseIndex <
-                                              exercise.exercises.length) {
-                                            exercise
-                                                    .exercises[supersetExerciseIndex]
-                                                    .style =
-                                                style;
-                                            // Update sets based on new style
-                                            for (final set
-                                                in exercise
-                                                    .exercises[supersetExerciseIndex]
-                                                    .sets) {
-                                              if (style ==
-                                                  ExerciseStyle.setsReps) {
-                                                set.reps = set.reps ?? 10;
-                                                set.timeSeconds = null;
-                                              } else {
-                                                set.timeSeconds =
-                                                    set.timeSeconds ?? 30;
-                                                set.reps = null;
-                                              }
-                                            }
-                                          }
-                                        }
-                                      });
-                                      // ????? ??????
-                                      _autoSaveProgram();
-                                    },
-                                    onSupersetSetsChanged: (supersetExerciseIndex, sets) {
-                                      setState(() {
-                                        if (_selectedExercises[exerciseIndex]
-                                            is SupersetExercise) {
-                                          final exercise =
-                                              _selectedExercises[exerciseIndex]
-                                                  as SupersetExercise;
-                                          if (supersetExerciseIndex <
-                                              exercise.exercises.length) {
-                                            final supersetItem = exercise
-                                                .exercises[supersetExerciseIndex];
-                                            final current =
-                                                supersetItem.sets.length;
-                                            if (sets > current) {
-                                              for (
-                                                int i = 0;
-                                                i < sets - current;
-                                                i++
-                                              ) {
-                                                supersetItem.sets.add(
-                                                  ExerciseSet(
-                                                    reps:
-                                                        supersetItem.style ==
-                                                            ExerciseStyle
-                                                                .setsReps
-                                                        ? (supersetItem
-                                                                  .sets
-                                                                  .isNotEmpty
-                                                              ? supersetItem
-                                                                    .sets[0]
-                                                                    .reps
-                                                              : 10)
-                                                        : null,
-                                                    timeSeconds:
-                                                        supersetItem.style ==
-                                                            ExerciseStyle
-                                                                .setsTime
-                                                        ? (supersetItem
-                                                                  .sets
-                                                                  .isNotEmpty
-                                                              ? supersetItem
-                                                                    .sets[0]
-                                                                    .timeSeconds
-                                                              : 30)
-                                                        : null,
-                                                    weight:
-                                                        supersetItem
-                                                            .sets
-                                                            .isNotEmpty
-                                                        ? supersetItem
-                                                              .sets[0]
-                                                              .weight
-                                                        : 0,
-                                                  ),
-                                                );
-                                              }
-                                            } else if (sets < current) {
-                                              supersetItem.sets.removeRange(
-                                                sets,
-                                                current,
-                                              );
-                                            }
-                                          }
-                                        }
-                                      });
-                                      // ????? ??????
-                                      _autoSaveProgram();
-                                    },
-                                    onSupersetRepsChanged:
-                                        (supersetExerciseIndex, reps) {
-                                          setState(() {
-                                            if (_selectedExercises[exerciseIndex]
-                                                is SupersetExercise) {
-                                              final exercise =
-                                                  _selectedExercises[exerciseIndex]
-                                                      as SupersetExercise;
-                                              if (supersetExerciseIndex <
-                                                  exercise.exercises.length) {
-                                                final supersetItem = exercise
-                                                    .exercises[supersetExerciseIndex];
-                                                for (final set
-                                                    in supersetItem.sets) {
-                                                  set.reps = reps;
-                                                }
-                                              }
-                                            }
-                                          });
-                                          // ????? ??????
-                                          _autoSaveProgram();
-                                        },
-                                    onSupersetTimeChanged:
-                                        (supersetExerciseIndex, time) {
-                                          setState(() {
-                                            if (_selectedExercises[exerciseIndex]
-                                                is SupersetExercise) {
-                                              final exercise =
-                                                  _selectedExercises[exerciseIndex]
-                                                      as SupersetExercise;
-                                              if (supersetExerciseIndex <
-                                                  exercise.exercises.length) {
-                                                final supersetItem = exercise
-                                                    .exercises[supersetExerciseIndex];
-                                                for (final set
-                                                    in supersetItem.sets) {
-                                                  set.timeSeconds = time;
-                                                }
-                                              }
-                                            }
-                                          });
-                                          // ????? ??????
-                                          _autoSaveProgram();
-                                        },
-                                    allExercises: _exercises,
-                                  ),
-                                ),
+                                      }
+                                    });
+                                    _autoSaveProgram();
+                                  },
+                              onSupersetRestChanged: (rest) {
+                                setState(() {
+                                  if (_selectedExercises[exerciseIndex]
+                                      is SupersetExercise) {
+                                    (_selectedExercises[exerciseIndex]
+                                            as SupersetExercise)
+                                        .restSeconds = rest;
+                                  }
+                                });
+                                _autoSaveProgram();
+                              },
+                              allExercises: _exercises,
+                                    ),
+                                  );
+                                },
                               ),
                       ),
                       // Bottom Info Bar
@@ -1402,4 +1525,3 @@ class _WorkoutProgramBuilderScreenState
     }
   }
 }
-

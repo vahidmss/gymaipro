@@ -41,7 +41,7 @@ class SubstituteFoodDialog extends StatelessWidget {
           children: [
             Text(
               'انتخاب جایگزین',
-              style: AppTheme.subheadingStyle.copyWith(fontSize: 18.sp),
+              style: context.headingStyle.copyWith(fontSize: 18.sp),
             ),
             SizedBox(height: 20.h),
             ...alternatives.map((alt) {
@@ -91,15 +91,16 @@ class SubstituteFoodDialog extends StatelessWidget {
                             children: [
                               Text(
                                 altFood.title,
-                                style: AppTheme.bodyStyle.copyWith(
+                                style: context.bodyStyle.copyWith(
                                   fontSize: 15.sp,
                                   fontWeight: FontWeight.w600,
+                                  color: context.textColor,
                                 ),
                               ),
                               SizedBox(height: 4.h),
                               Text(
                                 '${alt['amount']} گرم',
-                                style: AppTheme.bodyStyle.copyWith(
+                                style: context.bodyStyle.copyWith(
                                   fontSize: 12.sp,
                                 ),
                               ),

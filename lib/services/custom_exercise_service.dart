@@ -6,6 +6,7 @@ import 'package:gymaipro/models/custom_exercise.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/models/muscle_targets.dart';
 import 'package:gymaipro/services/coach_video_upload_service.dart';
+import 'package:gymaipro/services/exercise_image_upload_service.dart';
 import 'package:gymaipro/services/trainer_service.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:image_picker/image_picker.dart';
@@ -16,6 +17,8 @@ class CustomExerciseService {
   final SupabaseClient _supabase = Supabase.instance.client;
   final ProfileRepository _profiles = ProfileRepository.instance;
   final CoachVideoUploadService _videoUploadService = CoachVideoUploadService();
+  final ExerciseImageUploadService _imageUploadService =
+      ExerciseImageUploadService();
 
   String? _encodeUrlColumn(List<String> urls) {
     if (urls.isEmpty) return null;
@@ -166,6 +169,13 @@ class CustomExerciseService {
     List<String> otherNames = const [],
     int estimatedDuration = 0,
     Map<String, int> muscleTargets = const {},
+    double? met,
+    double? typicalRpe,
+    String movementPattern = '',
+    String bodyEngagement = '',
+    String mechanicsType = '',
+    String forceType = '',
+    int? caloriesPer1000kg,
   }) async {
     try {
       final user = _supabase.auth.currentUser;
@@ -196,8 +206,18 @@ class CustomExerciseService {
         'tags': tags,
         'other_names': otherNames,
         'estimated_duration': estimatedDuration,
-        if (MuscleTargets.hasData(muscleTargets))
-          'muscle_targets_json': jsonEncode(muscleTargets),
+        // jsonb — باید Map باشد؛ jsonEncode باعث خطای ذخیره می‌شود
+        'muscle_targets_json': Map<String, int>.from(muscleTargets),
+        'met': met,
+        'typical_rpe': typicalRpe,
+        'movement_pattern':
+            movementPattern.trim().isEmpty ? null : movementPattern.trim(),
+        'body_engagement':
+            bodyEngagement.trim().isEmpty ? null : bodyEngagement.trim(),
+        'mechanics_type':
+            mechanicsType.trim().isEmpty ? null : mechanicsType.trim(),
+        'force_type': forceType.trim().isEmpty ? null : forceType.trim(),
+        'calories_per_1000kg': caloriesPer1000kg,
       };
 
       final response = await _supabase
@@ -244,6 +264,13 @@ class CustomExerciseService {
     List<String>? otherNames,
     int? estimatedDuration,
     Map<String, int>? muscleTargets,
+    double? met,
+    double? typicalRpe,
+    String? movementPattern,
+    String? bodyEngagement,
+    String? mechanicsType,
+    String? forceType,
+    int? caloriesPer1000kg,
   }) async {
     try {
       final user = _supabase.auth.currentUser;
@@ -283,9 +310,29 @@ class CustomExerciseService {
         data['estimated_duration'] = estimatedDuration;
       }
       if (muscleTargets != null) {
-        data['muscle_targets_json'] = MuscleTargets.hasData(muscleTargets)
-            ? jsonEncode(muscleTargets)
-            : null;
+        // jsonb — Map بفرست، نه رشتهٔ jsonEncode
+        data['muscle_targets_json'] = Map<String, int>.from(muscleTargets);
+      }
+      if (met != null) data['met'] = met;
+      if (typicalRpe != null) data['typical_rpe'] = typicalRpe;
+      if (movementPattern != null) {
+        data['movement_pattern'] =
+            movementPattern.trim().isEmpty ? null : movementPattern.trim();
+      }
+      if (bodyEngagement != null) {
+        data['body_engagement'] =
+            bodyEngagement.trim().isEmpty ? null : bodyEngagement.trim();
+      }
+      if (mechanicsType != null) {
+        data['mechanics_type'] =
+            mechanicsType.trim().isEmpty ? null : mechanicsType.trim();
+      }
+      if (forceType != null) {
+        data['force_type'] =
+            forceType.trim().isEmpty ? null : forceType.trim();
+      }
+      if (caloriesPer1000kg != null) {
+        data['calories_per_1000kg'] = caloriesPer1000kg;
       }
 
       // دریافت تمرین قبلی برای بررسی تغییر visibility
@@ -387,8 +434,17 @@ class CustomExerciseService {
         'target_area': exercise.targetArea.isNotEmpty 
             ? exercise.targetArea 
             : exercise.mainMuscle,
-        // 'description' and 'detailed_description' columns don't exist in ai_exercises table
-        // detailed_description is stored in 'source' JSON field and extracted during read
+        if (MuscleTargets.hasData(customExercise.muscleTargets))
+          'muscle_targets_json': customExercise.muscleTargets,
+        if (customExercise.met != null) 'met': customExercise.met,
+        if (customExercise.typicalRpe != null)
+          'typical_rpe': customExercise.typicalRpe,
+        if (customExercise.movementPattern.isNotEmpty)
+          'movement_pattern': customExercise.movementPattern,
+        if (customExercise.bodyEngagement.isNotEmpty)
+          'body_engagement': customExercise.bodyEngagement,
+        if (customExercise.caloriesPer1000kg != null)
+          'calories_per_1000kg': customExercise.caloriesPer1000kg,
       };
 
       // استفاده از upsert برای insert یا update
@@ -464,7 +520,7 @@ class CustomExerciseService {
     }
   }
 
-  /// آپلود ویدیو
+  /// آپلود ویدیو تمرین اختصاصی → dl.gymaipro.ir/custom_exercises/{user}/videos/
   Future<String> uploadVideo(
     XFile videoFile, {
     void Function(double progress)? onProgress,
@@ -473,33 +529,20 @@ class CustomExerciseService {
     return _videoUploadService.uploadVideo(
       file,
       onProgress: onProgress,
+      uploadContext: 'custom_exercise',
     );
   }
 
-  /// آپلود تصویر تمرین اختصاصی
-  Future<String> uploadExerciseImage(XFile imageFile) async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) {
-      throw Exception('کاربر احراز هویت نشده است');
-    }
-
-    final file = File(imageFile.path);
-    if (!await file.exists()) {
-      throw Exception('فایل تصویر وجود ندارد');
-    }
-
-    final ext = imageFile.path.split('.').last.toLowerCase();
-    final safeExt = ext.isEmpty ? 'jpg' : ext;
-    final path =
-        '${user.id}/${DateTime.now().millisecondsSinceEpoch}.$safeExt';
-
-    await _supabase.storage.from('custom_exercise_images').upload(
-          path,
-          file,
-          fileOptions: const FileOptions(upsert: true),
-        );
-
-    return _supabase.storage.from('custom_exercise_images').getPublicUrl(path);
+  /// آپلود تصویر تمرین اختصاصی → dl.gymaipro.ir/custom_exercises/{user}/images/
+  Future<String> uploadExerciseImage(
+    XFile imageFile, {
+    void Function(double progress)? onProgress,
+  }) {
+    return _imageUploadService.uploadImage(
+      imageFile,
+      onProgress: onProgress,
+    );
   }
 }
+
 

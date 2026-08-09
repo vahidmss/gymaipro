@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/core/gamification_labels.dart';
 import 'package:gymaipro/ranking/models/user_ranking.dart';
-import 'package:gymaipro/ranking/widgets/league_badge.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/trainer_ranking/utils/format_utils.dart';
 import 'package:gymaipro/widgets/gymai_network_image.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// ویجت نمایش یک آیتم در Leaderboard — طراحی دارک/لایت
-/// نکته: نمایش رتبه فقط به صورت عدد (بدون متن/آیکن)
+/// ردیف لیدربورد با وزن بصری برای ۳ نفر اول و امتیاز درشت‌تر.
 class LeaderboardItem extends StatelessWidget {
   const LeaderboardItem({
     required this.ranking,
     required this.position,
     this.isCurrentUser = false,
+    this.gapHint,
     this.onTap,
     super.key,
   });
@@ -19,131 +21,148 @@ class LeaderboardItem extends StatelessWidget {
   final UserRanking ranking;
   final int position;
   final bool isCurrentUser;
+  final String? gapHint;
   final VoidCallback? onTap;
+
+  Color? get _topTint {
+    if (position == 1) return const Color(0xFFFFD700);
+    if (position == 2) return const Color(0xFFC0C0C0);
+    if (position == 3) return const Color(0xFFCD7F32);
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final league = ranking.league;
-
-    final radius = BorderRadius.circular(16.r);
-    final avatarUrl = _normalizeUrl(ranking.avatarUrl);
+    final tint = _topTint;
+    final bg = isCurrentUser
+        ? AppTheme.goldColor.withValues(alpha: 0.14)
+        : tint != null
+            ? tint.withValues(alpha: 0.12)
+            : context.cardColor;
+    final border = isCurrentUser
+        ? AppTheme.goldColor.withValues(alpha: 0.65)
+        : tint != null
+            ? tint.withValues(alpha: 0.45)
+            : context.separatorColor;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: 10.h),
+      padding: EdgeInsets.only(bottom: 8.h),
       child: Material(
         color: Colors.transparent,
-        borderRadius: radius,
+        borderRadius: BorderRadius.circular(12.r),
         child: InkWell(
           onTap: onTap,
-          borderRadius: radius,
-          splashColor: AppTheme.goldColor.withValues(alpha: 0.08),
-          highlightColor: AppTheme.goldColor.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12.r),
           child: Ink(
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 11.h),
             decoration: BoxDecoration(
-              color: isCurrentUser
-                  ? AppTheme.goldColor.withValues(alpha: 0.10)
-                  : context.cardColor,
-              borderRadius: radius,
-              border: Border.all(
-                color: isCurrentUser
-                    ? AppTheme.goldColor.withValues(alpha: 0.75)
-                    : context.textSecondary.withValues(alpha: 0.10),
-                width: isCurrentUser ? 1.4 : 1.0,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.veryDarkBackground.withValues(alpha: isDark ? 0.22 : 0.06),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-                if (isCurrentUser)
-                  BoxShadow(
-                    color: AppTheme.goldColor.withValues(alpha: 0.18),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
-                  ),
-              ],
+              color: bg,
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(color: border, width: tint != null || isCurrentUser ? 1.4 : 1),
             ),
             child: Row(
+              textDirection: TextDirection.rtl,
               children: [
-                _RankNumberBadge(
-                  rank: position,
-                  accentColor: Color(league.color),
-                  isHighlighted: isCurrentUser,
+                _RankBadge(rank: position),
+                SizedBox(width: 10.w),
+                _Avatar(
+                  url: _normalizeUrl(ranking.avatarUrl),
+                  name: ranking.displayName,
+                  accent: tint ?? Color(ranking.league.color),
                 ),
-                SizedBox(width: 14.w),
-                _AvatarCircle(url: avatarUrl, displayName: ranking.displayName),
-                SizedBox(width: 14.w),
+                SizedBox(width: 10.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        textDirection: TextDirection.rtl,
                         children: [
                           Expanded(
                             child: Text(
                               ranking.displayName,
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
-                                fontSize: 15.sp,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.w700,
                                 color: context.textColor,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
+                              textDirection: TextDirection.rtl,
                             ),
                           ),
-                          if (isCurrentUser)
+                          if (isCurrentUser) ...[
+                            SizedBox(width: 6.w),
                             Container(
                               padding: EdgeInsets.symmetric(
-                                horizontal: 8.w,
-                                vertical: 3.h,
+                                horizontal: 7.w,
+                                vertical: 2.h,
                               ),
                               decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: context.goldGradientColors,
-                                ),
-                                borderRadius: BorderRadius.circular(10.r),
+                                color: AppTheme.goldColor,
+                                borderRadius: BorderRadius.circular(8.r),
                               ),
                               child: Text(
                                 'شما',
                                 style: TextStyle(
                                   fontFamily: AppTheme.fontFamily,
                                   fontSize: 10.sp,
+                                  fontWeight: FontWeight.w800,
                                   color: AppTheme.onGoldColor,
-                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            )
-                          else
-                            Icon(
-                              Icons.chevron_left_rounded,
-                              size: 22.sp,
-                              color: context.textSecondary.withValues(
-                                alpha: 0.55,
-                              ),
                             ),
+                          ],
                         ],
                       ),
-                      SizedBox(height: 6.h),
-                      Row(
-                        children: [
-                          LeagueBadge(league: league, size: 14),
-                          SizedBox(width: 6.w),
-                          Text(
-                            _formatScore(ranking.totalScore),
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 12.sp,
-                              color: context.textSecondary,
-                            ),
+                      if (gapHint != null && isCurrentUser) ...[
+                        SizedBox(height: 3.h),
+                        Text(
+                          gapHint!,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.goldColor,
                           ),
-                        ],
-                      ),
+                          textDirection: TextDirection.rtl,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ],
                   ),
+                ),
+                SizedBox(width: 8.w),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      FormatUtils.toPersianDigits('${ranking.totalScore}'),
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 17.sp,
+                        fontWeight: FontWeight.w900,
+                        color: context.textColor,
+                        height: 1.1,
+                      ),
+                    ),
+                    Text(
+                      GamificationLabels.points,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 10.sp,
+                        color: context.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(width: 4.w),
+                Icon(
+                  LucideIcons.chevronLeft,
+                  size: 16.sp,
+                  color: context.textSecondary.withValues(alpha: 0.4),
                 ),
               ],
             ),
@@ -153,222 +172,127 @@ class LeaderboardItem extends StatelessWidget {
     );
   }
 
-  String _formatScore(int score) {
-    final formatted = score.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (m) => '${m[1]},',
-    );
-    return '$formatted امتیاز';
-  }
-
   String _normalizeUrl(String? url) {
     final v = (url ?? '').trim();
-    if (v.isEmpty) return '';
-    if (v.toLowerCase() == 'null') return '';
+    if (v.isEmpty || v.toLowerCase() == 'null') return '';
     if (!v.startsWith('http://') && !v.startsWith('https://')) return '';
     return v;
   }
 }
 
-class _AvatarCircle extends StatelessWidget {
-  const _AvatarCircle({required this.url, required this.displayName});
+class _RankBadge extends StatelessWidget {
+  const _RankBadge({required this.rank});
 
-  final String url;
-  final String displayName;
+  final int rank;
 
   @override
   Widget build(BuildContext context) {
-    final radius = 24.r;
-    final bg = AppTheme.goldColor.withValues(alpha: 0.18);
-
-    Widget placeholder() {
-      final letter = displayName.isNotEmpty
-          ? displayName[0].toUpperCase()
-          : '?';
-      return Container(
-        width: radius * 2,
-        height: radius * 2,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-        child: Text(
-          letter,
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontSize: 14.sp,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.goldColor,
-          ),
-        ),
-      );
+    final Color bg;
+    final Color fg;
+    final String? medal;
+    if (rank == 1) {
+      bg = const Color(0xFFFFD700);
+      fg = const Color(0xFF1A1A1A);
+      medal = '🥇';
+    } else if (rank == 2) {
+      bg = const Color(0xFFC0C0C0);
+      fg = const Color(0xFF1A1A1A);
+      medal = '🥈';
+    } else if (rank == 3) {
+      bg = const Color(0xFFCD7F32);
+      fg = Colors.white;
+      medal = '🥉';
+    } else {
+      bg = context.separatorColor;
+      fg = context.textColor;
+      medal = null;
     }
 
-    if (url.isEmpty) return placeholder();
-
-    return ClipOval(
-      child: SizedBox(
-        width: radius * 2,
-        height: radius * 2,
-        child: GymaiNetworkImage(
-          imageUrl: url,
-          errorWidget: placeholder(),
-          placeholder: ColoredBox(
-            color: bg,
-            child: Center(
-              child: SizedBox(
-                width: 16.w,
-                height: 16.w,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppTheme.goldColor.withValues(alpha: 0.9),
+    return Container(
+      width: 40.w,
+      height: 40.w,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(11.r),
+      ),
+      child: medal != null
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(medal, style: TextStyle(fontSize: 11.sp, height: 1)),
+                Text(
+                  FormatUtils.toPersianDigits('$rank'),
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w900,
+                    color: fg,
+                    height: 1,
+                  ),
                 ),
+              ],
+            )
+          : Text(
+              FormatUtils.toPersianDigits('$rank'),
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w900,
+                color: fg,
               ),
             ),
-          ),
-        ),
-      ),
     );
   }
 }
 
-class _RankNumberBadge extends StatelessWidget {
-  const _RankNumberBadge({
-    required this.rank,
-    required this.accentColor,
-    required this.isHighlighted,
+class _Avatar extends StatelessWidget {
+  const _Avatar({
+    required this.url,
+    required this.name,
+    required this.accent,
   });
 
-  final int rank;
-  final Color accentColor;
-  final bool isHighlighted;
+  final String url;
+  final String name;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final outerRadius = 16.r;
-    final size = 46.w;
-
-    final outerGradient = _outerGradient(context);
-    final innerColor = rank <= 3
-        ? AppTheme.darkTextColor.withValues(alpha: 0.18)
-        : (isDark ? context.veryDarkBackground : context.cardColor);
-
-    final numberColor = rank <= 3 ? const Color(0xFF141414) : context.textColor;
-
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
+    final size = 40.w;
+    Widget fallback() {
+      final letter = name.isNotEmpty ? name.substring(0, 1) : '?';
+      return Container(
+        width: size,
+        height: size,
         alignment: Alignment.center,
-        children: [
-          // Outer: gradient frame
-          Container(
-            decoration: BoxDecoration(
-              gradient: outerGradient,
-              borderRadius: BorderRadius.circular(outerRadius),
-              boxShadow: [
-                BoxShadow(
-                  color: (rank <= 3 ? _medalBaseColor(rank) : accentColor)
-                      .withValues(alpha: isDark ? 0.32 : 0.18),
-                  blurRadius: 14,
-                  offset: const Offset(0, 6),
-                ),
-                if (isHighlighted)
-                  BoxShadow(
-                    color: AppTheme.goldColor.withValues(alpha: 0.25),
-                    blurRadius: 18,
-                    offset: const Offset(0, 8),
-                  ),
-              ],
-            ),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.18),
+          shape: BoxShape.circle,
+        ),
+        child: Text(
+          letter,
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontWeight: FontWeight.w700,
+            fontSize: 14.sp,
+            color: accent,
           ),
-          // Inner: glossy surface (gives premium depth)
-          Padding(
-            padding: EdgeInsets.all(2.2.w),
-            child: Container(
-              decoration: BoxDecoration(
-                color: innerColor,
-                borderRadius: BorderRadius.circular(outerRadius - 2.r),
-                border: Border.all(
-                  color: AppTheme.darkTextColor.withValues(alpha: isDark ? 0.10 : 0.22),
-                ),
-              ),
-            ),
-          ),
-          // Rank number only
-          Text(
-            '$rank',
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: rank <= 3 ? 18.sp : 17.sp,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.2,
-              color: numberColor,
-            ),
-          ),
-          // Subtle top shine (glass effect) — no text, purely visual
-          Positioned(
-            top: 6.h,
-            left: 8.w,
-            right: 8.w,
-            child: Container(
-              height: 10.h,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30.r),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppTheme.darkTextColor.withValues(alpha: isDark ? 0.14 : 0.22),
-                    AppTheme.darkTextColor.withValues(alpha: 0),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
+      );
+    }
+
+    if (url.isEmpty) return fallback();
+    return ClipOval(
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: GymaiNetworkImage(
+          imageUrl: url,
+          errorWidget: fallback(),
+          placeholder: fallback(),
+        ),
       ),
     );
-  }
-
-  LinearGradient _outerGradient(BuildContext context) {
-    if (rank == 1) {
-      return const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFFFFF3A6), Color(0xFFFFD700), Color(0xFFE6B800)],
-      );
-    }
-    if (rank == 2) {
-      return const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFFF3F3F3), Color(0xFFC0C0C0), Color(0xFF9E9E9E)],
-      );
-    }
-    if (rank == 3) {
-      return const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFFE9B06C), Color(0xFFCD7F32), Color(0xFF8B4513)],
-      );
-    }
-
-    // For other ranks: premium dark frame with accent edge
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final base1 = isDark ? const Color(0xFF2A2A2A) : const Color(0xFFEDE8DD);
-    final base2 = isDark ? const Color(0xFF151515) : const Color(0xFFF8F3EA);
-    return LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [accentColor.withValues(alpha: 0.85), base1, base2],
-      stops: const [0.0, 0.35, 1.0],
-    );
-  }
-
-  Color _medalBaseColor(int rank) {
-    if (rank == 1) return const Color(0xFFFFD700);
-    if (rank == 2) return const Color(0xFFC0C0C0);
-    if (rank == 3) return const Color(0xFFCD7F32);
-    return accentColor;
   }
 }

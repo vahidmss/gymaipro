@@ -1,419 +1,259 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/achievements/models/achievement.dart';
+import 'package:gymaipro/core/gamification_labels.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/utils/animation_utils.dart';
+import 'package:gymaipro/trainer_ranking/utils/format_utils.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-class AchievementCard extends StatefulWidget {
+/// کارت دستاورد — یک ردیف واضح: وضعیت، عنوان، پیشرفت، پاداش امتیاز.
+class AchievementCard extends StatelessWidget {
   const AchievementCard({required this.achievement, super.key, this.onTap});
+
   final Achievement achievement;
   final VoidCallback? onTap;
 
-  @override
-  State<AchievementCard> createState() => _AchievementCardState();
-}
-
-class _AchievementCardState extends State<AchievementCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(
-      begin: 1,
-      end: 0.97,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  Color get _tierColor => Color(achievement.tier.colorValue);
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isUnlocked = widget.achievement.isUnlocked;
+    final unlocked = achievement.isUnlocked;
 
-    return GestureDetector(
-      onTapDown: (_) => _controller.safeForward(),
-      onTapUp: (_) {
-        _controller.safeReverse();
-        widget.onTap?.call();
-      },
-      onTapCancel: () => _controller.safeReverse(),
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: DecoratedBox(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14.r),
+        child: Ink(
           decoration: BoxDecoration(
             color: context.cardColor,
-            borderRadius: BorderRadius.circular(16.r),
+            borderRadius: BorderRadius.circular(14.r),
             border: Border.all(
-              color: isUnlocked
-                  ? Color(widget.achievement.tier.colorValue)
-                      .withValues(alpha: 0.35)
-                  : AppTheme.lightDividerColor.withValues(
-                      alpha: isDark ? 0.7 : 0.5,
-                    ),
-              width: 1.w,
+              color: unlocked
+                  ? _tierColor.withValues(alpha: 0.45)
+                  : context.separatorColor,
+              width: unlocked ? 1.4.w : 1.w,
             ),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(18.r),
-            child: Stack(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(14.w, 14.h, 14.w, unlocked ? 14.h : 12.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // نوار پیشرفت مینیمال در پایین کارت
-                if (!isUnlocked)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: LinearProgressIndicator(
-                      value: widget.achievement.progress,
-                      minHeight: 3.h,
-                      backgroundColor: AppTheme.lightDividerColor.withValues(
-                        alpha: isDark ? 0.4 : 0.3,
-                      ),
-                      valueColor: AlwaysStoppedAnimation(
-                        Color(widget.achievement.tier.colorValue),
-                      ),
-                    ),
-                  ),
-                Padding(
-                  padding: EdgeInsets.all(16.w),
-                  child: Row(
-                    textDirection: TextDirection.rtl,
-                    children: [
-                      // آیکون
-                      _buildIcon(isUnlocked, isDark),
-                      SizedBox(width: 16.w),
-
-                      // محتوای متنی
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            // عنوان
-                            Text(
-                              widget.achievement.title,
-                              style: TextStyle(
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.2,
-                                height: 1.35,
-                                fontFamily: AppTheme.fontFamily,
-                                color: context.textColor,
-                              ),
-                              textAlign: TextAlign.right,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                Row(
+                  textDirection: TextDirection.rtl,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _StatusGlyph(unlocked: unlocked, icon: achievement.icon),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            achievement.title,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15.sp,
+                              height: 1.3,
+                              color: context.textColor,
                             ),
-                            SizedBox(height: 10.h),
-
-                            // پیشرفت یا امتیاز
-                            if (!isUnlocked)
-                              _buildProgressInfo(isDark)
-                            else
-                              _buildUnlockedInfo(isDark),
-                          ],
-                        ),
+                            textDirection: TextDirection.rtl,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: 4.h),
+                          Text(
+                            achievement.description,
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontWeight: FontWeight.w400,
+                              fontSize: 12.sp,
+                              height: 1.35,
+                              color: context.textSecondary,
+                            ),
+                            textDirection: TextDirection.rtl,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-
-                      // نشان tier
-                      _buildTierBadge(isUnlocked, isDark),
-                    ],
-                  ),
-                ),
-
-                // بدون افکت شاین برای سادگی و کارایی بهتر
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildIcon(bool isUnlocked, bool isDark) {
-    return Container(
-      width: 48.w,
-      height: 48.w,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: isUnlocked
-            ? Color(widget.achievement.tier.colorValue).withValues(alpha: 0.2)
-            : (isDark
-                ? AppTheme.darkGreySeparator.withValues(alpha: 0.7)
-                : AppTheme.lightDividerColor.withValues(alpha: 0.7)),
-        border: isUnlocked
-            ? Border.all(
-                color: Color(
-                  widget.achievement.tier.colorValue,
-                ).withValues(alpha: 0.3),
-                width: 1.5.w,
-              )
-            : null,
-      ),
-      child: Center(
-        child: Text(
-          widget.achievement.icon,
-          style: TextStyle(
-            fontSize: 24.sp,
-            shadows: isUnlocked
-                ? [
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 4.r,
-                      offset: Offset(0.w, 1.h),
                     ),
-                  ]
-                : null,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTierBadge(bool isUnlocked, bool isDark) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-      decoration: BoxDecoration(
-        color: isUnlocked
-            ? Color(widget.achievement.tier.colorValue)
-                .withValues(alpha: 0.15)
-            : (isDark
-                ? AppTheme.darkGreySeparator
-                : AppTheme.lightDividerColor),
-        borderRadius: BorderRadius.circular(9.r),
-        border: isUnlocked
-            ? Border.all(
-                color:
-                    Color(widget.achievement.tier.colorValue).withValues(alpha: 0.3),
-                width: 0.8.w,
-              )
-            : null,
-      ),
-      child: Text(
-        widget.achievement.tier.displayName,
-        style: TextStyle(
-          fontSize: 10.5.sp,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.25,
-          fontFamily: AppTheme.fontFamily,
-          color: isUnlocked
-              ? Color(widget.achievement.tier.colorValue)
-              : (isDark
-                    ? AppTheme.darkTextColor.withValues(alpha: 0.9)
-                    : AppTheme.lightTextSecondary),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProgressInfo(bool isDark) {
-    return Row(
-      textDirection: TextDirection.rtl,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // امتیاز
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 4.h),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppTheme.goldColor.withValues(alpha: isDark ? 0.22 : 0.18),
-                AppTheme.goldColor.withValues(alpha: isDark ? 0.12 : 0.1),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(7.r),
-            border: Border.all(
-              color: AppTheme.goldColor.withValues(alpha: 0.25),
-              width: 1.w,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.goldColor.withValues(alpha: 0.15),
-                blurRadius: 8.r,
-                offset: Offset(0.w, 2.h),
-              ),
-            ],
-          ),
-          child: Row(
-            textDirection: TextDirection.rtl,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(LucideIcons.star, size: 11.5.sp, color: AppTheme.goldColor),
-              SizedBox(width: 3.5.w),
-              Text(
-                '${widget.achievement.points}',
-                style: TextStyle(
-                  fontSize: 11.5.sp,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.15,
-                  fontFamily: AppTheme.fontFamily,
-                  color: isDark ? AppTheme.goldColor : AppTheme.lightTextColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // پیشرفت
-        Row(
-          textDirection: TextDirection.rtl,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.5.h),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(
-                      widget.achievement.tier.colorValue,
-                    ).withValues(alpha: 0.18),
-                    Color(
-                      widget.achievement.tier.colorValue,
-                    ).withValues(alpha: 0.12),
+                    SizedBox(width: 8.w),
+                    _RewardChip(points: achievement.points, unlocked: unlocked),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(7.r),
-                border: Border.all(
-                  color: Color(
-                    widget.achievement.tier.colorValue,
-                  ).withValues(alpha: 0.2),
-                  width: 1.w,
+                SizedBox(height: 12.h),
+                Row(
+                  textDirection: TextDirection.rtl,
+                  children: [
+                    _TierChip(
+                      label: achievement.tier.displayName,
+                      color: _tierColor,
+                      unlocked: unlocked,
+                    ),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: unlocked
+                          ? Text(
+                              achievement.unlockedAt != null
+                                  ? 'باز شده · ${_timeAgo(achievement.unlockedAt!)}'
+                                  : 'باز شده',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w500,
+                                color: _tierColor,
+                              ),
+                              textDirection: TextDirection.rtl,
+                            )
+                          : Text(
+                              '${FormatUtils.toPersianDigits('${achievement.currentValue}')}/${FormatUtils.toPersianDigits('${achievement.targetValue}')} ${achievement.unit}',
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w500,
+                                color: context.textSecondary,
+                              ),
+                              textDirection: TextDirection.rtl,
+                            ),
+                    ),
+                    if (!unlocked)
+                      Text(
+                        '${FormatUtils.toPersianDigits('${achievement.progressPercentage}')}٪',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w700,
+                          color: context.textSecondary,
+                        ),
+                      ),
+                  ],
                 ),
-              ),
-              child: Text(
-                '${widget.achievement.progressPercentage}%',
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.15,
-                  fontFamily: AppTheme.fontFamily,
-                  color: Color(widget.achievement.tier.colorValue),
-                ),
-              ),
-            ),
-            SizedBox(width: 7.w),
-            Flexible(
-              child: Text(
-                '${widget.achievement.currentValue}/${widget.achievement.targetValue} ${widget.achievement.unit}',
-                style: TextStyle(
-                  fontSize: 11.5.sp,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: AppTheme.fontFamily,
-                  color: context.textSecondary,
-                ),
-                textDirection: TextDirection.rtl,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildUnlockedInfo(bool isDark) {
-    return Row(
-      textDirection: TextDirection.rtl,
-      children: [
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 5.h),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(
-                  widget.achievement.tier.colorValue,
-                ).withValues(alpha: 0.18),
-                Color(
-                  widget.achievement.tier.colorValue,
-                ).withValues(alpha: 0.1),
+                if (!unlocked) ...[
+                  SizedBox(height: 8.h),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(99),
+                    child: LinearProgressIndicator(
+                      value: achievement.progress,
+                      minHeight: 4.h,
+                      backgroundColor: context.separatorColor,
+                      valueColor: AlwaysStoppedAnimation(_tierColor),
+                    ),
+                  ),
+                ],
               ],
             ),
-            borderRadius: BorderRadius.circular(9.r),
-            border: Border.all(
-              color: Color(
-                widget.achievement.tier.colorValue,
-              ).withValues(alpha: 0.25),
-              width: 1.w,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Color(
-                  widget.achievement.tier.colorValue,
-                ).withValues(alpha: 0.15),
-                blurRadius: 10.r,
-                offset: Offset(0.w, 2.h),
-              ),
-            ],
-          ),
-          child: Row(
-            textDirection: TextDirection.rtl,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(LucideIcons.star, size: 12.sp, color: AppTheme.goldColor),
-              SizedBox(width: 4.5.w),
-              Text(
-                '${widget.achievement.points}',
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.15,
-                  fontFamily: AppTheme.fontFamily,
-                  color: isDark
-                      ? Color(widget.achievement.tier.colorValue)
-                      : AppTheme.lightTextColor,
-                ),
-              ),
-            ],
           ),
         ),
-        SizedBox(width: 7.w),
-        if (widget.achievement.unlockedAt != null)
-          Text(
-            _getUnlockedTimeAgo(),
-            style: TextStyle(
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w400,
-              fontFamily: AppTheme.fontFamily,
-              color: context.textSecondary,
-            ),
-          ),
-      ],
+      ),
     );
   }
 
-  String _getUnlockedTimeAgo() {
-    if (widget.achievement.unlockedAt == null) return '';
+  static String _timeAgo(DateTime at) {
+    final d = DateTime.now().difference(at);
+    if (d.inDays > 30) return '${d.inDays ~/ 30} ماه پیش';
+    if (d.inDays > 0) return '${d.inDays} روز پیش';
+    if (d.inHours > 0) return '${d.inHours} ساعت پیش';
+    if (d.inMinutes > 0) return '${d.inMinutes} دقیقه پیش';
+    return 'همین الان';
+  }
+}
 
-    final difference = DateTime.now().difference(
-      widget.achievement.unlockedAt!,
+class _StatusGlyph extends StatelessWidget {
+  const _StatusGlyph({required this.unlocked, required this.icon});
+
+  final bool unlocked;
+  final String icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44.w,
+      height: 44.w,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: unlocked
+            ? AppTheme.goldColor.withValues(alpha: 0.16)
+            : context.separatorColor.withValues(alpha: 0.55),
+      ),
+      child: Center(
+        child: unlocked
+            ? Icon(LucideIcons.check, size: 22.sp, color: AppTheme.goldColor)
+            : Text(icon, style: TextStyle(fontSize: 22.sp)),
+      ),
     );
+  }
+}
 
-    if (difference.inDays > 30) {
-      return '${difference.inDays ~/ 30} ماه پیش';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays} روز پیش';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours} ساعت پیش';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes} دقیقه پیش';
-    } else {
-      return 'همین الان';
-    }
+class _RewardChip extends StatelessWidget {
+  const _RewardChip({required this.points, required this.unlocked});
+
+  final int points;
+  final bool unlocked;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+      decoration: BoxDecoration(
+        color: AppTheme.goldColor.withValues(alpha: unlocked ? 0.2 : 0.12),
+        borderRadius: BorderRadius.circular(10.r),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            GamificationLabels.pointsIcon,
+            size: 14.sp,
+            color: AppTheme.goldColor,
+          ),
+          SizedBox(height: 2.h),
+          Text(
+            '+${FormatUtils.toPersianDigits('$points')}',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontWeight: FontWeight.w800,
+              fontSize: 12.sp,
+              color: context.textColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TierChip extends StatelessWidget {
+  const _TierChip({
+    required this.label,
+    required this.color,
+    required this.unlocked,
+  });
+
+  final String label;
+  final Color color;
+  final bool unlocked;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: unlocked ? 0.22 : 0.14),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontSize: 10.sp,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
   }
 }

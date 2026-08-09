@@ -128,24 +128,10 @@ class MealInsightEngine {
       referenceTime: now,
     );
 
-    // امروز هنوز خالیه
+    // امروز هنوز خالیه — پیام مفید در barGuidance؛ کارت فقط پیشنهاد سریع
     if (loggedFoodCount == 0) {
-      final goalLabel = targets.goalAdjustmentLabel;
-      final goalBadge = goalLabel != null ? ' ($goalLabel)' : '';
-      final String msg;
-      if (streak > 4) {
-        msg = '🔥 $streak روز پشت سر هم ثبت کردی$goalBadge — رشته‌تو نشکن! $nextMeal رو الان بزن.';
-      } else if (streak > 1) {
-        msg = '💪 $streak روز متوالی — امروز هم بیا$goalBadge! $nextMeal رو ثبت کن.';
-      } else if (now.hour >= 5 && now.hour < 12) {
-        msg = '${_greeting(now.hour)}$goalBadge! صبحانه‌ات رو ثبت کن تا روز خوبی داشته باشی.';
-      } else if (now.hour >= 12 && now.hour < 17) {
-        msg = '${_greeting(now.hour)}$goalBadge! $nextMeal منتظرته — بیا ثبتش کن.';
-      } else {
-        msg = '${_greeting(now.hour)}$goalBadge! $nextMeal رو ثبت کن — هنوز وقت داری.';
-      }
       return MealInsightResult(
-        message: msg,
+        message: '',
         tone: streak > 1 ? MealInsightTone.success : MealInsightTone.tip,
         barGuidance: barGuidance,
         streakDays: streak,
@@ -192,10 +178,12 @@ class MealInsightEngine {
       );
     }
 
-    // وعده بعدی هنوز ثبت نشده
+    // وعده بعدی هنوز ثبت نشده — کارت فقط پیشنهاد؛ وضعیت در bar
     if (!nextMealLogged && now.hour >= 7 && now.hour <= 22) {
       return MealInsightResult(
-        message: '$nextMeal وقتشه ⏰ — چی میخوری؟ یه گزینه سریع انتخاب کن.',
+        message: proteinGap > 20
+            ? 'پروتئین ${proteinGap.round()}گ کمه — برای $nextMeal گزینه پروتئینی بزن.'
+            : '',
         tone: MealInsightTone.tip,
         barGuidance: barGuidance,
         streakDays: streak,
@@ -243,13 +231,6 @@ class MealInsightEngine {
       barGuidance: barGuidance,
       streakDays: streak,
     );
-  }
-
-  static String _greeting(int hour) {
-    if (hour >= 5 && hour < 12) return 'صبح بخیر';
-    if (hour >= 12 && hour < 17) return 'ظهر بخیر';
-    if (hour >= 17 && hour < 21) return 'عصر بخیر';
-    return 'شب بخیر';
   }
 
   static MealInsightResult _analyzeHistoricalDay({
@@ -390,8 +371,10 @@ class MealInsightEngine {
         targets.goalAdjustmentLabel != null ? 'برآورد روزانه' : 'نیاز روزانه';
 
     if (loggedFoodCount == 0) {
+      final proteinGoal = targets.proteinTarget.round();
       return MealCalorieBarGuidance(
-        message: '$referenceWord شما $ref کالریه — با $nextMeal شروع کن.',
+        message:
+            '$referenceWord $ref کالری · پروتئین هدف $proteinGoalگ — با $nextMeal شروع کن.',
         tone: MealInsightTone.tip,
       );
     }

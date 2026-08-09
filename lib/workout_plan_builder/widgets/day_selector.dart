@@ -10,11 +10,13 @@ class DaySelector extends StatelessWidget {
     required this.selectedDay,
     required this.onDayChanged,
     super.key,
+    this.sessions,
     this.currentSession,
     this.onNotesChanged,
   });
   final int selectedDay;
   final ValueChanged<int> onDayChanged;
+  final List<WorkoutSession>? sessions;
   final WorkoutSession? currentSession;
   final void Function(String)? onNotesChanged;
 
@@ -30,171 +32,133 @@ class DaySelector extends StatelessWidget {
       'روز ۶',
       'روز ۷',
     ];
+    final hasNotes =
+        currentSession?.notes != null && currentSession!.notes!.isNotEmpty;
 
     return Column(
       children: [
-        // انتخابگر روزها
         Padding(
-          padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: isDark
-                  ? null
-                  : LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        context.goldGradientColors[0].withValues(alpha: 0.15),
-                        context.cardColor,
-                        context.goldGradientColors[1].withValues(alpha: 0.1),
-                      ],
-                    ),
-              color: isDark ? context.backgroundColor : null,
-              borderRadius: BorderRadius.circular(20.r),
-              border: Border.all(
-                color: AppTheme.goldColor.withValues(
-                  alpha: isDark ? 0.3 : 0.5,
-                ),
-                width: 1.5.w,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.goldColor.withValues(
-                    alpha: isDark ? 0.15 : 0.35,
-                  ),
-                  blurRadius: 16.r,
-                  offset: Offset(0.w, 6.h),
-                  spreadRadius: 1.r,
-                ),
-                BoxShadow(
-                  color: isDark
-                      ? Colors.black.withValues(alpha: 0.5)
-                      : AppTheme.lightTextColor.withValues(alpha: 0.08),
-                  blurRadius: 8.r,
-                  offset: Offset(0.w, 2.h),
-                ),
-              ],
-            ),
-            child: Container(
-              height: 60.h,
-              padding: EdgeInsets.symmetric(
-                horizontal: 8.w,
-                vertical: 8.h,
-              ),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: 7,
-                itemBuilder: (context, idx) {
-                  final isSelected = selectedDay == idx;
-                  return Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4.w),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => onDayChanged(idx),
-                          borderRadius: BorderRadius.circular(16.r),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 12.w,
-                              vertical: 8.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? AppTheme.goldColor
-                                  : (isDark
-                                      ? AppTheme.goldColor.withValues(alpha: 0.1)
-                                      : AppTheme.goldColor.withValues(
-                                          alpha: 0.08,
-                                        )),
-                              borderRadius: BorderRadius.circular(16.r),
-                              border: Border.all(
-                                color: isSelected
-                                    ? AppTheme.goldColor
-                                    : AppTheme.goldColor.withValues(
-                                        alpha: isDark ? 0.3 : 0.4,
-                                      ),
-                                width: isSelected ? 1.5.w : 1.w,
-                              ),
-                              boxShadow: isSelected
-                                  ? [
-                                      BoxShadow(
-                                        color: AppTheme.goldColor.withValues(
-                                          alpha: 0.3,
-                                        ),
-                                        blurRadius: 8.r,
-                                        offset: Offset(0.w, 2.h),
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            child: Text(
+          padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 4.h),
+          child: SizedBox(
+            height: 44.h,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: 7,
+              itemBuilder: (context, idx) {
+                final isSelected = selectedDay == idx;
+                final exerciseCount = (sessions != null && idx < sessions!.length)
+                    ? sessions![idx].exercises.length
+                    : 0;
+                return Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 3.w),
+                  child: Material(
+                    color: isSelected
+                        ? AppTheme.goldColor
+                        : (isDark
+                              ? Colors.white.withValues(alpha: 0.06)
+                              : Colors.white),
+                    borderRadius: BorderRadius.circular(14.r),
+                    child: InkWell(
+                      onTap: () => onDayChanged(idx),
+                      borderRadius: BorderRadius.circular(14.r),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 11.w,
+                          vertical: 8.h,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14.r),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppTheme.goldColor
+                                : AppTheme.goldColor.withValues(
+                                    alpha: isDark ? 0.2 : 0.28,
+                                  ),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
                               daysFa[idx],
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
                                 color: isSelected
                                     ? AppTheme.onGoldColor
                                     : (isDark
-                                        ? AppTheme.goldColor
-                                        : Colors.black),
+                                          ? AppTheme.goldColor
+                                          : context.textColor),
                                 fontWeight: isSelected
-                                    ? FontWeight.bold
+                                    ? FontWeight.w700
                                     : FontWeight.w500,
-                                fontSize: 14.sp,
+                                fontSize: 13.sp,
                               ),
                             ),
-                          ),
+                            if (exerciseCount > 0) ...[
+                              SizedBox(width: 5.w),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 5.w,
+                                  vertical: 1.h,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? AppTheme.onGoldColor.withValues(
+                                          alpha: 0.15,
+                                        )
+                                      : AppTheme.goldColor.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                  borderRadius: BorderRadius.circular(8.r),
+                                ),
+                                child: Text(
+                                  '$exerciseCount',
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
+                                    fontSize: 10.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: isSelected
+                                        ? AppTheme.onGoldColor
+                                        : AppTheme.goldColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ),
-
-        // دکمه ویرایش توضیحات روز
         if (currentSession != null && onNotesChanged != null)
-          Container(
-            margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8),
-            child: OutlinedButton.icon(
-              onPressed: () => _showEditNotesDialog(context),
-              style: OutlinedButton.styleFrom(
-                foregroundColor:
-                    currentSession!.notes != null &&
-                        currentSession!.notes!.isNotEmpty
-                    ? AppTheme.goldColor
-                    : AppTheme.goldColor.withValues(alpha: 0.7),
-                side: BorderSide(
-                  color:
-                      currentSession!.notes != null &&
-                          currentSession!.notes!.isNotEmpty
+          Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 4.h),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => _showEditNotesDialog(context),
+                style: TextButton.styleFrom(
+                  foregroundColor: hasNotes
                       ? AppTheme.goldColor
-                      : AppTheme.goldColor.withValues(alpha: 0.5),
+                      : AppTheme.goldColor.withValues(alpha: 0.7),
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  visualDensity: VisualDensity.compact,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
+                icon: Icon(
+                  hasNotes ? LucideIcons.fileText : LucideIcons.plus,
+                  size: 14.sp,
                 ),
-                padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 16.w),
-              ),
-              icon: Icon(
-                currentSession!.notes != null &&
-                        currentSession!.notes!.isNotEmpty
-                    ? LucideIcons.fileText
-                    : LucideIcons.plus,
-                size: 16.sp,
-              ),
-              label: Text(
-                currentSession!.notes != null &&
-                        currentSession!.notes!.isNotEmpty
-                    ? 'ویرایش توضیحات'
-                    : 'اضافه کردن توضیحات',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w600,
+                label: Text(
+                  hasNotes ? 'ویرایش توضیحات روز' : 'توضیحات روز',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),

@@ -5,13 +5,19 @@ import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/animation_utils.dart';
-import 'package:responsive_framework/responsive_framework.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 
 class WeightChart extends StatefulWidget {
-  const WeightChart({required this.userId, super.key, this.currentWeight});
+  const WeightChart({
+    required this.userId,
+    super.key,
+    this.currentWeight,
+    /// فقط وقتی تعداد ثبت‌ها از این عدد بیشتر باشد نمایش داده می‌شود.
+    this.minPointsExclusive = 3,
+  });
   final String userId;
   final double? currentWeight;
+  final int minPointsExclusive;
 
   @override
   State<WeightChart> createState() => _WeightChartState();
@@ -214,57 +220,45 @@ class _WeightChartState extends State<WeightChart>
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return SizedBox(
+        height: 48.h,
+        child: Center(
+          child: SizedBox(
+            width: 22.w,
+            height: 22.w,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: context.textSecondary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_weightData.length <= widget.minPointsExclusive) {
+      return const SizedBox.shrink();
+    }
+
     return FadeTransition(
       opacity: _fadeAnimation,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: Theme.of(context).brightness == Brightness.dark
-              ? null
-              : LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                    AppTheme.lightCardColor,
-                    AppTheme.lightGradientEnd.withValues(alpha: 0.1),
-                  ],
-                ),
-          color: Theme.of(context).brightness == Brightness.dark
-              ? context.backgroundColor
-              : null,
-          borderRadius: BorderRadius.circular(24.r),
-          border: Border.all(
-            color: AppTheme.goldColor.withValues(
-              alpha: Theme.of(context).brightness == Brightness.dark
-                  ? 0.2
-                  : 0.35,
-            ),
-            width: 0.5.w,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.goldColor.withValues(
-                alpha: Theme.of(context).brightness == Brightness.dark
-                    ? 0.1
-                    : 0.2,
-              ),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-              spreadRadius: 2,
-            ),
-          ],
+          color: context.cardColor,
+          borderRadius: BorderRadius.circular(14.r),
+          border: Border.all(color: context.separatorColor),
         ),
         child: Padding(
-          padding: EdgeInsets.all(20.w),
+          padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 14.h),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildHeader(),
-              SizedBox(height: 12.h),
+              SizedBox(height: 10.h),
               SizedBox(
-                height: 100.h,
-                child: _isLoading ? _buildLoadingIndicator() : _buildChart(),
+                height: 110.h,
+                child: _buildChart(),
               ),
             ],
           ),
@@ -279,121 +273,47 @@ class _WeightChartState extends State<WeightChart>
     final isIncrease = weightChange['isIncrease'] as bool;
     final change = weightChange['change'] as double;
 
-    IconData icon;
-    String changeText;
-    Color iconColor;
-
+    String? changeText;
+    Color? changeColor;
     if (hasChange) {
       if (isIncrease) {
-        icon = Icons.trending_up;
         changeText =
             'افزایش ${_toPersianDigits(change.toStringAsFixed(1))} کیلوگرم';
-        iconColor = AppTheme.successColor;
+        changeColor = AppTheme.successColor;
       } else {
-        icon = Icons.trending_down;
         changeText =
             'کاهش ${_toPersianDigits(change.toStringAsFixed(1))} کیلوگرم';
-        iconColor = AppTheme.errorColor;
+        changeColor = AppTheme.errorColor;
       }
-    } else {
-      icon = Icons.trending_up;
-      changeText = 'بدون تغییر';
-      iconColor = Theme.of(context).brightness == Brightness.dark
-          ? AppTheme.goldColor
-          : context.textColor;
     }
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: EdgeInsets.all(8.w),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                iconColor.withValues(alpha: 0.2),
-                iconColor.withValues(alpha: 0.1),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(color: iconColor.withValues(alpha: 0.3)),
-          ),
-          child: Icon(
-            icon,
-            color: iconColor,
-            size: ResponsiveValue(
-              context,
-              defaultValue: 14.sp,
-              conditionalValues: [
-                Condition.smallerThan(name: MOBILE, value: 12.sp),
-                Condition.largerThan(name: TABLET, value: 16.sp),
-              ],
-            ).value,
+        Text(
+          'روند وزن',
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontWeight: FontWeight.w800,
+            fontSize: 15.sp,
+            color: context.textColor,
+            height: 1.2,
           ),
         ),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'روند وزن',
-                style: AppTheme.subheadingStyle.copyWith(
-                  fontSize: 13.sp,
-                  color: context.textColor,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (hasChange) ...[
-                SizedBox(height: 2.h),
-                Text(
-                  changeText,
-                  style: AppTheme.bodyStyle.copyWith(
-                    fontSize: 10.sp,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white.withValues(alpha: 0.7)
-                        : context.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLoadingIndicator() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 30.w,
-            height: 30.h,
-            child: const CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.goldColor),
-            ),
-          ),
-          SizedBox(height: 12.h),
+        if (changeText != null) ...[
+          SizedBox(height: 3.h),
           Text(
-            'در حال بارگیری...',
+            changeText,
             style: TextStyle(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white70
-                  : context.textSecondary,
-              fontSize: 12.sp,
+              fontFamily: AppTheme.fontFamily,
+              fontWeight: FontWeight.w600,
+              fontSize: 11.sp,
+              color: changeColor,
+              height: 1.2,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
-      ),
+      ],
     );
   }
 
@@ -471,7 +391,7 @@ class _WeightChartState extends State<WeightChart>
                 if (isSinglePoint) {
                   return Text(
                     _toPersianDigits(value.toStringAsFixed(1)),
-                    style: AppTheme.bodyStyle.copyWith(
+                    style: context.bodyStyle.copyWith(
                       color: Theme.of(context).brightness == Brightness.dark
                           ? Colors.white.withValues(alpha: 0.6)
                           : context.textSecondary,
@@ -511,7 +431,7 @@ class _WeightChartState extends State<WeightChart>
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       _formatJalaliShort(date),
-                      style: AppTheme.bodyStyle.copyWith(
+                      style: context.bodyStyle.copyWith(
                         color: Theme.of(context).brightness == Brightness.dark
                             ? Colors.white.withValues(alpha: 0.6)
                             : context.textSecondary,
@@ -627,38 +547,26 @@ class _WeightChartState extends State<WeightChart>
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 40.w,
-            height: 40.h,
-            decoration: BoxDecoration(
-              color: AppTheme.goldColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20.r),
-              border: Border.all(
-                color: AppTheme.goldColor.withValues(alpha: 0.3),
-                width: 1.5,
-              ),
-            ),
-            child: Icon(
-              Icons.trending_up,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? AppTheme.goldColor.withValues(alpha: 0.7)
-                  : context.textColor.withValues(alpha: 0.7),
-              size: 20.sp,
-            ),
-          ),
-          SizedBox(height: 6.h),
           Text(
-            'هنوز داده‌ای ثبت نشده',
-            style: AppTheme.bodyStyle.copyWith(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white.withValues(alpha: 0.7)
-                  : context.textSecondary,
-              fontSize: 10.sp,
-              fontWeight: FontWeight.w500,
+            'هنوز وزنی ثبت نشده',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontWeight: FontWeight.w700,
+              fontSize: 13.sp,
+              color: context.textColor,
             ),
             textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            'اولین ثبت، شروع روند وزن است',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontWeight: FontWeight.w500,
+              fontSize: 11.sp,
+              color: context.textSecondary,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),

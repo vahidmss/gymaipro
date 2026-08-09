@@ -87,12 +87,9 @@ class _ExerciseMuscleHeatmapWidgetState
 
   @override
   Widget build(BuildContext context) {
-    if (!MuscleTargets.hasData(widget.muscleTargets)) {
-      return const SizedBox.shrink();
-    }
-
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final visible = _visibleEntries(_view);
+    final hasData = MuscleTargets.hasData(widget.muscleTargets);
+    final visible = hasData ? _visibleEntries(_view) : const <MapEntry<String, int>>[];
     final selectedValue = _selectedKey != null
         ? (widget.muscleTargets[_selectedKey!] ?? 0)
         : 0;
@@ -100,20 +97,29 @@ class _ExerciseMuscleHeatmapWidgetState
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!widget.compact) _buildHeader(isDark),
-        if (!widget.compact) SizedBox(height: 10.h),
+        if (!widget.compact && hasData) _buildHeader(isDark),
+        if (!widget.compact && hasData) SizedBox(height: 10.h),
         _buildViewToggle(isDark),
-        SizedBox(height: widget.embedded ? 8.h : 10.h),
+        SizedBox(height: widget.embedded ? 6.h : 10.h),
         _InteractiveBodyMap(
           targets: widget.muscleTargets,
           view: _view,
-          selectedKey: _selectedKey,
+          selectedKey: hasData ? _selectedKey : null,
           isDark: isDark,
           height: widget.mapHeight ?? (widget.compact ? 200.h : 300.h),
-          onMuscleTap: _selectMuscle,
+          lite: widget.embedded,
+          onMuscleTap: hasData ? _selectMuscle : (_) {},
           onSuggestView: _switchView,
         ),
-        if (!widget.compact) ...[
+        // در حالت embedded چیپ‌ها روی کارت والد هستند — legend تکراری نباشد
+        if (!widget.embedded && hasData && visible.isNotEmpty) ...[
+          SizedBox(height: 8.h),
+          _CompactHeatLegend(
+            entries: visible.take(3).toList(),
+            isDark: isDark,
+          ),
+        ],
+        if (!widget.compact && hasData) ...[
           SizedBox(height: 10.h),
           Text(
             '\u0631\u0648\u06cc \u0647\u0631 \u0646\u0627\u062d\u06cc\u0647 \u0636\u0631\u0628\u0647 \u0628\u0632\u0646 \u062a\u0627 \u062c\u0632\u0626\u06cc\u0627\u062a \u0628\u0628\u06cc\u0646\u06cc',
@@ -162,10 +168,15 @@ class _ExerciseMuscleHeatmapWidgetState
             end: Alignment.bottomLeft,
             colors: isDark
                 ? [const Color(0xFF161922), const Color(0xFF0E1016)]
-                : [const Color(0xFFFFF8EC), const Color(0xFFFFEFD6)],
+                : [
+                    AppTheme.lightCardColor,
+                    AppTheme.lightBackgroundColor,
+                  ],
           ),
           border: Border.all(
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.35 : 0.45),
+            color: isDark
+                ? AppTheme.goldColor.withValues(alpha: 0.35)
+                : AppTheme.lightTextColor.withValues(alpha: 0.12),
           ),
         ),
         child: ClipRRect(
@@ -189,7 +200,9 @@ class _ExerciseMuscleHeatmapWidgetState
         Container(
           padding: EdgeInsets.all(8.w),
           decoration: BoxDecoration(
-            color: AppTheme.goldColor.withValues(alpha: 0.15),
+            color: isDark
+                ? AppTheme.goldColor.withValues(alpha: 0.15)
+                : AppTheme.lightTextColor.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(12.r),
           ),
           child: Icon(LucideIcons.mousePointerClick, color: heat, size: 20.sp),
@@ -225,7 +238,9 @@ class _ExerciseMuscleHeatmapWidgetState
             fontFamily: AppTheme.fontFamily,
             fontSize: 12.sp,
             fontWeight: FontWeight.w900,
-            color: AppTheme.goldColor,
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.35)
+                : AppTheme.lightTextSecondary.withValues(alpha: 0.55),
           ),
         ),
       ],
@@ -271,7 +286,7 @@ class _ExerciseMuscleHeatmapWidgetState
               fontSize: 12.sp,
               fontWeight: FontWeight.w700,
               color: selected
-                  ? AppTheme.veryDarkBackground
+                  ? AppTheme.onGoldColor
                   : (isDark ? Colors.white60 : AppTheme.lightTextSecondary),
             ),
           ),
@@ -290,6 +305,7 @@ class _InteractiveBodyMap extends StatelessWidget {
     required this.height,
     required this.onMuscleTap,
     required this.onSuggestView,
+    this.lite = false,
   });
 
   final Map<String, int> targets;
@@ -299,10 +315,12 @@ class _InteractiveBodyMap extends StatelessWidget {
   final double height;
   final ValueChanged<String> onMuscleTap;
   final ValueChanged<BodyView> onSuggestView;
+  /// حالت سبک برای کارت زنده داخل صفحه ثبت (بدون انیمیشن/سایه سنگین).
+  final bool lite;
 
   static const _minMapIntensity = 10;
-  static const _frontAsset = 'images/gymai_body_front_premium.png';
-  static const _backAsset = 'images/gymai_body_back_premium.png';
+  static const _frontAsset = 'images/gymai_body_front_v2.png';
+  static const _backAsset = 'images/gymai_body_back_v2.png';
 
   BodyView? _suggestedView() {
     final current = _viewMuscleKeys(view);
@@ -336,18 +354,22 @@ class _InteractiveBodyMap extends StatelessWidget {
         : _BodyImageFrame.back;
     final suggestedView = _suggestedView();
 
-    return SizedBox(
+    final map = SizedBox(
       height: height,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFF000000),
-          borderRadius: BorderRadius.circular(18.r),
+          color: isDark
+              ? const Color(0xFF0B0D10)
+              : AppTheme.lightSurfaceColor,
+          borderRadius: BorderRadius.circular(16.r),
           border: Border.all(
-            color: AppTheme.goldColor.withValues(alpha: 0.22),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.08),
           ),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(18.r),
+          borderRadius: BorderRadius.circular(16.r),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final canvas = Size(constraints.maxWidth, constraints.maxHeight);
@@ -371,7 +393,8 @@ class _InteractiveBodyMap extends StatelessWidget {
                 final t =
                     (value.clamp(_minMapIntensity, 100) - _minMapIntensity) /
                         (100 - _minMapIntensity);
-                return base * (0.62 + t * 0.38);
+                // فرعی/فعال باید دیده شوند؛ فقط اصلی نباید بلندی کند.
+                return base * (0.72 + t * 0.38);
               }
 
               final sortedHotspots = [...hotspots]..sort((a, b) {
@@ -383,25 +406,18 @@ class _InteractiveBodyMap extends StatelessWidget {
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        center: const Alignment(0, -0.05),
-                        radius: 0.75,
-                        colors: [
-                          AppTheme.goldColor.withValues(alpha: 0.09),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
                   Positioned.fromRect(
                     rect: layout.imageRect,
-                    child: Image.asset(
-                      asset,
-                      fit: BoxFit.fill,
-                      filterQuality: FilterQuality.high,
-                      gaplessPlayback: true,
+                    child: Opacity(
+                      opacity: 0.92,
+                      child: Image.asset(
+                        asset,
+                        fit: BoxFit.fill,
+                        filterQuality: lite
+                            ? FilterQuality.low
+                            : FilterQuality.medium,
+                        gaplessPlayback: true,
+                      ),
                     ),
                   ),
                   ...sortedHotspots.map((spot) {
@@ -428,6 +444,7 @@ class _InteractiveBodyMap extends StatelessWidget {
                           intensity: value,
                           selected: selected,
                           isDark: isDark,
+                          lite: lite,
                         ),
                       ),
                     );
@@ -451,7 +468,7 @@ class _InteractiveBodyMap extends StatelessWidget {
                                 children: [
                                   Icon(
                                     LucideIcons.rotateCw,
-                                    color: AppTheme.goldColor,
+                                    color: Colors.white,
                                     size: 22.sp,
                                   ),
                                   SizedBox(height: 8.h),
@@ -483,27 +500,15 @@ class _InteractiveBodyMap extends StatelessWidget {
                         ),
                       ),
                     ),
-                  Positioned(
-                    left: 10.w,
-                    bottom: 8.h,
-                    child: Text(
-                      'GymAI',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 9.sp,
-                        fontWeight: FontWeight.w800,
-                        color: AppTheme.goldColor.withValues(alpha: 0.35),
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
                 ],
               );
             },
           ),
         ),
       ),
-    ).animate(key: ValueKey(view)).fadeIn(duration: 260.ms);
+    );
+    if (lite) return map;
+    return map.animate(key: ValueKey(view)).fadeIn(duration: 260.ms);
   }
 }
 
@@ -512,37 +517,114 @@ class _MuscleHeatOverlay extends StatelessWidget {
     required this.intensity,
     required this.selected,
     required this.isDark,
+    this.lite = false,
   });
 
   final int intensity;
   final bool selected;
   final bool isDark;
+  final bool lite;
 
   @override
   Widget build(BuildContext context) {
-    final heat = intensity > 0
-        ? MuscleTargets.heatColor(intensity, isDark: isDark)
-        : AppTheme.goldColor.withValues(alpha: 0.5);
-    final strength = intensity.clamp(10, 100) / 100.0;
+    final heat = MuscleTargets.heatColor(intensity, isDark: isDark);
+    // شدت متوسط (فرعی≈۳۵) با آلفا خطی تقریباً نامرئی بود؛ منحنی را بالا می‌کشیم.
+    final tNorm = (intensity.clamp(10, 100) - 10) / 90.0;
+    final t = 0.52 + tNorm * 0.48;
+    final core = selected ? 0.78 : 0.62;
+    final mid = selected ? 0.46 : 0.34;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(
-            colors: [
-              heat.withValues(alpha: (selected ? 0.88 : 0.72) * strength),
-              heat.withValues(alpha: (selected ? 0.35 : 0.24) * strength),
-              heat.withValues(alpha: 0),
-            ],
-            stops: const [0.0, 0.45, 1.0],
-          ),
-          border: selected
-              ? Border.all(color: AppTheme.goldColor, width: 2)
-              : null,
+    final glow = DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            heat.withValues(alpha: core * t),
+            heat.withValues(alpha: mid * t),
+            heat.withValues(alpha: 0.1 * t),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.38, 0.72, 1.0],
         ),
+        border: selected
+            ? Border.all(
+                color: Colors.white.withValues(alpha: 0.85),
+                width: 1.5,
+              )
+            : null,
       ),
+    );
+
+    if (lite) return glow;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: heat.withValues(alpha: selected ? 0.5 : 0.28 * t),
+            blurRadius: selected ? 12 : 9,
+            spreadRadius: selected ? 0.8 : 0.2,
+          ),
+        ],
+      ),
+      child: glow,
+    );
+  }
+}
+
+class _CompactHeatLegend extends StatelessWidget {
+  const _CompactHeatLegend({
+    required this.entries,
+    required this.isDark,
+  });
+
+  final List<MapEntry<String, int>> entries;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (final e in entries) ...[
+          if (e != entries.first) SizedBox(height: 4.h),
+          Row(
+            children: [
+              Container(
+                width: 8.w,
+                height: 8.w,
+                decoration: BoxDecoration(
+                  color: MuscleTargets.heatColor(e.value, isDark: isDark),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              SizedBox(width: 6.w),
+              Expanded(
+                child: Text(
+                  MuscleTargets.label(e.key),
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white70 : AppTheme.lightTextColor,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                MuscleTargets.intensityLabel(e.value),
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w700,
+                  color: MuscleTargets.heatColor(e.value, isDark: isDark),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }
@@ -578,14 +660,18 @@ class _MuscleChips extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
               decoration: BoxDecoration(
                 color: selected
-                    ? color.withValues(alpha: 0.25)
+                    ? color.withValues(alpha: 0.18)
                     : (isDark
                         ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.white.withValues(alpha: 0.7)),
+                        : Colors.black.withValues(alpha: 0.04)),
                 borderRadius: BorderRadius.circular(20.r),
                 border: Border.all(
-                  color: selected ? color : color.withValues(alpha: 0.35),
-                  width: selected ? 1.5 : 1,
+                  color: selected
+                      ? color.withValues(alpha: 0.7)
+                      : (isDark
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : Colors.black.withValues(alpha: 0.08)),
+                  width: selected ? 1.4 : 1,
                 ),
               ),
               child: Row(
@@ -599,7 +685,7 @@ class _MuscleChips extends StatelessWidget {
                   ),
                   SizedBox(width: 6.w),
                   Text(
-                    '${MuscleTargets.label(e.key)} ${e.value}%',
+                    '${MuscleTargets.label(e.key)} · ${MuscleTargets.intensityLabel(e.value)}',
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontSize: 11.sp,
@@ -660,7 +746,7 @@ class _SelectedMuscleCard extends StatelessWidget {
                 ),
               ),
               Text(
-                '$value%',
+                '$value',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 16.sp,
@@ -672,7 +758,7 @@ class _SelectedMuscleCard extends StatelessWidget {
           ),
           SizedBox(height: 6.h),
           Text(
-            '\u0634\u062f\u062a \u062a\u0645\u0631\u06cc\u0646: $label',
+            'شدت نسبی هفته: $label',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 12.sp,
@@ -698,13 +784,14 @@ class _SelectedMuscleCard extends StatelessWidget {
 }
 
 enum _BodyImageFrame {
+  /// Portrait v2 assets (300×600), viewport = body opaque bbox.
   front(
-    imageAspect: 1536 / 1024,
-    viewport: Rect.fromLTWH(0.342, 0.027, 0.299, 0.972),
+    imageAspect: 300 / 600,
+    viewport: Rect.fromLTWH(0.163, 0.047, 0.667, 0.848),
   ),
   back(
-    imageAspect: 1536 / 1024,
-    viewport: Rect.fromLTWH(0.365, 0.035, 0.265, 0.945),
+    imageAspect: 300 / 600,
+    viewport: Rect.fromLTWH(0.143, 0.047, 0.707, 0.848),
   );
 
   const _BodyImageFrame({
@@ -754,46 +841,49 @@ class _MuscleHotspot {
 class _MuscleHotspotLayout {
   _MuscleHotspotLayout._();
 
-  /// جابه‌جایی عمودی همهٔ نقاط هیت‌مپ (نسبت به ارتفاع بدن در تصویر).
-  static const double verticalBias = 0.03;
+  /// جابه‌جایی عمودی همهٔ نقاط (نسبت به ارتفاع بدن).
+  static const double verticalBias = 0.0;
 
   static List<_MuscleHotspot> forView(BodyView view) =>
       view == BodyView.front ? _front : _back;
 
+  /// مختصات نسبت به bbox بدن در `gymai_body_*_v2.png` (A-pose).
   static const _front = <_MuscleHotspot>[
-    _MuscleHotspot('chest_upper', 0.524, 0.19, 0.11),
-    _MuscleHotspot('chest_middle', 0.524, 0.24, 0.12),
-    _MuscleHotspot('chest_lower', 0.524, 0.29, 0.10),
-    _MuscleHotspot('shoulder_anterior', 0.355, 0.15, 0.065),
-    _MuscleHotspot('shoulder_anterior', 0.693, 0.15, 0.065),
-    _MuscleHotspot('shoulder_lateral', 0.428, 0.13, 0.058),
-    _MuscleHotspot('shoulder_lateral', 0.620, 0.13, 0.058),
-    _MuscleHotspot('biceps', 0.200, 0.27, 0.075),
-    _MuscleHotspot('biceps', 0.848, 0.27, 0.075),
-    _MuscleHotspot('forearms', 0.090, 0.39, 0.065),
-    _MuscleHotspot('forearms', 0.910, 0.39, 0.065),
-    _MuscleHotspot('abs', 0.524, 0.35, 0.11),
-    _MuscleHotspot('quads', 0.380, 0.57, 0.095),
-    _MuscleHotspot('quads', 0.668, 0.57, 0.095),
-    _MuscleHotspot('calf', 0.350, 0.74, 0.075),
-    _MuscleHotspot('calf', 0.698, 0.74, 0.075),
+    _MuscleHotspot('chest_upper', 0.50, 0.185, 0.095),
+    _MuscleHotspot('chest_middle', 0.50, 0.23, 0.105),
+    _MuscleHotspot('chest_lower', 0.50, 0.275, 0.09),
+    _MuscleHotspot('shoulder_anterior', 0.33, 0.15, 0.055),
+    _MuscleHotspot('shoulder_anterior', 0.67, 0.15, 0.055),
+    _MuscleHotspot('shoulder_lateral', 0.26, 0.14, 0.05),
+    _MuscleHotspot('shoulder_lateral', 0.74, 0.14, 0.05),
+    _MuscleHotspot('biceps', 0.19, 0.25, 0.058),
+    _MuscleHotspot('biceps', 0.81, 0.25, 0.058),
+    _MuscleHotspot('forearms', 0.09, 0.365, 0.05),
+    _MuscleHotspot('forearms', 0.91, 0.365, 0.05),
+    _MuscleHotspot('abs', 0.50, 0.36, 0.095, scaleY: 1.15),
+    _MuscleHotspot('quads', 0.37, 0.58, 0.095, scaleY: 1.25),
+    _MuscleHotspot('quads', 0.63, 0.58, 0.095, scaleY: 1.25),
+    _MuscleHotspot('calf', 0.36, 0.79, 0.07),
+    _MuscleHotspot('calf', 0.64, 0.79, 0.07),
   ];
 
   static const _back = <_MuscleHotspot>[
-    _MuscleHotspot('back_trap', 0.519, 0.145, 0.105, scaleX: 1.65, scaleY: 0.88),
-    _MuscleHotspot('shoulder_posterior', 0.444, 0.128, 0.050),
-    _MuscleHotspot('shoulder_posterior', 0.562, 0.128, 0.050),
-    _MuscleHotspot('back_lat', 0.180, 0.21, 0.11),
-    _MuscleHotspot('back_lat', 0.820, 0.21, 0.11),
-    _MuscleHotspot('triceps', 0.166, 0.241, 0.065),
-    _MuscleHotspot('triceps', 0.834, 0.241, 0.065),
-    _MuscleHotspot('forearms', 0.090, 0.39, 0.065),
-    _MuscleHotspot('forearms', 0.910, 0.39, 0.065),
-    _MuscleHotspot('lower_back', 0.500, 0.33, 0.10),
-    _MuscleHotspot('glutes', 0.500, 0.41, 0.12),
-    _MuscleHotspot('hamstrings', 0.380, 0.54, 0.095),
-    _MuscleHotspot('hamstrings', 0.668, 0.54, 0.095),
-    _MuscleHotspot('calf', 0.350, 0.72, 0.075),
-    _MuscleHotspot('calf', 0.698, 0.72, 0.075),
+    _MuscleHotspot('back_trap', 0.50, 0.12, 0.09, scaleX: 1.55, scaleY: 0.8),
+    _MuscleHotspot('shoulder_posterior', 0.34, 0.14, 0.052),
+    _MuscleHotspot('shoulder_posterior', 0.66, 0.14, 0.052),
+    _MuscleHotspot('back_lat', 0.27, 0.255, 0.10),
+    _MuscleHotspot('back_lat', 0.73, 0.255, 0.10),
+    _MuscleHotspot('triceps', 0.15, 0.26, 0.055),
+    _MuscleHotspot('triceps', 0.85, 0.26, 0.055),
+    _MuscleHotspot('forearms', 0.08, 0.38, 0.05),
+    _MuscleHotspot('forearms', 0.92, 0.38, 0.05),
+    _MuscleHotspot('lower_back', 0.50, 0.355, 0.085, scaleY: 1.2),
+    // دو لکه چپ/راست — یک لکه مرکزی باسن را با همسترینگ قاطی می‌کرد.
+    _MuscleHotspot('glutes', 0.38, 0.47, 0.09),
+    _MuscleHotspot('glutes', 0.62, 0.47, 0.09),
+    _MuscleHotspot('hamstrings', 0.37, 0.60, 0.095, scaleY: 1.3),
+    _MuscleHotspot('hamstrings', 0.63, 0.60, 0.095, scaleY: 1.3),
+    _MuscleHotspot('calf', 0.36, 0.78, 0.072),
+    _MuscleHotspot('calf', 0.64, 0.78, 0.072),
   ];
 }

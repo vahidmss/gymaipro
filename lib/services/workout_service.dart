@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/foundation.dart';
 import 'package:gymaipro/models/exercise.dart' as exercise_model;
 import 'package:gymaipro/models/workout.dart';
+import 'package:gymaipro/utils/exercise_search.dart';
 import 'package:gymaipro/workout_log/models/workout_log.dart' hide WorkoutSet;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -127,19 +128,21 @@ class WorkoutService {
 
   Future<List<exercise_model.Exercise>> searchExercises(String query) async {
     try {
+      // other_names آرایه‌ای است؛ سرچ را سمت کلاینت با نرمال‌سازی فارسی انجام می‌دهیم
       final response = await Supabase.instance.client
           .from('ai_exercises')
           .select()
-          .ilike('name', '%$query%')
           .order('name');
 
-      return (response as List<dynamic>)
+      final all = (response as List<dynamic>)
           .map(
             (exercise) => exercise_model.Exercise.fromJson(
               exercise as Map<String, dynamic>,
             ),
           )
           .toList();
+
+      return ExerciseSearch.filter(all, query);
     } catch (e) {
       debugPrint('Error searching exercises: $e');
       rethrow;

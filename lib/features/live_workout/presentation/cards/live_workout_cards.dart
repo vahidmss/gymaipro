@@ -306,7 +306,6 @@ class SetTrackerCard extends StatelessWidget {
     required this.setSavedStatus,
     required this.setFocusNodes,
     required this.onSaveSet,
-    required this.onFocusNextSet,
     super.key,
   });
 
@@ -315,7 +314,6 @@ class SetTrackerCard extends StatelessWidget {
   final List<bool> setSavedStatus;
   final List<Map<String, FocusNode>> setFocusNodes;
   final void Function(int setIndex) onSaveSet;
-  final void Function(int nextSetIndex, String fieldType) onFocusNextSet;
 
   @override
   Widget build(BuildContext context) {
@@ -355,8 +353,10 @@ class SetTrackerCard extends StatelessWidget {
                         : null,
                     isLastSet: setIndex == exercise.sets.length - 1,
                     defaultReps: set.targetReps,
-                    onSaveSet: () => onSaveSet(setIndex),
-                    onFocusNextSet: onFocusNextSet,
+                    onSaveSet: () async {
+                      onSaveSet(setIndex);
+                      return true;
+                    },
                   );
                 }),
               ),

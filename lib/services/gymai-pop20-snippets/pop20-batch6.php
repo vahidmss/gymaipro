@@ -297,7 +297,7 @@ function gymai_pop20_batch6_definitions() {
         'image_key' => 'exercise-batch6-09',
         'slug' => 'فلای-پک-دستگاه',
         'title' => 'فلای پک دستگاه',
-        'aliases' => ['Pec Deck Fly', 'PecDeckFly', 'فلای پک دستگاه'],
+        'aliases' => ['Pec Deck Fly', 'PecDeckFly', 'فلای پک دستگاه', 'پک دک', 'پکدک', 'Pec Deck', 'پروانه‌ای سینه'],
         'intro' => '<strong>فلای پک دستگاه</strong> (Pec Deck Fly) دستگاه پک دک؛ برای مبتدی و پمپ سینه بدون نیاز به تعادل دمبل. در برنامه‌های بدنسازی و فیتنس ایران نام آشنایی است و معمولاً با دستگاه اجرا می‌شود.',
         'caption' => 'فلای پک دستگاه — سینه، اجرای کنترل‌شده',
         'quick' => ['main' => 'سینه', 'secondary' => 'سرشانه', 'difficulty' => 'مبتدی', 'equipment' => 'دستگاه', 'type' => 'ایزوله'],

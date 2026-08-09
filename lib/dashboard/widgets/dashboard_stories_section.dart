@@ -5,7 +5,6 @@ import 'package:gymaipro/academy/models/article.dart';
 import 'package:gymaipro/academy/services/article_read_supabase_service.dart';
 import 'package:gymaipro/academy/services/article_service.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
-import 'package:gymaipro/navigation/constants/navigation_constants.dart';
 import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/widgets/gymai_network_image.dart';
@@ -129,9 +128,7 @@ class _DashboardStoriesSectionState extends State<DashboardStoriesSection> {
               ),
               GestureDetector(
                 onTap: () {
-                  MainNavigationScreen.navigateToTab(
-                    NavigationConstants.academyIndex,
-                  );
+                  MainNavigationScreen.openAcademy();
                 },
                 child: Text(
                   'همه',

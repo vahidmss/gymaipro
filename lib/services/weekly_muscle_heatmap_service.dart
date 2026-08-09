@@ -9,7 +9,7 @@ import 'package:gymaipro/workout_log/services/workout_program_log_service.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:gymaipro/workout_plan_builder/services/workout_program_service.dart';
 
-/// نتیجهٔ تجمیع هیت‌مپ هفتگی — فقط نمایش بصری.
+/// نتیجهٔ تجمیع هیت‌مپ هفتگی — محرک خام جمع‌شده، نمایش نسبی یک‌بار نرمال.
 class WeeklyMuscleHeatmapResult {
   const WeeklyMuscleHeatmapResult({
     required this.targets,
@@ -19,6 +19,8 @@ class WeeklyMuscleHeatmapResult {
     required this.previousSessionCount,
     required this.hasHeatmapData,
     required this.hasPreviousWeekData,
+    this.stimulusTotal = 0,
+    this.previousStimulusTotal = 0,
     this.balanceLine,
     this.weekTrendLine,
     this.programGapLine,
@@ -34,6 +36,7 @@ class WeeklyMuscleHeatmapResult {
         hasPreviousWeekData: false,
       );
 
+  /// شدت نسبی نمایش (۰–۱۰۰) نسبت به پرکارترین عضلهٔ ۷ روز.
   final Map<String, int> targets;
   final Map<String, int> previousWeekTargets;
   final int workoutDays;
@@ -41,6 +44,8 @@ class WeeklyMuscleHeatmapResult {
   final int previousSessionCount;
   final bool hasHeatmapData;
   final bool hasPreviousWeekData;
+  final double stimulusTotal;
+  final double previousStimulusTotal;
   final String? balanceLine;
   final String? weekTrendLine;
   final String? programGapLine;
@@ -57,7 +62,7 @@ class WeeklyMuscleHeatmapResult {
       );
 }
 
-/// تجمیع `muscle_targets` — ۷ روز اخیر + مقایسه و پوشش برنامه.
+/// تجمیع محرک عضله — ۷ روز اخیر + مقایسه با هفته قبل.
 class WeeklyMuscleHeatmapService {
   WeeklyMuscleHeatmapService({
     WorkoutDailyLogService? logService,
@@ -127,13 +132,14 @@ class WeeklyMuscleHeatmapService {
       previousSessionCount: previous.sessionCount,
       hasHeatmapData: hasHeatmap,
       hasPreviousWeekData: hasPrev,
-      balanceLine: hasHeatmap
-          ? MuscleHeatmapInsights.balanceLine(targets)
-          : null,
+      stimulusTotal: current.stimulusTotal,
+      previousStimulusTotal: previous.stimulusTotal,
+      balanceLine:
+          hasHeatmap ? MuscleHeatmapInsights.balanceLine(targets) : null,
       weekTrendLine: hasHeatmap || current.sessionCount > 0
           ? MuscleHeatmapInsights.weekTrendLine(
-              current: targets,
-              previous: previous.targets,
+              currentStimulusTotal: current.stimulusTotal,
+              previousStimulusTotal: previous.stimulusTotal,
               currentSessions: current.sessionCount,
               previousSessions: previous.sessionCount,
             )
@@ -189,7 +195,7 @@ class WeeklyMuscleHeatmapService {
     required DateTime end,
     required Map<int, Exercise> byId,
   }) {
-    final combined = <String, double>{};
+    final combinedStimulus = <String, double>{};
     var sessionCount = 0;
     final days = <String>{};
 
@@ -205,28 +211,19 @@ class WeeklyMuscleHeatmapService {
           byId,
           catalogFallback: _exerciseService.cachedExercisesSync,
         );
-        for (final e in snap.targets.entries) {
-          combined[e.key] = (combined[e.key] ?? 0) + e.value;
+        // جمع خام — بدون نرمال جلسه
+        for (final e in snap.stimulus.entries) {
+          combinedStimulus[e.key] = (combinedStimulus[e.key] ?? 0) + e.value;
         }
       }
     }
 
     return _WindowAggregate(
-      targets: _normalize(combined),
+      targets: MuscleHeatmapAggregate.normalizeForDisplay(combinedStimulus),
+      stimulusTotal: combinedStimulus.values.fold<double>(0, (a, b) => a + b),
       sessionCount: sessionCount,
       days: days,
     );
-  }
-
-  static Map<String, int> _normalize(Map<String, double> raw) {
-    if (raw.isEmpty) return {};
-    final max = raw.values.fold<double>(0, (a, b) => a > b ? a : b);
-    if (max <= 0) return {};
-    final out = <String, int>{};
-    for (final e in raw.entries) {
-      out[e.key] = ((e.value / max) * 100).round().clamp(0, 100);
-    }
-    return out;
   }
 
   static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
@@ -235,11 +232,13 @@ class WeeklyMuscleHeatmapService {
 class _WindowAggregate {
   const _WindowAggregate({
     required this.targets,
+    required this.stimulusTotal,
     required this.sessionCount,
     required this.days,
   });
 
   final Map<String, int> targets;
+  final double stimulusTotal;
   final int sessionCount;
   final Set<String> days;
 }

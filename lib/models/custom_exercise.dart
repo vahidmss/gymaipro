@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:gymaipro/models/exercise.dart';
+import 'package:gymaipro/models/exercise_rich_meta.dart';
 import 'package:gymaipro/models/muscle_targets.dart';
 
 /// یک ستون TEXT که یا یک URL است یا JSON آرایهٔ URLها (چند رسانه بدون ستون جدا)
@@ -70,6 +71,13 @@ class CustomExercise {
     this.viewsCount = 0,
     this.likesCount = 0,
     this.muscleTargets = const {},
+    this.met,
+    this.typicalRpe,
+    this.movementPattern = '',
+    this.bodyEngagement = '',
+    this.mechanicsType = '',
+    this.forceType = '',
+    this.caloriesPer1000kg,
   });
 
   factory CustomExercise.fromJson(Map<String, dynamic> json) {
@@ -81,6 +89,18 @@ class CustomExercise {
       ..._parseCustomExerciseUrlList(json['video_url']),
       ..._parseCustomExerciseUrlList(json['video_urls']),
     ]);
+
+    double? asDouble(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toDouble();
+      return double.tryParse(v.toString().replaceAll(',', '.'));
+    }
+
+    int? asInt(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.round();
+      return int.tryParse(v.toString());
+    }
 
     return CustomExercise(
       id: json['id'] as String,
@@ -115,6 +135,13 @@ class CustomExercise {
       muscleTargets: MuscleTargets.parse(
         json['muscle_targets_json'] ?? json['muscle_targets'],
       ),
+      met: asDouble(json['met']),
+      typicalRpe: asDouble(json['typical_rpe']),
+      movementPattern: (json['movement_pattern'] as String?)?.trim() ?? '',
+      bodyEngagement: (json['body_engagement'] as String?)?.trim() ?? '',
+      mechanicsType: (json['mechanics_type'] as String?)?.trim() ?? '',
+      forceType: (json['force_type'] as String?)?.trim() ?? '',
+      caloriesPer1000kg: asInt(json['calories_per_1000kg']),
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -145,8 +172,24 @@ class CustomExercise {
   final int viewsCount;
   final int likesCount;
   final Map<String, int> muscleTargets;
+  final double? met;
+  final double? typicalRpe;
+  final String movementPattern;
+  final String bodyEngagement;
+  final String mechanicsType;
+  final String forceType;
+  final int? caloriesPer1000kg;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  bool get hasCoreMetrics =>
+      met != null &&
+      typicalRpe != null &&
+      movementPattern.isNotEmpty &&
+      bodyEngagement.isNotEmpty &&
+      mechanicsType.isNotEmpty &&
+      forceType.isNotEmpty &&
+      caloriesPer1000kg != null;
 
   Map<String, dynamic> toJson() {
     return {
@@ -173,8 +216,15 @@ class CustomExercise {
       'estimated_duration': estimatedDuration,
       'views_count': viewsCount,
       'likes_count': likesCount,
-      if (MuscleTargets.hasData(muscleTargets))
-        'muscle_targets_json': jsonEncode(muscleTargets),
+      'muscle_targets_json': muscleTargets,
+      if (met != null) 'met': met,
+      if (typicalRpe != null) 'typical_rpe': typicalRpe,
+      if (movementPattern.isNotEmpty) 'movement_pattern': movementPattern,
+      if (bodyEngagement.isNotEmpty) 'body_engagement': bodyEngagement,
+      if (mechanicsType.isNotEmpty) 'mechanics_type': mechanicsType,
+      if (forceType.isNotEmpty) 'force_type': forceType,
+      if (caloriesPer1000kg != null)
+        'calories_per_1000kg': caloriesPer1000kg,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -230,6 +280,18 @@ class CustomExercise {
       detailedDescription: detailedDescription ?? '',
       author: authorName,
       createdBy: createdBy,
+      muscleTargets: muscleTargets,
+      movementPattern: movementPattern,
+      bodyEngagement: bodyEngagement,
+      typicalRpe: typicalRpe,
+      met: met,
+      caloriesPer1000kg: caloriesPer1000kg,
+      richMeta: ExerciseRichMeta(
+        mechanicsType: mechanicsType,
+        forceType: forceType,
+        movementPatternLabel: movementPattern,
+        bodyEngagementLabel: bodyEngagement,
+      ),
     );
   }
 
@@ -257,6 +319,14 @@ class CustomExercise {
     int? estimatedDuration,
     int? viewsCount,
     int? likesCount,
+    Map<String, int>? muscleTargets,
+    double? met,
+    double? typicalRpe,
+    String? movementPattern,
+    String? bodyEngagement,
+    String? mechanicsType,
+    String? forceType,
+    int? caloriesPer1000kg,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -284,6 +354,14 @@ class CustomExercise {
       estimatedDuration: estimatedDuration ?? this.estimatedDuration,
       viewsCount: viewsCount ?? this.viewsCount,
       likesCount: likesCount ?? this.likesCount,
+      muscleTargets: muscleTargets ?? this.muscleTargets,
+      met: met ?? this.met,
+      typicalRpe: typicalRpe ?? this.typicalRpe,
+      movementPattern: movementPattern ?? this.movementPattern,
+      bodyEngagement: bodyEngagement ?? this.bodyEngagement,
+      mechanicsType: mechanicsType ?? this.mechanicsType,
+      forceType: forceType ?? this.forceType,
+      caloriesPer1000kg: caloriesPer1000kg ?? this.caloriesPer1000kg,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

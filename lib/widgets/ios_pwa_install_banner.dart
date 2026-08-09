@@ -82,13 +82,11 @@ class _IosPwaInstallBannerState extends State<IosPwaInstallBanner> {
   }
 
   Widget _buildTeaser(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       key: const ValueKey('pwa-teaser'),
       padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
       decoration: BoxDecoration(
-        color: (isDark ? AppTheme.cardColor : AppTheme.lightCardColor)
-            .withValues(alpha: 0.97),
+        color: context.cardColor.withValues(alpha: 0.97),
         borderRadius: BorderRadius.circular(14.r),
         border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.35)),
         boxShadow: [
@@ -126,7 +124,7 @@ class _IosPwaInstallBannerState extends State<IosPwaInstallBanner> {
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 13.sp,
                     fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : AppTheme.backgroundColor,
+                    color: context.textColor,
                   ),
                 ),
                 SizedBox(height: 2.h),
@@ -135,8 +133,7 @@ class _IosPwaInstallBannerState extends State<IosPwaInstallBanner> {
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 11.sp,
-                    color: (isDark ? Colors.white : AppTheme.backgroundColor)
-                        .withValues(alpha: 0.7),
+                    color: context.textSecondary,
                   ),
                 ),
               ],
@@ -157,7 +154,11 @@ class _IosPwaInstallBannerState extends State<IosPwaInstallBanner> {
           IconButton(
             tooltip: 'بعداً',
             onPressed: () => _dismiss(permanent: false),
-            icon: Icon(LucideIcons.x, size: 18.sp),
+            icon: Icon(
+              LucideIcons.x,
+              size: 18.sp,
+              color: context.textSecondary,
+            ),
           ),
         ],
       ),
@@ -165,7 +166,6 @@ class _IosPwaInstallBannerState extends State<IosPwaInstallBanner> {
   }
 
   Widget _buildGuideCard(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final steps = <(IconData, String)>[
       (LucideIcons.share, '۱. دکمه Share (مربع با فلش) پایین Safari را بزنید'),
       (LucideIcons.plusSquare, '۲. گزینه «Add to Home Screen» را انتخاب کنید'),
@@ -176,8 +176,7 @@ class _IosPwaInstallBannerState extends State<IosPwaInstallBanner> {
       key: const ValueKey('pwa-guide'),
       padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 12.h),
       decoration: BoxDecoration(
-        color: (isDark ? AppTheme.cardColor : AppTheme.lightCardColor)
-            .withValues(alpha: 0.98),
+        color: context.cardColor.withValues(alpha: 0.98),
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.4)),
         boxShadow: [
@@ -203,13 +202,17 @@ class _IosPwaInstallBannerState extends State<IosPwaInstallBanner> {
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 14.sp,
                     fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : AppTheme.backgroundColor,
+                    color: context.textColor,
                   ),
                 ),
               ),
               IconButton(
                 onPressed: () => setState(() => _showGuide = false),
-                icon: Icon(LucideIcons.chevronDown, size: 20.sp),
+                icon: Icon(
+                  LucideIcons.chevronDown,
+                  size: 20.sp,
+                  color: context.textSecondary,
+                ),
               ),
             ],
           ),
@@ -220,8 +223,7 @@ class _IosPwaInstallBannerState extends State<IosPwaInstallBanner> {
               fontFamily: AppTheme.fontFamily,
               fontSize: 11.5.sp,
               height: 1.45,
-              color: (isDark ? Colors.white : AppTheme.backgroundColor)
-                  .withValues(alpha: 0.75),
+              color: context.textSecondary,
             ),
           ),
           SizedBox(height: 12.h),
@@ -238,7 +240,7 @@ class _IosPwaInstallBannerState extends State<IosPwaInstallBanner> {
                       fontFamily: AppTheme.fontFamily,
                       fontSize: 12.sp,
                       height: 1.4,
-                      color: isDark ? Colors.white : AppTheme.backgroundColor,
+                      color: context.textColor,
                     ),
                   ),
                 ),
@@ -265,8 +267,7 @@ class _IosPwaInstallBannerState extends State<IosPwaInstallBanner> {
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 11.sp,
-                    color: (isDark ? Colors.white : AppTheme.backgroundColor)
-                        .withValues(alpha: 0.6),
+                    color: context.textSecondary,
                   ),
                 ),
               ),

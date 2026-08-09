@@ -304,7 +304,7 @@ function gymai_pop20_batch1_definitions() {
         'summary' => 'پرس شیب‌دار کلید سینه‌ی «پر» و بالاتنه قوی.',
         'summary_keys' => 'شیب ۱۵–۳۰° | خط بالای سینه | کتف جمع',
         'meta' => [
-            'main_muscle' => 'chest_upper', 'secondary_muscle_keys' => ['shoulder_anterior', 'triceps'],
+            'main_muscle' => 'chest', 'secondary_muscle_keys' => ['shoulder_anterior', 'triceps'],
             'difficulty' => 'intermediate', 'equipment_keys' => ['barbell', 'incline_bench'],
             'exercise_type' => 'strength', 'movement_pattern' => 'horizontal_push', 'body_engagement' => 'compound',
             'mechanics_type' => 'compound', 'force_type' => 'push', 'plane_of_motion' => 'sagittal', 'laterality' => 'bilateral',

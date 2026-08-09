@@ -179,13 +179,19 @@ LEFT JOIN profiles requester ON fr.requester_id = requester.id
 LEFT JOIN profiles requested ON fr.requested_id = requested.id;
 
 -- View برای نمایش دوستان با اطلاعات کاربر
-CREATE OR REPLACE VIEW user_friends_with_info AS
+DROP VIEW IF EXISTS user_friends_with_info;
+CREATE VIEW user_friends_with_info AS
 SELECT 
     uf.*,
     friend.username as friend_username,
     CONCAT(COALESCE(friend.first_name, ''), ' ', COALESCE(friend.last_name, '')) as friend_full_name,
     friend.avatar_url as friend_avatar,
-    friend.is_online as friend_is_online
+    friend.last_seen_at as friend_last_seen_at,
+    friend.last_active_at as friend_last_active_at,
+    (
+      COALESCE(friend.last_seen_at, friend.last_active_at)
+        > (NOW() - INTERVAL '5 minutes')
+    ) as friend_is_online
 FROM user_friends uf
 LEFT JOIN profiles friend ON uf.friend_id = friend.id;
 

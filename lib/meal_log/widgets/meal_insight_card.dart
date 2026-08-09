@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_log/services/meal_insight_engine.dart';
+import 'package:gymaipro/meal_log/utils/meal_log_utils.dart';
 import 'package:gymaipro/meal_log/widgets/meal_log_colors.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+/// افزودن سریع + پیام کوتاه غیرتکراری (اگر باشد).
 class MealInsightCard extends StatelessWidget {
   const MealInsightCard({
     required this.insight,
@@ -21,25 +23,17 @@ class MealInsightCard extends StatelessWidget {
 
     final accent = _toneColor(context, insight.tone);
     final showMessage = insight.cardMessage.isNotEmpty;
+    final showSuggestions = insight.suggestions.isNotEmpty;
 
     return Container(
-      margin: EdgeInsets.symmetric(vertical: 8.h),
-      padding: EdgeInsets.all(14.w),
+      margin: EdgeInsets.only(top: 6.h, bottom: 2.h),
+      padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 10.h),
       decoration: BoxDecoration(
         color: MealLogColors.sectionBackground(context),
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(14.r),
         border: Border.all(
-          color: accent.withValues(
-            alpha: MealLogColors.isDark(context) ? 0.55 : 0.65,
-          ),
+          color: MealLogColors.chipBorder(context, selected: false),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withValues(alpha: 0.08),
-            blurRadius: 8.r,
-            offset: Offset(0, 2.h),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -49,73 +43,88 @@ class MealInsightCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               textDirection: TextDirection.rtl,
               children: [
-                Icon(_toneIcon(insight.tone), color: accent, size: 18.sp),
-                SizedBox(width: 8.w),
+                Icon(_toneIcon(insight.tone), color: accent, size: 15.sp),
+                SizedBox(width: 6.w),
                 Expanded(
                   child: Text(
                     insight.cardMessage,
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       color: MealLogColors.primaryText(context),
-                      fontSize: 13.sp,
+                      fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
-                      height: 1.45,
+                      height: 1.4,
                     ),
                     textDirection: TextDirection.rtl,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (insight.streakDays > 1) ...[
-                  SizedBox(width: 8.w),
+                  SizedBox(width: 6.w),
                   _StreakBadge(days: insight.streakDays),
                 ],
               ],
             ),
-          if (insight.suggestions.isNotEmpty) ...[
-            if (showMessage) SizedBox(height: 10.h),
-            if (!showMessage)
-              Padding(
-                padding: EdgeInsets.only(bottom: 8.h),
-                child: Text(
+          if (showSuggestions) ...[
+            if (showMessage) SizedBox(height: 8.h),
+            Row(
+              children: [
+                Text(
                   'افزودن سریع',
                   style: MealLogTypography.caption(
                     context,
                     fontWeight: FontWeight.w800,
-                  ),
+                  ).copyWith(fontSize: 11.sp),
                   textDirection: TextDirection.rtl,
                 ),
-              ),
-            Wrap(
-              spacing: 8.w,
-              runSpacing: 6.h,
-              textDirection: TextDirection.rtl,
-              children: insight.suggestions.map((s) {
-                return ActionChip(
-                  label: Text(
-                    s.label,
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w600,
-                      color: MealLogColors.primaryText(context),
+                const Spacer(),
+                if (!showMessage && insight.streakDays > 1)
+                  _StreakBadge(days: insight.streakDays),
+              ],
+            ),
+            SizedBox(height: 8.h),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              reverse: true,
+              child: Row(
+                children: insight.suggestions.map((s) {
+                  return Padding(
+                    padding: EdgeInsets.only(left: 8.w),
+                    child: ActionChip(
+                      label: Text(
+                        s.label,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 11.sp,
+                          fontWeight: FontWeight.w600,
+                          color: MealLogColors.primaryText(context),
+                        ),
+                      ),
+                      avatar: Icon(
+                        LucideIcons.plus,
+                        size: 13.sp,
+                        color: MealLogColors.accent(context),
+                      ),
+                      backgroundColor: MealLogColors.chipFill(
+                        context,
+                        selected: false,
+                      ),
+                      side: BorderSide(
+                        color: MealLogColors.chipBorder(
+                          context,
+                          selected: false,
+                        ),
+                      ),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      onPressed: onSuggestionTap == null
+                          ? null
+                          : () => onSuggestionTap!(s),
                     ),
-                  ),
-                  avatar: Icon(
-                    LucideIcons.plus,
-                    size: 14.sp,
-                    color: MealLogColors.accent(context),
-                  ),
-                  backgroundColor: MealLogColors.chipFill(
-                    context,
-                    selected: false,
-                  ),
-                  side: BorderSide(
-                    color: MealLogColors.chipBorder(context, selected: false),
-                  ),
-                  onPressed: onSuggestionTap == null
-                      ? null
-                      : () => onSuggestionTap!(s),
-                );
-              }).toList(),
+                  );
+                }).toList(),
+              ),
             ),
           ],
         ],
@@ -157,9 +166,8 @@ class _StreakBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = MealLogColors.accent(context);
-
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
       decoration: BoxDecoration(
         color: MealLogColors.chipFill(context, selected: true),
         borderRadius: BorderRadius.circular(20.r),
@@ -170,14 +178,14 @@ class _StreakBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(LucideIcons.flame, size: 12.sp, color: accent),
+          Icon(LucideIcons.flame, size: 11.sp, color: accent),
           SizedBox(width: 3.w),
           Text(
-            '$days',
+            MealLogUtils.convertToPersianNumbers('$days'),
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               color: MealLogColors.primaryText(context),
-              fontSize: 11.sp,
+              fontSize: 10.sp,
               fontWeight: FontWeight.w800,
             ),
           ),

@@ -558,7 +558,7 @@ function gymai_pop20_batch7_definitions() {
         'summary' => 'ددلیفت بلوک برای پشت و پا و زیربغل در برنامه منظم نتیجه خوب می‌دهد.',
         'summary_keys' => 'زیربغل | تمپو کنترل | دامنه کامل',
         'meta' => [
-            'main_muscle' => 'back_lat', 'secondary_muscle_keys' => ['glutes', 'hamstrings', 'traps'],
+            'main_muscle' => 'lower_back', 'secondary_muscle_keys' => ['glutes', 'hamstrings', 'traps'],
             'difficulty' => 'advanced', 'equipment_keys' => ['barbell'],
             'exercise_type' => 'strength', 'movement_pattern' => 'hip_hinge', 'body_engagement' => 'compound',
             'mechanics_type' => 'compound', 'force_type' => 'pull', 'plane_of_motion' => 'sagittal', 'laterality' => 'bilateral',
@@ -593,7 +593,7 @@ function gymai_pop20_batch7_definitions() {
         'summary' => 'ددلیفت رک برای پشت و زیربغل در برنامه منظم نتیجه خوب می‌دهد.',
         'summary_keys' => 'زیربغل | تمپو کنترل | دامنه کامل',
         'meta' => [
-            'main_muscle' => 'back_lat', 'secondary_muscle_keys' => ['glutes', 'hamstrings', 'traps'],
+            'main_muscle' => 'lower_back', 'secondary_muscle_keys' => ['glutes', 'hamstrings', 'traps'],
             'difficulty' => 'advanced', 'equipment_keys' => ['barbell'],
             'exercise_type' => 'strength', 'movement_pattern' => 'hip_hinge', 'body_engagement' => 'compound',
             'mechanics_type' => 'compound', 'force_type' => 'pull', 'plane_of_motion' => 'sagittal', 'laterality' => 'bilateral',

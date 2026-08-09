@@ -34,6 +34,7 @@ class Exercise {
     this.bodyEngagement = '',
     this.typicalRpe,
     this.met,
+    this.caloriesPer1000kg,
     this.muscleTargets = const {},
     ExerciseRichMeta? richMeta,
   }) : richMeta = richMeta ?? const ExerciseRichMeta();
@@ -348,6 +349,14 @@ class Exercise {
         if (v is num) return v.toDouble();
         return double.tryParse(v.toString());
       }(),
+      caloriesPer1000kg: () {
+        final v = metaMap['calories_per_1000kg'] ??
+            json['calories_per_1000kg'] ??
+            json['caloriesPer1000kg'];
+        if (v == null) return null;
+        if (v is num) return v.round();
+        return int.tryParse(v.toString());
+      }(),
       muscleTargets: MuscleTargets.parse(
         metaMap['muscle_targets'] ??
             json['muscle_targets'] ??
@@ -391,6 +400,8 @@ class Exercise {
   final String bodyEngagement;
   final double? typicalRpe;
   final double? met;
+  /// کالری تقریبی به‌ازای جابه‌جایی ۱۰۰۰ کیلوگرم (seeded علمی).
+  final int? caloriesPer1000kg;
   final Map<String, int> muscleTargets;
   final ExerciseRichMeta richMeta;
 
@@ -474,6 +485,7 @@ class Exercise {
       'bodyEngagement': bodyEngagement,
       'typicalRpe': typicalRpe,
       'met': met,
+      'caloriesPer1000kg': caloriesPer1000kg,
       'muscleTargets': muscleTargets,
       'isFavorite': isFavorite,
       'likes': likes,

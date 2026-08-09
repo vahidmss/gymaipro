@@ -56,15 +56,15 @@ class _VpnWarningBannerState extends State<VpnWarningBanner> {
                   ),
                   constraints: BoxConstraints(maxWidth: maxWidth),
                   decoration: BoxDecoration(
-                    // پس‌زمینه تیره تا روی هر صفحه (حتی سفید) واضح دیده شود
-                    color: Colors.black.withValues(alpha: 0.9),
+                    // پس‌زمینه تیره ثابت تا روی هر صفحه خوانا باشد
+                    color: AppTheme.darkCardColor.withValues(alpha: 0.96),
                     borderRadius: BorderRadius.circular(12.r),
                     border: Border.all(
-                      color: AppTheme.goldColor.withValues(alpha: 0.7),
+                      color: AppTheme.goldColor.withValues(alpha: 0.55),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black87,
+                        color: Colors.black.withValues(alpha: 0.35),
                         blurRadius: 12.r,
                         offset: Offset(0.w, 4.h),
                       ),
@@ -72,29 +72,30 @@ class _VpnWarningBannerState extends State<VpnWarningBanner> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.public,
                         color: AppTheme.goldColor,
-                        size: 20,
+                        size: 20.sp,
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8.w),
                       Expanded(
                         child: Text(
                           'وی‌پی‌ان روشن است. برای سرعت بیشتر خاموشش کنید.',
                           style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11.sp,
+                            color: AppTheme.darkTextColor,
+                            fontSize: 12.sp,
                             fontWeight: FontWeight.w600,
                             fontFamily: AppTheme.fontFamily,
+                            height: 1.35,
                           ),
                           softWrap: true,
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.close,
-                          size: 18,
-                          color: Colors.white70,
+                          size: 18.sp,
+                          color: AppTheme.darkTextColor.withValues(alpha: 0.7),
                         ),
                         onPressed: () {
                           setState(() {
@@ -113,4 +114,3 @@ class _VpnWarningBannerState extends State<VpnWarningBanner> {
     );
   }
 }
-

@@ -49,9 +49,8 @@ class MusicPlayerWidget extends StatelessWidget {
                   SizedBox(height: compact ? 6.h : 12.h),
                   Text(
                     'موزیکی انتخاب نشده',
-                    style: AppTheme.bodyStyle.copyWith(
+                    style: context.bodyStyle.copyWith(
                       fontSize: compact ? 12.sp : 14.sp,
-                      color: context.textSecondary,
                     ),
                   ),
                 ],
@@ -150,10 +149,9 @@ class MusicPlayerWidget extends StatelessWidget {
                           children: [
                             Text(
                               currentMusic.title,
-                              style: AppTheme.headingStyle.copyWith(
+                              style: context.headingStyle.copyWith(
                                 fontSize: 14.sp,
                                 fontWeight: FontWeight.w800,
-                                color: context.textColor,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -161,9 +159,8 @@ class MusicPlayerWidget extends StatelessWidget {
                             SizedBox(height: 4.h),
                             Text(
                               currentMusic.displayArtist,
-                              style: AppTheme.bodyStyle.copyWith(
+                              style: context.bodyStyle.copyWith(
                                 fontSize: 11.sp,
-                                color: context.textSecondary,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -172,7 +169,7 @@ class MusicPlayerWidget extends StatelessWidget {
                               SizedBox(height: 3.h),
                               Text(
                                 'نویسنده: ${currentMusic.author!.trim()}',
-                                style: AppTheme.bodyStyle.copyWith(
+                                style: context.bodyStyle.copyWith(
                                   fontSize: 10.sp,
                                   color: AppTheme.goldColor.withValues(
                                     alpha: 0.8,
@@ -233,17 +230,15 @@ class MusicPlayerWidget extends StatelessWidget {
                           children: [
                             Text(
                               _formatDuration(player.position),
-                              style: AppTheme.bodyStyle.copyWith(
+                              style: context.bodyStyle.copyWith(
                                 fontSize: 9.sp,
-                                color: context.textSecondary,
                               ),
                               textDirection: TextDirection.ltr,
                             ),
                             Text(
                               _formatDuration(player.duration),
-                              style: AppTheme.bodyStyle.copyWith(
+                              style: context.bodyStyle.copyWith(
                                 fontSize: 9.sp,
-                                color: context.textSecondary,
                               ),
                               textDirection: TextDirection.ltr,
                             ),
@@ -434,10 +429,9 @@ class MusicPlayerWidget extends StatelessWidget {
                     // Music Info
                     Text(
                       currentMusic.title,
-                      style: AppTheme.headingStyle.copyWith(
+                      style: context.headingStyle.copyWith(
                         fontSize: 16.sp,
                         fontWeight: FontWeight.w900,
-                        color: context.textColor,
                       ),
                       textAlign: TextAlign.center,
                       maxLines: 2,
@@ -446,9 +440,8 @@ class MusicPlayerWidget extends StatelessWidget {
                     SizedBox(height: 4.h),
                     Text(
                       currentMusic.displayArtist,
-                      style: AppTheme.bodyStyle.copyWith(
+                      style: context.bodyStyle.copyWith(
                         fontSize: 12.sp,
-                        color: context.textSecondary,
                       ),
                       textAlign: TextAlign.center,
                       maxLines: 1,
@@ -458,7 +451,7 @@ class MusicPlayerWidget extends StatelessWidget {
                       SizedBox(height: 6.h),
                       Text(
                         'نویسنده: ${currentMusic.author!.trim()}',
-                        style: AppTheme.bodyStyle.copyWith(
+                        style: context.bodyStyle.copyWith(
                           fontSize: 11.sp,
                           color: AppTheme.goldColor.withValues(alpha: 0.85),
                           fontWeight: FontWeight.w700,
@@ -515,17 +508,15 @@ class MusicPlayerWidget extends StatelessWidget {
                         children: [
                           Text(
                             _formatDuration(player.position),
-                            style: AppTheme.bodyStyle.copyWith(
+                            style: context.bodyStyle.copyWith(
                               fontSize: 10.sp,
-                              color: context.textSecondary,
                             ),
                             textDirection: TextDirection.ltr,
                           ),
                           Text(
                             _formatDuration(player.duration),
-                            style: AppTheme.bodyStyle.copyWith(
+                            style: context.bodyStyle.copyWith(
                               fontSize: 10.sp,
-                              color: context.textSecondary,
                             ),
                             textDirection: TextDirection.ltr,
                           ),

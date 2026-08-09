@@ -288,7 +288,7 @@ function gymai_pop20_batch1_definitions() {
     $add([
         'slug' => 'پرس-سینه-شیب-دار',
         'title' => 'پرس سینه شیب دار',
-        'aliases' => ['Incline Bench Press', 'Incline Barbell Press', 'Incline Dumbbell Press', 'پرس بالاسینه'],
+        'aliases' => ['Incline Bench Press', 'Incline Barbell Press', 'Incline Dumbbell Press', 'پرس بالاسینه', 'پرس بالا سینه', 'بالاسینه', 'بنچ پرس بالاسینه', 'پرس سینه بالا'],
         'intro' => '<strong>پرس سینه شیب دار</strong> (بالاسینه) برای تأکید روی fibers بالایی سینه و سرشانه قدامی است؛ معمولاً ۱۵–۳۰ درجه.',
         'caption' => 'پرس سینه شیب دار — زاویه ملایم نیمکت',
         'quick' => ['main' => 'سینه بالایی', 'secondary' => 'سرشانه قدامی، پشت بازو', 'difficulty' => 'متوسط', 'equipment' => 'هالتر یا دمبل، نیمکت شیب‌دار', 'type' => 'قدرتی / حجمی'],
@@ -304,7 +304,7 @@ function gymai_pop20_batch1_definitions() {
         'summary' => 'پرس شیب‌دار کلید سینه‌ی «پر» و بالاتنه قوی.',
         'summary_keys' => 'شیب ۱۵–۳۰° | خط بالای سینه | کتف جمع',
         'meta' => [
-            'main_muscle' => 'chest_upper', 'secondary_muscle_keys' => ['shoulder_anterior', 'triceps'],
+            'main_muscle' => 'chest', 'secondary_muscle_keys' => ['shoulder_anterior', 'triceps'],
             'difficulty' => 'intermediate', 'equipment_keys' => ['barbell', 'incline_bench'],
             'exercise_type' => 'strength', 'movement_pattern' => 'horizontal_push', 'body_engagement' => 'compound',
             'mechanics_type' => 'compound', 'force_type' => 'push', 'plane_of_motion' => 'sagittal', 'laterality' => 'bilateral',

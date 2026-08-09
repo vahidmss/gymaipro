@@ -5,11 +5,7 @@ import 'package:flutter/material.dart';
 /// Below-the-fold dashboard sections revealed after first paint.
 enum DashboardDeferredSection {
   metrics,
-  chart,
   heatmap,
-  hero,
-  rankings,
-  discover,
 }
 
 /// Placeholder until [ready] is true (scroll or fallback timer).
@@ -36,7 +32,6 @@ class DashboardDeferredGate extends StatelessWidget {
 
 /// Tracks scroll + fallback timer, then staggers section mounts to avoid
 /// a single heavy mount wave. [forceReveal] mounts everything immediately
-/// (used by the feature tour).
 class DashboardDeferredReveal extends ChangeNotifier {
   DashboardDeferredReveal({
     required ScrollController scrollController,
@@ -55,14 +50,10 @@ class DashboardDeferredReveal extends ChangeNotifier {
     _fallbackTimer = Timer(fallbackDelay, _beginReveal);
   }
 
-  /// Order: light UI first, Discover last (heaviest network).
+  /// Order: light UI first, then content + rankings.
   static const List<DashboardDeferredSection> staggerOrder = [
     DashboardDeferredSection.metrics,
-    DashboardDeferredSection.chart,
     DashboardDeferredSection.heatmap,
-    DashboardDeferredSection.hero,
-    DashboardDeferredSection.rankings,
-    DashboardDeferredSection.discover,
   ];
 
   final ScrollController _scrollController;

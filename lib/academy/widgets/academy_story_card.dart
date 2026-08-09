@@ -66,7 +66,7 @@ class AcademyStoryCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: AppTheme.bodyStyle.copyWith(
+              style: context.bodyStyle.copyWith(
                 fontSize: 9.sp,
                 fontWeight: FontWeight.w500,
               ),

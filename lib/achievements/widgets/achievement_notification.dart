@@ -242,13 +242,13 @@ class _AchievementNotificationWidgetState
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(
-                                            LucideIcons.star,
+                                            LucideIcons.sparkles,
                                             size: 12.sp,
                                             color: AppTheme.goldColor,
                                           ),
                                           SizedBox(width: 4.w),
                                           Text(
-                                            '+${widget.achievement.points}',
+                                            '+${widget.achievement.points} امتیاز',
                                             style: TextStyle(
                                               fontSize: 12.sp,
                                               fontWeight: FontWeight.bold,

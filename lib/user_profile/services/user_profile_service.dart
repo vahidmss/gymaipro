@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/foundation.dart';
+import 'package:gymaipro/core/user_presence.dart';
 import 'package:gymaipro/profile/models/user_profile.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -173,15 +174,21 @@ class UserProfileService {
     return (row['id'] as String?)?.trim();
   }
 
+  /// جستجوی نام کاربری.
+  /// پیش‌فرض: prefix (`query%`) برای جلوگیری از enumeration با یک حرف.
   static Future<List<Map<String, dynamic>>> searchByUsername(
     String query, {
-    int limit = 25,
+    int limit = 15,
+    bool prefixOnly = true,
   }) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return [];
     try {
+      final pattern = prefixOnly ? '$trimmed%' : '%$trimmed%';
       final rows = await _client
           .from('profiles')
           .select(_friendListColumns)
-          .ilike('username', '%$query%')
+          .ilike('username', pattern)
           .limit(limit);
       return rows
           .map((row) => Map<String, dynamic>.from(row as Map))
@@ -337,6 +344,7 @@ class UserProfileService {
           .from('profiles')
           .select()
           .eq('role', 'trainer')
+          .order('trainer_score', ascending: false)
           .order('ranking', ascending: true);
       return rows
           .map((row) => Map<String, dynamic>.from(row as Map))
@@ -368,14 +376,21 @@ class UserProfileService {
 
   static Future<List<Map<String, dynamic>>> fetchOnlineTrainers() async {
     try {
+      final threshold = DateTime.now()
+          .toUtc()
+          .subtract(UserPresence.onlineWindow)
+          .toIso8601String();
       final rows = await _client
           .from('profiles')
           .select()
           .eq('role', 'trainer')
-          .eq('is_online', true)
+          .or(
+            'last_seen_at.gte.$threshold,last_active_at.gte.$threshold',
+          )
           .order('ranking', ascending: true);
       return rows
           .map((row) => Map<String, dynamic>.from(row as Map))
+          .where(UserPresence.isOnlineFromMap)
           .toList();
     } catch (e) {
       debugPrint('fetchOnlineTrainers: $e');

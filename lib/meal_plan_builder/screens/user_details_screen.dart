@@ -30,8 +30,8 @@ class _UserDetailsScreenMealPlanBuilderState
   Map<String, dynamic>? _confidentialData;
   bool _isLoading = true;
   final Map<String, bool> _expansionStates = {
-    'profile': true,
-    'confidential': true,
+    'profile': false,
+    'confidential': false,
     'trainer_tools': true,
   };
 
@@ -183,11 +183,11 @@ class _UserDetailsScreenMealPlanBuilderState
                         children: [
                           // عکس پروفایل و اطلاعات اصلی
                           _buildProfileHeader(isDark),
-                          SizedBox(height: 16.h),
-                          // ابزار مربی (اول نمایش داده می‌شود)
+                          SizedBox(height: 12.h),
+                          // شاخص‌های مربی
                           _buildTrainerToolsSection(isDark),
-                          SizedBox(height: 16.h),
-                          // اطلاعات پروفایل (expandable)
+                          SizedBox(height: 12.h),
+                          // اطلاعات پروفایل (پیش‌فرض بسته)
                           if (_profile != null)
                             _buildExpandableSection(
                               isDark: isDark,
@@ -196,8 +196,8 @@ class _UserDetailsScreenMealPlanBuilderState
                               icon: LucideIcons.user,
                               child: _buildProfileInfoContent(isDark),
                             ),
-                          SizedBox(height: 16.h),
-                          // اطلاعات محرمانه (expandable)
+                          SizedBox(height: 12.h),
+                          // اطلاعات محرمانه (پیش‌فرض بسته)
                           _buildExpandableSection(
                             isDark: isDark,
                             key: 'confidential',
@@ -215,6 +215,16 @@ class _UserDetailsScreenMealPlanBuilderState
     );
   }
 
+  BoxDecoration _surfaceDecoration(bool isDark) {
+    return BoxDecoration(
+      color: isDark ? AppTheme.darkCardColor : Colors.white,
+      borderRadius: BorderRadius.circular(14.r),
+      border: Border.all(
+        color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.22),
+      ),
+    );
+  }
+
   Widget _buildProfileHeader(bool isDark) {
     final avatarUrl = _profile?['avatar_url']?.toString() ?? '';
     final firstName = _profile?['first_name']?.toString() ?? '';
@@ -228,64 +238,20 @@ class _UserDetailsScreenMealPlanBuilderState
     final finalName = displayName.isNotEmpty ? displayName : username;
 
     return Padding(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 0),
       child: Container(
-        padding: EdgeInsets.all(20.w),
-        decoration: BoxDecoration(
-          gradient: isDark
-              ? null
-              : LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    context.goldGradientColors[0].withValues(alpha: 0.15),
-                    context.cardColor,
-                    context.goldGradientColors[1].withValues(alpha: 0.1),
-                  ],
-                ),
-          color: isDark ? context.backgroundColor : null,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.5),
-            width: 1.5.w,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.35),
-              blurRadius: 16.r,
-              offset: Offset(0.w, 6.h),
-              spreadRadius: 1.r,
-            ),
-            BoxShadow(
-              color: isDark
-                  ? Colors.black.withValues(alpha: 0.5)
-                  : AppTheme.lightTextColor.withValues(alpha: 0.08),
-              blurRadius: 8.r,
-              offset: Offset(0.w, 2.h),
-            ),
-          ],
-        ),
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+        decoration: _surfaceDecoration(isDark),
         child: Row(
           children: [
-            // عکس پروفایل
             Container(
-              width: 80.w,
-              height: 80.w,
+              width: 48.w,
+              height: 48.w,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: AppTheme.goldColor.withValues(
-                    alpha: isDark ? 0.4 : 0.6,
-                  ),
-                  width: 2.w,
+                  color: AppTheme.goldColor.withValues(alpha: 0.35),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.goldColor.withValues(alpha: 0.2),
-                    blurRadius: 8.r,
-                    offset: Offset(0.w, 2.h),
-                  ),
-                ],
               ),
               child: ClipOval(
                 child: avatarUrl.isNotEmpty && avatarUrl != 'null'
@@ -294,69 +260,60 @@ class _UserDetailsScreenMealPlanBuilderState
                         errorWidget: Icon(
                           LucideIcons.user,
                           color: AppTheme.goldColor,
-                          size: 40.sp,
+                          size: 22.sp,
                         ),
                       )
                     : Icon(
                         LucideIcons.user,
                         color: AppTheme.goldColor,
-                        size: 40.sp,
+                        size: 22.sp,
                       ),
               ),
             ),
-            SizedBox(width: 16.w),
+            SizedBox(width: 12.w),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    finalName,
+                    finalName.isNotEmpty ? finalName : widget.userName,
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       color: isDark ? AppTheme.goldColor : context.textColor,
                       fontWeight: FontWeight.w700,
-                      fontSize: 20.sp,
+                      fontSize: 15.sp,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 4.h),
                   if (username.isNotEmpty)
                     Text(
                       '@$username',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         color: isDark
-                            ? AppTheme.goldColor.withValues(alpha: 0.7)
-                            : context.textColor.withValues(alpha: 0.7),
-                        fontSize: 14.sp,
-                      ),
-                    ),
-                  SizedBox(height: 8.h),
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 10.w,
-                      vertical: 4.h,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.goldColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8.r),
-                      border: Border.all(
-                        color: AppTheme.goldColor.withValues(
-                          alpha: isDark ? 0.4 : 0.6,
-                        ),
-                        width: 1.w,
-                      ),
-                    ),
-                    child: Text(
-                      role == 'trainer' ? 'مربی' : 'کاربر',
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        color: isDark ? AppTheme.goldColor : context.textColor,
+                            ? AppTheme.goldColor.withValues(alpha: 0.65)
+                            : context.textColor.withValues(alpha: 0.55),
                         fontSize: 12.sp,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
                 ],
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+              decoration: BoxDecoration(
+                color: AppTheme.goldColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              child: Text(
+                role == 'trainer' ? 'مربی' : 'ورزشکار',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: AppTheme.goldColor,
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -991,46 +948,40 @@ class _UserDetailsScreenMealPlanBuilderState
     }
 
     return Padding(
-      padding: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.only(bottom: 8.h),
       child: Row(
         crossAxisAlignment: isMultiline
             ? CrossAxisAlignment.start
             : CrossAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.7 : 0.8),
-            size: 18.sp,
+          SizedBox(
+            width: 96.w,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: isDark
+                    ? AppTheme.goldColor.withValues(alpha: 0.6)
+                    : context.textColor.withValues(alpha: 0.5),
+                fontSize: 11.sp,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
-          SizedBox(width: 10.w),
+          SizedBox(width: 8.w),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: isDark
-                        ? AppTheme.goldColor.withValues(alpha: 0.7)
-                        : context.textColor.withValues(alpha: 0.7),
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: 2.h),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: isDark ? AppTheme.goldColor : context.textColor,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: isMultiline ? null : 1,
-                  overflow: isMultiline ? null : TextOverflow.ellipsis,
-                ),
-              ],
+            child: Text(
+              value,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: isDark ? AppTheme.goldColor : context.textColor,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+              maxLines: isMultiline ? null : 2,
+              overflow: isMultiline ? null : TextOverflow.ellipsis,
+              textAlign: TextAlign.left,
             ),
           ),
         ],
@@ -1091,58 +1042,25 @@ class _UserDetailsScreenMealPlanBuilderState
     required IconData icon,
     required Widget child,
   }) {
-    final isExpanded = _expansionStates[key] ?? true;
+    final isExpanded = _expansionStates[key] ?? false;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: isDark
-              ? null
-              : LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    context.goldGradientColors[0].withValues(alpha: 0.15),
-                    context.cardColor,
-                    context.goldGradientColors[1].withValues(alpha: 0.1),
-                  ],
-                ),
-          color: isDark ? context.backgroundColor : null,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.5),
-            width: 1.5.w,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.35),
-              blurRadius: 16.r,
-              offset: Offset(0.w, 6.h),
-              spreadRadius: 1.r,
-            ),
-            BoxShadow(
-              color: isDark
-                  ? Colors.black.withValues(alpha: 0.5)
-                  : AppTheme.lightTextColor.withValues(alpha: 0.08),
-              blurRadius: 8.r,
-              offset: Offset(0.w, 2.h),
-            ),
-          ],
-        ),
+        decoration: _surfaceDecoration(isDark),
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: ExpansionTile(
             initiallyExpanded: isExpanded,
             iconColor: AppTheme.goldColor,
-            collapsedIconColor: AppTheme.goldColor,
-            tilePadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-            childrenPadding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 20.h),
+            collapsedIconColor: AppTheme.goldColor.withValues(alpha: 0.7),
+            tilePadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 2.h),
+            childrenPadding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 12.h),
             title: Row(
               children: [
                 Icon(
                   icon,
-                  color: isDark ? AppTheme.goldColor : context.textColor,
-                  size: 20.sp,
+                  color: AppTheme.goldColor,
+                  size: 16.sp,
                 ),
                 SizedBox(width: 8.w),
                 Text(
@@ -1151,7 +1069,7 @@ class _UserDetailsScreenMealPlanBuilderState
                     fontFamily: AppTheme.fontFamily,
                     color: isDark ? AppTheme.goldColor : context.textColor,
                     fontWeight: FontWeight.w700,
-                    fontSize: 18.sp,
+                    fontSize: 14.sp,
                   ),
                 ),
               ],
@@ -1587,176 +1505,109 @@ class _UserDetailsScreenMealPlanBuilderState
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       child: Container(
-        padding: EdgeInsets.all(20.w),
-        decoration: BoxDecoration(
-          gradient: isDark
-              ? null
-              : LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    context.goldGradientColors[0].withValues(alpha: 0.2),
-                    context.cardColor,
-                    context.goldGradientColors[1].withValues(alpha: 0.15),
-                  ],
-                ),
-          color: isDark ? context.backgroundColor : null,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.4 : 0.6),
-            width: 2.w,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.4),
-              blurRadius: 20.r,
-              offset: Offset(0.w, 8.h),
-              spreadRadius: 2.r,
-            ),
-            BoxShadow(
-              color: isDark
-                  ? Colors.black.withValues(alpha: 0.5)
-                  : AppTheme.lightTextColor.withValues(alpha: 0.1),
-              blurRadius: 12.r,
-              offset: Offset(0.w, 4.h),
-            ),
-          ],
-        ),
+        padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 14.h),
+        decoration: _surfaceDecoration(isDark),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Container(
-                  padding: EdgeInsets.all(8.w),
-                  decoration: BoxDecoration(
-                    color: AppTheme.goldColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: Icon(
-                    LucideIcons.sparkles,
-                    color: AppTheme.goldColor,
-                    size: 24.sp,
-                  ),
+                Icon(
+                  LucideIcons.activity,
+                  color: AppTheme.goldColor,
+                  size: 16.sp,
                 ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'ابزار مربی',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: isDark
-                              ? AppTheme.goldColor
-                              : context.textColor,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 20.sp,
-                        ),
-                      ),
-                      SizedBox(height: 4.h),
-                      Text(
-                        'ما می‌خواهیم کمک حال شما باشیم',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: isDark
-                              ? AppTheme.goldColor.withValues(alpha: 0.8)
-                              : context.textColor.withValues(alpha: 0.8),
-                          fontSize: 13.sp,
-                        ),
-                      ),
-                    ],
+                SizedBox(width: 8.w),
+                Text(
+                  'شاخص‌های مربی',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    color: isDark ? AppTheme.goldColor : context.textColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14.sp,
                   ),
                 ),
               ],
             ),
-            SizedBox(height: 20.h),
+            SizedBox(height: 12.h),
             // محاسبات
-            if (bmi != null)
-              _buildMetricCard(
-                isDark: isDark,
-                label: 'BMI',
-                value: bmi.toStringAsFixed(1),
-                category: bmiCategory ?? '',
-                description: bmi < 18.5
-                    ? '${isMale ? 'آقای' : 'خانم'} $finalName در دسته کم‌وزن'
-                    : bmi < 25
-                    ? '${isMale ? 'آقای' : 'خانم'} $finalName در محدوده سالم'
-                    : bmi < 30
-                    ? '${isMale ? 'آقای' : 'خانم'} $finalName اضافه وزن دارد'
-                    : '${isMale ? 'آقای' : 'خانم'} $finalName در دسته چاقی',
-                icon: LucideIcons.scale,
-                color: FitnessCalculator.getBMIColor(bmi),
+            if (bmi == null && bmr == null && tdee == null && idealWeight == null)
+              Text(
+                'قد و وزن ثبت نشده — شاخصی برای محاسبه نیست.',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: isDark
+                      ? AppTheme.goldColor.withValues(alpha: 0.65)
+                      : context.textColor.withValues(alpha: 0.55),
+                  fontSize: 12.sp,
+                ),
               ),
-            if (bmi != null) SizedBox(height: 12.h),
-            if (bmr != null)
-              _buildMetricCard(
-                isDark: isDark,
-                label: 'BMR',
-                value: bmr.toStringAsFixed(0),
-                description: 'متابولیسم پایه (کالری در حالت استراحت)',
-                icon: LucideIcons.activity,
-                color: AppTheme.goldColor,
-              ),
-            if (bmr != null) SizedBox(height: 12.h),
-            if (tdee != null)
-              _buildMetricCard(
-                isDark: isDark,
-                label: 'TDEE',
-                value: tdee.toStringAsFixed(0),
-                description:
-                    'کل انرژی روزانه مورد نیاز (بر اساس سطح فعالیت: ${activityLevelStr.toActivityLevel().description})',
-                icon: LucideIcons.flame,
-                color: AppTheme.goldColor,
-              ),
-            if (idealWeight != null && weight != null) SizedBox(height: 12.h),
-            if (idealWeight != null && weight != null)
-              _buildMetricCard(
-                isDark: isDark,
-                label: 'وزن ایده‌آل',
-                value: '${idealWeight.toStringAsFixed(1)} کیلوگرم',
-                description: 'وزن فعلی: ${weight.toStringAsFixed(1)} کیلوگرم',
-                icon: LucideIcons.target,
-                color: AppTheme.goldColor,
-              ),
-            if (recommendations.isNotEmpty) ...[
-              SizedBox(height: 20.h),
-              Divider(
-                color: AppTheme.goldColor.withValues(alpha: 0.2),
-                height: 1,
-              ),
-              SizedBox(height: 16.h),
-              Row(
+            if (bmi != null || bmr != null || tdee != null || idealWeight != null)
+              Wrap(
+                spacing: 8.w,
+                runSpacing: 8.h,
                 children: [
-                  Icon(
-                    LucideIcons.lightbulb,
-                    color: AppTheme.goldColor,
-                    size: 20.sp,
-                  ),
-                  SizedBox(width: 8.w),
-                  Text(
-                    'توصیه‌های راهبردی',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      color: isDark ? AppTheme.goldColor : context.textColor,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16.sp,
+                  if (bmi != null)
+                    _buildMetricChip(
+                      isDark: isDark,
+                      label: 'BMI',
+                      value: bmi.toStringAsFixed(1),
+                      hint: bmiCategory,
+                      color: FitnessCalculator.getBMIColor(bmi),
                     ),
-                  ),
+                  if (bmr != null)
+                    _buildMetricChip(
+                      isDark: isDark,
+                      label: 'BMR',
+                      value: bmr.toStringAsFixed(0),
+                      hint: 'kcal',
+                      color: AppTheme.goldColor,
+                    ),
+                  if (tdee != null)
+                    _buildMetricChip(
+                      isDark: isDark,
+                      label: 'TDEE',
+                      value: tdee.toStringAsFixed(0),
+                      hint: 'kcal',
+                      color: AppTheme.goldColor,
+                    ),
+                  if (idealWeight != null && weight != null)
+                    _buildMetricChip(
+                      isDark: isDark,
+                      label: 'وزن ایده‌آل',
+                      value: idealWeight.toStringAsFixed(1),
+                      hint: 'kg',
+                      color: AppTheme.goldColor,
+                    ),
                 ],
               ),
+            if (recommendations.isNotEmpty) ...[
               SizedBox(height: 12.h),
-              ...recommendations.map(
+              Divider(
+                color: AppTheme.goldColor.withValues(alpha: 0.15),
+                height: 1,
+              ),
+              SizedBox(height: 10.h),
+              Text(
+                'نکات مهم',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: isDark ? AppTheme.goldColor : context.textColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.sp,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              ...recommendations.take(4).map(
                 (rec) => Padding(
-                  padding: EdgeInsets.only(bottom: 10.h),
+                  padding: EdgeInsets.only(bottom: 6.h),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
                         margin: EdgeInsets.only(top: 6.h, left: 8.w),
-                        width: 6.w,
-                        height: 6.h,
+                        width: 5.w,
+                        height: 5.h,
                         decoration: const BoxDecoration(
                           color: AppTheme.goldColor,
                           shape: BoxShape.circle,
@@ -1768,10 +1619,10 @@ class _UserDetailsScreenMealPlanBuilderState
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
                             color: isDark
-                                ? AppTheme.goldColor
-                                : context.textColor,
-                            fontSize: 14.sp,
-                            height: 1.6,
+                                ? AppTheme.goldColor.withValues(alpha: 0.9)
+                                : context.textColor.withValues(alpha: 0.8),
+                            fontSize: 12.sp,
+                            height: 1.45,
                           ),
                         ),
                       ),
@@ -1786,111 +1637,60 @@ class _UserDetailsScreenMealPlanBuilderState
     );
   }
 
-  Widget _buildMetricCard({
+  Widget _buildMetricChip({
     required bool isDark,
     required String label,
     required String value,
-    required IconData icon, required Color color, String? category,
-    String? description,
+    required Color color,
+    String? hint,
   }) {
     return Container(
-      padding: EdgeInsets.all(14.w),
+      width: 104.w,
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: isDark ? 0.15 : 0.1),
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: color.withValues(alpha: isDark ? 0.3 : 0.4),
-          width: 1.w,
-        ),
+        color: color.withValues(alpha: isDark ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(10.r),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: EdgeInsets.all(8.w),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8.r),
-            ),
-            child: Icon(icon, color: color, size: 20.sp),
-          ),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: isDark
-                              ? AppTheme.goldColor.withValues(alpha: 0.8)
-                              : context.textColor.withValues(alpha: 0.8),
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                    ),
-                    if (category != null) ...[
-                      SizedBox(width: 8.w),
-                      Flexible(
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 6.w,
-                            vertical: 2.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(4.r),
-                          ),
-                          child: Text(
-                            category,
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: color,
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: isDark ? AppTheme.goldColor : context.textColor,
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (description != null) ...[
-                  SizedBox(height: 4.h),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      color: isDark
-                          ? AppTheme.goldColor.withValues(alpha: 0.7)
-                          : context.textColor.withValues(alpha: 0.7),
-                      fontSize: 12.sp,
-                    ),
-                  ),
-                ],
-              ],
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: isDark
+                  ? AppTheme.goldColor.withValues(alpha: 0.7)
+                  : context.textColor.withValues(alpha: 0.55),
+              fontSize: 10.sp,
+              fontWeight: FontWeight.w500,
             ),
           ),
+          SizedBox(height: 2.h),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: isDark ? AppTheme.goldColor : context.textColor,
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (hint != null && hint.isNotEmpty)
+            Text(
+              hint,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: color,
+                fontSize: 10.sp,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
         ],
       ),
     );
   }
+
 }

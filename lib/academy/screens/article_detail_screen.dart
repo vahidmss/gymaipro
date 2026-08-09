@@ -229,10 +229,9 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
               SizedBox(width: 8.w),
               Text(
                 'جزئیات مقاله',
-                style: AppTheme.headingStyle.copyWith(
+                style: context.headingStyle.copyWith(
                   fontSize: 18.sp,
                   fontWeight: FontWeight.w800,
-                  color: context.textColor,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -302,10 +301,9 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                               children: [
                                 Text(
                                   widget.article.title,
-                                  style: AppTheme.headingStyle.copyWith(
+                                  style: context.headingStyle.copyWith(
                                     fontSize: 22.sp,
                                     fontWeight: FontWeight.w900,
-                                    color: context.textColor,
                                     height: 1.3,
                                   ),
                                 ),
@@ -325,9 +323,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                                         SizedBox(width: 6.w),
                                         Text(
                                           _formatJalali(widget.article.date),
-                                          style: AppTheme.bodyStyle.copyWith(
+                                          style: context.bodyStyle.copyWith(
                                             fontSize: 12.sp,
-                                            color: context.textSecondary,
                                             fontWeight: FontWeight.w600,
                                           ),
                                           maxLines: 1,
@@ -367,7 +364,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                                               SizedBox(width: 4.w),
                                               Text(
                                                 _likeCount.toString(),
-                                                style: AppTheme.bodyStyle
+                                                style: context.bodyStyle
                                                     .copyWith(
                                                       fontSize: 12.sp,
                                                       color: _liked
@@ -555,9 +552,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
             SizedBox(width: 12.w),
             Text(
               'در حال بارگیری نظرات...',
-              style: AppTheme.bodyStyle.copyWith(
+              style: context.bodyStyle.copyWith(
                 fontSize: 12.sp,
-                color: context.textSecondary,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -602,9 +598,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                 if (total > 0)
                   Text(
                     '$total نظر',
-                    style: AppTheme.bodyStyle.copyWith(
+                    style: context.bodyStyle.copyWith(
                       fontSize: 11.sp,
-                      color: context.textSecondary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

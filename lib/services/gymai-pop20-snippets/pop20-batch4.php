@@ -346,7 +346,7 @@ function gymai_pop20_batch4_definitions() {
         'summary' => 'شنا شیب منفی برای بالاسینه بدون وزنه.',
         'summary_keys' => 'Core سفت | خط بدن صاف | دامنه کامل',
         'meta' => [
-            'main_muscle' => 'chest_upper', 'secondary_muscle_keys' => ['shoulder_anterior', 'triceps', 'abs'],
+            'main_muscle' => 'chest', 'secondary_muscle_keys' => ['shoulder_anterior', 'triceps', 'abs'],
             'difficulty' => 'intermediate', 'equipment_keys' => ['bench', 'bodyweight'],
             'exercise_type' => 'strength', 'movement_pattern' => 'horizontal_push', 'body_engagement' => 'compound',
             'mechanics_type' => 'compound', 'force_type' => 'push', 'plane_of_motion' => 'sagittal', 'laterality' => 'bilateral',

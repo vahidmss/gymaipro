@@ -60,12 +60,27 @@ class FriendshipService {
   // جستجوی کاربران
   // =============================================
 
-  /// جستجوی کاربران بر اساس نام کاربری
+  /// حداقل طول نام کاربری برای جستجو (الگوی اپ‌های حرفه‌ای).
+  static const int searchMinLength = 3;
+
+  /// حداکثر نتایج جستجوی دوستان.
+  static const int searchResultLimit = 12;
+
+  /// جستجوی کاربران بر اساس نام کاربری (prefix، حداقل ۳ کاراکتر).
   static Future<List<UserProfile>> searchUsers(String query) async {
     try {
-      final currentUserId = _supabase.auth.currentUser?.id ?? '';
+      final trimmed = query.trim();
+      if (trimmed.length < searchMinLength) return [];
 
-      final rows = await UserProfileService.searchByUsername(query);
+      final currentUserId = _supabase.auth.currentUser?.id ?? '';
+      if (currentUserId.isEmpty) return [];
+
+      final rows = await UserProfileService.searchByUsername(
+        trimmed,
+        limit: searchResultLimit + 5,
+      );
+
+      final blockedIds = await _blockedAuthIdsFor(currentUserId);
 
       final results = <UserProfile>[];
       for (final user in rows) {
@@ -73,13 +88,40 @@ class FriendshipService {
             (user['auth_user_id'] as String?)?.trim().isNotEmpty ?? false
             ? (user['auth_user_id'] as String).trim()
             : (user['id'] as String?) ?? '';
-        if (authId.isEmpty || authId == currentUserId) continue;
+        if (authId.isEmpty ||
+            authId == currentUserId ||
+            blockedIds.contains(authId)) {
+          continue;
+        }
         results.add(_userProfileFromRow(user));
-        if (results.length >= 20) break;
+        if (results.length >= searchResultLimit) break;
       }
       return results;
     } catch (e) {
       throw Exception('خطا در جستجوی کاربران: $e');
+    }
+  }
+
+  static Future<Set<String>> _blockedAuthIdsFor(String currentUserId) async {
+    try {
+      final response = await _supabase
+          .from('user_blocks')
+          .select('blocker_id, blocked_id')
+          .or('blocker_id.eq.$currentUserId,blocked_id.eq.$currentUserId');
+      final ids = <String>{};
+      for (final row in response as List<dynamic>) {
+        final map = Map<String, dynamic>.from(row as Map);
+        final blocker = map['blocker_id'] as String?;
+        final blocked = map['blocked_id'] as String?;
+        if (blocker == currentUserId && blocked != null) {
+          ids.add(blocked);
+        } else if (blocked == currentUserId && blocker != null) {
+          ids.add(blocker);
+        }
+      }
+      return ids;
+    } catch (_) {
+      return {};
     }
   }
 
@@ -408,6 +450,9 @@ class FriendshipService {
                   friend['friend_full_name']?.split(' ').skip(1).join(' ') ??
                   '',
               'avatar_url': friend['friend_avatar'],
+              'friend_last_seen_at': friend['friend_last_seen_at'],
+              'friend_last_active_at': friend['friend_last_active_at'],
+              // fallback اگر ویو هنوز ستون‌های جدید را ندارد
               'is_online': friend['friend_is_online'],
             }),
           )

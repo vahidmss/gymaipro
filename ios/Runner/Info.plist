@@ -62,6 +62,12 @@
 			<string>http</string>
 			<string>tel</string>
 		</array>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>برای ارسال پیام صوتی در چت به دسترسی میکروفون نیاز است.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>برای ارسال عکس از دوربین در چت به دسترسی دوربین نیاز است.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>برای ارسال تصویر از گالری در چت به دسترسی تصاویر نیاز است.</string>
 		<key>UIStatusBarHidden</key>
 		<false/>
 	</dict>

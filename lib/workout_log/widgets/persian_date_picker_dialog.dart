@@ -11,11 +11,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class PersianDatePickerDialog extends StatefulWidget {
   const PersianDatePickerDialog({
     required this.selectedDate,
-    required this.onDateSelected,
+    this.onDateSelected,
     super.key,
   });
   final DateTime selectedDate;
-  final void Function(DateTime) onDateSelected;
+
+  /// اختیاری / منسوخ — ترجیح با نتیجهٔ `showDialog` است.
+  final void Function(DateTime)? onDateSelected;
 
   @override
   State<PersianDatePickerDialog> createState() =>
@@ -158,8 +160,9 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
                       child: GoldButton(
                         text: 'انتخاب',
                         onPressed: () {
-                          widget.onDateSelected(_selectedDate);
-                          Navigator.of(context).pop();
+                          // فقط یک pop با نتیجه — از double-pop جلوگیری می‌کند
+                          widget.onDateSelected?.call(_selectedDate);
+                          Navigator.of(context).pop(_selectedDate);
                         },
                       ),
                     ),
@@ -376,13 +379,12 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
           return Expanded(
             child: GestureDetector(
               onTap: () {
-                SafeSetState.call(this, () {
-                  _selectedDate = gregorianDate;
-                });
+                // یک ضربه = انتخاب و بستن (مثل Hevy)
+                Navigator.of(context).pop(gregorianDate);
               },
               child: Container(
                 margin: EdgeInsets.symmetric(horizontal: 2.w, vertical: 2.h),
-                height: hasWorkoutLog ? 56.h : 44.h,
+                height: 48.h,
                 decoration: BoxDecoration(
                   gradient: isSelected
                       ? const LinearGradient(

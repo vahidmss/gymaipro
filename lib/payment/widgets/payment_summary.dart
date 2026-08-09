@@ -53,6 +53,7 @@ class PaymentSummary extends StatelessWidget {
 
           // مبلغ اصلی
           _buildSummaryRow(
+            context,
             'مبلغ اصلی:',
             PaymentConstants.formatAmount(originalAmount),
             isOriginal: true,
@@ -62,6 +63,7 @@ class PaymentSummary extends StatelessWidget {
           if (discountAmount > 0) ...[
             const SizedBox(height: 8),
             _buildSummaryRow(
+              context,
               'تخفیف:',
               '- ${PaymentConstants.formatAmount(discountAmount)}',
               isDiscount: true,
@@ -85,12 +87,13 @@ class PaymentSummary extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 8),
-            const Divider(color: Colors.white24),
+            Divider(color: context.separatorColor),
           ],
           const SizedBox(height: 8),
 
           // مبلغ نهایی
           _buildSummaryRow(
+            context,
             'مبلغ قابل پرداخت:',
             PaymentConstants.formatAmount(finalAmount),
             isFinal: true,
@@ -128,13 +131,14 @@ class PaymentSummary extends StatelessWidget {
   }
 
   Widget _buildSummaryRow(
+    BuildContext context,
     String label,
     String amount, {
     bool isOriginal = false,
     bool isDiscount = false,
     bool isFinal = false,
   }) {
-    Color textColor = Colors.white70;
+    Color textColor = context.textSecondary;
     FontWeight fontWeight = FontWeight.normal;
     double fontSize = 14;
 
@@ -145,6 +149,8 @@ class PaymentSummary extends StatelessWidget {
       textColor = AppTheme.goldColor;
       fontWeight = FontWeight.bold;
       fontSize = 16;
+    } else if (isOriginal) {
+      textColor = context.textColor;
     }
 
     return Row(
@@ -153,7 +159,7 @@ class PaymentSummary extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+            fontFamily: AppTheme.fontFamily,
             fontSize: fontSize,
             fontWeight: fontWeight,
             color: textColor,
@@ -162,7 +168,7 @@ class PaymentSummary extends StatelessWidget {
         Text(
           amount,
           style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+            fontFamily: AppTheme.fontFamily,
             fontSize: fontSize,
             fontWeight: fontWeight,
             color: textColor,

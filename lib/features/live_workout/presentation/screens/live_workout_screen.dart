@@ -343,7 +343,14 @@ class _LiveWorkoutScreenState extends State<LiveWorkoutScreen> {
                         compact: true,
                         onToggleCollapse: _toggleExerciseCollapse,
                         onNavigateToTutorial: _navigateToExerciseTutorial,
-                        onSaveSet: _viewModel.saveSet,
+                        onSaveSet: (exerciseKey, setIndex) async {
+                          _viewModel.saveSet(exerciseKey, setIndex);
+                          final status =
+                              _viewModel.setSavedStatus[exerciseKey];
+                          return status != null &&
+                              status.length > setIndex &&
+                              status[setIndex];
+                        },
                         onDismissKeyboard: _dismissKeyboard,
                       ),
                     ),

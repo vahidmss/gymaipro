@@ -369,7 +369,9 @@ class TrainerService {
               first_name,
               last_name,
               avatar_url,
-              role
+              role,
+              last_seen_at,
+              last_active_at
             )
           ''')
           .eq('trainer_id', trainerId)
@@ -411,7 +413,9 @@ class TrainerService {
               last_name,
               avatar_url,
               bio,
-              role
+              role,
+              last_seen_at,
+              last_active_at
             )
           ''')
           .eq('client_id', clientId)

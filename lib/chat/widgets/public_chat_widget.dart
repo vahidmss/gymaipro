@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/widgets/chat_hub_ui.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/chat/models/message_send_status.dart';
 import 'package:gymaipro/chat/models/public_chat_message.dart';
 import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/chat/services/public_chat_service.dart';
+import 'package:gymaipro/services/app_feedback_service.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
@@ -17,8 +19,6 @@ import 'package:gymaipro/widgets/user_role_badge.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-enum MessageSendStatus { sending, sent, failed }
 
 class PublicChatWidget extends StatefulWidget {
   const PublicChatWidget({super.key});
@@ -55,8 +55,13 @@ class PublicChatWidgetState extends State<PublicChatWidget>
 
     // اضافه کردن listener برای focus
     _focusNode.addListener(_onFocusChange);
+    _controller.addListener(_onComposerChanged);
 
     _setupSubscription();
+  }
+
+  void _onComposerChanged() {
+    if (mounted) SafeSetState.call(this, () {});
   }
 
   @override
@@ -135,6 +140,9 @@ class PublicChatWidgetState extends State<PublicChatWidget>
         });
         // اسکرول به پایین فقط برای پیام‌های جدید
         if (isNewMessage) {
+          if (!isCurrentUser) {
+            unawaited(AppFeedbackService.instance.messageReceived());
+          }
           _scrollToBottom(delay: const Duration(milliseconds: 100));
         }
       },
@@ -234,6 +242,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
       _messages.add(tempMessage);
       _messageStatuses[tempId] = MessageSendStatus.sending;
     });
+    unawaited(AppFeedbackService.instance.messageSent());
 
     // پاک کردن فیلد ورودی (بدون بستن کیبورد)
     _controller.clear();
@@ -342,6 +351,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _controller.removeListener(_onComposerChanged);
     _messageSub?.cancel();
     _scrollDebounceTimer?.cancel();
     _focusNode.removeListener(_onFocusChange);
@@ -517,6 +527,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
   }
 
   Widget _buildInputBar(bool isDark) {
+    final canSend = _controller.isSafe && _controller.text.trim().isNotEmpty;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: context.cardColor,
@@ -536,34 +547,12 @@ class PublicChatWidgetState extends State<PublicChatWidget>
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 10.h),
+          padding: EdgeInsets.fromLTRB(10.w, 10.h, 10.w, 10.h),
+          // Telegram/WhatsApp chrome: LTR → send on the RIGHT.
           child: Row(
-            textDirection: TextDirection.rtl,
+            textDirection: TextDirection.ltr,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _send,
-                  borderRadius: BorderRadius.circular(14.r),
-                  child: Ink(
-                    width: 44.w,
-                    height: 44.w,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: context.goldGradientColors,
-                      ),
-                      borderRadius: BorderRadius.circular(14.r),
-                    ),
-                    child: Icon(
-                      LucideIcons.send,
-                      color: AppTheme.onGoldColor,
-                      size: 20.sp,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: 10.w),
               Expanded(
                 child: Container(
                   constraints: BoxConstraints(
@@ -572,7 +561,7 @@ class PublicChatWidgetState extends State<PublicChatWidget>
                   ),
                   decoration: BoxDecoration(
                     color: context.backgroundColor,
-                    borderRadius: BorderRadius.circular(16.r),
+                    borderRadius: BorderRadius.circular(22.r),
                     border: Border.all(
                       color: AppTheme.goldColor.withValues(
                         alpha: isDark ? 0.2 : 0.22,
@@ -606,8 +595,42 @@ class PublicChatWidgetState extends State<PublicChatWidget>
                       ),
                       isDense: true,
                     ),
-                    onSubmitted: (_) => _send(),
+                    onSubmitted: (_) {
+                      if (canSend) unawaited(_send());
+                    },
                     textInputAction: TextInputAction.send,
+                  ),
+                ),
+              ),
+              SizedBox(width: 10.w),
+              AnimatedOpacity(
+                duration: const Duration(milliseconds: 160),
+                opacity: canSend ? 1 : 0.45,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: canSend ? _send : null,
+                    borderRadius: BorderRadius.circular(22.r),
+                    child: Ink(
+                      width: 44.w,
+                      height: 44.w,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: context.goldGradientColors,
+                        ),
+                      ),
+                      child: Center(
+                        child: Transform.flip(
+                          flipX: true,
+                          child: Icon(
+                            LucideIcons.send,
+                            color: AppTheme.onGoldColor,
+                            size: 20.sp,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),

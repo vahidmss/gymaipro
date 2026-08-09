@@ -437,14 +437,13 @@ class _AnnouncementFormDialogState extends State<_AnnouncementFormDialog> {
       _DeepLinkOption('/meal-log', 'لاگ تغذیه'),
       _DeepLinkOption('/food-list', 'لیست غذاها'),
       _DeepLinkOption('/exercise-list', 'لیست تمرینات'),
-      _DeepLinkOption('/trainer-ranking', 'رتبه‌بندی مربیان'),
+      _DeepLinkOption('/trainer-ranking', 'لیست مربیان'),
       _DeepLinkOption('/ranking', 'رتبه‌بندی کاربران'),
       _DeepLinkOption('/notifications', 'اعلان‌ها'),
       _DeepLinkOption('/wallet', 'کیف پول'),
       _DeepLinkOption('/subscriptions', 'اشتراک‌ها'),
       _DeepLinkOption('/chat-main', 'چت اصلی'),
       _DeepLinkOption('/settings', 'تنظیمات'),
-      _DeepLinkOption('/help', 'راهنما'),
     ];
   }
 

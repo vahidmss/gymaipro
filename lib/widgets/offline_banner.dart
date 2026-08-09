@@ -25,39 +25,44 @@ class OfflineBanner extends StatelessWidget {
                 return Container(
                   margin: const EdgeInsets.all(horizontalMargin),
                   padding: EdgeInsets.symmetric(
-                    horizontal: 14.w,
-                    vertical: 10.h,
+                    horizontal: 16.w,
+                    vertical: 12.h,
                   ),
                   constraints: BoxConstraints(maxWidth: maxWidth),
                   decoration: BoxDecoration(
-                    color: context.cardColor.withValues(alpha: 0.95),
+                    // بنر هشدار همیشه تیره — روی لایت و دارک خوانا
+                    color: const Color(0xFF141414),
                     borderRadius: BorderRadius.circular(12.r),
                     border: Border.all(
-                      color: AppTheme.goldColor.withValues(alpha: 0.3),
+                      color: AppTheme.goldColor,
+                      width: 1.2,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black54,
-                        blurRadius: 12.r,
+                        color: Colors.black.withValues(alpha: 0.45),
+                        blurRadius: 14.r,
                         offset: Offset(0.w, 4.h),
                       ),
                     ],
                   ),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.wifi_off,
+                      Icon(
+                        Icons.wifi_off_rounded,
                         color: AppTheme.goldColor,
-                        size: 20,
+                        size: 22.sp,
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 10.w),
                       Flexible(
                         child: Text(
                           'اتصال اینترنت برقرار نیست. لطفاً اینترنت را روشن کنید.',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 11.sp,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 13.5.sp,
+                            fontWeight: FontWeight.w800,
+                            fontFamily: AppTheme.fontFamily,
+                            height: 1.45,
+                            decoration: TextDecoration.none,
                           ),
                           softWrap: true,
                           overflow: TextOverflow.visible,

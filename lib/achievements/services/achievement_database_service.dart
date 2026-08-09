@@ -91,6 +91,7 @@ class AchievementDatabaseService {
     String achievementId,
     int currentValue, {
     DateTime? unlockedAt,
+    int? bonusPoints,
   }) async {
     try {
       final client = Supabase.instance.client;
@@ -98,7 +99,12 @@ class AchievementDatabaseService {
 
       if (profileId == null) {
         debugPrint('⚠️ User not authenticated, saving to local cache only');
-        await _saveProgressToLocalCache(achievementId, currentValue, unlockedAt);
+        await _saveProgressToLocalCache(
+          achievementId,
+          currentValue,
+          unlockedAt,
+          bonusPoints: bonusPoints,
+        );
         return;
       }
 
@@ -107,23 +113,32 @@ class AchievementDatabaseService {
       // اگر offline است، فقط در cache محلی ذخیره کن
       if (!isOnline) {
         debugPrint('📴 Offline mode: Saving achievement progress to local cache');
-        await _saveProgressToLocalCache(achievementId, currentValue, unlockedAt);
+        await _saveProgressToLocalCache(
+          achievementId,
+          currentValue,
+          unlockedAt,
+          bonusPoints: bonusPoints,
+        );
         return;
       }
 
       // بررسی وجود رکورد
       final existing = await client
           .from(_tableName)
-          .select('id')
+          .select('id, bonus_points')
           .eq('user_id', profileId)
           .eq('achievement_id', achievementId)
           .maybeSingle();
 
-      final data = {
+      final existingBonus = (existing?['bonus_points'] as num?)?.toInt() ?? 0;
+      final resolvedBonus = bonusPoints ?? existingBonus;
+
+      final data = <String, dynamic>{
         'user_id': profileId,
         'achievement_id': achievementId,
         'current_value': currentValue,
         'unlocked_at': unlockedAt?.toIso8601String(),
+        'bonus_points': resolvedBonus,
         'updated_at': DateTime.now().toIso8601String(),
       };
 
@@ -141,14 +156,78 @@ class AchievementDatabaseService {
       }
 
       // به‌روزرسانی cache محلی
-      await _saveProgressToLocalCache(achievementId, currentValue, unlockedAt);
+      await _saveProgressToLocalCache(
+        achievementId,
+        currentValue,
+        unlockedAt,
+        bonusPoints: resolvedBonus,
+      );
 
       debugPrint('✅ Achievement progress saved: $achievementId = $currentValue');
     } catch (e) {
       debugPrint('❌ Error saving achievement progress: $e');
       // در صورت خطا، حداقل در cache محلی ذخیره کن
-      await _saveProgressToLocalCache(achievementId, currentValue, unlockedAt);
+      await _saveProgressToLocalCache(
+        achievementId,
+        currentValue,
+        unlockedAt,
+        bonusPoints: bonusPoints,
+      );
       rethrow;
+    }
+  }
+
+  /// اعطای بونوس لیگ فقط یک‌بار (idempotent). true اگر تازه اعطا شد.
+  Future<bool> grantBonusPointsIfNeeded(
+    String achievementId,
+    int bonusPoints,
+  ) async {
+    if (bonusPoints <= 0) return false;
+
+    try {
+      final client = Supabase.instance.client;
+      final profileId = await _getProfileId();
+      if (profileId == null) return false;
+
+      final existing = await client
+          .from(_tableName)
+          .select('id, current_value, unlocked_at, bonus_points')
+          .eq('user_id', profileId)
+          .eq('achievement_id', achievementId)
+          .maybeSingle();
+
+      if (existing == null) return false;
+
+      final already = (existing['bonus_points'] as num?)?.toInt() ?? 0;
+      if (already > 0) return false;
+
+      final currentValue = (existing['current_value'] as num?)?.toInt() ?? 0;
+      final unlockedAt = existing['unlocked_at'] != null
+          ? DateTime.parse(existing['unlocked_at'] as String)
+          : DateTime.now();
+
+      await saveAchievementProgress(
+        achievementId,
+        currentValue,
+        unlockedAt: unlockedAt,
+        bonusPoints: bonusPoints,
+      );
+      return true;
+    } catch (e) {
+      debugPrint('❌ Error granting achievement bonus: $e');
+      return false;
+    }
+  }
+
+  /// جمع بونوس لیگ کاربر فعلی از دستاوردها
+  Future<int> getTotalBonusPoints() async {
+    try {
+      final map = await getUserAchievements();
+      return map.values
+          .where((p) => p.unlockedAt != null)
+          .fold<int>(0, (sum, p) => sum + p.bonusPoints);
+    } catch (_) {
+      return 0;
     }
   }
 
@@ -191,6 +270,7 @@ class AchievementDatabaseService {
             'achievement_id': entry.key,
             'current_value': entry.value.currentValue,
             'unlocked_at': entry.value.unlockedAt?.toIso8601String(),
+            'bonus_points': entry.value.bonusPoints,
             'updated_at': DateTime.now().toIso8601String(),
           };
 
@@ -381,14 +461,17 @@ class AchievementDatabaseService {
   Future<void> _saveProgressToLocalCache(
     String achievementId,
     int currentValue,
-    DateTime? unlockedAt,
-  ) async {
+    DateTime? unlockedAt, {
+    int? bonusPoints,
+  }) async {
     try {
       final cache = await _loadFromLocalCache();
+      final previous = cache[achievementId];
       cache[achievementId] = AchievementProgress(
         achievementId: achievementId,
         currentValue: currentValue,
         unlockedAt: unlockedAt,
+        bonusPoints: bonusPoints ?? previous?.bonusPoints ?? 0,
       );
       await _saveToLocalCache(cache);
     } catch (e) {
@@ -426,27 +509,34 @@ class AchievementProgress {
     required this.achievementId,
     required this.currentValue,
     this.unlockedAt,
+    this.bonusPoints = 0,
   });
 
   factory AchievementProgress.fromJson(Map<String, dynamic> json) {
+    final rawValue = json['current_value'] ?? json['currentValue'];
+    final rawUnlocked = json['unlocked_at'] ?? json['unlockedAt'];
+    final rawBonus = json['bonus_points'] ?? json['bonusPoints'];
     return AchievementProgress(
-      achievementId: json['achievement_id'] as String,
-      currentValue: json['current_value'] as int,
-      unlockedAt: json['unlocked_at'] != null
-          ? DateTime.parse(json['unlocked_at'] as String)
+      achievementId: (json['achievement_id'] ?? json['achievementId']) as String,
+      currentValue: (rawValue as num?)?.toInt() ?? 0,
+      unlockedAt: rawUnlocked != null
+          ? DateTime.parse(rawUnlocked as String)
           : null,
+      bonusPoints: (rawBonus as num?)?.toInt() ?? 0,
     );
   }
 
   final String achievementId;
   final int currentValue;
   final DateTime? unlockedAt;
+  final int bonusPoints;
 
   Map<String, dynamic> toJson() {
     return {
       'achievement_id': achievementId,
       'current_value': currentValue,
       'unlocked_at': unlockedAt?.toIso8601String(),
+      'bonus_points': bonusPoints,
     };
   }
 }
@@ -463,4 +553,5 @@ class AchievementStats {
   final int unlockedCount;
   final int totalPoints;
 }
+
 

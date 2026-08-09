@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:gymaipro/achievements/achievement_hooks.dart';
 import 'package:gymaipro/meal_log/models/food_log.dart';
 import 'package:gymaipro/ranking/services/ranking_service.dart';
 import 'package:gymaipro/ranking/services/ranking_tracker_helper.dart';
@@ -30,6 +31,8 @@ class MealLogService {
 
   void _scheduleRankingSideEffects(String userId) {
     unawaited(_trackMealActivity(userId));
+    unawaited(AchievementHooks.unlockOnce('log_diet'));
+    unawaited(AchievementHooks.unlockOnce('log_calorie'));
     _scheduleDebouncedRankingScoreUpdate(userId);
   }
 
@@ -168,6 +171,13 @@ class MealLogService {
             rethrow;
           }
         }
+      }
+
+      // شِل خالی روز جدید را به سرور نفرست — فقط local بماند.
+      // در غیر این صورت هر باز شدن صفحهٔ تغذیه، ۶ وعدهٔ پوچ در آمار می‌نشیند.
+      if (!_logHasFoodEntries(log) && existing == null) {
+        await saveLogLocal(log);
+        return;
       }
 
       // Retry mechanism for update/insert operations

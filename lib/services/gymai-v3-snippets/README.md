@@ -1,70 +1,81 @@
-# GymAI v3.6 — Classification Fix
+# GymAI v3.6 — Classification Fix (Sync-Safe)
 
-## ریشه باگ
-needle `'لت'` در inference داخل `'هالتر'` match می‌شد:
-- **فشار پشت بازو هالتر** → اشتباهی `back_lat`
-- **لانج با هالتر** → اشتباهی `back_lat` + `vertical_pull`
-- **اسکات با مکث** → اگر در meta/description کلمه هالتر بود → `back_lat`
+## ترس sync و واقعیت
+
+مسیر اپ: **WordPress (API v3) → Supabase**.  
+اگر API v3 `main_muscle` / heatmap غلط بدهد، به‌روزرسانی اپ **دادهٔ درست سوپابیس را دوباره خراب می‌کند**.
+
+ریشهٔ تاریخی باگ:
+- needle lone `'لت'` داخل `'هالتر'` (و `'اسالت'`) match می‌شد → `back_lat` اشتباه
+- بعضی پرس‌ها به‌عنوان `triceps`، جلوبازوها به‌عنوان `back_lat` ذخیره/infer شده بودند
+
+فیکس‌های SQL روی سوپابیس کافی نیستند مگر اینکه **خروجی v3 هم درست باشد**.
+
+---
 
 ## فایل‌ها
 
 | فایل | کار |
 |------|-----|
-| `CODE_SNIPPET_V36_OUTPUT_PATCH.php` | **الان deploy کن** — اصلاح JSON خروجی v3 |
-| `CODE_SNIPPET_V36_META_BACKFILL.php` | اصلاح ۶ پست در دیتابیس (برای اپ Flutter) |
-| `V36_NORMALIZER_HOTFIX.php` | اختیاری — اصلاح دائمی در اسنیپت v3 normalizer |
+| `CODE_SNIPPET_V36_OUTPUT_PATCH.php` | **الزامی** — اصلاح JSON خروجی `/gymai/v3/exercises` (عنوان‌محور + ID override + پاکسازی heatmap) |
+| `CODE_SNIPPET_V36_META_BACKFILL.php` | اصلاح چند پست خاص در DB |
+| `V36_NORMALIZER_HOTFIX.php` | اختیاری — اصلاح دائمی inference داخل normalizer |
+| POP20 CORE → «بازنویسی meta از اسنیپت‌ها» | نوشتن meta درست از batchها روی CPT |
+
+---
 
 ## Deploy (۵ دقیقه)
 
-### 1) اسنیپت Output Patch
-1. Code Snippets → Add New
-2. عنوان: `GymAI v3.6 Classification Fix`
-3. محتوای `CODE_SNIPPET_V36_OUTPUT_PATCH.php` را paste کن
-4. **Run everywhere** → Save & Activate
+### 1) Output Patch را **حتماً** آپدیت/فعال کن
+1. Code Snippets → اسنیپت v3.6 Classification Fix
+2. محتوای جدید `CODE_SNIPPET_V36_OUTPUT_PATCH.php` را جایگزین کن
+3. Run everywhere → Save & Activate
 
 ### 2) تست
 ```
 GET /wp-json/gymai/v3.6/ping
 → {"ok":true,"version":"gymai/v3.6-patched"}
 
-GET /wp-json/gymai/v3/exercises/4011
-→ classification.main_muscle = "triceps"
+GET /wp-json/gymai/v3/exercises?per_page=5&debug=1
+→ version = gymai/v3.6-patched
 
-GET /wp-json/gymai/v3/exercises/4016
-→ classification.main_muscle = "quads"
-
-GET /wp-json/gymai/v3/exercises/4019
-→ classification.main_muscle = "abs", movement_pattern = "anti_rotation"
-
-GET /wp-json/gymai/v3/exercises/4022
-→ classification.main_muscle = "quads", movement_pattern = "lunge"
+نمونه:
+/wp-json/gymai/v3/exercises?search=پرس%20سینه → main_muscle=chest (نه triceps)
+/wp-json/gymai/v3/exercises?search=جلو%20بازو%20هالتر → biceps (نه back_lat)
+/wp-json/gymai/v3/exercises?search=هیپ%20تراست → glutes
 ```
 
-با `?debug=1` نوت‌های patch را می‌بینی.
+### 3) قبل از sync اپ
+1. ابزارها → GymAI Exercises → **بازنویسی meta از اسنیپت‌ها**
+2. (اختیاری) بروزرسانی نام‌های جایگزین
+3. بعد در اپ: به‌روزرسانی تمرین‌ها
 
-### 3) Meta Backfill (برای اپ Flutter)
-1. Code Snippets → Add New → `GymAI v3.6 Meta Backfill`
-2. محتوای `CODE_SNIPPET_V36_META_BACKFILL.php`
-3. ابزارها → **GymAI v3.6 Backfill** → اجرا
+---
 
-### 4) اسنیپت‌های قبلی
+## قوانین پچ v3.6 (خلاصه)
 
-| اسنیپت | وضعیت |
-|--------|--------|
-| v2 metabox + POP20 | ✅ نگه دار |
-| v3 normalizer | ✅ نگه دار (اختیاری: hotfix از `V36_NORMALIZER_HOTFIX.php`) |
-| v3.1 patch | ✅ نگه دار |
-| v3.2 patch | ✅ نگه دار |
-| v3.3 backfill | ❌ **فعلاً نزن** |
-| v3.5 backfill | ⚠️ v3.6 جایگزینش برای batch6 |
+1. هرگز lone `لت` برای لات — فقط `لت پول` / `زیربغل` / `pulldown` / …
+2. پرس سینه / بنچ / فلای / قفسه → `chest` (دست‌جمع می‌تواند `triceps` بماند)
+3. پرس سرشانه / آرنولد / OHP → `shoulder_anterior`
+4. جلوبازو / کرل → `biceps` (نه `back_lat`)
+5. پشت‌بازو / اسکال / فرنچ → `triceps`
+6. هیپ‌تراست / پل باسن → `glutes`
+7. ساق → `calves`
+8. شراگ / کول → `traps`
+9. heatmap آلوده به `back_lat` برای پا/تریسپس پاک می‌شود
+10. `chest_upper` به‌عنوان main به `chest` نرمال می‌شود
 
-## IDهای اصلاح‌شده
+---
 
-| ID | حرکت | قبل | بعد |
-|----|------|-----|-----|
-| 4011 | فشار پشت بازو هالتر | back_lat | triceps |
-| 4013 | زیربغل تک بازو | OK | + secondary غنی‌تر |
-| 4016 | اسکات با مکث | back_lat | quads |
-| 4019 | پالوف پرس | quads | abs |
-| 4022 | لانج با هالتر | back_lat | quads |
-| 4023 | لانج عقب | pattern خالی | lunge |
+## IDهای override قطعی
+
+| ID | حرکت | بعد |
+|----|------|-----|
+| 4011 | فشار پشت بازو هالتر | triceps |
+| 4016 | اسکات با مکث | quads |
+| 4019 | پالوف پرس | abs |
+| 4022 | لانج با هالتر | quads |
+| 4023 | لانج عقب | lunge pattern |
+| 4013 | زیربغل تک بازو | back_lat + secondary غنی |
+
+بقیهٔ حرکات با **طبقه‌بندی عنوان‌محور** پوشش داده می‌شوند (دیگر فقط این ۶ تا نیستند).

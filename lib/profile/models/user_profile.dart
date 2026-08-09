@@ -1,4 +1,6 @@
-﻿class UserProfile {
+﻿import 'package:gymaipro/core/user_presence.dart';
+
+class UserProfile {
   UserProfile({
     required this.username,
     this.id,
@@ -37,6 +39,7 @@
     this.activeStudentCount,
     this.experienceYears,
     this.ranking,
+    this.trainerScore,
     this.lastActiveAt,
     this.phoneNumberPublic,
     this.emailPublic,
@@ -119,7 +122,10 @@
               json['last_seen_at'].toString().isNotEmpty
           ? DateTime.tryParse(json['last_seen_at'] as String)
           : null,
-      isOnline: json['is_online'] as bool?,
+      isOnline: UserPresence.isOnline(
+        lastSeenRaw: json['last_seen_at'],
+        lastActiveRaw: json['last_active_at'],
+      ),
       // فیلدهای trainer
       specializations: json['specializations'] != null
           ? List<String>.from(json['specializations'] as Iterable<dynamic>)
@@ -139,6 +145,7 @@
       studentCount: json['student_count'] as int?,
       experienceYears: json['experience_years'] as int?,
       ranking: json['ranking'] as int?,
+      trainerScore: (json['trainer_score'] as num?)?.round(),
       lastActiveAt:
           json['last_active_at'] != null &&
               json['last_active_at'].toString().isNotEmpty
@@ -187,6 +194,8 @@
   final int? activeStudentCount;
   final int? experienceYears;
   final int? ranking;
+  /// امتیاز لیگ مربی (همان معیار دیتیل مربی)
+  final int? trainerScore;
   final DateTime? lastActiveAt;
   final String? phoneNumberPublic;
   final String? emailPublic;
@@ -230,6 +239,7 @@
       'student_count': studentCount,
       'experience_years': experienceYears,
       'ranking': ranking,
+      'trainer_score': trainerScore,
       'last_active_at': lastActiveAt?.toIso8601String(),
       'phone_number_public': phoneNumberPublic,
       'email_public': emailPublic,
@@ -275,6 +285,7 @@
     int? activeStudentCount,
     int? experienceYears,
     int? ranking,
+    int? trainerScore,
     DateTime? lastActiveAt,
     String? phoneNumberPublic,
     String? emailPublic,
@@ -320,6 +331,7 @@
       activeStudentCount: activeStudentCount ?? this.activeStudentCount,
       experienceYears: experienceYears ?? this.experienceYears,
       ranking: ranking ?? this.ranking,
+      trainerScore: trainerScore ?? this.trainerScore,
       lastActiveAt: lastActiveAt ?? this.lastActiveAt,
       phoneNumberPublic: phoneNumberPublic ?? this.phoneNumberPublic,
       emailPublic: emailPublic ?? this.emailPublic,
@@ -331,6 +343,12 @@
     firstName,
     lastName,
   ].where((element) => element != null && element.isNotEmpty).join(' ');
+
+  /// آنلاین واقعی بر اساس تازگی حضور (۵ دقیقه).
+  bool get isEffectivelyOnline => UserPresence.isOnline(
+        lastSeenAt: lastSeenAt,
+        lastActiveAt: lastActiveAt,
+      );
 
   bool get isProfileComplete {
     final requiredFields = [

@@ -193,37 +193,29 @@ if (!in_array($file_extension, $allowed_extensions)) {
     exit;
 }
 
-// بررسی حجم فایل (حداکثر 100MB)
-$max_size = 100 * 1024 * 1024; // 100MB
+$upload_context = isset($_POST['upload_context']) ? trim((string)$_POST['upload_context']) : '';
+require_once __DIR__ . '/upload_paths.php';
+$target = gymai_resolve_media_target(
+    __DIR__,
+    'video',
+    $upload_context,
+    $username,
+    $user_id,
+    ''
+);
+$safe_username = $target['safe_username'];
+$max_size = (int) $target['max_bytes'];
 if ($file['size'] > $max_size) {
     http_response_code(400);
     echo json_encode([
         'success' => false,
         'error' => 'file_too_large',
-        'message' => 'File size exceeds maximum allowed (100MB)',
+        'message' => 'File size exceeds maximum allowed',
     ]);
     exit;
 }
 
-// 5. ساخت مسیر مقصد (با username)
-// پاک کردن کاراکترهای غیرمجاز از username برای استفاده در مسیر
-$safe_username = preg_replace('/[^a-zA-Z0-9_-]/', '_', $username);
-$upload_context = isset($_POST['upload_context']) ? trim((string)$_POST['upload_context']) : '';
-
-if ($upload_context === 'announcements') {
-    // ساختار منظم برای اخبار: announcements/videos/YYYY/MM
-    $year = date('Y');
-    $month = date('m');
-    $base_path = __DIR__ . '/announcements/videos/' . $year . '/' . $month;
-    $trainer_folder = $base_path;
-} elseif ($upload_context === 'custom_exercise') {
-    $trainer_folder = __DIR__ . '/custom_exercises/' . $safe_username . '/videos';
-} else {
-    $base_path = __DIR__ . '/coaches_video';
-    $trainer_folder = $base_path . '/' . $safe_username;
-}
-
-// ساخت پوشه مربی اگر وجود نداشته باشد
+$trainer_folder = $target['absolute'];
 if (!file_exists($trainer_folder)) {
     if (!mkdir($trainer_folder, 0755, true)) {
         http_response_code(500);
@@ -236,20 +228,11 @@ if (!file_exists($trainer_folder)) {
     }
 }
 
-// تولید نام فایل منحصر به فرد
 $timestamp = time();
 $random_string = bin2hex(random_bytes(4));
-if ($upload_context === 'announcements') {
-    $prefix = 'announcement_video';
-} elseif ($upload_context === 'custom_exercise') {
-    $prefix = 'exercise_video';
-} else {
-    $prefix = 'video';
-}
-$file_name = $prefix . '_' . $timestamp . '_' . $random_string . '.' . $file_extension;
+$file_name = $target['prefix'] . '_' . $timestamp . '_' . $random_string . '.' . $file_extension;
 $file_path = $trainer_folder . '/' . $file_name;
 
-// 6. انتقال فایل
 if (!move_uploaded_file($file['tmp_name'], $file_path)) {
     http_response_code(500);
     echo json_encode([
@@ -260,19 +243,8 @@ if (!move_uploaded_file($file['tmp_name'], $file_path)) {
     exit;
 }
 
-// تنظیم مجوزهای فایل
 chmod($file_path, 0644);
-
-// 7. تولید URL کامل
-if ($upload_context === 'announcements') {
-    $year = date('Y');
-    $month = date('m');
-    $video_url = 'https://dl.gymaipro.ir/announcements/videos/' . $year . '/' . $month . '/' . $file_name;
-} elseif ($upload_context === 'custom_exercise') {
-    $video_url = 'https://dl.gymaipro.ir/custom_exercises/' . $safe_username . '/videos/' . $file_name;
-} else {
-    $video_url = 'https://dl.gymaipro.ir/coaches_video/' . $safe_username . '/' . $file_name;
-}
+$video_url = $target['url_base'] . '/' . $file_name;
 
 // 8. برگرداندن پاسخ موفق
 http_response_code(200);

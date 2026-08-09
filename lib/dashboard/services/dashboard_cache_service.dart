@@ -86,7 +86,7 @@ class DashboardCacheService {
           ..onPostgresChanges(
             event: PostgresChangeEvent.all,
             schema: 'public',
-            table: 'weekly_weights',
+            table: 'weekly_weight_records',
             filter: PostgresChangeFilter(
               type: PostgresChangeFilterType.eq,
               column: 'user_id',

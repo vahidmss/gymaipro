@@ -82,7 +82,9 @@ class CoverUploadService {
           throw Exception('نقش کاربر مشخص نیست. لطفاً با پشتیبانی تماس بگیرید');
         }
 
-        if (role != 'admin' && role != 'trainer') {
+        // Cover/academy stays trainer/admin-only; private chat images for all users.
+        final isPrivateChat = uploadContext?.trim() == 'private_chat';
+        if (!isPrivateChat && role != 'admin' && role != 'trainer') {
           debugPrint(
             'CoverUploadService: User role is $role, not allowed to upload',
           );

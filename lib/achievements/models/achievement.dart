@@ -1,3 +1,6 @@
+import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
 class Achievement {
   // راهنمای دستاوردهای مخفی
 
@@ -57,8 +60,6 @@ class Achievement {
   final String? secretHint;
 
   bool get isUnlocked => currentValue >= targetValue;
-
-  int get stars => points;
 
   double get progress {
     if (targetValue == 0) return 0;
@@ -164,9 +165,26 @@ extension AchievementCategoryExtension on AchievementCategory {
       case AchievementCategory.social:
         return '👥';
       case AchievementCategory.platform:
-        return '⭐';
+        return '📱';
       case AchievementCategory.general:
         return '🎯';
+    }
+  }
+
+  IconData get lucideIcon {
+    switch (this) {
+      case AchievementCategory.workout:
+        return LucideIcons.dumbbell;
+      case AchievementCategory.nutrition:
+        return LucideIcons.utensils;
+      case AchievementCategory.progress:
+        return LucideIcons.trendingUp;
+      case AchievementCategory.social:
+        return LucideIcons.users;
+      case AchievementCategory.platform:
+        return LucideIcons.smartphone;
+      case AchievementCategory.general:
+        return LucideIcons.target;
     }
   }
 }

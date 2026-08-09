@@ -471,10 +471,10 @@ function gymai_pop20_batch8_definitions() {
     $add([
         'image_key' => 'exercise-batch8-14',
         'slug' => 'شنا-حلقه',
-        'title' => 'شنا حلقه',
-        'aliases' => ['Ring Row', 'RingRow', 'شنا حلقه'],
-        'intro' => '<strong>شنا حلقه</strong> (Ring Row) قایقی ناپایدار با TRX یا حلقه؛ Core و پشت با هم. در برنامه‌های بدنسازی و فیتنس ایران نام آشنایی است و معمولاً با وزن بدن اجرا می‌شود.',
-        'caption' => 'شنا حلقه — زیربغل، اجرای کنترل‌شده',
+        'title' => 'رویینگ حلقه',
+        'aliases' => ['Ring Row', 'RingRow', 'رویینگ حلقه', 'شنا حلقه', 'Inverted Ring Row'],
+        'intro' => '<strong>رویینگ حلقه</strong> (Ring Row) قایقی ناپایدار با TRX یا حلقه؛ Core و پشت با هم. در برنامه‌های بدنسازی و فیتنس ایران نام آشنایی است و معمولاً با وزن بدن اجرا می‌شود.',
+        'caption' => 'رویینگ حلقه — زیربغل، اجرای کنترل‌شده',
         'quick' => ['main' => 'زیربغل', 'secondary' => 'جلوبازو، پشت میانی', 'difficulty' => 'متوسط', 'equipment' => 'وزن بدن', 'type' => 'قدرتی / حجمی'],
         'tips' => ['تمرکز روی زیربغل در تمام دامنه حرکت.', 'تمپو کنترل‌شده؛ بدون پرتاب یا قلدری.', 'گرم‌کردن مفصل و عضله قبل از ست سنگین.'],
         'setup' => ['تنظیم وزن بدن و وضعیت بدن.', 'وضعیت خنثی کمر و Core سفت.', 'دامنه مفصل بدون درد.', 'تنفس آماده قبل از شروع.'],
@@ -485,7 +485,7 @@ function gymai_pop20_batch8_definitions() {
         'program' => [['حجم', '۳–۴', '۸–۱۲', '۶۰–۹۰ث'], ['قدرت', '۴', '۵–۸', '۱۲۰ث'], ['استقامت', '۳', '۱۲–۱۵', '۴۵ث']],
         'combos' => [['label' => 'با ', 'link_text' => 'رویینگ معکوس', 'slug' => 'رویینگ-معکوس']],
         'faqs' => [['چند ست و تکرار؟', '۳–۴ ست × ۸–۱۲ برای حجم؛ ۴–۵ ست × ۵–۸ برای قدرت.'], ['برای مبتدی مناسب است؟', 'نیاز به تسلط پایه دارد؛ با وزنه سبک شروع کن.']],
-        'summary' => 'شنا حلقه برای پشت و زیربغل در برنامه منظم نتیجه خوب می‌دهد.',
+        'summary' => 'رویینگ حلقه برای پشت و زیربغل در برنامه منظم نتیجه خوب می‌دهد.',
         'summary_keys' => 'زیربغل | تمپو کنترل | دامنه کامل',
         'meta' => [
             'main_muscle' => 'back_lat', 'secondary_muscle_keys' => ['biceps', 'rhomboids'],
@@ -558,7 +558,7 @@ function gymai_pop20_batch8_definitions() {
         'summary' => 'ددلیفت قاپ باز برای پشت و زیربغل در برنامه منظم نتیجه خوب می‌دهد.',
         'summary_keys' => 'زیربغل | تمپو کنترل | دامنه کامل',
         'meta' => [
-            'main_muscle' => 'back_lat', 'secondary_muscle_keys' => ['hamstrings', 'glutes', 'traps'],
+            'main_muscle' => 'lower_back', 'secondary_muscle_keys' => ['hamstrings', 'glutes', 'traps'],
             'difficulty' => 'advanced', 'equipment_keys' => ['barbell'],
             'exercise_type' => 'strength', 'movement_pattern' => 'hip_hinge', 'body_engagement' => 'compound',
             'mechanics_type' => 'compound', 'force_type' => 'pull', 'plane_of_motion' => 'sagittal', 'laterality' => 'bilateral',

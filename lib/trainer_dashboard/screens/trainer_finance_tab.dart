@@ -23,6 +23,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
   final _payoutService = PayoutService();
   bool _loading = true;
   Map<String, dynamic> _data = const {};
+  Map<String, dynamic> _stats = const {};
 
   static const _serviceNames = {
     'training': 'برنامه تمرینی',
@@ -42,9 +43,15 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
-        final overview = await _finance.getTrainerFinanceOverview(user.id);
+        final results = await Future.wait([
+          _finance.getTrainerFinanceOverview(user.id),
+          _finance.getTrainerStats(user.id),
+        ]);
         if (mounted) {
-          WidgetSafetyUtils.safeSetState(this, () => _data = overview);
+          WidgetSafetyUtils.safeSetState(this, () {
+            _data = results[0];
+            _stats = results[1];
+          });
         }
       }
     } finally {
@@ -216,6 +223,14 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
     final holdOnly = (onHold - frozen).clamp(0, onHold);
     final hasPipeline = pendingProgramCount > 0 || inEditWindowCount > 0;
 
+    final double responseRate =
+        (_stats['responseRate'] as num?)?.toDouble() ?? 0.0;
+    final double onTimeDeliveryRate =
+        (_stats['onTimeDeliveryRate'] as num?)?.toDouble() ?? 0.0;
+    final int waitingPrograms =
+        _stats['subscriptionsWithoutProgram'] as int? ?? 0;
+    final int activeClients = _stats['activeClients'] as int? ?? 0;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: RefreshIndicator(
@@ -225,12 +240,14 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.all(16.w),
           children: [
-            _hintCard(
+            _performanceStrip(
               isDark,
-              'درآمد پس از پرداخت شاگرد ثبت می‌شود. پس از ارسال برنامه و '
-              'پایان دوره‌های انتظار، در «قابل برداشت» نمایش داده می‌شود.',
+              responseRate: responseRate,
+              onTimeDeliveryRate: onTimeDeliveryRate,
+              activeClients: activeClients,
+              waitingPrograms: waitingPrograms,
             ),
-            SizedBox(height: 16.h),
+            SizedBox(height: 14.h),
 
             _heroBalanceCard(withdrawable, isDark),
             if (pendingPayouts > 0) ...[
@@ -247,7 +264,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
               _withdrawActions(withdrawable),
             ],
 
-            SizedBox(height: 16.h),
+            SizedBox(height: 12.h),
             Row(
               children: [
                 Expanded(
@@ -257,7 +274,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                     LucideIcons.clock,
                     AppTheme.fatColor,
                     isDark,
-                    subtitle: '$holdDays روز پس از ارسال برنامه',
+                    subtitle: '$holdDays روز پس از ارسال',
                   ),
                 ),
                 SizedBox(width: 10.w),
@@ -288,9 +305,13 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
             ],
 
             if (hasPipeline) ...[
-              SizedBox(height: 24.h),
-              _sectionHeader('در صف (هنوز قابل برداشت نیست)', LucideIcons.listOrdered, isDark),
-              SizedBox(height: 12.h),
+              SizedBox(height: 20.h),
+              _sectionHeader(
+                'در صف (هنوز قابل برداشت نیست)',
+                LucideIcons.listOrdered,
+                isDark,
+              ),
+              SizedBox(height: 10.h),
               if (pendingProgramCount > 0)
                 _pipelineRow(
                   isDark,
@@ -298,7 +319,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                   'منتظر ارسال برنامه',
                   '$pendingProgramCount مورد',
                   PaymentConstants.formatAmount(pendingProgram),
-                  'پس از ارسال برنامه، $editWindowDays روز فرصت ویرایش دارید.',
+                  'پس از ارسال، $editWindowDays روز فرصت ویرایش دارید.',
                 ),
               if (pendingProgramCount > 0 && inEditWindowCount > 0)
                 SizedBox(height: 8.h),
@@ -309,13 +330,13 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                   'دوره ویرایش برنامه',
                   '$inEditWindowCount مورد',
                   PaymentConstants.formatAmount(inEditWindow),
-                  'پس از پایان ویرایش، دوره نگه‌داری $holdDays روزه شروع می‌شود.',
+                  'بعد از ویرایش، $holdDays روز نگه‌داری شروع می‌شود.',
                 ),
             ],
 
-            SizedBox(height: 24.h),
-            _sectionHeader('خلاصه کل', LucideIcons.barChart3, isDark),
-            SizedBox(height: 12.h),
+            SizedBox(height: 20.h),
+            _sectionHeader('خلاصه کل', LucideIcons.trendingUp, isDark),
+            SizedBox(height: 10.h),
             _groupedCard(
               isDark: isDark,
               children: [
@@ -336,26 +357,113 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
             ),
 
             if (monthly.isNotEmpty) ...[
-              SizedBox(height: 24.h),
+              SizedBox(height: 20.h),
               _sectionHeader('درآمد ماهانه', LucideIcons.calendar, isDark),
-              SizedBox(height: 12.h),
+              SizedBox(height: 10.h),
               ..._sortedMonthlyEntries(monthly).take(6).map(
                     (e) => _monthlyRow(e.key, e.value, isDark),
                   ),
             ],
 
-            SizedBox(height: 24.h),
+            SizedBox(height: 12.h),
             _lifecycleGuide(isDark, editWindowDays, holdDays),
 
-            SizedBox(height: 24.h),
+            SizedBox(height: 20.h),
             _sectionHeader('لیست درآمدها', LucideIcons.history, isDark),
-            SizedBox(height: 12.h),
+            SizedBox(height: 10.h),
             if (allEarnings.isEmpty)
               _emptyState(isDark)
             else
               ...allEarnings.map((e) => _earningTile(e, isDark)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _performanceStrip(
+    bool isDark, {
+    required double responseRate,
+    required double onTimeDeliveryRate,
+    required int activeClients,
+    required int waitingPrograms,
+  }) {
+    String pct(double v) =>
+        '${v.toStringAsFixed(v < 10 && v % 1 != 0 ? 1 : 0)}%';
+
+    final tiles = [
+      (pct(responseRate), 'نرخ پاسخ', LucideIcons.target, Colors.purple),
+      (
+        pct(onTimeDeliveryRate),
+        'تحویل به‌موقع',
+        LucideIcons.checkCircle2,
+        Colors.green,
+      ),
+      (
+        activeClients.toString(),
+        'مشتری فعال',
+        LucideIcons.userCheck,
+        Colors.blue,
+      ),
+      (
+        waitingPrograms.toString(),
+        'منتظر برنامه',
+        LucideIcons.hourglass,
+        Colors.orange,
+      ),
+    ];
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14.r),
+        color: isDark ? context.cardColor : AppTheme.lightSurfaceColor,
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.2),
+        ),
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < tiles.length; i++) ...[
+            if (i > 0)
+              Container(
+                width: 1,
+                height: 36.h,
+                margin: EdgeInsets.symmetric(horizontal: 4.w),
+                color: AppTheme.goldColor.withValues(alpha: 0.12),
+              ),
+            Expanded(
+              child: Column(
+                children: [
+                  Icon(tiles[i].$3, size: 14.sp, color: tiles[i].$4),
+                  SizedBox(height: 4.h),
+                  Text(
+                    tiles[i].$1,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.bold,
+                      color: tiles[i].$4,
+                    ),
+                  ),
+                  Text(
+                    tiles[i].$2,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 9.5.sp,
+                      color: context.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -412,14 +520,13 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
             ),
           ),
           if (withdrawable == 0) ...[
-            SizedBox(height: 8.h),
+            SizedBox(height: 6.h),
             Text(
-              'هنوز مبلغی برای برداشت آزاد نشده. پس از ارسال برنامه و '
-              'پایان دوره انتظار، اینجا نمایش داده می‌شود.',
+              'پس از ارسال برنامه و پایان دوره انتظار اینجا آزاد می‌شود.',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontSize: 11.5.sp,
-                height: 1.5,
+                height: 1.4,
                 color: context.textSecondary,
               ),
             ),
@@ -630,83 +737,71 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
 
   Widget _lifecycleGuide(bool isDark, int editDays, int holdDays) {
     final steps = [
-      'شاگرد پرداخت می‌کند — درآمد ثبت می‌شود (اینجا نمایش داده نمی‌شود)',
-      'شما برنامه را ارسال می‌کنید — $editDays روز فرصت ویرایش',
-      'پایان ویرایش — $holdDays روز «در انتظار آزادسازی»',
-      'پس از پایان انتظار — «قابل برداشت»',
+      'پرداخت شاگرد → درآمد ثبت می‌شود',
+      'ارسال برنامه → $editDays روز ویرایش',
+      'پایان ویرایش → $holdDays روز انتظار',
+      'پایان انتظار → قابل برداشت',
     ];
 
     return Container(
-      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(14.r),
         border: Border.all(
           color: isDark
               ? AppTheme.darkGreySeparator
               : AppTheme.lightDividerColor,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(LucideIcons.info, size: 18.sp, color: AppTheme.goldColor),
-              SizedBox(width: 8.w),
-              Text(
-                'مسیر آزادسازی درآمد',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.bold,
-                  color: context.textColor,
-                ),
-              ),
-            ],
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: EdgeInsets.symmetric(horizontal: 14.w),
+          childrenPadding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 14.h),
+          leading: Icon(LucideIcons.info, size: 18.sp, color: AppTheme.goldColor),
+          title: Text(
+            'مسیر آزادسازی درآمد',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w600,
+              color: context.textColor,
+            ),
           ),
-          SizedBox(height: 14.h),
-          ...List.generate(steps.length, (i) {
-            return Padding(
-              padding: EdgeInsets.only(bottom: i < steps.length - 1 ? 10.h : 0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 22.w,
-                    height: 22.h,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppTheme.goldColor.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '${i + 1}',
+          children: [
+            ...List.generate(steps.length, (i) {
+              return Padding(
+                padding: EdgeInsets.only(bottom: i < steps.length - 1 ? 8.h : 0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${i + 1}.',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        fontSize: 11.sp,
+                        fontSize: 12.sp,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.goldColor,
                       ),
                     ),
-                  ),
-                  SizedBox(width: 10.w),
-                  Expanded(
-                    child: Text(
-                      steps[i],
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 12.sp,
-                        height: 1.5,
-                        color: context.textSecondary,
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: Text(
+                        steps[i],
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 12.sp,
+                          height: 1.5,
+                          color: context.textSecondary,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }

@@ -8,44 +8,27 @@ class NavigationChromeBar {
   NavigationChromeBar._();
 
   static BoxDecoration barDecoration(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return BoxDecoration(
-      gradient: isDark
-          ? null
-          : LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                AppTheme.lightCardColor,
-                AppTheme.lightGradientEnd.withValues(alpha: 0.1),
-              ],
-            ),
-      color: isDark ? context.backgroundColor : null,
+      color: context.backgroundColor,
       boxShadow: [
         BoxShadow(
-          color: isDark
+          color: context.isDark
               ? AppTheme.veryDarkBackground.withValues(alpha: 0.15)
-              : AppTheme.goldColor.withValues(alpha: 0.1),
+              : Colors.black.withValues(alpha: 0.06),
           blurRadius: 15.r,
           offset: const Offset(0, -3),
           spreadRadius: 1,
         ),
       ],
       border: Border(
-        top: BorderSide(
-          color: isDark
-              ? Colors.transparent
-              : AppTheme.goldColor.withValues(alpha: 0.2),
-        ),
+        top: BorderSide(color: context.separatorColor),
       ),
     );
   }
 
   /// پس‌زمینهٔ کنترل‌های داخل نوار (دکمه + فیلد) — نیمه‌شفاف روی همان کروم.
   static Color innerWellColor(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return isDark
+    return context.isDark
         ? AppTheme.darkCardColor.withValues(alpha: 0.55)
         : AppTheme.lightCardColor.withValues(alpha: 0.92);
   }

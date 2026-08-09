@@ -1,10 +1,14 @@
-﻿class UserProfile {
+﻿import 'package:gymaipro/core/user_presence.dart';
+
+class UserProfile {
   UserProfile({
     required this.id,
     required this.username,
     this.fullName,
     this.avatarUrl,
     this.isOnline = false,
+    this.lastSeenAt,
+    this.lastActiveAt,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -22,12 +26,28 @@
         ? '$firstName $lastName'.trim()
         : (rpcFullName?.isNotEmpty ?? false ? rpcFullName : null);
 
+    final lastSeenRaw = json['last_seen_at'] ?? json['friend_last_seen_at'];
+    final lastActiveRaw =
+        json['last_active_at'] ?? json['friend_last_active_at'];
+
     return UserProfile(
       id: (json['id'] as String?) ?? '',
       username: (json['username'] as String?) ?? '',
       fullName: fullName,
       avatarUrl: json['avatar_url'] as String?,
-      isOnline: (json['is_online'] as bool?) ?? false,
+      lastSeenAt: UserPresence.effectiveLastSeen(
+        lastSeenRaw: lastSeenRaw,
+        lastActiveRaw: lastActiveRaw,
+      ),
+      lastActiveAt: () {
+        final s = lastActiveRaw?.toString();
+        if (s == null || s.isEmpty) return null;
+        return DateTime.tryParse(s)?.toLocal();
+      }(),
+      isOnline: UserPresence.isOnline(
+        lastSeenRaw: lastSeenRaw,
+        lastActiveRaw: lastActiveRaw,
+      ),
     );
   }
   final String id;
@@ -35,6 +55,8 @@
   final String? fullName;
   final String? avatarUrl;
   final bool isOnline;
+  final DateTime? lastSeenAt;
+  final DateTime? lastActiveAt;
 
   Map<String, dynamic> toJson() {
     return {
@@ -43,6 +65,8 @@
       'full_name': fullName,
       'avatar_url': avatarUrl,
       'is_online': isOnline,
+      'last_seen_at': lastSeenAt?.toIso8601String(),
+      'last_active_at': lastActiveAt?.toIso8601String(),
     };
   }
 }

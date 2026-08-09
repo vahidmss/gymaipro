@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gymaipro/features/legal/legal_copy.dart';
+import 'package:gymaipro/features/legal/presentation/about_app_screen.dart';
 import 'package:gymaipro/features/legal/presentation/legal_document_screen.dart';
 
 abstract final class LegalRoutes {
@@ -26,10 +27,7 @@ abstract final class LegalRoutes {
       ),
       about => MaterialPageRoute<void>(
         settings: settings,
-        builder: (_) => const LegalDocumentScreen(
-          title: LegalCopy.aboutTitle,
-          body: LegalCopy.aboutBody,
-        ),
+        builder: (_) => const AboutAppScreen(),
       ),
       licenses => MaterialPageRoute<void>(
         settings: settings,

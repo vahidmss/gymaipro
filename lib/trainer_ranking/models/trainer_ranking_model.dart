@@ -1,4 +1,6 @@
-﻿class TrainerRanking {
+﻿import 'package:gymaipro/core/user_presence.dart';
+
+class TrainerRanking {
   TrainerRanking({
     required this.id,
     required this.trainerId,
@@ -38,7 +40,10 @@
       certificates: List<String>.from(
         json['certificates'] as Iterable<dynamic>? ?? <dynamic>[],
       ),
-      isOnline: (json['is_online'] as bool?) ?? false,
+      isOnline: UserPresence.isOnline(
+        lastSeenRaw: json['last_seen_at'],
+        lastActiveRaw: json['last_active_at'],
+      ),
       lastActiveAt: DateTime.parse(json['last_active_at'] as String),
       hourlyRate: (json['hourly_rate'] as num).toDouble(),
       phoneNumber: json['phone_number'] as String?,

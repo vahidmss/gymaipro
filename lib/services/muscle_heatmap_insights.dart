@@ -29,26 +29,26 @@ abstract final class MuscleHeatmapInsights {
     return 'بیشترین: ${MuscleTargets.label(top.key)} · کم‌رنگ: ${MuscleTargets.label(low.key)}';
   }
 
-  /// مقایسهٔ ساده با هفته قبل (بدون نمودار دوم).
+  /// مقایسهٔ محرک خام با هفته قبل (نه جمع درصدهای نسبی).
   static String? weekTrendLine({
-    required Map<String, int> current,
-    required Map<String, int> previous,
+    required double currentStimulusTotal,
+    required double previousStimulusTotal,
     required int currentSessions,
     required int previousSessions,
   }) {
-    final curSum = current.values.fold<int>(0, (a, b) => a + b);
-    final prevSum = previous.values.fold<int>(0, (a, b) => a + b);
+    if (previousStimulusTotal <= 0 && currentStimulusTotal <= 0) {
+      return null;
+    }
 
-    if (prevSum == 0 && curSum == 0) return null;
-
-    if (prevSum == 0 && curSum > 0) {
+    if (previousStimulusTotal <= 0 && currentStimulusTotal > 0) {
       return 'اولین هفته با نقشهٔ پررنگ';
     }
 
-    if (curSum > prevSum * 1.12) {
+    if (currentStimulusTotal > previousStimulusTotal * 1.12) {
       return 'فعال‌تر از هفته قبل';
     }
-    if (curSum < prevSum * 0.88 && curSum > 0) {
+    if (currentStimulusTotal < previousStimulusTotal * 0.88 &&
+        currentStimulusTotal > 0) {
       return 'سبک‌تر از هفته قبل';
     }
     if (currentSessions > previousSessions + 1) {

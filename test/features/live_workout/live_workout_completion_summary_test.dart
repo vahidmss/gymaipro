@@ -11,6 +11,7 @@ void main() {
       totalVolumeKg: 2840,
       heatmap: const MuscleHeatmapSnapshot(
         targets: {'chest_middle': 100, 'triceps': 55},
+        stimulus: {'chest_middle': 10, 'triceps': 5.5},
         completedSets: 12,
         exercisesWithSets: 4,
       ),

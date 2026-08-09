@@ -598,6 +598,7 @@ abstract final class ProductExperienceFormatter {
       tempo: exercise.tempo,
       notes: exercise.notes,
       weightKg: exercise.weightKg,
+      repsScheme: exercise.repsScheme,
     );
   }
 
@@ -605,7 +606,7 @@ abstract final class ProductExperienceFormatter {
     final muscle = displayMuscle(exercise.primaryMuscle);
     final parts = <String>[
       if (muscle.isNotEmpty) muscle,
-      '${exercise.sets} × ${exercise.reps}',
+      exercise.repsScheme ?? '${exercise.sets} × ${exercise.reps}',
       if (exercise.restSeconds != null)
         'استراحت ${exercise.restSeconds} ثانیه',
       if (exercise.tempo != null && exercise.tempo!.isNotEmpty)

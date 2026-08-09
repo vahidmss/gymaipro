@@ -5,9 +5,10 @@ import 'package:gymaipro/ai/config/ai_engine_config.dart';
 import 'package:gymaipro/ai/models/exercise_metadata_ai_models.dart';
 import 'package:gymaipro/ai/services/openai_service.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/models/exercise_meta_normalizer.dart';
 import 'package:gymaipro/models/muscle_targets.dart';
 
-/// تولید متادیتای تمرین اختصاصی مربی با AI — شناسایی + پر کردن فیلدها.
+/// تولید متادیتای تمرین اختصاصی مربی با AI — شناسایی + هستهٔ کاربردی + هیت‌مپ.
 class AIExerciseMetadataService {
   AIExerciseMetadataService({OpenAIService? openAI})
       : _openAI = openAI ?? OpenAIService();
@@ -15,18 +16,14 @@ class AIExerciseMetadataService {
   static const String _model = AppConfig.aiDefaultModel;
   static const Duration _requestTimeout = Duration(seconds: 45);
 
-  static const List<String> _mainMuscles = [
-    'سینه',
-    'پشت',
-    'شانه',
-    'پا',
-    'بازو',
-    'شکم',
-    'سرینی',
-    'ساعد',
-    'کاردیو',
-    'کل بدن',
-  ];
+  static List<String> get _mainMuscles => ExerciseMetaNormalizer.mainMuscles;
+  static List<String> get _movementPatterns =>
+      ExerciseMetaNormalizer.movementPatterns;
+  static List<String> get _bodyEngagements =>
+      ExerciseMetaNormalizer.bodyEngagements;
+  static List<String> get _mechanicsTypes =>
+      ExerciseMetaNormalizer.mechanicsTypes;
+  static List<String> get _forceTypes => ExerciseMetaNormalizer.forceTypes;
 
   static const List<String> _equipments = [
     'بدون تجهیزات',
@@ -84,25 +81,27 @@ class AIExerciseMetadataService {
       maxTokens: 1200,
     );
 
-    final options = raw['options'];
-    if (options is! List || options.isEmpty) {
-      throw const OpenAIException('پاسخ AI نامعتبر بود. دوباره تلاش کنید.');
+    final list = raw['options'];
+    if (list is! List || list.isEmpty) {
+      throw const OpenAIException('پاسخ نامعتبر از هوش مصنوعی');
     }
 
-    final parsed = options
-        .whereType<Map<String, dynamic>>()
-        .map(ExerciseIdentityOption.fromJson)
-        .where((o) => o.summary.isNotEmpty)
-        .toList();
-
+    final parsed = <ExerciseIdentityOption>[];
+    for (final item in list) {
+      if (item is Map<String, dynamic>) {
+        parsed.add(ExerciseIdentityOption.fromJson(item));
+      } else if (item is Map) {
+        parsed.add(ExerciseIdentityOption.fromJson(Map<String, dynamic>.from(item)));
+      }
+    }
     if (parsed.isEmpty) {
-      throw const OpenAIException('پاسخ AI نامعتبر بود. دوباره تلاش کنید.');
+      throw const OpenAIException('گزینه‌ای برای تمرین پیدا نشد');
     }
 
     return parsed.take(3).toList();
   }
 
-  /// فقط نقشه عضلانی و عضلات — بدون توضیحات/نکات (کاهش هزینه API).
+  /// هستهٔ کاربردی (MET/RPE/pattern/...) + نقشه عضلانی — بدون توضیحات/نکات.
   Future<GeneratedMuscleProfile> generateMuscleProfile({
     required String title,
     required String name,
@@ -120,8 +119,8 @@ class AIExerciseMetadataService {
         .join(', ');
 
     final prompt = '''
-مربی تمرین را ثبت می‌کند و فقط **نقشه عضلانی (heatmap)** می‌خواهد.
-توضیحات و نکات تمرین لازم نیست — فقط عضلات درگیر.
+مربی تمرین اختصاصی ثبت می‌کند. هستهٔ متای تمرینی + نقشه عضلانی لازم است
+(مثل کاتالوگ استاندارد اپ). توضیحات و نکات لازم نیست.
 
 عنوان: $title
 نام: $name
@@ -138,31 +137,40 @@ ${hint != null && hint.trim().isNotEmpty ? 'راهنمای کوتاه: ${hint.tr
 - muscle_targets: کلیدهای مجاز (0-100): $muscleKeysDoc
 - secondary_muscles: نام فارسی عضلات فرعی با کاما
 - حداقل ۲ و حداکثر ۶ عضله در muscle_targets با مقدار > 0
+- movement_pattern یکی از: ${_movementPatterns.join(', ')}
+- body_engagement یکی از: ${_bodyEngagements.join(', ')}
+- mechanics_type یکی از: ${_mechanicsTypes.join(', ')}
+- force_type یکی از: ${_forceTypes.join(', ')}
+- met: عدد اعشاری منطقی (مثلاً ایزوله ~3-4، اسکوات/کمپاند ~5-7، کاردیو سنگین‌تر)
+- typical_rpe: بین 5 و 9.5
+- calories_per_1000kg: عدد صحیح تقریبی کالری به‌ازای ۱۰۰۰ کیلوگرم جابه‌جایی (مثلاً 20-80)
 
 خروجی JSON:
 {
   "main_muscle": "...",
   "secondary_muscles": "...",
-  "muscle_targets": {"chest_middle": 90, "triceps": 40}
+  "muscle_targets": {"chest_middle": 90, "triceps": 40},
+  "met": 5.0,
+  "typical_rpe": 7.5,
+  "movement_pattern": "horizontal_push",
+  "body_engagement": "compound",
+  "mechanics_type": "compound",
+  "force_type": "push",
+  "calories_per_1000kg": 35
 }
 ''';
 
     final raw = await _completionJson(
       system: _systemPrompt,
       user: prompt,
-      maxTokens: 900,
+      maxTokens: 1200,
     );
 
     return _normalizeMuscleProfile(GeneratedMuscleProfile.fromJson(raw));
   }
 
   GeneratedMuscleProfile _normalizeMuscleProfile(GeneratedMuscleProfile meta) {
-    return GeneratedMuscleProfile(
-      mainMuscle:
-          _mainMuscles.contains(meta.mainMuscle) ? meta.mainMuscle : 'کل بدن',
-      secondaryMuscles: meta.secondaryMuscles,
-      muscleTargets: meta.muscleTargets,
-    );
+    return ExerciseMetaNormalizer.normalizeProfile(meta);
   }
 
   Future<Map<String, dynamic>> _completionJson({
@@ -203,8 +211,13 @@ ${hint != null && hint.trim().isNotEmpty ? 'راهنمای کوتاه: ${hint.tr
   }
 
   static const String _systemPrompt = '''
-شما متخصص علوم ورزشی و آناتومی هستید که به مربیان بدنسازی کمک می‌کنید
-نقشه عضلانی (heatmap) تمرین اختصاصی‌شان را بسازند.
-همیشه JSON معتبر فارسی برگردانید. فقط JSON — بدون markdown.
+شما متخصص علوم ورزشی هستید که برای اپ بدنسازی، هستهٔ متای تمرین
+(MET، RPE، الگوی حرکت، engagement، mechanics، force، کالری تقریبی)
+و نقشه عضلانی را مثل کاتالوگ استاندارد پر می‌کنید.
+همیشه JSON معتبر برگردانید. فقط JSON — بدون markdown.
+برای movement_pattern / body_engagement / mechanics_type / force_type / main_muscle
+فقط و فقط از کلیدهای انگلیسی/فارسی مجاز فهرست‌شده در پیام کاربر استفاده کنید.
+هرگز عبارت آزاد مثل "shoulder abduction" ننویسید؛ معادل canonical بدهید
+(مثلاً shoulder_abduction برای نشر جانب).
 ''';
 }

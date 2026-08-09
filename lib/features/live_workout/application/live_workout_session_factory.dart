@@ -29,12 +29,19 @@ class LiveWorkoutSessionFactory {
             defaultRestSeconds: exercise.restSeconds ?? 90,
             sets: List<WorkoutSetSession>.generate(
               exercise.sets,
-              (index) => WorkoutSetSession(
-                index: index + 1,
-                targetReps: exercise.reps,
-                targetWeightKg: exercise.weightKg ?? 0,
-                restSeconds: exercise.restSeconds ?? 90,
-              ),
+              (index) {
+                final perSet = exercise.repsPerSet;
+                final targetReps =
+                    (perSet != null && index < perSet.length)
+                    ? perSet[index]
+                    : exercise.reps;
+                return WorkoutSetSession(
+                  index: index + 1,
+                  targetReps: targetReps,
+                  targetWeightKg: exercise.weightKg ?? 0,
+                  restSeconds: exercise.restSeconds ?? 90,
+                );
+              },
             ),
           ),
         )

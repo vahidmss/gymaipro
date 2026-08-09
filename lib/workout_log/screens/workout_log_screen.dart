@@ -11,13 +11,12 @@ import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/workout_log/services/beginner_starter_program_service.dart';
 import 'package:gymaipro/workout_log/utils/workout_log_keyboard.dart';
 import 'package:gymaipro/workout_log/viewmodels/workout_log_viewmodel.dart';
-import 'package:gymaipro/workout_log/widgets/session_muscle_heatmap_sheet.dart';
 import 'package:gymaipro/workout_log/widgets/workout_log_widgets.dart';
 import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
-import 'package:gymaipro/workout_log/widgets/workout_preview_dialog.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vibration/vibration.dart';
 
 class WorkoutLogScreen extends StatefulWidget {
@@ -28,26 +27,62 @@ class WorkoutLogScreen extends StatefulWidget {
 }
 
 class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
+  static const _kRestPrefKey = 'workout_log_rest_seconds';
+
   late final WorkoutLogViewModel _viewModel;
   final BeginnerStarterProgramService _starterService =
       BeginnerStarterProgramService();
   bool _isInstallingStarter = false;
   bool _hasStarterProgram = false;
   bool _needsStarterUpgrade = false;
+  bool _wasLoadingDayLog = false;
+  final ValueNotifier<bool> _setupExpanded = ValueNotifier<bool>(true);
+  final WorkoutSetNumpadController _numpad = WorkoutSetNumpadController();
   Timer? _restCountdownTimer;
   AudioPlayer? _restDonePlayer;
-  int _restDurationSeconds = 60;
-  int _remainingRestSeconds = 0;
-  bool _isRestRunning = false;
-  bool _restSessionActive = false;
+
+  /// ۰ = تایمر خاموش؛ پیش‌فرض ۹۰ث مثل Hevy/Strong
+  int _restDurationSeconds = 90;
+  final ValueNotifier<int> _restDurationTick = ValueNotifier<int>(0);
+  final ValueNotifier<int> _restRemaining = ValueNotifier<int>(0);
+  final ValueNotifier<bool> _restRunning = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _restSessionActive = ValueNotifier<bool>(false);
+  final ValueNotifier<int> _restAttentionTick = ValueNotifier<int>(0);
+
+  /// مدت کل همین شمارش معکوس (نوار پیشرفت) — جدا از پیش‌فرض کاربر.
+  int _restSessionTotal = 90;
+  bool _restGateBusy = false;
 
   @override
   void initState() {
     super.initState();
     _viewModel = WorkoutLogViewModel();
     _viewModel.addListener(_onViewModelChanged);
+    _numpad.addListener(_onNumpadChanged);
     _viewModel.initialize();
+    unawaited(_loadRestPreference());
     _checkStarterProgram();
+  }
+
+  Future<void> _loadRestPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final v = prefs.getInt(_kRestPrefKey);
+      if (v == null) return;
+      _restDurationSeconds = v.clamp(0, 3600);
+      _restDurationTick.value++;
+    } catch (_) {}
+  }
+
+  Future<void> _persistRestPreference(int seconds) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_kRestPrefKey, seconds);
+    } catch (_) {}
+  }
+
+  void _onNumpadChanged() {
+    _viewModel.setSuppressAutoSave(_numpad.isOpen);
   }
 
   Future<void> _checkStarterProgram() async {
@@ -163,14 +198,27 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
   }
 
   void _onViewModelChanged() {
-    if (mounted) {
-      WidgetSafetyUtils.safeSetState(this, () {});
+    if (!mounted) return;
+    final loading = _viewModel.isLoadingDayLog;
+    final finishedLoad = _wasLoadingDayLog && !loading;
+    _wasLoadingDayLog = loading;
+    if (finishedLoad && _viewModel.hasAnySavedSet) {
+      _setupExpanded.value = false;
     }
+    WidgetSafetyUtils.safeSetState(this, () {});
   }
 
   @override
   void dispose() {
     _restCountdownTimer?.cancel();
+    _restRemaining.dispose();
+    _restRunning.dispose();
+    _restSessionActive.dispose();
+    _restAttentionTick.dispose();
+    _setupExpanded.dispose();
+    _restDurationTick.dispose();
+    _numpad.removeListener(_onNumpadChanged);
+    _numpad.dispose();
     unawaited(_restDonePlayer?.dispose() ?? Future<void>.value());
     _viewModel.removeListener(_onViewModelChanged);
     _viewModel.dispose();
@@ -178,13 +226,10 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
   }
 
   void _startRestTimer() {
-    if (_isRestRunning) return;
+    if (_restRunning.value) return;
+    if (_restRemaining.value <= 0) return;
 
-    if (_remainingRestSeconds <= 0) {
-      _remainingRestSeconds = _restDurationSeconds;
-    }
-
-    WidgetSafetyUtils.safeSetState(this, () => _isRestRunning = true);
+    _restRunning.value = true;
     _restCountdownTimer?.cancel();
     _restCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
@@ -192,32 +237,91 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
         return;
       }
 
-      if (_remainingRestSeconds <= 1) {
+      if (_restRemaining.value <= 1) {
         timer.cancel();
-        WidgetSafetyUtils.safeSetState(this, () {
-          _remainingRestSeconds = 0;
-          _isRestRunning = false;
-          _restSessionActive = false;
-        });
+        _restRemaining.value = 0;
+        _restRunning.value = false;
+        _restSessionActive.value = false;
         unawaited(_notifyRestCompleted());
         return;
       }
 
-      WidgetSafetyUtils.safeSetState(this, () {
-        _remainingRestSeconds -= 1;
-      });
+      _restRemaining.value -= 1;
     });
   }
 
   void _pauseRestTimer() {
     _restCountdownTimer?.cancel();
-    if (!_isRestRunning) return;
-    WidgetSafetyUtils.safeSetState(this, () => _isRestRunning = false);
+    if (!_restRunning.value) return;
+    _restRunning.value = false;
+  }
+
+  void _toggleRestPause() {
+    if (_restRunning.value) {
+      _pauseRestTimer();
+    } else if (_restSessionActive.value && _restRemaining.value > 0) {
+      _startRestTimer();
+    }
+  }
+
+  void _skipRestTimer() {
+    _restCountdownTimer?.cancel();
+    _restRemaining.value = 0;
+    _restRunning.value = false;
+    _restSessionActive.value = false;
+  }
+
+  void _adjustRestBy(int delta) {
+    if (!_restSessionActive.value) return;
+    final next = (_restRemaining.value + delta).clamp(0, 3600);
+    _restRemaining.value = next;
+    if (next > _restSessionTotal) {
+      _restSessionTotal = next;
+    }
+    if (next <= 0) {
+      _skipRestTimer();
+      return;
+    }
+    if (!_restRunning.value) {
+      _startRestTimer();
+    }
+  }
+
+  /// شروع/ریست تایمر با مدت پیش‌فرض (بعد از ثبت ست).
+  void _startFreshRest([int? seconds]) {
+    final s = (seconds ?? _restDurationSeconds).clamp(0, 3600);
+    if (s <= 0) {
+      _skipRestTimer();
+      return;
+    }
+    _restCountdownTimer?.cancel();
+    _restSessionTotal = s;
+    _restRemaining.value = s;
+    _restSessionActive.value = true;
+    _restRunning.value = false;
+    _startRestTimer();
+  }
+
+  Future<void> _openRestSettings() async {
+    _dismissKeyboard();
+    final picked = await showRestDurationPicker(
+      context,
+      currentSeconds: _restDurationSeconds,
+    );
+    if (!mounted || picked == null) return;
+    _restDurationSeconds = picked;
+    _restDurationTick.value++;
+    unawaited(_persistRestPreference(picked));
+    if (picked <= 0) {
+      _skipRestTimer();
+    }
   }
 
   Future<void> _notifyRestCompleted() async {
     try {
-      if (await Vibration.hasVibrator()) {
+      final prefs = await SharedPreferences.getInstance();
+      final vibrationOn = prefs.getBool('vibration_enabled') ?? true;
+      if (vibrationOn && await Vibration.hasVibrator()) {
         if (await Vibration.hasCustomVibrationsSupport()) {
           await Vibration.vibrate(duration: 480);
           await Future<void>.delayed(const Duration(milliseconds: 140));
@@ -231,16 +335,24 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     } catch (_) {}
 
     try {
-      for (var i = 0; i < 4; i++) {
-        await HapticFeedback.heavyImpact();
-        await Future<void>.delayed(const Duration(milliseconds: 40));
+      final prefs = await SharedPreferences.getInstance();
+      final vibrationOn = prefs.getBool('vibration_enabled') ?? true;
+      if (vibrationOn) {
+        for (var i = 0; i < 4; i++) {
+          await HapticFeedback.heavyImpact();
+          await Future<void>.delayed(const Duration(milliseconds: 40));
+        }
       }
     } catch (_) {}
 
     try {
       final player = _restDonePlayer ??= AudioPlayer();
-      await player.stop();
-      await player.play(AssetSource('sounds/rest_timer_done.wav'));
+      final prefs = await SharedPreferences.getInstance();
+      final soundOn = prefs.getBool('sound_enabled') ?? true;
+      if (soundOn) {
+        await player.stop();
+        await player.play(AssetSource('sounds/rest_timer_done.wav'));
+      }
     } catch (_) {}
 
     if (!mounted) return;
@@ -255,238 +367,58 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     );
   }
 
-  String _formatRestLabel(int totalSeconds) {
-    final minutes = totalSeconds ~/ 60;
-    final seconds = totalSeconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-
   void _dismissKeyboard() {
+    _numpad.close();
     WorkoutLogKeyboard.dismiss(context);
   }
 
-  void _onRestFabPressed() {
-    _dismissKeyboard();
-    if (_isRestRunning) {
-      _pauseRestTimer();
-      return;
-    }
-    if (_restSessionActive && _remainingRestSeconds > 0) {
-      _startRestTimer();
-      return;
-    }
-    WorkoutLogKeyboard.runAfterKeyboardDismissed(context, () {
-      unawaited(_openRestTimerSheet());
-    });
-  }
+  Future<bool> _handleSaveSet(String exerciseId, int setIndex) async {
+    final statusBefore = _viewModel.setSavedStatus[exerciseId];
+    final alreadySaved = statusBefore != null &&
+        statusBefore.length > setIndex &&
+        statusBefore[setIndex];
 
-  void _startFreshRest(int seconds) {
-    _restCountdownTimer?.cancel();
-    final s = seconds.clamp(5, 3600);
-    WidgetSafetyUtils.safeSetState(this, () {
-      _restDurationSeconds = s;
-      _remainingRestSeconds = s;
-      _restSessionActive = true;
-      _isRestRunning = false;
-    });
-    _startRestTimer();
-  }
-
-  void _applyPlusFifteenFromSheet() {
-    _restCountdownTimer?.cancel();
-    WidgetSafetyUtils.safeSetState(this, () {
-      _remainingRestSeconds += 15;
-      if (_remainingRestSeconds > _restDurationSeconds) {
-        _restDurationSeconds = _remainingRestSeconds;
-      }
-      if (_remainingRestSeconds > 0) {
-        _restSessionActive = true;
-      }
-      _isRestRunning = false;
-    });
-    if (_remainingRestSeconds > 0) {
-      _startRestTimer();
-    }
-  }
-
-  Future<void> _openRestTimerSheet() async {
-    _dismissKeyboard();
-    final rootContext = context;
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
-        final cardColor = Theme.of(sheetContext).cardColor;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            20.w,
-            0,
-            20.w,
-            16.h + MediaQuery.paddingOf(sheetContext).bottom,
-          ),
-          child: Directionality(
-            textDirection: TextDirection.rtl,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(vertical: 18.h),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(20.r),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(
-                          alpha: isDark ? 0.35 : 0.12,
-                        ),
-                        blurRadius: 16.r,
-                        offset: Offset(0, 6.h),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildRestDurationCircle(
-                        sheetContext: sheetContext,
-                        seconds: 60,
-                      ),
-                      _buildRestDurationCircle(
-                        sheetContext: sheetContext,
-                        seconds: 90,
-                      ),
-                      _buildRestDurationCircle(
-                        sheetContext: sheetContext,
-                        seconds: 120,
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 12.h),
-                Material(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(999.r),
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.of(sheetContext).pop();
-                      if (!rootContext.mounted) return;
-                      _dismissKeyboard();
-                      _applyPlusFifteenFromSheet();
-                    },
-                    borderRadius: BorderRadius.circular(999.r),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 22.w,
-                        vertical: 10.h,
-                      ),
-                      child: Text(
-                        '+15 ثانیه',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13.sp,
-                          color: AppTheme.goldColor,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+    // وسط استراحت ست جدید؟ مسدود نکن — فقط واکنش بده.
+    if (!alreadySaved &&
+        _restSessionActive.value &&
+        _restRemaining.value > 0) {
+      if (_restGateBusy) return false;
+      _restGateBusy = true;
+      _restAttentionTick.value++;
+      HapticFeedback.mediumImpact();
+      try {
+        final choice = await showRestStillActiveSheet(
+          context,
+          remainingSeconds: _restRemaining.value,
         );
-      },
-    );
+        if (!mounted) return false;
+        if (choice != RestStillActiveChoice.skipAndSave) return false;
+        _skipRestTimer();
+      } finally {
+        _restGateBusy = false;
+      }
+    }
+
+    final hadAny = _viewModel.hasAnySavedSet;
+    await _viewModel.saveSet(exerciseId, setIndex);
+    if (!mounted) return false;
+    final status = _viewModel.setSavedStatus[exerciseId];
+    final isSaved =
+        status != null && status.length > setIndex && status[setIndex];
+    if (!isSaved) return false;
+    HapticFeedback.lightImpact();
+    if (!hadAny && _setupExpanded.value) {
+      _setupExpanded.value = false;
+    }
+    // مثل Hevy/Strong: بعد از ثبت ست، استراحت خودکار شروع می‌شود.
+    if (_restDurationSeconds > 0) {
+      _startFreshRest();
+    }
+    return true;
   }
 
-  Widget _buildRestDurationCircle({
-    required BuildContext sheetContext,
-    required int seconds,
-  }) {
-    final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          Navigator.of(sheetContext).pop();
-          if (!context.mounted) return;
-          _dismissKeyboard();
-          _startFreshRest(seconds);
-        },
-        customBorder: const CircleBorder(),
-        child: Container(
-          width: 56.w,
-          height: 56.w,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: AppTheme.goldColor.withValues(alpha: 0.85),
-              width: 2.w,
-            ),
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.14 : 0.1),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            '$seconds',
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontWeight: FontWeight.w900,
-              fontSize: 16.sp,
-              color: Theme.of(sheetContext).textTheme.bodyLarge?.color,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRestFloatingButton() {
-    final showTime = _restSessionActive && _remainingRestSeconds > 0;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        if (showTime)
-          Padding(
-            padding: EdgeInsets.only(bottom: 8.h, left: 4.w),
-            child: Text(
-              _formatRestLabel(_remainingRestSeconds),
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontWeight: FontWeight.w900,
-                fontSize: 14.sp,
-                color: AppTheme.goldColor,
-              ),
-            ),
-          ),
-        Material(
-          elevation: 6,
-          shadowColor: Colors.black45,
-          shape: const CircleBorder(),
-          color: _isRestRunning ? AppTheme.successColor : AppTheme.goldColor,
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: _onRestFabPressed,
-            onLongPress: () {
-              _dismissKeyboard();
-              WorkoutLogKeyboard.runAfterKeyboardDismissed(context, () {
-                unawaited(_openRestTimerSheet());
-              });
-            },
-            child: SizedBox(
-              width: 56.w,
-              height: 56.w,
-              child: Icon(
-                _isRestRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                color: Colors.black,
-                size: 30.sp,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+  Future<void> _handleUnsaveSet(String exerciseId, int setIndex) async {
+    await _viewModel.unsaveSet(exerciseId, setIndex);
   }
 
   void _navigateToExerciseTutorial(int exerciseId) {
@@ -553,6 +485,7 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final gregorian = _viewModel.selectedDate.toGregorian();
     final dateTime = gregorian.toDateTime();
+    final hasSession = _viewModel.selectedSession != null;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -566,69 +499,223 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
             elevation: 0,
           ),
         ),
-        child: DecoratedBox(
-          decoration: const BoxDecoration(),
-          child: Scaffold(
-            resizeToAvoidBottomInset: true,
-            backgroundColor: Colors.transparent,
-            appBar: WorkoutLogAppBar(
-              selectedDate: dateTime,
-              onBackPressed: () => NavigationService.safePop(context),
-              onDatePickerPressed: _showDatePicker,
-              onPreviewPressed: _showPreview,
-            ),
-            body: _viewModel.isLoadingTodayLog
-                ? const WorkoutLogLoadingWidget()
-                : _viewModel.selectedProgram == null
-                ? EmptyStateWidgets.noActiveProgram(
-                    context,
-                    onStarterProgramTap: _onStarterProgramTap,
-                    isInstallingStarter: _isInstallingStarter,
-                    hasStarterProgram: _hasStarterProgram,
-                    needsStarterUpgrade: _needsStarterUpgrade,
-                  )
-                : TapRegion(
-                    onTapOutside: (_) => _dismissKeyboard(),
-                    child: SingleChildScrollView(
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      padding: EdgeInsets.only(bottom: 88.h),
-                      child: Column(
-                        children: [
-                          SizedBox(height: 8.h),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16.w),
-                            child: WorkoutTrainerSupervisionCard(
-                              programId: _viewModel.selectedProgram!.id,
-                              selectedProgram: _viewModel.selectedProgram,
-                              selectedSession: _viewModel.selectedSession,
-                              viewModel: _viewModel,
-                              onSessionHeatmapTap: _showSessionHeatmap,
-                              sessionsLocked: _viewModel.isLoadingDayLog,
-                              onSessionSelected: _onSessionSelected,
-                            ),
-                          ),
-                          SizedBox(height: 16.h),
-                          const MyProgramsButton(),
-                          SizedBox(height: 24.h),
-                          WorkoutDateSeparatorWidget(selectedDate: dateTime),
-                          SizedBox(height: 24.h),
-                          _buildExercisesList(),
-                        ],
-                      ),
-                    ),
-                  ),
-            floatingActionButton: _buildRestFloatingButton(),
-            floatingActionButtonAnimator:
-                FloatingActionButtonAnimator.noAnimation,
-            floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        child: Scaffold(
+          // ui-health: keyboard-inset-ok — جلوگیری از resize کل لیست هنگام IME
+          resizeToAvoidBottomInset: false,
+          backgroundColor: context.backgroundColor,
+          appBar: WorkoutLogAppBar(
+            selectedDate: dateTime,
+            onBackPressed: () => NavigationService.safePop(context),
+            onLogSummaryPressed: _viewModel.selectedProgram == null
+                ? null
+                : _showLogSummary,
+            onHeatmapPressed: _viewModel.selectedProgram == null
+                ? null
+                : _showSessionHeatmap,
           ),
+          body: _viewModel.isLoadingTodayLog
+              ? const WorkoutLogLoadingWidget()
+              : _viewModel.selectedProgram == null
+              ? EmptyStateWidgets.noActiveProgram(
+                  context,
+                  onStarterProgramTap: _onStarterProgramTap,
+                  isInstallingStarter: _isInstallingStarter,
+                  hasStarterProgram: _hasStarterProgram,
+                  needsStarterUpgrade: _needsStarterUpgrade,
+                )
+              : TapRegion(
+                  onTapOutside: (_) => _dismissKeyboard(),
+                  child: Column(
+                    children: [
+                      if (hasSession)
+                        ListenableBuilder(
+                          listenable: Listenable.merge([
+                            _setupExpanded,
+                            _restDurationTick,
+                          ]),
+                          builder: (context, _) {
+                            return WorkoutSessionProgressStrip(
+                              viewModel: _viewModel,
+                              restDefaultSeconds: _restDurationSeconds,
+                              onRestSettingsTap: _openRestSettings,
+                              onSessionTap: () {
+                                _setupExpanded.value = !_setupExpanded.value;
+                              },
+                              setupExpanded: _setupExpanded.value,
+                            );
+                          },
+                        ),
+                      if (_viewModel.selectedProgram != null)
+                        WorkoutWeekDateStrip(
+                          selectedDate: _viewModel.selectedDate,
+                          enabled: !_viewModel.isLoadingDayLog,
+                          onDateSelected: (day) {
+                            unawaited(_applySelectedJalali(day));
+                          },
+                          onOpenCalendar: _showDatePicker,
+                        ),
+                      Expanded(
+                        child: ListenableBuilder(
+                          listenable: _setupExpanded,
+                          builder: (context, _) {
+                            return NotificationListener<ScrollUpdateNotification>(
+                              onNotification: (notification) {
+                                // فقط درگ دستی کاربر — نه ensureVisible برنامه‌ای
+                                if (notification.dragDetails != null &&
+                                    _numpad.isOpen) {
+                                  _numpad.close();
+                                }
+                                return false;
+                              },
+                              child: CustomScrollView(
+                                cacheExtent: 480,
+                                keyboardDismissBehavior:
+                                    ScrollViewKeyboardDismissBehavior.onDrag,
+                                slivers: [
+                                  SliverToBoxAdapter(
+                                    child: SizedBox(height: 6.h),
+                                  ),
+                                  if (!hasSession || _setupExpanded.value)
+                                    SliverToBoxAdapter(
+                                      child: Padding(
+                                        padding: EdgeInsets.fromLTRB(
+                                          16.w,
+                                          4.h,
+                                          16.w,
+                                          0,
+                                        ),
+                                        child: WorkoutTrainerSupervisionCard(
+                                          programId:
+                                              _viewModel.selectedProgram!.id,
+                                          selectedProgram:
+                                              _viewModel.selectedProgram,
+                                          selectedSession:
+                                              _viewModel.selectedSession,
+                                          sessionsLocked:
+                                              _viewModel.isLoadingDayLog,
+                                          onSessionSelected: _onSessionSelected,
+                                        ),
+                                      ),
+                                    ),
+                                  ..._buildExerciseSlivers(),
+                                  SliverToBoxAdapter(
+                                    child: SizedBox(height: 88.h),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      // داک استراحت — نزدیک اکشن کاربر (بالای نام‌پد)
+                      if (hasSession)
+                        ListenableBuilder(
+                          listenable: Listenable.merge([
+                            _restRemaining,
+                            _restRunning,
+                            _restSessionActive,
+                            _restAttentionTick,
+                          ]),
+                          builder: (context, _) {
+                            final active = _restSessionActive.value &&
+                                _restRemaining.value > 0;
+                            return AnimatedSize(
+                              duration: const Duration(milliseconds: 240),
+                              curve: Curves.easeOutCubic,
+                              alignment: Alignment.bottomCenter,
+                              child: active
+                                  ? WorkoutRestTimerBar(
+                                      remainingSeconds: _restRemaining.value,
+                                      totalSeconds: _restSessionTotal,
+                                      isRunning: _restRunning.value,
+                                      attentionToken: _restAttentionTick.value,
+                                      onTogglePause: _toggleRestPause,
+                                      onMinus15: () => _adjustRestBy(-15),
+                                      onPlus15: () => _adjustRestBy(15),
+                                      onSkip: _skipRestTimer,
+                                    )
+                                  : const SizedBox(width: double.infinity),
+                            );
+                          },
+                        ),
+                      WorkoutSetNumpadBar(controller: _numpad),
+                    ],
+                  ),
+                ),
         ),
       ),
     );
   }
 
+  List<Widget> _buildExerciseSlivers() {
+    if (_viewModel.selectedSession == null) {
+      return [
+        SliverToBoxAdapter(child: EmptyStateWidgets.noSessionSelected()),
+      ];
+    }
+
+    if (_viewModel.selectedSession!.exercises.isEmpty) {
+      return [
+        SliverToBoxAdapter(child: EmptyStateWidgets.noExercisesInSession()),
+      ];
+    }
+
+    final exercises = _viewModel.selectedSession!.exercises;
+    return [
+      SliverPadding(
+        padding: EdgeInsets.fromLTRB(14.w, 8.h, 14.w, 0),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final exercise = exercises[index];
+              final key = _exerciseUiKey(exercise);
+              return RepaintBoundary(
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _viewModel.exerciseListenable(key),
+                  builder: (context, _, __) {
+                    return ExerciseCard(
+                      exercise: exercise,
+                      orderIndex: index + 1,
+                      exerciseDetails: _viewModel.exerciseDetails,
+                      exerciseControllers: _viewModel.exerciseControllers,
+                      exerciseFocusNodes: _viewModel.exerciseFocusNodes,
+                      setSavedStatus: _viewModel.setSavedStatus,
+                      collapsedExercises: _viewModel.collapsedExercises,
+                      exerciseCoachFeedback:
+                          _viewModel.exerciseCoachFeedback,
+                      previousSetsByExerciseId:
+                          _viewModel.previousSetsByExerciseId,
+                      onToggleCollapse: _toggleExerciseCollapse,
+                      onNavigateToTutorial: _navigateToExerciseTutorial,
+                      onSaveSet: _handleSaveSet,
+                      onUnsaveSet: _handleUnsaveSet,
+                      onDismissKeyboard: _dismissKeyboard,
+                      numpad: _numpad,
+                    );
+                  },
+                ),
+              );
+            },
+            childCount: exercises.length,
+            addRepaintBoundaries: false,
+          ),
+        ),
+      ),
+    ];
+  }
+
+  String _exerciseUiKey(WorkoutExercise exercise) {
+    if (exercise is NormalExercise) {
+      return exercise.exerciseId.toString();
+    }
+    if (exercise is SupersetExercise) {
+      return exercise.id;
+    }
+    return exercise.hashCode.toString();
+  }
+
   Future<void> _showDatePicker() async {
+    if (_viewModel.isLoadingDayLog) return;
     _dismissKeyboard();
     final gregorian = _viewModel.selectedDate.toGregorian();
     final dateTime = gregorian.toDateTime();
@@ -637,7 +724,6 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
       context: context,
       builder: (context) => PersianDatePickerDialog(
         selectedDate: dateTime,
-        onDateSelected: (date) => Navigator.pop(context, date),
       ),
     );
 
@@ -648,6 +734,10 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
   Future<void> _applyCalendarDate(DateTime date) async {
     final pickedDay = DateTime(date.year, date.month, date.day);
     final jalali = Gregorian.fromDateTime(pickedDay).toJalali();
+    await _applySelectedJalali(jalali);
+  }
+
+  Future<void> _applySelectedJalali(Jalali jalali) async {
     final current = _viewModel.selectedDate;
     if (jalali.year == current.year &&
         jalali.month == current.month &&
@@ -655,19 +745,53 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
       return;
     }
 
+    if (_viewModel.hasUncommittedSetEdits()) {
+      final confirmed = await WidgetSafetyUtils.safeShowDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: WorkoutLogColors.sectionBackground(context),
+          title: Text(
+            'تغییر تاریخ',
+            style: WorkoutLogTypography.dialogTitle(context),
+          ),
+          content: Text(
+            'ست‌هایی را نوشته‌ای که هنوز ثبت نشده‌اند. با عوض کردن تاریخ پاک می‌شوند.',
+            style: WorkoutLogTypography.dialogBody(context),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('بمان'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                'ادامه',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: WorkoutLogColors.warningText(context),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+
     _dismissKeyboard();
     await _viewModel.changeSelectedDate(jalali);
   }
 
-  Future<void> _showPreview() async {
+  Future<void> _showLogSummary() async {
     _dismissKeyboard();
     final gregorian = _viewModel.selectedDate.toGregorian();
     final dateTime = gregorian.toDateTime();
-
-    await WidgetSafetyUtils.safeShowDialog<void>(
-      context: context,
-      builder: (context) =>
-          WorkoutPreviewDialog(viewModel: _viewModel, dateTime: dateTime),
+    await WorkoutLogSummarySheet.show(
+      context,
+      viewModel: _viewModel,
+      dateTime: dateTime,
     );
   }
 
@@ -686,54 +810,5 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
       return;
     }
     await SessionMuscleHeatmapSheet.show(context, viewModel: _viewModel);
-  }
-
-  Widget _buildExercisesList() {
-    if (_viewModel.selectedProgram == null) {
-      return const SizedBox.shrink();
-    }
-
-    if (_viewModel.selectedSession == null) {
-      return EmptyStateWidgets.noSessionSelected();
-    }
-
-    if (_viewModel.selectedSession!.exercises.isEmpty) {
-      return EmptyStateWidgets.noExercisesInSession();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_viewModel.selectedSession!.notes != null &&
-            _viewModel.selectedSession!.notes!.isNotEmpty)
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
-            child: ExerciseListHeader(
-              sessionNotes: _viewModel.selectedSession!.notes!,
-            ),
-          ),
-        ...List.generate(_viewModel.selectedSession!.exercises.length, (index) {
-          final exercise = _viewModel.selectedSession!.exercises[index];
-          return Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.w),
-            child: RepaintBoundary(
-              child: ExerciseCard(
-                exercise: exercise,
-                exerciseDetails: _viewModel.exerciseDetails,
-                exerciseControllers: _viewModel.exerciseControllers,
-                exerciseFocusNodes: _viewModel.exerciseFocusNodes,
-                setSavedStatus: _viewModel.setSavedStatus,
-                collapsedExercises: _viewModel.collapsedExercises,
-                exerciseCoachFeedback: _viewModel.exerciseCoachFeedback,
-                onToggleCollapse: _toggleExerciseCollapse,
-                onNavigateToTutorial: _navigateToExerciseTutorial,
-                onSaveSet: _viewModel.saveSet,
-                onDismissKeyboard: _dismissKeyboard,
-              ),
-            ),
-          );
-        }),
-      ],
-    );
   }
 }

@@ -550,18 +550,19 @@ class PredefinedPlans {
   static List<PaymentPlan> get subscriptions => [
     PaymentPlan(
       id: 'monthly_basic',
-      name: 'اشتراک ماهانه پایه',
-      shortDescription: 'دسترسی به امکانات پایه',
-      fullDescription: 'دسترسی کامل به امکانات پایه اپلیکیشن برای یک ماه',
+      name: 'Coach Pro',
+      shortDescription: 'مربی هوشمند برای تمرین روزمره',
+      fullDescription:
+          'برای کسی که می‌خواهد برنامه بگیرد، حین تمرین سؤال بپرسد و پیشرفت را پیگیری کند — بدون امکانات سازمانی.',
       type: PaymentPlanType.subscription,
       accessLevel: PlanAccessLevel.basic,
-      price: 2000000, // 200 هزار تومان
+      price: 2000000, // 200 هزار تومان (ریال)
       validityDays: 31,
       features: [
-        'برنامه‌های تمرینی نامحدود',
-        'برنامه‌های تغذیه',
-        'پیگیری پیشرفت',
-        'چت با مربی‌ها',
+        'ساخت و ویرایش برنامه تمرینی با AI',
+        'چت با مربی هوشمند (سقف روزانه منطقی)',
+        'تحلیل جلسه و نکات بعد از تمرین',
+        'پیگیری وزن، استریک و پیشرفت',
       ],
       limitations: {'max_ai_requests': 5, 'max_programs': 10},
       createdAt: DateTime.now(),
@@ -569,22 +570,22 @@ class PredefinedPlans {
     ),
     PaymentPlan(
       id: 'monthly_premium',
-      name: 'اشتراک ماهانه پریمیم',
-      shortDescription: 'دسترسی کامل + ویژگی‌های پریمیم',
+      name: 'Ultimate AI',
+      shortDescription: 'همهٔ امکانات مربی + اولویت پشتیبانی',
       fullDescription:
-          'دسترسی کامل به تمام امکانات + ویژگی‌های پریمیم و پشتیبانی اولویت‌دار',
+          'دسترسی کامل‌تر به مربی هوشمند، تحلیل قوی‌تر، و پشتیبانی اولویت‌دار برای نسخهٔ جدی‌تر استفاده.',
       type: PaymentPlanType.subscription,
       accessLevel: PlanAccessLevel.premium,
-      price: 3500000, // 350 هزار تومان
-      originalPrice: 4000000, // 400 هزار تومان
+      price: 3500000, // 350 هزار تومان (ریال)
+      originalPrice: 4000000,
       validityDays: 31,
       isPopular: true,
       features: [
-        'تمام ویژگی‌های پایه',
-        'هوش مصنوعی نامحدود',
-        'مشاوره اختصاصی',
-        'محتوای پریمیم',
-        'پشتیبانی اولویت‌دار',
+        'همهٔ امکانات Coach Pro',
+        'سقف بالاتر گفتگو با مربی AI',
+        'تحلیل پیشرفته‌تر برنامه و ریکاوری',
+        'اولویت در پشتیبانی و بازخورد',
+        'دسترسی زودتر به قابلیت‌های جدید دمو',
       ],
       bonuses: {
         'free_consultation': true,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +41,6 @@ import 'package:gymaipro/utils/external_url_launcher.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class TrainerDetailScreen extends StatefulWidget {
   const TrainerDetailScreen({required this.trainer, super.key});
@@ -80,10 +81,16 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
   bool _isLoadingServices = true;
   num _trainingCost = 0;
   num _dietCost = 0;
+  num _consultingCost = 0;
   num _discountPct = 0;
-  bool _serviceTrainingEnabled = true;
-  bool _serviceDietEnabled = true;
-  bool _serviceConsultEnabled = true;
+  bool _serviceTrainingEnabled = false;
+  bool _serviceDietEnabled = false;
+  bool _serviceConsultEnabled = false;
+
+  // فیلدهای تازه از پروفایل (نه فقط snapshot ورودی)
+  int? _ranking;
+  int _experienceYears = 0;
+  bool _isOnline = false;
 
   // Payment services
   final TrainerPaymentService _paymentService = TrainerPaymentService();
@@ -103,15 +110,26 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     _tabController = TabController(length: 4, vsync: this);
 
     // مقداردهی اولیه از همان trainer تا بلافاصله در هدر نمایش داده شود (بدون انتظار لود)
-    _currentRating = widget.trainer.rating ?? 0.0;
-    _currentReviewCount = widget.trainer.reviewCount ?? 0;
+    final initialReviews = widget.trainer.reviewCount ?? 0;
+    _currentReviewCount = initialReviews;
+    // امتیاز فقط وقتی نظر واقعی هست معنا دارد (نه seed جعلی مثل ۴.۹ با ۰ نظر)
+    _currentRating =
+        initialReviews > 0 ? (widget.trainer.rating ?? 0.0) : 0.0;
     _currentStudentCount = widget.trainer.studentCount ?? 0;
-    _currentActiveStudentCount = widget.trainer.activeStudentCount ??
-        widget.trainer.studentCount ??
-        0;
+    _currentActiveStudentCount = widget.trainer.activeStudentCount ?? 0;
+    _experienceYears = widget.trainer.experienceYears ?? 0;
+    _ranking = _saneRanking(widget.trainer.ranking);
+    _isOnline = widget.trainer.isEffectivelyOnline;
 
     // لود KPI و آمار به صورت موازی برای سرعت بیشتر
-    _loadAllData();
+    unawaited(_loadAllData());
+  }
+
+  bool get _hasReviews => _currentReviewCount > 0;
+
+  int? _saneRanking(int? ranking) {
+    if (ranking == null || ranking <= 0 || ranking >= 9990) return null;
+    return ranking;
   }
 
   @override
@@ -224,12 +242,16 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         SchedulerBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             SafeSetState.call(this, () {
-              // به‌روزرسانی اطلاعات مربی در state
-              _currentRating = updatedTrainer.rating ?? 0.0;
-              _currentReviewCount = updatedTrainer.reviewCount ?? 0;
+              final reviews = updatedTrainer.reviewCount ?? 0;
+              _currentReviewCount = reviews;
+              _currentRating =
+                  reviews > 0 ? (updatedTrainer.rating ?? 0.0) : 0.0;
               _currentStudentCount = updatedTrainer.studentCount ?? 0;
               _currentActiveStudentCount =
                   updatedTrainer.activeStudentCount ?? 0;
+              _experienceYears = updatedTrainer.experienceYears ?? 0;
+              _ranking = _saneRanking(updatedTrainer.ranking);
+              _isOnline = updatedTrainer.isEffectivelyOnline;
             });
             _recomputeLeaguePoints();
             if (kDebugMode) {
@@ -377,12 +399,17 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         SafeSetState.call(this, () {
           _trainingCost = (json?['monthly_training_cost'] as num?) ?? 0;
           _dietCost = (json?['monthly_diet_cost'] as num?) ?? 0;
+          _consultingCost = (json?['monthly_consulting_cost'] as num?) ?? 0;
           _discountPct = (json?['package_discount_pct'] as num?) ?? 0;
+          // فقط وقتی صریحاً فعال است، یا قیمت واقعی ثبت شده
           _serviceTrainingEnabled =
-              (json?['service_training_enabled'] ?? true) == true;
-          _serviceDietEnabled = (json?['service_diet_enabled'] ?? true) == true;
+              (json?['service_training_enabled'] as bool?) ??
+                  (_trainingCost > 0);
+          _serviceDietEnabled =
+              (json?['service_diet_enabled'] as bool?) ?? (_dietCost > 0);
           _serviceConsultEnabled =
-              (json?['service_consulting_enabled'] ?? true) == true;
+              (json?['service_consulting_enabled'] as bool?) ??
+                  (_consultingCost > 0);
           _isLoadingServices = false;
         });
       }
@@ -465,7 +492,11 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                             ScrollViewKeyboardDismissBehavior.onDrag,
                         child: ReviewSubmissionWidget(
                           trainerId: widget.trainer.id ?? '',
-                          onReviewSubmitted: _loadReviews,
+                          onReviewSubmitted: () {
+                            unawaited(_loadReviews());
+                            unawaited(_refreshTrainerInfo());
+                            unawaited(_loadKpis());
+                          },
                         ),
                       ),
                     ),
@@ -816,10 +847,11 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
     final t = widget.trainer;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // داده‌ها: از KPI (بعد لود) یا از trainer (بلافاصله)
     final exercises = _kpis?.totalCustomExercises ?? 0;
     final musics = _kpis?.publicCustomMusics ?? _kpis?.totalCustomMusics ?? 0;
     final rating = _currentRating;
+    final showRating = _hasReviews && rating > 0;
+    final rank = _ranking;
 
     return Container(
       padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 12.h),
@@ -854,6 +886,8 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                       avatarUrl: t.avatarUrl,
                       userId: t.id,
                       username: t.username,
+                      firstName: t.firstName,
+                      lastName: t.lastName,
                       size: 52.w,
                       fallback: _buildDefaultAvatar(),
                     ),
@@ -869,7 +903,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                   children: [
                     Row(
                       children: [
-                        if (t.ranking != null && t.ranking! > 0) ...[
+                        if (rank != null) ...[
                           Container(
                             padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 1.5.h),
                             decoration: BoxDecoration(
@@ -877,13 +911,13 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                               borderRadius: BorderRadius.circular(4.r),
                             ),
                             child: Text(
-                              '#${t.ranking}',
+                              '#${FormatUtils.toPersianDigits('$rank')}',
                               style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 10.sp, fontWeight: FontWeight.w800, color: AppTheme.goldColor),
                             ),
                           ),
                           SizedBox(width: 6.w),
                         ],
-                        if (rating > 0) ...[
+                        if (showRating) ...[
                           Icon(
                             LucideIcons.star,
                             size: 12.sp,
@@ -891,19 +925,27 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                           ),
                           SizedBox(width: 2.w),
                           Text(
-                            rating.toStringAsFixed(1),
+                            FormatUtils.toPersianDigits(rating.toStringAsFixed(1)),
                             style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 11.sp, fontWeight: FontWeight.w600, color: context.textSecondary),
                           ),
                           Text(
-                            ' ($_currentReviewCount)',
+                            ' (${FormatUtils.toPersianDigits('$_currentReviewCount')})',
                             style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 10.sp, color: context.textSecondary.withValues(alpha: 0.7)),
                           ),
-                        ],
+                        ] else
+                          Text(
+                            'بدون نظر',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 11.sp,
+                              color: context.textSecondary,
+                            ),
+                          ),
                       ],
                     ),
                     SizedBox(height: 6.h),
                     // آنلاین / آفلاین
-                    if (t.isOnline ?? false)
+                    if (_isOnline)
                       Row(
                         children: [
                           Container(
@@ -936,23 +978,29 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
           Row(
             children: [
               _statItem(
-                value: _isLoadingKpis ? null : exercises.toString(),
+                value: _isLoadingKpis
+                    ? null
+                    : FormatUtils.toPersianDigits('$exercises'),
                 label: 'تمرین اختصاصی',
                 isLoading: _isLoadingKpis,
               ),
               _statDivider(),
               _statItem(
-                value: _isLoadingKpis ? null : musics.toString(),
+                value: _isLoadingKpis
+                    ? null
+                    : FormatUtils.toPersianDigits('$musics'),
                 label: 'موزیک',
                 isLoading: _isLoadingKpis,
               ),
               _statDivider(),
               _statItem(
                 value: _isLoadingKpis
-                    ? (rating > 0 ? rating.toStringAsFixed(1) : null)
-                    : (_kpis != null ? '${_kpis!.satisfactionPercent}%' : '—'),
-                label: _isLoadingKpis ? 'امتیاز' : 'رضایت',
-                isLoading: _isLoadingKpis && rating <= 0,
+                    ? null
+                    : (_hasReviews && _kpis != null
+                        ? '${FormatUtils.toPersianDigits('${_kpis!.satisfactionPercent}')}%'
+                        : '—'),
+                label: 'رضایت',
+                isLoading: _isLoadingKpis,
               ),
             ],
           ),
@@ -1513,8 +1561,6 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                   height: 1.5,
                 ),
                 textAlign: TextAlign.justify,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
             SizedBox(height: 16.h),
@@ -1580,7 +1626,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                 child: _buildInfoCard(
                   icon: LucideIcons.users,
                   title: 'کل شاگردان',
-                  value: _currentStudentCount.toString(),
+                  value: FormatUtils.toPersianDigits('$_currentStudentCount'),
                   color: AppTheme.successColor,
                 ),
               ),
@@ -1589,7 +1635,9 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                 child: _buildInfoCard(
                   icon: LucideIcons.userCheck,
                   title: 'شاگرد فعال',
-                  value: _currentActiveStudentCount.toString(),
+                  value: FormatUtils.toPersianDigits(
+                    '$_currentActiveStudentCount',
+                  ),
                   color: AppTheme.carbsColor,
                 ),
               ),
@@ -1602,7 +1650,9 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                 child: _buildInfoCard(
                   icon: LucideIcons.clock,
                   title: 'سال تجربه',
-                  value: (widget.trainer.experienceYears ?? 0).toString(),
+                  value: _experienceYears > 0
+                      ? FormatUtils.toPersianDigits('$_experienceYears')
+                      : '—',
                   color: AppTheme.fatColor,
                 ),
               ),
@@ -1611,7 +1661,11 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                 child: _buildInfoCard(
                   icon: LucideIcons.star,
                   title: 'امتیاز',
-                  value: _currentRating.toStringAsFixed(1),
+                  value: _hasReviews
+                      ? FormatUtils.toPersianDigits(
+                          _currentRating.toStringAsFixed(1),
+                        )
+                      : '—',
                   color: AppTheme.goldColor,
                 ),
               ),
@@ -1634,27 +1688,13 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
               ),
             )
           else
-            Row(
-              children: [
-                Expanded(
-                  child: _buildInfoCard(
-                    icon: LucideIcons.dumbbell,
-                    title: 'ورزشی',
-                    value: (_programStats['workout_programs'] ?? 0).toString(),
-                    color: AppTheme.fatColor,
-                  ),
-                ),
-                SizedBox(width: 8.w),
-                Expanded(
-                  child: _buildInfoCard(
-                    icon: LucideIcons.apple,
-                    title: 'تغذیه',
-                    value: (_programStats['nutrition_programs'] ?? 0)
-                        .toString(),
-                    color: AppTheme.proteinColor,
-                  ),
-                ),
-              ],
+            _buildInfoCard(
+              icon: LucideIcons.dumbbell,
+              title: 'برنامه ورزشی',
+              value: FormatUtils.toPersianDigits(
+                '${_programStats['workout_programs'] ?? 0}',
+              ),
+              color: AppTheme.fatColor,
             ),
         ],
       ),
@@ -1664,12 +1704,12 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
   Widget _buildReviewsTab() {
     final reviewCount =
         _reviews.isNotEmpty ? _reviews.length : _currentReviewCount;
-    final avg = _currentRating;
-    final scoreText = avg <= 0
+    final avg = _hasReviews ? _currentRating : 0.0;
+    final scoreText = !_hasReviews
         ? '—'
         : ((avg * 10).round() % 10 == 0)
-            ? avg.toStringAsFixed(0)
-            : avg.toStringAsFixed(1);
+            ? FormatUtils.toPersianDigits(avg.toStringAsFixed(0))
+            : FormatUtils.toPersianDigits(avg.toStringAsFixed(1));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1681,8 +1721,8 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
             children: [
               Row(
                 children: [
-                  _reviewsTabStarRow(avg),
-                  SizedBox(width: 8.w),
+                  if (_hasReviews) _reviewsTabStarRow(avg),
+                  if (_hasReviews) SizedBox(width: 8.w),
                   Text(
                     scoreText,
                     style: TextStyle(
@@ -1694,7 +1734,9 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
                   ),
                   const Spacer(),
                   Text(
-                    '$reviewCount نظر',
+                    _hasReviews
+                        ? '${FormatUtils.toPersianDigits('$reviewCount')} نظر'
+                        : 'بدون نظر',
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontSize: 12.sp,
@@ -2077,24 +2119,28 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
       );
     }
 
-    final consultingCost = _serviceConsultEnabled && _serviceTrainingEnabled
-        ? (_trainingCost / 2)
-        : 0;
-    // Full package excludes consulting
-    final packageRaw =
-        (_serviceTrainingEnabled ? _trainingCost : 0) +
-        (_serviceDietEnabled ? _dietCost : 0);
+    final consultingCost = _serviceConsultEnabled ? _consultingCost : 0;
+    // بسته = فقط خدمات واقعاً فعال با قیمت
+    final packageParts = <String>[];
+    num packageRaw = 0;
+    if (_serviceTrainingEnabled && _trainingCost > 0) {
+      packageRaw += _trainingCost;
+      packageParts.add('تمرین');
+    }
+    if (_serviceDietEnabled && _dietCost > 0) {
+      packageRaw += _dietCost;
+      packageParts.add('رژیم');
+    }
     final packageFinal = (packageRaw * (1 - (_discountPct.clamp(0, 100) / 100)))
         .floor();
 
     final trainingPurchasable =
         _serviceTrainingEnabled && _trainingCost > 0;
     final dietPurchasable = _serviceDietEnabled && _dietCost > 0;
-    final consultPurchasable = _serviceConsultEnabled &&
-        _serviceTrainingEnabled &&
-        _trainingCost > 0 &&
-        consultingCost > 0;
-    final packagePurchasable = packageFinal > 0;
+    final consultPurchasable =
+        _serviceConsultEnabled && consultingCost > 0;
+    final packagePurchasable =
+        packageFinal > 0 && packageParts.length >= 2;
 
     return ListView(
       padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
@@ -2103,7 +2149,7 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         Padding(
           padding: EdgeInsets.only(bottom: 12.h),
           child: Text(
-            'مبالغ به تومان، دورهٔ یک ماهه. خدمتی که قیمت ندارد یا غیرفعال است قابل خرید نیست.',
+            'مبالغ به تومان، دورهٔ یک ماهه. فقط خدمات فعال با قیمت ثبت‌شده قابل خریدند.',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 11.sp,
@@ -2119,17 +2165,13 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
           icon: LucideIcons.dumbbell,
           title: 'برنامه تمرینی',
           description: 'برنامه تمرینی شخصی‌سازی‌شده بر اساس اهداف شما',
-          price: _serviceTrainingEnabled
+          price: trainingPurchasable
               ? FormatUtils.formatAmount(_trainingCost)
               : FormatUtils.toPersianDigits('۰'),
           period: 'ماهانه',
           features: const [
-            'برنامه ی تمرینی روزانه',
-            'شامل 4 هفته تمرین',
-            'راهنمایی تکنیک ها و حرکات',
-            'پشتیبانی آنلاین',
-            'بررسی پیشرفت شما',
-            'چت نامحدود با مربی',
+            'برنامه شخصی‌سازی‌شده',
+            'پیگیری از طریق اپ',
           ],
           color: AppTheme.fatColor,
           disabled: !trainingPurchasable,
@@ -2144,18 +2186,14 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         ServiceCardWidget(
           icon: LucideIcons.apple,
           title: 'برنامه رژیم غذایی',
-          description: 'رژیم غذایی متعادل متناسب با اهداف و شرایط شما',
-          price: _serviceDietEnabled
+          description: 'رژیم غذایی متناسب با اهداف و شرایط شما',
+          price: dietPurchasable
               ? FormatUtils.formatAmount(_dietCost)
               : FormatUtils.toPersianDigits('۰'),
           period: 'ماهانه',
           features: const [
-            'برنامه ی غذایی روزانه',
-            'شامل 4 هفته رژیم',
-            'محاسبه ی کالری و درشت‌مغذی‌ها',
-            'پشتیبانی آنلاین',
-            'بررسی پیشرفت شما',
-            'چت نامحدود با مربی',
+            'برنامه غذایی شخصی',
+            'پیگیری از طریق اپ',
           ],
           color: AppTheme.proteinColor,
           disabled: !dietPurchasable,
@@ -2166,42 +2204,44 @@ class _TrainerDetailScreenState extends State<TrainerDetailScreen>
         ),
         SizedBox(height: 12.h),
 
-        // مشاوره و نظارت
-        ServiceCardWidget(
-          icon: LucideIcons.headphones,
-          title: 'مشاوره و نظارت',
-          description: 'مشاوره تخصصی و نظارت مداوم بر روند پیشرفت شما',
-          price: _serviceConsultEnabled && _serviceTrainingEnabled
-              ? FormatUtils.formatAmount(consultingCost)
-              : FormatUtils.toPersianDigits('۰'),
-          period: 'ماهانه',
-          features: const [
-            'چت نامحدود با مربی',
-            'بررسی روزانه پیشرفت',
-            'مشاوره تخصصی',
-            'تنظیم برنامه بر اساس نتایج',
-            'پشتیبانی 24/7',
-          ],
-          color: AppTheme.carbsColor,
-          disabled: !consultPurchasable,
-          serviceId: 'consulting',
-          onTap: consultPurchasable
-              ? () =>
-                  _selectService('consulting', consultingCost.toDouble())
-              : null,
-        ),
-        SizedBox(height: 16.h),
+        // مشاوره و نظارت — فقط اگر قیمت واقعی در پروفایل باشد
+        if (_serviceConsultEnabled)
+          ServiceCardWidget(
+            icon: LucideIcons.headphones,
+            title: 'مشاوره و نظارت',
+            description: 'مشاوره و پیگیری پیشرفت طبق توافق با مربی',
+            price: consultPurchasable
+                ? FormatUtils.formatAmount(consultingCost)
+                : FormatUtils.toPersianDigits('۰'),
+            period: 'ماهانه',
+            features: const [
+              'مشاوره با مربی',
+              'پیگیری پیشرفت',
+            ],
+            color: AppTheme.carbsColor,
+            disabled: !consultPurchasable,
+            serviceId: 'consulting',
+            onTap: consultPurchasable
+                ? () =>
+                    _selectService('consulting', consultingCost.toDouble())
+                : null,
+          ),
+        if (_serviceConsultEnabled) SizedBox(height: 16.h),
 
-        // بسته کامل
-        PackageCardWidget(
-          cost: packageFinal.toDouble(),
-          packageRaw: packageRaw,
-          discountPct: _discountPct,
-          disabled: !packagePurchasable,
-          onTap: packagePurchasable
-              ? () => _selectService('package', packageFinal.toDouble())
-              : null,
-        ),
+        // بسته کامل — فقط تمرین+رژیم وقتی هر دو قیمت دارند
+        if (packageParts.length >= 2)
+          PackageCardWidget(
+            cost: packageFinal.toDouble(),
+            packageRaw: packageRaw,
+            discountPct: _discountPct,
+            subtitle: '${packageParts.join(' + ')} با یک تخفیف',
+            description:
+                'شامل: ${packageParts.join('، ')} — طبق فعال‌سازی مربی.',
+            disabled: !packagePurchasable,
+            onTap: packagePurchasable
+                ? () => _selectService('package', packageFinal.toDouble())
+                : null,
+          ),
       ],
     );
   }

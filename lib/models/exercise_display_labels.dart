@@ -65,19 +65,47 @@ class ExerciseDisplayLabels {
     'vertical_pull': 'کشش عمودی',
     'squat': 'اسکوات',
     'lunge': 'لانج',
+    'hip_hinge': 'هیپ هینج',
+    'hinge': 'هیپ هینج',
     'elbow_extension': 'پشت‌بازو / باز کردن آرنج',
     'elbow_flexion': 'جلوبازو',
-    'hip_hinge': 'هیپ هینج',
+    'shoulder_abduction': 'نشر جانب',
+    'shoulder_adduction': 'نزدیک‌کردن شانه',
+    'shoulder_external_rotation': 'چرخش خارجی شانه',
+    'shoulder_internal_rotation': 'چرخش داخلی شانه',
+    'hip_abduction': 'دور کردن ران',
+    'hip_adduction': 'نزدیک کردن ران',
+    'hip_extension': 'اکستنشن ران / لگد',
     'anti_rotation': 'ضد چرخش',
     'anti_extension': 'ضد اکستنشن',
     'isometric_hold': 'ایزومتریک',
     'horizontal_adduction': 'فلای سینه',
     'knee_dominant_press': 'پرس پا',
+    'spinal_flexion': 'خم شدن ستون',
+    'spinal_extension': 'اکستنشن کمر',
+    'rotation': 'چرخش',
+    'lateral_flexion': 'خم جانبی',
+    'carry': 'حمل',
+    'gait': 'گام',
+    'compound': 'مرکب',
+    'cardio': 'هوازی',
   };
 
   static const Map<String, String> bodyEngagement = {
     'compound': 'مرکب',
     'isolation': 'ایزوله',
+  };
+
+  static const Map<String, String> mechanicsType = {
+    'compound': 'چندمفصلی',
+    'isolation': 'تک‌مفصلی',
+  };
+
+  static const Map<String, String> forceType = {
+    'push': 'هل دادن',
+    'pull': 'کشیدن',
+    'static': 'ایستا',
+    'dynamic': 'پویا',
   };
 
   static const Map<String, String> exerciseType = {
@@ -109,6 +137,12 @@ class ExerciseDisplayLabels {
       _label(movementPattern, raw, normalizeKey: true);
 
   static String engagement(String? raw) => _label(bodyEngagement, raw);
+
+  static String mechanics(String? raw) =>
+      _label(mechanicsType, raw, normalizeKey: true);
+
+  static String force(String? raw) =>
+      _label(forceType, raw, normalizeKey: true);
 
   static String type(String? raw) => _label(exerciseType, raw);
 

@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_log/models/food_meal_log.dart';
 import 'package:gymaipro/meal_log/utils/meal_log_utils.dart';
 import 'package:gymaipro/meal_log/utils/responsive_dialog_utils.dart';
+import 'package:gymaipro/meal_log/widgets/meal_log_colors.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
@@ -220,18 +221,20 @@ class _PersianFoodLogDatePickerDialogState
               _buildCalendarHeader(context),
               SizedBox(height: 20.h),
               _buildCalendarGrid(context),
-              SizedBox(height: 20.h),
+              SizedBox(height: 12.h),
               Row(
                 children: [
                   Expanded(
                     child: TextButton(
                       style: TextButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
+                        padding: EdgeInsets.symmetric(vertical: 10.h),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
+                          borderRadius: BorderRadius.circular(10.r),
                           side: BorderSide(
-                            color: AppTheme.goldColor.withValues(alpha: 0.3),
-                            width: 1.5,
+                            color: MealLogColors.chipBorder(
+                              context,
+                              selected: false,
+                            ),
                           ),
                         ),
                       ),
@@ -240,14 +243,14 @@ class _PersianFoodLogDatePickerDialogState
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           color: context.textColor.withValues(alpha: 0.7),
-                          fontSize: 14.sp,
+                          fontSize: 13.sp,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
-                  SizedBox(width: 12.w),
+                  SizedBox(width: 10.w),
                   Expanded(
                     child: GoldButton(
                       text: 'انتخاب',

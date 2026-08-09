@@ -151,7 +151,7 @@ class WalletOverviewState extends State<WalletOverview> {
       color: WalletColors.accent(context),
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
+        padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 28.h),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

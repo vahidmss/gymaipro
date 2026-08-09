@@ -18,6 +18,7 @@ import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/ranking/services/activity_tracking_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
 import 'package:gymaipro/services/food_service.dart';
+import 'package:gymaipro/services/presence_service.dart';
 import 'package:gymaipro/services/score_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/trainer_channel/services/trainer_channel_service.dart';
@@ -85,6 +86,9 @@ class LogoutCacheClearService {
 
       final chatPresenceService = ChatPresenceService();
       await chatPresenceService.clearAllPresence();
+      try {
+        await PresenceService.instance.markBackground(source: 'logout');
+      } catch (_) {}
       await ChatService().clearAllCaches(forUserId: previousUserId);
       ChatCacheService.clearAllMemory();
 

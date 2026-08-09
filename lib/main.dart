@@ -15,7 +15,6 @@ import 'package:gymaipro/core/lifecycle_observer.dart';
 import 'package:gymaipro/core/performance_monitor.dart';
 import 'package:gymaipro/core/web_interaction.dart';
 import 'package:gymaipro/debug/global_key_debugger.dart';
-import 'package:gymaipro/guide/guide.dart';
 import 'package:gymaipro/payment/services/payment_deeplink_service.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/backend_reachability_service.dart';
@@ -28,6 +27,7 @@ import 'package:gymaipro/services/supabase_service.dart';
 import 'package:gymaipro/services/video_download_manager.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/theme/theme_provider.dart';
+import 'package:gymaipro/utils/image_picker_config.dart';
 import 'package:gymaipro/widgets/app_update_coordinator.dart';
 import 'package:gymaipro/widgets/ios_pwa_install_banner.dart';
 import 'package:gymaipro/widgets/offline_banner.dart';
@@ -40,6 +40,7 @@ void main() {
   if (kIsWeb) {
     usePathUrlStrategy();
   }
+  configureImagePickerForPlatform();
   AppErrorHandler.initialize();
   runApp(const BootstrapApp());
 }
@@ -379,8 +380,8 @@ class _SplashScreenState extends State<_SplashScreen>
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.white.withValues(alpha: 0.45),
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.72),
                         height: 1.5,
                       ),
                     ),
@@ -484,22 +485,9 @@ class _MyAppState extends State<MyApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ConnectivityService.instance.initialize();
       _checkGlobalKeyStatus();
-      _initializeGuideServices();
       _initializeServices();
       _checkPendingNavigation();
     });
-  }
-
-  void _initializeGuideServices() {
-    try {
-      final guideService = GuideService();
-      guideService.initialize();
-
-      final onboardingService = OnboardingService();
-      onboardingService.initialize();
-    } catch (e) {
-      debugPrint('Error initializing guide services: $e');
-    }
   }
 
   void _initializeServices() {
@@ -595,10 +583,6 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider<VideoDownloadManager>(
           create: (_) => VideoDownloadManager(),
         ),
-        ChangeNotifierProvider<GuideService>(create: (_) => GuideService()),
-        ChangeNotifierProvider<OnboardingService>(
-          create: (_) => OnboardingService(),
-        ),
         ChangeNotifierProvider<NotificationProvider>(
           create: (_) => NotificationProvider(),
         ),
@@ -638,24 +622,9 @@ class _MyAppState extends State<MyApp> {
                         ),
                       ],
                       child: Container(
-                        color: isDark ? AppTheme.darkBackgroundColor : null,
-                        decoration: isDark
-                            ? null
-                            : BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    const Color(0xFFDDD0B8),
-                                    const Color(0xFFEDE4D4),
-                                    AppTheme.lightCardColor,
-                                    AppTheme.lightGradientEnd.withValues(
-                                      alpha: 0.12,
-                                    ),
-                                  ],
-                                  stops: const [0.0, 0.08, 0.22, 1.0],
-                                ),
-                              ),
+                        color: isDark
+                            ? AppTheme.darkBackgroundColor
+                            : AppTheme.lightBackgroundColor,
                         child: AppUpdateCoordinator(
                           child: Stack(
                             children: [

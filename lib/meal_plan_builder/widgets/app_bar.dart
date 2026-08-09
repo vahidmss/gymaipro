@@ -82,7 +82,7 @@ class AppBarMealPlanBuilder extends StatelessWidget
                       children: [
                         Icon(
                           LucideIcons.check,
-                          color: Colors.white,
+                          color: AppTheme.onGoldColor,
                           size: 20.sp,
                         ),
                         SizedBox(width: 6.w),
@@ -90,7 +90,7 @@ class AppBarMealPlanBuilder extends StatelessWidget
                           'ارسال برنامه',
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
-                            color: Colors.white,
+                            color: AppTheme.onGoldColor,
                             fontSize: 14.sp,
                             fontWeight: FontWeight.bold,
                           ),

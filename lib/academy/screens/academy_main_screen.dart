@@ -78,19 +78,7 @@ class _AcademyMainScreenState extends State<AcademyMainScreen>
         ),
       ),
       child: DecoratedBox(
-        decoration: isDark
-            ? const BoxDecoration()
-            : BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                    AppTheme.lightCardColor,
-                    AppTheme.lightGradientEnd.withValues(alpha: 0.1),
-                  ],
-                ),
-              ),
+        decoration: context.pageDecoration,
         child: Scaffold(
           backgroundColor: Colors.transparent,
           appBar: AppBar(
@@ -141,24 +129,29 @@ class _AcademyMainScreenState extends State<AcademyMainScreen>
                   controller: _tabController,
                   indicator: BoxDecoration(
                     borderRadius: BorderRadius.circular(14.r),
-                    gradient: isDark
-                        ? LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isDark
+                          ? [
                               AppTheme.goldColor.withValues(alpha: 0.25),
                               AppTheme.goldColor.withValues(alpha: 0.15),
+                            ]
+                          : [
+                              AppTheme.goldColor.withValues(alpha: 0.28),
+                              AppTheme.goldColor.withValues(alpha: 0.16),
                             ],
-                          )
-                        : null,
-                    color: isDark
-                        ? null
-                        : context.textColor.withValues(alpha: 0.1),
+                    ),
+                    border: Border.all(
+                      color: AppTheme.goldColor.withValues(
+                        alpha: isDark ? 0.35 : 0.45,
+                      ),
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: isDark
-                            ? AppTheme.goldColor.withValues(alpha: 0.2)
-                            : context.textColor.withValues(alpha: 0.1),
+                        color: AppTheme.goldColor.withValues(
+                          alpha: isDark ? 0.2 : 0.12,
+                        ),
                         blurRadius: 8.r,
                         offset: Offset(0, 2.h),
                       ),

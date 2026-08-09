@@ -110,7 +110,7 @@ class _MotivationalVideoDetailScreenState
         elevation: 0,
         title: Text(
           'ویدیو انگیزشی',
-          style: AppTheme.headingStyle.copyWith(fontSize: 18.sp),
+          style: context.headingStyle.copyWith(fontSize: 18.sp),
         ),
         centerTitle: true,
       ),
@@ -171,7 +171,7 @@ class _MotivationalVideoDetailScreenState
                 children: [
                   Text(
                     widget.video.title,
-                    style: AppTheme.headingStyle.copyWith(
+                    style: context.headingStyle.copyWith(
                       fontSize: 20.sp,
                       fontWeight: FontWeight.w800,
                     ),
@@ -187,7 +187,7 @@ class _MotivationalVideoDetailScreenState
                       SizedBox(width: 6.w),
                       Text(
                         widget.video.formattedDuration,
-                        style: AppTheme.bodyStyle.copyWith(fontSize: 12.sp),
+                        style: context.bodyStyle.copyWith(fontSize: 12.sp),
                       ),
                       SizedBox(width: 16.w),
                       if (widget.video.viewCount != null) ...[
@@ -199,7 +199,7 @@ class _MotivationalVideoDetailScreenState
                         SizedBox(width: 6.w),
                         Text(
                           '${widget.video.viewCount} بازدید',
-                          style: AppTheme.bodyStyle.copyWith(fontSize: 12.sp),
+                          style: context.bodyStyle.copyWith(fontSize: 12.sp),
                         ),
                       ],
                     ],
@@ -209,7 +209,7 @@ class _MotivationalVideoDetailScreenState
                     SizedBox(height: 16.h),
                     Text(
                       widget.video.description!,
-                      style: AppTheme.bodyStyle.copyWith(
+                      style: context.bodyStyle.copyWith(
                         fontSize: 14.sp,
                         height: 1.6,
                       ),

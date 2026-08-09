@@ -27,11 +27,11 @@ import 'package:gymaipro/meal_log/widgets/amount_keypad_sheet.dart';
 import 'package:gymaipro/widgets/food_serving_amount_sheet.dart';
 import 'package:gymaipro/meal_log/widgets/meal_log_app_bar.dart';
 import 'package:gymaipro/meal_log/widgets/meals_list_widget.dart';
-import 'package:gymaipro/meal_log/data/meal_log_guide_data.dart';
-import 'package:gymaipro/guide/guide.dart';
 import 'package:gymaipro/meal_log/widgets/substitute_food_dialog.dart';
 import 'package:gymaipro/meal_log/widgets/supplement_card.dart';
 import 'package:gymaipro/meal_log/widgets/trainer_supervision_card.dart';
+import 'package:gymaipro/meal_log/widgets/water_intake_strip.dart';
+import 'package:gymaipro/meal_log/services/water_log_service.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/models/meal_plan.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -42,7 +42,6 @@ import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
 import 'package:gymaipro/services/active_meal_plan_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:provider/provider.dart';
 // Theme
 import 'package:gymaipro/theme/app_theme.dart';
 
@@ -91,44 +90,6 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     _syncAllLocalLogsAndLoad();
     _loadProfileData();
     _loadMealPlanIfNeeded();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _registerGuides();
-        _checkAndShowTour();
-      }
-    });
-  }
-
-  void _registerGuides() {
-    try {
-      registerGuide(context, MealLogGuideData.getMealLogGuide());
-    } catch (e) {
-      debugPrint('Error registering meal log guides: $e');
-    }
-  }
-
-  Future<void> _checkAndShowTour() async {
-    try {
-      final guideService = Provider.of<GuideService>(context, listen: false);
-
-      // تاخیر برای اطمینان از render شدن ویجت‌ها
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-
-      // نمایش راهنما اگر هنوز نشون داده نشده
-      if (mounted && guideService.shouldShowGuide('meal_log_tour')) {
-        await offerGuideTourIfEligible(
-          context,
-          guideId: 'meal_log_tour',
-          title: 'یه تور کوتاه از کالری‌شمار بریم؟',
-          description:
-              'خلاصهٔ کالری، تاریخ و وعده‌ها رو با هم مرور می‌کنیم تا '
-              'ثبت غذا راحت‌تر بشه.',
-        );
-      }
-    } catch (e) {
-      debugPrint('Error showing meal log tour: $e');
-    }
   }
 
   Future<void> _loadMealPlanIfNeeded() async {
@@ -184,7 +145,8 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     final cacheService = DashboardCacheService();
     try {
       // بررسی کش برای profile data
-      final Map<String, dynamic>? cachedProfileData = cacheService.getProfileData();
+      final Map<String, dynamic>? cachedProfileData = cacheService
+          .getProfileData();
       if (cachedProfileData != null) {
         if (_profileData == null) {
           SafeSetState.call(this, () {
@@ -532,8 +494,9 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
   }) async {
     await _ensureCurrentLogInitialized();
 
-    final mealExists =
-        _currentLog!.meals.any((meal) => meal.title == mealTitle);
+    final mealExists = _currentLog!.meals.any(
+      (meal) => meal.title == mealTitle,
+    );
     if (!mealExists) {
       SafeSetState.call(this, () {
         _currentLog!.meals.add(FoodMealLog(title: mealTitle, foods: []));
@@ -691,46 +654,18 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
           ),
         ),
         child: DecoratedBox(
-          decoration: isDark
-              ? const BoxDecoration()
-              : BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                      AppTheme.lightCardColor,
-                      AppTheme.lightGradientEnd.withValues(alpha: 0.1),
-                    ],
-                  ),
-                ),
-          child: FeatureTourWidget(
-            guideId: 'meal_log_tour',
-            child: Scaffold(
-              backgroundColor: Colors.transparent,
-              appBar: MealLogAppBar(
-                key: MealLogGuideData.keys['date_picker'],
-                selectedDate: _selectedDate,
-                isFromMealPlan: widget.mealPlanId != null,
-                preloadedFoodLogDates: _preloadedFoodLogDates,
-                preloadedCaloriesByDate: _preloadedCaloriesByDate,
-                onDateSelected: (date) async {
-                  await _foodLogService.syncAllLocalLogsToDatabase();
-                  SafeSetState.call(this, () {
-                    _selectedDate = date;
-                    if (widget.mealPlanId == null) {
-                      _selectedPlan = null;
-                      _selectedSession = null;
-                    } else {
-                      // اگر از meal plan آمده، meal plan را دوباره بارگذاری کن
-                      _loadMealPlanIfNeeded();
-                    }
-                  });
-                  await _loadCurrentLog();
-                },
-              ),
-              body: LayoutBuilder(
-                builder: (context, constraints) {
+          decoration: context.pageDecoration,
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: MealLogAppBar(
+              selectedDate: _selectedDate,
+              isFromMealPlan: widget.mealPlanId != null,
+              preloadedFoodLogDates: _preloadedFoodLogDates,
+              preloadedCaloriesByDate: _preloadedCaloriesByDate,
+              onDateSelected: _applySelectedDate,
+            ),
+            body: LayoutBuilder(
+              builder: (context, constraints) {
                   // استفاده از MediaQuery برای اندازه واقعی صفحه
                   final mediaQuery = MediaQuery.of(context);
                   final screenWidth = mediaQuery.size.width;
@@ -740,9 +675,9 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                   final horizontalPadding = screenWidth > 600
                       ? (screenWidth * 0.1).clamp(16.0, 40.0)
                       : (screenWidth * 0.04).clamp(12.0, 20.0);
-                  final verticalPadding = (screenHeight * 0.02).clamp(
-                    12.0,
-                    24.0,
+                  final verticalPadding = (screenHeight * 0.012).clamp(
+                    8.0,
+                    16.0,
                   );
 
                   // محاسبه maxWidth برای محتوا (برای تبلت و دسکتاپ)
@@ -752,174 +687,215 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
 
                   return Stack(
                     children: [
-                      if (_isLoading) Center(
-                              child: CircularProgressIndicator(
-                                color: AppTheme.goldColor,
-                                strokeWidth: 3.w,
+                      if (_isLoading)
+                        Center(
+                          child: CircularProgressIndicator(
+                            color: AppTheme.goldColor,
+                            strokeWidth: 3.w,
+                          ),
+                        )
+                      else
+                        SingleChildScrollView(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: verticalPadding,
+                          ),
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: maxContentWidth,
                               ),
-                            ) else SingleChildScrollView(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: horizontalPadding,
-                                vertical: verticalPadding,
-                              ),
-                              child: Center(
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxWidth: maxContentWidth,
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // بخش کالری شماری یا کادر مربی
-                                      if (!_isLoading)
-                                        _shouldShowTrainerCard()
-                                            ? TrainerSupervisionCard(
-                                                mealPlanId:
-                                                    widget.mealPlanId ??
-                                                    _activeMealPlanId ??
-                                                    '',
-                                                selectedPlan: _selectedPlan,
-                                                selectedSession:
-                                                    _selectedSession,
-                                                onSessionSelected:
-                                                    (int session) {
-                                                      setState(() {
-                                                        _selectedSession =
-                                                            session;
-                                                      });
-                                                      _saveSessionLocal();
-                                                      _loadCurrentLog();
-                                                    },
-                                              )
-                                            : RepaintBoundary(
-                                                child: DailyCalorieSummary(
-                                                  key: MealLogGuideData
-                                                      .keys['calorie_summary'],
-                                                  meals:
-                                                      _currentLog?.meals ?? [],
-                                                  allFoods: _allFoods,
-                                                  profileData: _profileData,
-                                                  barGuidance:
-                                                      _mealInsight.barGuidance,
-                                                  referenceTime: _isTodaySelected
-                                                      ? DateTime.now()
-                                                      : _selectedDate,
-                                                ),
-                                              ),
-                                      if (!_isLoading &&
-                                          _isFreeLoggingMode &&
-                                          _mealInsight.shouldShowInsightCard)
-                                        MealInsightCard(
-                                          insight: _mealInsight,
-                                          onSuggestionTap: _onInsightSuggestion,
-                                        ),
-                                      // بخش خروج به کالری شماری آزاد (فقط وقتی از meal plan آمده)
-                                      if (!_isLoading &&
-                                          _shouldShowTrainerCard()) ...[
-                                        SizedBox(height: 12.h),
-                                        OutlinedButton.icon(
-                                          onPressed: () async {
-                                            // غیرفعال کردن active meal plan
-                                            await _activeMealPlanService
-                                                .clearActiveMealPlan();
-                                            if (!context.mounted) return;
-                                            unawaited(
-                                              Navigator.pushReplacementNamed(
-                                                context,
-                                                '/meal-log',
-                                              ),
-                                            );
-                                          },
-                                          icon: Icon(
-                                            LucideIcons.arrowLeft,
-                                            size: 18.sp,
-                                          ),
-                                          label: Text(
-                                            'خروج به کالری شماری آزاد',
-                                            style: TextStyle(
-                                              fontFamily: AppTheme.fontFamily,
-                                              fontSize: 14.sp,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // بخش کالری شماری یا کادر مربی
+                                  if (!_isLoading)
+                                    _shouldShowTrainerCard()
+                                        ? TrainerSupervisionCard(
+                                            mealPlanId:
+                                                widget.mealPlanId ??
+                                                _activeMealPlanId ??
+                                                '',
+                                            selectedPlan: _selectedPlan,
+                                            selectedSession: _selectedSession,
+                                            onSessionSelected: (int session) {
+                                              setState(() {
+                                                _selectedSession = session;
+                                              });
+                                              _saveSessionLocal();
+                                              _loadCurrentLog();
+                                            },
+                                          )
+                                        : RepaintBoundary(
+                                            child: DailyCalorieSummary(
+                                              meals: _currentLog?.meals ?? [],
+                                              allFoods: _allFoods,
+                                              profileData: _profileData,
+                                              barGuidance:
+                                                  _mealInsight.barGuidance,
+                                              referenceTime: _isTodaySelected
+                                                  ? DateTime.now()
+                                                  : _selectedDate,
                                             ),
                                           ),
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: AppTheme.goldColor,
-                                            side: BorderSide(
-                                              color: AppTheme.goldColor
-                                                  .withValues(alpha: 0.5),
-                                            ),
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 16.w,
-                                              vertical: 12.h,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12.r),
-                                            ),
+                                  if (!_isLoading)
+                                    WaterIntakeStrip(
+                                      date: _selectedDate,
+                                      userId: _profileData?['id'] as String?,
+                                      targetMl:
+                                          WaterLogService.targetMlFromProfile(
+                                        _profileData,
+                                      ),
+                                    ),
+                                  if (!_isLoading &&
+                                      _isFreeLoggingMode &&
+                                      _mealInsight.shouldShowInsightCard)
+                                    MealInsightCard(
+                                      insight: _mealInsight,
+                                      onSuggestionTap: _onInsightSuggestion,
+                                    ),
+                                  // بخش خروج به کالری شماری آزاد (فقط وقتی از meal plan آمده)
+                                  if (!_isLoading &&
+                                      _shouldShowTrainerCard()) ...[
+                                    SizedBox(height: 12.h),
+                                    OutlinedButton.icon(
+                                      onPressed: () async {
+                                        // غیرفعال کردن active meal plan
+                                        await _activeMealPlanService
+                                            .clearActiveMealPlan();
+                                        if (!context.mounted) return;
+                                        unawaited(
+                                          Navigator.pushReplacementNamed(
+                                            context,
+                                            '/meal-log',
                                           ),
-                                        ),
-                                      ],
-                                      if (!_isLoading) ...[
-                                        SizedBox(height: 24.h),
-                                        DateSeparatorWidget(
-                                          selectedDate: _selectedDate,
-                                          onTap: _openDatePicker,
-                                        ),
-                                        SizedBox(height: 24.h),
-                                      ],
-                                      RepaintBoundary(
-                                        child: MealsListWidget(
-                                          currentLog: _currentLog,
-                                          allFoods: _allFoods,
-                                          onAddFood: _addFoodToMeal,
-                                          onEditAmount: _showEditAmountDialog,
-                                          onFoodAction: _handleFoodAction,
-                                          profileData: _profileData,
-                                          highlightMealTitle:
-                                              _mealInsight.highlightMealTitle,
+                                        );
+                                      },
+                                      icon: Icon(
+                                        LucideIcons.arrowLeft,
+                                        size: 18.sp,
+                                      ),
+                                      label: Text(
+                                        'خروج به کالری شماری آزاد',
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.fontFamily,
+                                          fontSize: 14.sp,
                                         ),
                                       ),
-                                      if (_currentLog?.supplements.isNotEmpty ??
-                                          false) ...[
-                                        SizedBox(height: 16.h),
-                                        Text(
-                                          'مکمل‌ها',
-                                          style: TextStyle(
-                                            fontFamily: AppTheme.fontFamily,
-                                            color: AppTheme.goldColor,
-                                            fontSize: 18.sp,
-                                            fontWeight: FontWeight.w600,
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppTheme.goldColor,
+                                        side: BorderSide(
+                                          color: AppTheme.goldColor.withValues(
+                                            alpha: 0.5,
                                           ),
                                         ),
-                                        SizedBox(height: 8.h),
-                                        ..._currentLog!.supplements
-                                            .asMap()
-                                            .entries
-                                            .map(
-                                              (entry) => Padding(
-                                                padding: EdgeInsets.only(
-                                                  bottom: 8.h,
-                                                ),
-                                                child: SupplementCard(
-                                                  supplement: entry.value,
-                                                  index: entry.key,
-                                                ),
-                                              ),
-                                            ),
-                                      ],
-                                    ],
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 16.w,
+                                          vertical: 12.h,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            12.r,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  if (!_isLoading) ...[
+                                    SizedBox(height: 10.h),
+                                    DateSeparatorWidget(
+                                      selectedDate: _selectedDate,
+                                      onTap: _openDatePicker,
+                                      onPreviousDay: () => unawaited(
+                                        _shiftSelectedDate(
+                                          const Duration(days: -1),
+                                        ),
+                                      ),
+                                      onNextDay: () => unawaited(
+                                        _shiftSelectedDate(
+                                          const Duration(days: 1),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(height: 10.h),
+                                  ],
+                                  RepaintBoundary(
+                                    child: MealsListWidget(
+                                      currentLog: _currentLog,
+                                      allFoods: _allFoods,
+                                      onAddFood: _addFoodToMeal,
+                                      onEditAmount: _showEditAmountDialog,
+                                      onFoodAction: _handleFoodAction,
+                                      profileData: _profileData,
+                                      highlightMealTitle:
+                                          _mealInsight.highlightMealTitle,
+                                    ),
                                   ),
-                                ),
+                                  if (_currentLog?.supplements.isNotEmpty ??
+                                      false) ...[
+                                    SizedBox(height: 16.h),
+                                    Text(
+                                      'مکمل‌ها',
+                                      style: TextStyle(
+                                        fontFamily: AppTheme.fontFamily,
+                                        color: AppTheme.goldColor,
+                                        fontSize: 18.sp,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    SizedBox(height: 8.h),
+                                    ..._currentLog!.supplements
+                                        .asMap()
+                                        .entries
+                                        .map(
+                                          (entry) => Padding(
+                                            padding: EdgeInsets.only(
+                                              bottom: 8.h,
+                                            ),
+                                            child: SupplementCard(
+                                              supplement: entry.value,
+                                              index: entry.key,
+                                            ),
+                                          ),
+                                        ),
+                                  ],
+                                ],
                               ),
                             ),
+                          ),
+                        ),
                     ],
                   );
                 },
               ),
-            ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _shiftSelectedDate(Duration delta) async {
+    final next = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+    ).add(delta);
+    await _applySelectedDate(next);
+  }
+
+  Future<void> _applySelectedDate(DateTime date) async {
+    await _foodLogService.syncAllLocalLogsToDatabase();
+    if (!mounted) return;
+    SafeSetState.call(this, () {
+      _selectedDate = date;
+      if (widget.mealPlanId == null) {
+        _selectedPlan = null;
+        _selectedSession = null;
+      } else {
+        _loadMealPlanIfNeeded();
+      }
+    });
+    await _loadCurrentLog();
   }
 
   Future<void> _openDatePicker() async {
@@ -931,19 +907,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
           : AppTheme.lightTextColor.withValues(alpha: 0.5),
       builder: (context) => PersianFoodLogDatePickerDialog(
         selectedDate: _selectedDate,
-        onDateSelected: (date) async {
-          await _foodLogService.syncAllLocalLogsToDatabase();
-          SafeSetState.call(this, () {
-            _selectedDate = date;
-            if (widget.mealPlanId == null) {
-              _selectedPlan = null;
-              _selectedSession = null;
-            } else {
-              _loadMealPlanIfNeeded();
-            }
-          });
-          await _loadCurrentLog();
-        },
+        onDateSelected: _applySelectedDate,
         preloadedFoodLogDates: _preloadedFoodLogDates,
         preloadedCaloriesByDate: _preloadedCaloriesByDate,
       ),
@@ -964,10 +928,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
             padding: EdgeInsets.only(
               bottom: MediaQuery.viewInsetsOf(context).bottom,
             ),
-            child: AddFoodScreen(
-              foods: _allFoods,
-              initialMealTitle: mealTitle,
-            ),
+            child: AddFoodScreen(foods: _allFoods, initialMealTitle: mealTitle),
           ),
           enableDrag: false,
         );

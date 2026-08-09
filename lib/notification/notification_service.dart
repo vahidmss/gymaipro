@@ -14,7 +14,7 @@ import 'package:gymaipro/notification/utils/notification_tray_dedupe.dart';
 import 'package:gymaipro/chat/services/chat_presence_service.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/services/notification_navigation_service.dart';
-import 'package:gymaipro/services/simple_profile_service.dart';
+import 'package:gymaipro/services/presence_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -337,22 +337,8 @@ class NotificationService {
     }
   }
 
-  Future<void> _updateLastActiveAt() async {
+  Future<void> touchDeviceLastSeen() async {
     try {
-      await SimpleProfileService.updateLastActiveAt();
-      debugPrint('🕒 Updated last_active_at for user');
-    } catch (e) {
-      debugPrint('❌ Error updating last_active_at: $e');
-    }
-  }
-
-  /// Public method to mark user active and bump device last_seen
-  Future<void> markUserActive({String source = 'markUserActive'}) async {
-    if (!ForegroundResumeCoordinator.shouldBumpPresence(source)) {
-      return;
-    }
-    try {
-      await _updateLastActiveAt();
       final supabase = Supabase.instance.client;
       final user = supabase.auth.currentUser;
       if (user != null && _fcmToken != null) {
@@ -360,8 +346,17 @@ class NotificationService {
             .from('device_tokens')
             .update({'last_seen': DateTime.now().toIso8601String()})
             .eq('token', _fcmToken!);
-        debugPrint('🕒 Updated device last_seen');
       }
+    } catch (e) {
+      debugPrint('❌ Error in touchDeviceLastSeen: $e');
+    }
+  }
+
+  /// Public method to mark user active and bump device last_seen
+  Future<void> markUserActive({String source = 'markUserActive'}) async {
+    try {
+      await PresenceService.instance.bumpForeground(source: source);
+      await touchDeviceLastSeen();
     } catch (e) {
       debugPrint('❌ Error in markUserActive: $e');
     }

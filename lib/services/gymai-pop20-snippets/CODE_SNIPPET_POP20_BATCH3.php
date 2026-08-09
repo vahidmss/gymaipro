@@ -523,7 +523,7 @@ function gymai_pop20_batch3_definitions() {
         'summary' => 'پرس مایل دمبل برای بالاسینه پر و قوی.',
         'summary_keys' => 'شیب ملایم | کتف جمع | دامنه کامل',
         'meta' => [
-            'main_muscle' => 'chest_upper', 'secondary_muscle_keys' => ['shoulder_anterior', 'triceps'],
+            'main_muscle' => 'chest', 'secondary_muscle_keys' => ['shoulder_anterior', 'triceps'],
             'difficulty' => 'intermediate', 'equipment_keys' => ['dumbbell', 'incline_bench'],
             'exercise_type' => 'strength', 'movement_pattern' => 'horizontal_push', 'body_engagement' => 'compound',
             'mechanics_type' => 'compound', 'force_type' => 'push', 'plane_of_motion' => 'sagittal', 'laterality' => 'bilateral',

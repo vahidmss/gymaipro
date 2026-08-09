@@ -54,12 +54,17 @@ class UserAvatarWidget extends StatelessWidget {
             right: 0,
             bottom: 0,
             child: Container(
-              width: (size * 0.3).w,
-              height: (size * 0.3).h,
+              width: (size * 0.28).w,
+              height: (size * 0.28).w,
               decoration: BoxDecoration(
-                color: AppTheme.goldColor,
-                borderRadius: BorderRadius.circular((size * 0.15).r),
-                border: Border.all(width: 2.w),
+                color: const Color(0xFF16A34A),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppTheme.darkCardColor
+                      : context.cardColor,
+                  width: 2.w,
+                ),
               ),
             ),
           ),

@@ -15,6 +15,7 @@ class RankingScoreBreakdown {
     required this.totalMealsScore,
     this.articlesReadCount = 0,
     this.articlesReadScore = 0,
+    this.achievementBonusScore = 0,
   });
 
   final int totalScore;
@@ -58,12 +59,16 @@ class RankingScoreBreakdown {
   /// امتیاز مطالعه مقالات (حداکثر [maxArticlesReadScore])
   final int articlesReadScore;
 
+  /// بونوس لیگ از دستاوردهای بازشده (SUM bonus_points)
+  final int achievementBonusScore;
+
   static const int maxDailyActivitiesScore = 1740; // 30 days * ~58 max/day
   static const int maxCurrentStreakScore = 500;
   static const int maxLongestStreakScore = 250;
   static const int maxActiveDaysScore = 150;
   static const int maxTotalWorkoutsScore = 1000;
   static const int maxTotalMealsScore = 500;
+
   /// هر مقاله = ۵ امتیاز، حداکثر ۳۰۰ امتیاز (۶۰ مقاله)
   static const int pointsPerArticle = 5;
   static const int maxArticlesReadScore = 300;

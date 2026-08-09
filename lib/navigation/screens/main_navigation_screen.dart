@@ -1,19 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:gymaipro/academy/models/workout_music.dart';
 import 'package:gymaipro/academy/screens/academy_main_screen.dart';
-import 'package:gymaipro/features/coach/presentation/screens/coach_home_screen.dart';
+import 'package:gymaipro/chat/screens/chat_main_screen.dart';
+import 'package:gymaipro/chat/services/chat_unread_notifier.dart';
+import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/core/startup_bootstrap.dart';
 import 'package:gymaipro/dashboard/screens/dashboard_screen.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
+import 'package:gymaipro/my_club/my_club_main_screen.dart';
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
-import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/navigation/navigation_guard.dart';
+import 'package:gymaipro/navigation/screens/more_screen.dart';
 import 'package:gymaipro/navigation/utils/navigation_utils.dart';
 import 'package:gymaipro/navigation/widgets/custom_bottom_navigation.dart';
-import 'package:gymaipro/chat/screens/chat_main_screen.dart';
+import 'package:gymaipro/navigation/widgets/plus_action_sheet.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/my_club/my_club_main_screen.dart';
 import 'package:gymaipro/trainer_dashboard/screens/trainer_dashboard_screen.dart';
+import 'package:provider/provider.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -30,7 +36,7 @@ class MainNavigationScreen extends StatefulWidget {
 
   static final List<VoidCallback> _dashboardForegroundListeners = [];
 
-  /// Called when the dashboard tab becomes active (for deferred tour invite).
+  /// Called when the dashboard tab becomes active.
   static void addDashboardForegroundListener(VoidCallback listener) {
     if (!_dashboardForegroundListeners.contains(listener)) {
       _dashboardForegroundListeners.add(listener);
@@ -42,12 +48,14 @@ class MainNavigationScreen extends StatefulWidget {
   }
 
   static void _notifyDashboardForeground() {
-    for (final listener in List<VoidCallback>.from(_dashboardForegroundListeners)) {
+    for (final listener in List<VoidCallback>.from(
+      _dashboardForegroundListeners,
+    )) {
       listener();
     }
   }
 
-  /// Notifies dashboard listeners (e.g. deferred tour invite).
+  /// Notifies dashboard listeners.
   static void notifyDashboardForeground() => _notifyDashboardForeground();
 
   @override
@@ -61,7 +69,7 @@ class MainNavigationScreen extends StatefulWidget {
     }
   }
 
-  /// باشگاه من (ورزشکار / فضای شخصی مربی) — تب داخلی مثلاً ۰ = برنامه‌ها
+  /// باشگاه من / تب تمرین (ورزشکار) — تب داخلی مثلاً ۰ = برنامه‌ها
   static void navigateToMyClub({int initialTab = 0}) {
     final state = _currentState;
     if (state != null && state.mounted) {
@@ -69,7 +77,7 @@ class MainNavigationScreen extends StatefulWidget {
     }
   }
 
-  /// میز کار مربی — همان اسلات تب پایین
+  /// میز کار مربی — همان اسلات hub
   static void navigateToTrainerDashboard({int initialTab = 0}) {
     final state = _currentState;
     if (state != null && state.mounted) {
@@ -77,7 +85,7 @@ class MainNavigationScreen extends StatefulWidget {
     }
   }
 
-  /// تب اجتماعی (پیام‌ها / چت‌روم)
+  /// پیام‌ها: برای مربی تب؛ برای ورزشکار push تمام‌صفحه
   static void navigateToSocial({int initialTab = 0}) {
     final state = _currentState;
     if (state != null && state.mounted) {
@@ -93,44 +101,73 @@ class MainNavigationScreen extends StatefulWidget {
     }
   }
 
-  /// رفتن به آکادمی با تب موزیک و پخش یک موزیک خاص (مثل لمس از کاروسل)
-  static void navigateToAcademyWithMusic(WorkoutMusic music) {
+  /// Back from باشگاه من hub: pop overlay if pushed, else go home tab.
+  static void leaveMyClubTab() {
     final state = _currentState;
     if (state != null && state.mounted) {
-      state._navigateToAcademyWithMusic(music);
+      state.handleMyClubTabBack();
     }
   }
 
-  /// فقط selected کردن بدون تغییر صفحه (برای راهنمایی)
+  /// آکادمی به‌صورت صفحهٔ push (دیگر تب پایین نیست)
+  static void openAcademy({int? initialTabIndex, WorkoutMusic? music}) {
+    final state = _currentState;
+    if (state != null && state.mounted) {
+      state._openAcademy(initialTabIndex: initialTabIndex, music: music);
+      return;
+    }
+    final nav = rootNavigator;
+    if (nav == null) return;
+    nav.push(
+      MaterialPageRoute<void>(
+        builder: (_) => AcademyMainScreen(
+          initialTabIndex: initialTabIndex,
+          initialMusicToPlay: music,
+        ),
+      ),
+    );
+  }
+
+  /// رفتن به آکادمی با تب موزیک و پخش یک موزیک خاص
+  static void navigateToAcademyWithMusic(WorkoutMusic music) {
+    openAcademy(initialTabIndex: 1, music: music);
+  }
+
+  /// فقط selected کردن بدون تغییر صفحه
   static void setSelectedIndex(int index) {
     final state = _currentState;
     if (state != null && state.mounted) {
       state._currentIndex = index;
-      // بدون jumpToPage - فقط selected می‌شود
     }
+  }
+
+  /// Reload tabs/role after an in-place account switch (debug switcher).
+  static Future<bool> reloadAfterAccountSwitch() async {
+    final state = _currentState;
+    if (state == null || !state.mounted) return false;
+    await state._reloadAfterAccountSwitch();
+    return true;
   }
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  int _currentIndex =
-      NavigationConstants.dashboardIndex; // شروع با داشبورد (دکمه مرکزی)
-  final Set<int> _builtTabIndices = {NavigationConstants.dashboardIndex};
-  final List<int> _tabBackStack = [NavigationConstants.dashboardIndex];
-  int? _pendingAcademyTabIndex;
-  WorkoutMusic? _pendingAcademyMusic;
+  int _currentIndex = NavigationConstants.homeIndex;
+  final Set<int> _builtTabIndices = {NavigationConstants.homeIndex};
+  final List<int> _tabBackStack = [NavigationConstants.homeIndex];
   int? _pendingMyClubTabIndex;
   int? _pendingSocialTabIndex;
   int? _pendingTrainerDashboardTabIndex;
-  String? _userRole; // نقش کاربر: 'athlete' یا 'trainer'
+  String? _userRole;
+  int _accountEpoch = 0;
 
-  // GlobalKey برای المان‌های ناوبری
   final Map<int, GlobalKey> _navKeys = {
-    NavigationConstants.chatIndex: GlobalKey(),
-    NavigationConstants.academyIndex: GlobalKey(),
-    NavigationConstants.dashboardIndex: GlobalKey(),
-    NavigationConstants.myClubIndex: GlobalKey(),
-    NavigationConstants.socialIndex: GlobalKey(),
+    NavigationConstants.homeIndex: GlobalKey(),
+    NavigationConstants.hubIndex: GlobalKey(),
+    NavigationConstants.roleTabIndex: GlobalKey(),
+    NavigationConstants.moreIndex: GlobalKey(),
   };
+
+  bool get _isTrainer => _userRole == 'trainer';
 
   @override
   void initState() {
@@ -164,13 +201,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       _tabBackStack.add(index);
     }
 
+    final leftMessages = _currentIndex == NavigationConstants.roleTabIndex &&
+        index != NavigationConstants.roleTabIndex;
+
     setState(() {
       _builtTabIndices.add(index);
       _currentIndex = index;
     });
 
-    if (index == NavigationConstants.dashboardIndex) {
+    if (index == NavigationConstants.homeIndex) {
       MainNavigationScreen._notifyDashboardForeground();
+    }
+
+    // After leaving messages, refresh badge — important when push is unreliable.
+    if (leftMessages) {
+      try {
+        final unread = Provider.of<ChatUnreadNotifier>(context, listen: false);
+        unawaited(unread.refreshUnreadCount());
+      } catch (_) {}
     }
   }
 
@@ -178,22 +226,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (!bypassDebounce && !NavigationUtils.canNavigate()) return;
     _activateTab(index);
   }
-  void _leaveCurrentTabToDashboard() {
+
+  void _leaveCurrentTabToHome() {
     NavigationGuard.resetBackPress();
-    _onNavItemTapped(
-      NavigationConstants.dashboardIndex,
-      bypassDebounce: true,
-    );
+    _onNavItemTapped(NavigationConstants.homeIndex, bypassDebounce: true);
   }
 
   Future<void> _handleBackPress() async {
-    // اگر روی تب داشبورد نیستیم، به داشبورد (منوی اصلی) برگرد
-    if (_currentIndex != NavigationConstants.dashboardIndex) {
-      _leaveCurrentTabToDashboard();
+    if (_currentIndex != NavigationConstants.homeIndex) {
+      _leaveCurrentTabToHome();
       return;
     }
-
-    // اگر روی تب داشبورد هستیم، از NavigationGuard استفاده کن
     await NavigationGuard.handleBackPress(context);
   }
 
@@ -212,67 +255,93 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
+  Future<void> _reloadAfterAccountSwitch() async {
+    SimpleProfileService.invalidateCache();
+    StartupBootstrap.resetOnLogout();
+    if (!mounted) return;
+
+    setState(() {
+      _accountEpoch++;
+      _userRole = null;
+      _builtTabIndices
+        ..clear()
+        ..add(NavigationConstants.homeIndex);
+      _currentIndex = NavigationConstants.homeIndex;
+      _tabBackStack
+        ..clear()
+        ..add(NavigationConstants.homeIndex);
+      _pendingMyClubTabIndex = null;
+      _pendingSocialTabIndex = null;
+      _pendingTrainerDashboardTabIndex = null;
+    });
+
+    StartupBootstrap.schedulePostLoginLoads();
+    await _loadUserRole();
+    if (!mounted) return;
+    MainNavigationScreen.notifyDashboardForeground();
+  }
+
   Widget _buildLazyTab(int index) {
     if (!_builtTabIndices.contains(index)) {
       return const SizedBox.shrink();
     }
     return _KeepAliveTab(
-      key: ValueKey<int>(index),
+      key: ValueKey<String>('tab_${index}_$_accountEpoch'),
       child: _buildTabContent(index),
     );
   }
 
   Widget _buildTabContent(int index) {
     switch (index) {
-      case NavigationConstants.chatIndex:
-        return const CoachHomeScreen();
-      case NavigationConstants.academyIndex:
-        return AcademyMainScreen(
-          initialTabIndex: _pendingAcademyTabIndex,
-          initialMusicToPlay: _pendingAcademyMusic,
-        );
-      case NavigationConstants.dashboardIndex:
+      case NavigationConstants.homeIndex:
         return const DashboardScreen();
-      case NavigationConstants.myClubIndex:
-        if (_userRole == 'trainer') {
+      case NavigationConstants.hubIndex:
+        if (_isTrainer) {
           return TrainerDashboardScreen(
             initialTabIndex: _pendingTrainerDashboardTabIndex ?? 0,
           );
         }
         return MyClubMainScreen(initialTabIndex: _pendingMyClubTabIndex);
-      case NavigationConstants.socialIndex:
+      case NavigationConstants.roleTabIndex:
         return ChatMainScreen(
           initialTabIndex: _pendingSocialTabIndex ?? 0,
-          isActiveTab: _currentIndex == NavigationConstants.socialIndex,
+          isActiveTab: _currentIndex == NavigationConstants.roleTabIndex,
         );
+      case NavigationConstants.moreIndex:
+        return const MoreScreen();
       default:
         return const SizedBox.shrink();
     }
   }
-  void _navigateToAcademyWithMusic(WorkoutMusic music) {
-    setState(() {
-      _pendingAcademyTabIndex = 1; // موزیک
-      _pendingAcademyMusic = music;
-    });
-    _onNavItemTapped(NavigationConstants.academyIndex);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {
-          _pendingAcademyTabIndex = null;
-          _pendingAcademyMusic = null;
-        });
-      }
-    });
+
+  void _openAcademy({int? initialTabIndex, WorkoutMusic? music}) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AcademyMainScreen(
+          initialTabIndex: initialTabIndex,
+          initialMusicToPlay: music,
+        ),
+      ),
+    );
   }
 
   void _navigateToMyClub(int initialTab) {
+    if (_isTrainer) {
+      // Trainers don't have MyClub as hub — open as overlay route if needed
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => MyClubMainScreen(initialTabIndex: initialTab),
+        ),
+      );
+      return;
+    }
     setState(() => _pendingMyClubTabIndex = initialTab);
-    _onNavItemTapped(NavigationConstants.myClubIndex);
+    _onNavItemTapped(NavigationConstants.hubIndex);
   }
 
   void _navigateToSocial(int initialTab) {
     setState(() => _pendingSocialTabIndex = initialTab);
-    _onNavItemTapped(NavigationConstants.socialIndex);
+    _onNavItemTapped(NavigationConstants.roleTabIndex);
   }
 
   void _navigateToTrainerDashboard(int initialTab) {
@@ -280,20 +349,39 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       _userRole = 'trainer';
       _pendingTrainerDashboardTabIndex = initialTab;
     });
-    _onNavItemTapped(NavigationConstants.myClubIndex);
+    _onNavItemTapped(NavigationConstants.hubIndex);
   }
 
-  /// Called from [ChatMainScreen] when social tab handles system back.
   void handleSocialTabBack() {
-    if (_currentIndex == NavigationConstants.socialIndex) {
-      _leaveCurrentTabToDashboard();
+    if (_currentIndex == NavigationConstants.roleTabIndex) {
+      _leaveCurrentTabToHome();
+      return;
     }
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      _leaveCurrentTabToHome();
+    }
+  }
+
+  void handleMyClubTabBack() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    _leaveCurrentTabToHome();
+  }
+
+  Future<void> _onPlusTap() async {
+    if (!NavigationUtils.canNavigate()) return;
+    await showPlusActionSheet(context, userRole: _userRole);
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final hideBottomNav = _currentIndex == NavigationConstants.socialIndex;
+    final hideBottomNav = _currentIndex == NavigationConstants.roleTabIndex;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -301,51 +389,35 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         _handleBackPress();
       },
       child: DecoratedBox(
-        decoration: isDark
-            ? const BoxDecoration()
-            : BoxDecoration(
-                // بالا پررنگ‌تر (نوار ساعت خوانا) → پایین روشن
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    const Color(0xFFDDD0B8),
-                    const Color(0xFFEDE4D4),
-                    AppTheme.lightCardColor,
-                    AppTheme.lightGradientEnd.withValues(alpha: 0.12),
-                  ],
-                  stops: const [0.0, 0.08, 0.22, 1.0],
-                ),
-              ),
+        decoration: BoxDecoration(
+          color: isDark
+              ? AppTheme.darkBackgroundColor
+              : AppTheme.lightBackgroundColor,
+        ),
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: IndexedStack(
             index: _currentIndex,
             children: [
-              _buildLazyTab(NavigationConstants.chatIndex),
-              _buildLazyTab(NavigationConstants.academyIndex),
-              _buildLazyTab(NavigationConstants.dashboardIndex),
-              _buildLazyTab(NavigationConstants.myClubIndex),
-              _buildLazyTab(NavigationConstants.socialIndex),
+              _buildLazyTab(NavigationConstants.homeIndex),
+              _buildLazyTab(NavigationConstants.hubIndex),
+              _buildLazyTab(NavigationConstants.roleTabIndex),
+              _buildLazyTab(NavigationConstants.moreIndex),
             ],
-          ),          // تب اجتماعی (لیست چت) تمام‌صفحه — بدون منوی پایین.
+          ),
           bottomNavigationBar: hideBottomNav
               ? null
-              : SafeArea(
-                  top: false,
-                  child: CustomBottomNavigation(
-                    currentIndex: _currentIndex,
-                    onTap: _onNavItemTapped,
-                    navKeys: _navKeys,
-                    userRole: _userRole,
-                  ),
+              : CustomBottomNavigation(
+                  currentIndex: _currentIndex,
+                  onTap: _onNavItemTapped,
+                  onPlusTap: () => unawaited(_onPlusTap()),
+                  navKeys: _navKeys,
+                  userRole: _userRole,
                 ),
         ),
       ),
     );
   }
-
-  // Removed legacy workout/nutrition section tabs
 }
 
 class _KeepAliveTab extends StatefulWidget {

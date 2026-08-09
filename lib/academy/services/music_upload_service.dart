@@ -71,7 +71,10 @@ class MusicUploadService {
           throw Exception('نقش کاربر مشخص نیست. لطفاً با پشتیبانی تماس بگیرید');
         }
         
-        if (role != 'admin' && role != 'trainer') {
+        // Academy music uploads stay trainer/admin-only.
+        // Private chat attachments must work for athletes too.
+        final isPrivateChat = uploadContext?.trim() == 'private_chat';
+        if (!isPrivateChat && role != 'admin' && role != 'trainer') {
           debugPrint('MusicUploadService: User role is $role, not allowed to upload');
           throw Exception('فقط ادمین‌ها و مربیان می‌توانند موزیک آپلود کنند');
         }

@@ -1,13 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/achievements/models/achievement.dart';
 import 'package:gymaipro/achievements/services/achievement_service.dart';
 import 'package:gymaipro/achievements/widgets/achievement_card.dart';
-import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/core/gamification_labels.dart';
+import 'package:gymaipro/ranking/screens/leaderboard_screen.dart';
 import 'package:gymaipro/services/score_service.dart';
+import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/trainer_ranking/utils/format_utils.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
-import 'package:shamsi_date/shamsi_date.dart';
 
 class AchievementsScreen extends StatefulWidget {
   const AchievementsScreen({super.key});
@@ -18,15 +22,13 @@ class AchievementsScreen extends StatefulWidget {
 
 class _AchievementsScreenState extends State<AchievementsScreen>
     with TickerProviderStateMixin {
-  bool _isStatsExpanded = false;
   TabController? _tabController;
 
   @override
   void initState() {
     super.initState();
-    // سینک دستاوردهای دعوت با تعداد رفرال از پروفایل (هر بار باز شدن صفحه)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      AchievementService.instance.syncInviteAchievementsFromProfile();
+      unawaited(AchievementService.instance.syncInviteAchievementsFromProfile());
     });
   }
 
@@ -43,1040 +45,417 @@ class _AchievementsScreenState extends State<AchievementsScreen>
     }
   }
 
+  List<AchievementCategory> _categories(AchievementService service) {
+    final grouped = service.achievementsByCategory;
+    const order = [
+      AchievementCategory.platform,
+      AchievementCategory.workout,
+      AchievementCategory.nutrition,
+      AchievementCategory.social,
+      AchievementCategory.progress,
+    ];
+    return order.where((c) => (grouped[c] ?? []).isNotEmpty).toList();
+  }
+
+  List<Achievement> _sorted(List<Achievement> list) {
+    final copy = List<Achievement>.from(list);
+    copy.sort((a, b) {
+      if (a.isUnlocked != b.isUnlocked) return a.isUnlocked ? -1 : 1;
+      return a.title.compareTo(b.title);
+    });
+    return copy;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          scaffoldBackgroundColor: context.backgroundColor,
-          appBarTheme: AppBarTheme(
-            backgroundColor: isDark
-                ? context.backgroundColor
-                : Colors.transparent,
-            elevation: 0,
-          ),
-        ),
-        child: DecoratedBox(
-          decoration: isDark
-              ? const BoxDecoration()
-              : BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                      AppTheme.lightCardColor,
-                      AppTheme.lightGradientEnd.withValues(alpha: 0.1),
-                    ],
+      child: DecoratedBox(
+        decoration: context.pageDecoration,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          body: Consumer2<AchievementService, ScoreService>(
+            builder: (context, service, scoreService, _) {
+              final categories = _categories(service);
+              if (categories.isEmpty) {
+                return Center(
+                  child: Text(
+                    'هیچ دستاوردی یافت نشد',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 15.sp,
+                      color: context.textSecondary,
+                    ),
                   ),
-                ),
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            body: Consumer<AchievementService>(
-              builder: (context, achievementService, _) {
-                final categories = _getAvailableCategories(achievementService);
-
-                if (categories.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'هیچ دستاوردی یافت نشد',
-                      style: TextStyle(
-                        fontSize: 16.sp,
-                        color: context.textSecondary,
-                      ),
-                    ),
-                  );
-                }
-
-                // Ensure TabController is initialized with correct length
-                _ensureTabController(categories.length);
-
-                if (_tabController == null) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: AppTheme.goldColor),
-                  );
-                }
-
-                return Stack(
-                  children: [
-                    Column(
-                      children: [
-                        // App Bar with Tabs
-                        _buildAppBarWithTabs(
-                          context,
-                          achievementService,
-                          isDark,
-                          categories,
-                          _tabController!,
-                        ),
-                        // Tab Bar View
-                        Expanded(
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: categories.map((category) {
-                              return _buildCategoryTabView(
-                                context,
-                                achievementService,
-                                category,
-                                isDark,
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ],
-                    ),
-                    // کارت آمار کلی در فوتر (expandable)
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: _buildExpandableStatsFooter(
-                        context,
-                        achievementService,
-                        isDark,
-                      ),
-                    ),
-                  ],
                 );
-              },
-            ),
+              }
+
+              _ensureTabController(categories.length);
+              final tabController = _tabController!;
+              final unlocked = service.unlockedAchievements.length;
+              final total = service.achievements.length;
+              final pct = total == 0 ? 0 : ((unlocked / total) * 100).round();
+
+              return Column(
+                children: [
+                  SafeArea(
+                    bottom: false,
+                    child: _Header(
+                      unlocked: unlocked,
+                      total: total,
+                      points: service.totalUnlockedRewardPoints,
+                      leagueScore: scoreService.rankingScore,
+                      percent: pct,
+                      onOpenRanking: () {
+                        Navigator.push<void>(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const LeaderboardScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(12.w, 4.h, 12.w, 8.h),
+                    child: _CategoryTabs(
+                      controller: tabController,
+                      categories: categories,
+                      service: service,
+                    ),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      controller: tabController,
+                      children: categories.map((category) {
+                        final items = _sorted(
+                          service.achievementsByCategory[category] ?? [],
+                        );
+                        return RefreshIndicator(
+                          color: AppTheme.goldColor,
+                          onRefresh: () async {
+                            await service.refreshFromDatabase(force: true);
+                            await scoreService.loadFromDatabase(force: true);
+                          },
+                          child: ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 24.h),
+                            itemCount: items.length,
+                            separatorBuilder: (_, __) => SizedBox(height: 10.h),
+                            itemBuilder: (context, index) {
+                              final item = items[index];
+                              return AchievementCard(
+                                achievement: item,
+                                onTap: () => _showDetail(context, item),
+                              );
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  List<AchievementCategory> _getAvailableCategories(
-    AchievementService service,
-  ) {
-    final grouped = service.achievementsByCategory;
-
-    // ترتیب تب‌ها بر اساس درخواست کاربر:
-    // 1. platform - استفاده از اپ
-    // 2. social - اجتماعی
-    // 3. workout - تمرین و فعالیت
-    // 4. progress - پیشرفت شخصی
-    final orderedCategories = [
-      AchievementCategory.platform, // ⭐ استفاده از اپ
-      AchievementCategory.social, // 👥 اجتماعی
-      AchievementCategory.workout, // 💪 تمرین و فعالیت
-      AchievementCategory.progress, // 📈 پیشرفت شخصی
-    ];
-
-    // فیلتر کردن دسته‌بندی‌هایی که دستاورد دارند
-    return orderedCategories
-        .where((category) => (grouped[category] ?? []).isNotEmpty)
-        .toList();
-  }
-
-  Widget _buildAppBarWithTabs(
-    BuildContext context,
-    AchievementService service,
-    bool isDark,
-    List<AchievementCategory> categories,
-    TabController tabController,
-  ) {
-    return ColoredBox(
-      color: context.backgroundColor,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            // Header مشابه سایر صفحات (آیکون + عنوان وسط‌چین)
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
-              child: Row(
-                textDirection: TextDirection.rtl,
+  void _showDetail(BuildContext context, Achievement achievement) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: context.cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18.r)),
+      ),
+      builder: (ctx) {
+        final unlocked = achievement.isUnlocked;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 28.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36.w,
+                  height: 4.h,
+                  decoration: BoxDecoration(
+                    color: context.separatorColor,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+              SizedBox(height: 16.h),
+              Text(
+                achievement.title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18.sp,
+                  color: context.textColor,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                achievement.description,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 14.sp,
+                  height: 1.5,
+                  color: context.textSecondary,
+                ),
+              ),
+              SizedBox(height: 16.h),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // دکمه برگشت
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(
-                      LucideIcons.arrowRight,
-                      size: 20.sp,
-                      color: context.textColor,
+                  Icon(
+                    GamificationLabels.pointsIcon,
+                    size: 16.sp,
+                    color: AppTheme.goldColor,
+                  ),
+                  SizedBox(width: 6.w),
+                  Text(
+                    unlocked
+                        ? '+${FormatUtils.toPersianDigits('${achievement.points}')} امتیاز گرفتی'
+                        : 'پاداش: +${FormatUtils.toPersianDigits('${achievement.points}')} امتیاز',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.sp,
+                      color: AppTheme.goldColor,
                     ),
                   ),
-                  // عنوان وسط‌چین
-                  Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          LucideIcons.trophy,
-                          color: AppTheme.goldColor,
-                          size: 20.sp,
-                        ),
-                        SizedBox(width: 6.w),
-                        Text(
-                          'دستاوردها',
-                          style: TextStyle(
-                            fontSize: 18.sp,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: AppTheme.fontFamily,
-                            color: context.textColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // فضای خالی برای بالانس با دکمه برگشت
-                  SizedBox(width: 48.w),
                 ],
               ),
-            ),
-            // Tab Bar
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: Container(
-                margin: EdgeInsets.only(left: 8.w, right: 16.w),
-                decoration: BoxDecoration(
-                  color: context.cardColor,
-                  borderRadius: BorderRadius.circular(14.r),
-                ),
-                child: TabBar(
-                  tabAlignment: TabAlignment.start,
-                  controller: tabController,
-                  isScrollable: categories.length > 3,
-                  indicatorColor: AppTheme.goldColor,
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  labelColor: AppTheme.goldColor,
-                  unselectedLabelColor: context.textSecondary,
-                  labelStyle: TextStyle(
+              if (!unlocked) ...[
+                SizedBox(height: 14.h),
+                Text(
+                  '${FormatUtils.toPersianDigits('${achievement.currentValue}')} از ${FormatUtils.toPersianDigits('${achievement.targetValue}')} ${achievement.unit}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontWeight: FontWeight.bold,
                     fontSize: 13.sp,
-                  ),
-                  unselectedLabelStyle: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontWeight: FontWeight.normal,
-                    fontSize: 13.sp,
-                  ),
-                  dividerColor: Colors.transparent,
-                  padding: EdgeInsets.only(
-                    left: 4.w,
-                    right: 0.w,
-                    top: 4.h,
-                    bottom: 4.h,
-                  ),
-                  tabs: categories.map((category) {
-                    final achievements =
-                        service.achievementsByCategory[category] ?? [];
-                    final unlockedCount = achievements
-                        .where((a) => a.isUnlocked)
-                        .length;
-                    return Tab(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        textDirection: TextDirection.rtl,
-                        children: [
-                          Text(
-                            category.icon,
-                            style: TextStyle(fontSize: 16.sp),
-                          ),
-                          SizedBox(width: 6.w),
-                          Flexible(
-                            child: Text(
-                              category.displayName,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          SizedBox(width: 4.w),
-                          Text(
-                            '$unlockedCount/${achievements.length}',
-                            style: TextStyle(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w500,
-                              color: context.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-            SizedBox(height: 8.h),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryTabView(
-    BuildContext context,
-    AchievementService service,
-    AchievementCategory category,
-    bool isDark,
-  ) {
-    final achievements = service.achievementsByCategory[category] ?? [];
-
-    if (achievements.isEmpty) {
-      return RefreshIndicator(
-        onRefresh: () async {
-          await service.refreshFromDatabase();
-          await ScoreService().loadFromDatabase();
-        },
-        color: AppTheme.goldColor,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height * 0.7,
-            child: Center(
-              child: Text(
-                'هیچ دستاوردی در این دسته‌بندی وجود ندارد',
-                style: TextStyle(fontSize: 14.sp, color: context.textSecondary),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        await service.refreshFromDatabase();
-        await ScoreService().loadFromDatabase();
-      },
-      color: AppTheme.goldColor,
-      child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 120.h),
-        itemCount: achievements.length,
-        itemBuilder: (context, index) {
-          return Padding(
-            padding: EdgeInsets.only(bottom: 12.h),
-            child: AchievementCard(
-              achievement: achievements[index],
-              onTap: () => _showAchievementDetail(context, achievements[index]),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildExpandableStatsFooter(
-    BuildContext context,
-    AchievementService service,
-    bool isDark,
-  ) {
-    final percentage = service.achievements.isNotEmpty
-        ? (service.unlockedAchievements.length /
-                  service.achievements.length *
-                  100)
-              .round()
-        : 0;
-    final progressValue = service.achievements.isNotEmpty
-        ? service.unlockedAchievements.length / service.achievements.length
-        : 0.0;
-
-    return SafeArea(
-      top: false,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: context.cardColor,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-          border: Border(
-            top: BorderSide(
-              color: AppTheme.lightDividerColor.withValues(alpha: 0.6),
-              width: 1.w,
-            ),
-          ),
-        ),
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            initiallyExpanded: _isStatsExpanded,
-            onExpansionChanged: (expanded) {
-              setState(() {
-                _isStatsExpanded = expanded;
-              });
-            },
-            tilePadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-            childrenPadding: EdgeInsets.fromLTRB(20.w, 0, 20.w, 16.h),
-            iconColor: Colors.transparent,
-            collapsedIconColor: Colors.transparent,
-            trailing: AnimatedRotation(
-              turns: _isStatsExpanded ? 0.5 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                LucideIcons.chevronUp,
-                color: AppTheme.goldColor,
-                size: 24.sp,
-              ),
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28.r)),
-            ),
-            collapsedShape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28.r)),
-            ),
-            title: Row(
-              textDirection: TextDirection.rtl,
-              children: [
-                Icon(
-                  LucideIcons.trophy,
-                  size: 22.sp,
-                  color: AppTheme.goldColor,
-                ),
-                SizedBox(width: 16.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'پیشرفت کلی دستاوردها',
-                        style: TextStyle(
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: AppTheme.fontFamily,
-                          letterSpacing: 0.3,
-                          color: context.textColor,
-                        ),
-                      ),
-                      SizedBox(height: 6.h),
-                      Text(
-                        '${service.unlockedAchievements.length}/${service.achievements.length} دستاورد • ${service.totalPoints} امتیاز',
-                        style: TextStyle(
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w500,
-                          fontFamily: AppTheme.fontFamily,
-                          color: context.textSecondary,
-                        ),
-                      ),
-                    ],
+                    color: context.textSecondary,
                   ),
                 ),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 14.w,
-                    vertical: 8.h,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppTheme.goldColor.withValues(alpha: 0.35),
-                        AppTheme.goldColor.withValues(alpha: 0.25),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16.r),
-                    border: Border.all(
-                      color: AppTheme.goldColor.withValues(alpha: 0.4),
-                      width: 1.2.w,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.goldColor.withValues(alpha: 0.25),
-                        blurRadius: 8.r,
-                        offset: Offset(0.w, 3.h),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    '$percentage%',
-                    style: TextStyle(
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: AppTheme.fontFamily,
-                      letterSpacing: 0.5,
-                      color: AppTheme.goldColor,
+                SizedBox(height: 8.h),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    value: achievement.progress,
+                    minHeight: 6.h,
+                    backgroundColor: context.separatorColor,
+                    valueColor: AlwaysStoppedAnimation(
+                      Color(achievement.tier.colorValue),
                     ),
                   ),
                 ),
               ],
-            ),
-            children: [
-              Column(
-                children: [
-                  SizedBox(height: 12.h),
-                  LinearProgressIndicator(
-                    value: progressValue,
-                    minHeight: 8.h,
-                    backgroundColor: AppTheme.lightDividerColor.withValues(
-                      alpha: isDark ? 0.4 : 0.3,
-                    ),
-                    valueColor: const AlwaysStoppedAnimation(AppTheme.goldColor),
-                  ),
-                  SizedBox(height: 20.h),
-                  // آمار جمع‌بندی
-                  Row(
-                    textDirection: TextDirection.rtl,
-                    children: [
-                      Expanded(
-                        child: _buildCompactStatItem(
-                          context,
-                          isDark: isDark,
-                          icon: LucideIcons.award,
-                          value:
-                              '${service.unlockedAchievements.length}/${service.achievements.length}',
-                          label: 'دستاوردها',
-                        ),
-                      ),
-                      Expanded(
-                        child: _buildCompactStatItem(
-                          context,
-                          isDark: isDark,
-                          icon: LucideIcons.star,
-                          value: '${service.totalPoints}',
-                          label: 'امتیاز',
-                        ),
-                      ),
-                      Expanded(
-                        child: _buildCompactStatItem(
-                          context,
-                          isDark: isDark,
-                          icon: LucideIcons.trendingUp,
-                          value: '$percentage%',
-                          label: 'تکمیل',
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 12.h),
-                ],
-              ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCompactStatItem(
-    BuildContext context, {
-    required IconData icon,
-    required String value,
-    required String label,
-    required bool isDark,
-  }) {
-    return Column(
-      children: [
-        Container(
-          padding: EdgeInsets.all(8.w),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.25 : 0.18),
-          ),
-          child: Icon(icon, size: 18.sp, color: AppTheme.goldColor),
-        ),
-        SizedBox(height: 8.h),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 18.sp,
-            fontWeight: FontWeight.w700,
-            fontFamily: AppTheme.fontFamily,
-            letterSpacing: 0.3,
-            color: context.textColor,
-          ),
-        ),
-        SizedBox(height: 4.h),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11.sp,
-            fontWeight: FontWeight.w500,
-            fontFamily: AppTheme.fontFamily,
-            color: context.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showAchievementDetail(BuildContext context, Achievement achievement) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _AchievementDetailSheet(achievement: achievement),
+        );
+      },
     );
   }
 }
 
-class _AchievementDetailSheet extends StatelessWidget {
-  const _AchievementDetailSheet({required this.achievement});
-  final Achievement achievement;
+class _Header extends StatelessWidget {
+  const _Header({
+    required this.unlocked,
+    required this.total,
+    required this.points,
+    required this.leagueScore,
+    required this.percent,
+    required this.onOpenRanking,
+  });
+
+  final int unlocked;
+  final int total;
+  final int points;
+  final int leagueScore;
+  final int percent;
+  final VoidCallback onOpenRanking;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isUnlocked = achievement.isUnlocked;
-
-    return Container(
-      margin: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: context.cardColor,
-        borderRadius: BorderRadius.circular(20.r),
-        border: Border.all(
-          color: isUnlocked
-              ? Color(achievement.tier.colorValue).withValues(alpha: 0.3)
-              : AppTheme.lightDividerColor.withValues(alpha: 0.8),
-          width: 1.w,
-        ),
-      ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(8.w, 4.h, 8.w, 0),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          // دسته کشویی
-          Container(
-            margin: EdgeInsets.only(top: 10.h),
-            width: 40.w,
-            height: 4.h,
-            decoration: BoxDecoration(
-              color: AppTheme.lightDividerColor.withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(2.r),
-            ),
-          ),
-
-          Padding(
-            padding: EdgeInsets.fromLTRB(24.w, 18.h, 24.w, 20.h),
-            child: Column(
-              children: [
-                // آیکون بزرگ
-                Container(
-                  width: 80.w,
-                  height: 80.w,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isUnlocked
-                        ? Color(
-                            achievement.tier.colorValue,
-                          ).withValues(alpha: 0.2)
-                        : (isDark
-                              ? AppTheme.darkGreySeparator.withValues(
-                                  alpha: 0.7,
-                                )
-                              : AppTheme.lightDividerColor.withValues(
-                                  alpha: 0.7,
-                                )),
-                  ),
-                  child: Center(
-                    child: Text(
-                      achievement.icon,
-                      style: TextStyle(fontSize: 40.sp),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 24.h),
-
-                // عنوان با فونت بهتر
-                Text(
-                  achievement.title,
-                  style: TextStyle(
-                    fontSize: 24.sp,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: AppTheme.fontFamily,
-                    letterSpacing: 0.5,
-                    height: 1.3,
-                    color: context.textColor,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 12.h),
-
-                // Tier Badge با استایل بهتر
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 18.w,
-                    vertical: 8.h,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Color(
-                          achievement.tier.colorValue,
-                        ).withValues(alpha: 0.25),
-                        Color(
-                          achievement.tier.colorValue,
-                        ).withValues(alpha: 0.15),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(22.r),
-                    border: Border.all(
-                      color: Color(
-                        achievement.tier.colorValue,
-                      ).withValues(alpha: 0.4),
-                      width: 1.2.w,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(
-                          achievement.tier.colorValue,
-                        ).withValues(alpha: 0.2),
-                        blurRadius: 8.r,
-                        offset: Offset(0.w, 3.h),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    achievement.tier.displayName,
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: AppTheme.fontFamily,
-                      letterSpacing: 0.3,
-                      color: Color(achievement.tier.colorValue),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 20.h),
-
-                // توضیحات با فونت بهتر
-                Text(
-                  achievement.description,
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: AppTheme.fontFamily,
-                    height: 1.6,
-                    letterSpacing: 0.2,
-                    color: context.textSecondary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 28.h),
-
-                // پیشرفت یا امتیاز
-                if (isUnlocked)
-                  _buildUnlockedInfo(context, isDark)
-                else
-                  _buildProgressInfo(context, isDark),
-
-                SizedBox(height: 20.h),
-
-                // دکمه بستن با استایل بهتر
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.goldColor,
-                      foregroundColor: AppTheme.onGoldColor,
-                      padding: EdgeInsets.symmetric(vertical: 16.h),
-                      elevation: 4,
-                      shadowColor: AppTheme.goldColor.withValues(alpha: 0.4),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14.r),
-                      ),
-                    ),
-                    child: Text(
-                      'بستن',
-                      style: TextStyle(
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: AppTheme.fontFamily,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUnlockedInfo(BuildContext context, bool isDark) {
-    // ممکن است دستاورد در دیتابیس unlock شده باشد ولی تاریخ ثبت نشده باشد
-    // در این صورت برای جلوگیری از کرش، یک متن ساده نمایش می‌دهیم
-    final unlockedAt = achievement.unlockedAt;
-    final String dateStr;
-    if (unlockedAt != null) {
-      final jDate = Jalali.fromDateTime(unlockedAt);
-      dateStr =
-          '${jDate.year}/${jDate.month.toString().padLeft(2, '0')}/${jDate.day.toString().padLeft(2, '0')}';
-    } else {
-      dateStr = 'تاریخ نامشخص';
-    }
-
-    return Container(
-      padding: EdgeInsets.all(20.w),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [
-            Color(achievement.tier.colorValue).withValues(alpha: 0.25),
-            Color(achievement.tier.colorValue).withValues(alpha: 0.15),
-            Color(achievement.tier.colorValue).withValues(alpha: 0.1),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: Color(achievement.tier.colorValue).withValues(alpha: 0.3),
-          width: 1.2.w,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Color(achievement.tier.colorValue).withValues(alpha: 0.15),
-            blurRadius: 12.r,
-            offset: Offset(0.w, 4.h),
-          ),
-        ],
-      ),
-      child: Row(
-        textDirection: TextDirection.rtl,
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          // بخش امتیاز
-          Column(
+          Row(
+            textDirection: TextDirection.rtl,
             children: [
-              Container(
-                padding: EdgeInsets.all(10.w),
-                decoration: BoxDecoration(
-                  color: Color(
-                    achievement.tier.colorValue,
-                  ).withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  LucideIcons.star,
-                  size: 26.sp,
-                  color: Color(achievement.tier.colorValue),
-                ),
-              ),
-              SizedBox(height: 10.h),
-              Text(
-                '${achievement.points}',
-                style: TextStyle(
-                  fontSize: 24.sp,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: AppTheme.fontFamily,
-                  letterSpacing: 0.5,
-                  color: Color(achievement.tier.colorValue),
-                ),
-              ),
-              SizedBox(height: 4.h),
-              Text(
-                'امتیاز',
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: AppTheme.fontFamily,
-                  color: context.textSecondary,
-                ),
-              ),
-            ],
-          ),
-          // خط جداکننده
-          Container(
-            width: 1.5.w,
-            height: 60.h,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Color(achievement.tier.colorValue).withValues(alpha: 0.3),
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ),
-          // بخش تاریخ
-          Column(
-            children: [
-              Container(
-                padding: EdgeInsets.all(10.w),
-                decoration: BoxDecoration(
-                  color: Color(
-                    achievement.tier.colorValue,
-                  ).withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  LucideIcons.checkCircle,
-                  size: 26.sp,
-                  color: Color(achievement.tier.colorValue),
-                ),
-              ),
-              SizedBox(height: 10.h),
-              Text(
-                dateStr,
-                style: TextStyle(
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: AppTheme.fontFamily,
-                  letterSpacing: 0.3,
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Icon(
+                  LucideIcons.arrowRight,
+                  size: 20.sp,
                   color: context.textColor,
                 ),
-                textDirection: TextDirection.rtl,
               ),
-              SizedBox(height: 4.h),
-              Text(
-                'تاریخ دریافت',
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: AppTheme.fontFamily,
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      GamificationLabels.achievementsIcon,
+                      color: AppTheme.goldColor,
+                      size: 18.sp,
+                    ),
+                    SizedBox(width: 6.w),
+                    Text(
+                      GamificationLabels.achievements,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 17.sp,
+                        color: context.textColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: GamificationLabels.ranking,
+                onPressed: onOpenRanking,
+                icon: Icon(
+                  GamificationLabels.rankingIcon,
+                  size: 20.sp,
                   color: context.textSecondary,
                 ),
               ),
             ],
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(8.w, 0, 8.w, 8.h),
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+              decoration: BoxDecoration(
+                color: context.cardColor,
+                borderRadius: BorderRadius.circular(14.r),
+                border: Border.all(color: context.separatorColor),
+              ),
+              child: Row(
+                textDirection: TextDirection.rtl,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${FormatUtils.toPersianDigits('$unlocked')} از ${FormatUtils.toPersianDigits('$total')} باز شده',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14.sp,
+                            color: context.textColor,
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          'از دستاوردها: ${FormatUtils.toPersianDigits('$points')} · امتیاز کل: ${FormatUtils.toPersianDigits('$leagueScore')}',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 11.5.sp,
+                            color: context.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+                    decoration: BoxDecoration(
+                      color: AppTheme.goldColor.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(10.r),
+                    ),
+                    child: Text(
+                      '${FormatUtils.toPersianDigits('$percent')}٪',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14.sp,
+                        color: AppTheme.goldColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildProgressInfo(BuildContext context, bool isDark) {
-    // جلوگیری از منفی شدن مقدار باقی‌مانده در صورت عبور از target
-    final remainingRaw = achievement.targetValue - achievement.currentValue;
-    final remaining = remainingRaw > 0 ? remainingRaw : 0;
-    final tierColor = Color(achievement.tier.colorValue);
+class _CategoryTabs extends StatelessWidget {
+  const _CategoryTabs({
+    required this.controller,
+    required this.categories,
+    required this.service,
+  });
 
-    return Container(
-      padding: EdgeInsets.all(20.w),
+  final TabController controller;
+  final List<AchievementCategory> categories;
+  final AchievementService service;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: isDark
-              ? [
-                  AppTheme.darkGreySeparator.withValues(alpha: 0.4),
-                  AppTheme.darkGreySeparator.withValues(alpha: 0.2),
-                ]
-              : [
-                  AppTheme.lightDividerColor.withValues(alpha: 0.6),
-                  AppTheme.lightDividerColor.withValues(alpha: 0.4),
-                ],
-        ),
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: tierColor.withValues(alpha: 0.2),
-          width: 1.2.w,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: tierColor.withValues(alpha: 0.1),
-            blurRadius: 8.r,
-            offset: Offset(0.w, 3.h),
-          ),
-        ],
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: context.separatorColor),
       ),
-      child: Column(
-        children: [
-          // هدر پیشرفت
-          Row(
-            textDirection: TextDirection.rtl,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                textDirection: TextDirection.rtl,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(LucideIcons.trendingUp, size: 18.sp, color: tierColor),
-                  SizedBox(width: 6.w),
-                  Text(
-                    'پیشرفت',
-                    style: TextStyle(
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: AppTheme.fontFamily,
-                      color: context.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      tierColor.withValues(alpha: 0.25),
-                      tierColor.withValues(alpha: 0.15),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-                child: Text(
-                  '${achievement.progressPercentage}%',
-                  style: TextStyle(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: AppTheme.fontFamily,
-                    letterSpacing: 0.3,
-                    color: tierColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16.h),
-          // نوار پیشرفت
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12.r),
-            child: Stack(
+      child: TabBar(
+        controller: controller,
+        isScrollable: categories.length > 3,
+        tabAlignment: TabAlignment.start,
+        indicatorColor: AppTheme.goldColor,
+        indicatorSize: TabBarIndicatorSize.tab,
+        labelColor: AppTheme.goldColor,
+        unselectedLabelColor: context.textSecondary,
+        dividerColor: Colors.transparent,
+        labelStyle: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontWeight: FontWeight.w700,
+          fontSize: 12.sp,
+        ),
+        unselectedLabelStyle: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontWeight: FontWeight.w500,
+          fontSize: 12.sp,
+        ),
+        tabs: categories.map((category) {
+          final list = service.achievementsByCategory[category] ?? [];
+          final done = list.where((a) => a.isUnlocked).length;
+          return Tab(
+            height: 44.h,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              textDirection: TextDirection.rtl,
               children: [
-                LinearProgressIndicator(
-                  value: achievement.progress,
-                  minHeight: 14.h,
-                  backgroundColor: isDark
-                      ? AppTheme.darkGreySeparator
-                      : AppTheme.lightDividerColor.withValues(alpha: 0.5),
-                  valueColor: AlwaysStoppedAnimation(tierColor),
+                Icon(category.lucideIcon, size: 14.sp),
+                SizedBox(width: 5.w),
+                Text(category.displayName),
+                SizedBox(width: 5.w),
+                Text(
+                  '${FormatUtils.toPersianDigits('$done')}/${FormatUtils.toPersianDigits('${list.length}')}',
+                  style: TextStyle(fontSize: 11.sp),
                 ),
-                if (achievement.progress > 0)
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [tierColor, tierColor.withValues(alpha: 0.8)],
-                        ),
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                    ),
-                  ),
               ],
             ),
-          ),
-          SizedBox(height: 16.h),
-          // اطلاعات پیشرفت
-          Row(
-            textDirection: TextDirection.rtl,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '${achievement.currentValue} از ${achievement.targetValue} ${achievement.unit}',
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: AppTheme.fontFamily,
-                  color: context.textSecondary,
-                ),
-                textDirection: TextDirection.rtl,
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
-                decoration: BoxDecoration(
-                  color: tierColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10.r),
-                ),
-                child: Text(
-                  'باقی‌مانده: $remaining',
-                  style: TextStyle(
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: AppTheme.fontFamily,
-                    color: tierColor,
-                  ),
-                  textDirection: TextDirection.rtl,
-                ),
-              ),
-            ],
-          ),
-        ],
+          );
+        }).toList(),
       ),
     );
   }

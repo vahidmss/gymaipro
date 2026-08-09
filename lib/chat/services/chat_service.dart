@@ -374,6 +374,7 @@ class ChatService {
     String? attachmentType,
     String? attachmentName,
     int? attachmentSize,
+    int? durationSeconds,
   }) async {
     final me = _supabase.auth.currentUser?.id;
     if (me == null) {
@@ -384,7 +385,10 @@ class ChatService {
       throw Exception('شناسه دریافت‌کننده معتبر نیست');
     }
 
-    if (message.trim().isEmpty) {
+    final isMedia = messageType == 'voice' ||
+        messageType == 'image' ||
+        messageType == 'file';
+    if (message.trim().isEmpty && !(isMedia && attachmentUrl != null)) {
       throw Exception('پیام نمی‌تواند خالی باشد');
     }
 
@@ -397,8 +401,9 @@ class ChatService {
 
       // Create new message with unique ID
       final now = DateTime.now();
-      final messageId = '${me}_${receiverId}_${now.millisecondsSinceEpoch}_${message.hashCode}';
-      
+      final messageId =
+          '${me}_${receiverId}_${now.millisecondsSinceEpoch}_${message.hashCode}';
+
       final newMessage = ChatMessage(
         id: messageId,
         senderId: me,
@@ -409,6 +414,7 @@ class ChatService {
         attachmentType: attachmentType,
         attachmentName: attachmentName,
         attachmentSize: attachmentSize,
+        durationSeconds: durationSeconds,
         createdAt: now,
         updatedAt: now,
       );
@@ -429,7 +435,7 @@ class ChatService {
 
       // Add new message to the end (will be sorted when retrieved)
       currentMessages.add(newMessage.toJson());
-      
+
       // Sort messages by created_at to maintain chronological order
       currentMessages.sort((a, b) {
         try {
@@ -448,24 +454,40 @@ class ChatService {
       // Determine which user is sender for unread count
       final user1Id = response['user1_id'] as String;
       final isUser1Sender = me == user1Id;
+      final preview = newMessage.previewText;
 
       // Update conversation
       final updateData = {
         'messages': currentMessages,
         'message_count': currentMessages.length,
-        'last_message': message.trim(),
+        'last_message': preview,
         'last_message_at': DateTime.now().toIso8601String(),
         'last_message_sender_id': me,
+        'last_message_type': messageType,
         'updated_at': DateTime.now().toIso8601String(),
-        if (isUser1Sender) 'user2_unread_count': (response['user2_unread_count'] as int? ?? 0) + 1,
-        if (!isUser1Sender) 'user1_unread_count': (response['user1_unread_count'] as int? ?? 0) + 1,
+        if (isUser1Sender)
+          'user2_unread_count':
+              (response['user2_unread_count'] as int? ?? 0) + 1,
+        if (!isUser1Sender)
+          'user1_unread_count':
+              (response['user1_unread_count'] as int? ?? 0) + 1,
       };
 
-      await _supabase
-          .from('chat_conversations')
-          .update(updateData)
-          .eq('id', conversation.id)
-          .timeout(const Duration(seconds: 8));
+      try {
+        await _supabase
+            .from('chat_conversations')
+            .update(updateData)
+            .eq('id', conversation.id)
+            .timeout(const Duration(seconds: 8));
+      } catch (_) {
+        // Older schemas may not have last_message_type yet.
+        updateData.remove('last_message_type');
+        await _supabase
+            .from('chat_conversations')
+            .update(updateData)
+            .eq('id', conversation.id)
+            .timeout(const Duration(seconds: 8));
+      }
 
       final cached = getCachedMessages(receiverId);
       final merged = [
@@ -480,7 +502,7 @@ class ChatService {
           senderId: me,
           user1Id: user1Id,
           user2Id: response['user2_id'] as String,
-          message: message.trim(),
+          message: preview.isNotEmpty ? preview : message.trim(),
           messageId: messageId,
           messageType: messageType,
           conversationId: conversation.id,

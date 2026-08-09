@@ -4,7 +4,7 @@ import 'package:gymaipro/design_system/layout/responsive_breakpoints.dart';
 import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 import 'package:gymaipro/design_system/theme/gym_typography.dart';
 
-/// Standard page scaffold — uses main app theme (transparent over shell gradient).
+/// Standard page scaffold — uses main app theme solid page background.
 class GymPageScaffold extends StatelessWidget {
   const GymPageScaffold({
     required this.body,

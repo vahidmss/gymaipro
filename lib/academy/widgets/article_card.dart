@@ -178,7 +178,7 @@ class ArticleCard extends StatelessWidget {
                               SizedBox(width: 4.w),
                               Text(
                                 'مطالعه شده',
-                                style: AppTheme.bodyStyle.copyWith(
+                                style: context.bodyStyle.copyWith(
                                   fontSize: 10.sp,
                                   color: Colors.black,
                                   fontWeight: FontWeight.w700,
@@ -213,7 +213,7 @@ class ArticleCard extends StatelessWidget {
                               SizedBox(width: 4.w),
                               Text(
                                 _formatCount(readCount),
-                                style: AppTheme.bodyStyle.copyWith(
+                                style: context.bodyStyle.copyWith(
                                   fontSize: 10.sp,
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,
@@ -233,12 +233,11 @@ class ArticleCard extends StatelessWidget {
                 children: [
                   Text(
                     article.title,
-                    style: AppTheme.headingStyle.copyWith(
+                    style: context.headingStyle.copyWith(
                       fontSize: 15.sp,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.1,
                       height: 1.2.h,
-                      color: context.textColor,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -248,11 +247,10 @@ class ArticleCard extends StatelessWidget {
                     article.excerpt.isNotEmpty ? article.excerpt : '...',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTheme.bodyStyle.copyWith(
+                    style: context.bodyStyle.copyWith(
                       height: 1.5.h,
                       fontSize: 12.5.sp,
                       fontWeight: FontWeight.w400,
-                      color: context.textSecondary,
                     ),
                   ),
                   SizedBox(height: 10.h),
@@ -330,7 +328,7 @@ class ArticleCard extends StatelessWidget {
                 SizedBox(width: 5.w),
                 Text(
                   _formatJalali(date),
-                  style: AppTheme.bodyStyle.copyWith(
+                  style: context.bodyStyle.copyWith(
                     fontSize: 11.sp,
                     fontWeight: FontWeight.w800,
                     color: context.textColor,
@@ -361,7 +359,7 @@ class ArticleCard extends StatelessWidget {
                 SizedBox(width: 5.w),
                 Text(
                   _formatCount(likeCount),
-                  style: AppTheme.bodyStyle.copyWith(
+                  style: context.bodyStyle.copyWith(
                     fontSize: 11.sp,
                     fontWeight: FontWeight.w800,
                     color: context.textColor,
@@ -394,7 +392,7 @@ class ArticleCard extends StatelessWidget {
                   ratingCount > 0
                       ? '${avgRating.toStringAsFixed(1)} (${_formatCount(ratingCount)})'
                       : '0',
-                  style: AppTheme.bodyStyle.copyWith(
+                  style: context.bodyStyle.copyWith(
                     fontSize: 11.sp,
                     fontWeight: FontWeight.w800,
                     color: context.textColor,

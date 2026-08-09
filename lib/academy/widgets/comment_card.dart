@@ -65,7 +65,7 @@ class CommentCard extends StatelessWidget {
                 children: [
                   Text(
                     displayName,
-                    style: AppTheme.headingStyle.copyWith(
+                    style: context.headingStyle.copyWith(
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w700,
                     ),
@@ -75,7 +75,7 @@ class CommentCard extends StatelessWidget {
                   SizedBox(height: 6.h),
                   Text(
                     content.replaceAll(RegExp('<[^>]*>'), ''),
-                    style: AppTheme.bodyStyle.copyWith(
+                    style: context.bodyStyle.copyWith(
                       fontSize: 13.sp,
                       height: 1.6,
                       color: context.textColor,

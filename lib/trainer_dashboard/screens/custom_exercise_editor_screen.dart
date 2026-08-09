@@ -1,23 +1,27 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/ai/models/exercise_metadata_ai_models.dart';
 import 'package:gymaipro/ai/services/ai_exercise_metadata_service.dart';
 import 'package:gymaipro/models/custom_exercise.dart';
+import 'package:gymaipro/models/exercise_display_labels.dart';
+import 'package:gymaipro/models/exercise_meta_normalizer.dart';
 import 'package:gymaipro/models/muscle_targets.dart';
 import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/trainer_dashboard/widgets/exercise_metadata_ai_flow.dart';
+import 'package:gymaipro/trainer_dashboard/widgets/manual_exercise_meta_sheet.dart';
+import 'package:gymaipro/trainer_dashboard/widgets/muscle_targets_editor_sheet.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/widgets/exercise_muscle_heatmap_widget.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// صفحه ساخت/ویرایش تمرین اختصاصی
+/// صفحه ساخت/ویرایش تمرین اختصاصی — مسیر کوتاه: عنوان → عضله → کاور → AI → ثبت
 class CustomExerciseEditorScreen extends StatefulWidget {
-
   const CustomExerciseEditorScreen({super.key, this.exercise});
   final CustomExercise? exercise;
 
@@ -35,7 +39,6 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
   final _aiMetadataService = AIExerciseMetadataService();
   final _picker = ImagePicker();
 
-  // Controllers
   final _titleController = TextEditingController();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -44,10 +47,11 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
   final _muscleHintController = TextEditingController();
   final _tipsControllers = <TextEditingController>[];
   final _scrollController = ScrollController();
+  final _muscleSectionKey = GlobalKey();
+  final _coverSectionKey = GlobalKey();
   final Map<String, bool> _expansionStates = {};
 
-  // State
-  String _mainMuscle = 'سینه';
+  String _mainMuscle = '';
   String _difficulty = 'متوسط';
   String _equipment = 'بدون تجهیزات';
   String _exerciseType = 'قدرتی';
@@ -56,7 +60,15 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
   bool _isLoading = false;
   bool _isAiRunning = false;
   double _uploadProgress = 0;
+  String _saveStatus = '';
   Map<String, int> _muscleTargets = {};
+  double? _met;
+  double? _typicalRpe;
+  String _movementPattern = '';
+  String _bodyEngagement = '';
+  String _mechanicsType = '';
+  String _forceType = '';
+  int? _caloriesPer1000kg;
   List<String> _otherNames = [];
   int _estimatedDuration = 0;
 
@@ -65,7 +77,6 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
   final List<String> _committedVideoUrls = [];
   final List<XFile> _newVideoFiles = [];
 
-  // Lists
   final List<String> _muscleGroups = [
     'سینه',
     'پشت',
@@ -98,17 +109,22 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
     'انعطاف‌پذیری',
   ];
 
-  static const Map<String, IconData> _muscleIcons = {
-    'سینه': LucideIcons.heart,
-    'پشت': LucideIcons.arrowLeftRight,
-    'شانه': LucideIcons.move,
-    'پا': LucideIcons.footprints,
-    'بازو': LucideIcons.dumbbell,
-    'شکم': LucideIcons.circleDot,
-    'سرینی': LucideIcons.trendingUp,
-    'ساعد': LucideIcons.hand,
-    'کاردیو': LucideIcons.heartPulse,
-    'کل بدن': LucideIcons.user,
+  static const List<String> _durationLabels = [
+    'نامشخص',
+    '۳۰ ثانیه',
+    '۴۵ ثانیه',
+    '۶۰ ثانیه',
+    '۹۰ ثانیه',
+    '۱۲۰ ثانیه',
+  ];
+
+  static const Map<String, int> _durationSeconds = {
+    'نامشخص': 0,
+    '۳۰ ثانیه': 30,
+    '۴۵ ثانیه': 45,
+    '۶۰ ثانیه': 60,
+    '۹۰ ثانیه': 90,
+    '۱۲۰ ثانیه': 120,
   };
 
   @override
@@ -119,16 +135,11 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
   }
 
   void _initExpansionStates() {
-    final ex = widget.exercise;
-    _expansionStates['category'] = ex != null;
-    _expansionStates['videos'] =
-        ex != null && ex.videoUrls.isNotEmpty;
-    _expansionStates['content'] = ex != null &&
-        ((ex.description?.isNotEmpty ?? false) ||
-            (ex.detailedDescription?.isNotEmpty ?? false) ||
-            ex.tips.isNotEmpty);
-    _expansionStates['muscles'] = true;
-    _expansionStates['access'] = true;
+    // فقط مسیر کوتاه باز است؛ بقیه تاشو.
+    final editing = widget.exercise != null;
+    _expansionStates['specs'] = editing;
+    _expansionStates['access'] = false;
+    _expansionStates['more'] = editing;
   }
 
   void _initializeForm() {
@@ -152,10 +163,24 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
         ..clear()
         ..addAll(ex.imageUrls);
       _muscleTargets = Map<String, int>.from(ex.muscleTargets);
+      _met = ex.met;
+      _typicalRpe = ex.typicalRpe;
+      _movementPattern = ex.movementPattern.trim().isEmpty
+          ? ''
+          : ExerciseMetaNormalizer.movementPattern(ex.movementPattern);
+      _bodyEngagement = ex.bodyEngagement.trim().isEmpty
+          ? ''
+          : ExerciseMetaNormalizer.bodyEngagement(ex.bodyEngagement);
+      _mechanicsType = ex.mechanicsType.trim().isEmpty
+          ? ''
+          : ExerciseMetaNormalizer.mechanicsType(ex.mechanicsType);
+      _forceType = ex.forceType.trim().isEmpty
+          ? ''
+          : ExerciseMetaNormalizer.forceType(ex.forceType);
+      _caloriesPer1000kg = ex.caloriesPer1000kg;
       _otherNames = List<String>.from(ex.otherNames);
       _estimatedDuration = ex.estimatedDuration;
 
-      // Tips
       _tipsControllers.clear();
       for (final tip in ex.tips) {
         _tipsControllers.add(TextEditingController(text: tip));
@@ -193,9 +218,64 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
     }
   }
 
+  void _scrollToMuscleSection() {
+    final ctx = _muscleSectionKey.currentContext;
+    if (ctx == null) {
+      _scrollToTop();
+      return;
+    }
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+      alignment: 0.1,
+    );
+  }
+
+  void _scrollToCoverSection() {
+    final ctx = _coverSectionKey.currentContext;
+    if (ctx == null) {
+      _scrollToTop();
+      return;
+    }
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+      alignment: 0.15,
+    );
+  }
+
+  /// فقط گام بعدیِ لازم — بدون jargon.
+  String? _nextStepHint() {
+    if (_titleController.text.trim().isEmpty) {
+      return 'اول عنوان تمرین را بنویس';
+    }
+    if (_mainMuscle.isEmpty) return 'عضله اصلی را انتخاب کن';
+    if (!MuscleTargets.hasData(_muscleTargets) || !_hasCoreMetrics) {
+      return 'نقشه عضلانی را با AI یا دستی پر کن';
+    }
+    if (_imageCount < 1) return 'یک تصویر کاور اضافه کن';
+    return null;
+  }
+
+  bool get _canSaveReady =>
+      _titleController.text.trim().isNotEmpty &&
+      _mainMuscle.isNotEmpty &&
+      _imageCount >= 1 &&
+      MuscleTargets.hasData(_muscleTargets) &&
+      _hasCoreMetrics;
+
+  Color _mutedText(bool isDark) =>
+      isDark ? Colors.grey[400]! : const Color(0xFF5A5A5A);
+
+  Color _bodyText(bool isDark) =>
+      isDark ? AppTheme.darkTextColor : AppTheme.veryDarkBackground;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final uploading = _isLoading;
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBackgroundColor : Colors.grey[50],
@@ -209,94 +289,139 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
         ),
         backgroundColor: isDark ? AppTheme.darkCardColor : AppTheme.darkTextColor,
         elevation: 0,
+        automaticallyImplyLeading: !uploading,
       ),
-      body: _isLoading && _uploadProgress > 0
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    value: _uploadProgress,
-                    color: AppTheme.goldColor,
-                  ),
-                  SizedBox(height: 16.h),
-                  Text(
-                    'در حال آپلود... ${(_uploadProgress * 100).toStringAsFixed(0)}%',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      color: isDark ? AppTheme.darkTextColor : AppTheme.veryDarkBackground,
-                    ),
-                  ),
-                ],
-              ),
-            )
+      body: uploading
+          ? _buildSavingOverlay(isDark)
           : Form(
               key: _formKey,
               child: ListView(
                 controller: _scrollController,
-                padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 24.h),
+                padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 16.h),
                 children: [
-                  _buildHintCard(isDark),
-                  SizedBox(height: 16.h),
-                  _buildRequiredCard(isDark),
-                  SizedBox(height: 12.h),
+                  _buildEssentialsCard(isDark),
+                  SizedBox(height: 10.h),
+                  _buildMuscleFocusCard(isDark),
+                  SizedBox(height: 10.h),
                   _buildExpandableSection(
                     isDark: isDark,
-                    sectionKey: 'category',
-                    title: 'دسته‌بندی',
-                    subtitle: _mainMuscle,
-                    icon: LucideIcons.layoutGrid,
-                    optional: true,
-                    child: _buildCategoryContent(isDark),
+                    sectionKey: 'specs',
+                    title: 'مشخصات بیشتر',
+                    subtitle: '$_difficulty · $_equipment · $_exerciseType',
+                    icon: LucideIcons.slidersHorizontal,
+                    child: _buildExtraSpecsContent(isDark),
                   ),
-                  SizedBox(height: 12.h),
-                  _buildExpandableSection(
-                    isDark: isDark,
-                    sectionKey: 'videos',
-                    title: 'ویدیو',
-                    subtitle: _videoCount > 0 ? '$_videoCount ویدیو' : null,
-                    icon: LucideIcons.video,
-                    optional: true,
-                    child: _buildVideosMediaSection(isDark),
+                  SizedBox(height: 10.h),
+                  KeyedSubtree(
+                    key: _muscleSectionKey,
+                    child: _buildAiCoreCard(isDark),
                   ),
-                  SizedBox(height: 12.h),
-                  _buildExpandableSection(
-                    isDark: isDark,
-                    sectionKey: 'content',
-                    title: 'توضیحات و نکات',
-                    subtitle: _hasContentSummary(),
-                    icon: LucideIcons.fileText,
-                    optional: true,
-                    child: _buildContentSection(isDark),
+                  SizedBox(height: 10.h),
+                  KeyedSubtree(
+                    key: _coverSectionKey,
+                    child: _buildCoverCard(isDark),
                   ),
-                  SizedBox(height: 12.h),
-                  _buildExpandableSection(
-                    isDark: isDark,
-                    sectionKey: 'muscles',
-                    title: 'نقشه عضلانی',
-                    subtitle: MuscleTargets.hasData(_muscleTargets)
-                        ? 'heatmap آماده'
-                        : null,
-                    icon: LucideIcons.activity,
-                    optional: true,
-                    child: _buildMuscleSection(isDark),
-                  ),
-                  SizedBox(height: 12.h),
+                  SizedBox(height: 10.h),
                   _buildExpandableSection(
                     isDark: isDark,
                     sectionKey: 'access',
                     title: 'دسترسی',
-                    subtitle: _visibility == 'public' ? 'عمومی' : 'خصوصی',
+                    subtitle: _accessSubtitle(),
                     icon: LucideIcons.lock,
-                    optional: true,
                     child: _buildAccessSection(isDark),
                   ),
-                  SizedBox(height: 24.h),
-                  _buildSaveButtons(isDark),
+                  SizedBox(height: 10.h),
+                  _buildExpandableSection(
+                    isDark: isDark,
+                    sectionKey: 'more',
+                    title: 'جزئیات بیشتر',
+                    subtitle: _moreDetailsSubtitle(),
+                    icon: LucideIcons.fileText,
+                    child: _buildMoreDetailsContent(isDark),
+                  ),
+                  if (widget.exercise != null) ...[
+                    SizedBox(height: 16.h),
+                    OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _deleteExercise,
+                      icon: Icon(LucideIcons.trash2, size: 18.sp),
+                      label: const Text('حذف تمرین'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.errorColor,
+                        side: const BorderSide(color: AppTheme.errorColor),
+                        padding: EdgeInsets.symmetric(vertical: 13.h),
+                      ),
+                    ),
+                  ],
+                  SizedBox(height: 8.h),
                 ],
               ),
             ),
+      bottomNavigationBar: uploading ? null : _buildStickySaveBar(isDark),
     );
+  }
+
+  Widget _buildSavingOverlay(bool isDark) {
+    final hasProgress = _uploadProgress > 0.01;
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 32.w),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 56.w,
+              height: 56.w,
+              child: CircularProgressIndicator(
+                value: hasProgress ? _uploadProgress.clamp(0.0, 1.0) : null,
+                color: AppTheme.goldColor,
+                strokeWidth: 3.5,
+              ),
+            ),
+            SizedBox(height: 20.h),
+            Text(
+              _saveStatus.isEmpty ? 'در حال ذخیره…' : _saveStatus,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w700,
+                color: _bodyText(isDark),
+              ),
+            ),
+            if (hasProgress) ...[
+              SizedBox(height: 8.h),
+              Text(
+                '${(_uploadProgress * 100).clamp(0, 100).toStringAsFixed(0)}٪',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 13.sp,
+                  color: _mutedText(isDark),
+                ),
+              ),
+            ] else ...[
+              SizedBox(height: 8.h),
+              Text(
+                'لطفاً صبر کن — قطع نکن',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 12.5.sp,
+                  color: _mutedText(isDark),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String? _moreDetailsSubtitle() {
+    final parts = <String>[];
+    if (_videoCount > 0) parts.add('$_videoCount ویدیو');
+    final content = _hasContentSummary();
+    if (content != null) parts.add(content);
+    return parts.isEmpty ? 'ویدیو، توضیحات و نکات' : parts.join(' · ');
   }
 
   String? _hasContentSummary() {
@@ -306,52 +431,37 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
     return null;
   }
 
-  Widget _buildHintCard(bool isDark) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-      decoration: BoxDecoration(
-        color: isDark
-            ? AppTheme.goldColor.withValues(alpha: 0.08)
-            : AppTheme.goldColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(LucideIcons.info, color: AppTheme.goldColor, size: 18.sp),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: Text(
-              'برای ذخیره: عنوان، نام و یک تصویر. بقیه بخش‌ها اختیاری‌اند — '
-              'باز کنید و پر کنید.',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 12.sp,
-                height: 1.5,
-                color: isDark ? AppTheme.darkTextColor : AppTheme.veryDarkBackground,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  String _accessSubtitle() {
+    if (_visibility == 'public') return 'عمومی';
+    if (_sharedWithClients) return 'شاگردان';
+    return 'فقط من';
   }
 
-  Widget _buildRequiredCard(bool isDark) {
+  // ─── Essentials: title + cover ───────────────────────────────────────────
+
+  Widget _buildEssentialsCard(bool isDark) {
     return _buildSectionCard(
       isDark: isDark,
+      padding: EdgeInsets.fromLTRB(14.w, 14.h, 14.w, 12.h),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildSectionHeader(
-            isDark: isDark,
-            icon: LucideIcons.star,
-            title: 'اطلاعات ضروری',
-            badge: 'الزامی',
-            badgeColor: AppTheme.goldColor,
+          Row(
+            children: [
+              Icon(LucideIcons.star, color: AppTheme.goldColor, size: 18.sp),
+              SizedBox(width: 8.w),
+              Text(
+                'اطلاعات اصلی',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.bold,
+                  color: _bodyText(isDark),
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 12.h),
           _buildTextField(
             controller: _titleController,
             label: 'عنوان تمرین',
@@ -359,22 +469,518 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
             icon: LucideIcons.type,
             isDark: isDark,
             validator: (v) => v?.isEmpty ?? true ? 'عنوان الزامی است' : null,
+            onChanged: (_) => setState(() {}),
           ),
-          SizedBox(height: 12.h),
-          _buildTextField(
-            controller: _nameController,
-            label: 'نام تمرین',
-            hint: 'مثال: Bench Press',
-            icon: LucideIcons.tag,
-            isDark: isDark,
-            validator: (v) => v?.isEmpty ?? true ? 'نام الزامی است' : null,
-          ),
-          SizedBox(height: 16.h),
-          _buildImagesMediaSection(isDark),
         ],
       ),
     );
   }
+
+  // ─── Primary muscle (always visible) ─────────────────────────────────────
+
+  Widget _buildMuscleFocusCard(bool isDark) {
+    return _buildSectionCard(
+      isDark: isDark,
+      padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.target, color: AppTheme.goldColor, size: 18.sp),
+              SizedBox(width: 8.w),
+              Text(
+                'عضله اصلی',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.bold,
+                  color: _bodyText(isDark),
+                ),
+              ),
+              if (_mainMuscle.isEmpty) ...[
+                const Spacer(),
+                Text(
+                  'انتخاب کنید',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 11.5.sp,
+                    color: _mutedText(isDark),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          SizedBox(height: 10.h),
+          _buildChoiceChips(
+            isDark: isDark,
+            options: _muscleGroups,
+            selected: _mainMuscle,
+            onSelected: (v) => setState(() => _mainMuscle = v),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoverCard(bool isDark) {
+    return _buildSectionCard(
+      isDark: isDark,
+      padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 12.h),
+      child: _buildImagesMediaSection(isDark),
+    );
+  }
+
+  Widget _buildExtraSpecsContent(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildFieldLabel('سطح دشواری', isDark),
+        SizedBox(height: 8.h),
+        _buildChoiceChips(
+          isDark: isDark,
+          options: _difficulties,
+          selected: _difficulty,
+          onSelected: (v) => setState(() => _difficulty = v),
+        ),
+        SizedBox(height: 14.h),
+        _buildFieldLabel('تجهیزات', isDark),
+        SizedBox(height: 8.h),
+        _buildChoiceChips(
+          isDark: isDark,
+          options: _equipments,
+          selected: _equipment,
+          onSelected: (v) => setState(() => _equipment = v),
+        ),
+        SizedBox(height: 14.h),
+        _buildFieldLabel('نوع تمرین', isDark),
+        SizedBox(height: 8.h),
+        _buildChoiceChips(
+          isDark: isDark,
+          options: _exerciseTypes,
+          selected: _exerciseType,
+          onSelected: (v) => setState(() => _exerciseType = v),
+        ),
+        SizedBox(height: 14.h),
+        _buildFieldLabel('مدت تخمینی', isDark),
+        SizedBox(height: 8.h),
+        _buildChoiceChips(
+          isDark: isDark,
+          options: [
+            ..._durationLabels,
+            if (_estimatedDuration > 0 &&
+                !_durationSeconds.containsValue(_estimatedDuration))
+              '$_estimatedDuration ثانیه',
+          ],
+          selected: _durationLabelFor(_estimatedDuration),
+          onSelected: (label) {
+            setState(() => _estimatedDuration = _durationSecondsFor(label));
+          },
+        ),
+      ],
+    );
+  }
+
+  String _durationLabelFor(int seconds) {
+    if (seconds <= 0) return 'نامشخص';
+    for (final e in _durationSeconds.entries) {
+      if (e.value == seconds) return e.key;
+    }
+    return '$seconds ثانیه';
+  }
+
+  int _durationSecondsFor(String label) {
+    return _durationSeconds[label] ??
+        (int.tryParse(label.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0);
+  }
+
+  // ─── AI Core (signature block) ───────────────────────────────────────────
+
+  bool get _hasCoreMetrics =>
+      _met != null &&
+      _typicalRpe != null &&
+      _movementPattern.isNotEmpty &&
+      _bodyEngagement.isNotEmpty &&
+      _mechanicsType.isNotEmpty &&
+      _forceType.isNotEmpty &&
+      _caloriesPer1000kg != null;
+
+  Widget _buildAiCoreCard(bool isDark) {
+    final hasMap = MuscleTargets.hasData(_muscleTargets);
+    final hasCore = _hasCoreMetrics;
+    final ready = hasMap && hasCore;
+    final muted = _mutedText(isDark);
+
+    return _buildSectionCard(
+      isDark: isDark,
+      highlight: !ready,
+      padding: EdgeInsets.fromLTRB(14.w, 14.h, 14.w, 14.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(8.w),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.goldColor.withValues(alpha: 0.28),
+                      AppTheme.goldColor.withValues(alpha: 0.08),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Icon(
+                  LucideIcons.sparkles,
+                  color: AppTheme.goldColor,
+                  size: 18.sp,
+                ),
+              ),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'نقشه عضلانی خودکار',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.bold,
+                        color: _bodyText(isDark),
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      ready
+                          ? 'پر شد — می‌تونی ذخیره کنی'
+                          : 'AI نزدیک‌ترین حرکت را پیدا می‌کند و نقشه + کالری را پر می‌کند',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w500,
+                        color: ready ? const Color(0xFF2E7D32) : muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (ready)
+                Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2E7D32).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20.r),
+                  ),
+                  child: Text(
+                    'آماده',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF2E7D32),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (ready) ...[
+            SizedBox(height: 12.h),
+            _buildCoreMetricsChips(isDark),
+            if (hasMap) ...[
+              SizedBox(height: 12.h),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12.r),
+                child: ExerciseMuscleHeatmapWidget(
+                  muscleTargets: _muscleTargets,
+                  compact: true,
+                  embedded: true,
+                ),
+              ),
+            ],
+            SizedBox(height: 10.h),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isAiRunning ? null : _openManualFullEditor,
+                    icon: Icon(LucideIcons.pencil, size: 15.sp),
+                    label: const Text('ویرایش همه'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.goldColor,
+                      side: BorderSide(
+                        color: AppTheme.goldColor.withValues(alpha: 0.45),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: 10.h),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isAiRunning ? null : _promptAndRunMuscleAi,
+                    icon: _isAiRunning
+                        ? SizedBox(
+                            width: 14.w,
+                            height: 14.w,
+                            child: const CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Icon(LucideIcons.refreshCw, size: 15.sp),
+                    label: const Text('ساخت مجدد AI'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: muted,
+                      side: BorderSide(color: muted.withValues(alpha: 0.35)),
+                      padding: EdgeInsets.symmetric(vertical: 10.h),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            SizedBox(height: 14.h),
+            if (_aiMetadataService.isAvailable)
+              ElevatedButton(
+                onPressed: _isAiRunning ? null : _promptAndRunMuscleAi,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.goldColor,
+                  foregroundColor: AppTheme.veryDarkBackground,
+                  disabledBackgroundColor:
+                      AppTheme.goldColor.withValues(alpha: 0.45),
+                  padding: EdgeInsets.symmetric(vertical: 14.h),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                ),
+                child: _isAiRunning
+                    ? SizedBox(
+                        width: 22.w,
+                        height: 22.w,
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: AppTheme.veryDarkBackground,
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(LucideIcons.sparkles, size: 18.sp),
+                          SizedBox(width: 8.w),
+                          Text(
+                            'ساخت خودکار با AI',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+              )
+            else
+              const SizedBox.shrink(),
+            SizedBox(height: 8.h),
+            OutlinedButton.icon(
+              onPressed: _isAiRunning ? null : _openManualFullEditor,
+              icon: Icon(LucideIcons.slidersHorizontal, size: 16.sp),
+              label: Text(
+                    _aiMetadataService.isAvailable
+                        ? 'ثبت دستی همه اطلاعات'
+                        : 'ثبت دستی نقشه عضلانی',
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _bodyText(isDark),
+                side: BorderSide(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : Colors.grey.shade300,
+                ),
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+              ),
+            ),
+            if (!_aiMetadataService.isAvailable) ...[
+              SizedBox(height: 6.h),
+              Text(
+                'AI در دسترس نیست — همه فیلدها را دستی پر کنید.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 11.5.sp,
+                  color: muted,
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoreMetricsChips(bool isDark) {
+    final chips = <(String, String)>[
+      if (_met != null) ('MET', _met!.toStringAsFixed(1)),
+      if (_typicalRpe != null) ('RPE', _typicalRpe!.toStringAsFixed(1)),
+      if (_movementPattern.isNotEmpty)
+        ('الگو', ExerciseDisplayLabels.movement(_movementPattern)),
+      if (_bodyEngagement.isNotEmpty)
+        ('درگیری', ExerciseDisplayLabels.engagement(_bodyEngagement)),
+      if (_mechanicsType.isNotEmpty)
+        ('مکانیک', ExerciseDisplayLabels.mechanics(_mechanicsType)),
+      if (_forceType.isNotEmpty)
+        ('نیرو', ExerciseDisplayLabels.force(_forceType)),
+      if (_caloriesPer1000kg != null)
+        ('کالری/۱۰۰۰kg', '$_caloriesPer1000kg'),
+    ];
+
+    if (chips.isEmpty) return const SizedBox.shrink();
+
+    return Wrap(
+      spacing: 6.w,
+      runSpacing: 6.h,
+      children: chips.map((c) {
+        return Container(
+          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+          decoration: BoxDecoration(
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.12 : 0.1),
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(
+              color: AppTheme.goldColor.withValues(alpha: 0.28),
+            ),
+          ),
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '${c.$1} ',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 10.5.sp,
+                    color: _mutedText(isDark),
+                  ),
+                ),
+                TextSpan(
+                  text: c.$2,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 11.5.sp,
+                    fontWeight: FontWeight.w700,
+                    color: _bodyText(isDark),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ─── Access (compact segment) ────────────────────────────────────────────
+
+  Widget _buildAccessSection(bool isDark) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildAccessPill(
+            isDark: isDark,
+            label: 'فقط من',
+            icon: LucideIcons.lock,
+            selected: _visibility == 'private' && !_sharedWithClients,
+            onTap: () => setState(() {
+              _visibility = 'private';
+              _sharedWithClients = false;
+            }),
+          ),
+        ),
+        SizedBox(width: 6.w),
+        Expanded(
+          child: _buildAccessPill(
+            isDark: isDark,
+            label: 'شاگردان',
+            icon: LucideIcons.users,
+            selected: _visibility == 'private' && _sharedWithClients,
+            onTap: () => setState(() {
+              _visibility = 'private';
+              _sharedWithClients = true;
+            }),
+          ),
+        ),
+        SizedBox(width: 6.w),
+        Expanded(
+          child: _buildAccessPill(
+            isDark: isDark,
+            label: 'عمومی',
+            icon: LucideIcons.globe,
+            selected: _visibility == 'public',
+            onTap: () => setState(() {
+              _visibility = 'public';
+              _sharedWithClients = true;
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAccessPill({
+    required bool isDark,
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10.r),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 4.w),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.16)
+                : (isDark
+                    ? AppTheme.veryDarkBackground.withValues(alpha: 0.3)
+                    : Colors.grey[100]),
+            borderRadius: BorderRadius.circular(10.r),
+            border: Border.all(
+              color: selected
+                  ? AppTheme.goldColor
+                  : AppTheme.goldColor.withValues(alpha: 0.18),
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                size: 16.sp,
+                color: selected ? AppTheme.goldColor : Colors.grey,
+              ),
+              SizedBox(height: 4.h),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 11.5.sp,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? _bodyText(isDark) : Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Shared chrome ───────────────────────────────────────────────────────
 
   Widget _buildExpandableSection({
     required bool isDark,
@@ -383,32 +989,58 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
     required IconData icon,
     required Widget child,
     String? subtitle,
-    bool optional = false,
   }) {
     final isExpanded = _expansionStates[sectionKey] ?? false;
 
     return _buildSectionCard(
       isDark: isDark,
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          key: ValueKey('$sectionKey-${_expansionStates[sectionKey]}'),
+          key: ValueKey('$sectionKey-$isExpanded'),
           initiallyExpanded: isExpanded,
           iconColor: AppTheme.goldColor,
           collapsedIconColor: AppTheme.goldColor,
-          tilePadding: EdgeInsets.zero,
-          childrenPadding: EdgeInsets.only(top: 4.h),
+          tilePadding: EdgeInsets.symmetric(horizontal: 2.w),
+          childrenPadding: EdgeInsets.fromLTRB(2.w, 0, 2.w, 12.h),
           onExpansionChanged: (expanded) {
             setState(() => _expansionStates[sectionKey] = expanded);
           },
-          title: _buildSectionHeader(
-            isDark: isDark,
-            icon: icon,
-            title: title,
-            subtitle: subtitle,
-            badge: optional ? 'اختیاری' : null,
-            badgeColor: isDark ? Colors.grey[600]! : Colors.grey[500]!,
-            compact: true,
+          title: Row(
+            children: [
+              Icon(icon, color: AppTheme.goldColor, size: 18.sp),
+              SizedBox(width: 10.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.bold,
+                        color: _bodyText(isDark),
+                      ),
+                    ),
+                    if (subtitle != null && subtitle.isNotEmpty) ...[
+                      SizedBox(height: 2.h),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 11.5.sp,
+                          color: _mutedText(isDark),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
           children: [child],
         ),
@@ -419,139 +1051,56 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
   Widget _buildSectionCard({
     required bool isDark,
     required Widget child,
+    EdgeInsetsGeometry? padding,
+    bool highlight = false,
   }) {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCardColor : Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(14.r),
         border: Border.all(
-          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.22 : 0.28),
+          color: highlight
+              ? AppTheme.goldColor.withValues(alpha: 0.45)
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.06)),
+          width: highlight ? 1.3 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.04),
             blurRadius: 10,
-            offset: const Offset(0, 3),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.all(16.w),
+        padding: padding ?? EdgeInsets.all(14.w),
         child: child,
       ),
     );
   }
 
-  Widget _buildSectionHeader({
-    required bool isDark,
-    required IconData icon,
-    required String title,
-    String? subtitle,
-    String? badge,
-    Color? badgeColor,
-    bool compact = false,
-  }) {
-    return Row(
-      children: [
-        Container(
-          padding: EdgeInsets.all(compact ? 8.w : 10.w),
-          decoration: BoxDecoration(
-            color: AppTheme.goldColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10.r),
-          ),
-          child: Icon(icon, color: AppTheme.goldColor, size: compact ? 18.sp : 20.sp),
-        ),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      title,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: compact ? 15.sp : 16.sp,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? AppTheme.darkTextColor : AppTheme.veryDarkBackground,
-                      ),
-                    ),
-                  ),
-                  if (badge != null) ...[
-                    SizedBox(width: 8.w),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-                      decoration: BoxDecoration(
-                        color: (badgeColor ?? AppTheme.goldColor).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20.r),
-                      ),
-                      child: Text(
-                        badge,
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w600,
-                          color: badgeColor ?? AppTheme.goldColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              if (subtitle != null && subtitle.isNotEmpty) ...[
-                SizedBox(height: 2.h),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 12.sp,
-                    color: AppTheme.goldColor,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryContent(bool isDark) {
+  Widget _buildMoreDetailsContent(bool isDark) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildFieldLabel('عضله اصلی', isDark),
-        SizedBox(height: 10.h),
-        _buildMuscleGrid(isDark),
-        SizedBox(height: 20.h),
-        _buildFieldLabel('سطح دشواری', isDark),
-        SizedBox(height: 10.h),
-        _buildChoiceChips(
+        _buildTextField(
+          controller: _nameController,
+          label: 'نام لاتین (اختیاری)',
+          hint: 'Bench Press',
+          icon: LucideIcons.tag,
           isDark: isDark,
-          options: _difficulties,
-          selected: _difficulty,
-          onSelected: (v) => setState(() => _difficulty = v),
+          compact: true,
         ),
-        SizedBox(height: 20.h),
-        _buildFieldLabel('تجهیزات', isDark),
-        SizedBox(height: 10.h),
-        _buildChoiceChips(
-          isDark: isDark,
-          options: _equipments,
-          selected: _equipment,
-          onSelected: (v) => setState(() => _equipment = v),
-        ),
-        SizedBox(height: 20.h),
-        _buildFieldLabel('نوع تمرین', isDark),
-        SizedBox(height: 10.h),
-        _buildChoiceChips(
-          isDark: isDark,
-          options: _exerciseTypes,
-          selected: _exerciseType,
-          onSelected: (v) => setState(() => _exerciseType = v),
-        ),
+        SizedBox(height: 14.h),
+        _buildFieldLabel('ویدیو', isDark),
+        SizedBox(height: 8.h),
+        _buildVideosMediaSection(isDark),
+        SizedBox(height: 16.h),
+        _buildFieldLabel('توضیحات و نکات', isDark),
+        SizedBox(height: 8.h),
+        _buildContentSection(isDark),
       ],
     );
   }
@@ -561,82 +1110,10 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
       label,
       style: TextStyle(
         fontFamily: AppTheme.fontFamily,
-        fontSize: 13.sp,
+        fontSize: 12.5.sp,
         fontWeight: FontWeight.w600,
-        color: isDark ? Colors.grey[300] : Colors.grey[700],
+        color: isDark ? Colors.grey[300] : const Color(0xFF444444),
       ),
-    );
-  }
-
-  Widget _buildMuscleGrid(bool isDark) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const crossAxisCount = 3;
-        final spacing = 8.w;
-        final itemWidth =
-            (constraints.maxWidth - spacing * (crossAxisCount - 1)) / crossAxisCount;
-
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: _muscleGroups.map((muscle) {
-            final selected = _mainMuscle == muscle;
-            final icon = _muscleIcons[muscle] ?? LucideIcons.target;
-
-            return SizedBox(
-              width: itemWidth,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => setState(() => _mainMuscle = muscle),
-                  borderRadius: BorderRadius.circular(12.r),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 6.w),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.18)
-                          : (isDark
-                              ? AppTheme.veryDarkBackground.withValues(alpha: 0.35)
-                              : Colors.grey[100]),
-                      borderRadius: BorderRadius.circular(12.r),
-                      border: Border.all(
-                        color: selected
-                            ? AppTheme.goldColor
-                            : AppTheme.goldColor.withValues(alpha: 0.2),
-                        width: selected ? 1.5 : 1,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          icon,
-                          size: 20.sp,
-                          color: selected ? AppTheme.goldColor : Colors.grey,
-                        ),
-                        SizedBox(height: 6.h),
-                        Text(
-                          muscle,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            fontSize: 11.sp,
-                            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-                            color: selected
-                                ? (isDark ? AppTheme.darkTextColor : AppTheme.veryDarkBackground)
-                                : (isDark ? Colors.grey[400] : Colors.grey[600]),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        );
-      },
     );
   }
 
@@ -647,8 +1124,8 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
     required ValueChanged<String> onSelected,
   }) {
     return Wrap(
-      spacing: 8.w,
-      runSpacing: 8.h,
+      spacing: 6.w,
+      runSpacing: 6.h,
       children: options.map((option) {
         final isSelected = selected == option;
         return FilterChip(
@@ -656,23 +1133,31 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
           selected: isSelected,
           onSelected: (_) => onSelected(option),
           showCheckmark: false,
+          visualDensity: VisualDensity.compact,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           labelStyle: TextStyle(
             fontFamily: AppTheme.fontFamily,
-            fontSize: 12.sp,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 11.5.sp,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             color: isSelected
                 ? AppTheme.veryDarkBackground
-                : (isDark ? AppTheme.darkTextColor : AppTheme.veryDarkBackground),
+                : _bodyText(isDark),
           ),
-          backgroundColor: isDark ? AppTheme.veryDarkBackground.withValues(alpha: 0.35) : Colors.grey[100],
+          backgroundColor: isDark
+              ? AppTheme.veryDarkBackground.withValues(alpha: 0.35)
+              : Colors.grey[100],
           selectedColor: AppTheme.goldColor,
           side: BorderSide(
             color: isSelected
                 ? AppTheme.goldColor
-                : AppTheme.goldColor.withValues(alpha: 0.25),
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : Colors.grey.shade300),
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-          padding: EdgeInsets.symmetric(horizontal: 4.w),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18.r),
+          ),
+          padding: EdgeInsets.symmetric(horizontal: 2.w),
         );
       }).toList(),
     );
@@ -682,52 +1167,50 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'سبک اجرا و نکات خودتان — هوش مصنوعی این بخش را پر نمی‌کند.',
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontSize: 12.sp,
-            color: isDark ? Colors.grey[400] : Colors.grey[600],
-          ),
-        ),
-        SizedBox(height: 14.h),
         _buildTextField(
           controller: _descriptionController,
           label: 'توضیح کوتاه',
-          hint: 'یک یا دو جمله دربارهٔ سبک اجرای شما',
+          hint: 'سبک اجرای شما',
           icon: LucideIcons.fileText,
           isDark: isDark,
-          maxLines: 3,
+          maxLines: 2,
+          compact: true,
         ),
-        SizedBox(height: 12.h),
+        SizedBox(height: 10.h),
         _buildTextField(
           controller: _detailedDescriptionController,
           label: 'توضیح تکمیلی',
           hint: 'جزئیات اجرا، تنفس، خطاهای رایج',
           icon: LucideIcons.bookOpen,
           isDark: isDark,
-          maxLines: 5,
+          maxLines: 4,
+          compact: true,
         ),
-        SizedBox(height: 16.h),
+        SizedBox(height: 12.h),
         _buildFieldLabel('نکات', isDark),
-        SizedBox(height: 10.h),
+        SizedBox(height: 8.h),
         ...List.generate(_tipsControllers.length, (index) {
           return Padding(
-            padding: EdgeInsets.only(bottom: 10.h),
+            padding: EdgeInsets.only(bottom: 8.h),
             child: Row(
               children: [
                 Expanded(
                   child: _buildTextField(
                     controller: _tipsControllers[index],
                     label: 'نکته ${index + 1}',
-                    hint: 'نکته مهم درباره تمرین',
+                    hint: 'نکته مهم',
                     icon: LucideIcons.lightbulb,
                     isDark: isDark,
+                    compact: true,
                   ),
                 ),
                 if (_tipsControllers.length > 1)
                   IconButton(
-                    icon: Icon(LucideIcons.trash2, color: AppTheme.errorColor, size: 20.sp),
+                    icon: Icon(
+                      LucideIcons.trash2,
+                      color: AppTheme.errorColor,
+                      size: 18.sp,
+                    ),
                     onPressed: () {
                       setState(() {
                         _tipsControllers[index].dispose();
@@ -745,7 +1228,7 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
             onPressed: () {
               setState(() => _tipsControllers.add(TextEditingController()));
             },
-            icon: Icon(LucideIcons.plus, size: 18.sp),
+            icon: Icon(LucideIcons.plus, size: 16.sp),
             label: const Text('افزودن نکته'),
             style: TextButton.styleFrom(foregroundColor: AppTheme.goldColor),
           ),
@@ -754,215 +1237,60 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
     );
   }
 
-  Widget _buildMuscleSection(bool isDark) {
-    final canRunAi = _titleController.text.trim().isNotEmpty &&
-        _nameController.text.trim().isNotEmpty &&
-        _aiMetadataService.isAvailable;
+  Widget _buildStickySaveBar(bool isDark) {
+    final muted = _mutedText(isDark);
+    final next = _nextStepHint();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildTextField(
-          controller: _secondaryMusclesController,
-          label: 'عضلات فرعی',
-          hint: 'با کاما جدا کنید — مثال: سرشانه، پشت بازو',
-          icon: LucideIcons.activity,
-          isDark: isDark,
-        ),
-        if (MuscleTargets.hasData(_muscleTargets)) ...[
-          SizedBox(height: 16.h),
-          _buildFieldLabel('پیش‌نمایش heatmap', isDark),
-          SizedBox(height: 8.h),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12.r),
-            child: ExerciseMuscleHeatmapWidget(
-              muscleTargets: _muscleTargets,
-              compact: true,
-              embedded: true,
-            ),
-          ),
-        ],
-        SizedBox(height: 16.h),
-        Container(
-          padding: EdgeInsets.all(14.w),
-          decoration: BoxDecoration(
-            color: isDark
-                ? AppTheme.veryDarkBackground.withValues(alpha: 0.35)
-                : Colors.grey[50],
-            borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.2)),
-          ),
+    return Material(
+      elevation: 8,
+      color: isDark ? AppTheme.darkCardColor : Colors.white,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 10.h),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Icon(LucideIcons.sparkles, color: AppTheme.goldColor, size: 18.sp),
-                  SizedBox(width: 8.w),
-                  Text(
-                    'ساخت heatmap با AI',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13.sp,
-                    ),
+              if (next != null) ...[
+                Text(
+                  next,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 11.5.sp,
+                    fontWeight: FontWeight.w600,
+                    color: muted,
                   ),
-                ],
-              ),
-              SizedBox(height: 6.h),
-              Text(
-                'اختیاری — فقط عضلات درگیر. توضیحات و نکات دستی می‌مانند.',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 11.sp,
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
                 ),
-              ),
-              SizedBox(height: 12.h),
-              _buildTextField(
-                controller: _muscleHintController,
-                label: 'راهنمای کوتاه',
-                hint: 'مثال: نسخه دست جمع، میز شیب‌دار',
-                icon: LucideIcons.messageSquare,
-                isDark: isDark,
-                maxLines: 2,
-              ),
-              SizedBox(height: 10.h),
-              OutlinedButton.icon(
-                onPressed: (!_isAiRunning && canRunAi) ? _runMuscleAiFlow : null,
-                icon: _isAiRunning
-                    ? SizedBox(
-                        width: 16.w,
-                        height: 16.w,
-                        child: const CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Icon(LucideIcons.wand2, size: 16.sp),
+                SizedBox(height: 8.h),
+              ],
+              ElevatedButton.icon(
+                onPressed: _isLoading ? null : _saveExercise,
+                icon: Icon(
+                  widget.exercise == null
+                      ? LucideIcons.plus
+                      : LucideIcons.save,
+                  size: 20.sp,
+                ),
                 label: Text(
-                  MuscleTargets.hasData(_muscleTargets)
-                      ? 'ساخت مجدد heatmap'
-                      : 'ساخت heatmap',
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.goldColor,
-                  side: BorderSide(color: AppTheme.goldColor.withValues(alpha: 0.5)),
-                  padding: EdgeInsets.symmetric(vertical: 12.h),
-                ),
-              ),
-              if (!_aiMetadataService.isAvailable)
-                Padding(
-                  padding: EdgeInsets.only(top: 8.h),
-                  child: Text(
-                    'AI در دسترس نیست — عضلات را دستی وارد کنید.',
-                    style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 11.sp, color: Colors.grey),
-                  ),
-                )
-              else if (!canRunAi && !_isAiRunning)
-                Padding(
-                  padding: EdgeInsets.only(top: 8.h),
-                  child: Text(
-                    'ابتدا عنوان و نام را در بخش ضروری وارد کنید.',
-                    style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 11.sp, color: Colors.grey),
+                  widget.exercise == null ? 'ساخت تمرین' : 'ذخیره تغییرات',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAccessSection(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _buildVisibilityCard(
-                isDark: isDark,
-                value: 'private',
-                label: 'خصوصی',
-                description: 'من و شاگردانم',
-                icon: LucideIcons.users,
-                selected: _visibility == 'private',
-              ),
-            ),
-            SizedBox(width: 10.w),
-            Expanded(
-              child: _buildVisibilityCard(
-                isDark: isDark,
-                value: 'public',
-                label: 'عمومی',
-                description: 'در دسترس همه',
-                icon: LucideIcons.globe,
-                selected: _visibility == 'public',
-              ),
-            ),
-          ],
-        ),
-        if (_visibility == 'private') ...[
-          SizedBox(height: 12.h),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('اشتراک با شاگردان'),
-            subtitle: const Text('شاگردان می‌توانند این تمرین را ببینند'),
-            value: _sharedWithClients,
-            onChanged: (v) => setState(() => _sharedWithClients = v),
-            activeThumbColor: AppTheme.goldColor,
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildVisibilityCard({
-    required bool isDark,
-    required String value,
-    required String label,
-    required String description,
-    required IconData icon,
-    required bool selected,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => setState(() => _visibility = value),
-        borderRadius: BorderRadius.circular(12.r),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: EdgeInsets.all(14.w),
-          decoration: BoxDecoration(
-            color: selected
-                ? AppTheme.goldColor.withValues(alpha: isDark ? 0.18 : 0.15)
-                : (isDark
-                    ? AppTheme.veryDarkBackground.withValues(alpha: 0.35)
-                    : Colors.grey[100]),
-            borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(
-              color: selected ? AppTheme.goldColor : AppTheme.goldColor.withValues(alpha: 0.2),
-              width: selected ? 1.5 : 1,
-            ),
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: selected ? AppTheme.goldColor : Colors.grey, size: 22.sp),
-              SizedBox(height: 8.h),
-              Text(
-                label,
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13.sp,
-                ),
-              ),
-              SizedBox(height: 2.h),
-              Text(
-                description,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 10.sp,
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.goldColor,
+                  foregroundColor: AppTheme.veryDarkBackground,
+                  disabledBackgroundColor:
+                      AppTheme.goldColor.withValues(alpha: 0.45),
+                  padding: EdgeInsets.symmetric(vertical: 15.h),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
                 ),
               ),
             ],
@@ -972,46 +1300,146 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
     );
   }
 
-  Widget _buildSaveButtons(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ElevatedButton.icon(
-          onPressed: _isLoading ? null : _saveExercise,
-          icon: Icon(
-            widget.exercise == null ? LucideIcons.plus : LucideIcons.save,
-            size: 20.sp,
-          ),
-          label: Text(
-            widget.exercise == null ? 'ساخت تمرین' : 'ذخیره تغییرات',
+  // ─── AI / muscle actions ─────────────────────────────────────────────────
+
+  Future<void> _promptAndRunMuscleAi() async {
+    if (_titleController.text.trim().isEmpty) {
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'ابتدا عنوان تمرین را وارد کنید.',
+        backgroundColor: AppTheme.errorColor,
+      );
+      _scrollToTop();
+      return;
+    }
+
+    if (!_aiMetadataService.isAvailable) {
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'هوش مصنوعی در دسترس نیست. تنظیم دستی را امتحان کنید.',
+        backgroundColor: AppTheme.errorColor,
+      );
+      return;
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
+          title: Text(
+            'ساخت با AI',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              fontSize: 14.sp,
               fontWeight: FontWeight.bold,
+              fontSize: 16.sp,
             ),
           ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.goldColor,
-            foregroundColor: AppTheme.veryDarkBackground,
-            padding: EdgeInsets.symmetric(vertical: 16.h),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'عنوان «${_titleController.text.trim()}» را با کاتالوگ تطبیق می‌دهیم و نقشه عضلانی را پیشنهاد می‌کنیم.',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 13.sp,
+                  height: 1.4,
+                  color: isDark ? Colors.grey[300] : const Color(0xFF444444),
+                ),
+              ),
+              SizedBox(height: 14.h),
+              Text(
+                'اگر حرکت مبهم است، یک توضیح کوتاه بده تا دقیق‌تر پیدا شود:',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 12.sp,
+                  color: _mutedText(isDark),
+                ),
+              ),
+              SizedBox(height: 8.h),
+              TextField(
+                controller: _muscleHintController,
+                maxLines: 2,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: _bodyText(isDark),
+                ),
+                decoration: InputDecoration(
+                  labelText: 'توضیح کمکی (اختیاری)',
+                  hintText: 'مثال: با هالتر، میز شیب‌دار، دست جمع',
+                  prefixIcon: const Icon(
+                    LucideIcons.messageSquare,
+                    color: AppTheme.goldColor,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12.r),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-        if (widget.exercise != null) ...[
-          SizedBox(height: 10.h),
-          OutlinedButton.icon(
-            onPressed: _isLoading ? null : _deleteExercise,
-            icon: Icon(LucideIcons.trash2, size: 18.sp),
-            label: const Text('حذف تمرین'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppTheme.errorColor,
-              side: const BorderSide(color: AppTheme.errorColor),
-              padding: EdgeInsets.symmetric(vertical: 14.h),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('انصراف'),
             ),
-          ),
-        ],
-      ],
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.goldColor,
+                foregroundColor: AppTheme.veryDarkBackground,
+              ),
+              child: const Text('شروع جستجو'),
+            ),
+          ],
+        );
+      },
     );
+
+    if (confirmed == true && mounted) {
+      await _runMuscleAiFlow();
+    }
+  }
+
+  Future<void> _openManualFullEditor() async {
+    final result = await showManualExerciseMetaSheet(
+      context: context,
+      initialMuscleTargets: _muscleTargets,
+      met: _met,
+      typicalRpe: _typicalRpe,
+      movementPattern: _movementPattern,
+      bodyEngagement: _bodyEngagement,
+      mechanicsType: _mechanicsType,
+      forceType: _forceType,
+      caloriesPer1000kg: _caloriesPer1000kg,
+      secondaryMuscles: _secondaryMusclesController.text,
+    );
+    if (result == null || !mounted) return;
+
+    _applyMuscleTargets(result.muscleTargets);
+    setState(() {
+      _met = result.met;
+      _typicalRpe = result.typicalRpe;
+      _movementPattern = result.movementPattern;
+      _bodyEngagement = result.bodyEngagement;
+      _mechanicsType = result.mechanicsType;
+      _forceType = result.forceType;
+      _caloriesPer1000kg = result.caloriesPer1000kg;
+      if (result.secondaryMuscles.isNotEmpty) {
+        _secondaryMusclesController.text = result.secondaryMuscles;
+      }
+    });
+
+    WidgetSafetyUtils.safeShowSnackBar(
+      context,
+      _imageCount < 1
+          ? 'نقشه عضلانی ذخیره شد — کاور را اضافه کن و ذخیره کن.'
+          : 'نقشه عضلانی دستی ذخیره شد.',
+      backgroundColor: AppTheme.successColor,
+    );
+    _scrollToMuscleSection();
   }
 
   Future<void> _runMuscleAiFlow() async {
@@ -1024,39 +1452,81 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
       final result = await runExerciseMuscleAiFlow(
         context: context,
         title: _titleController.text.trim(),
-        name: _nameController.text.trim(),
+        name: _nameController.text.trim().isEmpty
+            ? _titleController.text.trim()
+            : _nameController.text.trim(),
         hint: hint.isEmpty ? null : hint,
         service: _aiMetadataService,
       );
 
       if (result != null && mounted) {
-        _applyMuscleProfile(result);
+        _applyMuscleProfile(result.profile);
+        HapticFeedback.lightImpact();
+        _scrollToMuscleSection();
+        final needsCover = _imageCount < 1;
         WidgetSafetyUtils.safeShowSnackBar(
           context,
-          'نقشه عضلانی اعمال شد — در صورت نیاز ویرایش کنید.',
+          result.profile.isFromCatalog
+              ? (needsCover
+                  ? 'نقشه عضلانی اعمال شد — کاور را اضافه کن و ذخیره کن.'
+                  : 'نقشه عضلانی از کاتالوگ اعمال شد.')
+              : (needsCover
+                  ? 'تخمین AI اعمال شد — کاور را اضافه کن و ذخیره کن.'
+                  : 'تخمین AI اعمال شد.'),
           backgroundColor: AppTheme.successColor,
         );
+        if (result.openManualEditor) {
+          await _openManualFullEditor();
+        }
       }
     } finally {
       if (mounted) setState(() => _isAiRunning = false);
     }
   }
 
-  void _applyMuscleProfile(GeneratedMuscleProfile profile) {
+  void _applyMuscleTargets(Map<String, int> targets) {
     setState(() {
-      if (_muscleGroups.contains(profile.mainMuscle)) {
-        _mainMuscle = profile.mainMuscle;
+      _muscleTargets = Map<String, int>.from(targets);
+      final group = mainMuscleGroupFromTargets(_muscleTargets);
+      if (group != null && _muscleGroups.contains(group)) {
+        _mainMuscle = group;
       }
-      if (profile.secondaryMuscles.isNotEmpty) {
-        _secondaryMusclesController.text = profile.secondaryMuscles;
+      final secondary = secondaryMusclesTextFromTargets(_muscleTargets);
+      if (secondary.isNotEmpty) {
+        _secondaryMusclesController.text = secondary;
       }
-      if (MuscleTargets.hasData(profile.muscleTargets)) {
-        _muscleTargets = Map<String, int>.from(profile.muscleTargets);
-      }
-      _expansionStates['muscles'] = true;
-      _expansionStates['category'] = true;
     });
   }
+
+  void _applyMuscleProfile(GeneratedMuscleProfile profile) {
+    final normalized = ExerciseMetaNormalizer.normalizeProfile(profile);
+    setState(() {
+      if (_muscleGroups.contains(normalized.mainMuscle)) {
+        _mainMuscle = normalized.mainMuscle;
+      }
+      if (normalized.secondaryMuscles.isNotEmpty) {
+        _secondaryMusclesController.text = normalized.secondaryMuscles;
+      }
+      if (MuscleTargets.hasData(normalized.muscleTargets)) {
+        _muscleTargets = Map<String, int>.from(normalized.muscleTargets);
+        final group = mainMuscleGroupFromTargets(_muscleTargets);
+        if (group != null &&
+            !_muscleGroups.contains(normalized.mainMuscle) &&
+            _muscleGroups.contains(group)) {
+          _mainMuscle = group;
+        }
+      }
+      _met = normalized.met;
+      _typicalRpe = normalized.typicalRpe;
+      _movementPattern = normalized.movementPattern;
+      _bodyEngagement = normalized.bodyEngagement;
+      _mechanicsType = normalized.mechanicsType;
+      _forceType = normalized.forceType;
+      _caloriesPer1000kg = normalized.caloriesPer1000kg;
+    });
+  }
+
+  // ─── Fields & media ──────────────────────────────────────────────────────
 
   Widget _buildTextField({
     required TextEditingController controller,
@@ -1065,32 +1535,45 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
     required IconData icon,
     required bool isDark,
     int maxLines = 1,
+    bool compact = false,
     String? Function(String?)? validator,
+    ValueChanged<String>? onChanged,
   }) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
       validator: validator,
+      onChanged: onChanged,
       style: TextStyle(
         fontFamily: AppTheme.fontFamily,
-        color: isDark ? AppTheme.darkTextColor : AppTheme.veryDarkBackground,
+        fontSize: compact ? 13.sp : 14.sp,
+        color: _bodyText(isDark),
       ),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon, color: AppTheme.goldColor),
+        isDense: compact,
+        prefixIcon: Icon(icon, color: AppTheme.goldColor, size: compact ? 18.sp : 20.sp),
         filled: true,
         fillColor: isDark ? AppTheme.darkCardColor : AppTheme.darkTextColor,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 12.w,
+          vertical: compact ? 12.h : 14.h,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12.r),
           borderSide: BorderSide(
-            color: AppTheme.goldColor.withValues(alpha: 0.3),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.12)
+                : Colors.grey.shade300,
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12.r),
           borderSide: BorderSide(
-            color: AppTheme.goldColor.withValues(alpha: 0.3),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.12)
+                : Colors.grey.shade300,
           ),
         ),
         focusedBorder: OutlineInputBorder(
@@ -1106,121 +1589,179 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
   int get _videoCount => _committedVideoUrls.length + _newVideoFiles.length;
 
   Widget _buildImagesMediaSection(bool isDark) {
+    final muted = _mutedText(isDark);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            Icon(LucideIcons.image, color: AppTheme.goldColor, size: 20.sp),
-            SizedBox(width: 8.w),
+            Icon(LucideIcons.image, color: AppTheme.goldColor, size: 18.sp),
+            SizedBox(width: 6.w),
             Expanded(
               child: Text(
-                'تصاویر ($_imageCount / $_maxImages)',
+                'کاور ($_imageCount / $_maxImages)',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 13.sp,
                   fontWeight: FontWeight.bold,
-                  color: isDark
-                      ? AppTheme.darkTextColor
-                      : AppTheme.veryDarkBackground,
+                  color: _bodyText(isDark),
                 ),
               ),
             ),
-            TextButton.icon(
-              onPressed: _imageCount >= _maxImages ? null : _pickImages,
-              icon: Icon(LucideIcons.plus, size: 18.sp),
-              label: const Text('افزودن'),
-              style: TextButton.styleFrom(foregroundColor: AppTheme.goldColor),
-            ),
+            if (_imageCount > 0 && _imageCount < _maxImages)
+              TextButton.icon(
+                onPressed: _pickImages,
+                icon: Icon(LucideIcons.plus, size: 16.sp),
+                label: const Text('افزودن'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.goldColor,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
           ],
         ),
         SizedBox(height: 8.h),
         if (_imageCount == 0)
-          Container(
-            padding: EdgeInsets.all(14.w),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppTheme.veryDarkBackground.withValues(alpha: 0.35)
-                  : Colors.grey[100],
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _pickImages,
               borderRadius: BorderRadius.circular(12.r),
-              border: Border.all(
-                color: AppTheme.goldColor.withValues(alpha: 0.2),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(LucideIcons.imagePlus, color: Colors.grey, size: 28.sp),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Text(
-                    'حداقل یک تصویر کاور لازم است',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 12.sp,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    ),
+              child: Ink(
+                height: 96.h,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppTheme.veryDarkBackground.withValues(alpha: 0.35)
+                      : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.12)
+                        : Colors.grey.shade300,
+                    width: 1.2,
                   ),
                 ),
-              ],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      LucideIcons.camera,
+                      color: AppTheme.goldColor,
+                      size: 26.sp,
+                    ),
+                    SizedBox(height: 6.h),
+                    Text(
+                      'افزودن تصویر کاور',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w700,
+                        color: _bodyText(isDark),
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      'قبل از ذخیره لازم است',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 11.sp,
+                        color: muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           )
         else
           SizedBox(
-            height: 104.h,
+            height: 88.h,
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: [
-                  ...List.generate(_committedImageUrls.length, (i) {
-                    final url = _committedImageUrls[i];
-                    return Padding(
-                      padding: EdgeInsets.only(left: 8.w),
-                      child: _mediaThumb(
-                        isDark,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10.r),
-                          child: GymaiNetworkImage(
-                            imageUrl: url,
-                            width: 96.w,
-                            height: 96.w,
-                            errorWidget: ColoredBox(
-                              color: Colors.grey[800]!,
-                              child: Icon(
-                                LucideIcons.imageOff,
-                                color: Colors.grey[500],
-                              ),
+                ...List.generate(_committedImageUrls.length, (i) {
+                  final url = _committedImageUrls[i];
+                  return Padding(
+                    padding: EdgeInsets.only(left: 8.w),
+                    child: _mediaThumb(
+                      isDark,
+                      isCover: i == 0,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10.r),
+                        child: GymaiNetworkImage(
+                          imageUrl: url,
+                          width: 88.w,
+                          height: 88.w,
+                          errorWidget: ColoredBox(
+                            color: Colors.grey[800]!,
+                            child: Icon(
+                              LucideIcons.imageOff,
+                              color: Colors.grey[500],
                             ),
                           ),
                         ),
-                        onRemove: () {
-                          setState(() => _committedImageUrls.removeAt(i));
-                        },
                       ),
-                    );
-                  }),
-                  ...List.generate(_newImageFiles.length, (i) {
-                    final f = _newImageFiles[i];
-                    return Padding(
-                      padding: EdgeInsets.only(left: 8.w),
-                      child: _mediaThumb(
-                        isDark,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10.r),
-                          child: Image.file(
-                            File(f.path),
-                            width: 96.w,
-                            height: 96.w,
-                            fit: BoxFit.cover,
-                          ),
+                      onRemove: () {
+                        setState(() => _committedImageUrls.removeAt(i));
+                      },
+                    ),
+                  );
+                }),
+                ...List.generate(_newImageFiles.length, (i) {
+                  final f = _newImageFiles[i];
+                  final isCover = _committedImageUrls.isEmpty && i == 0;
+                  return Padding(
+                    padding: EdgeInsets.only(left: 8.w),
+                    child: _mediaThumb(
+                      isDark,
+                      isCover: isCover,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10.r),
+                        child: Image.file(
+                          File(f.path),
+                          width: 88.w,
+                          height: 88.w,
+                          fit: BoxFit.cover,
                         ),
-                        onRemove: () {
-                          setState(() => _newImageFiles.removeAt(i));
-                        },
                       ),
-                    );
-                  }),
-                ],
-              ),
+                      onRemove: () {
+                        setState(() => _newImageFiles.removeAt(i));
+                      },
+                    ),
+                  );
+                }),
+                if (_imageCount < _maxImages)
+                  Padding(
+                    padding: EdgeInsets.only(left: 8.w),
+                    child: InkWell(
+                      onTap: _pickImages,
+                      borderRadius: BorderRadius.circular(10.r),
+                      child: Container(
+                        width: 88.w,
+                        height: 88.w,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10.r),
+                          border: Border.all(
+                            color: AppTheme.goldColor.withValues(alpha: 0.35),
+                          ),
+                          color: isDark
+                              ? AppTheme.veryDarkBackground.withValues(
+                                  alpha: 0.3,
+                                )
+                              : Colors.grey[100],
+                        ),
+                        child: Icon(
+                          LucideIcons.plus,
+                          color: AppTheme.goldColor,
+                          size: 22.sp,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
+          ),
       ],
     );
   }
@@ -1229,45 +1770,35 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_videoCount == 0)
-          Text(
-            'می‌توانید چند ویدیو از گالری اضافه کنید.',
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 12.sp,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
-            ),
-          )
-        else
+        if (_videoCount > 0)
           Column(
             children: [
-                ...List.generate(_committedVideoUrls.length, (i) {
-                  return _videoListRow(
-                    isDark,
-                    label: 'ویدیو ${i + 1} (آپلودشده)',
-                    onRemove: () {
-                      setState(() => _committedVideoUrls.removeAt(i));
-                    },
-                  );
-                }),
-                ...List.generate(_newVideoFiles.length, (i) {
-                  return _videoListRow(
-                    isDark,
-                    label: 'ویدیو جدید ${i + 1}',
-                    subtitle: _newVideoFiles[i].name,
-                    onRemove: () {
-                      setState(() => _newVideoFiles.removeAt(i));
-                    },
-                  );
-                }),
-              ],
-            ),
-        SizedBox(height: 8.h),
+              ...List.generate(_committedVideoUrls.length, (i) {
+                return _videoListRow(
+                  isDark,
+                  label: 'ویدیو ${i + 1}',
+                  onRemove: () {
+                    setState(() => _committedVideoUrls.removeAt(i));
+                  },
+                );
+              }),
+              ...List.generate(_newVideoFiles.length, (i) {
+                return _videoListRow(
+                  isDark,
+                  label: 'ویدیو جدید ${i + 1}',
+                  subtitle: _newVideoFiles[i].name,
+                  onRemove: () {
+                    setState(() => _newVideoFiles.removeAt(i));
+                  },
+                );
+              }),
+            ],
+          ),
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             onPressed: _videoCount >= _maxVideos ? null : _pickVideo,
-            icon: Icon(LucideIcons.plus, size: 18.sp),
+            icon: Icon(LucideIcons.plus, size: 16.sp),
             label: Text('افزودن ویدیو ($_videoCount / $_maxVideos)'),
             style: TextButton.styleFrom(foregroundColor: AppTheme.goldColor),
           ),
@@ -1280,6 +1811,7 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
     bool isDark, {
     required Widget child,
     required VoidCallback onRemove,
+    bool isCover = false,
   }) {
     return Stack(
       clipBehavior: Clip.none,
@@ -1287,10 +1819,36 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
         DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.4)),
+            border: Border.all(
+              color: isCover
+                  ? AppTheme.goldColor
+                  : AppTheme.goldColor.withValues(alpha: 0.35),
+              width: isCover ? 2 : 1,
+            ),
           ),
           child: child,
         ),
+        if (isCover)
+          Positioned(
+            bottom: 4,
+            right: 4,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+              decoration: BoxDecoration(
+                color: AppTheme.goldColor,
+                borderRadius: BorderRadius.circular(6.r),
+              ),
+              child: Text(
+                'کاور',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 9.sp,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.veryDarkBackground,
+                ),
+              ),
+            ),
+          ),
         Positioned(
           top: -4,
           right: -4,
@@ -1302,7 +1860,7 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
               customBorder: const CircleBorder(),
               child: Padding(
                 padding: EdgeInsets.all(4.w),
-                child: Icon(LucideIcons.x, size: 16.sp, color: Colors.white),
+                child: Icon(LucideIcons.x, size: 14.sp, color: Colors.white),
               ),
             ),
           ),
@@ -1314,7 +1872,8 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
   Widget _videoListRow(
     bool isDark, {
     required String label,
-    required VoidCallback onRemove, String? subtitle,
+    required VoidCallback onRemove,
+    String? subtitle,
   }) {
     return Padding(
       padding: EdgeInsets.only(bottom: 8.h),
@@ -1331,7 +1890,7 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
         ),
         child: Row(
           children: [
-            Icon(LucideIcons.film, color: AppTheme.goldColor, size: 22.sp),
+            Icon(LucideIcons.film, color: AppTheme.goldColor, size: 20.sp),
             SizedBox(width: 10.w),
             Expanded(
               child: Column(
@@ -1342,9 +1901,7 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontWeight: FontWeight.w600,
-                      color: isDark
-                          ? AppTheme.darkTextColor
-                          : AppTheme.veryDarkBackground,
+                      color: _bodyText(isDark),
                     ),
                   ),
                   if (subtitle != null && subtitle.isNotEmpty)
@@ -1355,7 +1912,7 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontSize: 11.sp,
-                        color: isDark ? Colors.grey[500] : Colors.grey[600],
+                        color: _mutedText(isDark),
                       ),
                     ),
                 ],
@@ -1420,28 +1977,67 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
       return;
     }
 
-    if (_imageCount < 1) {
-      _scrollToTop();
+    if (_mainMuscle.isEmpty) {
       WidgetSafetyUtils.safeShowSnackBar(
         context,
-        'حداقل یک تصویر کاور الزامی است. می‌توانید بعداً تصاویر بیشتری برای نمایش در جزئیات اضافه کنید.',
+        'عضله اصلی را انتخاب کنید.',
         backgroundColor: AppTheme.errorColor,
       );
       return;
     }
 
-    WidgetSafetyUtils.safeSetState(this, () => _isLoading = true);
+    if (!MuscleTargets.hasData(_muscleTargets) || !_hasCoreMetrics) {
+      _scrollToMuscleSection();
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'نقشه عضلانی هنوز کامل نیست — با AI یا دستی پر کن.',
+        backgroundColor: AppTheme.errorColor,
+      );
+      return;
+    }
+
+    if (_imageCount < 1) {
+      _scrollToCoverSection();
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'قبل از ذخیره، یک تصویر کاور اضافه کنید.',
+        backgroundColor: AppTheme.errorColor,
+      );
+      return;
+    }
+
+    WidgetSafetyUtils.safeSetState(this, () {
+      _isLoading = true;
+      _uploadProgress = 0;
+      _saveStatus = _newImageFiles.isNotEmpty
+          ? 'در حال آپلود تصویر کاور…'
+          : (_newVideoFiles.isNotEmpty
+              ? 'در حال آپلود ویدیو…'
+              : 'در حال ذخیره تمرین…');
+    });
 
     try {
       final imageUrls = List<String>.from(_committedImageUrls);
-      for (final file in _newImageFiles) {
-        final url = await _service.uploadExerciseImage(file);
+      final totalImages = _newImageFiles.length;
+      for (var i = 0; i < totalImages; i++) {
+        WidgetSafetyUtils.safeSetState(this, () {
+          _saveStatus = totalImages == 1
+              ? 'در حال آپلود تصویر کاور…'
+              : 'آپلود تصویر ${i + 1} از $totalImages…';
+          _uploadProgress = totalImages == 0 ? 0 : i / (totalImages + 1);
+        });
+        final url = await _service.uploadExerciseImage(_newImageFiles[i]);
         imageUrls.add(url);
       }
 
       final videoUrls = List<String>.from(_committedVideoUrls);
       final totalNewVideos = _newVideoFiles.length;
       for (var i = 0; i < totalNewVideos; i++) {
+        WidgetSafetyUtils.safeSetState(this, () {
+          _saveStatus = totalNewVideos == 1
+              ? 'در حال آپلود ویدیو…'
+              : 'آپلود ویدیو ${i + 1} از $totalNewVideos…';
+        });
         final file = _newVideoFiles[i];
         final url = await _service.uploadVideo(
           file,
@@ -1457,19 +2053,53 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
         videoUrls.add(url);
       }
 
-      // جمع‌آوری نکات
+      WidgetSafetyUtils.safeSetState(this, () {
+        _saveStatus = widget.exercise == null
+            ? 'در حال ساخت تمرین…'
+            : 'در حال ذخیره تغییرات…';
+        _uploadProgress = 0;
+      });
+
       final tips = _tipsControllers
           .map((c) => c.text.trim())
           .where((t) => t.isNotEmpty)
           .toList();
 
+      final title = _titleController.text.trim();
+      final name = _nameController.text.trim().isEmpty
+          ? title
+          : _nameController.text.trim();
+
+      // قبل از ذخیره همهٔ متا را به کلید canonical اپ تبدیل کن
+      final normalized = ExerciseMetaNormalizer.normalizeProfile(
+        GeneratedMuscleProfile(
+          mainMuscle: _mainMuscle,
+          secondaryMuscles: _secondaryMusclesController.text.trim(),
+          muscleTargets: _muscleTargets,
+          met: _met,
+          typicalRpe: _typicalRpe,
+          movementPattern: _movementPattern,
+          bodyEngagement: _bodyEngagement,
+          mechanicsType: _mechanicsType,
+          forceType: _forceType,
+          caloriesPer1000kg: _caloriesPer1000kg,
+        ),
+      );
+      _mainMuscle = normalized.mainMuscle;
+      _movementPattern = normalized.movementPattern;
+      _bodyEngagement = normalized.bodyEngagement;
+      _mechanicsType = normalized.mechanicsType;
+      _forceType = normalized.forceType;
+      _met = normalized.met;
+      _typicalRpe = normalized.typicalRpe;
+      _caloriesPer1000kg = normalized.caloriesPer1000kg;
+
       CustomExercise? result;
 
       if (widget.exercise == null) {
-        // ساخت جدید
         result = await _service.createExercise(
-          title: _titleController.text.trim(),
-          name: _nameController.text.trim(),
+          title: title,
+          name: name,
           description: _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim(),
@@ -1490,13 +2120,19 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
           otherNames: _otherNames,
           estimatedDuration: _estimatedDuration,
           muscleTargets: _muscleTargets,
+          met: _met,
+          typicalRpe: _typicalRpe,
+          movementPattern: _movementPattern,
+          bodyEngagement: _bodyEngagement,
+          mechanicsType: _mechanicsType,
+          forceType: _forceType,
+          caloriesPer1000kg: _caloriesPer1000kg,
         );
       } else {
-        // ویرایش
         result = await _service.updateExercise(
           widget.exercise!.id,
-          title: _titleController.text.trim(),
-          name: _nameController.text.trim(),
+          title: title,
+          name: name,
           description: _descriptionController.text.trim().isEmpty
               ? null
               : _descriptionController.text.trim(),
@@ -1517,6 +2153,13 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
           otherNames: _otherNames,
           estimatedDuration: _estimatedDuration,
           muscleTargets: _muscleTargets,
+          met: _met,
+          typicalRpe: _typicalRpe,
+          movementPattern: _movementPattern,
+          bodyEngagement: _bodyEngagement,
+          mechanicsType: _mechanicsType,
+          forceType: _forceType,
+          caloriesPer1000kg: _caloriesPer1000kg,
         );
       }
 
@@ -1532,9 +2175,16 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
       }
     } catch (e) {
       if (mounted) {
+        final msg = e.toString();
+        final hint = (msg.contains('muscle_targets') ||
+                msg.contains('PGRST') ||
+                msg.contains('column') ||
+                msg.contains('schema cache'))
+            ? '\nاگر ستون متا روی دیتابیس نیست، migration را اعمال کنید.'
+            : '';
         WidgetSafetyUtils.safeShowSnackBar(
           context,
-          'خطا: $e',
+          'خطا در ذخیره$hint\n$msg',
           backgroundColor: AppTheme.errorColor,
         );
       }
@@ -1542,6 +2192,7 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
       WidgetSafetyUtils.safeSetState(this, () {
         _isLoading = false;
         _uploadProgress = 0.0;
+        _saveStatus = '';
       });
     }
   }
@@ -1603,4 +2254,3 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
     }
   }
 }
-

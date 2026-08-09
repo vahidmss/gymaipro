@@ -59,7 +59,7 @@ class ProgressMetricsWidget extends StatelessWidget {
           SizedBox(height: 16.h),
           _buildProgressMetric(
             context,
-            'روزهای فعال',
+            'روزهای فعال (۳۰روز)',
             breakdown.activeDaysScore,
             RankingScoreBreakdown.maxActiveDaysScore,
             LucideIcons.calendarCheck,
@@ -70,7 +70,7 @@ class ProgressMetricsWidget extends StatelessWidget {
           SizedBox(height: 16.h),
           _buildProgressMetric(
             context,
-            'تمرینات',
+            'جلسات تمرین',
             breakdown.totalWorkoutsScore,
             RankingScoreBreakdown.maxTotalWorkoutsScore,
             LucideIcons.dumbbell,
@@ -81,7 +81,7 @@ class ProgressMetricsWidget extends StatelessWidget {
           SizedBox(height: 16.h),
           _buildProgressMetric(
             context,
-            'وعده‌های غذایی',
+            'وعده با غذا',
             breakdown.totalMealsScore,
             RankingScoreBreakdown.maxTotalMealsScore,
             LucideIcons.utensils,

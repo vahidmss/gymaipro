@@ -22,6 +22,9 @@ class PaymentMethodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final muted = context.textSecondary;
+    final primary = context.textColor;
+
     return GestureDetector(
       onTap: isEnabled ? onTap : null,
       child: AnimatedContainer(
@@ -36,8 +39,8 @@ class PaymentMethodCard extends StatelessWidget {
             color: isSelected
                 ? AppTheme.goldColor
                 : isEnabled
-                ? Colors.white24
-                : Colors.white12,
+                ? context.separatorColor
+                : context.separatorColor.withValues(alpha: 0.5),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -49,7 +52,7 @@ class PaymentMethodCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isSelected
                     ? AppTheme.goldColor.withValues(alpha: 0.1)
-                    : Colors.white.withValues(alpha: 0.1),
+                    : context.separatorColor.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(8.r),
               ),
               child: Icon(
@@ -57,8 +60,8 @@ class PaymentMethodCard extends StatelessWidget {
                 color: isSelected
                     ? AppTheme.goldColor
                     : isEnabled
-                    ? Colors.white70
-                    : Colors.white38,
+                    ? muted
+                    : muted.withValues(alpha: 0.5),
                 size: 24.sp,
               ),
             ),
@@ -70,23 +73,25 @@ class PaymentMethodCard extends StatelessWidget {
                   Text(
                     title,
                     style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                      fontFamily: AppTheme.fontFamily,
                       fontSize: 16.sp,
                       fontWeight: FontWeight.bold,
                       color: isSelected
                           ? AppTheme.goldColor
                           : isEnabled
-                          ? Colors.white
-                          : Colors.white60,
+                          ? primary
+                          : muted,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
                     style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                      fontFamily: AppTheme.fontFamily,
                       fontSize: 14.sp,
-                      color: isEnabled ? Colors.white70 : Colors.white38,
+                      color: isEnabled
+                          ? muted
+                          : muted.withValues(alpha: 0.5),
                     ),
                   ),
                 ],
@@ -102,7 +107,7 @@ class PaymentMethodCard extends StatelessWidget {
                 ),
                 child: Icon(
                   LucideIcons.check,
-                  color: Colors.black,
+                  color: AppTheme.onGoldColor,
                   size: 16.sp,
                 ),
               ),

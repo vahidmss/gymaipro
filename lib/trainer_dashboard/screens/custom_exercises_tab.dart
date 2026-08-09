@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/custom_exercise.dart';
+import 'package:gymaipro/models/muscle_targets.dart';
 import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/trainer_dashboard/screens/custom_exercise_editor_screen.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// تب تمرین‌های اختصاصی در داشبورد مربی
@@ -56,6 +57,24 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
     return _exercises.where((e) => e.visibility == 'public').toList();
   }
 
+  Future<void> _openEditor({CustomExercise? exercise}) async {
+    final result = await Navigator.push<CustomExercise?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CustomExerciseEditorScreen(exercise: exercise),
+      ),
+    );
+    if (result != null) {
+      _loadExercises();
+    }
+  }
+
+  Color _muted(bool isDark) =>
+      isDark ? Colors.grey[400]! : const Color(0xFF5A5A5A);
+
+  Color _body(bool isDark) =>
+      isDark ? AppTheme.darkTextColor : AppTheme.veryDarkBackground;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -64,21 +83,16 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
       backgroundColor: Colors.transparent,
       body: Column(
         children: [
-          // Header با دکمه ساخت جدید
           _buildHeader(isDark),
-
-          // فیلتر
           _buildFilterBar(isDark),
-
-          // لیست تمرین‌ها
           Expanded(
             child: _isLoading
                 ? const Center(
                     child: CircularProgressIndicator(color: AppTheme.goldColor),
                   )
                 : _filteredExercises.isEmpty
-                ? _buildEmptyState(isDark)
-                : _buildExercisesList(isDark),
+                    ? _buildEmptyState(isDark)
+                    : _buildExercisesList(isDark),
           ),
         ],
       ),
@@ -86,8 +100,8 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
   }
 
   Widget _buildHeader(bool isDark) {
-    return Container(
-      padding: EdgeInsets.all(16.w),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 4.h),
       child: Row(
         children: [
           Expanded(
@@ -100,7 +114,7 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? AppTheme.darkTextColor : AppTheme.veryDarkBackground,
+                    color: _body(isDark),
                   ),
                 ),
                 SizedBox(height: 4.h),
@@ -108,31 +122,26 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
                   '${_exercises.length} تمرین',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 14.sp,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    fontSize: 13.sp,
+                    color: _muted(isDark),
                   ),
                 ),
               ],
             ),
           ),
-          ElevatedButton.icon(
-            onPressed: () async {
-              final result = await Navigator.push<CustomExercise?>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const CustomExerciseEditorScreen(),
-                ),
-              );
-              if (result != null) {
-                _loadExercises();
-              }
-            },
-            icon: Icon(LucideIcons.plus, size: 18.sp),
+          OutlinedButton.icon(
+            onPressed: () => _openEditor(),
+            icon: Icon(LucideIcons.plus, size: 16.sp),
             label: const Text('تمرین جدید'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.goldColor,
-              foregroundColor: AppTheme.veryDarkBackground,
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.goldColor,
+              side: BorderSide(
+                color: AppTheme.goldColor.withValues(alpha: 0.55),
+              ),
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.r),
+              ),
             ),
           ),
         ],
@@ -141,73 +150,142 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
   }
 
   Widget _buildFilterBar(bool isDark) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 4.h),
       child: Row(
         children: [
-          _buildFilterChip(isDark, 'all', 'همه', _filter == 'all'),
+          _buildFilterChip(isDark, 'all', 'همه'),
           SizedBox(width: 8.w),
-          _buildFilterChip(isDark, 'private', 'خصوصی', _filter == 'private'),
+          _buildFilterChip(isDark, 'private', 'خصوصی'),
           SizedBox(width: 8.w),
-          _buildFilterChip(isDark, 'public', 'عمومی', _filter == 'public'),
+          _buildFilterChip(isDark, 'public', 'عمومی'),
         ],
       ),
     );
   }
 
-  Widget _buildFilterChip(
-    bool isDark,
-    String value,
-    String label,
-    bool selected,
-  ) {
-    return FilterChip(
-      selected: selected,
-      label: Text(label),
-      onSelected: (selected) {
-        WidgetSafetyUtils.safeSetState(this, () => _filter = value);
-      },
-      selectedColor: AppTheme.goldColor.withValues(alpha: 0.3),
-      checkmarkColor: AppTheme.goldColor,
-      labelStyle: TextStyle(
-        color: selected
-            ? AppTheme.goldColor
-            : (isDark ? Colors.grey[300] : Colors.grey[700]),
-        fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+  Widget _buildFilterChip(bool isDark, String value, String label) {
+    final selected = _filter == value;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () =>
+            WidgetSafetyUtils.safeSetState(this, () => _filter = value),
+        borderRadius: BorderRadius.circular(20.r),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppTheme.goldColor.withValues(alpha: isDark ? 0.22 : 0.16)
+                : (isDark
+                    ? AppTheme.veryDarkBackground.withValues(alpha: 0.35)
+                    : Colors.white),
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(
+              color: selected
+                  ? AppTheme.goldColor
+                  : (isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.grey.shade300),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected) ...[
+                Icon(LucideIcons.check, size: 14.sp, color: AppTheme.goldColor),
+                SizedBox(width: 4.w),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 12.5.sp,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? _body(isDark) : _muted(isDark),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildEmptyState(bool isDark) {
+    final muted = _muted(isDark);
+    final hasAny = _exercises.isNotEmpty;
+
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            LucideIcons.dumbbell,
-            size: 64.sp,
-            color: isDark ? Colors.grey[600] : Colors.grey[400],
-          ),
-          SizedBox(height: 16.h),
-          Text(
-            'هنوز تمرینی نساخته‌اید',
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 18.sp,
-              color: isDark ? Colors.grey[400] : Colors.grey[600],
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 28.w),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 88.w,
+              height: 88.w,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppTheme.goldColor.withValues(alpha: 0.28),
+                    AppTheme.goldColor.withValues(alpha: 0.06),
+                  ],
+                ),
+                border: Border.all(
+                  color: AppTheme.goldColor.withValues(alpha: 0.35),
+                ),
+              ),
+              child: Icon(
+                LucideIcons.dumbbell,
+                size: 36.sp,
+                color: AppTheme.goldColor,
+              ),
             ),
-          ),
-          SizedBox(height: 8.h),
-          Text(
-            'برای ساخت اولین تمرین اختصاصی روی دکمه بالا کلیک کنید',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              fontSize: 14.sp,
-              color: isDark ? Colors.grey[500] : Colors.grey[500],
+            SizedBox(height: 18.h),
+            Text(
+              hasAny
+                  ? 'تمرینی با این فیلتر نیست'
+                  : 'اولین تمرین اختصاصی‌ات را بساز',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 17.sp,
+                fontWeight: FontWeight.bold,
+                color: _body(isDark),
+              ),
             ),
-          ),
-        ],
+            SizedBox(height: 8.h),
+            Text(
+              hasAny
+                  ? 'فیلتر را عوض کن یا تمرین جدید بساز.'
+                  : 'عنوان و عضله را بزن — نقشه عضلانی را AI پر می‌کند.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 13.sp,
+                height: 1.45,
+                color: muted,
+              ),
+            ),
+            SizedBox(height: 20.h),
+            ElevatedButton.icon(
+              onPressed: () => _openEditor(),
+              icon: Icon(LucideIcons.plus, size: 18.sp),
+              label: const Text('ساخت تمرین جدید'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.goldColor,
+                foregroundColor: AppTheme.veryDarkBackground,
+                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+                elevation: 0,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -217,7 +295,7 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
       onRefresh: _loadExercises,
       color: AppTheme.goldColor,
       child: ListView.builder(
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
         itemCount: _filteredExercises.length,
         itemBuilder: (context, index) {
           final exercise = _filteredExercises[index];
@@ -227,195 +305,226 @@ class _CustomExercisesTabState extends State<CustomExercisesTab> {
     );
   }
 
+  String _accessLabel(CustomExercise exercise) {
+    if (exercise.visibility == 'public') return 'عمومی';
+    if (exercise.sharedWithClients) return 'شاگردان';
+    return 'خصوصی';
+  }
+
+  IconData _accessIcon(CustomExercise exercise) {
+    if (exercise.visibility == 'public') return LucideIcons.globe;
+    if (exercise.sharedWithClients) return LucideIcons.users;
+    return LucideIcons.lock;
+  }
+
+  bool _coreReady(CustomExercise exercise) =>
+      MuscleTargets.hasData(exercise.muscleTargets) && exercise.hasCoreMetrics;
+
   Widget _buildExerciseCard(bool isDark, CustomExercise exercise) {
-    return Card(
-      margin: EdgeInsets.only(bottom: 12.h),
-      color: isDark ? AppTheme.darkCardColor : AppTheme.darkTextColor,
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16.r),
-        side: BorderSide(
-          color: exercise.visibility == 'public'
-              ? AppTheme.goldColor.withValues(alpha: 0.5)
-              : Colors.transparent,
-          width: 1.5,
-        ),
-      ),
-      child: InkWell(
-        onTap: () async {
-          final result = await Navigator.push<CustomExercise?>(
-            context,
-            MaterialPageRoute(
-              builder: (_) => CustomExerciseEditorScreen(exercise: exercise),
-            ),
-          );
-          if (result != null) {
-            _loadExercises();
-          }
-        },
-        borderRadius: BorderRadius.circular(16.r),
-        child: Padding(
-          padding: EdgeInsets.all(16.w),
-          child: Row(
-            children: [
-              // تصویر یا آیکون
-              Container(
-                width: 60.w,
-                height: 60.w,
-                decoration: BoxDecoration(
-                  color: AppTheme.goldColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-                child: exercise.imageUrls.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12.r),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            GymaiNetworkImage(
-                              imageUrl: exercise.imageUrls.first,
-                              errorWidget: Icon(
-                                LucideIcons.dumbbell,
-                                color: AppTheme.goldColor,
-                                size: 24.sp,
-                              ),
-                            ),
-                            if (exercise.imageUrls.length > 1)
-                              Positioned(
-                                left: 4.w,
-                                bottom: 4.h,
-                                child: Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 5.w,
-                                    vertical: 2.h,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.65),
-                                    borderRadius: BorderRadius.circular(6.r),
-                                  ),
-                                  child: Text(
-                                    '${exercise.imageUrls.length}',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10.sp,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      )
-                    : Icon(
-                        LucideIcons.dumbbell,
-                        color: AppTheme.goldColor,
-                        size: 24.sp,
-                      ),
-              ),
-              SizedBox(width: 12.w),
+    final coreReady = _coreReady(exercise);
+    final muted = _muted(isDark);
 
-              // اطلاعات
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            exercise.title,
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? AppTheme.darkTextColor : AppTheme.veryDarkBackground,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (exercise.visibility == 'public')
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 8.w,
-                              vertical: 4.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.goldColor.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(8.r),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  LucideIcons.globe,
-                                  size: 12.sp,
-                                  color: AppTheme.goldColor,
-                                ),
-                                SizedBox(width: 4.w),
-                                Text(
-                                  'عمومی',
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.fontFamily,
-                                    fontSize: 10.sp,
-                                    color: AppTheme.goldColor,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                    SizedBox(height: 4.h),
-                    Text(
-                      exercise.mainMuscle,
-                      style: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 12.sp,
-                        color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      ),
-                    ),
-                    SizedBox(height: 4.h),
-                    Row(
-                      children: [
-                        Icon(
-                          LucideIcons.gauge,
-                          size: 12.sp,
-                          color: isDark ? Colors.grey[500] : Colors.grey[500],
-                        ),
-                        SizedBox(width: 4.w),
-                        Text(
-                          exercise.difficulty,
-                          style: TextStyle(
-                            fontFamily: AppTheme.fontFamily,
-                            fontSize: 11.sp,
-                            color: isDark ? Colors.grey[500] : Colors.grey[500],
-                          ),
-                        ),
-                        if (exercise.videoUrls.isNotEmpty) ...[
-                          SizedBox(width: 12.w),
-                          Icon(
-                            LucideIcons.video,
-                            size: 12.sp,
-                            color: AppTheme.goldColor,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // آیکون ویرایش
-              Icon(
-                LucideIcons.chevronLeft,
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
-                size: 20.sp,
-              ),
-            ],
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12.h),
+      child: Material(
+        color: isDark ? AppTheme.darkCardColor : Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+          side: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.06),
           ),
         ),
+        child: InkWell(
+          onTap: () => _openEditor(exercise: exercise),
+          borderRadius: BorderRadius.circular(16.r),
+          child: Padding(
+            padding: EdgeInsets.all(12.w),
+            child: Row(
+              children: [
+                _buildThumb(isDark, exercise),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        exercise.title,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 14.5.sp,
+                          fontWeight: FontWeight.bold,
+                          color: _body(isDark),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        exercise.mainMuscle.isEmpty
+                            ? 'عضله نامشخص'
+                            : exercise.mainMuscle,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 12.sp,
+                          color: muted,
+                        ),
+                      ),
+                      SizedBox(height: 8.h),
+                      Wrap(
+                        spacing: 6.w,
+                        runSpacing: 6.h,
+                        children: [
+                          _miniChip(
+                            icon: _accessIcon(exercise),
+                            label: _accessLabel(exercise),
+                            isDark: isDark,
+                          ),
+                          _miniChip(
+                            icon: LucideIcons.gauge,
+                            label: exercise.difficulty,
+                            isDark: isDark,
+                          ),
+                          if (coreReady)
+                            _miniChip(
+                              icon: LucideIcons.sparkles,
+                              label: 'نقشه آماده',
+                              isDark: isDark,
+                              accent: true,
+                            ),
+                          if (exercise.videoUrls.isNotEmpty)
+                            _miniChip(
+                              icon: LucideIcons.video,
+                              label: 'ویدیو',
+                              isDark: isDark,
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  LucideIcons.chevronLeft,
+                  color: muted,
+                  size: 20.sp,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThumb(bool isDark, CustomExercise exercise) {
+    return Container(
+      width: 72.w,
+      height: 72.w,
+      decoration: BoxDecoration(
+        color: AppTheme.goldColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14.r),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: exercise.imageUrls.isNotEmpty
+          ? Stack(
+              fit: StackFit.expand,
+              children: [
+                GymaiNetworkImage(
+                  imageUrl: exercise.imageUrls.first,
+                  errorWidget: Icon(
+                    LucideIcons.dumbbell,
+                    color: AppTheme.goldColor,
+                    size: 28.sp,
+                  ),
+                ),
+                if (exercise.imageUrls.length > 1)
+                  Positioned(
+                    left: 4.w,
+                    bottom: 4.h,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 5.w,
+                        vertical: 2.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        borderRadius: BorderRadius.circular(6.r),
+                      ),
+                      child: Text(
+                        '${exercise.imageUrls.length}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            )
+          : Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  LucideIcons.dumbbell,
+                  color: AppTheme.goldColor,
+                  size: 26.sp,
+                ),
+                if (exercise.mainMuscle.isNotEmpty) ...[
+                  SizedBox(height: 4.h),
+                  Text(
+                    exercise.mainMuscle,
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 9.sp,
+                      color: _muted(isDark),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+
+  Widget _miniChip({
+    required IconData icon,
+    required String label,
+    required bool isDark,
+    bool accent = false,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+      decoration: BoxDecoration(
+        color: accent
+            ? AppTheme.goldColor.withValues(alpha: isDark ? 0.18 : 0.12)
+            : (isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.grey.shade100),
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 11.sp,
+            color: accent ? AppTheme.goldColor : _muted(isDark),
+          ),
+          SizedBox(width: 4.w),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontSize: 10.5.sp,
+              fontWeight: accent ? FontWeight.w700 : FontWeight.w500,
+              color: accent ? AppTheme.goldColor : _muted(isDark),
+            ),
+          ),
+        ],
       ),
     );
   }

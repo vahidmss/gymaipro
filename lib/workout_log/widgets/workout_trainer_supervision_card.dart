@@ -1,15 +1,14 @@
-import 'package:gymaipro/widgets/gymai_trainer_avatar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/workout_log/viewmodels/workout_log_viewmodel.dart';
-import 'package:gymaipro/workout_log/widgets/session_heatmap_trainer_chip.dart';
+import 'package:gymaipro/widgets/gymai_trainer_avatar.dart';
 import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// کارت خلوت مربی + انتخاب جلسه — بدون نقشه.
 class WorkoutTrainerSupervisionCard extends StatefulWidget {
   const WorkoutTrainerSupervisionCard({
     required this.programId,
@@ -17,8 +16,6 @@ class WorkoutTrainerSupervisionCard extends StatefulWidget {
     required this.selectedSession,
     required this.onSessionSelected,
     super.key,
-    this.viewModel,
-    this.onSessionHeatmapTap,
     this.sessionsLocked = false,
   });
 
@@ -26,8 +23,6 @@ class WorkoutTrainerSupervisionCard extends StatefulWidget {
   final WorkoutProgram? selectedProgram;
   final WorkoutSession? selectedSession;
   final void Function(WorkoutSession?) onSessionSelected;
-  final WorkoutLogViewModel? viewModel;
-  final VoidCallback? onSessionHeatmapTap;
   final bool sessionsLocked;
 
   @override
@@ -72,7 +67,7 @@ class _WorkoutTrainerSupervisionCardState
         response = result != null
             ? Map<String, dynamic>.from(result as Map)
             : null;
-      } catch (e) {
+      } catch (_) {
         try {
           final result = await client
               .from('workout_programs')
@@ -82,18 +77,14 @@ class _WorkoutTrainerSupervisionCardState
           response = result != null
               ? Map<String, dynamic>.from(result as Map)
               : null;
-        } catch (e2) {
-          if (mounted) {
-            setState(() => _isLoading = false);
-          }
+        } catch (_) {
+          if (mounted) setState(() => _isLoading = false);
           return;
         }
       }
 
       if (response == null) {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
 
@@ -102,29 +93,20 @@ class _WorkoutTrainerSupervisionCardState
       final targetTrainerId = trainerId ?? userId;
 
       if (targetTrainerId != null && targetTrainerId.isNotEmpty) {
-        final trainerProfile =
-            await ProfileRepository.instance.fetchProfile(targetTrainerId);
-
-        if (trainerProfile != null && mounted) {
-          setState(() {
-            _trainerInfo = trainerProfile;
-            _isLoading = false;
-          });
-        } else {
-          if (mounted) {
-            setState(() => _isLoading = false);
-          }
-        }
-      } else {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
+        final trainerProfile = await ProfileRepository.instance.fetchProfile(
+          targetTrainerId,
+        );
+        if (!mounted) return;
+        setState(() {
+          _trainerInfo = trainerProfile;
+          _isLoading = false;
+        });
+      } else if (mounted) {
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       debugPrint('Error loading trainer info: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -133,244 +115,222 @@ class _WorkoutTrainerSupervisionCardState
     final first = _trainerInfo!['first_name'] as String? ?? '';
     final last = _trainerInfo!['last_name'] as String? ?? '';
     final username = _trainerInfo!['username'] as String? ?? '';
-
-    if ((first + last).trim().isNotEmpty) {
-      return '$first $last'.trim();
-    } else if (username.isNotEmpty) {
-      return username;
-    }
+    final full = '$first $last'.trim();
+    if (full.isNotEmpty) return full;
+    if (username.isNotEmpty) return username;
     return 'مربی شما';
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Container(
-        margin: EdgeInsets.only(bottom: 16.h),
-        padding: EdgeInsets.all(20.w),
-        decoration: BoxDecoration(
-          color: context.cardColor,
-          borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(
-            color: AppTheme.goldColor.withValues(alpha: 0.3),
-            width: 1.5.w,
-          ),
-        ),
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 12.h),
         child: Center(
-          child: CircularProgressIndicator(
-            color: AppTheme.goldColor,
-            strokeWidth: 2.w,
+          child: SizedBox(
+            width: 22.w,
+            height: 22.w,
+            child: CircularProgressIndicator(
+              color: AppTheme.goldColor,
+              strokeWidth: 2.w,
+            ),
           ),
         ),
       );
     }
 
     return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      padding: EdgeInsets.all(16.w),
+      margin: EdgeInsets.only(bottom: 4.h),
+      padding: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 12.h),
       decoration: BoxDecoration(
         color: WorkoutLogColors.sectionBackground(context),
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(14.r),
         border: Border.all(
-          color: WorkoutLogColors.chipBorder(context, selected: false),
-          width: 1.w,
+          color: WorkoutLogColors.inputBorder(context),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // بخش مربی
           Row(
             children: [
-              // عکس مربی
-              Container(
-                width: 48.w,
-                height: 48.w,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: WorkoutLogColors.chipBorder(
-                      context,
-                      selected: true,
-                    ),
-                    width: 1.5.w,
-                  ),
-                ),
-                child: GymaiTrainerAvatar(
-                  size: 48.w,
-                  avatarUrl: _trainerInfo?['avatar_url'] as String?,
-                  userId: _trainerInfo?['id'] as String?,
-                  username: _trainerInfo?['username'] as String?,
-                  firstName: _trainerInfo?['first_name'] as String?,
-                  lastName: _trainerInfo?['last_name'] as String?,
-                  fallback: Icon(
-                    LucideIcons.user,
-                    color: WorkoutLogColors.iconOnSurface(context),
-                    size: 24.sp,
-                  ),
+              GymaiTrainerAvatar(
+                size: 36.w,
+                avatarUrl: _trainerInfo?['avatar_url'] as String?,
+                userId: _trainerInfo?['id'] as String?,
+                username: _trainerInfo?['username'] as String?,
+                firstName: _trainerInfo?['first_name'] as String?,
+                lastName: _trainerInfo?['last_name'] as String?,
+                fallback: Icon(
+                  LucideIcons.user,
+                  color: WorkoutLogColors.iconOnSurface(context),
+                  size: 18.sp,
                 ),
               ),
-              SizedBox(width: 12.w),
+              SizedBox(width: 10.w),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'تحت نظارت مربی',
-                      style: WorkoutLogTypography.trainerLabel(context),
+                      'تحت نظارت',
+                      style: WorkoutLogTypography.caption(
+                        context,
+                        color: WorkoutLogColors.mutedText(context),
+                      ),
                     ),
-                    SizedBox(height: 4.h),
                     Text(
                       _getTrainerName(),
-                      style: WorkoutLogTypography.trainerName(context),
+                      style: WorkoutLogTypography.sectionTitle(
+                        context,
+                      ).copyWith(fontSize: 13.5.sp),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          // بخش انتخاب روز
           if (widget.selectedProgram != null) ...[
-            SizedBox(height: 16.h),
-            Divider(
-              color: AppTheme.goldColor.withValues(alpha: 0.15),
-              thickness: 0.5,
-            ),
             SizedBox(height: 12.h),
             Text(
-              'امروز میخوای کدوم روز برنامه رو اجرا کنی؟',
-              style: WorkoutLogTypography.sectionTitle(context),
+              'جلسه امروز',
+              style: WorkoutLogTypography.caption(
+                context,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-            SizedBox(height: 10.h),
+            SizedBox(height: 8.h),
             SizedBox(
-              height: 36.h,
-              child: ListView.builder(
+              height: 34.h,
+              child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: widget.selectedProgram!.sessions.length,
+                separatorBuilder: (_, __) => SizedBox(width: 8.w),
                 itemBuilder: (context, index) {
                   final session = widget.selectedProgram!.sessions[index];
-                  final isSelected = widget.selectedSession?.day == session.day;
-                  return Container(
-                    margin: EdgeInsets.only(left: 8.w),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12.r),
-                        onTap: widget.sessionsLocked
-                            ? null
-                            : () => widget.onSessionSelected(session),
-                        child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 250),
-                            curve: Curves.easeInOut,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 14.w,
-                              vertical: 8.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: WorkoutLogColors.chipFill(
-                                context,
-                                selected: isSelected,
-                              ).withValues(
-                                alpha: widget.sessionsLocked && !isSelected
-                                    ? 0.65
-                                    : 1,
-                              ),
-                              borderRadius: BorderRadius.circular(8.r),
-                              border: Border.all(
-                                color: WorkoutLogColors.chipBorder(
-                                  context,
-                                  selected: isSelected,
-                                ),
-                                width: 1.w,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (widget.sessionsLocked && isSelected)
-                                  Padding(
-                                    padding: EdgeInsets.only(left: 5.w),
-                                    child: SizedBox(
-                                      width: 10.w,
-                                      height: 10.w,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 1.5.w,
-                                        color: WorkoutLogColors.iconOnSurface(context),
-                                      ),
-                                    ),
-                                  ),
-                                Text(
-                                  session.day,
-                                  style: WorkoutLogTypography.chip(
-                                    context,
-                                    selected: isSelected,
-                                  ),
-                                ),
-                              ],
+                  final isSelected =
+                      widget.selectedSession?.day == session.day;
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10.r),
+                      onTap: widget.sessionsLocked
+                          ? null
+                          : () => widget.onSessionSelected(session),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12.w,
+                          vertical: 7.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: WorkoutLogColors.chipFill(
+                            context,
+                            selected: isSelected,
+                          ),
+                          borderRadius: BorderRadius.circular(10.r),
+                          border: Border.all(
+                            color: WorkoutLogColors.chipBorder(
+                              context,
+                              selected: isSelected,
                             ),
                           ),
                         ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (widget.sessionsLocked && isSelected)
+                              Padding(
+                                padding: EdgeInsets.only(left: 5.w),
+                                child: SizedBox(
+                                  width: 10.w,
+                                  height: 10.w,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5.w,
+                                    color: WorkoutLogColors.iconOnSurface(
+                                      context,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            Text(
+                              session.day,
+                              style: WorkoutLogTypography.chip(
+                                context,
+                                selected: isSelected,
+                              ).copyWith(fontSize: 12.5.sp),
+                            ),
+                          ],
+                        ),
                       ),
-                    );
-              
+                    ),
+                  );
                 },
               ),
             ),
-            if (widget.selectedSession != null &&
-                widget.viewModel != null &&
-                widget.onSessionHeatmapTap != null) ...[
-              SizedBox(height: 12.h),
-              SessionHeatmapTrainerChip(
-                viewModel: widget.viewModel!,
-                onTap: widget.onSessionHeatmapTap!,
-              ),
-            ],
-            // نمایش کامنت روز (اگر وجود داشته باشد)
-            if (widget.selectedSession != null &&
-                widget.selectedSession!.notes != null &&
-                widget.selectedSession!.notes!.isNotEmpty) ...[
-              SizedBox(height: 12.h),
-              _buildDayComment(context),
+            if (widget.selectedSession?.notes != null &&
+                widget.selectedSession!.notes!.trim().isNotEmpty) ...[
+              SizedBox(height: 10.h),
+              _DayNotesCollapsed(notes: widget.selectedSession!.notes!),
             ],
           ],
         ],
       ),
     );
   }
+}
 
-  Widget _buildDayComment(BuildContext context) {
-    if (widget.selectedSession == null ||
-        widget.selectedSession!.notes == null ||
-        widget.selectedSession!.notes!.isEmpty) {
-      return const SizedBox.shrink();
-    }
+class _DayNotesCollapsed extends StatefulWidget {
+  const _DayNotesCollapsed({required this.notes});
 
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-      decoration: BoxDecoration(
-        color: WorkoutLogColors.noteBackground(context),
+  final String notes;
+
+  @override
+  State<_DayNotesCollapsed> createState() => _DayNotesCollapsedState();
+}
+
+class _DayNotesCollapsedState extends State<_DayNotesCollapsed> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: WorkoutLogColors.noteBackground(context),
+      borderRadius: BorderRadius.circular(8.r),
+      child: InkWell(
+        onTap: () => setState(() => _expanded = !_expanded),
         borderRadius: BorderRadius.circular(8.r),
-        border: Border.all(
-          color: WorkoutLogColors.noteBorder(context),
-          width: 0.8.w,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                LucideIcons.messageCircle,
+                color: WorkoutLogColors.noteText(context),
+                size: 14.sp,
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Text(
+                  widget.notes,
+                  style: WorkoutLogTypography.note(
+                    context,
+                  ).copyWith(fontSize: 12.sp),
+                  maxLines: _expanded ? 12 : 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(
+                _expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                size: 14.sp,
+                color: WorkoutLogColors.mutedText(context),
+              ),
+            ],
+          ),
         ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            LucideIcons.messageCircle,
-            color: WorkoutLogColors.noteText(context),
-            size: 14.sp,
-          ),
-          SizedBox(width: 8.w),
-          Expanded(
-            child: Text(
-              widget.selectedSession!.notes!,
-              style: WorkoutLogTypography.note(context).copyWith(fontSize: 12.5.sp),
-            ),
-          ),
-        ],
       ),
     );
   }

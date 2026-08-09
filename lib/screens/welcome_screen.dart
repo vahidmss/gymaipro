@@ -21,28 +21,28 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       title: 'مربی هوشمند همیشه همراه تو',
       description:
           'مربی هوشمند، همیشه کنارته\nحرکاتت رو زیر نظر بگیر، از اشتباهات جلوگیری کن و با پشتیبانی لحظه‌ای پیشرفت کن.',
-      image: 'images/poster1.png',
+      image: 'images/poster1.jpg',
       icon: Icons.image,
     ),
     _WelcomePageData(
       title: 'برنامه تمرینی و تغذیه شخصی‌سازی شده',
       description:
           'برنامه‌ای که فقط برای تو ساخته شده\nمربیان واقعی و هوش مصنوعی، دست به دست هم می‌دن تا بهترین برنامه رو برای بدن و هدفت طراحی کنن.',
-      image: 'images/poster2.png',
+      image: 'images/poster2.jpg',
       icon: Icons.schedule,
     ),
     _WelcomePageData(
       title: 'پیشرفتت رو ببین',
       description:
           'پیشرفتت رو به چشم ببین\nبا نمودارها و آمار دقیق، هر قدمی که جلو میری ثبت و بررسی میشه.',
-      image: 'images/poster3.png',
+      image: 'images/poster3.jpg',
       icon: Icons.trending_up,
     ),
     _WelcomePageData(
       title: 'مربیان واقعی، همیشه در دسترس',
       description:
           'مربی واقعی، انتخاب تو\nمربی‌هات رو بین بهترین‌ها انتخاب کن، رتبه‌بندی ببین و مستقیم باهاشون کار کن.',
-      image: 'images/poster5.png',
+      image: 'images/poster5.jpg',
       icon: Icons.people_alt,
     ),
   ];
@@ -326,7 +326,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           const SizedBox(height: 48),
           Text(
             page.title,
-            style: AppTheme.headingStyle,
+            style: AppTheme.headingStyle.copyWith(
+              color: AppTheme.darkTextColor,
+            ),
             textAlign: TextAlign.center,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -334,7 +336,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           const SizedBox(height: 16),
           Text(
             page.description,
-            style: AppTheme.bodyStyle,
+            style: AppTheme.bodyStyle.copyWith(
+              color: AppTheme.darkTextColor.withValues(alpha: 0.7),
+            ),
             textAlign: TextAlign.center,
             maxLines: 4,
             overflow: TextOverflow.ellipsis,

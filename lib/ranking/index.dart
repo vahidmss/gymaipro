@@ -12,9 +12,6 @@ export 'services/activity_tracking_service.dart';
 export 'services/ranking_score_service.dart';
 export 'services/ranking_service.dart';
 export 'services/ranking_tracker_helper.dart';
-export 'widgets/leaderboard_item.dart';
 // Widgets
-export 'widgets/league_badge.dart';
-export 'widgets/league_card.dart';
-export 'widgets/profile_ranking_section.dart';
+export 'widgets/leaderboard_item.dart';
 export 'widgets/user_rank_card.dart';

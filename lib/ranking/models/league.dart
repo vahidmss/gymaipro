@@ -20,7 +20,6 @@ class League {
   final String icon;
   final String description;
 
-  /// لیست تمام لیگ‌ها
   static const List<League> all = [
     bronze,
     silver,
@@ -29,107 +28,99 @@ class League {
     diamond,
   ];
 
-  /// برنز
+  /// آستانه‌ها با مقیاس امتیاز واقعی اپ هم‌خوان شده‌اند
+  /// (کاربر تازه‌کار سریع از برنز خالی خارج می‌شود).
   static const League bronze = League(
     id: 'bronze',
     name: 'Bronze',
     nameFa: 'برنز',
     minScore: 0,
-    maxScore: 1000,
-    color: 0xFFCD7F32, // Bronze color
+    maxScore: 299,
+    color: 0xFFCD7F32,
     icon: '🥉',
-    description: 'شروع سفر شما به سوی موفقیت',
+    description: 'شروع مسیر',
   );
 
-  /// نقره
   static const League silver = League(
     id: 'silver',
     name: 'Silver',
     nameFa: 'نقره',
-    minScore: 1001,
-    maxScore: 3000,
-    color: 0xFFC0C0C0, // Silver color
+    minScore: 300,
+    maxScore: 999,
+    color: 0xFF9E9E9E,
     icon: '🥈',
-    description: 'در حال پیشرفت و رشد',
+    description: 'در حال رشد',
   );
 
-  /// طلا
   static const League gold = League(
     id: 'gold',
     name: 'Gold',
     nameFa: 'طلا',
-    minScore: 3001,
-    maxScore: 7000,
-    color: 0xFFFFD700, // Gold color
+    minScore: 1000,
+    maxScore: 2499,
+    color: 0xFFD4AF37,
     icon: '🥇',
-    description: 'سطح حرفه‌ای و متعهد',
+    description: 'سطح جدی',
   );
 
-  /// پلاتینیوم
   static const League platinum = League(
     id: 'platinum',
     name: 'Platinum',
     nameFa: 'پلاتینیوم',
-    minScore: 7001,
-    maxScore: 15000,
-    color: 0xFFE5E4E2, // Platinum color
+    minScore: 2500,
+    maxScore: 5999,
+    color: 0xFF7A7A80,
     icon: '💎',
-    description: 'سطح استادی و تخصص',
+    description: 'سطح بالا',
   );
 
-  /// الماس
   static const League diamond = League(
     id: 'diamond',
     name: 'Diamond',
     nameFa: 'الماس',
-    minScore: 15001,
-    maxScore: null, // بی‌نهایت
-    color: 0xFFB9F2FF, // Diamond color
+    minScore: 6000,
+    maxScore: null,
+    color: 0xFF5BC0DE,
     icon: '💠',
-    description: 'سطح افسانه‌ای و برتر',
+    description: 'بالاترین سطح',
   );
 
-  /// پیدا کردن لیگ بر اساس امتیاز
   static League getLeagueByScore(int score) {
     for (final league in all.reversed) {
-      if (score >= league.minScore) {
-        return league;
-      }
+      if (score >= league.minScore) return league;
     }
     return bronze;
   }
 
-  /// بررسی اینکه آیا امتیاز در این لیگ است
+  static League byId(String id) {
+    return all.firstWhere((l) => l.id == id, orElse: () => bronze);
+  }
+
   bool isScoreInLeague(int score) {
     if (score < minScore) return false;
     if (maxScore == null) return true;
     return score <= maxScore!;
   }
 
-  /// محاسبه امتیاز لیگ (امتیاز منهای حداقل لیگ)
   int calculateLeaguePoints(int totalScore) {
     return (totalScore - minScore).clamp(0, double.infinity).toInt();
   }
 
-  /// درصد پیشرفت به سمت لیگ بعدی
   double getProgressToNextLeague(int currentScore) {
-    if (maxScore == null) return 1; // الماس - حداکثر
+    if (maxScore == null) return 1;
     if (currentScore < minScore) return 0;
     if (currentScore >= maxScore!) return 1;
-    
     final range = maxScore! - minScore;
-    final progress = currentScore - minScore;
-    return (progress / range).clamp(0.0, 1.0);
+    if (range <= 0) return 1;
+    return ((currentScore - minScore) / range).clamp(0.0, 1.0);
   }
 
-  /// لیگ بعدی
   League? get nextLeague {
     final index = all.indexOf(this);
     if (index < 0 || index >= all.length - 1) return null;
     return all[index + 1];
   }
 
-  /// لیگ قبلی
   League? get previousLeague {
     final index = all.indexOf(this);
     if (index <= 0) return null;

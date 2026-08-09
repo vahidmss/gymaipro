@@ -21,23 +21,23 @@ class GoldButton extends StatelessWidget {
         onPressed: loading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           minimumSize: const Size(double.infinity, 56),
-          backgroundColor: AppTheme.goldColor,
-          foregroundColor: Colors.black,
+          backgroundColor: context.actionFill,
+          foregroundColor: context.actionOnFill,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16.r),
           ),
           elevation: 8,
           textStyle: AppTheme.subheadingStyle.copyWith(
             fontSize: 18.sp,
-            color: Colors.black,
+            color: context.actionOnFill,
           ),
         ),
         child: loading
             ? SizedBox(
                 height: 24.h,
                 width: 24.w,
-                child: const CircularProgressIndicator(
-                  color: Colors.black,
+                child: CircularProgressIndicator(
+                  color: context.actionOnFill,
                   strokeWidth: 2,
                 ),
               )

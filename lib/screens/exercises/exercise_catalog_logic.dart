@@ -1,5 +1,6 @@
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/models/exercise_display_labels.dart';
+import 'package:gymaipro/utils/exercise_search.dart';
 
 class ExerciseCatalogFilters {
   const ExerciseCatalogFilters({
@@ -130,22 +131,9 @@ class ExerciseCatalogLogic {
           .toList();
     }
 
+    // جستجو: نام اصلی + other_names (با نرمال‌سازی فارسی)
     if (filters.query.isNotEmpty) {
-      final q = filters.query.toLowerCase();
-      list = list.where((exercise) {
-        return exercise.name.toLowerCase().contains(q) ||
-            ExerciseDisplayLabels.muscle(exercise.mainMuscle)
-                .toLowerCase()
-                .contains(q) ||
-            ExerciseDisplayLabels.musclesCsv(exercise.secondaryMuscles)
-                .toLowerCase()
-                .contains(q) ||
-            exercise.mainMuscle.toLowerCase().contains(q) ||
-            exercise.secondaryMuscles.toLowerCase().contains(q) ||
-            exercise.otherNames.any(
-              (name) => name.toLowerCase().contains(q),
-            );
-      }).toList();
+      return ExerciseSearch.filter(list, filters.query);
     }
 
     list.sort((a, b) {

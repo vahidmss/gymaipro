@@ -41,7 +41,6 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
   // State
   String _visibility = 'private';
   bool _isLoading = false;
-  final double _uploadProgress = 0;
 
   File? _selectedAudio;
   XFile? _selectedImage;
@@ -123,7 +122,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
           'خطا در انتخاب فایل: $e',
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.errorColor,
         );
       }
     }
@@ -146,7 +145,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
           'خطا در انتخاب تصویر: $e',
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.errorColor,
         );
       }
     }
@@ -263,7 +262,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
           'لطفاً فایل موزیک را انتخاب و آپلود کنید',
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.errorColor,
         );
         WidgetSafetyUtils.safeSetState(this, () => _isLoading = false);
         return;
@@ -297,7 +296,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
           WidgetSafetyUtils.safeShowSnackBar(
             context,
             'موزیک با موفقیت اضافه شد',
-            backgroundColor: Colors.green,
+            backgroundColor: AppTheme.successColor,
           );
           Navigator.pop(context, createdMusic);
         }
@@ -330,7 +329,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
           WidgetSafetyUtils.safeShowSnackBar(
             context,
             'موزیک با موفقیت به‌روزرسانی شد',
-            backgroundColor: Colors.green,
+            backgroundColor: AppTheme.successColor,
           );
           Navigator.pop(context, updatedMusic);
         }
@@ -340,7 +339,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
           'خطا در ذخیره موزیک: $e',
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.errorColor,
         );
       }
     } finally {
@@ -353,9 +352,17 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? Colors.grey[400]! : const Color(0xFF5A5A5A);
+    final body = isDark ? AppTheme.darkTextColor : AppTheme.veryDarkBackground;
+    final hasAudio = _selectedAudio != null || _uploadedAudioUrl != null;
+    final hasCover = _selectedImage != null ||
+        (_uploadedImageUrl != null && _uploadedImageUrl!.isNotEmpty);
+    final nextHint = !hasAudio
+        ? 'فایل موزیک را انتخاب کن'
+        : (_titleController.text.trim().isEmpty ? 'عنوان را بنویس' : null);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF1A1A1A) : Colors.grey[50],
+      backgroundColor: isDark ? AppTheme.darkBackgroundColor : Colors.grey[50],
       appBar: AppBar(
         title: Text(
           widget.music == null ? 'موزیک جدید' : 'ویرایش موزیک',
@@ -364,286 +371,559 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        backgroundColor: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+        backgroundColor: isDark ? AppTheme.darkCardColor : AppTheme.darkTextColor,
         elevation: 0,
+        automaticallyImplyLeading: !_isLoading,
       ),
-      body: _isLoading && _uploadProgress > 0
+      body: _isLoading
           ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(value: _uploadProgress),
-                  SizedBox(height: 16.h),
-                  Text(
-                    'در حال آپلود... ${(_uploadProgress * 100).toInt()}%',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 14.sp,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 32.w),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(color: AppTheme.goldColor),
+                    SizedBox(height: 20.h),
+                    Text(
+                      'در حال ذخیره موزیک…',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w700,
+                        color: body,
+                      ),
                     ),
-                  ),
-                ],
+                    SizedBox(height: 8.h),
+                    Text(
+                      'لطفاً صبر کن — قطع نکن',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 12.5.sp,
+                        color: muted,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             )
           : Form(
               key: _formKey,
               child: ListView(
-                padding: EdgeInsets.all(16.w),
+                padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 16.h),
                 children: [
-                  // عنوان
-                  TextFormField(
-                    controller: _titleController,
-                    decoration: InputDecoration(
-                      labelText: 'عنوان موزیک',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      prefixIcon: const Icon(LucideIcons.music),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'لطفاً عنوان موزیک را وارد کنید';
-                      }
-                      return null;
-                    },
-                  ),
-                  SizedBox(height: 16.h),
-
-                  // هنرمند (ادمین: GymAI، مربی: نام و نام‌خانوادگی — به‌صورت خودکار ذخیره می‌شود)
-                  TextFormField(
-                    controller: _artistController,
-                    readOnly: true,
-                    decoration: InputDecoration(
-                      labelText: 'نام نمایشی (نویسنده)',
-                      helperText: 'ادمین: GymAI | مربی: نام شما. به‌صورت خودکار تنظیم می‌شود.',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      prefixIcon: const Icon(LucideIcons.user),
-                    ),
-                  ),
-                  SizedBox(height: 16.h),
-
-                  // نام خواننده (اختیاری — برای موزیک بی‌کلام خالی بگذارید)
-                  TextFormField(
-                    controller: _singerController,
-                    decoration: InputDecoration(
-                      labelText: 'نام خواننده (اختیاری)',
-                      helperText: 'برای موزیک بی‌کلام خالی بگذارید',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      prefixIcon: const Icon(LucideIcons.mic2),
-                    ),
-                  ),
-                  SizedBox(height: 16.h),
-
-                  // دسته‌بندی
-                  DropdownButtonFormField<String>(
-                    initialValue: _categoryController.text.isEmpty
-                        ? null
-                        : _categoryController.text,
-                    decoration: InputDecoration(
-                      labelText: 'دسته‌بندی',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      prefixIcon: const Icon(LucideIcons.folder),
-                    ),
-                    items: _categories.map((category) {
-                      return DropdownMenuItem(
-                        value: category,
-                        child: Text(category),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _categoryController.text = value ?? '';
-                      });
-                    },
-                  ),
-                  SizedBox(height: 16.h),
-
-                  // توضیحات
-                  TextFormField(
-                    controller: _descriptionController,
-                    decoration: InputDecoration(
-                      labelText: 'توضیحات (اختیاری)',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      prefixIcon: const Icon(LucideIcons.fileText),
-                    ),
-                    maxLines: 3,
-                  ),
-                  SizedBox(height: 16.h),
-
-
-                  // فایل موزیک
-                  _buildMediaSelector(
-                    label: 'فایل موزیک',
-                    icon: LucideIcons.music,
+                  _sectionCard(
                     isDark: isDark,
-                    hasFile: _selectedAudio != null || _uploadedAudioUrl != null,
-                    onPick: _pickAudio,
-                    onRemove: () {
-                      WidgetSafetyUtils.safeSetState(this, () {
-                        _selectedAudio = null;
-                        _uploadedAudioUrl = null;
-                      });
-                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _sectionTitle('اطلاعات اصلی', LucideIcons.star, body),
+                        SizedBox(height: 12.h),
+                        _field(
+                          controller: _titleController,
+                          label: 'عنوان موزیک',
+                          hint: 'مثال: انگیزشی صبحگاهی',
+                          icon: LucideIcons.music,
+                          isDark: isDark,
+                          body: body,
+                          validator: (v) =>
+                              (v == null || v.trim().isEmpty)
+                                  ? 'عنوان الزامی است'
+                                  : null,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        SizedBox(height: 10.h),
+                        _field(
+                          controller: _artistController,
+                          label: 'نام نمایشی (نویسنده)',
+                          hint: 'به‌صورت خودکار تنظیم می‌شود',
+                          icon: LucideIcons.user,
+                          isDark: isDark,
+                          body: body,
+                          readOnly: true,
+                        ),
+                        SizedBox(height: 10.h),
+                        _field(
+                          controller: _singerController,
+                          label: 'نام خواننده (اختیاری)',
+                          hint: 'برای بی‌کلام خالی بگذار',
+                          icon: LucideIcons.mic2,
+                          isDark: isDark,
+                          body: body,
+                        ),
+                      ],
+                    ),
                   ),
-                  SizedBox(height: 16.h),
-
-                  // تصویر کاور
-                  Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16.w),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'تصویر کاور',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.bold,
-                            ),
+                  SizedBox(height: 10.h),
+                  _sectionCard(
+                    isDark: isDark,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _sectionTitle('فایل و کاور', LucideIcons.disc, body),
+                        SizedBox(height: 12.h),
+                        _buildMediaSelector(
+                          label: 'فایل موزیک',
+                          icon: LucideIcons.music,
+                          isDark: isDark,
+                          hasFile: hasAudio,
+                          onPick: _pickAudio,
+                          onRemove: () {
+                            WidgetSafetyUtils.safeSetState(this, () {
+                              _selectedAudio = null;
+                              _uploadedAudioUrl = null;
+                            });
+                          },
+                        ),
+                        SizedBox(height: 12.h),
+                        Text(
+                          'تصویر کاور',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w600,
+                            color: body,
                           ),
-                          SizedBox(height: 8.h),
-                          if (_selectedImage != null || _uploadedImageUrl != null)
-                            Container(
-                              height: 150.h,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12.r),
-                                image: DecorationImage(
-                                  image: _selectedImage != null
-                                      ? FileImage(File(_selectedImage!.path))
-                                      : NetworkImage(_uploadedImageUrl!)
-                                          as ImageProvider,
-                                  fit: BoxFit.cover,
+                        ),
+                        SizedBox(height: 8.h),
+                        if (hasCover)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12.r),
+                            child: AspectRatio(
+                              aspectRatio: 16 / 9,
+                              child: _selectedImage != null
+                                  ? Image.file(
+                                      File(_selectedImage!.path),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : Image.network(
+                                      _uploadedImageUrl!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        color: AppTheme.goldColor
+                                            .withValues(alpha: 0.1),
+                                        child: Icon(
+                                          LucideIcons.image,
+                                          color: AppTheme.goldColor,
+                                          size: 32.sp,
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          )
+                        else
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: _pickImage,
+                              borderRadius: BorderRadius.circular(12.r),
+                              child: Ink(
+                                height: 96.h,
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? AppTheme.veryDarkBackground
+                                          .withValues(alpha: 0.35)
+                                      : Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(12.r),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.12)
+                                        : Colors.grey.shade300,
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      LucideIcons.camera,
+                                      color: AppTheme.goldColor,
+                                      size: 26.sp,
+                                    ),
+                                    SizedBox(height: 6.h),
+                                    Text(
+                                      'افزودن تصویر کاور',
+                                      style: TextStyle(
+                                        fontFamily: AppTheme.fontFamily,
+                                        fontSize: 13.sp,
+                                        fontWeight: FontWeight.w700,
+                                        color: body,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2.h),
+                                    Text(
+                                      'اختیاری',
+                                      style: TextStyle(
+                                        fontFamily: AppTheme.fontFamily,
+                                        fontSize: 11.sp,
+                                        color: muted,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                          SizedBox(height: 8.h),
-                          ElevatedButton.icon(
-                            onPressed: _pickImage,
-                            icon: const Icon(LucideIcons.image),
-                            label: const Text('انتخاب تصویر'),
                           ),
-                          if (_selectedImage != null || _uploadedImageUrl != null)
-                            Padding(
-                              padding: EdgeInsets.only(top: 8.h),
-                              child: OutlinedButton.icon(
+                        if (hasCover) ...[
+                          SizedBox(height: 8.h),
+                          Row(
+                            children: [
+                              TextButton.icon(
+                                onPressed: _pickImage,
+                                icon: Icon(LucideIcons.image, size: 16.sp),
+                                label: const Text('تغییر'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppTheme.goldColor,
+                                ),
+                              ),
+                              TextButton.icon(
                                 onPressed: () {
                                   WidgetSafetyUtils.safeSetState(this, () {
                                     _selectedImage = null;
                                     _uploadedImageUrl = null;
                                   });
                                 },
-                                icon: const Icon(LucideIcons.trash2),
-                                label: const Text('حذف تصویر'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.red,
-                                  side: const BorderSide(color: Colors.red),
+                                icon: Icon(LucideIcons.trash2, size: 16.sp),
+                                label: const Text('حذف'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppTheme.errorColor,
                                 ),
                               ),
-                            ),
+                            ],
+                          ),
                         ],
-                      ),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 16.h),
-
-                  // Visibility
-                  Card(
-                    child: Padding(
-                      padding: EdgeInsets.all(16.w),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'دسترسی',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.bold,
+                  SizedBox(height: 10.h),
+                  _sectionCard(
+                    isDark: isDark,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _sectionTitle(
+                          'مشخصات بیشتر',
+                          LucideIcons.slidersHorizontal,
+                          body,
+                        ),
+                        SizedBox(height: 12.h),
+                        DropdownButtonFormField<String>(
+                          initialValue: _categoryController.text.isEmpty
+                              ? null
+                              : _categoryController.text,
+                          decoration: InputDecoration(
+                            labelText: 'دسته‌بندی',
+                            isDense: true,
+                            filled: true,
+                            fillColor: isDark
+                                ? AppTheme.darkCardColor
+                                : AppTheme.darkTextColor,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            prefixIcon: Icon(
+                              LucideIcons.folder,
+                              color: AppTheme.goldColor,
+                              size: 18.sp,
                             ),
                           ),
-                          SizedBox(height: 8.h),
-                          RadioGroup<String>(
-                            groupValue: _visibility,
-                            onChanged: (value) {
-                              setState(() {
-                                _visibility = value!;
-                              });
-                            },
-                            child: const Column(
-                              children: [
-                                RadioListTile<String>(
-                                  title: Text('خصوصی'),
-                                  subtitle: Text('فقط شما می‌توانید ببینید'),
-                                  value: 'private',
-                                ),
-                                RadioListTile<String>(
-                                  title: Text('عمومی'),
-                                  subtitle: Text(
-                                    'همه می‌توانند ببینند (نیاز به تایید دارد)',
+                          items: _categories
+                              .map(
+                                (c) => DropdownMenuItem(
+                                  value: c,
+                                  child: Text(
+                                    c,
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                    ),
                                   ),
-                                  value: 'public',
                                 ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _categoryController.text = value ?? '';
+                            });
+                          },
+                        ),
+                        SizedBox(height: 10.h),
+                        _field(
+                          controller: _descriptionController,
+                          label: 'توضیحات (اختیاری)',
+                          hint: 'توضیح کوتاه درباره موزیک',
+                          icon: LucideIcons.fileText,
+                          isDark: isDark,
+                          body: body,
+                          maxLines: 3,
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 24.h),
-
-                  // دکمه ذخیره
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _saveMusic,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.goldColor,
-                      foregroundColor: Colors.black,
-                      padding: EdgeInsets.symmetric(vertical: 16.h),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(
-                            widget.music == null ? 'ذخیره موزیک' : 'به‌روزرسانی',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.bold,
+                  SizedBox(height: 10.h),
+                  _sectionCard(
+                    isDark: isDark,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _sectionTitle('دسترسی', LucideIcons.lock, body),
+                        SizedBox(height: 12.h),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _accessPill(
+                                isDark: isDark,
+                                body: body,
+                                label: 'خصوصی',
+                                icon: LucideIcons.lock,
+                                selected: _visibility == 'private',
+                                onTap: () =>
+                                    setState(() => _visibility = 'private'),
+                              ),
                             ),
-                          ),
+                            SizedBox(width: 8.w),
+                            Expanded(
+                              child: _accessPill(
+                                isDark: isDark,
+                                body: body,
+                                label: 'عمومی',
+                                icon: LucideIcons.globe,
+                                selected: _visibility == 'public',
+                                onTap: () =>
+                                    setState(() => _visibility = 'public'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-
                   if (widget.music != null) ...[
-                    SizedBox(height: 12.h),
+                    SizedBox(height: 16.h),
                     OutlinedButton.icon(
                       onPressed: _isLoading ? null : _deleteMusic,
-                      icon: Icon(LucideIcons.trash2, size: 20.sp),
+                      icon: Icon(LucideIcons.trash2, size: 18.sp),
                       label: const Text('حذف موزیک'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
-                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        foregroundColor: AppTheme.errorColor,
+                        side: const BorderSide(color: AppTheme.errorColor),
+                        padding: EdgeInsets.symmetric(vertical: 13.h),
                       ),
                     ),
                   ],
+                  SizedBox(height: 8.h),
                 ],
               ),
             ),
+      bottomNavigationBar: _isLoading
+          ? null
+          : Material(
+              elevation: 8,
+              color: isDark ? AppTheme.darkCardColor : Colors.white,
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 10.h),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (nextHint != null) ...[
+                        Text(
+                          nextHint,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 11.5.sp,
+                            fontWeight: FontWeight.w600,
+                            color: muted,
+                          ),
+                        ),
+                        SizedBox(height: 8.h),
+                      ],
+                      ElevatedButton.icon(
+                        onPressed: _saveMusic,
+                        icon: Icon(
+                          widget.music == null
+                              ? LucideIcons.plus
+                              : LucideIcons.save,
+                          size: 20.sp,
+                        ),
+                        label: Text(
+                          widget.music == null
+                              ? 'ساخت موزیک'
+                              : 'ذخیره تغییرات',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            fontSize: 15.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.goldColor,
+                          foregroundColor: AppTheme.veryDarkBackground,
+                          padding: EdgeInsets.symmetric(vertical: 15.h),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _sectionTitle(String title, IconData icon, Color body) {
+    return Row(
+      children: [
+        Icon(icon, color: AppTheme.goldColor, size: 18.sp),
+        SizedBox(width: 8.w),
+        Text(
+          title,
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontSize: 15.sp,
+            fontWeight: FontWeight.bold,
+            color: body,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionCard({required bool isDark, required Widget child}) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCardColor : Colors.white,
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.06),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(14.w, 14.h, 14.w, 14.h),
+        child: child,
+      ),
+    );
+  }
+
+  Widget _field({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    required bool isDark,
+    required Color body,
+    int maxLines = 1,
+    bool readOnly = false,
+    String? Function(String?)? validator,
+    ValueChanged<String>? onChanged,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      readOnly: readOnly,
+      validator: validator,
+      onChanged: onChanged,
+      style: TextStyle(
+        fontFamily: AppTheme.fontFamily,
+        fontSize: 14.sp,
+        color: body,
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        isDense: true,
+        filled: true,
+        fillColor: isDark ? AppTheme.darkCardColor : AppTheme.darkTextColor,
+        prefixIcon: Icon(icon, color: AppTheme.goldColor, size: 18.sp),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.12)
+                : Colors.grey.shade300,
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.12)
+                : Colors.grey.shade300,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
+        ),
+      ),
+    );
+  }
+
+  Widget _accessPill({
+    required bool isDark,
+    required Color body,
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10.r),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 8.w),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.16)
+                : (isDark
+                    ? AppTheme.veryDarkBackground.withValues(alpha: 0.3)
+                    : Colors.grey[100]),
+            borderRadius: BorderRadius.circular(10.r),
+            border: Border.all(
+              color: selected
+                  ? AppTheme.goldColor
+                  : (isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.grey.shade300),
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                size: 18.sp,
+                color: selected ? AppTheme.goldColor : Colors.grey,
+              ),
+              SizedBox(height: 4.h),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? body : Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -662,7 +942,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
             child: const Text('حذف'),
           ),
         ],
@@ -680,14 +960,14 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
           WidgetSafetyUtils.safeShowSnackBar(
             context,
             'موزیک با موفقیت حذف شد',
-            backgroundColor: Colors.green,
+            backgroundColor: AppTheme.successColor,
           );
           WidgetSafetyUtils.safePop(context, widget.music);
         } else {
           WidgetSafetyUtils.safeShowSnackBar(
             context,
             'خطا در حذف موزیک',
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorColor,
           );
         }
       }
@@ -696,7 +976,7 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
         WidgetSafetyUtils.safeShowSnackBar(
           context,
           'خطا: $e',
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.errorColor,
         );
       }
     } finally {
@@ -712,20 +992,25 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
     required VoidCallback onPick,
     required VoidCallback onRemove,
   }) {
+    final body = isDark ? AppTheme.darkTextColor : AppTheme.veryDarkBackground;
     return Container(
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
+        color: isDark
+            ? AppTheme.veryDarkBackground.withValues(alpha: 0.35)
+            : Colors.grey[50],
         borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
           color: hasFile
-              ? AppTheme.goldColor
-              : AppTheme.goldColor.withValues(alpha: 0.3),
+              ? AppTheme.goldColor.withValues(alpha: 0.55)
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.grey.shade300),
         ),
       ),
       child: Row(
         children: [
-          Icon(icon, color: AppTheme.goldColor, size: 24.sp),
+          Icon(icon, color: AppTheme.goldColor, size: 22.sp),
           SizedBox(width: 12.w),
           Expanded(
             child: Column(
@@ -735,20 +1020,31 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
                   label,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: 14.sp,
+                    fontSize: 13.5.sp,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black,
+                    color: body,
                   ),
                 ),
                 if (hasFile)
                   Text(
                     _selectedAudio != null
-                        ? 'فایل انتخاب شده: ${_selectedAudio!.path.split('/').last}'
-                        : 'آپلود شده ✓',
+                        ? _selectedAudio!.path.split(RegExp(r'[/\\]')).last
+                        : 'آپلود شده',
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
-                      fontSize: 12.sp,
+                      fontSize: 11.5.sp,
                       color: AppTheme.goldColor,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                else
+                  Text(
+                    'قبل از ذخیره لازم است',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 11.5.sp,
+                      color: isDark ? Colors.grey[400] : const Color(0xFF5A5A5A),
                     ),
                   ),
               ],
@@ -756,12 +1052,12 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
           ),
           if (hasFile)
             IconButton(
-              icon: const Icon(LucideIcons.trash2, color: Colors.red),
+              icon: Icon(LucideIcons.trash2, color: AppTheme.errorColor, size: 18.sp),
               onPressed: onRemove,
             ),
           TextButton.icon(
             onPressed: onPick,
-            icon: Icon(LucideIcons.upload, size: 18.sp),
+            icon: Icon(LucideIcons.upload, size: 16.sp),
             label: Text(hasFile ? 'تغییر' : 'انتخاب'),
             style: TextButton.styleFrom(
               foregroundColor: AppTheme.goldColor,

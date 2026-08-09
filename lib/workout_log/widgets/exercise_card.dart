@@ -1,14 +1,15 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/features/product_experience/domain/workout_exercise_coach_feedback.dart';
 import 'package:gymaipro/features/product_experience/presentation/workout_exercise_coach_feedback_card.dart';
 import 'package:gymaipro/models/exercise.dart';
-import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/workout_log/models/previous_exercise_performance.dart';
 import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
 import 'package:gymaipro/workout_log/widgets/workout_set_entry_row.dart';
+import 'package:gymaipro/workout_log/widgets/workout_set_numpad.dart';
+import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ExerciseCard extends StatelessWidget {
   const ExerciseCard({
@@ -21,11 +22,16 @@ class ExerciseCard extends StatelessWidget {
     required this.onToggleCollapse,
     required this.onNavigateToTutorial,
     required this.onSaveSet,
+    this.onUnsaveSet,
+    this.previousSetsByExerciseId = const {},
+    this.orderIndex = 1,
     this.exerciseCoachFeedback = const <String, WorkoutExerciseCoachFeedback>{},
     this.compact = false,
     this.onDismissKeyboard,
+    this.numpad,
     super.key,
   });
+
   final WorkoutExercise exercise;
   final Map<int, Exercise> exerciseDetails;
   final Map<String, List<Map<String, TextEditingController>>>
@@ -34,773 +40,650 @@ class ExerciseCard extends StatelessWidget {
   final Map<String, List<bool>> setSavedStatus;
   final Map<String, bool> collapsedExercises;
   final Map<String, WorkoutExerciseCoachFeedback> exerciseCoachFeedback;
+  final Map<int, List<PreviousExerciseSet>> previousSetsByExerciseId;
   final void Function(String) onToggleCollapse;
   final void Function(int) onNavigateToTutorial;
-  final void Function(String, int) onSaveSet;
+  final Future<bool> Function(String, int) onSaveSet;
+  final void Function(String, int)? onUnsaveSet;
+
+  /// ترتیب حرکت در جلسه (۱، ۲، ۳، …)
+  final int orderIndex;
   final bool compact;
   final VoidCallback? onDismissKeyboard;
+  final WorkoutSetNumpadController? numpad;
 
   @override
   Widget build(BuildContext context) {
     if (exercise is NormalExercise) {
-      return _buildNormalExerciseCard(exercise as NormalExercise);
-    } else if (exercise is SupersetExercise) {
-      return _buildSupersetExerciseCard(exercise as SupersetExercise);
+      return _buildNormal(context, exercise as NormalExercise);
+    }
+    if (exercise is SupersetExercise) {
+      return _buildSuperset(context, exercise as SupersetExercise);
     }
     return const SizedBox.shrink();
   }
 
-  Widget _buildNormalExerciseCard(NormalExercise exercise) {
+  Widget _shell({
+    required BuildContext context,
+    required bool complete,
+    required Widget child,
+    bool focused = false,
+  }) {
+    final borderColor = focused
+        ? AppTheme.goldColor
+        : complete
+            ? WorkoutLogColors.successSolid(context).withValues(alpha: 0.4)
+            : WorkoutLogColors.inputBorder(context).withValues(alpha: 0.4);
+
+    return Container(
+      margin: EdgeInsets.only(bottom: compact ? 6.h : 8.h),
+      decoration: BoxDecoration(
+        color: focused
+            ? WorkoutLogColors.sectionBackground(context)
+            : (WorkoutLogColors.isDark(context)
+                  ? WorkoutLogColors.sectionBackground(context)
+                  : const Color(0xFFFBFaf6)),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: borderColor,
+          width: focused ? 1.6.w : 1.w,
+        ),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildNormal(BuildContext context, NormalExercise exercise) {
     final exerciseId = exercise.exerciseId.toString();
     final savedStatus = setSavedStatus[exerciseId] ?? [];
     final focusNodes = exerciseFocusNodes[exerciseId] ?? [];
     final controllers = exerciseControllers[exerciseId] ?? [];
-    final exerciseDetails = this.exerciseDetails[exercise.exerciseId];
     final isCollapsed = collapsedExercises[exerciseId] ?? false;
     final completedSets = savedStatus.where((s) => s).length;
     final totalSets = exercise.sets.length;
+    final isComplete = totalSets > 0 && completedSets >= totalSets;
+    final name = _name(exercise.exerciseId, fallbackTag: exercise.tag);
+    final statusText = isCollapsed && isComplete
+        ? _summary(exercise, controllers, savedStatus)
+        : isComplete
+            ? 'کامل'
+            : (!isCollapsed
+                  ? 'در حال ثبت · $completedSets/$totalSets'
+                  : '$completedSets/$totalSets');
+    final note = exercise.note?.trim();
 
-    return Builder(
-      builder: (context) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        final cardRadius = compact ? 16.r : 20.r;
-        final headerVertical = compact ? 8.h : 10.h;
-        final iconBoxSize = compact ? 32.w : 36.w;
-        final actionBoxSize = compact ? 28.w : 32.w;
-        return Container(
-          margin: EdgeInsets.only(bottom: compact ? 12.h : 16.h),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDark
-                  ? [
-                      AppTheme.darkCardColor,
-                      AppTheme.darkCardColor.withValues(alpha: 0.9),
-                      AppTheme.veryDarkBackground,
-                    ]
-                  : [
-                      AppTheme.lightCardColor,
-                      AppTheme.lightCardColor.withValues(alpha: 0.95),
-                      AppTheme.lightSurfaceColor,
-                    ],
-            ),
-            borderRadius: BorderRadius.circular(cardRadius),
-            border: Border.all(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.4 : 0.3),
-              width: 1.5.w,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isDark
-                    ? Colors.black.withValues(alpha: 0.5)
-                    : AppTheme.lightTextColor.withValues(alpha: 0.1),
-                blurRadius: 20.r,
-                offset: Offset(0.w, 8.h),
-              ),
-              BoxShadow(
-                color: AppTheme.goldColor.withValues(
-                  alpha: isDark ? 0.15 : 0.1,
-                ),
-                blurRadius: 10.r,
-                offset: Offset(0.w, 4.h),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // Header - Always visible
-              InkWell(
-                onTap: () => onToggleCollapse(exerciseId),
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(cardRadius),
-                ),
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 12.w,
-                    vertical: headerVertical,
-                  ),
-                  child: Row(
-                    children: [
-                      // Exercise icon
-                      Container(
-                        width: iconBoxSize,
-                        height: iconBoxSize,
-                        decoration: BoxDecoration(
-                          color: AppTheme.goldColor.withValues(
-                            alpha: isDark ? 0.15 : 0.1,
-                          ),
-                          borderRadius: BorderRadius.circular(8.r),
-                          border: Border.all(
-                            color: AppTheme.goldColor.withValues(alpha: 0.25),
-                            width: 0.8.w,
-                          ),
-                        ),
-                        child: exerciseDetails?.imageUrl != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(8.r),
-                                child: CachedNetworkImage(
-                                  imageUrl: exerciseDetails!.imageUrl,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => Icon(
-                                    LucideIcons.dumbbell,
-                                    color: WorkoutLogColors.secondaryText(
-                                      context,
-                                    ),
-                                    size: 16.sp,
-                                  ),
-                                  errorWidget: (context, url, error) => Icon(
-                                    LucideIcons.dumbbell,
-                                    color: WorkoutLogColors.iconOnSurface(
-                                      context,
-                                    ),
-                                    size: 16.sp,
-                                  ),
-                                ),
-                              )
-                            : Icon(
-                                LucideIcons.dumbbell,
-                                color: WorkoutLogColors.iconOnSurface(context),
-                                size: 16.sp,
-                              ),
-                      ),
-                      SizedBox(width: compact ? 8.w : 10.w),
-                      // Exercise info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _getExerciseName(
-                                exercise.exerciseId,
-                                fallbackTag: exercise.tag,
-                              ),
-                              style: WorkoutLogTypography.exerciseTitle(
-                                context,
-                              ).copyWith(fontSize: compact ? 14.sp : null),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            SizedBox(height: compact ? 2.h : 4.h),
-                            _buildSetCompletionIndicator(
-                              context,
-                              completedSets,
-                              totalSets,
-                            ),
-                            if (exercise.note != null &&
-                                exercise.note!.isNotEmpty) ...[
-                              SizedBox(height: compact ? 4.h : 6.h),
-                              _buildExerciseNote(context, exercise.note!),
-                            ],
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 4.w),
-                      // Tutorial button - مینیمال و شیک
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(8.r),
-                          onTap: () =>
-                              onNavigateToTutorial(exercise.exerciseId),
-                          child: Container(
-                            width: actionBoxSize,
-                            height: actionBoxSize,
-                            padding: EdgeInsets.all(6.w),
-                            decoration: BoxDecoration(
-                              color: Colors.blue[500]!.withValues(
-                                alpha: isDark ? 0.2 : 0.15,
-                              ),
-                              borderRadius: BorderRadius.circular(8.r),
-                              border: Border.all(
-                                color: Colors.blue[400]!.withValues(alpha: 0.4),
-                                width: 1.w,
-                              ),
-                            ),
-                            child: Icon(
-                              LucideIcons.playCircle,
-                              color: Colors.blue[600],
-                              size: compact ? 14.sp : 16.sp,
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 4.w),
-                      // Collapse/Expand icon - مینیمال و شیک
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(8.r),
-                          onTap: () => onToggleCollapse(exerciseId),
-                          child: Container(
-                            width: actionBoxSize,
-                            height: actionBoxSize,
-                            padding: EdgeInsets.all(6.w),
-                            decoration: BoxDecoration(
-                              color: AppTheme.goldColor.withValues(
-                                alpha: isDark ? 0.12 : 0.1,
-                              ),
-                              borderRadius: BorderRadius.circular(8.r),
-                              border: Border.all(
-                                color: AppTheme.goldColor.withValues(
-                                  alpha: 0.25,
-                                ),
-                                width: 1.w,
-                              ),
-                            ),
-                            child: Icon(
-                              isCollapsed
-                                  ? LucideIcons.chevronDown
-                                  : LucideIcons.chevronUp,
-                              color: WorkoutLogColors.iconOnSurface(context),
-                              size: compact ? 14.sp : 16.sp,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // Sets - Collapsible با انیمیشن
-              AnimatedCrossFade(
-                firstChild: const SizedBox.shrink(),
-                secondChild: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: WorkoutLogColors.setsPanelBackground(context),
-                    borderRadius: BorderRadius.vertical(
-                      bottom: Radius.circular(12.r),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(10.w, 10.h, 10.w, 12.h),
-                    child: Column(
-                      children: List.generate(exercise.sets.length, (setIndex) {
-                        if (controllers.length <= setIndex) {
-                          return const SizedBox.shrink();
-                        }
-                        final defaultReps =
-                            exercise.style == ExerciseStyle.setsReps
-                            ? exercise.sets[setIndex].reps
-                            : null;
-                        final defaultTimeSeconds =
-                            exercise.style == ExerciseStyle.setsTime
-                            ? exercise.sets[setIndex].timeSeconds
-                            : null;
-                        return WorkoutSetEntryRow(
-                          setIndex: setIndex,
-                          isSaved:
-                              savedStatus.length > setIndex &&
-                              savedStatus[setIndex],
-                          setControllers: controllers[setIndex],
-                          style: exercise.style,
-                          focusNodes: focusNodes.length > setIndex
-                              ? focusNodes[setIndex]
-                              : null,
-                          isLastSet: setIndex == exercise.sets.length - 1,
-                          defaultReps: defaultReps,
-                          defaultTimeSeconds: defaultTimeSeconds,
-                          onSaveSet: () => onSaveSet(exerciseId, setIndex),
-                          onFocusNextSet: (nextSetIndex, fieldType) =>
-                              _moveToNextSet(exerciseId, setIndex, fieldType),
-                        );
-                      }),
-                    ),
-                  ),
-                ),
-                crossFadeState: isCollapsed
-                    ? CrossFadeState.showFirst
-                    : CrossFadeState.showSecond,
-                duration: const Duration(milliseconds: 300),
-                sizeCurve: Curves.easeInOut,
-              ),
-              if (exerciseCoachFeedback[exerciseId] != null)
-                WorkoutExerciseCoachFeedbackCard(
-                  feedback: exerciseCoachFeedback[exerciseId]!,
-                  compact: compact,
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSupersetExerciseCard(SupersetExercise exercise) {
-    final exerciseId = exercise.id;
-    final isCollapsed = collapsedExercises[exerciseId] ?? false;
-    final totalSets = exercise.exercises.first.sets.length;
-    final supersetTag = exercise.tag;
-    int supersetCompletedSets = 0;
-    int supersetTotalSets = 0;
-    for (final item in exercise.exercises) {
-      final itemId = '${exercise.id}_${item.exerciseId}';
-      final itemStatus = setSavedStatus[itemId] ?? [];
-      supersetCompletedSets += itemStatus.where((s) => s).length;
-      supersetTotalSets += item.sets.length;
-    }
-
-    return Builder(
-      builder: (context) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        final cardRadius = compact ? 14.r : 16.r;
-        final headerVertical = compact ? 8.h : 10.h;
-        final leadingBoxSize = compact ? 32.w : 36.w;
-        final actionBoxSize = compact ? 28.w : 32.w;
-        return Container(
-          margin: EdgeInsets.only(bottom: compact ? 10.h : 12.h),
-          decoration: BoxDecoration(
-            color: isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor,
-            borderRadius: BorderRadius.circular(cardRadius),
-            border: Border.all(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.15),
-              width: 1.w,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isDark
-                    ? Colors.black.withValues(alpha: 0.3)
-                    : AppTheme.lightTextColor.withValues(alpha: 0.05),
-                blurRadius: 8.r,
-                offset: Offset(0.w, 2.h),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // Header - Always visible
-              InkWell(
-                onTap: () => onToggleCollapse(exerciseId),
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(cardRadius),
-                ),
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 12.w,
-                    vertical: headerVertical,
-                  ),
-                  child: Row(
-                    children: [
-                      // Superset icon
-                      Container(
-                        width: leadingBoxSize,
-                        height: leadingBoxSize,
-                        decoration: BoxDecoration(
-                          color: AppTheme.goldColor.withValues(
-                            alpha: isDark ? 0.15 : 0.1,
-                          ),
-                          borderRadius: BorderRadius.circular(8.r),
-                          border: Border.all(
-                            color: AppTheme.goldColor.withValues(alpha: 0.25),
-                            width: 0.8.w,
-                          ),
-                        ),
-                        child: Icon(
-                          LucideIcons.zap,
-                          color: WorkoutLogColors.iconOnSurface(context),
-                          size: 16.sp,
-                        ),
-                      ),
-                      SizedBox(width: compact ? 8.w : 10.w),
-                      // Superset info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 8.w,
-                                    vertical: 3.h,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.goldColor.withValues(
-                                      alpha: isDark ? 0.15 : 0.1,
-                                    ),
-                                    borderRadius: BorderRadius.circular(6.r),
-                                    border: Border.all(
-                                      color: AppTheme.goldColor.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                      width: 0.5.w,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'سوپرست',
-                                    style: WorkoutLogTypography.caption(
-                                      context,
-                                      color: WorkoutLogColors.labelAccent(
-                                        context,
-                                      ),
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: compact ? 2.h : 4.h),
-                            Wrap(
-                              spacing: 6.w,
-                              runSpacing: 4.h,
-                              children: [
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 6.w,
-                                    vertical: 3.h,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isDark
-                                        ? Colors.grey[800]!.withValues(
-                                            alpha: 0.3,
-                                          )
-                                        : AppTheme.lightDividerColor.withValues(
-                                            alpha: 0.25,
-                                          ),
-                                    borderRadius: BorderRadius.circular(6.r),
-                                    border: Border.all(
-                                      color: isDark
-                                          ? Colors.grey.withValues(alpha: 0.15)
-                                          : AppTheme.lightDividerColor
-                                                .withValues(alpha: 0.5),
-                                      width: 0.5.w,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    '${exercise.exercises.length} تمرین • $totalSets ست',
-                                    style: WorkoutLogTypography.caption(
-                                      context,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 4.h),
-                            _buildSetCompletionIndicator(
-                              context,
-                              supersetCompletedSets,
-                              supersetTotalSets,
-                            ),
-                            if (exercise.note != null &&
-                                exercise.note!.isNotEmpty) ...[
-                              SizedBox(height: compact ? 4.h : 6.h),
-                              _buildExerciseNote(context, exercise.note!),
-                            ],
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 4.w),
-                      // Collapse/Expand icon - مینیمال و شیک
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(8.r),
-                          onTap: () => onToggleCollapse(exerciseId),
-                          child: Container(
-                            width: actionBoxSize,
-                            height: actionBoxSize,
-                            padding: EdgeInsets.all(6.w),
-                            decoration: BoxDecoration(
-                              color: AppTheme.goldColor.withValues(
-                                alpha: isDark ? 0.12 : 0.1,
-                              ),
-                              borderRadius: BorderRadius.circular(8.r),
-                              border: Border.all(
-                                color: AppTheme.goldColor.withValues(
-                                  alpha: 0.25,
-                                ),
-                                width: 1.w,
-                              ),
-                            ),
-                            child: Icon(
-                              isCollapsed
-                                  ? LucideIcons.chevronDown
-                                  : LucideIcons.chevronUp,
-                              color: WorkoutLogColors.iconOnSurface(context),
-                              size: compact ? 14.sp : 16.sp,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // Exercises - Collapsible با انیمیشن
-              AnimatedCrossFade(
-                firstChild: const SizedBox.shrink(),
-                secondChild: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: WorkoutLogColors.setsPanelBackground(context),
-                    borderRadius: BorderRadius.vertical(
-                      bottom: Radius.circular(12.r),
-                    ),
-                  ),
-                  child: Column(
-                    children: exercise.exercises.map((item) {
-                      final itemId = '${exercise.id}_${item.exerciseId}';
-                      final savedStatus = setSavedStatus[itemId] ?? [];
-                      final focusNodes = exerciseFocusNodes[itemId] ?? [];
-                      final controllers = exerciseControllers[itemId] ?? [];
-                      final itemExerciseDetails =
-                          exerciseDetails[item.exerciseId];
-
-                      return Column(
-                        children: [
-                          // Exercise header
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 12.w,
-                              vertical: 8.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.black.withValues(alpha: 0.2)
-                                  : AppTheme.lightCardColor.withValues(
-                                      alpha: 0.4,
-                                    ),
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: isDark
-                                      ? Colors.grey.withValues(alpha: 0.1)
-                                      : AppTheme.lightDividerColor.withValues(
-                                          alpha: 0.35,
-                                        ),
-                                  width: 0.5.w,
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 28.w,
-                                  height: 28.h,
-                                  decoration: BoxDecoration(
-                                    color: WorkoutLogColors.accent(
-                                      context,
-                                    ).withValues(alpha: isDark ? 0.18 : 0.12),
-                                    borderRadius: BorderRadius.circular(6.r),
-                                    border: Border.all(
-                                      color: WorkoutLogColors.accent(
-                                        context,
-                                      ).withValues(alpha: 0.3),
-                                      width: 0.5.w,
-                                    ),
-                                  ),
-                                  child: itemExerciseDetails?.imageUrl != null
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            6.r,
-                                          ),
-                                          child: CachedNetworkImage(
-                                            imageUrl:
-                                                itemExerciseDetails!.imageUrl,
-                                            fit: BoxFit.cover,
-                                            placeholder: (context, url) => Icon(
-                                              LucideIcons.dumbbell,
-                                              color:
-                                                  WorkoutLogColors.supersetAccent(
-                                                    context,
-                                                  ).withValues(alpha: 0.55),
-                                              size: 12.sp,
-                                            ),
-                                            errorWidget:
-                                                (context, url, error) => Icon(
-                                                  LucideIcons.dumbbell,
-                                                  color:
-                                                      WorkoutLogColors.supersetAccent(
-                                                        context,
-                                                      ),
-                                                  size: 12.sp,
-                                                ),
-                                          ),
-                                        )
-                                      : Icon(
-                                          LucideIcons.dumbbell,
-                                          color:
-                                              WorkoutLogColors.supersetAccent(
-                                                context,
-                                              ),
-                                          size: 12.sp,
-                                        ),
-                                ),
-                                SizedBox(width: 8.w),
-                                Expanded(
-                                  child: Text(
-                                    _getExerciseName(
-                                      item.exerciseId,
-                                      fallbackTag: supersetTag,
-                                    ),
-                                    style: WorkoutLogTypography.exerciseTitle(
-                                      context,
-                                    ).copyWith(fontSize: 13.sp),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Sets for this exercise
-                          ...List.generate(item.sets.length, (setIndex) {
-                            final defaultReps =
-                                item.style == ExerciseStyle.setsReps
-                                ? item.sets[setIndex].reps
-                                : null;
-                            final defaultTimeSeconds =
-                                item.style == ExerciseStyle.setsTime
-                                ? item.sets[setIndex].timeSeconds
-                                : null;
-                            return WorkoutSetEntryRow(
-                              setIndex: setIndex,
-                              isSaved:
-                                  savedStatus.length > setIndex &&
-                                  savedStatus[setIndex],
-                              setControllers: controllers[setIndex],
-                              style: item.style,
-                              focusNodes: focusNodes.length > setIndex
-                                  ? focusNodes[setIndex]
-                                  : null,
-                              isLastSet: setIndex == item.sets.length - 1,
-                              defaultReps: defaultReps,
-                              defaultTimeSeconds: defaultTimeSeconds,
-                              onSaveSet: () => onSaveSet(itemId, setIndex),
-                              onFocusNextSet: (nextSetIndex, fieldType) =>
-                                  _moveToNextSet(itemId, setIndex, fieldType),
-                            );
-                          }),
-                          if (!isCollapsed &&
-                              exerciseCoachFeedback[itemId] != null)
-                            WorkoutExerciseCoachFeedbackCard(
-                              feedback: exerciseCoachFeedback[itemId]!,
-                              compact: compact,
-                            ),
-                        ],
-                      );
-                    }).toList(),
-                  ),
-                ),
-                crossFadeState: isCollapsed
-                    ? CrossFadeState.showFirst
-                    : CrossFadeState.showSecond,
-                duration: const Duration(milliseconds: 300),
-                sizeCurve: Curves.easeInOut,
-              ),
-              if (isCollapsed)
-                ...exercise.exercises.map((item) {
-                  final itemId = '${exercise.id}_${item.exerciseId}';
-                  final feedback = exerciseCoachFeedback[itemId];
-                  if (feedback == null) return null;
-                  return WorkoutExerciseCoachFeedbackCard(
-                    feedback: feedback,
-                    compact: compact,
-                  );
-                }).whereType<Widget>(),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildExerciseNote(BuildContext context, String note) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 5.h),
-      decoration: BoxDecoration(
-        color: WorkoutLogColors.noteBackground(context),
-        borderRadius: BorderRadius.circular(6.r),
-        border: Border.all(
-          color: WorkoutLogColors.noteBorder(context),
-          width: 0.8.w,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return _shell(
+      context: context,
+      complete: isComplete,
+      focused: !isCollapsed && !isComplete,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(
-            LucideIcons.messageCircle,
-            color: WorkoutLogColors.noteText(context),
-            size: 12.sp,
+          InkWell(
+            onTap: () {
+              onDismissKeyboard?.call();
+              numpad?.close();
+              onToggleCollapse(exerciseId);
+            },
+            borderRadius: BorderRadius.vertical(top: Radius.circular(14.r)),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(12.w, 10.h, 8.w, 10.h),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _OrderBadge(index: orderIndex, complete: isComplete),
+                  SizedBox(width: 10.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: WorkoutLogTypography.exerciseTitle(
+                            context,
+                          ).copyWith(fontSize: 14.sp, height: 1.25),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: 2.h),
+                        Text(
+                          statusText,
+                          style: WorkoutLogTypography.caption(
+                            context,
+                            color: isComplete
+                                ? WorkoutLogColors.successText(context)
+                                : WorkoutLogColors.mutedText(context),
+                            fontWeight: FontWeight.w700,
+                          ).copyWith(fontSize: 11.sp),
+                          textDirection: isCollapsed && isComplete
+                              ? TextDirection.ltr
+                              : null,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (!isCollapsed &&
+                            note != null &&
+                            note.isNotEmpty) ...[
+                          SizedBox(height: 4.h),
+                          Text(
+                            note,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: WorkoutLogTypography.caption(
+                              context,
+                              color: WorkoutLogColors.mutedText(context),
+                            ).copyWith(fontSize: 11.sp, height: 1.35),
+                          ),
+                        ],
+                        if (!isCollapsed)
+                          _PreviousSetsLine(
+                            previousSets:
+                                previousSetsByExerciseId[exercise.exerciseId],
+                          ),
+                      ],
+                    ),
+                  ),
+                  _HeaderActions(
+                    isCollapsed: isCollapsed,
+                    onTutorial: () => onNavigateToTutorial(exercise.exerciseId),
+                  ),
+                ],
+              ),
+            ),
           ),
-          SizedBox(width: 5.w),
-          Expanded(
-            child: Text(note, style: WorkoutLogTypography.note(context)),
-          ),
+          if (!isCollapsed)
+            Padding(
+              padding: EdgeInsets.fromLTRB(10.w, 0, 10.w, 8.h),
+              child: Column(
+                children: List.generate(exercise.sets.length, (setIndex) {
+                  if (controllers.length <= setIndex) {
+                    return const SizedBox.shrink();
+                  }
+                  final previous =
+                      previousSetsByExerciseId[exercise.exerciseId];
+                  final prevSet =
+                      previous != null && setIndex < previous.length
+                      ? previous[setIndex]
+                      : null;
+                  return WorkoutSetEntryRow(
+                    setIndex: setIndex,
+                    isSaved: savedStatus.length > setIndex &&
+                        savedStatus[setIndex],
+                    setControllers: controllers[setIndex],
+                    style: exercise.style,
+                    focusNodes: focusNodes.length > setIndex
+                        ? focusNodes[setIndex]
+                        : null,
+                    isLastSet: setIndex == exercise.sets.length - 1,
+                    defaultReps: exercise.style == ExerciseStyle.setsReps
+                        ? exercise.sets[setIndex].reps
+                        : null,
+                    defaultWeight: exercise.style == ExerciseStyle.setsReps
+                        ? exercise.sets[setIndex].weight
+                        : null,
+                    defaultTimeSeconds:
+                        exercise.style == ExerciseStyle.setsTime
+                        ? exercise.sets[setIndex].timeSeconds
+                        : null,
+                    previousReps: prevSet?.reps,
+                    previousWeight: prevSet?.weight,
+                    previousTimeSeconds: prevSet?.seconds,
+                    numpad: numpad,
+                    onSaveSet: () => onSaveSet(exerciseId, setIndex),
+                    onUnsaveSet: () => onUnsaveSet?.call(exerciseId, setIndex),
+                    onOpenNextSet: setIndex < exercise.sets.length - 1
+                        ? () => _openNextSetDock(
+                              numpad: numpad,
+                              controllers: controllers,
+                              savedStatus: savedStatus,
+                              style: exercise.style,
+                              exerciseId: exerciseId,
+                              nextIndex: setIndex + 1,
+                              lastIndex: exercise.sets.length - 1,
+                              sets: exercise.sets,
+                              previousSets: previous,
+                              onSaveSet: onSaveSet,
+                              onUnsaveSet: onUnsaveSet,
+                            )
+                        : null,
+                  );
+                }),
+              ),
+            ),
+          if (isComplete && exerciseCoachFeedback[exerciseId] != null)
+            WorkoutExerciseCoachFeedbackCard(
+              feedback: exerciseCoachFeedback[exerciseId]!,
+              compact: true,
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildSetCompletionIndicator(
-    BuildContext context,
-    int completed,
-    int total,
-  ) {
-    if (total == 0) return const SizedBox.shrink();
-    final isAllDone = completed == total;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ...List.generate(total, (i) {
-          final done = i < completed;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            width: 8.w,
-            height: 8.w,
-            margin: EdgeInsets.only(left: 3.w),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: done
-                  ? WorkoutLogColors.successSolid(context)
-                  : WorkoutLogColors.pendingDot(context),
-            ),
-          );
-        }),
-        SizedBox(width: 6.w),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          child: Text(
-            isAllDone ? '✓ کامل' : '$completed/$total ست',
-            key: ValueKey('$completed-$total'),
-            style: WorkoutLogTypography.caption(
-              context,
-              color: isAllDone
-                  ? WorkoutLogColors.successText(context)
-                  : WorkoutLogColors.secondaryText(context),
-              fontWeight: isAllDone ? FontWeight.w800 : FontWeight.w700,
+  Widget _buildSuperset(BuildContext context, SupersetExercise exercise) {
+    final exerciseId = exercise.id;
+    final isCollapsed = collapsedExercises[exerciseId] ?? false;
+    var completed = 0;
+    var total = 0;
+    for (final item in exercise.exercises) {
+      final itemId = '${exercise.id}_${item.exerciseId}';
+      final status = setSavedStatus[itemId] ?? [];
+      completed += status.where((s) => s).length;
+      total += item.sets.length;
+    }
+    final isComplete = total > 0 && completed >= total;
+
+    return _shell(
+      context: context,
+      complete: isComplete,
+      focused: !isCollapsed && !isComplete,
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () {
+              onDismissKeyboard?.call();
+              numpad?.close();
+              onToggleCollapse(exerciseId);
+            },
+            borderRadius: BorderRadius.vertical(top: Radius.circular(14.r)),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(12.w, 10.h, 10.w, 10.h),
+              child: Row(
+                children: [
+                  _OrderBadge(index: orderIndex, complete: isComplete),
+                  SizedBox(width: 10.w),
+                  Icon(
+                    LucideIcons.zap,
+                    size: 14.sp,
+                    color: AppTheme.goldColor,
+                  ),
+                  SizedBox(width: 6.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          exercise.tag.isNotEmpty
+                              ? 'سوپرست · ${exercise.tag}'
+                              : 'سوپرست',
+                          style: WorkoutLogTypography.exerciseTitle(
+                            context,
+                          ).copyWith(fontSize: 14.sp),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: 2.h),
+                        Text(
+                          isComplete
+                              ? 'کامل'
+                              : (!isCollapsed
+                                    ? 'در حال ثبت · $completed/$total'
+                                    : '$completed/$total'),
+                          style: WorkoutLogTypography.caption(
+                            context,
+                            color: isComplete
+                                ? WorkoutLogColors.successText(context)
+                                : WorkoutLogColors.mutedText(context),
+                            fontWeight: FontWeight.w700,
+                          ).copyWith(fontSize: 11.sp),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    isCollapsed
+                        ? LucideIcons.chevronDown
+                        : LucideIcons.chevronUp,
+                    size: 18.sp,
+                    color: WorkoutLogColors.mutedText(context),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+          if (!isCollapsed)
+            Padding(
+              padding: EdgeInsets.fromLTRB(10.w, 0, 10.w, 8.h),
+              child: Column(
+                children: exercise.exercises.map((item) {
+                  final itemId = '${exercise.id}_${item.exerciseId}';
+                  final controllers = exerciseControllers[itemId] ?? [];
+                  final focusNodes = exerciseFocusNodes[itemId] ?? [];
+                  final savedStatus = setSavedStatus[itemId] ?? [];
+                  return Padding(
+                    padding: EdgeInsets.only(top: 6.h),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 4.w),
+                          child: Text(
+                            _name(item.exerciseId),
+                            style: WorkoutLogTypography.caption(
+                              context,
+                              fontWeight: FontWeight.w800,
+                            ).copyWith(fontSize: 12.sp),
+                          ),
+                        ),
+                        _PreviousSetsLine(
+                          previousSets:
+                              previousSetsByExerciseId[item.exerciseId],
+                        ),
+                        SizedBox(height: 4.h),
+                        ...List.generate(item.sets.length, (setIndex) {
+                          if (controllers.length <= setIndex) {
+                            return const SizedBox.shrink();
+                          }
+                          final previous =
+                              previousSetsByExerciseId[item.exerciseId];
+                          final prevSet =
+                              previous != null && setIndex < previous.length
+                              ? previous[setIndex]
+                              : null;
+                          return WorkoutSetEntryRow(
+                            setIndex: setIndex,
+                            isSaved: savedStatus.length > setIndex &&
+                                savedStatus[setIndex],
+                            setControllers: controllers[setIndex],
+                            style: item.style,
+                            focusNodes: focusNodes.length > setIndex
+                                ? focusNodes[setIndex]
+                                : null,
+                            isLastSet: setIndex == item.sets.length - 1,
+                            defaultReps: item.style == ExerciseStyle.setsReps
+                                ? item.sets[setIndex].reps
+                                : null,
+                            defaultWeight: item.style == ExerciseStyle.setsReps
+                                ? item.sets[setIndex].weight
+                                : null,
+                            defaultTimeSeconds:
+                                item.style == ExerciseStyle.setsTime
+                                ? item.sets[setIndex].timeSeconds
+                                : null,
+                            previousReps: prevSet?.reps,
+                            previousWeight: prevSet?.weight,
+                            previousTimeSeconds: prevSet?.seconds,
+                            numpad: numpad,
+                            onSaveSet: () => onSaveSet(itemId, setIndex),
+                            onUnsaveSet: () =>
+                                onUnsaveSet?.call(itemId, setIndex),
+                            onOpenNextSet: setIndex < item.sets.length - 1
+                                ? () => _openNextSetDock(
+                                      numpad: numpad,
+                                      controllers: controllers,
+                                      savedStatus: savedStatus,
+                                      style: item.style,
+                                      exerciseId: itemId,
+                                      nextIndex: setIndex + 1,
+                                      lastIndex: item.sets.length - 1,
+                                      sets: item.sets,
+                                      previousSets: previous,
+                                      onSaveSet: onSaveSet,
+                                      onUnsaveSet: onUnsaveSet,
+                                    )
+                                : null,
+                          );
+                        }),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
-  String _getExerciseName(int exerciseId, {String? fallbackTag}) {
-    final exerciseDetail = exerciseDetails[exerciseId];
-    if (exerciseDetail != null) {
-      return exerciseDetail.name;
+  void _openNextSetDock({
+    required WorkoutSetNumpadController? numpad,
+    required List<Map<String, TextEditingController>> controllers,
+    required List<bool> savedStatus,
+    required ExerciseStyle style,
+    required String exerciseId,
+    required int nextIndex,
+    required int lastIndex,
+    required List<ExerciseSet> sets,
+    required Future<bool> Function(String, int) onSaveSet,
+    required void Function(String, int)? onUnsaveSet,
+    List<PreviousExerciseSet>? previousSets,
+  }) {
+    if (numpad == null || nextIndex >= controllers.length) return;
+    final c = controllers[nextIndex];
+    final set = sets[nextIndex];
+    final prev = previousSets != null && nextIndex < previousSets.length
+        ? previousSets[nextIndex]
+        : null;
+    final hintReps = prev?.reps ?? set.reps;
+    final hintWeight = (prev?.weight != null && prev!.weight! > 0)
+        ? prev.weight
+        : set.weight;
+    final hintTime = prev?.seconds ?? set.timeSeconds;
+    final isSaved =
+        savedStatus.length > nextIndex && savedStatus[nextIndex];
+
+    void seed() {
+      if (style == ExerciseStyle.setsReps) {
+        if ((c['reps']?.text.trim().isEmpty ?? true) && hintReps != null) {
+          c['reps']!.text = hintReps.toString();
+        }
+        if ((c['weight']?.text.trim().isEmpty ?? true) &&
+            hintWeight != null &&
+            hintWeight > 0) {
+          final w = hintWeight;
+          c['weight']!.text =
+              w == w.roundToDouble() ? w.toInt().toString() : w.toString();
+        }
+      } else if ((c['time']?.text.trim().isEmpty ?? true) &&
+          hintTime != null) {
+        c['time']!.text = hintTime.toString();
+      }
     }
-    // اگر exerciseDetail موجود نباشد، از tag استفاده کن
-    if (fallbackTag != null && fallbackTag.isNotEmpty) {
-      return fallbackTag;
-    }
-    return 'تمرین';
+
+    final field = style == ExerciseStyle.setsReps
+        ? WorkoutSetNumpadFieldKind.reps
+        : WorkoutSetNumpadFieldKind.time;
+
+    numpad.open(
+      WorkoutSetNumpadSession(
+        controllers: c,
+        style: style,
+        isSaved: isSaved,
+        repsHint: hintReps?.toString(),
+        weightHint: hintWeight != null && hintWeight > 0
+            ? (hintWeight == hintWeight.roundToDouble()
+                  ? hintWeight.toInt().toString()
+                  : hintWeight.toString())
+            : null,
+        timeHint: hintTime?.toString(),
+        onCommit: () async {
+          seed();
+          return onSaveSet(exerciseId, nextIndex);
+        },
+        onUncommit: () => onUnsaveSet?.call(exerciseId, nextIndex),
+        onPersistEdits: () {
+          // ignore: discarded_futures
+          onSaveSet(exerciseId, nextIndex);
+        },
+        onFinished: nextIndex < lastIndex
+            ? () => _openNextSetDock(
+                  numpad: numpad,
+                  controllers: controllers,
+                  savedStatus: savedStatus,
+                  style: style,
+                  exerciseId: exerciseId,
+                  nextIndex: nextIndex + 1,
+                  lastIndex: lastIndex,
+                  sets: sets,
+                  previousSets: previousSets,
+                  onSaveSet: onSaveSet,
+                  onUnsaveSet: onUnsaveSet,
+                )
+            : null,
+        field: field,
+      ),
+      field: field,
+    );
   }
 
-  void _moveToNextSet(
-    String exerciseId,
-    int currentSetIndex,
-    String fieldType,
+  String _summary(
+    NormalExercise exercise,
+    List<Map<String, TextEditingController>> controllers,
+    List<bool> savedStatus,
   ) {
-    // Find the next set's focus node
-    final controllers = exerciseControllers[exerciseId];
-    if (controllers == null || currentSetIndex >= controllers.length - 1) {
-      return;
+    final parts = <String>[];
+    for (var i = 0; i < controllers.length; i++) {
+      if (i >= savedStatus.length || !savedStatus[i]) continue;
+      final c = controllers[i];
+      if (exercise.style == ExerciseStyle.setsTime) {
+        final t = c['time']?.text.trim() ?? '';
+        if (t.isNotEmpty) parts.add('$tث');
+      } else {
+        final reps = c['reps']?.text.trim() ?? '';
+        final weight = c['weight']?.text.trim() ?? '';
+        if (reps.isEmpty && weight.isEmpty) continue;
+        if (weight.isEmpty) {
+          parts.add(reps);
+        } else if (reps.isEmpty) {
+          parts.add(_fmtWeight(weight));
+        } else {
+          parts.add('\u200E$reps\u00D7${_fmtWeight(weight)}');
+        }
+      }
     }
+    return parts.isEmpty ? 'کامل' : parts.join('  ·  ');
+  }
 
-    final nextSetIndex = currentSetIndex + 1;
-    final nextFocusNodes = exerciseFocusNodes[exerciseId];
-    if (nextFocusNodes != null && nextSetIndex < nextFocusNodes.length) {
-      final nextSetFocusNodes = nextFocusNodes[nextSetIndex];
-      nextSetFocusNodes[fieldType]?.requestFocus();
-    }
+  static String _fmtWeight(String raw) {
+    final d = double.tryParse(raw);
+    if (d == null) return raw;
+    if (d == d.roundToDouble()) return d.toInt().toString();
+    return d.toString();
+  }
+
+  String _name(int exerciseId, {String? fallbackTag}) {
+    final detail = exerciseDetails[exerciseId];
+    if (detail != null) return detail.name;
+    if (fallbackTag != null && fallbackTag.isNotEmpty) return fallbackTag;
+    return 'تمرین';
+  }
+}
+
+class _OrderBadge extends StatelessWidget {
+  const _OrderBadge({required this.index, this.complete = false});
+
+  final int index;
+  final bool complete;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = complete
+        ? WorkoutLogColors.successSolid(context).withValues(alpha: 0.14)
+        : AppTheme.goldColor.withValues(alpha: 0.12);
+    final fg = complete
+        ? WorkoutLogColors.successText(context)
+        : AppTheme.goldColor;
+
+    return Container(
+      width: 26.w,
+      height: 26.w,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8.r),
+      ),
+      child: Text(
+        '$index',
+        style: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontWeight: FontWeight.w900,
+          fontSize: 12.sp,
+          color: fg,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderActions extends StatelessWidget {
+  const _HeaderActions({
+    required this.isCollapsed,
+    required this.onTutorial,
+  });
+
+  final bool isCollapsed;
+  final VoidCallback onTutorial;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: 'آموزش',
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: BoxConstraints.tightFor(width: 30.w, height: 30.w),
+          onPressed: onTutorial,
+          icon: Icon(
+            LucideIcons.circlePlay,
+            size: 16.sp,
+            color: WorkoutLogColors.mutedText(context),
+          ),
+        ),
+        Icon(
+          isCollapsed ? LucideIcons.chevronDown : LucideIcons.chevronUp,
+          size: 17.sp,
+          color: WorkoutLogColors.mutedText(context),
+        ),
+        SizedBox(width: 2.w),
+      ],
+    );
+  }
+}
+
+class _PreviousSetsLine extends StatelessWidget {
+  const _PreviousSetsLine({this.previousSets});
+
+  final List<PreviousExerciseSet>? previousSets;
+
+  @override
+  Widget build(BuildContext context) {
+    final sets = previousSets;
+    if (sets == null || sets.isEmpty) return const SizedBox.shrink();
+
+    final summary = sets.map((s) => s.summaryLabel).join('  ·  ');
+    return Padding(
+      padding: EdgeInsets.only(top: 4.h),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: 'قبلی · ',
+              style: WorkoutLogTypography.caption(
+                context,
+                color: WorkoutLogColors.mutedText(context),
+                fontWeight: FontWeight.w700,
+              ).copyWith(fontSize: 10.5.sp, height: 1.3),
+            ),
+            TextSpan(
+              text: summary,
+              style: WorkoutLogTypography.caption(
+                context,
+                color: WorkoutLogColors.mutedText(context),
+              ).copyWith(
+                fontSize: 10.5.sp,
+                height: 1.3,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textDirection: TextDirection.rtl,
+      ),
+    );
   }
 }

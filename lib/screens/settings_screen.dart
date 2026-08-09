@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/services/app_feedback_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/theme/theme_provider.dart';
 import 'package:gymaipro/utils/support_launcher.dart';
@@ -25,6 +26,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   bool _isLoading = true;
   bool _notificationsEnabled = true;
   bool _soundEnabled = true;
+  bool _chatInAppSoundsEnabled = true;
   bool _vibrationEnabled = true;
   String _language = 'فارسی';
 
@@ -68,8 +70,11 @@ class _SettingsScreenState extends State<SettingsScreen>
       final prefs = await SharedPreferences.getInstance();
       setState(() {
         _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
-        _soundEnabled = prefs.getBool('sound_enabled') ?? true;
-        _vibrationEnabled = prefs.getBool('vibration_enabled') ?? true;
+        _soundEnabled = prefs.getBool(AppFeedbackService.soundEnabledKey) ?? true;
+        _chatInAppSoundsEnabled =
+            prefs.getBool(AppFeedbackService.chatInAppSoundsKey) ?? true;
+        _vibrationEnabled =
+            prefs.getBool(AppFeedbackService.vibrationEnabledKey) ?? true;
         _language = prefs.getString('language') ?? 'فارسی';
         _isLoading = false;
       });
@@ -89,8 +94,15 @@ class _SettingsScreenState extends State<SettingsScreen>
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('notifications_enabled', _notificationsEnabled);
-      await prefs.setBool('sound_enabled', _soundEnabled);
-      await prefs.setBool('vibration_enabled', _vibrationEnabled);
+      await prefs.setBool(AppFeedbackService.soundEnabledKey, _soundEnabled);
+      await prefs.setBool(
+        AppFeedbackService.chatInAppSoundsKey,
+        _chatInAppSoundsEnabled,
+      );
+      await prefs.setBool(
+        AppFeedbackService.vibrationEnabledKey,
+        _vibrationEnabled,
+      );
       await prefs.setString('language', _language);
 
       if (mounted) {
@@ -317,6 +329,22 @@ class _SettingsScreenState extends State<SettingsScreen>
                   _saveSettings();
                 },
               ),
+              SizedBox(height: 12.h),
+
+              _buildModernSwitchTile(
+                context: context,
+                isDark: isDark,
+                icon: LucideIcons.messageCircle,
+                title: 'صداهای گفتگو',
+                subtitle: 'صدای نرم ارسال و دریافت داخل چت',
+                value: _chatInAppSoundsEnabled,
+                onChanged: (value) {
+                  setState(() {
+                    _chatInAppSoundsEnabled = value;
+                  });
+                  _saveSettings();
+                },
+              ),
               if (!kIsWeb) ...[
                 SizedBox(height: 12.h),
 
@@ -326,7 +354,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   isDark: isDark,
                   icon: LucideIcons.vibrate,
                   title: 'لرزش',
-                  subtitle: 'لرزش دستگاه هنگام دریافت اعلان',
+                  subtitle: 'فیدبک لمسی و لرزش اعلان',
                   value: _vibrationEnabled,
                   onChanged: (value) {
                     setState(() {
@@ -402,18 +430,6 @@ class _SettingsScreenState extends State<SettingsScreen>
               _buildModernListTile(
                 context: context,
                 isDark: isDark,
-                icon: LucideIcons.helpCircle,
-                title: 'راهنما',
-                subtitle: 'مشاهده راهنمای استفاده',
-                onTap: () {
-                  Navigator.pushNamed(context, '/help');
-                },
-              ),
-              SizedBox(height: 12.h),
-
-              _buildModernListTile(
-                context: context,
-                isDark: isDark,
                 icon: LucideIcons.shield,
                 title: 'حریم خصوصی',
                 subtitle: 'نحوه استفاده از داده‌هایت',
@@ -447,7 +463,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 isDark: isDark,
                 icon: LucideIcons.sparkles,
                 title: 'درباره GymAI',
-                subtitle: 'ماموریت و نسخه فعلی',
+                subtitle: 'نسخه دمو · بازخورد و تماس',
                 onTap: () => Navigator.pushNamed(context, '/about-app'),
               ),
               SizedBox(height: 12.h),
@@ -455,12 +471,12 @@ class _SettingsScreenState extends State<SettingsScreen>
               _buildModernListTile(
                 context: context,
                 isDark: isDark,
-                icon: LucideIcons.messageCircle,
+                icon: LucideIcons.phone,
                 title: 'ارتباط با ما',
                 subtitle: SupportLauncher.supportPhone.isNotEmpty
-                    ? '${SupportLauncher.supportPhone} · ${SupportLauncher.telegramDisplayHandle}'
-                    : 'تماس با تیم پشتیبانی',
-                onTap: () => Navigator.pushNamed(context, '/help'),
+                    ? SupportLauncher.supportPhone
+                    : '۰۹۹۱۶۳۹۰۷۶۷',
+                onTap: () => SupportLauncher.openBestContact(context),
               ),
             ],
           ),

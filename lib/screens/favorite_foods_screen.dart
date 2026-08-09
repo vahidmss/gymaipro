@@ -126,18 +126,22 @@ class _FavoriteFoodsScreenState extends State<FavoriteFoodsScreen> {
         backgroundColor: context.backgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(LucideIcons.arrowRight, color: Colors.white),
+          icon: Icon(LucideIcons.arrowRight, color: context.textColor),
           onPressed: () => NavigationService.safePop(context),
         ),
-        title: const Text(
+        title: Text(
           'غذاهای مورد علاقه',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: context.textColor,
+            fontWeight: FontWeight.bold,
+            fontFamily: AppTheme.fontFamily,
+          ),
         ),
         centerTitle: true,
         actions: [
           if (_favoriteFoods.isNotEmpty)
             IconButton(
-              icon: const Icon(LucideIcons.search, color: Colors.white),
+              icon: Icon(LucideIcons.search, color: context.textColor),
               onPressed: () {
                 // Toggle search bar visibility by focusing/unfocusing
               },
@@ -232,21 +236,26 @@ class _FavoriteFoodsScreenState extends State<FavoriteFoodsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.heart, size: 80.sp, color: Colors.grey[600]),
+          Icon(LucideIcons.heart, size: 80.sp, color: context.textSecondary),
           const SizedBox(height: 16),
           Text(
             'هیچ غذایی در لیست مورد علاقه‌ها ندارید',
             style: TextStyle(
-              color: Colors.grey[400],
+              color: context.textSecondary,
               fontSize: 18.sp,
               fontWeight: FontWeight.w500,
+              fontFamily: AppTheme.fontFamily,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'برای اضافه کردن غذا به لیست مورد علاقه‌ها،\nروی آیکون قلب کلیک کنید',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            style: TextStyle(
+              color: context.textSecondary,
+              fontSize: 14,
+              fontFamily: AppTheme.fontFamily,
+            ),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
@@ -279,11 +288,17 @@ class _FavoriteFoodsScreenState extends State<FavoriteFoodsScreen> {
       child: TextField(
         controller: _searchController,
         onChanged: _onSearchChanged,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(
+          color: context.textColor,
+          fontFamily: AppTheme.fontFamily,
+        ),
         textDirection: TextDirection.rtl,
         decoration: InputDecoration(
           hintText: 'جستجو در غذاهای مورد علاقه...',
-          hintStyle: TextStyle(color: Colors.grey[400]),
+          hintStyle: TextStyle(
+            color: context.textSecondary,
+            fontFamily: AppTheme.fontFamily,
+          ),
           border: InputBorder.none,
           prefixIcon: Icon(
             LucideIcons.search,
@@ -292,7 +307,11 @@ class _FavoriteFoodsScreenState extends State<FavoriteFoodsScreen> {
           ),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-                  icon: const Icon(LucideIcons.x, color: Colors.grey, size: 20),
+                  icon: Icon(
+                    LucideIcons.x,
+                    color: context.textSecondary,
+                    size: 20,
+                  ),
                   onPressed: () {
                     _searchController.clear();
                     _onSearchChanged('');
@@ -309,21 +328,26 @@ class _FavoriteFoodsScreenState extends State<FavoriteFoodsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(LucideIcons.searchX, size: 60.sp, color: Colors.grey[600]),
+          Icon(LucideIcons.searchX, size: 60.sp, color: context.textSecondary),
           const SizedBox(height: 16),
           Text(
             'نتیجه‌ای یافت نشد',
             style: TextStyle(
-              color: Colors.grey[400],
+              color: context.textSecondary,
               fontSize: 18.sp,
               fontWeight: FontWeight.w500,
+              fontFamily: AppTheme.fontFamily,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             'برای کلمه کلیدی "$_searchQuery" غذایی یافت نشد',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            style: TextStyle(
+              color: context.textSecondary,
+              fontSize: 14,
+              fontFamily: AppTheme.fontFamily,
+            ),
           ),
         ],
       ),
@@ -441,9 +465,10 @@ class _FavoriteFoodsScreenState extends State<FavoriteFoodsScreen> {
                     Text(
                       title,
                       style: TextStyle(
-                        color: Colors.white,
+                        color: context.textColor,
                         fontSize: 16.sp,
                         fontWeight: FontWeight.bold,
+                        fontFamily: AppTheme.fontFamily,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -462,8 +487,9 @@ class _FavoriteFoodsScreenState extends State<FavoriteFoodsScreen> {
                         Text(
                           'مورد علاقه',
                           style: TextStyle(
-                            color: Colors.grey[400],
+                            color: context.textSecondary,
                             fontSize: 12.sp,
+                            fontFamily: AppTheme.fontFamily,
                           ),
                         ),
                       ],
@@ -496,25 +522,41 @@ class _FavoriteFoodsScreenState extends State<FavoriteFoodsScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16.r),
         ),
-        title: const Text(
+        title: Text(
           'حذف از مورد علاقه‌ها',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: context.textColor,
+            fontWeight: FontWeight.bold,
+            fontFamily: AppTheme.fontFamily,
+          ),
           textDirection: TextDirection.rtl,
         ),
         content: Text(
           'آیا از حذف "$title" از لیست مورد علاقه‌هایتان اطمینان دارید؟',
-          style: TextStyle(color: Colors.grey[300]),
+          style: TextStyle(
+            color: context.textSecondary,
+            fontFamily: AppTheme.fontFamily,
+          ),
           textDirection: TextDirection.rtl,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text('لغو', style: TextStyle(color: Colors.grey[400])),
+            child: Text(
+              'لغو',
+              style: TextStyle(
+                color: context.textSecondary,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red[300]),
-            child: const Text('حذف'),
+            child: Text(
+              'حذف',
+              style: TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
           ),
         ],
       ),

@@ -87,10 +87,10 @@ class NavigationUtils {
   /// Gets the navigation index for a given route
   static int? getIndexForRoute(String route) {
     switch (route) {
-      case NavigationConstants.chatRoute:
-        return NavigationConstants.chatIndex;
       case NavigationConstants.dashboardRoute:
-        return NavigationConstants.dashboardIndex;
+        return NavigationConstants.homeIndex;
+      case NavigationConstants.socialRoute:
+        return NavigationConstants.roleTabIndex;
       default:
         return null;
     }
@@ -99,11 +99,9 @@ class NavigationUtils {
   /// Gets the route for a given navigation index
   static String? getRouteForIndex(int index) {
     switch (index) {
-      case NavigationConstants.chatIndex:
-        return NavigationConstants.chatRoute;
-      case NavigationConstants.dashboardIndex:
+      case NavigationConstants.homeIndex:
         return NavigationConstants.dashboardRoute;
-      case NavigationConstants.socialIndex:
+      case NavigationConstants.roleTabIndex:
         return NavigationConstants.socialRoute;
       default:
         return null;

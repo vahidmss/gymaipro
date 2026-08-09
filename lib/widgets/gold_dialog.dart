@@ -175,14 +175,15 @@ class _GoldDialogState extends State<GoldDialog>
   }
 
   Widget _buildHeader(Color accentColor, BoxConstraints constraints) {
-    final headerPadding = constraints.maxWidth * 0.035.clamp(10.0, 16.0); // کاهش از 0.04
-    final iconSize = constraints.maxWidth * 0.055.clamp(16.0, 22.0); // کاهش از 0.06
-    final fontSize = constraints.maxWidth * 0.042.clamp(14.0, 17.0); // کاهش از 0.045
-    
+    final headerPadding = constraints.maxWidth * 0.035.clamp(10.0, 16.0);
+    final iconSize = constraints.maxWidth * 0.055.clamp(16.0, 22.0);
+    final fontSize = constraints.maxWidth * 0.042.clamp(14.0, 17.0);
+    final fg = context.textColor;
+
     return Container(
       padding: EdgeInsets.symmetric(
-        vertical: headerPadding * 0.5, // کاهش از 0.6
-        horizontal: headerPadding * 0.9, // کاهش از 1.0
+        vertical: headerPadding * 0.5,
+        horizontal: headerPadding * 0.9,
       ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -200,10 +201,10 @@ class _GoldDialogState extends State<GoldDialog>
             Container(
               padding: EdgeInsets.all(headerPadding * 0.5),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
+                color: accentColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(widget.icon, color: Colors.white, size: iconSize),
+              child: Icon(widget.icon, color: accentColor, size: iconSize),
             ),
             SizedBox(width: headerPadding * 0.75),
           ],
@@ -211,16 +212,10 @@ class _GoldDialogState extends State<GoldDialog>
             child: Text(
               widget.title,
               style: TextStyle(
-                color: Colors.white,
+                color: fg,
                 fontSize: fontSize,
                 fontWeight: FontWeight.w700,
-                shadows: [
-                  Shadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 1.5,
-                    offset: const Offset(0, 0.5),
-                  ),
-                ],
+                fontFamily: AppTheme.fontFamily,
               ),
             ),
           ),
@@ -228,7 +223,7 @@ class _GoldDialogState extends State<GoldDialog>
             IconButton(
               icon: Icon(
                 LucideIcons.x,
-                color: Colors.white.withValues(alpha: 0.9),
+                color: fg.withValues(alpha: 0.75),
                 size: iconSize * 0.85,
               ),
               onPressed: () => Navigator.of(context).pop(),
@@ -244,10 +239,10 @@ class _GoldDialogState extends State<GoldDialog>
   }
 
   Widget _buildBody(Color accentColor, BoxConstraints constraints) {
-    final bodyPadding = constraints.maxWidth * 0.035.clamp(10.0, 16.0); // کاهش از 0.04
-    final fontSize = constraints.maxWidth * 0.036.clamp(12.5, 14.5); // کاهش از 0.038
-    final spacing = constraints.maxWidth * 0.025.clamp(8.0, 12.0); // کاهش از 0.03
-    
+    final bodyPadding = constraints.maxWidth * 0.035.clamp(10.0, 16.0);
+    final fontSize = constraints.maxWidth * 0.036.clamp(12.5, 14.5);
+    final spacing = constraints.maxWidth * 0.025.clamp(8.0, 12.0);
+
     return AnimatedBuilder(
       animation: _contentAnimation,
       builder: (context, child) {
@@ -265,19 +260,16 @@ class _GoldDialogState extends State<GoldDialog>
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // پیام اصلی
             Text(
               widget.message,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.95),
+                color: context.textColor.withValues(alpha: 0.9),
                 fontSize: fontSize,
                 height: 1.5,
                 fontFamily: AppTheme.fontFamily,
               ),
               textAlign: TextAlign.justify,
             ),
-
-            // محتوای اضافی
             if (widget.additionalContent != null) ...[
               SizedBox(height: spacing),
               ...widget.additionalContent!,

@@ -1,25 +1,35 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:gymaipro/features/product_experience/presentation/metric_guide_card.dart';
-import 'package:gymaipro/features/product_experience/training_metric_guides.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/workout_log/widgets/workout_log_colors.dart';
+import 'package:gymaipro/workout_log/widgets/workout_set_numpad.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 
-/// Shared set row UI used in Workout Log and Live Workout.
-class WorkoutSetEntryRow extends StatelessWidget {
+/// ردیف ست به سبک Hevy/Strong:
+/// مقدار بده → تیک بزن تا ثبت شود.
+/// بعد از ثبت، ویرایش همان‌جا DB را به‌روز می‌کند.
+class WorkoutSetEntryRow extends StatefulWidget {
   const WorkoutSetEntryRow({
     required this.setIndex,
     required this.isSaved,
     required this.setControllers,
     required this.style,
     required this.onSaveSet,
+    this.onUnsaveSet,
     this.focusNodes,
     this.isLastSet = false,
     this.defaultReps,
+    this.defaultWeight,
     this.defaultTimeSeconds,
-    this.onFocusNextSet,
+    this.previousReps,
+    this.previousWeight,
+    this.previousTimeSeconds,
+    this.showColumnLabels = false,
+    this.numpad,
+    this.onOpenNextSet,
     super.key,
   });
 
@@ -27,320 +37,441 @@ class WorkoutSetEntryRow extends StatelessWidget {
   final bool isSaved;
   final Map<String, TextEditingController> setControllers;
   final ExerciseStyle style;
-  final VoidCallback onSaveSet;
+  final Future<bool> Function() onSaveSet;
+  final VoidCallback? onUnsaveSet;
   final Map<String, FocusNode>? focusNodes;
   final bool isLastSet;
+  /// هدف برنامه (fallback)
   final int? defaultReps;
+  final double? defaultWeight;
   final int? defaultTimeSeconds;
-  final void Function(int nextSetIndex, String fieldType)? onFocusNextSet;
+  /// آخرین اجرای واقعی همان ست — اولویت هینت/seed
+  final int? previousReps;
+  final double? previousWeight;
+  final int? previousTimeSeconds;
+  final bool showColumnLabels;
+  final WorkoutSetNumpadController? numpad;
+  final VoidCallback? onOpenNextSet;
+
+  @override
+  State<WorkoutSetEntryRow> createState() => _WorkoutSetEntryRowState();
+}
+
+class _WorkoutSetEntryRowState extends State<WorkoutSetEntryRow> {
+  int? get _hintReps => widget.previousReps ?? widget.defaultReps;
+  double? get _hintWeight => widget.previousWeight ?? widget.defaultWeight;
+  int? get _hintTime => widget.previousTimeSeconds ?? widget.defaultTimeSeconds;
+
+  void _seedDefaults() {
+    final c = widget.setControllers;
+    if (widget.style == ExerciseStyle.setsReps) {
+      if ((c['reps']?.text.trim().isEmpty ?? true) && _hintReps != null) {
+        c['reps']!.text = _hintReps.toString();
+      }
+      if ((c['weight']?.text.trim().isEmpty ?? true) &&
+          _hintWeight != null &&
+          _hintWeight! > 0) {
+        final w = _hintWeight!;
+        c['weight']!.text =
+            w == w.roundToDouble() ? w.toInt().toString() : w.toString();
+      }
+    } else {
+      if ((c['time']?.text.trim().isEmpty ?? true) && _hintTime != null) {
+        c['time']!.text = _hintTime.toString();
+      }
+    }
+  }
+
+  void _openDock(WorkoutSetNumpadFieldKind field) {
+    final numpad = widget.numpad;
+    if (numpad == null) return;
+
+    // عمداً seed نمی‌کنیم — hint فقط نمایش است تا حس «ثبت‌شده» ندهد
+    numpad.open(
+      WorkoutSetNumpadSession(
+        controllers: widget.setControllers,
+        style: widget.style,
+        isSaved: widget.isSaved,
+        repsHint: _hintReps?.toString(),
+        weightHint: _hintWeight != null && _hintWeight! > 0
+            ? (_hintWeight == _hintWeight!.roundToDouble()
+                  ? _hintWeight!.toInt().toString()
+                  : _hintWeight.toString())
+            : null,
+        timeHint: _hintTime?.toString(),
+        onCommit: () async {
+          _seedDefaults();
+          return widget.onSaveSet();
+        },
+        onUncommit: () => widget.onUnsaveSet?.call(),
+        onPersistEdits: () {
+          unawaited(widget.onSaveSet());
+        },
+        onFinished: widget.isLastSet ? null : widget.onOpenNextSet,
+        field: field,
+      ),
+      field: field,
+    );
+  }
+
+  String _displayOrHint(String raw, String hint) =>
+      raw.trim().isNotEmpty ? raw.trim() : hint;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = WorkoutLogColors.isDark(context);
-    final savedReps = setControllers['reps']?.text.trim() ?? '';
-    final savedTime = setControllers['time']?.text.trim() ?? '';
-    final savedWeight = setControllers['weight']?.text.trim() ?? '';
+    final numpad = widget.numpad;
 
-    final numericHint = style == ExerciseStyle.setsReps
-        ? (savedReps.isNotEmpty ? savedReps : (defaultReps?.toString() ?? ''))
-        : (savedTime.isNotEmpty
-              ? savedTime
-              : (defaultTimeSeconds?.toString() ?? ''));
+    Widget buildRow() {
+      final isSaved = widget.isSaved;
+      final style = widget.style;
+      final c = widget.setControllers;
+      final active = numpad?.isSessionFor(c) ?? false;
 
-    final weightHint = savedWeight.isNotEmpty ? savedWeight : '0';
-    final isEven = setIndex.isEven;
+      final repsHint = _hintReps?.toString() ?? '—';
+      final weightHint = _hintWeight != null && _hintWeight! > 0
+          ? (_hintWeight == _hintWeight!.roundToDouble()
+                ? _hintWeight!.toInt().toString()
+                : _hintWeight.toString())
+          : '—';
+      final timeHint = _hintTime?.toString() ?? '—';
 
-    final cardFill = isSaved
-        ? WorkoutLogColors.successBackground(context)
-        : isEven
-        ? WorkoutLogColors.sectionBackground(context)
-        : (isDark
-              ? const Color(0xFF141414)
-              : Colors.white.withValues(alpha: 0.92));
+      final repsEmpty = c['reps']?.text.trim().isEmpty ?? true;
+      final weightEmpty = c['weight']?.text.trim().isEmpty ?? true;
+      final timeEmpty = c['time']?.text.trim().isEmpty ?? true;
+      final rpeEmpty = c['rpe']?.text.trim().isEmpty ?? true;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
-      margin: EdgeInsets.only(bottom: 10.h),
-      decoration: BoxDecoration(
-        color: cardFill,
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(
-          color: isSaved
-              ? WorkoutLogColors.successBorder(context)
-              : WorkoutLogColors.inputBorder(context).withValues(alpha: 0.9),
-          width: isSaved ? 1.4.w : 1.w,
-        ),
-        boxShadow: isSaved
-            ? <BoxShadow>[
-                BoxShadow(
-                  color: WorkoutLogColors.successBorder(
-                    context,
-                  ).withValues(alpha: 0.12),
-                  blurRadius: 10.r,
-                  offset: Offset(0, 3.h),
+      return Directionality(
+        textDirection: TextDirection.ltr,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          margin: EdgeInsets.symmetric(vertical: 2.h),
+          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+          decoration: BoxDecoration(
+            color: isSaved
+                ? WorkoutLogColors.successBackground(context).withValues(
+                    alpha: 0.45,
+                  )
+                : (active
+                      ? AppTheme.goldColor.withValues(alpha: 0.06)
+                      : Colors.transparent),
+            borderRadius: BorderRadius.circular(10.r),
+            border: Border.all(
+              color: active
+                  ? AppTheme.goldColor.withValues(alpha: 0.45)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Row(
+            children: [
+              _SetCheck(
+                setIndex: widget.setIndex,
+                isSaved: isSaved,
+                onTap: () async {
+                  HapticFeedback.selectionClick();
+                  if (isSaved) {
+                    numpad?.close(persistEdits: false);
+                    (widget.onUnsaveSet ?? () {
+                      unawaited(widget.onSaveSet());
+                    })();
+                  } else {
+                    _seedDefaults();
+                    final ok = await widget.onSaveSet();
+                    if (!mounted || !ok) return;
+                    if (!widget.isLastSet && widget.onOpenNextSet != null) {
+                      // پد را نببند؛ مستقیم برو ست بعدی
+                      widget.onOpenNextSet!();
+                    } else {
+                      numpad?.close(persistEdits: false);
+                    }
+                  }
+                },
+              ),
+              SizedBox(width: 8.w),
+              if (style == ExerciseStyle.setsReps) ...[
+                Expanded(
+                  child: _ValueChip(
+                    value: _displayOrHint(c['reps']?.text ?? '', repsHint),
+                    muted: repsEmpty,
+                    isHint: repsEmpty,
+                    active: numpad?.isEditing(c['reps']) ?? false,
+                    onTap: () => _openDock(WorkoutSetNumpadFieldKind.reps),
+                  ),
                 ),
-              ]
-            : <BoxShadow>[
-                BoxShadow(
-                  color: (isDark ? Colors.black : AppTheme.lightTextColor)
-                      .withValues(alpha: isDark ? 0.22 : 0.05),
-                  blurRadius: 8.r,
-                  offset: Offset(0, 2.h),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4.w),
+                  child: Text(
+                    '×',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 12.sp,
+                      color: WorkoutLogColors.mutedText(context),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: _ValueChip(
+                    value: _displayOrHint(c['weight']?.text ?? '', weightHint),
+                    suffix: 'kg',
+                    muted: weightEmpty,
+                    isHint: weightEmpty,
+                    active: numpad?.isEditing(c['weight']) ?? false,
+                    onTap: () => _openDock(WorkoutSetNumpadFieldKind.weight),
+                  ),
+                ),
+                SizedBox(width: 6.w),
+                SizedBox(
+                  width: 40.w,
+                  child: _ValueChip(
+                    value: rpeEmpty ? '—' : c['rpe']!.text.trim(),
+                    muted: rpeEmpty,
+                    isHint: rpeEmpty,
+                    active: numpad?.isEditing(c['rpe']) ?? false,
+                    onTap: () => _openDock(WorkoutSetNumpadFieldKind.rpe),
+                  ),
+                ),
+              ] else ...[
+                Expanded(
+                  child: _ValueChip(
+                    value: _displayOrHint(c['time']?.text ?? '', timeHint),
+                    suffix: 'ث',
+                    muted: timeEmpty,
+                    isHint: timeEmpty,
+                    active: numpad?.isEditing(c['time']) ?? false,
+                    onTap: () => _openDock(WorkoutSetNumpadFieldKind.time),
+                  ),
+                ),
+                SizedBox(width: 6.w),
+                SizedBox(
+                  width: 40.w,
+                  child: _ValueChip(
+                    value: rpeEmpty ? '—' : c['rpe']!.text.trim(),
+                    muted: rpeEmpty,
+                    isHint: rpeEmpty,
+                    active: numpad?.isEditing(c['rpe']) ?? false,
+                    onTap: () => _openDock(WorkoutSetNumpadFieldKind.rpe),
+                  ),
                 ),
               ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14.r),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 280),
-                width: 4.w,
-                color: isSaved
-                    ? WorkoutLogColors.successSolid(context)
-                    : WorkoutLogColors.accent(context).withValues(
-                        alpha: isEven ? 0.55 : 0.35,
-                      ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (numpad == null) {
+      // مسیر بدون پد (مثلاً live workout) — کیبورد سیستم
+      return _LegacyEditableRow(
+        setIndex: widget.setIndex,
+        isSaved: widget.isSaved,
+        setControllers: widget.setControllers,
+        style: widget.style,
+        defaultReps: _hintReps,
+        defaultWeight: _hintWeight,
+        defaultTimeSeconds: _hintTime,
+        isLastSet: widget.isLastSet,
+        onSaveSet: widget.onSaveSet,
+        onUnsaveSet: widget.onUnsaveSet,
+      );
+    }
+    return ListenableBuilder(
+      listenable: numpad,
+      builder: (context, _) => buildRow(),
+    );
+  }
+}
+
+class _LegacyEditableRow extends StatelessWidget {
+  const _LegacyEditableRow({
+    required this.setIndex,
+    required this.isSaved,
+    required this.setControllers,
+    required this.style,
+    required this.onSaveSet,
+    required this.isLastSet,
+    this.onUnsaveSet,
+    this.defaultReps,
+    this.defaultWeight,
+    this.defaultTimeSeconds,
+  });
+
+  final int setIndex;
+  final bool isSaved;
+  final Map<String, TextEditingController> setControllers;
+  final ExerciseStyle style;
+  final Future<bool> Function() onSaveSet;
+  final VoidCallback? onUnsaveSet;
+  final bool isLastSet;
+  final int? defaultReps;
+  final double? defaultWeight;
+  final int? defaultTimeSeconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final repsHint = defaultReps?.toString() ?? '0';
+    final weightHint = defaultWeight != null && defaultWeight! > 0
+        ? defaultWeight!.toString()
+        : '0';
+    final timeHint = defaultTimeSeconds?.toString() ?? '0';
+
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 2.h),
+        child: Row(
+          children: [
+            _SetCheck(
+              setIndex: setIndex,
+              isSaved: isSaved,
+              onTap: () async {
+                if (isSaved) {
+                  (onUnsaveSet ?? () {
+                    unawaited(onSaveSet());
+                  })();
+                } else {
+                  await onSaveSet();
+                }
+              },
+            ),
+            SizedBox(width: 8.w),
+            if (style == ExerciseStyle.setsReps) ...[
+              Expanded(
+                child: _MiniField(
+                  controller: setControllers['reps'],
+                  hint: repsHint,
+                  emphasized: isSaved,
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4.w),
+                child: const Text('×'),
               ),
               Expanded(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(10.w, 10.h, 10.w, 10.h),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          _SetBadge(
-                            setIndex: setIndex,
-                            isSaved: isSaved,
-                          ),
-                          SizedBox(width: 10.w),
-                          Expanded(
-                            child: _MetricInputGroup(
-                              children: <Widget>[
-                                Expanded(
-                                  flex: style == ExerciseStyle.setsReps
-                                      ? 5
-                                      : 10,
-                                  child: TextField(
-                                    controller: style == ExerciseStyle.setsReps
-                                        ? setControllers['reps']
-                                        : setControllers['time'],
-                                    focusNode: focusNodes != null
-                                        ? (style == ExerciseStyle.setsReps
-                                              ? focusNodes!['reps']
-                                              : focusNodes!['time'])
-                                        : null,
-                                    keyboardType: TextInputType.number,
-                                    textAlign: TextAlign.center,
-                                    textInputAction:
-                                        style == ExerciseStyle.setsReps
-                                        ? TextInputAction.next
-                                        : (isLastSet
-                                              ? TextInputAction.done
-                                              : TextInputAction.next),
-                                    enableSuggestions: false,
-                                    autocorrect: false,
-                                    onSubmitted: (_) {
-                                      if (style == ExerciseStyle.setsReps) {
-                                        focusNodes?['weight']?.requestFocus();
-                                      } else if (isLastSet) {
-                                        focusNodes?['time']?.unfocus();
-                                      } else {
-                                        onFocusNextSet?.call(
-                                          setIndex + 1,
-                                          'time',
-                                        );
-                                      }
-                                      onSaveSet();
-                                    },
-                                    inputFormatters: <TextInputFormatter>[
-                                      FilteringTextInputFormatter.digitsOnly,
-                                    ],
-                                    style: WorkoutLogTypography.inputValue(
-                                      context,
-                                    ).copyWith(fontSize: 16.sp),
-                                    decoration:
-                                        WorkoutSetEntryDecorations.input(
-                                          context: context,
-                                          hintText: numericHint.isNotEmpty
-                                              ? numericHint
-                                              : '0',
-                                          prefixText: style ==
-                                                  ExerciseStyle.setsReps
-                                              ? 'تکرار '
-                                              : 'زمان ',
-                                          suffixText:
-                                              style == ExerciseStyle.setsTime
-                                              ? 'ث'
-                                              : null,
-                                          grouped: true,
-                                        ),
-                                  ),
-                                ),
-                                if (style == ExerciseStyle.setsReps) ...<Widget>[
-                                  _GroupDivider(context: context),
-                                  Expanded(
-                                    flex: 6,
-                                    child: TextField(
-                                      controller: setControllers['weight'],
-                                      focusNode: focusNodes?['weight'],
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                            decimal: true,
-                                          ),
-                                      textAlign: TextAlign.center,
-                                      textInputAction: isLastSet
-                                          ? TextInputAction.done
-                                          : TextInputAction.next,
-                                      enableSuggestions: false,
-                                      autocorrect: false,
-                                      onSubmitted: (_) {
-                                        if (isLastSet) {
-                                          focusNodes?['weight']?.unfocus();
-                                        } else {
-                                          onFocusNextSet?.call(
-                                            setIndex + 1,
-                                            'reps',
-                                          );
-                                        }
-                                        onSaveSet();
-                                      },
-                                      inputFormatters: <TextInputFormatter>[
-                                        FilteringTextInputFormatter.allow(
-                                          RegExp('[0-9.]'),
-                                        ),
-                                      ],
-                                      style: WorkoutLogTypography.inputValue(
-                                        context,
-                                      ).copyWith(fontSize: 16.sp),
-                                      decoration:
-                                          WorkoutSetEntryDecorations.input(
-                                            context: context,
-                                            hintText: weightHint,
-                                            prefixText: 'وزن ',
-                                            suffixText: 'کیلو',
-                                            grouped: true,
-                                          ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (style == ExerciseStyle.setsReps) ...<Widget>[
-                        SizedBox(height: 8.h),
-                        Row(
-                          children: <Widget>[
-                            Text(
-                              'شدت',
-                              style: WorkoutLogTypography.caption(
-                                context,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              tooltip: 'راهنمای شدت تلاش',
-                              onPressed: () => showMetricGuideDialog(
-                                context,
-                                title: TrainingMetricGuides.rpeTitle,
-                                explanation:
-                                    TrainingMetricGuides.rpeExplanation,
-                              ),
-                              icon: Icon(
-                                Icons.info_outline_rounded,
-                                size: 15.sp,
-                                color: WorkoutLogColors.accent(context),
-                              ),
-                            ),
-                            SizedBox(width: 6.w),
-                            SizedBox(
-                              width: 72.w,
-                              child: TextField(
-                                controller: setControllers['rpe'],
-                                focusNode: focusNodes?['rpe'],
-                                keyboardType: TextInputType.number,
-                                textAlign: TextAlign.center,
-                                textInputAction: TextInputAction.done,
-                                enableSuggestions: false,
-                                autocorrect: false,
-                                onSubmitted: (_) => onSaveSet(),
-                                inputFormatters: <TextInputFormatter>[
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                style: WorkoutLogTypography.inputValue(
-                                  context,
-                                ).copyWith(fontSize: 14.sp),
-                                decoration: WorkoutSetEntryDecorations.input(
-                                  context: context,
-                                  hintText: '۱–۱۰',
-                                  compact: true,
-                                ),
-                              ),
-                            ),
-                            const Spacer(),
-                            if (isSaved)
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: <Widget>[
-                                  Icon(
-                                    Icons.check_circle_rounded,
-                                    size: 14.sp,
-                                    color: WorkoutLogColors.successText(
-                                      context,
-                                    ),
-                                  ),
-                                  SizedBox(width: 4.w),
-                                  Text(
-                                    'ثبت شد',
-                                    style: WorkoutLogTypography.caption(
-                                      context,
-                                      color: WorkoutLogColors.successText(
-                                        context,
-                                      ),
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                          ],
-                        ),
-                      ] else if (isSaved)
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              Icon(
-                                Icons.check_circle_rounded,
-                                size: 14.sp,
-                                color: WorkoutLogColors.successText(context),
-                              ),
-                              SizedBox(width: 4.w),
-                              Text(
-                                'ثبت شد',
-                                style: WorkoutLogTypography.caption(
-                                  context,
-                                  color: WorkoutLogColors.successText(context),
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
+                child: _MiniField(
+                  controller: setControllers['weight'],
+                  hint: weightHint,
+                  suffix: 'kg',
+                  decimal: true,
+                  emphasized: isSaved,
+                ),
+              ),
+              SizedBox(width: 6.w),
+              SizedBox(
+                width: 46.w,
+                child: _MiniField(
+                  controller: setControllers['rpe'],
+                  hint: 'RPE',
+                  emphasized: isSaved,
+                ),
+              ),
+            ] else ...[
+              Expanded(
+                child: _MiniField(
+                  controller: setControllers['time'],
+                  hint: timeHint,
+                  suffix: 'ث',
+                  emphasized: isSaved,
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniField extends StatelessWidget {
+  const _MiniField({
+    required this.hint,
+    this.controller,
+    this.suffix,
+    this.decimal = false,
+    this.emphasized = false,
+  });
+
+  final TextEditingController? controller;
+  final String hint;
+  final String? suffix;
+  final bool decimal;
+  final bool emphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: decimal
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : TextInputType.number,
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+      style: WorkoutLogTypography.inputValue(context).copyWith(fontSize: 14.sp),
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: hint,
+        suffixText: suffix,
+        filled: true,
+        fillColor: emphasized
+            ? WorkoutLogColors.successBackground(context).withValues(alpha: 0.5)
+            : AppTheme.lightSurfaceColor,
+        contentPadding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 7.h),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8.r),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+}
+
+class _SetCheck extends StatelessWidget {
+  const _SetCheck({
+    required this.setIndex,
+    required this.isSaved,
+    required this.onTap,
+  });
+
+  final int setIndex;
+  final bool isSaved;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 24.w,
+          height: 24.w,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isSaved
+                  ? WorkoutLogColors.successSolid(context)
+                  : Colors.transparent,
+              border: Border.all(
+                color: isSaved
+                    ? WorkoutLogColors.successSolid(context)
+                    : WorkoutLogColors.inputBorder(context),
+                width: 1.3.w,
+              ),
+            ),
+            child: Center(
+              child: isSaved
+                  ? Icon(Icons.check_rounded, color: Colors.white, size: 14.sp)
+                  : Text(
+                      '${setIndex + 1}',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11.sp,
+                        color: WorkoutLogColors.secondaryText(context),
+                        height: 1,
+                      ),
+                    ),
+            ),
           ),
         ),
       ),
@@ -348,156 +479,87 @@ class WorkoutSetEntryRow extends StatelessWidget {
   }
 }
 
-class _SetBadge extends StatelessWidget {
-  const _SetBadge({
-    required this.setIndex,
-    required this.isSaved,
+class _ValueChip extends StatelessWidget {
+  const _ValueChip({
+    required this.value,
+    required this.onTap,
+    this.suffix,
+    this.muted = false,
+    this.isHint = false,
+    this.active = false,
   });
 
-  final int setIndex;
-  final bool isSaved;
+  final String value;
+  final String? suffix;
+  final bool muted;
+  final bool isHint;
+  final bool active;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOutCubic,
-      width: 36.w,
-      height: 36.w,
-      decoration: BoxDecoration(
-        color: WorkoutLogColors.setBadgeFill(context, isSaved: isSaved),
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: isSaved
-              ? WorkoutLogColors.successBorder(context)
-              : WorkoutLogColors.accent(context).withValues(alpha: 0.4),
-          width: 1.2.w,
-        ),
-      ),
-      child: Center(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          child: isSaved
-              ? Icon(
-                  Icons.check_rounded,
-                  key: const ValueKey('check'),
-                  color: Colors.white,
-                  size: 18.sp,
-                )
-              : Text(
-                  '${setIndex + 1}',
-                  key: ValueKey('number-$setIndex'),
+    final ghost = muted || isHint;
+    return Material(
+      color: active
+          ? AppTheme.goldColor.withValues(alpha: 0.12)
+          : (WorkoutLogColors.isDark(context)
+                ? const Color(0xFF141414)
+                : const Color(0xFFF3F1EC)),
+      borderRadius: BorderRadius.circular(8.r),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8.r),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 8.h),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8.r),
+            border: Border.all(
+              color: active
+                  ? AppTheme.goldColor
+                  : (isHint
+                        ? WorkoutLogColors.inputBorder(context)
+                        : Colors.transparent),
+              width: 1.1.w,
+              strokeAlign: BorderSide.strokeAlignInside,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textDirection: TextDirection.ltr,
                   style: TextStyle(
-                    color: WorkoutLogColors.setBadgeText(
-                      context,
-                      isSaved: isSaved,
-                    ),
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w900,
                     fontFamily: AppTheme.fontFamily,
+                    fontSize: isHint ? 13.sp : 14.sp,
+                    fontWeight: isHint ? FontWeight.w600 : FontWeight.w800,
+                    fontStyle: isHint ? FontStyle.italic : FontStyle.normal,
+                    color: ghost
+                        ? WorkoutLogColors.mutedText(context)
+                            .withValues(alpha: 0.75)
+                        : WorkoutLogColors.primaryText(context),
                   ),
                 ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MetricInputGroup extends StatelessWidget {
-  const _MetricInputGroup({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: WorkoutLogColors.inputFill(context),
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: WorkoutLogColors.inputBorder(context),
-          width: 1.w,
-        ),
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: children,
-        ),
-      ),
-    );
-  }
-}
-
-class _GroupDivider extends StatelessWidget {
-  const _GroupDivider({required this.context});
-
-  final BuildContext context;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1.w,
-      margin: EdgeInsets.symmetric(vertical: 8.h),
-      color: WorkoutLogColors.inputBorder(context),
-    );
-  }
-}
-
-abstract final class WorkoutSetEntryDecorations {
-  static InputDecoration input({
-    required BuildContext context,
-    required String hintText,
-    String? prefixText,
-    String? suffixText,
-    bool grouped = false,
-    bool compact = false,
-  }) {
-    final borderRadius = grouped
-        ? BorderRadius.zero
-        : BorderRadius.circular(10.r);
-
-    return InputDecoration(
-      hintText: hintText,
-      hintStyle: WorkoutLogTypography.inputHint(context).copyWith(
-        fontSize: compact ? 12.sp : 14.sp,
-      ),
-      prefixText: prefixText,
-      prefixStyle: WorkoutLogTypography.caption(
-        context,
-        fontWeight: FontWeight.w700,
-      ),
-      suffixText: suffixText,
-      suffixStyle: WorkoutLogTypography.inputSuffix(context),
-      filled: !grouped,
-      fillColor: grouped ? Colors.transparent : WorkoutLogColors.inputFill(context),
-      border: OutlineInputBorder(
-        borderRadius: borderRadius,
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: borderRadius,
-        borderSide: grouped
-            ? BorderSide.none
-            : BorderSide(
-                color: WorkoutLogColors.inputBorder(context),
-                width: 1.w,
               ),
+              if (suffix != null) ...[
+                SizedBox(width: 2.w),
+                Text(
+                  suffix!,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 9.sp,
+                    color: WorkoutLogColors.mutedText(context)
+                        .withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: borderRadius,
-        borderSide: grouped
-            ? BorderSide.none
-            : BorderSide(
-                color: WorkoutLogColors.inputBorderFocused(context),
-                width: 1.6.w,
-              ),
-      ),
-      contentPadding: EdgeInsets.symmetric(
-        horizontal: compact ? 8.w : 10.w,
-        vertical: compact ? 7.h : 11.h,
-      ),
-      isDense: true,
     );
   }
 }

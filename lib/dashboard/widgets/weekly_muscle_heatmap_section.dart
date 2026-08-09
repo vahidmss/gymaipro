@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/services/weekly_muscle_heatmap_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/widgets/app_remote_image.dart';
 import 'package:gymaipro/widgets/exercise_muscle_heatmap_widget.dart';
 import 'package:gymaipro/workout_log/screens/workout_log_screen.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -144,20 +143,20 @@ class _WeeklyMuscleHeatmapSectionState
                         color: isDark ? Colors.white : AppTheme.lightTextColor,
                       ),
                     ),
-                    if (result.activityLine.isNotEmpty) ...[
-                      SizedBox(height: 4.h),
-                      Text(
-                        result.activityLine,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          fontSize: 12.sp,
-                          color: isDark
-                              ? Colors.white54
-                              : AppTheme.lightTextSecondary,
-                        ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      result.activityLine.isEmpty
+                          ? 'شدت نسبی به پرکارترین عضله هفته'
+                          : '${result.activityLine} · شدت نسبی هفته',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 12.sp,
+                        color: isDark
+                            ? Colors.white54
+                            : AppTheme.lightTextSecondary,
                       ),
-                    ],
+                    ),
                     ..._sheetInsightLines(result, isDark),
                     SizedBox(height: 10.h),
                     ExerciseMuscleHeatmapWidget(muscleTargets: result.targets),
@@ -185,16 +184,12 @@ class _WeeklyMuscleHeatmapSectionState
       color: Colors.transparent,
       child: InkWell(
         onTap: _onCardTap,
-        borderRadius: BorderRadius.circular(16.r),
+        borderRadius: BorderRadius.circular(14.r),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16.r),
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.04)
-                : Colors.white.withValues(alpha: 0.65),
-            border: Border.all(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.22 : 0.32),
-            ),
+            borderRadius: BorderRadius.circular(14.r),
+            color: context.cardColor,
+            border: Border.all(color: context.separatorColor),
           ),
           child: Padding(
             padding: EdgeInsets.fromLTRB(12.w, 10.h, 10.w, 10.h),
@@ -202,20 +197,42 @@ class _WeeklyMuscleHeatmapSectionState
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildTopRow(isDark, result, copy),
-                if (_hasInsightLines(result)) ...[
+                if (_primaryInsight(result) != null) ...[
                   SizedBox(height: 6.h),
                   _buildInsightRow(isDark, result),
                 ],
                 SizedBox(height: 8.h),
-                if (result.hasHeatmapData)
-                  ExerciseMuscleHeatmapWidget(
-                    muscleTargets: result.targets,
-                    compact: true,
-                    embedded: true,
-                    mapHeight: 148.h,
-                  )
-                else
-                  _buildEmptyStrip(isDark, copy),
+                ExerciseMuscleHeatmapWidget(
+                  muscleTargets: result.targets,
+                  compact: true,
+                  embedded: true,
+                  mapHeight: 150.h,
+                ),
+                if (!result.hasHeatmapData) ...[
+                  SizedBox(height: 6.h),
+                  Text(
+                    copy.emptyHeadline.isNotEmpty
+                        ? copy.emptyHeadline
+                        : 'هنوز عضله‌ای روشن نشده',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w700,
+                      color: context.textColor,
+                    ),
+                  ),
+                  if (copy.emptySub.isNotEmpty) ...[
+                    SizedBox(height: 2.h),
+                    Text(
+                      copy.emptySub,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 10.sp,
+                        color: context.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
               ],
             ),
           ),
@@ -239,9 +256,9 @@ class _WeeklyMuscleHeatmapSectionState
                 copy.title,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontSize: 13.sp,
+                  fontSize: 15.sp,
                   fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : AppTheme.lightTextColor,
+                  color: context.textColor,
                 ),
               ),
               if (copy.subtitle.isNotEmpty) ...[
@@ -254,94 +271,55 @@ class _WeeklyMuscleHeatmapSectionState
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 11.sp,
                     height: 1.35,
-                    color: isDark
-                        ? Colors.white54
-                        : AppTheme.lightTextSecondary,
+                    color: context.textSecondary,
                   ),
                 ),
               ],
             ],
           ),
         ),
-        if (result.hasHeatmapData && result.topMuscleLabel != null)
+        if (result.hasAnyWorkout && result.activityLine.isNotEmpty)
           Container(
             margin: EdgeInsets.only(left: 8.w),
             padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
             decoration: BoxDecoration(
-              color: AppTheme.goldColor.withValues(alpha: 0.12),
+              color: context.separatorColor.withValues(alpha: 0.45),
               borderRadius: BorderRadius.circular(20.r),
             ),
             child: Text(
-              result.topMuscleLabel!,
+              result.activityLine,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontSize: 10.sp,
                 fontWeight: FontWeight.w700,
-                color: AppTheme.goldColor,
+                color: context.textColor,
               ),
             ),
           ),
         Icon(
           result.hasHeatmapData ? LucideIcons.chevronLeft : LucideIcons.plus,
           size: 18.sp,
-          color: AppTheme.goldColor.withValues(alpha: 0.75),
+          color: context.textSecondary,
         ),
       ],
     );
   }
 
-  Widget _buildEmptyStrip(bool isDark, _HeatmapDisplayCopy copy) {
-    return SizedBox(
-      height: 72.h,
-      child: Row(
-        children: [
-          SizedBox(
-            width: 52.w,
-            child: const Opacity(
-              opacity: 0.28,
-              child: AppRemoteImage(
-                path: 'images/gymai_body_front_premium.png',
-              ),
-            ),
-          ),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  copy.emptyHeadline,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white70 : AppTheme.lightTextColor,
-                  ),
-                ),
-                SizedBox(height: 3.h),
-                Text(
-                  copy.emptySub,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    fontSize: 10.sp,
-                    color: isDark
-                        ? Colors.white38
-                        : AppTheme.lightTextSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  bool _hasInsightLines(WeeklyMuscleHeatmapResult result) {
-    return (result.balanceLine?.isNotEmpty ?? false) ||
-        (result.weekTrendLine?.isNotEmpty ?? false) ||
-        (result.programGapLine?.isNotEmpty ?? false);
+  /// روی Home فقط روند هفته — نه «بیشترین عضله» که با نمای جلو/پشت گیج می‌کند.
+  ({IconData icon, String label, bool accent})? _primaryInsight(
+    WeeklyMuscleHeatmapResult result,
+  ) {
+    if (result.weekTrendLine != null && result.weekTrendLine!.isNotEmpty) {
+      final up =
+          result.weekTrendLine!.contains('فعال‌تر') ||
+          result.weekTrendLine!.contains('اولین');
+      return (
+        icon: up ? LucideIcons.trendingUp : LucideIcons.minus,
+        label: result.weekTrendLine!,
+        accent: true,
+      );
+    }
+    return null;
   }
 
   List<Widget> _sheetInsightLines(
@@ -376,51 +354,26 @@ class _WeeklyMuscleHeatmapSectionState
   }
 
   Widget _buildInsightRow(bool isDark, WeeklyMuscleHeatmapResult result) {
-    final chips = <Widget>[];
+    final insight = _primaryInsight(result);
+    if (insight == null) return const SizedBox.shrink();
 
-    if (result.weekTrendLine != null) {
-      final up =
-          result.weekTrendLine!.contains('فعال‌تر') ||
-          result.weekTrendLine!.contains('اولین');
-      chips.add(
-        _InsightChip(
-          icon: up ? LucideIcons.trendingUp : LucideIcons.minus,
-          label: result.weekTrendLine!,
-          isDark: isDark,
-          accent: true,
-        ),
-      );
-    }
-    if (result.balanceLine != null) {
-      chips.add(
-        _InsightChip(
-          icon: LucideIcons.activity,
-          label: result.balanceLine!,
-          isDark: isDark,
-        ),
-      );
-    }
-    if (result.programGapLine != null) {
-      chips.add(
-        _InsightChip(
-          icon: LucideIcons.circleDashed,
-          label: result.programGapLine!,
-          isDark: isDark,
-        ),
-      );
-    }
-
-    return Wrap(spacing: 6.w, runSpacing: 4.h, children: chips);
+    return Align(
+      alignment: Alignment.centerRight,
+      child: _InsightChip(
+        icon: insight.icon,
+        label: insight.label,
+        isDark: isDark,
+        accent: insight.accent,
+      ),
+    );
   }
 
   Widget _buildSkeleton(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16.r),
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.03)
-            : Colors.black.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(14.r),
+        color: context.cardColor,
+        border: Border.all(color: context.separatorColor),
       ),
       child: SizedBox(
         height: 88.h,
@@ -428,9 +381,9 @@ class _WeeklyMuscleHeatmapSectionState
           child: SizedBox(
             width: 22.w,
             height: 22.w,
-            child: const CircularProgressIndicator(
+            child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: AppTheme.goldColor,
+              color: context.textSecondary,
             ),
           ),
         ),
@@ -461,11 +414,11 @@ abstract final class _HeatmapCopy {
 
   static _HeatmapDisplayCopy forResult(WeeklyMuscleHeatmapResult result) {
     if (result.hasHeatmapData) {
+      final activity = result.activityLine;
+      final relative = 'نسبت به پرکارترین عضله هفته';
       return _HeatmapDisplayCopy(
         title: 'نقشهٔ تمرین',
-        subtitle: result.activityLine.isEmpty
-            ? '۷ روز اخیر'
-            : result.activityLine,
+        subtitle: activity.isEmpty ? relative : '$activity · $relative',
         emptyHeadline: '',
         emptySub: '',
       );
@@ -529,12 +482,16 @@ class _InsightChip extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
       decoration: BoxDecoration(
         color: accent
-            ? AppTheme.goldColor.withValues(alpha: isDark ? 0.14 : 0.12)
+            ? (isDark
+                ? AppTheme.goldColor.withValues(alpha: 0.14)
+                : AppTheme.lightTextColor.withValues(alpha: 0.06))
             : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(20.r),
         border: Border.all(
           color: accent
-              ? AppTheme.goldColor.withValues(alpha: 0.35)
+              ? (isDark
+                  ? AppTheme.goldColor.withValues(alpha: 0.35)
+                  : AppTheme.lightTextColor.withValues(alpha: 0.18))
               : (isDark ? Colors.white : Colors.black).withValues(alpha: 0.08),
         ),
       ),
@@ -545,7 +502,7 @@ class _InsightChip extends StatelessWidget {
             icon,
             size: 12.sp,
             color: accent
-                ? AppTheme.goldColor
+                ? (isDark ? AppTheme.goldColor : AppTheme.lightTextColor)
                 : (isDark ? Colors.white54 : AppTheme.lightTextSecondary),
           ),
           SizedBox(width: 4.w),

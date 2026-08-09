@@ -12,11 +12,11 @@ import 'package:gymaipro/chat/widgets/chat_hub_ui.dart';
 import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
 import 'package:gymaipro/my_club/services/friendship_service.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
+import 'package:gymaipro/services/app_feedback_service.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
-import 'package:gymaipro/widgets/user_role_badge.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shamsi_date/shamsi_date.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -399,10 +399,16 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen>
       edgeOffset: 52,
       child: ListView.separated(
         key: const PageStorageKey('chat_conversations_list'),
-        padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 20.h),
+        padding: EdgeInsets.fromLTRB(0, 2.h, 0, 12.h),
         cacheExtent: 600,
         itemCount: _filteredConversations.length,
-        separatorBuilder: (_, __) => SizedBox(height: 10.h),
+        separatorBuilder: (_, __) => Divider(
+          height: 1,
+          thickness: 0.6,
+          indent: 76.w,
+          endIndent: 12.w,
+          color: context.separatorColor.withValues(alpha: 0.45),
+        ),
         itemBuilder: (context, index) {
           final conversation = _filteredConversations[index];
           return _buildConversationTile(conversation);
@@ -429,178 +435,135 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen>
 
     return Material(
       key: ValueKey(conversation.id),
-      color: Colors.transparent,
+      color: hasUnread
+          ? AppTheme.goldColor.withValues(alpha: isDark ? 0.06 : 0.05)
+          : Colors.transparent,
       child: InkWell(
         onTap: () => _navigateToChatScreen(conversation, otherUserId),
         onLongPress: () => _showConversationActions(conversation),
-        borderRadius: BorderRadius.circular(16.r),
-        child: Ink(
-          decoration: BoxDecoration(
-            color: context.cardColor,
-            borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(
-              color: hasUnread
-                  ? AppTheme.goldColor.withValues(alpha: 0.28)
-                  : context.separatorColor.withValues(alpha: 0.35),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.veryDarkBackground.withValues(alpha: isDark ? 0.18 : 0.04),
-                blurRadius: 10,
-                offset: Offset(0, 3.h),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-            child: Row(
-              textDirection: TextDirection.rtl,
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    UserAvatarWidget(
-                      avatarUrl: _avatarCache[otherUserId],
-                      showOnlineStatus: false,
-                    ),
-                    if (hasUnread)
-                      Positioned(
-                        top: -1,
-                        left: -1,
-                        child: Container(
-                          width: 14.w,
-                          height: 14.h,
-                          decoration: BoxDecoration(
-                            color: AppTheme.goldColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: context.cardColor,
-                              width: 2.w,
-                            ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+          child: Row(
+            textDirection: TextDirection.rtl,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  UserAvatarWidget(
+                    avatarUrl: _avatarCache[otherUserId],
+                    size: 48,
+                    showOnlineStatus: false,
+                  ),
+                  if (hasUnread)
+                    Positioned(
+                      top: -1,
+                      left: -1,
+                      child: Container(
+                        width: 12.w,
+                        height: 12.h,
+                        decoration: BoxDecoration(
+                          color: AppTheme.goldColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: context.backgroundColor,
+                            width: 2.w,
                           ),
                         ),
                       ),
-                  ],
-                ),
-                SizedBox(width: 14.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _nameCache[otherUserId] ??
-                                  initialOtherUserName,
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                color: context.textColor,
-                                fontSize: 14.sp,
-                                fontWeight: hasUnread
-                                    ? FontWeight.w800
-                                    : FontWeight.w700,
-                                letterSpacing: -0.2,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          SizedBox(width: 8.w),
-                          Text(
-                            timeString,
+                    ),
+                ],
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _nameCache[otherUserId] ?? initialOtherUserName,
                             style: TextStyle(
                               fontFamily: AppTheme.fontFamily,
-                              color: context.textSecondary.withValues(
-                                alpha: 0.95,
-                              ),
-                              fontSize: 11.5.sp,
-                              fontWeight: FontWeight.w500,
+                              color: context.textColor,
+                              fontSize: 15.sp,
+                              fontWeight: hasUnread
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
-                      ),
-                      SizedBox(height: 6.h),
-                      Row(
-                        children: [
-                          UserRoleBadge(
-                            role: _roleCache[otherUserId] ?? 'athlete',
-                            fontSize: 10.sp,
+                        ),
+                        SizedBox(width: 8.w),
+                        Text(
+                          timeString,
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            color: hasUnread
+                                ? AppTheme.goldColor
+                                : context.textSecondary,
+                            fontSize: 11.sp,
+                            fontWeight:
+                                hasUnread ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 4.h),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            conversation.lastMessage?.trim().isNotEmpty == true
+                                ? conversation.lastMessage!
+                                : 'بدون پیام',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              color: hasUnread
+                                  ? context.textColor.withValues(alpha: 0.9)
+                                  : context.textSecondary,
+                              fontSize: 13.sp,
+                              fontWeight: hasUnread
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textDirection: TextDirection.rtl,
+                          ),
+                        ),
+                        if (hasUnread) ...[
+                          SizedBox(width: 8.w),
+                          Container(
+                            constraints: BoxConstraints(minWidth: 20.w),
                             padding: EdgeInsets.symmetric(
                               horizontal: 6.w,
                               vertical: 2.h,
                             ),
-                          ),
-                          SizedBox(width: 8.w),
-                          Expanded(
+                            decoration: BoxDecoration(
+                              color: AppTheme.goldColor,
+                              borderRadius: BorderRadius.circular(10.r),
+                            ),
                             child: Text(
-                              conversation.lastMessageText ?? 'بدون پیام',
+                              unreadLabel,
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontFamily: AppTheme.fontFamily,
-                                color: hasUnread
-                                    ? context.textColor.withValues(
-                                        alpha: 0.92,
-                                      )
-                                    : context.textSecondary,
-                                fontSize: 13.5.sp,
-                                height: 1.25,
-                                fontWeight: hasUnread
-                                    ? FontWeight.w600
-                                    : FontWeight.w400,
+                                color: AppTheme.onGoldColor,
+                                fontSize: 11.sp,
+                                fontWeight: FontWeight.w800,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (hasUnread) ...[
-                            SizedBox(width: 8.w),
-                            Container(
-                              constraints: BoxConstraints(minWidth: 22.w),
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 7.w,
-                                vertical: 3.h,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: context.goldGradientColors,
-                                ),
-                                borderRadius: BorderRadius.circular(12.r),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.goldColor.withValues(
-                                      alpha: 0.35,
-                                    ),
-                                    blurRadius: 8,
-                                    offset: Offset(0, 2.h),
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                unreadLabel,
-                                style: TextStyle(
-                                  fontFamily: AppTheme.fontFamily,
-                                  color: AppTheme.onGoldColor,
-                                  fontSize: 11.sp,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ],
                         ],
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ),
-                SizedBox(width: 6.w),
-                Icon(
-                  LucideIcons.chevronLeft,
-                  size: 22.sp,
-                  color: context.textSecondary.withValues(alpha: 0.35),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -608,106 +571,72 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen>
   }
 
   void _showConversationActions(ChatConversation conversation) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: context.cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-      ),
-      builder: (context) => Container(
-        padding: EdgeInsets.all(16.w),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40.w,
-              height: 4.h,
-              decoration: BoxDecoration(
-                color: context.separatorColor,
-                borderRadius: BorderRadius.circular(2.r),
+    unawaited(AppFeedbackService.instance.selection());
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: context.cardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+        ),
+        builder: (context) => Container(
+          padding: EdgeInsets.all(16.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: context.separatorColor,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
               ),
-            ),
-            SizedBox(height: 16.h),
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: ListTile(
-                leading: const Icon(LucideIcons.pin, color: AppTheme.goldColor),
-                title: Text(
-                  'پین کردن گفتگو',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Pin feature not implemented yet
-                },
-              ),
-            ),
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: ListTile(
-                leading: const Icon(
-                  LucideIcons.bellOff,
-                  color: AppTheme.goldColor,
-                ),
-                title: Text(
-                  'بی‌صدا کردن',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Mute feature not implemented yet
-                },
-              ),
-            ),
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: ListTile(
-                leading: const Icon(
-                  LucideIcons.userX,
-                  color: Colors.redAccent,
-                ),
-                title: const Text(
-                  'بلاک کردن کاربر',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
+              SizedBox(height: 16.h),
+              Directionality(
+                textDirection: TextDirection.rtl,
+                child: ListTile(
+                  leading: const Icon(
+                    LucideIcons.userX,
                     color: Colors.redAccent,
-                    fontWeight: FontWeight.bold,
                   ),
+                  title: const Text(
+                    'بلاک کردن کاربر',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: Colors.redAccent,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    unawaited(_confirmAndBlockUser(conversation));
+                  },
                 ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmAndBlockUser(conversation);
-                },
               ),
-            ),
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: ListTile(
-                leading: const Icon(
-                  LucideIcons.trash2,
-                  color: AppTheme.goldColor,
-                ),
-                title: const Text(
-                  'حذف گفتگو',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
+              Directionality(
+                textDirection: TextDirection.rtl,
+                child: ListTile(
+                  leading: const Icon(
+                    LucideIcons.trash2,
                     color: AppTheme.goldColor,
-                    fontWeight: FontWeight.bold,
                   ),
+                  title: const Text(
+                    'حذف گفتگو',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: AppTheme.goldColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    unawaited(_confirmAndDeleteConversation(conversation));
+                  },
                 ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _confirmAndDeleteConversation(conversation);
-                },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -879,6 +808,8 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen>
     ChatConversation conversation,
     String otherUserId,
   ) {
+    unawaited(AppFeedbackService.instance.selection());
+
     // دریافت ID کاربر فعلی
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
     if (currentUserId == null) return;

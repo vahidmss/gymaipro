@@ -37,12 +37,12 @@ class ErrorBoundaryWidget extends StatelessWidget {
                 const SizedBox(height: 16),
                 Text(
                   errorTitle,
-                  style: AppTheme.headingStyle.copyWith(fontSize: 16.sp),
+                  style: context.headingStyle.copyWith(fontSize: 16.sp),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   errorMessage,
-                  style: AppTheme.bodyStyle.copyWith(fontSize: 14.sp),
+                  style: context.bodyStyle.copyWith(fontSize: 14.sp),
                 ),
                 if (onRetry != null) ...[
                   const SizedBox(height: 16),
@@ -52,7 +52,7 @@ class ErrorBoundaryWidget extends StatelessWidget {
                     label: const Text('تلاش مجدد'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.goldColor,
-                      foregroundColor: context.textColor,
+                      foregroundColor: AppTheme.onGoldColor,
                     ),
                   ),
                 ],

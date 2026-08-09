@@ -332,16 +332,15 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
         ),
         title: Text(
           'حذف ویدیو',
-          style: AppTheme.headingStyle.copyWith(
+          style: context.headingStyle.copyWith(
             fontSize: 18.sp,
-            color: context.textColor,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
         content: Text(
           'آیا مطمئن هستید که می‌خواهید این ویدیو را از حافظه حذف کنید؟',
-          style: AppTheme.bodyStyle.copyWith(color: context.textColor),
+          style: context.bodyStyle.copyWith(color: context.textColor),
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
         ),
@@ -787,7 +786,7 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                     Expanded(
                       child: Text(
                         'ویدیو ${widget.index + 1}',
-                        style: AppTheme.headingStyle.copyWith(
+                        style: context.headingStyle.copyWith(
                           fontSize: 15.sp,
                           fontWeight: FontWeight.w800,
                         ),
@@ -831,9 +830,8 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                   SizedBox(height: 6.h),
                   Text(
                     widget.video.description!,
-                    style: AppTheme.bodyStyle.copyWith(
+                    style: context.bodyStyle.copyWith(
                       fontSize: 12.sp,
-                      color: context.textSecondary,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -851,9 +849,8 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                       SizedBox(width: 4.w),
                       Text(
                         _formatNumber(widget.video.viewCount!),
-                        style: AppTheme.bodyStyle.copyWith(
+                        style: context.bodyStyle.copyWith(
                           fontSize: 11.sp,
-                          color: context.textSecondary,
                         ),
                       ),
                       SizedBox(width: 12.w),
@@ -868,9 +865,8 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                       Flexible(
                         child: Text(
                           _formatNumber(widget.video.likeCount!),
-                          style: AppTheme.bodyStyle.copyWith(
+                          style: context.bodyStyle.copyWith(
                             fontSize: 11.sp,
-                            color: context.textSecondary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -891,9 +887,8 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
                           Flexible(
                             child: Text(
                               _formatDate(widget.video.createdAt!),
-                              style: AppTheme.bodyStyle.copyWith(
+                              style: context.bodyStyle.copyWith(
                                 fontSize: 10.sp,
-                                color: context.textSecondary,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

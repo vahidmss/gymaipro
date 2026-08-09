@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:gymaipro/ranking/models/league.dart';
 import 'package:gymaipro/ranking/models/ranking_score_breakdown.dart';
 import 'package:gymaipro/ranking/services/activity_tracking_service.dart';
+import 'package:gymaipro/ranking/utils/ranking_activity_counts.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/streak_service.dart';
 import 'package:gymaipro/user_profile/services/user_profile_service.dart';
@@ -56,6 +57,8 @@ class RankingScoreService {
       final articlesReadScore = (articlesReadCount * RankingScoreBreakdown.pointsPerArticle)
           .clamp(0, RankingScoreBreakdown.maxArticlesReadScore);
 
+      final achievementBonusScore = await _getAchievementBonusScore(userId);
+
       final totalScore =
           dailyActivitiesScore +
           currentStreakScore +
@@ -63,7 +66,8 @@ class RankingScoreService {
           activeDaysScore +
           totalWorkoutsScore +
           totalMealsScore +
-          articlesReadScore;
+          articlesReadScore +
+          achievementBonusScore;
 
       return RankingScoreBreakdown(
         totalScore: totalScore,
@@ -80,6 +84,7 @@ class RankingScoreService {
         totalMealsScore: totalMealsScore,
         articlesReadCount: articlesReadCount,
         articlesReadScore: articlesReadScore,
+        achievementBonusScore: achievementBonusScore,
       );
     } catch (e) {
       debugPrint('❌ Error getting score breakdown: $e');
@@ -87,22 +92,35 @@ class RankingScoreService {
     }
   }
 
+  /// جمع بونوس لیگ از دستاوردهای بازشده
+  Future<int> _getAchievementBonusScore(String userId) async {
+    try {
+      final rows = await _client
+          .from('achievements')
+          .select('bonus_points')
+          .eq('user_id', userId)
+          .not('unlocked_at', 'is', null);
+      var sum = 0;
+      for (final row in rows as List) {
+        final m = row as Map<String, dynamic>;
+        sum += (m['bonus_points'] as num?)?.toInt() ?? 0;
+      }
+      return sum;
+    } catch (e) {
+      debugPrint('❌ Error getting achievement bonus score: $e');
+      return 0;
+    }
+  }
+
   /// دریافت تعداد کل تمرینات کاربر
   Future<int> _getTotalWorkoutCount(String userId) async {
     try {
-      // از جدول workout_daily_logs
       final response = await _client
           .from('workout_daily_logs')
           .select('sessions')
           .eq('user_id', userId);
 
-      int totalCount = 0;
-      for (final row in response) {
-        final sessions = row['sessions'] as List<dynamic>? ?? [];
-        totalCount += sessions.length;
-      }
-
-      return totalCount;
+      return RankingActivityCounts.countMeaningfulWorkoutSessions(response);
     } catch (e) {
       debugPrint('❌ Error getting total workout count: $e');
       return 0;
@@ -112,19 +130,12 @@ class RankingScoreService {
   /// دریافت تعداد کل وعده‌های ثبت شده کاربر
   Future<int> _getTotalMealCount(String userId) async {
     try {
-      // از جدول food_logs
       final response = await _client
           .from('food_logs')
           .select('meals')
           .eq('user_id', userId);
 
-      int totalCount = 0;
-      for (final row in response) {
-        final meals = row['meals'] as List<dynamic>? ?? [];
-        totalCount += meals.length;
-      }
-
-      return totalCount;
+      return RankingActivityCounts.countLoggedMeals(response);
     } catch (e) {
       debugPrint('❌ Error getting total meal count: $e');
       return 0;

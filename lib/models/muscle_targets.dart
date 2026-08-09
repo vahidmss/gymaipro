@@ -157,59 +157,45 @@ class MuscleTargets {
     return entries;
   }
 
-  /// رنگ گرادیان هیت — سبک اپ‌های فیتنس (کم → زیاد)
+  /// رنگ گرادیان هیت — طیفی تمیز (خنک→گرم)، بدون طلای برند.
   static Color heatColor(int intensity, {required bool isDark}) {
     final t = (intensity.clamp(0, 100)) / 100.0;
-    if (t <= 0.05) {
-      return isDark ? const Color(0xFF2A2A2E) : const Color(0xFFE8E0D4);
+    if (t <= 0.08) {
+      return isDark ? const Color(0xFF3A4450) : const Color(0xFFB0BEC5);
     }
-    if (t < 0.45) {
+    if (t < 0.40) {
       return Color.lerp(
-        isDark ? const Color(0xFF1E3A5F) : const Color(0xFF90CAF9),
-        isDark ? const Color(0xFF2E6B8A) : const Color(0xFF4DB6AC),
-        (t - 0.05) / 0.4,
+        const Color(0xFF5B8DEF),
+        const Color(0xFF26C6DA),
+        (t - 0.08) / 0.32,
       )!;
     }
-    if (t < 0.75) {
+    if (t < 0.70) {
       return Color.lerp(
-        const Color(0xFFE7B628),
-        const Color(0xFFD4AF37),
-        (t - 0.45) / 0.3,
+        const Color(0xFF26C6DA),
+        const Color(0xFFFFB74D),
+        (t - 0.40) / 0.30,
       )!;
     }
     return Color.lerp(
-      const Color(0xFFE65100),
-      const Color(0xFFB71C1C),
-      (t - 0.75) / 0.25,
+      const Color(0xFFFF8A65),
+      const Color(0xFFE53935),
+      (t - 0.70) / 0.30,
     )!;
   }
 
   static String intensityLabel(int value) {
+    // نسبت به داغ‌ترین عضلهٔ همان بازه — نه درصد فیزیولوژیک مطلق.
     if (value >= 85) return 'اصلی';
     if (value >= 60) return 'فعال';
     if (value >= 35) return 'فرعی';
     return 'کم';
   }
 
-  /// نمای پیش‌فرض بر اساس مجموع شدت عضلات جلو / پشت
+  /// نمای پیش‌فرض همیشه جلو است؛ اگر داده فقط پشت باشد،
+  /// ویجت با overlay پیشنهاد چرخش می‌دهد.
   static BodyView preferredView(Map<String, int> targets) {
-    var frontScore = 0;
-    var backScore = 0;
-    for (final e in targets.entries) {
-      if (e.value <= 0) continue;
-      switch (viewByKey[e.key]) {
-        case BodyView.front:
-          frontScore += e.value;
-        case BodyView.back:
-          backScore += e.value;
-        case BodyView.both:
-          frontScore += e.value ~/ 2;
-          backScore += e.value ~/ 2;
-        case null:
-          break;
-      }
-    }
-    return backScore > frontScore ? BodyView.back : BodyView.front;
+    return BodyView.front;
   }
 
   /// کلیدهایی که روی نقشهٔ یک نما رسم می‌شوند

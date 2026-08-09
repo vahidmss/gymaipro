@@ -321,6 +321,34 @@ class WorkoutDailyLogService {
     }
   }
 
+  /// آخرین لاگ‌های قبل از [beforeDate] (جدید → قدیم) برای پیدا کردن عملکرد قبلی حرکت.
+  Future<List<WorkoutDailyLog>> getRecentLogsBeforeDate(
+    String userId,
+    DateTime beforeDate, {
+    int limit = 40,
+  }) async {
+    try {
+      final before = DateTime(
+        beforeDate.year,
+        beforeDate.month,
+        beforeDate.day,
+      ).toIso8601String().substring(0, 10);
+
+      final response = await Supabase.instance.client
+          .from(_tableName)
+          .select()
+          .eq('user_id', userId)
+          .lt('log_date', before)
+          .order('log_date', ascending: false)
+          .limit(limit);
+
+      return response.map(WorkoutDailyLog.fromJson).toList();
+    } catch (e) {
+      debugPrint('Error fetching recent logs before date: $e');
+      return [];
+    }
+  }
+
   WorkoutDailyLog _ensureValidUuids(WorkoutDailyLog log) {
     // Ensure all nested objects have valid UUIDs
     final sessions = log.sessions.map((session) {

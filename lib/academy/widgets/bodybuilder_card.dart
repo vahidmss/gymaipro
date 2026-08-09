@@ -93,7 +93,7 @@ class BodybuilderCard extends StatelessWidget {
                   children: [
                     Text(
                       bodybuilder.name,
-                      style: AppTheme.headingStyle.copyWith(
+                      style: context.headingStyle.copyWith(
                         fontSize: 16.sp,
                         fontWeight: FontWeight.w800,
                       ),
@@ -111,8 +111,9 @@ class BodybuilderCard extends StatelessWidget {
                         SizedBox(width: 6.w),
                         Text(
                           bodybuilder.nationality,
-                          style: AppTheme.bodyStyle.copyWith(
+                          style: context.bodyStyle.copyWith(
                             fontSize: 12.sp,
+                            color: context.textColor,
                           ),
                         ),
                         SizedBox(width: 12.w),
@@ -124,9 +125,8 @@ class BodybuilderCard extends StatelessWidget {
                         SizedBox(width: 6.w),
                         Text(
                           '${bodybuilder.age} سال',
-                          style: AppTheme.bodyStyle.copyWith(
+                          style: context.bodyStyle.copyWith(
                             fontSize: 12.sp,
-                            color: context.textSecondary,
                           ),
                         ),
                       ],
@@ -144,9 +144,8 @@ class BodybuilderCard extends StatelessWidget {
                             SizedBox(width: 6.w),
                             Text(
                               '${bodybuilder.height!.toStringAsFixed(0)} سانتی‌متر',
-                              style: AppTheme.bodyStyle.copyWith(
+                              style: context.bodyStyle.copyWith(
                                 fontSize: 11.sp,
-                                color: context.textSecondary,
                               ),
                             ),
                             SizedBox(width: 12.w),
@@ -160,9 +159,8 @@ class BodybuilderCard extends StatelessWidget {
                             SizedBox(width: 6.w),
                             Text(
                               '${bodybuilder.weight!.toStringAsFixed(0)} کیلوگرم',
-                              style: AppTheme.bodyStyle.copyWith(
+                              style: context.bodyStyle.copyWith(
                                 fontSize: 11.sp,
-                                color: context.textSecondary,
                               ),
                             ),
                           ],

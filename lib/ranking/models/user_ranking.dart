@@ -75,8 +75,8 @@ class UserRanking {
     };
   }
 
-  /// دریافت لیگ فعلی
-  League get league => League.getLeagueByScore(totalScore);
+  /// دریافت لیگ فعلی از فیلد ذخیره‌شده (نه فقط از امتیاز لحظه‌ای)
+  League get league => League.byId(currentLeague);
 
   /// نام کامل کاربر
   String get displayName {

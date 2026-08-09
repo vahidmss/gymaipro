@@ -7,8 +7,8 @@ import 'package:gymaipro/services/models/point_history.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// امتیاز فعالیت کاربر برای رتبه‌بندی و لیگ (جدول user_rankings).
-/// ستارهٔ دستاوردها جداست و در AchievementService مدیریت می‌شود.
+/// امتیاز لیگ کاربر (جدول user_rankings.total_score).
+/// شامل امتیاز فعالیت + بونوس دستاوردهای بازشده.
 class ScoreService extends ChangeNotifier {
   factory ScoreService() => _instance;
   ScoreService._internal();
@@ -229,6 +229,15 @@ class ScoreService extends ChangeNotifier {
           title: 'مطالعه مقالات',
           icon: '📚',
           description: '${b.articlesReadCount} مقاله',
+        ),
+      if (b.achievementBonusScore > 0)
+        row(
+          key: 'achievements',
+          points: b.achievementBonusScore,
+          source: PointSource.achievement,
+          title: 'پاداش دستاوردها',
+          icon: '🏆',
+          description: 'بونوس لیگ از دستاوردهای بازشده',
         ),
     ];
   }

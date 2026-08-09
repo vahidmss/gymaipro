@@ -98,7 +98,7 @@ class _MotivationalVideosScreenState extends State<MotivationalVideosScreen> {
                           SizedBox(width: 8.w),
                           Text(
                             'ویدیوهای انگیزشی',
-                            style: AppTheme.headingStyle.copyWith(
+                            style: context.headingStyle.copyWith(
                               fontSize: 18.sp,
                               fontWeight: FontWeight.w800,
                             ),
@@ -106,9 +106,8 @@ class _MotivationalVideosScreenState extends State<MotivationalVideosScreen> {
                           const Spacer(),
                           Text(
                             '${_videos.length} ویدیو',
-                            style: AppTheme.bodyStyle.copyWith(
+                            style: context.bodyStyle.copyWith(
                               fontSize: 12.sp,
-                              color: context.textSecondary,
                             ),
                           ),
                         ],

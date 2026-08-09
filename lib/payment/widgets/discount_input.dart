@@ -102,7 +102,7 @@ class _DiscountInputState extends State<DiscountInput> {
               ? Colors.green.withValues(alpha: 0.5)
               : _errorMessage != null
               ? Colors.red.withValues(alpha: 0.5)
-              : Colors.white24,
+              : context.separatorColor,
         ),
       ),
       child: Column(
@@ -115,7 +115,7 @@ class _DiscountInputState extends State<DiscountInput> {
               Text(
                 'کد تخفیف',
                 style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                  fontFamily: AppTheme.fontFamily,
                   fontSize: 16.sp,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.goldColor,
@@ -132,16 +132,18 @@ class _DiscountInputState extends State<DiscountInput> {
                   child: TextFormField(
                     controller: _controller,
                     style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                      fontFamily: AppTheme.fontFamily,
                       fontSize: 14.sp,
-                      color: Colors.white,
+                      color: context.textColor,
                     ),
                     decoration: InputDecoration(
                       hintText: 'کد تخفیف را وارد کنید',
-                      hintStyle: const TextStyle(
-    fontFamily: AppTheme.fontFamily,color: Colors.white54),
+                      hintStyle: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: context.textSecondary,
+                      ),
                       filled: true,
-                      fillColor: Colors.white.withValues(alpha: 0.05),
+                      fillColor: context.separatorColor.withValues(alpha: 0.35),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8.r),
                         borderSide: BorderSide.none,
@@ -163,7 +165,7 @@ class _DiscountInputState extends State<DiscountInput> {
                     onPressed: _isApplying ? null : _applyDiscount,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.goldColor,
-                      foregroundColor: Colors.black,
+                      foregroundColor: AppTheme.onGoldColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8.r),
                       ),
@@ -176,14 +178,14 @@ class _DiscountInputState extends State<DiscountInput> {
                             child: const CircularProgressIndicator(
                               strokeWidth: 2,
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.black,
+                                AppTheme.onGoldColor,
                               ),
                             ),
                           )
                         : Text(
                             'اعمال',
                             style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                              fontFamily: AppTheme.fontFamily,
                               fontSize: 12.sp,
                               fontWeight: FontWeight.bold,
                             ),

@@ -159,6 +159,8 @@ class WorkoutProgram {
       'trainer_id': trainerId,
       'created_at': createdAt.toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
+      if (sentAt != null) 'sent_at': sentAt!.toIso8601String(),
+      'is_self_service_ai': isSelfServiceAi,
     };
   }
 
@@ -290,6 +292,7 @@ class NormalExercise extends WorkoutExercise {
     required this.sets,
     super.id,
     this.note,
+    this.restSeconds,
   }) : super(type: ExerciseType.normal);
 
   factory NormalExercise.fromJson(Map<String, dynamic> json) {
@@ -306,11 +309,16 @@ class NormalExercise extends WorkoutExercise {
           .map((e) => ExerciseSet.fromJson(e as Map<String, dynamic>))
           .toList(),
       note: json['note'] as String?,
+      restSeconds: json['rest_seconds'] is int
+          ? json['rest_seconds'] as int?
+          : int.tryParse(json['rest_seconds']?.toString() ?? ''),
     );
   }
   int exerciseId;
   List<ExerciseSet> sets;
   String? note;
+  /// Rest between sets (seconds). Null = athlete default.
+  int? restSeconds;
 
   @override
   Map<String, dynamic> toJson() {
@@ -322,6 +330,7 @@ class NormalExercise extends WorkoutExercise {
       'style': style == ExerciseStyle.setsReps ? 'sets_reps' : 'sets_time',
       'sets': sets.map((set) => set.toJson()).toList(),
       if (note != null) 'note': note,
+      if (restSeconds != null) 'rest_seconds': restSeconds,
     };
   }
 }
@@ -334,6 +343,7 @@ class SupersetExercise extends WorkoutExercise {
     required super.style,
     super.id,
     this.note,
+    this.restSeconds,
   }) : super(type: ExerciseType.superset);
 
   factory SupersetExercise.fromJson(Map<String, dynamic> json) {
@@ -347,10 +357,15 @@ class SupersetExercise extends WorkoutExercise {
           .map((e) => SupersetItem.fromJson(e as Map<String, dynamic>))
           .toList(),
       note: json['note'] as String?,
+      restSeconds: json['rest_seconds'] is int
+          ? json['rest_seconds'] as int?
+          : int.tryParse(json['rest_seconds']?.toString() ?? ''),
     );
   }
   List<SupersetItem> exercises;
   String? note;
+  /// Rest between rounds (seconds). Null = athlete default.
+  int? restSeconds;
 
   @override
   Map<String, dynamic> toJson() {
@@ -361,6 +376,7 @@ class SupersetExercise extends WorkoutExercise {
       'style': style == ExerciseStyle.setsReps ? 'sets_reps' : 'sets_time',
       'exercises': exercises.map((exercise) => exercise.toJson()).toList(),
       if (note != null) 'note': note,
+      if (restSeconds != null) 'rest_seconds': restSeconds,
     };
   }
 }
@@ -475,6 +491,33 @@ enum ExerciseType { normal, superset, triset }
 
 // Exercise style enum
 enum ExerciseStyle { setsReps, setsTime }
+
+/// Human-readable set scheme: `۳ × ۱۰` or `۱۲ - ۱۰ - ۸`.
+String formatSetScheme(List<ExerciseSet> sets, ExerciseStyle style) {
+  if (sets.isEmpty) return '';
+  if (style == ExerciseStyle.setsReps) {
+    final values = sets.map((s) => s.reps ?? 0).toList();
+    if (values.every((v) => v == values.first)) {
+      return '${sets.length} × ${values.first}';
+    }
+    return values.join(' - ');
+  }
+  final values = sets.map((s) => s.timeSeconds ?? 0).toList();
+  if (values.every((v) => v == values.first)) {
+    return '${sets.length} × ${values.first}ث';
+  }
+  return values.map((v) => '$vث').join(' - ');
+}
+
+bool areSetValuesUniform(List<ExerciseSet> sets, ExerciseStyle style) {
+  if (sets.length <= 1) return true;
+  if (style == ExerciseStyle.setsReps) {
+    final first = sets.first.reps;
+    return sets.every((s) => s.reps == first);
+  }
+  final first = sets.first.timeSeconds;
+  return sets.every((s) => s.timeSeconds == first);
+}
 
 // Common muscle tags
 class MuscleTags {

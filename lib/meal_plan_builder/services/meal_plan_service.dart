@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:gymaipro/achievements/achievement_hooks.dart';
 import 'package:gymaipro/models/meal_plan.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/services/notification_push_invoker.dart';
@@ -6,6 +7,7 @@ import 'package:gymaipro/notification/services/notification_data_service.dart';
 import 'package:gymaipro/payment/services/trainer_escrow_service.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/connectivity_service.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/supabase_service.dart' as supabase_service;
 
 class MealPlanService {
@@ -449,6 +451,13 @@ class MealPlanService {
         } else {
           rethrow;
         }
+      }
+
+      final currentProfile = await SimpleProfileService.getCurrentProfile();
+      final currentId = currentProfile?['id'] as String?;
+      if (currentId != null && currentId == userId) {
+        // ignore: unawaited_futures
+        AchievementHooks.unlockOnce('get_diet_program');
       }
 
       if (planToSave.id.isEmpty) {

@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:gymaipro/achievements/achievement_hooks.dart';
 import 'package:gymaipro/notification/models/notification_model.dart';
 import 'package:gymaipro/notification/services/notification_push_invoker.dart';
 import 'package:gymaipro/notification/services/notification_data_service.dart';
@@ -516,6 +517,13 @@ class WorkoutProgramService {
 
         debugPrint('برنامه "${newProgram.name}" با موفقیت ایجاد شد');
         // توجه: به‌روزرسانی subscription و ثبت program_registration_date فقط در sendProgram انجام می‌شود
+
+        // فقط اگر برنامه برای کاربر فعلی است (نه ارسال مربی به شاگرد دیگر)
+        final currentUserId = await AuthHelper.getCurrentUserId();
+        if (currentUserId != null && currentUserId == userId) {
+          // ignore: unawaited_futures
+          AchievementHooks.unlockOnce('get_exercise_program');
+        }
 
         return newProgram;
       } else {
@@ -1249,41 +1257,12 @@ class WorkoutProgramService {
               'day': session.day,
               'notes': session.notes,
               'exercises': session.exercises.map((exercise) {
-                if (exercise is NormalExercise) {
-                  return {
-                    'id': exercise.id,
-                    'type': 'normal',
-                    'exercise_id': exercise.exerciseId,
-                    'tag': exercise.tag,
-                    'style': exercise.style == ExerciseStyle.setsReps
-                        ? 'sets_reps'
-                        : 'sets_time',
-                    'sets': exercise.sets.map((set) => set.toJson()).toList(),
-                    'note': exercise.note, // اضافه شد
-                  };
-                } else if (exercise is SupersetExercise) {
-                  return {
-                    'id': exercise.id,
-                    'type': 'superset',
-                    'tag': exercise.tag,
-                    'style': exercise.style == ExerciseStyle.setsReps
-                        ? 'sets_reps'
-                        : 'sets_time',
-                    'exercises': exercise.exercises
-                        .map(
-                          (item) => {
-                            'exercise_id': item.exerciseId,
-                            'sets': item.sets
-                                .map((set) => set.toJson())
-                                .toList(),
-                          },
-                        )
-                        .toList(),
-                    'note': exercise.note, // اضافه شد
-                  };
-                } else {
-                  throw Exception('نوع تمرین نامشخص');
+                if (exercise is NormalExercise ||
+                    exercise is SupersetExercise ||
+                    exercise is TrisetExercise) {
+                  return exercise.toJson();
                 }
+                throw Exception('نوع تمرین نامشخص');
               }).toList(),
             },
           )

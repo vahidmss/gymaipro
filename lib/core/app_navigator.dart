@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gymaipro/achievements/screens/achievements_screen.dart';
 import 'package:gymaipro/my_club/index.dart' show MyClubMainScreen;
 import 'package:gymaipro/my_club/my_club_main_screen.dart' show MyClubMainScreen;
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
@@ -119,7 +120,11 @@ bool tryNavigateIntegratedRoute(
       openMainMyClub(initialTab: subTab ?? MyClubTabs.programs);
       return true;
     case '/achievements':
-      openMainMyClub(initialTab: MyClubTabs.points);
+      final navigator = rootNavigator;
+      if (navigator == null) return false;
+      navigator.push(
+        MaterialPageRoute<void>(builder: (_) => const AchievementsScreen()),
+      );
       return true;
     case '/wallet':
       openMainMyClub(initialTab: MyClubTabs.wallet);
@@ -138,6 +143,16 @@ bool tryNavigateIntegratedRoute(
       final navigator = rootNavigator;
       if (navigator == null) return false;
       navigator.pushNamed('/trainer-channel');
+      return true;
+    case '/academy':
+    case '/articles':
+      MainNavigationScreen.openAcademy(
+        initialTabIndex: path == '/articles' ? 0 : subTab,
+      );
+      return true;
+    case '/more':
+      popRootNavigatorOverlays();
+      MainNavigationScreen.navigateToTab(NavigationConstants.moreIndex);
       return true;
     default:
       return false;

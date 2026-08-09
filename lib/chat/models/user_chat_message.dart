@@ -13,6 +13,7 @@ class ChatMessage {
     this.attachmentType,
     this.attachmentName,
     this.attachmentSize,
+    this.durationSeconds,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
@@ -35,6 +36,7 @@ class ChatMessage {
       attachmentType: json['attachment_type'] as String?,
       attachmentName: json['attachment_name'] as String?,
       attachmentSize: json['attachment_size'] as int?,
+      durationSeconds: json['duration_seconds'] as int?,
     );
   }
   final String id;
@@ -50,6 +52,7 @@ class ChatMessage {
   final String? attachmentType;
   final String? attachmentName;
   final int? attachmentSize;
+  final int? durationSeconds;
 
   Map<String, dynamic> toJson() {
     return {
@@ -66,6 +69,7 @@ class ChatMessage {
       'attachment_type': attachmentType,
       'attachment_name': attachmentName,
       'attachment_size': attachmentSize,
+      'duration_seconds': durationSeconds,
     };
   }
 
@@ -83,6 +87,7 @@ class ChatMessage {
     String? attachmentType,
     String? attachmentName,
     int? attachmentSize,
+    int? durationSeconds,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -98,6 +103,7 @@ class ChatMessage {
       attachmentType: attachmentType ?? this.attachmentType,
       attachmentName: attachmentName ?? this.attachmentName,
       attachmentSize: attachmentSize ?? this.attachmentSize,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
     );
   }
 
@@ -105,6 +111,20 @@ class ChatMessage {
   bool get isImage => messageType == 'image';
   bool get isFile => messageType == 'file';
   bool get isVoice => messageType == 'voice';
+
+  /// Inbox / notification preview line.
+  String get previewText {
+    switch (messageType) {
+      case 'voice':
+        return '🎤 پیام صوتی';
+      case 'image':
+        return '📷 تصویر';
+      case 'file':
+        return '📎 ${attachmentName ?? 'فایل'}';
+      default:
+        return message;
+    }
+  }
 }
 
 class ChatConversation {

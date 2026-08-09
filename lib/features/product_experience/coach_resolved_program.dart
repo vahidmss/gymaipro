@@ -12,6 +12,7 @@ class CoachResolvedExercise {
     this.tempo,
     this.notes,
     this.weightKg,
+    this.repsPerSet,
   });
 
   final String name;
@@ -23,6 +24,20 @@ class CoachResolvedExercise {
   final String? tempo;
   final String? notes;
   final double? weightKg;
+  /// When non-null and length matches [sets], per-set targets (e.g. 12-10-8).
+  final List<int>? repsPerSet;
+
+  /// Display scheme: `۳ × ۱۰` or `۱۲ - ۱۰ - ۸`.
+  String get repsScheme {
+    final perSet = repsPerSet;
+    if (perSet != null &&
+        perSet.length == sets &&
+        perSet.isNotEmpty &&
+        !perSet.every((v) => v == perSet.first)) {
+      return perSet.join(' - ');
+    }
+    return '$sets × $reps';
+  }
 }
 
 /// Today's workout resolved from CoachContext + integration payloads.

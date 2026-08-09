@@ -6,31 +6,54 @@ class NavigationConstants {
   // Private constructor to prevent instantiation
   NavigationConstants._();
 
-  // Navigation indices (updated)
-  static const int chatIndex = 0; // AI Hub / Chat
-  static const int academyIndex = 1;
-  static const int dashboardIndex = 2; // central button
-  static const int myClubIndex = 3; // باشگاه من - برنامه‌ها، مربی‌ها، دوستان
-  static const int socialIndex = 4; // اجتماعی - گفتگوها، چت عمومی، مربیان
+  // ── IndexedStack tab indices (plus is an action, not a tab) ──────────
+  static const int homeIndex = 0;
+  static const int hubIndex = 1; // athlete: باشگاه من · trainer: میز کار
+  static const int roleTabIndex = 2; // پیام‌ها (هر دو نقش)
+  static const int moreIndex = 3;
+
+  /// Legacy aliases — prefer the names above in new code.
+  static const int dashboardIndex = homeIndex;
+  static const int myClubIndex = hubIndex;
+  static const int chatIndex = roleTabIndex; // messages / legacy coach alias
+  static const int socialIndex = roleTabIndex; // messages
 
   // Navigation labels
-  static const String chatLabel = 'مربی من';
-  static const String academyLabel = 'آکادمی';
-  static const String dashboardLabel = 'داشبورد';
+  static const String homeLabel = 'خانه';
   static const String myClubLabel = 'باشگاه من';
-  static const String socialLabel = 'اجتماعی';
+  static const String deskLabel = 'میز کار';
+  static const String coachLabel = 'مربی AI';
+  static const String messagesLabel = 'پیام‌ها';
+  static const String moreLabel = 'بیشتر';
+  static const String plusLabel = 'افزودن';
+
+  /// Legacy labels kept for older call sites / docs.
+  static const String chatLabel = messagesLabel;
+  static const String academyLabel = 'آکادمی';
+  static const String dashboardLabel = homeLabel;
+  static const String workoutLabel = myClubLabel;
+  static const String socialLabel = messagesLabel;
 
   // Navigation icons
-  static const IconData chatIcon = LucideIcons.bot;
-  static const IconData academyIcon = LucideIcons.school;
-  static const IconData dashboardIcon = LucideIcons.home;
+  static const IconData homeIcon = LucideIcons.house;
   static const IconData myClubIcon = LucideIcons.users;
-  static const IconData socialIcon = LucideIcons.messageCircle;
+  static const IconData deskIcon = LucideIcons.briefcase;
+  static const IconData coachIcon = LucideIcons.bot;
+  static const IconData messagesIcon = LucideIcons.messageCircle;
+  static const IconData moreIcon = LucideIcons.ellipsis;
+  static const IconData plusIcon = LucideIcons.plus;
+
+  static const IconData chatIcon = messagesIcon;
+  static const IconData academyIcon = LucideIcons.school;
+  static const IconData dashboardIcon = homeIcon;
+  static const IconData workoutIcon = myClubIcon;
+  static const IconData socialIcon = messagesIcon;
 
   // Navigation routes
   static const String chatRoute = '/chat-main';
   static const String dashboardRoute = '/dashboard';
   static const String socialRoute = '/chat-main';
+  static const String academyRoute = '/academy';
   // legacy routes kept for deep links within dashboard sections
   static const String workoutProgramBuilderRoute = '/workout-program-builder';
   static const String workoutLogRoute = '/workout-log';
@@ -51,8 +74,8 @@ class NavigationConstants {
   static const Curve navItemAnimationCurve = Curves.easeInOut;
 
   // Bottom navigation dimensions
-  static const double bottomNavHeight = 90;
-  static const double centralButtonSize = 70;
+  static const double bottomNavHeight = 96;
+  static const double centralButtonSize = 56;
   static const double navItemIconSize = 20;
   static const double navItemFontSize = 10;
 
@@ -70,8 +93,8 @@ class NavigationConstants {
   // Workout section action cards
   static const Map<String, Map<String, dynamic>> workoutActions = {
     'program_builder': {
-      'title': 'ساخت برنامه تمرینی',
-      'subtitle': 'برنامه تمرینی جدید بسازید',
+      'title': 'ساخت برنامه',
+      'subtitle': 'برنامه تمرین جدید بسازید',
       'icon': Icons.fitness_center,
       'route': workoutProgramBuilderRoute,
     },
@@ -119,47 +142,70 @@ class NavigationConstants {
 
   // Color configurations for action cards
   static const Map<String, Color> actionCardColors = {
-    'workout_program': Color(0xFFFFD700), // Gold
-    'workout_log': Color(0xFF2196F3), // Blue
-    'exercise_list': Color(0xFF4CAF50), // Green
-    'meal_plan': Color(0xFFFF9800), // Orange
-    'meal_log': Color(0xFF9C27B0), // Purple
-    'food_list': Color(0xFF009688), // Teal
-    'favorite_foods': Color(0xFFE91E63), // Pink
+    'workout_program': Color(0xFFFFD700),
+    'workout_log': Color(0xFF2196F3),
+    'exercise_list': Color(0xFF4CAF50),
+    'meal_plan': Color(0xFFFF9800),
+    'meal_log': Color(0xFF9C27B0),
+    'food_list': Color(0xFF009688),
+    'favorite_foods': Color(0xFFE91E63),
   };
 
-  // Navigation item configurations (used by some widgets)
+  /// Bottom-nav slots excluding the center plus (for docs / tooling).
+  static List<Map<String, dynamic>> navigationItemsForRole(String? role) {
+    final isTrainer = role == 'trainer';
+    return [
+      {
+        'index': homeIndex,
+        'label': homeLabel,
+        'icon': homeIcon,
+        'route': dashboardRoute,
+      },
+      {
+        'index': hubIndex,
+        'label': isTrainer ? deskLabel : myClubLabel,
+        'icon': isTrainer ? deskIcon : myClubIcon,
+        'route': null,
+      },
+      {
+        'index': roleTabIndex,
+        'label': messagesLabel,
+        'icon': messagesIcon,
+        'route': socialRoute,
+      },
+      {
+        'index': moreIndex,
+        'label': moreLabel,
+        'icon': moreIcon,
+        'route': null,
+      },
+    ];
+  }
+
   static const List<Map<String, dynamic>> navigationItems = [
     {
-      'index': chatIndex,
-      'label': chatLabel,
-      'icon': chatIcon,
-      'route': chatRoute,
-    },
-    {
-      'index': academyIndex,
-      'label': academyLabel,
-      'icon': academyIcon,
-      'route': null, // rendered as a tab page
-    },
-    {
-      'index': dashboardIndex,
-      'label': dashboardLabel,
-      'icon': dashboardIcon,
+      'index': homeIndex,
+      'label': homeLabel,
+      'icon': homeIcon,
       'route': dashboardRoute,
     },
     {
-      'index': myClubIndex,
+      'index': hubIndex,
       'label': myClubLabel,
       'icon': myClubIcon,
-      'route':
-          null, // role-based tab page (MyClub for athletes, TrainerDashboard for trainers)
+      'route': null,
     },
     {
-      'index': socialIndex,
-      'label': socialLabel,
-      'icon': socialIcon,
-      'route': '/chat-main',
+      'index': roleTabIndex,
+      'label': messagesLabel,
+      'icon': messagesIcon,
+      'route': socialRoute,
+    },
+    {
+      'index': moreIndex,
+      'label': moreLabel,
+      'icon': moreIcon,
+      'route': null,
     },
   ];
 

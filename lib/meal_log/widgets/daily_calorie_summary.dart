@@ -1,16 +1,18 @@
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_log/models/food_meal_log.dart';
 import 'package:gymaipro/meal_log/services/meal_insight_engine.dart';
 import 'package:gymaipro/meal_log/utils/meal_log_utils.dart';
+import 'package:gymaipro/meal_log/utils/meal_nutrition_targets.dart';
 import 'package:gymaipro/meal_log/widgets/meal_log_colors.dart';
 import 'package:gymaipro/models/food.dart';
-import 'package:gymaipro/meal_log/utils/meal_nutrition_targets.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:responsive_framework/responsive_framework.dart';
 
+/// نوار فشردهٔ خلاصهٔ روزانه — جزئیات فقط با expand.
 class DailyCalorieSummary extends StatefulWidget {
   const DailyCalorieSummary({
     required this.meals,
@@ -31,16 +33,64 @@ class DailyCalorieSummary extends StatefulWidget {
   State<DailyCalorieSummary> createState() => _DailyCalorieSummaryState();
 }
 
-class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
+class _DailyCalorieSummaryState extends State<DailyCalorieSummary>
+    with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
   bool _showChart = false;
 
   MealNutritionTargets? _cachedTargets;
   Map<String, dynamic>? _cachedProfileRef;
   Map<String, double>? _cachedTotals;
-  List<FoodMealLog>? _cachedMealsRef;
+  int? _cachedMealsSignature;
   List<Food>? _cachedFoodsRef;
   bool _cachedExtended = false;
+
+  late final AnimationController _progressAnim;
+
+  static int _mealsContentSignature(List<FoodMealLog> meals) {
+    var hash = meals.length;
+    for (final meal in meals) {
+      hash = Object.hash(hash, meal.title, meal.foods.length, meal.note);
+      for (final food in meal.foods) {
+        hash = Object.hash(
+          hash,
+          food.foodId,
+          food.amount,
+          food.unit,
+          food.plannedAmount,
+          food.followedPlan,
+        );
+      }
+    }
+    return hash;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _progressAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 720),
+    )..forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant DailyCalorieSummary oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldSig = _mealsContentSignature(oldWidget.meals);
+    final newSig = _mealsContentSignature(widget.meals);
+    if (oldSig != newSig) {
+      _progressAnim
+        ..reset()
+        ..forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _progressAnim.dispose();
+    super.dispose();
+  }
 
   void _ensureComputed() {
     final profile = widget.profileData;
@@ -50,11 +100,12 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
     }
 
     final needsExtended = _isExpanded;
-    if (_cachedMealsRef != widget.meals ||
+    final mealsSignature = _mealsContentSignature(widget.meals);
+    if (_cachedMealsSignature != mealsSignature ||
         _cachedFoodsRef != widget.allFoods ||
         _cachedExtended != needsExtended ||
         _cachedTotals == null) {
-      _cachedMealsRef = widget.meals;
+      _cachedMealsSignature = mealsSignature;
       _cachedFoodsRef = widget.allFoods;
       _cachedExtended = needsExtended;
       _cachedTotals = MealLogUtils.calculateTotals(
@@ -68,7 +119,6 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
   @override
   Widget build(BuildContext context) {
     _ensureComputed();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final targets = _cachedTargets!;
     final dailyCalorieTarget = targets.calorieTarget;
@@ -79,930 +129,305 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
     final consumedFat = totals['fat'] ?? 0;
 
     final calorieDelta = dailyCalorieTarget - consumedCalories;
-    final isOverReference = calorieDelta < 0;
-
-    // محاسبه درصد مصرف
-    final progressPercentage = dailyCalorieTarget > 0
+    final isOver = calorieDelta < 0;
+    final progress = dailyCalorieTarget > 0
         ? (consumedCalories / dailyCalorieTarget).clamp(0.0, 1.0)
         : 0.0;
-
+    final percentage = (progress * 100).round();
     final barGuidance = widget.barGuidance ?? MealCalorieBarGuidance.empty;
-
-    final now = widget.referenceTime ?? DateTime.now();
-    final percentage = (progressPercentage * 100).round();
-    final isViewingToday = _isViewingToday(now);
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // استفاده از MediaQuery برای اندازه واقعی صفحه
-        final mediaQuery = MediaQuery.of(context);
-        final screenWidth = mediaQuery.size.width;
-
-        // محاسبه responsive padding بر اساس اندازه واقعی
-        final containerPadding = screenWidth > 600
-            ? (screenWidth * 0.03).clamp(16.0, 24.0)
-            : (screenWidth * 0.032).clamp(12.0, 16.0);
-
-        // محاسبه responsive margin بر اساس اندازه واقعی
-        final verticalMargin = screenWidth > 600 ? 12.0 : 8.0;
-        final containerMargin = EdgeInsets.symmetric(
-          vertical: verticalMargin,
-        );
-
-        // محاسبه responsive border radius بر اساس اندازه واقعی
-        final borderRadius = screenWidth > 600 ? 20.0 : 16.0;
-
-        return Container(
-          margin: containerMargin,
-          padding: EdgeInsets.all(containerPadding),
-          decoration: BoxDecoration(
-            gradient: isDark
-                ? null
-                : LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      context.goldGradientColors[0].withValues(alpha: 0.15),
-                      context.cardColor,
-                      context.goldGradientColors[1].withValues(alpha: 0.1),
-                    ],
-                  ),
-            color: isDark ? context.backgroundColor : null,
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.5),
-              width: 1.5.w,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.goldColor.withValues(
-                  alpha: isDark ? 0.15 : 0.35,
-                ),
-                blurRadius: 16.r,
-                offset: Offset(0.w, 6.h),
-                spreadRadius: 1.r,
-              ),
-              BoxShadow(
-                color: isDark
-                    ? Colors.black.withValues(alpha: 0.5)
-                    : AppTheme.lightTextColor.withValues(alpha: 0.08),
-                blurRadius: 8.r,
-                offset: Offset(0.w, 2.h),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ─── ردیف بالا: خوشامدگویی + نشان هدف + دکمه نمودار ───
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        isViewingToday
-                            ? _greetingEmoji(now.hour)
-                            : '📅',
-                        style: TextStyle(fontSize: 14.sp),
-                      ),
-                      SizedBox(width: 5.w),
-                      Text(
-                        isViewingToday
-                            ? _greetingText(now.hour)
-                            : MealLogUtils.getPersianFormattedDate(now),
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: context.textColor,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (targets.goalAdjustmentLabel != null) ...[
-                        SizedBox(width: 8.w),
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 7.w,
-                            vertical: 2.h,
-                          ),
-                          decoration: BoxDecoration(
-                            color: (isDark
-                                    ? AppTheme.goldColor
-                                    : AppTheme.darkGold)
-                                .withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8.r),
-                            border: Border.all(
-                              color: (isDark
-                                      ? AppTheme.goldColor
-                                      : AppTheme.darkGold)
-                                  .withValues(alpha: 0.5),
-                            ),
-                          ),
-                          child: Text(
-                            targets.goalAdjustmentLabel!,
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: isDark
-                                  ? AppTheme.goldColor
-                                  : AppTheme.darkGold,
-                              fontSize: 9.sp,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  // دکمه تغییر نمایش
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => setState(() => _showChart = !_showChart),
-                      borderRadius: BorderRadius.circular(8.r),
-                      child: Container(
-                        padding: EdgeInsets.all(6.w),
-                        decoration: BoxDecoration(
-                          color: context.cardColor,
-                          borderRadius: BorderRadius.circular(8.r),
-                          border: Border.all(
-                            color: (isDark
-                                    ? AppTheme.goldColor
-                                    : AppTheme.darkGold)
-                                .withValues(alpha: 0.5),
-                            width: 1.w,
-                          ),
-                        ),
-                        child: Icon(
-                          _showChart
-                              ? LucideIcons.barChart3
-                              : LucideIcons.pieChart,
-                          color: isDark ? AppTheme.goldColor : AppTheme.darkGold,
-                          size: 18.sp,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              SizedBox(height: 12.h),
-
-              // ─── ردیف اعداد: مصرف شده | باقیمانده (متقارن) ───
-              if (!_showChart)
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // مصرف شده
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'مصرف شده',
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                color: context.textSecondary,
-                                fontSize: 10.sp,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            SizedBox(height: 4.h),
-                            RichText(
-                              textDirection: TextDirection.rtl,
-                              text: TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: consumedCalories.toStringAsFixed(0),
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.fontFamily,
-                                      color: isOverReference
-                                          ? _statusErrorColor(isDark)
-                                          : context.textColor,
-                                      fontSize: 24.sp,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1.1,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: ' کالری',
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.fontFamily,
-                                      color: context.textSecondary,
-                                      fontSize: 10.sp,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(height: 2.h),
-                            Text(
-                              '${targets.calorieReferenceTitle}: ${dailyCalorieTarget.toStringAsFixed(0)}',
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                color: context.textSecondary,
-                                fontSize: 9.sp,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              textDirection: TextDirection.rtl,
-                            ),
-                          ],
-                        ),
-                      ),
-                      // جداکننده عمودی
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 14.w),
-                        child: Container(
-                          width: 1.w,
-                          color: context.separatorColor,
-                        ),
-                      ),
-                      // باقیمانده / بیش از مرجع
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              isOverReference ? 'بیش از مرجع' : 'باقیمانده',
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                color: context.textSecondary,
-                                fontSize: 10.sp,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            SizedBox(height: 4.h),
-                            RichText(
-                              textDirection: TextDirection.rtl,
-                              text: TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: (isOverReference
-                                            ? -calorieDelta
-                                            : calorieDelta)
-                                        .toStringAsFixed(0),
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.fontFamily,
-                                      color: isOverReference
-                                          ? _statusErrorColor(isDark)
-                                          : (isDark
-                                              ? AppTheme.goldColor
-                                              : AppTheme.darkGold),
-                                      fontSize: 24.sp,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1.1,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: ' کالری',
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.fontFamily,
-                                      color: context.textSecondary,
-                                      fontSize: 10.sp,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(height: 2.h),
-                            Text(
-                              '$percentage٪ از مرجع',
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                color: _percentageBadgeColor(
-                                  context,
-                                  progressPercentage,
-                                  isOverReference,
-                                  isDark,
-                                ),
-                                fontSize: 9.sp,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              textDirection: TextDirection.rtl,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              SizedBox(height: 12.h),
-
-              // نمایش نمودار یا progress bar
-              if (_showChart)
-                _buildNutritionChart(
-                  consumedCalories,
-                  consumedProtein,
-                  consumedCarbs,
-                  consumedFat,
-                  isDark,
-                )
-              else
-                _buildProgressBar(
-                  progressPercentage,
-                  consumedCalories,
-                  dailyCalorieTarget,
-                  isOverReference,
-                  isDark,
-                ),
-
-              if (!_showChart && barGuidance.hasContent) ...[
-                SizedBox(height: 8.h),
-                _buildBarGuidance(context, barGuidance, isDark),
-              ],
-
-              SizedBox(height: 8.h),
-
-              // فلش و بخش ماکرو
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _isExpanded = !_isExpanded;
-                  });
-                },
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _isExpanded
-                          ? LucideIcons.chevronUp
-                          : LucideIcons.chevronDown,
-                      color: isDark ? AppTheme.goldColor : context.textColor,
-                      size: 18.sp,
-                    ),
-                  ],
-                ),
-              ),
-
-              // بخش ماکرو و تیپس (قابل باز شدن)
-              if (_isExpanded) ...[
-                SizedBox(height: 8.h),
-                Divider(color: context.separatorColor, thickness: 1),
-                SizedBox(height: 8.h),
-                _buildMacroSection(
-                  context,
-                  consumedProtein,
-                  consumedCarbs,
-                  consumedFat,
-                  isDark,
-                ),
-                if ((totals['fiber'] ?? 0) > 0 ||
-                    (totals['sugar'] ?? 0) > 0 ||
-                    (totals['sodium'] ?? 0) > 0) ...[
-                  SizedBox(height: 10.h),
-                  _buildMicronutrientSection(context, totals),
-                ],
-                SizedBox(height: 8.h),
-                _buildTip(context, targets, isDark),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildNutritionChart(
-    double consumedCalories,
-    double consumedProtein,
-    double consumedCarbs,
-    double consumedFat,
-    bool isDark,
-  ) {
-    final double proteinCalories = consumedProtein * 4;
-    final double carbsCalories = consumedCarbs * 4;
-    final double fatCalories = consumedFat * 9;
-    final double totalMacroCalories =
-        proteinCalories + carbsCalories + fatCalories;
-
-    if (totalMacroCalories == 0) {
-      return Container(
-        padding: EdgeInsets.all(20.w),
-        decoration: BoxDecoration(
-          color: isDark ? context.backgroundColor : context.cardColor,
-          borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.12)),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              LucideIcons.pieChart,
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.6 : 0.5),
-              size: 48.sp,
-            ),
-            SizedBox(height: 12.h),
-            Text(
-              'هیچ غذایی اضافه نشده',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                color: context.textColor.withValues(alpha: 0.7),
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.1,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final double proteinPercent = (proteinCalories / totalMacroCalories) * 100;
-    final double carbsPercent = (carbsCalories / totalMacroCalories) * 100;
-    final double fatPercent = (fatCalories / totalMacroCalories) * 100;
+    final remainingAbs = isOver ? -calorieDelta : calorieDelta;
 
     return Container(
-      padding: EdgeInsets.all(12.w),
+      margin: EdgeInsets.symmetric(vertical: 4.h),
       decoration: BoxDecoration(
-        gradient: isDark
-            ? null
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  context.goldGradientColors[0].withValues(alpha: 0.15),
-                  context.cardColor,
-                  context.goldGradientColors[1].withValues(alpha: 0.1),
-                ],
-              ),
-        color: isDark ? context.backgroundColor : null,
-        borderRadius: BorderRadius.circular(16.r),
+        color: MealLogColors.sectionBackground(context),
+        borderRadius: BorderRadius.circular(14.r),
         border: Border.all(
-          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.5),
-          width: 1.5.w,
+          color: MealLogColors.chipBorder(context, selected: false),
         ),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.35),
-            blurRadius: 16.r,
-            offset: Offset(0.w, 6.h),
-            spreadRadius: 1.r,
-          ),
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.5)
-                : AppTheme.lightTextColor.withValues(alpha: 0.08),
+            color: Colors.black.withValues(
+              alpha: MealLogColors.isDark(context) ? 0.28 : 0.04,
+            ),
             blurRadius: 8.r,
-            offset: Offset(0.w, 2.h),
+            offset: Offset(0, 2.h),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            flex: 2,
-            child: SizedBox(
-              height: 120.h,
-              child: PieChart(
-                PieChartData(
-                  sections: [
-                    PieChartSectionData(
-                      color: AppTheme.proteinColor,
-                      value: proteinPercent,
-                      title: '${proteinPercent.toStringAsFixed(1)}%',
-                      radius: 40,
-                      titleStyle: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.bold,
-                        color: isDark
-                            ? AppTheme.darkTextColor
-                            : AppTheme.lightTextColor,
-                        letterSpacing: 0.1,
-                      ),
-                    ),
-                    PieChartSectionData(
-                      color: AppTheme.carbsColor,
-                      value: carbsPercent,
-                      title: '${carbsPercent.toStringAsFixed(1)}%',
-                      radius: 40,
-                      titleStyle: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.bold,
-                        color: isDark
-                            ? AppTheme.darkTextColor
-                            : AppTheme.lightTextColor,
-                        letterSpacing: 0.1,
-                      ),
-                    ),
-                    PieChartSectionData(
-                      color: AppTheme.fatColor,
-                      value: fatPercent,
-                      title: '${fatPercent.toStringAsFixed(1)}%',
-                      radius: 40,
-                      titleStyle: TextStyle(
-                        fontFamily: AppTheme.fontFamily,
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.bold,
-                        color: isDark
-                            ? AppTheme.darkTextColor
-                            : AppTheme.lightTextColor,
-                        letterSpacing: 0.1,
-                      ),
-                    ),
-                  ],
-                  centerSpaceRadius: 25,
-                  sectionsSpace: 2,
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: 16.w),
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+          Padding(
+            padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 12.w,
-                    vertical: 10.h,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: isDark
-                        ? null
-                        : LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppTheme.goldColor.withValues(alpha: 0.15),
-                              AppTheme.goldColor.withValues(alpha: 0.08),
-                            ],
-                          ),
-                    color: isDark
-                        ? AppTheme.goldColor.withValues(alpha: 0.2)
-                        : null,
-                    borderRadius: BorderRadius.circular(12.r),
-                    border: Border.all(
-                      color: AppTheme.goldColor.withValues(
-                        alpha: isDark ? 0.4 : 0.3,
-                      ),
-                      width: 1.w,
-                    ),
-                  ),
+                Expanded(
+                  flex: 11,
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        consumedCalories.toStringAsFixed(0),
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: context.textColor,
-                          fontSize: 24.sp,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.2,
-                        ),
+                        isOver ? 'بیش از مرجع' : 'باقیمانده',
+                        style: MealLogTypography.statLabel(context),
                       ),
-                      SizedBox(height: 4.h),
+                      SizedBox(height: 2.h),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: remainingAbs),
+                        duration: const Duration(milliseconds: 680),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, _) {
+                          return Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: MealLogUtils.convertToPersianNumbers(
+                                    value.round().toString(),
+                                  ),
+                                  style: MealLogTypography.statValue(
+                                    context,
+                                    color: isOver
+                                        ? MealLogColors.errorText(context)
+                                        : MealLogColors.accent(context),
+                                  ).copyWith(fontSize: 28.sp),
+                                ),
+                                TextSpan(
+                                  text: ' کالری',
+                                  style: MealLogTypography.caption(
+                                    context,
+                                    color: MealLogColors.mutedText(context),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            textDirection: TextDirection.rtl,
+                          );
+                        },
+                      ),
+                      SizedBox(height: 2.h),
                       Text(
-                        'کالری کل',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: AppTheme.goldColor,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.1,
+                        MealLogUtils.convertToPersianNumbers(
+                          '$percentage٪ از مرجع',
                         ),
+                        style: MealLogTypography.caption(
+                          context,
+                          color: _pctColor(context, progress, isOver),
+                          fontWeight: FontWeight.w700,
+                        ).copyWith(fontSize: 10.sp),
                       ),
                     ],
                   ),
                 ),
-                SizedBox(height: 12.h),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildMacroCard(
-                        'پروتئین',
-                        '${consumedProtein.toStringAsFixed(1)}g',
-                        proteinPercent.toStringAsFixed(1),
-                        AppTheme.proteinColor,
-                        isDark,
-                      ),
-                    ),
-                    SizedBox(width: 6.w),
-                    Expanded(
-                      child: _buildMacroCard(
-                        'کربوهیدرات',
-                        '${consumedCarbs.toStringAsFixed(1)}g',
-                        carbsPercent.toStringAsFixed(1),
-                        AppTheme.carbsColor,
-                        isDark,
-                      ),
-                    ),
-                    SizedBox(width: 6.w),
-                    Expanded(
-                      child: _buildMacroCard(
-                        'چربی',
-                        '${consumedFat.toStringAsFixed(1)}g',
-                        fatPercent.toStringAsFixed(1),
-                        AppTheme.fatColor,
-                        isDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMacroCard(
-    String title,
-    String amount,
-    String percent,
-    Color color,
-    bool isDark,
-  ) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 8.h),
-      decoration: BoxDecoration(
-        gradient: isDark
-            ? null
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  color.withValues(alpha: 0.12),
-                  color.withValues(alpha: 0.08),
-                ],
-              ),
-        color: isDark ? color.withValues(alpha: 0.15) : null,
-        borderRadius: BorderRadius.circular(8.r),
-        border: Border.all(
-          color: color.withValues(alpha: isDark ? 0.3 : 0.25),
-          width: 1.w,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            amount,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              color: color,
-              fontSize: 10.sp,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.1,
-            ),
-          ),
-          SizedBox(height: 2.h),
-          Text(
-            title,
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              color: color.withValues(alpha: isDark ? 0.9 : 0.8),
-              fontSize: 8.sp,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.05,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          SizedBox(height: 2.h),
-          Text(
-            '$percent%',
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              color: color.withValues(alpha: isDark ? 0.8 : 0.7),
-              fontSize: 7.sp,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.05,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProgressBar(
-    double progress,
-    double consumed,
-    double target,
-    bool isOverReference,
-    bool isDark,
-  ) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final barWidth = constraints.maxWidth;
-        final clampedProgress = progress.clamp(0.0, 1.0);
-        final progressWidth = barWidth * clampedProgress;
-
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Progress bar
-            Stack(
-              children: [
-                // Background
                 Container(
-                  height: 8.h,
-                  width: barWidth,
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppTheme.darkGreySeparator
-                        : AppTheme.lightDividerColor,
-                    borderRadius: BorderRadius.circular(8.r),
-                  ),
+                  width: 1,
+                  height: 44.h,
+                  color: MealLogColors.inputBorder(context),
                 ),
-                // Progress fill (از چپ به راست)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  child: Container(
-                    height: 8.h,
-                    width: progressWidth,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppTheme.darkGold, AppTheme.goldColor],
-                      ),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(8.r),
-                        bottomLeft: Radius.circular(8.r),
-                        topRight: clampedProgress < 1.0
-                            ? Radius.zero
-                            : Radius.circular(8.r),
-                        bottomRight: clampedProgress < 1.0
-                            ? Radius.zero
-                            : Radius.circular(8.r),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            // مقدار استفاده شده زیر progress bar
-            SizedBox(height: 10.h),
-            Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                  decoration: BoxDecoration(
-                    color: context.cardColor,
-                    borderRadius: BorderRadius.circular(6.r),
-                    border: Border.all(
-                      color: (isDark ? AppTheme.goldColor : AppTheme.darkGold)
-                          .withValues(alpha: 0.45),
-                      width: 1.w,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                SizedBox(width: 12.w),
+                Expanded(
+                  flex: 9,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        LucideIcons.flame,
-                        size: 12.sp,
-                        color: isDark ? AppTheme.goldColor : AppTheme.darkGold,
-                      ),
-                      SizedBox(width: 6.w),
                       Text(
-                        'مصرف شده: ',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: context.textSecondary,
-                          fontSize: 11.sp,
-                          fontWeight: FontWeight.w600,
+                        'مصرف شده',
+                        style: MealLogTypography.statLabel(context),
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        MealLogUtils.convertToPersianNumbers(
+                          '${consumedCalories.round()} کالری',
                         ),
-                      ),
-                      Text(
-                        consumed.toStringAsFixed(0),
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: isOverReference
-                              ? _statusErrorColor(isDark)
-                              : context.textColor,
-                          fontSize: 14.sp,
+                        style: MealLogTypography.sectionTitle(context).copyWith(
+                          fontSize: 15.sp,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      SizedBox(width: 2.w),
+                      SizedBox(height: 2.h),
                       Text(
-                        'کالری',
-                        style: TextStyle(
-                          fontFamily: AppTheme.fontFamily,
-                          color: context.textSecondary,
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w500,
+                        MealLogUtils.convertToPersianNumbers(
+                          '${targets.calorieReferenceTitle}: ${dailyCalorieTarget.round()}',
                         ),
+                        style: MealLogTypography.caption(
+                          context,
+                          color: MealLogColors.mutedText(context),
+                          fontWeight: FontWeight.w500,
+                        ).copyWith(fontSize: 10.sp),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildBarGuidance(
-    BuildContext context,
-    MealCalorieBarGuidance guidance,
-    bool isDark,
-  ) {
-    final accent = _guidanceToneColor(guidance.tone, isDark);
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-      decoration: BoxDecoration(
-        color: context.cardColor,
-        borderRadius: BorderRadius.circular(10.r),
-        border: Border.all(color: accent.withValues(alpha: isDark ? 0.55 : 0.65)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        textDirection: TextDirection.rtl,
-        children: [
-          Icon(
-            _guidanceToneIcon(guidance.tone),
-            color: accent,
-            size: 15.sp,
           ),
-          SizedBox(width: 6.w),
-          Expanded(
-            child: Text(
-              guidance.message,
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                color: context.textColor,
-                fontSize: 11.5.sp,
-                fontWeight: FontWeight.w600,
-                height: 1.45,
-              ),
-              textDirection: TextDirection.rtl,
+          Padding(
+            padding: EdgeInsets.fromLTRB(14.w, 10.h, 14.w, 0),
+            child: AnimatedBuilder(
+              animation: _progressAnim,
+              builder: (context, _) {
+                final t = Curves.easeOutCubic.transform(_progressAnim.value);
+                return _CalorieProgressBar(
+                  progress: progress * t,
+                  isOver: isOver,
+                );
+              },
             ),
+          ),
+          if (barGuidance.hasContent)
+            Padding(
+              padding: EdgeInsets.fromLTRB(14.w, 8.h, 14.w, 0),
+              child: _GuidanceLine(guidance: barGuidance),
+            ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => setState(() => _isExpanded = !_isExpanded),
+              borderRadius: BorderRadius.vertical(
+                bottom: Radius.circular(_isExpanded ? 0 : 14.r),
+              ),
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 6.h),
+                child: Icon(
+                  _isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                  size: 16.sp,
+                  color: MealLogColors.mutedText(context),
+                ),
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: _ExpandedBody(
+              consumedProtein: consumedProtein,
+              consumedCarbs: consumedCarbs,
+              consumedFat: consumedFat,
+              consumedCalories: consumedCalories,
+              proteinTarget: targets.proteinTarget,
+              carbsTarget: targets.carbsTarget,
+              fatTarget: targets.fatTarget,
+              referenceHint: targets.calorieReferenceHint,
+              totals: totals,
+              showChart: _showChart,
+              onToggleChart: () => setState(() => _showChart = !_showChart),
+            ),
+            crossFadeState: _isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 240),
+            sizeCurve: Curves.easeOutCubic,
           ),
         ],
       ),
     );
   }
 
-  static String _greetingText(int hour) {
-    if (hour >= 5 && hour < 12) return 'صبح بخیر';
-    if (hour >= 12 && hour < 17) return 'ظهر بخیر';
-    if (hour >= 17 && hour < 21) return 'عصر بخیر';
-    return 'شب بخیر';
+  Color _pctColor(BuildContext context, double progress, bool isOver) {
+    if (isOver) return MealLogColors.errorText(context);
+    if (progress >= 0.85) return MealLogColors.successText(context);
+    if (progress >= 0.5) return MealLogColors.accent(context);
+    return MealLogColors.mutedText(context);
+  }
+}
+
+class _CalorieProgressBar extends StatelessWidget {
+  const _CalorieProgressBar({
+    required this.progress,
+    required this.isOver,
+  });
+
+  final double progress;
+  final bool isOver;
+
+  @override
+  Widget build(BuildContext context) {
+    final clamped = progress.clamp(0.0, 1.0);
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(999.r),
+        child: SizedBox(
+          height: 7.h,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ColoredBox(color: MealLogColors.inputBorder(context)),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: clamped,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: isOver
+                            ? [
+                                MealLogColors.errorText(context)
+                                    .withValues(alpha: 0.75),
+                                MealLogColors.errorText(context),
+                              ]
+                            : [
+                                AppTheme.darkGold,
+                                AppTheme.goldColor,
+                              ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GuidanceLine extends StatelessWidget {
+  const _GuidanceLine({required this.guidance});
+
+  final MealCalorieBarGuidance guidance;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = _tone(context, guidance.tone);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      textDirection: TextDirection.rtl,
+      children: [
+        Icon(_icon(guidance.tone), size: 14.sp, color: accent),
+        SizedBox(width: 6.w),
+        Expanded(
+          child: Text(
+            guidance.message,
+            style: MealLogTypography.caption(
+              context,
+              color: MealLogColors.primaryText(context),
+            ).copyWith(fontSize: 11.sp, height: 1.4),
+            textDirection: TextDirection.rtl,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
   }
 
-  static bool _isViewingToday(DateTime reference) {
-    final today = DateTime.now();
-    return reference.year == today.year &&
-        reference.month == today.month &&
-        reference.day == today.day;
-  }
-
-  static String _greetingEmoji(int hour) {
-    if (hour >= 5 && hour < 8) return '🌅';
-    if (hour >= 8 && hour < 12) return '☀️';
-    if (hour >= 12 && hour < 15) return '🌤️';
-    if (hour >= 15 && hour < 19) return '🌇';
-    if (hour >= 19 && hour < 21) return '🌆';
-    return '🌙';
-  }
-
-  Color _percentageBadgeColor(
-    BuildContext context,
-    double progress,
-    bool isOverReference,
-    bool isDark,
-  ) {
-    if (isOverReference) return _statusErrorColor(isDark);
-    if (progress >= 0.85) return _statusSuccessColor(isDark);
-    if (progress >= 0.5) return isDark ? AppTheme.goldColor : AppTheme.darkGold;
-    return context.textSecondary;
-  }
-
-  Color _statusErrorColor(bool isDark) =>
-      isDark ? const Color(0xFFFF8A80) : const Color(0xFFB71C1C);
-
-  Color _statusSuccessColor(bool isDark) =>
-      isDark ? const Color(0xFF81C784) : AppTheme.proteinColor;
-
-  Color _guidanceToneColor(MealInsightTone tone, bool isDark) {
+  static Color _tone(BuildContext context, MealInsightTone tone) {
     switch (tone) {
       case MealInsightTone.success:
-        return _statusSuccessColor(isDark);
+        return MealLogColors.successText(context);
       case MealInsightTone.warning:
-        return _statusErrorColor(isDark);
+        return MealLogColors.errorText(context);
       case MealInsightTone.tip:
       case MealInsightTone.info:
-        return isDark ? AppTheme.goldColor : AppTheme.darkGold;
+        return MealLogColors.accent(context);
     }
   }
 
-  IconData _guidanceToneIcon(MealInsightTone tone) {
+  static IconData _icon(MealInsightTone tone) {
     switch (tone) {
       case MealInsightTone.success:
         return LucideIcons.checkCircle;
@@ -1014,386 +439,418 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary> {
         return LucideIcons.lightbulb;
     }
   }
+}
 
-  Widget _buildTip(
-    BuildContext context,
-    MealNutritionTargets targets,
-    bool isDark,
-  ) {
-    return Container(
-      padding: EdgeInsets.all(10.w),
-      decoration: BoxDecoration(
-        color: context.cardColor,
-        borderRadius: BorderRadius.circular(10.r),
-        border: Border.all(
-          color: (isDark ? AppTheme.goldColor : AppTheme.darkGold)
-              .withValues(alpha: 0.45),
-        ),
-      ),
-      child: Text(
-        targets.calorieReferenceHint,
-        style: TextStyle(
-          fontFamily: AppTheme.fontFamily,
-          color: context.textColor,
-          fontSize: 10.5.sp,
-          fontWeight: FontWeight.w500,
-          height: 1.45,
-        ),
-      ),
-    );
-  }
+class _ExpandedBody extends StatelessWidget {
+  const _ExpandedBody({
+    required this.consumedProtein,
+    required this.consumedCarbs,
+    required this.consumedFat,
+    required this.consumedCalories,
+    required this.proteinTarget,
+    required this.carbsTarget,
+    required this.fatTarget,
+    required this.referenceHint,
+    required this.totals,
+    required this.showChart,
+    required this.onToggleChart,
+  });
 
-  Widget _buildMacroSection(
-    BuildContext context,
-    double consumedProtein,
-    double consumedCarbs,
-    double consumedFat,
-    bool isDark,
-  ) {
-    // محاسبه نیازهای ماکرو
-    final macroTargets = _calculateMacroTargets();
-    final proteinTarget = macroTargets['protein'] ?? 0;
-    final carbsTarget = macroTargets['carbs'] ?? 0;
-    final fatTarget = macroTargets['fat'] ?? 0;
+  final double consumedProtein;
+  final double consumedCarbs;
+  final double consumedFat;
+  final double consumedCalories;
+  final double proteinTarget;
+  final double carbsTarget;
+  final double fatTarget;
+  final String referenceHint;
+  final Map<String, double> totals;
+  final bool showChart;
+  final VoidCallback onToggleChart;
 
-    // محاسبه درصد مصرف
-    final proteinProgress = proteinTarget > 0
-        ? (consumedProtein / proteinTarget).clamp(0.0, 1.0)
-        : 0.0;
-    final carbsProgress = carbsTarget > 0
-        ? (consumedCarbs / carbsTarget).clamp(0.0, 1.0)
-        : 0.0;
-    final fatProgress = fatTarget > 0
-        ? (consumedFat / fatTarget).clamp(0.0, 1.0)
-        : 0.0;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'دریافتی ماکرو',
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            color: isDark ? AppTheme.goldColor : context.textColor,
-            fontSize: 12.sp,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        SizedBox(height: 8.h),
-        Row(
-          children: [
-            Expanded(
-              child: _buildCircularMacroCard(
-                context,
-                'پروتئین',
-                consumedProtein,
-                proteinTarget,
-                'گرم',
-                AppTheme.proteinColor,
-                proteinProgress,
-                isDark,
-              ),
-            ),
-            SizedBox(width: 8.w),
-            Expanded(
-              child: _buildCircularMacroCard(
-                context,
-                'کربوهیدرات',
-                consumedCarbs,
-                carbsTarget,
-                'گرم',
-                AppTheme.carbsColor,
-                carbsProgress,
-                isDark,
-              ),
-            ),
-            SizedBox(width: 8.w),
-            Expanded(
-              child: _buildCircularMacroCard(
-                context,
-                'چربی',
-                consumedFat,
-                fatTarget,
-                'گرم',
-                AppTheme.fatColor,
-                fatProgress,
-                isDark,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCircularMacroCard(
-    BuildContext context,
-    String label,
-    double consumed,
-    double target,
-    String unit,
-    Color color,
-    double progress,
-    bool isDark,
-  ) {
-    final circleSize = ResponsiveValue(
-      context,
-      defaultValue: 56.w,
-      conditionalValues: [
-        Condition.smallerThan(name: MOBILE, value: 52.w),
-        Condition.largerThan(name: TABLET, value: 60.w),
-      ],
-    ).value;
-
-    final strokeWidth = ResponsiveValue(
-      context,
-      defaultValue: 1.8.w,
-      conditionalValues: [
-        Condition.smallerThan(name: MOBILE, value: 1.5.w),
-        Condition.largerThan(name: TABLET, value: 2.w),
-      ],
-    ).value;
-
-    // اگر progress = 0 باشد، یک border ثابت نمایش می‌دهیم
-    final hasProgress = progress > 0;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // دایره با progress bar
-        Container(
-          width: circleSize,
-          height: circleSize,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: hasProgress
-                ? SweepGradient(
-                    startAngle: 3.14159, // شروع از سمت راست (180 درجه)
-                    endAngle: 3.14159 + (2 * 3.14159 * progress),
-                    colors: [
-                      AppTheme.goldColor.withValues(alpha: 0.25),
-                      AppTheme.goldColor.withValues(alpha: 0.25),
-                      AppTheme.goldColor.withValues(alpha: 0.35),
-                      AppTheme.goldColor.withValues(alpha: 0.55),
-                      AppTheme.goldColor.withValues(alpha: 0.75),
-                      AppTheme.goldColor,
-                      AppTheme.goldColor.withValues(alpha: 0.75),
-                      AppTheme.goldColor.withValues(alpha: 0.55),
-                      AppTheme.goldColor.withValues(alpha: 0.35),
-                      AppTheme.goldColor.withValues(alpha: 0.25),
-                      AppTheme.goldColor.withValues(alpha: 0.25),
-                    ],
-                    stops: const [
-                      0.0,
-                      0.05,
-                      0.2,
-                      0.35,
-                      0.45,
-                      0.5,
-                      0.55,
-                      0.65,
-                      0.8,
-                      0.95,
-                      1.0,
-                    ],
-                  )
-                : null,
-            border: hasProgress
-                ? null
-                : Border.all(
-                    color: AppTheme.goldColor.withValues(alpha: 0.25),
-                    width: strokeWidth,
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 12.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Divider(height: 1, color: MealLogColors.inputBorder(context)),
+          SizedBox(height: 10.h),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  showChart ? 'توزیع کالری ماکرو' : 'دریافتی ماکرو',
+                  style: MealLogTypography.sectionTitle(context).copyWith(
+                    fontSize: 12.sp,
                   ),
-          ),
-          child: Container(
-            margin: EdgeInsets.all(strokeWidth),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: Theme.of(context).brightness == Brightness.dark
-                  ? null
-                  : LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        context.cardColor,
-                        color.withValues(alpha: 0.05),
-                      ],
+                ),
+              ),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onToggleChart,
+                  borderRadius: BorderRadius.circular(8.r),
+                  child: Padding(
+                    padding: EdgeInsets.all(6.w),
+                    child: Icon(
+                      showChart ? LucideIcons.activity : LucideIcons.pieChart,
+                      size: 16.sp,
+                      color: MealLogColors.accent(context),
                     ),
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? context.backgroundColor
-                  : null,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 10.h),
+          if (showChart)
+            _MacroPie(
+              protein: consumedProtein,
+              carbs: consumedCarbs,
+              fat: consumedFat,
+              calories: consumedCalories,
+            )
+          else
+            Row(
               children: [
-                // مقدار مصرف شده / مقدار مورد نیاز
-                Text(
-                  MealLogUtils.convertToPersianNumbers(
-                    '${consumed.toStringAsFixed(0)}/${target.toStringAsFixed(0)}',
+                Expanded(
+                  child: _MacroRing(
+                    label: 'پروتئین',
+                    consumed: consumedProtein,
+                    target: proteinTarget,
+                    color: AppTheme.proteinColor,
                   ),
-                  textDirection: TextDirection.rtl,
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
-                    fontSize: ResponsiveValue(
-                      context,
-                      defaultValue: 12.sp,
-                      conditionalValues: [
-                        Condition.smallerThan(name: MOBILE, value: 10.sp),
-                        Condition.largerThan(name: TABLET, value: 12.sp),
-                      ],
-                    ).value,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.1,
+                ),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: _MacroRing(
+                    label: 'کربوهیدرات',
+                    consumed: consumedCarbs,
+                    target: carbsTarget,
+                    color: AppTheme.carbsColor,
                   ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: _MacroRing(
+                    label: 'چربی',
+                    consumed: consumedFat,
+                    target: fatTarget,
+                    color: AppTheme.fatColor,
+                  ),
                 ),
               ],
             ),
-          ),
-        ),
-        SizedBox(height: 5.h),
-        // عنوان زیر دایره
-        Text(
-          label,
-          style: TextStyle(
-            color: context.textColor,
-            fontSize: ResponsiveValue(
+          if ((totals['fiber'] ?? 0) > 0.05 ||
+              (totals['sugar'] ?? 0) > 0.05 ||
+              (totals['sodium'] ?? 0) > 0.05) ...[
+            SizedBox(height: 10.h),
+            _MicroWrap(totals: totals),
+          ],
+          SizedBox(height: 10.h),
+          Text(
+            referenceHint,
+            style: MealLogTypography.caption(
               context,
-              defaultValue: 10.sp,
-              conditionalValues: [
-                Condition.smallerThan(name: MOBILE, value: 9.sp),
-                Condition.largerThan(name: TABLET, value: 11.sp),
-              ],
-            ).value,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.05,
+              color: MealLogColors.mutedText(context),
+              fontWeight: FontWeight.w500,
+            ).copyWith(fontSize: 10.sp, height: 1.4),
           ),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        SizedBox(height: 1.5.h),
-        // واحد زیر عنوان
-        Text(
-          unit,
-          style: TextStyle(
-            color: context.textSecondary,
-            fontSize: ResponsiveValue(
-              context,
-              defaultValue: 9.sp,
-              conditionalValues: [
-                Condition.smallerThan(name: MOBILE, value: 8.sp),
-                Condition.largerThan(name: TABLET, value: 10.sp),
-              ],
-            ).value,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.05,
-          ),
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+        ],
+      ),
     );
   }
+}
 
-  Map<String, double> _calculateMacroTargets() {
-    final targets = MealNutritionTargets.fromProfile(widget.profileData);
-    return {
-      'protein': targets.proteinTarget,
-      'carbs': targets.carbsTarget,
-      'fat': targets.fatTarget,
-    };
-  }
+class _MacroRing extends StatelessWidget {
+  const _MacroRing({
+    required this.label,
+    required this.consumed,
+    required this.target,
+    required this.color,
+  });
 
-  Widget _buildMicronutrientSection(
-    BuildContext context,
-    Map<String, double> totals,
-  ) {
-    final items = <({String label, double value, String unit, IconData icon})>[
-      (label: 'فیبر', value: totals['fiber'] ?? 0, unit: 'g', icon: LucideIcons.leaf),
-      (label: 'قند', value: totals['sugar'] ?? 0, unit: 'g', icon: LucideIcons.candy),
-      (
-        label: 'چربی اشباع',
-        value: totals['saturatedFat'] ?? 0,
-        unit: 'g',
-        icon: LucideIcons.droplet,
-      ),
-      (label: 'سدیم', value: totals['sodium'] ?? 0, unit: 'mg', icon: LucideIcons.flaskConical),
-      (
-        label: 'پتاسیم',
-        value: totals['potassium'] ?? 0,
-        unit: 'mg',
-        icon: LucideIcons.zap,
-      ),
-    ].where((e) => e.value > 0.05).toList();
+  final String label;
+  final double consumed;
+  final double target;
+  final Color color;
 
-    if (items.isEmpty) return const SizedBox.shrink();
+  @override
+  Widget build(BuildContext context) {
+    final progress = target > 0 ? (consumed / target).clamp(0.0, 1.0) : 0.0;
+    final over = target > 0 && consumed > target;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'دریافت روزانه (جزئیات)',
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            color: MealLogColors.accent(context),
-            fontSize: 12.sp,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        SizedBox(height: 8.h),
-        Wrap(
-          spacing: 6.w,
-          runSpacing: 6.h,
-          textDirection: TextDirection.rtl,
-          children: items.map((item) {
-            return Container(
-              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
-              decoration: BoxDecoration(
-                color: MealLogColors.chipFill(context, selected: false),
-                borderRadius: BorderRadius.circular(8.r),
-                border: Border.all(
-                  color: MealLogColors.chipBorder(context, selected: false),
+        SizedBox(
+          width: 56.w,
+          height: 56.w,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: progress),
+            duration: const Duration(milliseconds: 700),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, _) {
+              return CustomPaint(
+                painter: _RingPainter(
+                  progress: value,
+                  color: over ? MealLogColors.errorText(context) : color,
+                  track: MealLogColors.inputBorder(context),
                 ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    item.icon,
-                    size: 11.sp,
-                    color: MealLogColors.iconOnSurface(context),
-                  ),
-                  SizedBox(width: 4.w),
-                  Text(
-                    item.label,
-                    style: MealLogTypography.caption(context).copyWith(
-                      fontSize: 9.sp,
-                    ),
-                  ),
-                  SizedBox(width: 4.w),
-                  Text(
+                child: Center(
+                  child: Text(
                     MealLogUtils.convertToPersianNumbers(
-                      '${item.value.toStringAsFixed(item.unit == 'mg' ? 0 : 1)}${item.unit}',
+                      '${consumed.round()}/${target.round()}',
                     ),
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontSize: 9.sp,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                       color: MealLogColors.primaryText(context),
+                    ),
+                    textDirection: TextDirection.rtl,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        SizedBox(height: 6.h),
+        Text(
+          label,
+          style: MealLogTypography.caption(
+            context,
+            color: MealLogColors.secondaryText(context),
+            fontWeight: FontWeight.w700,
+          ).copyWith(fontSize: 10.sp),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Text(
+          'گرم',
+          style: MealLogTypography.caption(
+            context,
+            color: MealLogColors.hintText(context),
+            fontWeight: FontWeight.w500,
+          ).copyWith(fontSize: 9.sp),
+        ),
+      ],
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter({
+    required this.progress,
+    required this.color,
+    required this.track,
+  });
+
+  final double progress;
+  final Color color;
+  final Color track;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.shortestSide / 2 - 3;
+    final trackPaint = Paint()
+      ..color = track
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.5
+      ..strokeCap = StrokeCap.round;
+    final fillPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.5
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(center, radius, trackPaint);
+    if (progress <= 0) return;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      2 * math.pi * progress,
+      false,
+      fillPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingPainter oldDelegate) =>
+      oldDelegate.progress != progress ||
+      oldDelegate.color != color ||
+      oldDelegate.track != track;
+}
+
+class _MacroPie extends StatelessWidget {
+  const _MacroPie({
+    required this.protein,
+    required this.carbs,
+    required this.fat,
+    required this.calories,
+  });
+
+  final double protein;
+  final double carbs;
+  final double fat;
+  final double calories;
+
+  @override
+  Widget build(BuildContext context) {
+    final pCal = protein * 4;
+    final cCal = carbs * 4;
+    final fCal = fat * 9;
+    final total = pCal + cCal + fCal;
+
+    if (total <= 0) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 16.h),
+        child: Text(
+          'هنوز غذایی ثبت نشده',
+          textAlign: TextAlign.center,
+          style: MealLogTypography.caption(
+            context,
+            color: MealLogColors.mutedText(context),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 140.h,
+      child: Row(
+        children: [
+          Expanded(
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 2,
+                centerSpaceRadius: 28,
+                sections: [
+                  PieChartSectionData(
+                    color: AppTheme.proteinColor,
+                    value: pCal,
+                    title: '${((pCal / total) * 100).round()}٪',
+                    radius: 36,
+                    titleStyle: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 9.sp,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  PieChartSectionData(
+                    color: AppTheme.carbsColor,
+                    value: cCal,
+                    title: '${((cCal / total) * 100).round()}٪',
+                    radius: 36,
+                    titleStyle: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 9.sp,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                  PieChartSectionData(
+                    color: AppTheme.fatColor,
+                    value: fCal,
+                    title: '${((fCal / total) * 100).round()}٪',
+                    radius: 36,
+                    titleStyle: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 9.sp,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
                     ),
                   ),
                 ],
               ),
-            );
-          }).toList(),
-        ),
-      ],
+            ),
+          ),
+          SizedBox(width: 8.w),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                MealLogUtils.convertToPersianNumbers(
+                  '${calories.round()} کالری',
+                ),
+                style: MealLogTypography.sectionTitle(context).copyWith(
+                  fontSize: 13.sp,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              _legend(context, 'پروتئین', AppTheme.proteinColor),
+              _legend(context, 'کربوهیدرات', AppTheme.carbsColor),
+              _legend(context, 'چربی', AppTheme.fatColor),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _legend(BuildContext context, String label, Color color) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 4.h),
+      child: Row(
+        children: [
+          Container(
+            width: 8.w,
+            height: 8.w,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          SizedBox(width: 6.w),
+          Text(
+            label,
+            style: MealLogTypography.caption(context).copyWith(fontSize: 10.sp),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MicroWrap extends StatelessWidget {
+  const _MicroWrap({required this.totals});
+
+  final Map<String, double> totals;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <(String, double, String)>[
+      ('فیبر', totals['fiber'] ?? 0, 'g'),
+      ('قند', totals['sugar'] ?? 0, 'g'),
+      ('سدیم', totals['sodium'] ?? 0, 'mg'),
+      ('پتاسیم', totals['potassium'] ?? 0, 'mg'),
+    ].where((e) => e.$2 > 0.05).toList();
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Wrap(
+      spacing: 6.w,
+      runSpacing: 6.h,
+      textDirection: TextDirection.rtl,
+      children: items.map((item) {
+        return Container(
+          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 5.h),
+          decoration: BoxDecoration(
+            color: MealLogColors.chipFill(context, selected: false),
+            borderRadius: BorderRadius.circular(8.r),
+            border: Border.all(
+              color: MealLogColors.chipBorder(context, selected: false),
+            ),
+          ),
+          child: Text(
+            MealLogUtils.convertToPersianNumbers(
+              '${item.$1} ${item.$2.toStringAsFixed(item.$3 == 'mg' ? 0 : 1)}${item.$3}',
+            ),
+            style: MealLogTypography.caption(context).copyWith(fontSize: 9.sp),
+          ),
+        );
+      }).toList(),
     );
   }
 }

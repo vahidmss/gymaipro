@@ -3,10 +3,11 @@ import 'package:gymaipro/achievements/models/achievement.dart';
 import 'package:gymaipro/achievements/services/achievement_database_service.dart';
 import 'package:gymaipro/achievements/widgets/achievement_notification.dart';
 import 'package:gymaipro/main.dart';
+import 'package:gymaipro/ranking/services/ranking_score_service.dart';
+import 'package:gymaipro/services/score_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 
 class AchievementService extends ChangeNotifier {
-
   /// Backwards-compatible factory: `AchievementService()` returns the shared instance.
   factory AchievementService() => instance;
   AchievementService._internal() {
@@ -15,10 +16,10 @@ class AchievementService extends ChangeNotifier {
   }
 
   /// Single shared instance across the app.
-  /// Avoid creating multiple instances (causes duplicate DB reads/writes and noisy logs).
   static final AchievementService instance = AchievementService._internal();
 
-  final AchievementDatabaseService _databaseService = AchievementDatabaseService();
+  final AchievementDatabaseService _databaseService =
+      AchievementDatabaseService();
   List<Achievement> _achievements = [];
   bool _isLoading = false;
   bool _isRefreshingFromDatabase = false;
@@ -33,11 +34,11 @@ class AchievementService extends ChangeNotifier {
   List<Achievement> get lockedAchievements =>
       _achievements.where((a) => !a.isUnlocked).toList();
 
-  int get totalPoints => _achievements
-      .where((a) => a.isUnlocked)
-      .fold(0, (sum, a) => sum + a.points);
-
-  int get totalStars => totalPoints;
+  /// مجموع بونوس لیگ تعریف‌شده برای دستاوردهای بازشده (از کاتالوگ)
+  int get totalUnlockedRewardPoints => unlockedAchievements.fold(
+        0,
+        (sum, a) => sum + a.points,
+      );
 
   int get totalPossiblePoints =>
       _achievements.fold(0, (sum, a) => sum + a.points);
@@ -49,25 +50,21 @@ class AchievementService extends ChangeNotifier {
 
   Map<AchievementCategory, List<Achievement>> get achievementsByCategory {
     final Map<AchievementCategory, List<Achievement>> grouped = {};
-
     for (final achievement in _achievements) {
-      if (!grouped.containsKey(achievement.category)) {
-        grouped[achievement.category] = [];
-      }
-      grouped[achievement.category]!.add(achievement);
+      grouped.putIfAbsent(achievement.category, () => []).add(achievement);
     }
-
     return grouped;
   }
 
   void _initializeAchievements() {
+    // فقط دستاوردهایی که در اپ سیم‌کشی شده‌اند — ویترین قفل‌شده ممنوع.
     _achievements = [
-      // === تب اول: استفاده از اپ (Platform) ===
+      // === استفاده از اپ ===
       Achievement(
         id: 'profile_complete',
         title: 'تکمیل پروفایل',
-        description: 'پروفایل خود را 100% تکمیل کنید',
-        icon: '✅',
+        description: 'پروفایل خود را ۱۰۰٪ تکمیل کنید',
+        icon: '👤',
         category: AchievementCategory.platform,
         targetValue: 100,
         currentValue: 0,
@@ -83,41 +80,41 @@ class AchievementService extends ChangeNotifier {
         targetValue: 1,
         currentValue: 0,
         unit: 'ورود',
-        points: 10,
+        points: 20,
       ),
       Achievement(
         id: 'membership_10_days',
-        title: '10 روز با ما',
-        description: '10 روز از تاریخ عضویت شما می‌گذرد',
+        title: '۱۰ روز با ما',
+        description: '۱۰ روز از تاریخ عضویت شما می‌گذرد',
         icon: '📅',
         category: AchievementCategory.platform,
         targetValue: 10,
         currentValue: 0,
         unit: 'روز',
-        points: 50,
+        points: 40,
       ),
       Achievement(
         id: 'membership_30_days',
-        title: '30 روز با ما',
-        description: '30 روز از تاریخ عضویت شما می‌گذرد',
+        title: '۳۰ روز با ما',
+        description: '۳۰ روز از تاریخ عضویت شما می‌گذرد',
         icon: '📆',
         category: AchievementCategory.platform,
         targetValue: 30,
         currentValue: 0,
         unit: 'روز',
-        points: 150,
+        points: 100,
         tier: AchievementTier.silver,
       ),
       Achievement(
         id: 'membership_90_days',
-        title: '90 روز با ما',
-        description: '90 روز از تاریخ عضویت شما می‌گذرد',
+        title: '۹۰ روز با ما',
+        description: '۹۰ روز از تاریخ عضویت شما می‌گذرد',
         icon: '🗓️',
         category: AchievementCategory.platform,
         targetValue: 90,
         currentValue: 0,
         unit: 'روز',
-        points: 300,
+        points: 200,
         tier: AchievementTier.gold,
       ),
       Achievement(
@@ -129,13 +126,13 @@ class AchievementService extends ChangeNotifier {
         targetValue: 365,
         currentValue: 0,
         unit: 'روز',
-        points: 1000,
+        points: 500,
         tier: AchievementTier.platinum,
       ),
       Achievement(
         id: 'streak_3_days',
-        title: '3 روز پشت سر هم',
-        description: '3 روز متوالی از اپ استفاده کنید',
+        title: '۳ روز پشت سر هم',
+        description: '۳ روز متوالی از اپ استفاده کنید',
         icon: '🔥',
         category: AchievementCategory.platform,
         targetValue: 3,
@@ -145,26 +142,26 @@ class AchievementService extends ChangeNotifier {
       ),
       Achievement(
         id: 'streak_10_days',
-        title: '10 روز پشت سر هم',
-        description: '10 روز متوالی از اپ استفاده کنید',
+        title: '۱۰ روز پشت سر هم',
+        description: '۱۰ روز متوالی از اپ استفاده کنید',
         icon: '🔥',
         category: AchievementCategory.platform,
         targetValue: 10,
         currentValue: 0,
         unit: 'روز',
-        points: 100,
+        points: 80,
         tier: AchievementTier.silver,
       ),
       Achievement(
         id: 'streak_30_days',
-        title: '30 روز پشت سر هم',
-        description: '30 روز متوالی از اپ استفاده کنید',
+        title: '۳۰ روز پشت سر هم',
+        description: '۳۰ روز متوالی از اپ استفاده کنید',
         icon: '🔥',
         category: AchievementCategory.platform,
         targetValue: 30,
         currentValue: 0,
         unit: 'روز',
-        points: 500,
+        points: 250,
         tier: AchievementTier.gold,
       ),
       Achievement(
@@ -176,10 +173,10 @@ class AchievementService extends ChangeNotifier {
         targetValue: 1,
         currentValue: 0,
         unit: 'بخش',
-        points: 50,
+        points: 40,
       ),
 
-      // === تب دوم: اجتماعی (Social) ===
+      // === اجتماعی ===
       Achievement(
         id: 'invite_1',
         title: 'دعوت یک نفر',
@@ -189,79 +186,46 @@ class AchievementService extends ChangeNotifier {
         targetValue: 1,
         currentValue: 0,
         unit: 'دعوت',
-        points: 20,
+        points: 30,
       ),
       Achievement(
         id: 'invite_3',
-        title: 'دعوت 3 نفر',
-        description: '3 نفر را دعوت کنید',
+        title: 'دعوت ۳ نفر',
+        description: '۳ نفر را دعوت کنید',
         icon: '👥',
         category: AchievementCategory.social,
         targetValue: 3,
         currentValue: 0,
         unit: 'دعوت',
-        points: 60,
+        points: 80,
         tier: AchievementTier.silver,
       ),
       Achievement(
         id: 'invite_10',
-        title: 'دعوت 10 نفر',
-        description: '10 نفر را دعوت کنید',
+        title: 'دعوت ۱۰ نفر',
+        description: '۱۰ نفر را دعوت کنید',
         icon: '🌟',
         category: AchievementCategory.social,
         targetValue: 10,
         currentValue: 0,
         unit: 'دعوت',
-        points: 300,
+        points: 200,
         tier: AchievementTier.gold,
       ),
       Achievement(
         id: 'invite_30',
-        title: 'دعوت 30 نفر',
-        description: '30 نفر را دعوت کنید',
+        title: 'دعوت ۳۰ نفر',
+        description: '۳۰ نفر را دعوت کنید',
         icon: '👑',
         category: AchievementCategory.social,
         targetValue: 30,
         currentValue: 0,
         unit: 'دعوت',
-        points: 1000,
+        points: 500,
         tier: AchievementTier.platinum,
       ),
-      Achievement(
-        id: 'trainer_message',
-        title: 'پیام به مربی',
-        description: 'به مربی خود پیام بفرستید',
-        icon: '💬',
-        category: AchievementCategory.social,
-        targetValue: 1,
-        currentValue: 0,
-        unit: 'پیام',
-        points: 30,
-      ),
-      Achievement(
-        id: 'public_chat_message',
-        title: 'پیام در چت روم همگانی',
-        description: 'در چت روم همگانی پیام بگذارید',
-        icon: '💭',
-        category: AchievementCategory.social,
-        targetValue: 1,
-        currentValue: 0,
-        unit: 'پیام',
-        points: 25,
-      ),
-      Achievement(
-        id: 'three_friends',
-        title: '3 تا دوست',
-        description: '3 دوست داشته باشید',
-        icon: '🤝',
-        category: AchievementCategory.social,
-        targetValue: 3,
-        currentValue: 0,
-        unit: 'دوست',
-        points: 50,
-      ),
 
-      // === تب سوم: تمرین و فعالیت (Workout) ===
+      // === تمرین و تغذیه ===
       Achievement(
         id: 'get_exercise_program',
         title: 'گرفتن برنامه تمرینی',
@@ -271,142 +235,57 @@ class AchievementService extends ChangeNotifier {
         targetValue: 1,
         currentValue: 0,
         unit: 'برنامه',
-        points: 30,
+        points: 40,
       ),
       Achievement(
         id: 'get_diet_program',
         title: 'گرفتن برنامه رژیم',
         description: 'یک برنامه رژیم دریافت کنید',
         icon: '🥗',
-        category: AchievementCategory.workout,
+        category: AchievementCategory.nutrition,
         targetValue: 1,
         currentValue: 0,
         unit: 'برنامه',
-        points: 30,
+        points: 40,
       ),
       Achievement(
         id: 'log_exercise',
-        title: 'ثبت لاگ برنامه تمرین',
-        description: 'لاگ برنامه تمرین خود را ثبت کنید',
+        title: 'ثبت لاگ تمرین',
+        description: 'اولین جلسه تمرین خود را ثبت کنید',
         icon: '📝',
         category: AchievementCategory.workout,
         targetValue: 1,
         currentValue: 0,
         unit: 'لاگ',
-        points: 20,
+        points: 25,
       ),
       Achievement(
         id: 'log_diet',
         title: 'ثبت لاگ رژیم',
-        description: 'لاگ رژیم خود را ثبت کنید',
+        description: 'اولین وعده غذایی را ثبت کنید',
         icon: '📋',
-        category: AchievementCategory.workout,
+        category: AchievementCategory.nutrition,
         targetValue: 1,
         currentValue: 0,
         unit: 'لاگ',
-        points: 20,
+        points: 25,
       ),
       Achievement(
         id: 'log_calorie',
-        title: 'ثبت کالری شماری',
-        description: 'کالری شماری خود را ثبت کنید',
+        title: 'ثبت کالری‌شماری',
+        description: 'کالری یک وعده را ثبت کنید',
         icon: '🔥',
-        category: AchievementCategory.workout,
+        category: AchievementCategory.nutrition,
         targetValue: 1,
         currentValue: 0,
         unit: 'ثبت',
-        points: 15,
-      ),
-      Achievement(
-        id: 'calorie_streak_3',
-        title: '3 روز پشت سر هم کالری شماری',
-        description: '3 روز متوالی کالری شماری ثبت کنید',
-        icon: '🔥',
-        category: AchievementCategory.workout,
-        targetValue: 3,
-        currentValue: 0,
-        unit: 'روز',
-        points: 50,
-      ),
-      Achievement(
-        id: 'get_3_programs',
-        title: '3 تا برنامه',
-        description: '3 برنامه دریافت کنید',
-        icon: '📚',
-        category: AchievementCategory.workout,
-        targetValue: 3,
-        currentValue: 0,
-        unit: 'برنامه',
-        points: 100,
-        tier: AchievementTier.silver,
-      ),
-
-      // === تب چهارم: پیشرفت شخصی (Progress) ===
-      Achievement(
-        id: 'weight_loss_3kg',
-        title: '3 کیلو کمتر',
-        description: '3 کیلوگرم کاهش وزن',
-        icon: '📉',
-        category: AchievementCategory.progress,
-        targetValue: 3,
-        currentValue: 0,
-        unit: 'کیلوگرم',
-        points: 200,
-      ),
-      Achievement(
-        id: 'weight_loss_5kg',
-        title: '5 کیلو کمتر',
-        description: '5 کیلوگرم کاهش وزن',
-        icon: '📉',
-        category: AchievementCategory.progress,
-        targetValue: 5,
-        currentValue: 0,
-        unit: 'کیلوگرم',
-        points: 400,
-        tier: AchievementTier.silver,
-      ),
-      Achievement(
-        id: 'weight_loss_10kg',
-        title: '10 کیلو کمتر',
-        description: '10 کیلوگرم کاهش وزن',
-        icon: '📉',
-        category: AchievementCategory.progress,
-        targetValue: 10,
-        currentValue: 0,
-        unit: 'کیلوگرم',
-        points: 800,
-        tier: AchievementTier.gold,
-      ),
-      Achievement(
-        id: 'goal_achieved',
-        title: 'هدف محقق شد',
-        description: 'به هدف وزنی خود برسید',
-        icon: '🎯',
-        category: AchievementCategory.progress,
-        targetValue: 1,
-        currentValue: 0,
-        unit: 'هدف',
-        points: 1000,
-        tier: AchievementTier.platinum,
-      ),
-      Achievement(
-        id: 'body_transform',
-        title: 'تحول بدنی',
-        description: 'درصد چربی بدن را 5% کاهش دهید',
-        icon: '💎',
-        category: AchievementCategory.progress,
-        targetValue: 5,
-        currentValue: 0,
-        unit: 'درصد',
-        points: 600,
-        tier: AchievementTier.gold,
+        points: 20,
       ),
     ];
 
     notifyListeners();
   }
 
-  /// بارگذاری پیشرفت کاربر از دیتابیس
   Future<void> _loadUserProgress() async {
     if (_isLoading) return;
     _isLoading = true;
@@ -414,8 +293,7 @@ class AchievementService extends ChangeNotifier {
     try {
       final userProgress = await _databaseService.getUserAchievements();
 
-      // به‌روزرسانی پیشرفت دستاوردها
-      for (int i = 0; i < _achievements.length; i++) {
+      for (var i = 0; i < _achievements.length; i++) {
         final achievement = _achievements[i];
         final progress = userProgress[achievement.id];
 
@@ -425,16 +303,12 @@ class AchievementService extends ChangeNotifier {
             unlockedAt: progress.unlockedAt,
           );
         } else {
-          // اگر در دیتابیس نیست، reset کن
-          _achievements[i] = achievement.copyWith(
-            currentValue: 0,
-          );
+          _achievements[i] = achievement.copyWith(currentValue: 0);
         }
       }
 
-      // سینک دستاوردهای invite با تعداد واقعی رفرال از پروفایل (معرف = کاربر فعلی)
       await _syncInviteAchievementsFromProfile();
-
+      await _backfillMissingBonuses(userProgress);
       notifyListeners();
     } catch (e) {
       debugPrint('❌ Error loading user progress: $e');
@@ -443,61 +317,70 @@ class AchievementService extends ChangeNotifier {
     }
   }
 
-  /// پیشرفت دستاوردهای دعوت را از total_referrals پروفایل کاربر فعلی به‌روز می‌کند
+  /// اگر دستاورد باز است ولی bonus_points هنوز ۰ است (مایگریشن اجرا نشده).
+  Future<void> _backfillMissingBonuses(
+    Map<String, AchievementProgress> userProgress,
+  ) async {
+    var grantedAny = false;
+    for (final achievement in _achievements) {
+      if (!achievement.isUnlocked) continue;
+      final progress = userProgress[achievement.id];
+      if (progress != null && progress.bonusPoints > 0) continue;
+
+      final granted = await _databaseService.grantBonusPointsIfNeeded(
+        achievement.id,
+        achievement.points,
+      );
+      if (granted) grantedAny = true;
+    }
+    if (grantedAny) {
+      final profile = await SimpleProfileService.getCurrentProfile();
+      final profileId = profile?['id'] as String?;
+      if (profileId != null && profileId.isNotEmpty) {
+        await RankingScoreService().updateUserScore(profileId);
+        await ScoreService().loadFromDatabase(force: true);
+      }
+    }
+  }
+
   Future<void> _syncInviteAchievementsFromProfile() async {
     try {
       final profile = await SimpleProfileService.getCurrentProfile();
       if (profile == null) return;
 
       final totalReferrals = (profile['total_referrals'] as int?) ?? 0;
-
       const inviteIds = ['invite_1', 'invite_3', 'invite_10', 'invite_30'];
       for (final id in inviteIds) {
         final index = _achievements.indexWhere((a) => a.id == id);
-        if (index != -1 && _achievements[index].currentValue != totalReferrals) {
+        if (index != -1 &&
+            _achievements[index].currentValue != totalReferrals) {
           await updateProgress(id, totalReferrals);
         }
       }
-
-      debugPrint('✅ Invite achievements synced from profile: $totalReferrals referrals');
     } catch (e) {
       debugPrint('❌ Error syncing invite achievements from profile: $e');
     }
   }
 
-  /// سینک دستاوردهای دعوت از پروفایل (برای فراخوانی از صفحه دستاوردها)
   Future<void> syncInviteAchievementsFromProfile() async {
     await _syncInviteAchievementsFromProfile();
     notifyListeners();
   }
 
-  /// بارگذاری مجدد از دیتابیس (پاک کردن cache و لود مجدد)
   Future<void> refreshFromDatabase({bool force = false}) async {
     final now = DateTime.now();
-    if (_isRefreshingFromDatabase) {
-      if (kDebugMode) {
-        debugPrint('ℹ️ Achievement refresh skipped (already in progress)');
-      }
-      return;
-    }
+    if (_isRefreshingFromDatabase) return;
     if (!force &&
         _lastDatabaseRefreshAt != null &&
         now.difference(_lastDatabaseRefreshAt!) < _databaseRefreshCooldown) {
-      if (kDebugMode) {
-        debugPrint('ℹ️ Achievement refresh skipped (cooldown active)');
-      }
       return;
     }
 
     _isRefreshingFromDatabase = true;
     _lastDatabaseRefreshAt = now;
     try {
-      debugPrint('🔄 Refreshing achievements from database...');
-      // پاک کردن cache محلی
       await _databaseService.clearLocalCache();
-      // بارگذاری مجدد از دیتابیس
       await _loadUserProgress();
-      debugPrint('✅ Achievements refreshed from database');
     } catch (e) {
       debugPrint('❌ Error refreshing achievements: $e');
     } finally {
@@ -505,14 +388,11 @@ class AchievementService extends ChangeNotifier {
     }
   }
 
-  /// ریست حالت در حافظه برای خروج از حساب (تا کاربر بعدی داده قبلی نبیند)
   void resetForLogout() {
     _initializeAchievements();
     notifyListeners();
-    debugPrint('✅ Achievements reset for logout');
   }
 
-  /// سینک cache محلی به دیتابیس
   Future<void> syncToDatabase() async {
     try {
       await _databaseService.syncLocalCacheToDatabase();
@@ -522,7 +402,6 @@ class AchievementService extends ChangeNotifier {
     }
   }
 
-  // بروزرسانی پیشرفت یک دستاورد
   Future<void> updateProgress(String achievementId, int newValue) async {
     final index = _achievements.indexWhere((a) => a.id == achievementId);
     if (index == -1) {
@@ -533,19 +412,19 @@ class AchievementService extends ChangeNotifier {
     final oldAchievement = _achievements[index];
     final wasUnlocked = oldAchievement.isUnlocked;
     final isNowUnlocked = newValue >= oldAchievement.targetValue;
-    // No-op guard: avoid noisy DB writes and notifications when nothing changed.
-    if (oldAchievement.currentValue == newValue && wasUnlocked == isNowUnlocked) {
+    if (oldAchievement.currentValue == newValue &&
+        wasUnlocked == isNowUnlocked) {
       return;
     }
-    final unlockTime = !wasUnlocked && isNowUnlocked ? DateTime.now() : oldAchievement.unlockedAt;
+    final unlockTime = !wasUnlocked && isNowUnlocked
+        ? DateTime.now()
+        : oldAchievement.unlockedAt;
 
-    // به‌روزرسانی در حافظه
     _achievements[index] = oldAchievement.copyWith(
       currentValue: newValue,
       unlockedAt: unlockTime,
     );
 
-    // ذخیره در دیتابیس
     try {
       await _databaseService.saveAchievementProgress(
         achievementId,
@@ -554,12 +433,10 @@ class AchievementService extends ChangeNotifier {
       );
     } catch (e) {
       debugPrint('❌ Error saving achievement progress to database: $e');
-      // ادامه می‌دهیم حتی اگر ذخیره در دیتابیس خطا داد
     }
 
     notifyListeners();
 
-    // اگر دستاورد تازه unlock شده، امتیاز اضافه کن
     if (!wasUnlocked && isNowUnlocked) {
       await _onAchievementUnlocked(_achievements[index]);
     }
@@ -567,17 +444,33 @@ class AchievementService extends ChangeNotifier {
 
   Future<void> _onAchievementUnlocked(Achievement achievement) async {
     debugPrint(
-      '🎉 Achievement Unlocked: ${achievement.title} (+${achievement.points} points)',
+      '🎉 Achievement Unlocked: ${achievement.title} (+${achievement.points} امتیاز)',
     );
 
-    // نمایش نوتیفیکیشن زیبا
+    final granted = await _databaseService.grantBonusPointsIfNeeded(
+      achievement.id,
+      achievement.points,
+    );
+
+    if (granted) {
+      try {
+        final profile = await SimpleProfileService.getCurrentProfile();
+        final profileId = profile?['id'] as String?;
+        if (profileId != null && profileId.isNotEmpty) {
+          await RankingScoreService().updateUserScore(profileId);
+          await ScoreService().loadFromDatabase(force: true);
+        }
+      } catch (e) {
+        debugPrint('❌ Error refreshing league score after unlock: $e');
+      }
+    }
+
     final context = MyApp.navigatorKey.currentContext;
-    if (context != null) {
+    if (context != null && context.mounted) {
       AchievementNotification.show(context, achievement);
     }
   }
 
-  // افزایش پیشرفت
   Future<void> incrementProgress(
     String achievementId, [
     int increment = 1,
@@ -586,16 +479,13 @@ class AchievementService extends ChangeNotifier {
       (a) => a.id == achievementId,
       orElse: () => throw Exception('Achievement not found'),
     );
-
     await updateProgress(achievementId, achievement.currentValue + increment);
   }
 
-  // دریافت دستاوردهای یک دسته خاص
   List<Achievement> getAchievementsByCategory(AchievementCategory category) {
     return _achievements.where((a) => a.category == category).toList();
   }
 
-  // دریافت دستاوردهای اخیراً unlock شده
   List<Achievement> getRecentlyUnlocked({int days = 7}) {
     final cutoffDate = DateTime.now().subtract(Duration(days: days));
     return _achievements
@@ -609,7 +499,6 @@ class AchievementService extends ChangeNotifier {
       ..sort((a, b) => b.unlockedAt!.compareTo(a.unlockedAt!));
   }
 
-  // دریافت دستاوردهای نزدیک به unlock شدن
   List<Achievement> getAlmostUnlocked({double threshold = 0.8}) {
     return _achievements
         .where((a) => !a.isUnlocked && a.progress >= threshold)

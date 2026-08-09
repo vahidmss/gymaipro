@@ -1,89 +1,90 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class EmptyStateWidget extends StatelessWidget {
-  const EmptyStateWidget({super.key});
+  const EmptyStateWidget({super.key, this.onAdd});
+
+  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Center(
-        child: Container(
-          margin: EdgeInsets.all(16.w),
-          padding: EdgeInsets.all(24.w),
-          constraints: const BoxConstraints(maxWidth: 400, minHeight: 200),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF0A0A0A), Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 28.w),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              LucideIcons.dumbbell,
+              size: 36.sp,
+              color: AppTheme.goldColor.withValues(alpha: 0.7),
             ),
-            borderRadius: BorderRadius.circular(24.r),
-            border: Border.all(
-              color: const Color(0xFFD4AF37).withValues(alpha: 0.3),
-              width: 1.5.w,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 20.r,
-                offset: Offset(0.w, 6.h),
+            SizedBox(height: 14.h),
+            Text(
+              'این روز هنوز خالیه',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: isDark ? AppTheme.goldColor : context.textColor,
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w700,
               ),
-              BoxShadow(
-                color: const Color(0xFFD4AF37).withValues(alpha: 0.1),
-                blurRadius: 10.r,
-                offset: Offset(0.w, 3.h),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 6.h),
+            Text(
+              'اولین حرکت رو اضافه کن تا ساخت برنامه شروع بشه.',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: isDark
+                    ? AppTheme.goldColor.withValues(alpha: 0.7)
+                    : context.textColor.withValues(alpha: 0.55),
+                fontSize: 12.sp,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (onAdd != null) ...[
+              SizedBox(height: 18.h),
+              Material(
+                color: AppTheme.goldColor,
+                borderRadius: BorderRadius.circular(12.r),
+                child: InkWell(
+                  onTap: onAdd,
+                  borderRadius: BorderRadius.circular(12.r),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 18.w,
+                      vertical: 11.h,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          LucideIcons.plus,
+                          size: 16.sp,
+                          color: AppTheme.onGoldColor,
+                        ),
+                        SizedBox(width: 6.w),
+                        Text(
+                          'افزودن حرکت',
+                          style: TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                            color: AppTheme.onGoldColor,
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.all(16.w),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFFD4AF37).withValues(alpha: 0.1),
-                      const Color(0xFFB8860B).withValues(alpha: 0.05),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(20.r),
-                  border: Border.all(
-                    color: const Color(0xFFD4AF37).withValues(alpha: 0.3),
-                    width: 1.5.w,
-                  ),
-                ),
-                child: Icon(
-                  LucideIcons.dumbbell,
-                  size: 48.sp,
-                  color: const Color(0xFFD4AF37),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'برنامه تمرینی خود را بسازید',
-                style: TextStyle(
-                  color: const Color(0xFFD4AF37),
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'با انتخاب حرکات مورد نظر، برنامه ورزشی شخصی‌سازی شده خود را ایجاد کنید.',
-                style: TextStyle(
-                  color: const Color(0xFFD4AF37).withValues(alpha: 0.8),
-                  fontSize: 12.sp,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );

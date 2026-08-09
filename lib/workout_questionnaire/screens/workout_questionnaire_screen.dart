@@ -202,10 +202,12 @@ class _WorkoutQuestionnaireScreenState
         final saved = await _localStorage.saveResponses(_userId!, _responses);
         if (saved) {
           debugPrint('✅ همه پاسخ‌ها در SharedPreferences ذخیره شدند');
-          
+
           // بررسی مجدد برای اطمینان
           final verifyResponses = await _localStorage.getResponses(_userId!);
-          debugPrint('تأیید: ${verifyResponses.length} پاسخ در SharedPreferences موجود است');
+          debugPrint(
+            'تأیید: ${verifyResponses.length} پاسخ در SharedPreferences موجود است',
+          );
         } else {
           debugPrint('⚠️ خطا در ذخیره پاسخ‌ها');
         }
@@ -218,7 +220,9 @@ class _WorkoutQuestionnaireScreenState
       // نمایش صفحه تولید برنامه
       if (mounted) {
         debugPrint('نمایش دیالوگ تولید برنامه...');
-        debugPrint('ارسال ${_responses.length} پاسخ و ${_questions.length} سوال به AI');
+        debugPrint(
+          'ارسال ${_responses.length} پاسخ و ${_questions.length} سوال به AI',
+        );
         _showWorkoutGenerationDialog();
       }
     } catch (e, stackTrace) {
@@ -293,10 +297,9 @@ class _WorkoutQuestionnaireScreenState
           backgroundColor: Colors.green,
         );
 
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/workout-today',
-          (route) => route.isFirst,
-        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/workout-today', (route) => route.isFirst);
       }
     } catch (e, stackTrace) {
       debugPrint('خطا در ذخیره برنامه: $e');
@@ -324,19 +327,7 @@ class _WorkoutQuestionnaireScreenState
             context,
           ).copyWith(scaffoldBackgroundColor: context.backgroundColor),
           child: DecoratedBox(
-            decoration: isDark
-                ? const BoxDecoration()
-                : BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                        AppTheme.lightCardColor,
-                        AppTheme.lightGradientEnd.withValues(alpha: 0.1),
-                      ],
-                    ),
-                  ),
+            decoration: context.pageDecoration,
             child: const Scaffold(
               backgroundColor: Colors.transparent,
               body: Center(
@@ -365,19 +356,7 @@ class _WorkoutQuestionnaireScreenState
             ),
           ),
           child: DecoratedBox(
-            decoration: isDark
-                ? const BoxDecoration()
-                : BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                        AppTheme.lightCardColor,
-                        AppTheme.lightGradientEnd.withValues(alpha: 0.1),
-                      ],
-                    ),
-                  ),
+            decoration: context.pageDecoration,
             child: Scaffold(
               backgroundColor: Colors.transparent,
               appBar: AppBar(
@@ -431,19 +410,7 @@ class _WorkoutQuestionnaireScreenState
             ),
           ),
           child: DecoratedBox(
-            decoration: isDark
-                ? const BoxDecoration()
-                : BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                        AppTheme.lightCardColor,
-                        AppTheme.lightGradientEnd.withValues(alpha: 0.1),
-                      ],
-                    ),
-                  ),
+            decoration: context.pageDecoration,
             child: Scaffold(
               backgroundColor: Colors.transparent,
               appBar: AppBar(
@@ -817,7 +784,7 @@ class _WorkoutGenerationDialogState extends State<_WorkoutGenerationDialog> {
       debugPrint('========================================');
       debugPrint('تعداد پاسخ‌های ارسالی: ${widget.responses.length}');
       debugPrint('تعداد سوالات ارسالی: ${widget.questions.length}');
-      
+
       // لاگ کردن پاسخ‌های ارسالی
       debugPrint('\n--- پاسخ‌های ارسالی به AI ---');
       for (final entry in widget.responses.entries) {
@@ -829,11 +796,14 @@ class _WorkoutGenerationDialogState extends State<_WorkoutGenerationDialog> {
         if (response.answerNumber != null) {
           debugPrint('    پاسخ عدد: ${response.answerNumber}');
         }
-        if (response.answerChoices != null && response.answerChoices!.isNotEmpty) {
-          debugPrint('    پاسخ انتخاب‌ها: ${response.answerChoices!.join(", ")}');
+        if (response.answerChoices != null &&
+            response.answerChoices!.isNotEmpty) {
+          debugPrint(
+            '    پاسخ انتخاب‌ها: ${response.answerChoices!.join(", ")}',
+          );
         }
       }
-      
+
       final program = await AIWorkoutGeneratorService().generateWorkoutProgram(
         responses: widget.responses,
         questions: widget.questions,

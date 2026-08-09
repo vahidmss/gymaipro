@@ -9,6 +9,9 @@ class PackageCardWidget extends StatelessWidget {
     required this.cost,
     required this.packageRaw,
     required this.discountPct,
+    this.subtitle = 'تمرین + رژیم با یک تخفیف',
+    this.description =
+        'شامل برنامه تمرینی و رژیم غذایی — طبق فعال‌سازی مربی.',
     this.disabled = false,
     this.isSelected = false,
     this.isProcessing = false,
@@ -19,6 +22,8 @@ class PackageCardWidget extends StatelessWidget {
   final double cost;
   final num packageRaw;
   final num discountPct;
+  final String subtitle;
+  final String description;
   final bool disabled;
   final bool isSelected;
   final bool isProcessing;
@@ -133,7 +138,7 @@ class PackageCardWidget extends StatelessWidget {
               ),
               SizedBox(height: 3.h),
               Text(
-                'تمرین + رژیم + مشاوره با یک تخفیف',
+                subtitle,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   color: context.textSecondary,
@@ -209,7 +214,7 @@ class PackageCardWidget extends StatelessWidget {
 
   Widget _buildDescription(BuildContext context) {
     return Text(
-      'شامل: برنامه تمرینی، برنامه رژیم غذایی، مشاوره و نظارت — در صورت فعال بودن هر بخش توسط مربی.',
+      description,
       style: TextStyle(
         fontFamily: AppTheme.fontFamily,
         color: context.textColor,

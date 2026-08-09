@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-// نوار بالای صفحه (AppBar) مخصوص صفحه ساخت برنامه تمرینی
+// نوار بالای صفحه ساخت/ویرایش برنامه تمرین
 // استفاده در WorkoutProgramBuilderScreen
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/services/navigation_service.dart';
@@ -11,11 +11,13 @@ class WorkoutProgramAppBar extends StatelessWidget
   const WorkoutProgramAppBar({
     required this.onConfirm,
     this.showConfirmButton = true,
+    this.isSent = false,
     super.key,
     this.onBack,
   });
   final VoidCallback onConfirm;
   final bool showConfirmButton;
+  final bool isSent;
   final VoidCallback? onBack;
 
   @override
@@ -36,18 +38,51 @@ class WorkoutProgramAppBar extends StatelessWidget
         onPressed: onBack ?? () => NavigationService.safePop(context),
       ),
       title: Text(
-        'سازنده برنامه تمرینی',
+        'برنامه تمرین',
         style: TextStyle(
           fontFamily: AppTheme.fontFamily,
           color: isDark ? AppTheme.goldColor : context.textColor,
           fontWeight: FontWeight.bold,
-          fontSize: 20.sp,
+          fontSize: 18.sp,
         ),
       ),
       centerTitle: true,
       actions: [
-        // دکمه تأیید (تیک) - فقط زمانی که برنامه ارسال نشده باشد
-        if (showConfirmButton)
+        if (isSent)
+          Padding(
+            padding: EdgeInsets.only(left: 8.w),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+              decoration: BoxDecoration(
+                color: AppTheme.goldColor.withValues(alpha: isDark ? 0.18 : 0.12),
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(
+                  color: AppTheme.goldColor.withValues(alpha: 0.35),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    LucideIcons.circleCheck,
+                    color: AppTheme.goldColor,
+                    size: 18.sp,
+                  ),
+                  SizedBox(width: 6.w),
+                  Text(
+                    'ارسال شده',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: AppTheme.goldColor,
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (showConfirmButton)
           Padding(
             padding: EdgeInsets.only(left: 8.w),
             child: DecoratedBox(
@@ -79,7 +114,7 @@ class WorkoutProgramAppBar extends StatelessWidget
                       children: [
                         Icon(
                           LucideIcons.check,
-                          color: Colors.white,
+                          color: AppTheme.onGoldColor,
                           size: 20.sp,
                         ),
                         SizedBox(width: 6.w),
@@ -87,7 +122,7 @@ class WorkoutProgramAppBar extends StatelessWidget
                           'ارسال برنامه',
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
-                            color: Colors.white,
+                            color: AppTheme.onGoldColor,
                             fontSize: 14.sp,
                             fontWeight: FontWeight.bold,
                           ),

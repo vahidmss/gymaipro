@@ -29,19 +29,7 @@ class ProgramTypeSelectionScreen extends StatelessWidget {
           ),
         ),
         child: DecoratedBox(
-          decoration: isDark
-              ? const BoxDecoration()
-              : BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                      AppTheme.lightCardColor,
-                      AppTheme.lightGradientEnd.withValues(alpha: 0.1),
-                    ],
-                  ),
-                ),
+          decoration: context.pageDecoration,
           child: Scaffold(
             backgroundColor: Colors.transparent,
             appBar: AppBar(
@@ -117,7 +105,9 @@ class ProgramTypeSelectionScreen extends StatelessWidget {
                           'برنامه تمرینی کامل و حرفه‌ای که بر اساس اطلاعات شما طراحی می‌شود',
                       accentColor: AppTheme.goldColor,
                       onTap: () {
-                        unawaited(WorkoutProgramRequestNavigation.open(context));
+                        unawaited(
+                          WorkoutProgramRequestNavigation.open(context),
+                        );
                       },
                     ),
                     SizedBox(height: 16.h),
@@ -266,11 +256,7 @@ class ProgramTypeSelectionScreen extends StatelessWidget {
                         color: accentColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10.r),
                       ),
-                      child: Icon(
-                        icon,
-                        color: accentColor,
-                        size: 22.sp,
-                      ),
+                      child: Icon(icon, color: accentColor, size: 22.sp),
                     ),
                     SizedBox(width: 14.w),
                     // عنوان و زیرعنوان
@@ -332,4 +318,3 @@ class ProgramTypeSelectionScreen extends StatelessWidget {
     );
   }
 }
-

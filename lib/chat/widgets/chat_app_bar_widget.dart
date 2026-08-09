@@ -45,7 +45,8 @@ class ChatAppBarWidget extends StatelessWidget implements PreferredSizeWidget {
             avatarUrl: otherUserAvatar,
             size: 40,
             role: otherUserRole ?? 'athlete',
-            showOnlineStatus: false,
+            isOnline: isOtherUserOnline,
+            showOnlineStatus: true,
           ),
           SizedBox(width: 12.w),
           Expanded(
@@ -70,23 +71,13 @@ class ChatAppBarWidget extends StatelessWidget implements PreferredSizeWidget {
                       SizedBox(width: 8.w),
                       Container(
                         padding: EdgeInsets.symmetric(
-                          horizontal: 6.w,
-                          vertical: 2.h,
+                          horizontal: 8.w,
+                          vertical: 3.h,
                         ),
                         decoration: BoxDecoration(
-                          // Use a gradient only for trainers (where we expect multiple colors),
-                          // and fall back to a solid color for other roles to avoid
-                          // the "colors list must have at least two colors" assertion.
-                          gradient: otherUserRole == 'trainer'
-                              ? LinearGradient(
-                                  colors: context.goldGradientColors
-                                      .map((c) => c.withValues(alpha: 0.2))
-                                      .toList(),
-                                )
-                              : null,
                           color: otherUserRole == 'trainer'
-                              ? null
-                              : AppTheme.primaryColor.withValues(alpha: 0.2),
+                              ? AppTheme.goldColor
+                              : context.textColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8.r),
                         ),
                         child: Text(
@@ -94,10 +85,10 @@ class ChatAppBarWidget extends StatelessWidget implements PreferredSizeWidget {
                           style: TextStyle(
                             fontFamily: AppTheme.fontFamily,
                             color: otherUserRole == 'trainer'
-                                ? AppTheme.goldColor
-                                : AppTheme.primaryColor,
+                                ? AppTheme.onGoldColor
+                                : context.textColor,
                             fontSize: 10.sp,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
                       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class BottomInfoBar extends StatelessWidget {
@@ -16,109 +17,69 @@ class BottomInfoBar extends StatelessWidget {
     final difference = now.difference(date);
 
     if (difference.inDays < 1) {
-      if (difference.inHours < 1) {
-        return 'چند دقیقه پیش';
-      }
+      if (difference.inMinutes < 1) return 'همین الان';
+      if (difference.inHours < 1) return '${difference.inMinutes} دقیقه پیش';
       return '${difference.inHours} ساعت پیش';
     } else if (difference.inDays < 30) {
       return '${difference.inDays} روز پیش';
     } else if (difference.inDays < 365) {
       return '${(difference.inDays / 30).floor()} ماه پیش';
-    } else {
-      return '${(difference.inDays / 365).floor()} سال پیش';
     }
+    return '${(difference.inDays / 365).floor()} سال پیش';
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = (isDark ? AppTheme.goldColor : context.textColor).withValues(
+      alpha: 0.65,
+    );
+
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16),
+      padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 10.h),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0A0A0A), Color(0xFF1A1A1A), Color(0xFF2A2A2A)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 20.r,
-            offset: const Offset(0, -4),
+        color: isDark ? const Color(0xFF121212) : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.25),
           ),
-          BoxShadow(
-            color: const Color(0xFFD4AF37).withValues(alpha: 0.1),
-            blurRadius: 10.r,
-            offset: const Offset(0, -2),
-          ),
-        ],
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-        border: Border.all(
-          color: const Color(0xFFD4AF37).withValues(alpha: 0.3),
-          width: 1.5.w,
         ),
       ),
       child: Row(
         children: [
+          Icon(LucideIcons.clipboardList, color: AppTheme.goldColor, size: 14.sp),
+          SizedBox(width: 5.w),
+          Text(
+            'تعداد حرکات این روز: ',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: muted,
+              fontSize: 11.sp,
+            ),
+          ),
+          Text(
+            '$exerciseCount',
+            style: TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              color: AppTheme.goldColor,
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          SizedBox(width: 14.w),
+          Icon(LucideIcons.save, color: AppTheme.goldColor, size: 14.sp),
+          SizedBox(width: 5.w),
           Expanded(
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 4,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      LucideIcons.clipboardList,
-                      color: const Color(0xFFD4AF37),
-                      size: 16.sp,
-                    ),
-                    const SizedBox(width: 3),
-                    Text(
-                      'تعداد حرکات: ',
-                      style: TextStyle(
-                        color: const Color(0xFFD4AF37).withValues(alpha: 0.8),
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      exerciseCount.toString(),
-                      style: TextStyle(
-                        color: const Color(0xFFD4AF37),
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      LucideIcons.clock,
-                      color: const Color(0xFFD4AF37),
-                      size: 16.sp,
-                    ),
-                    const SizedBox(width: 3),
-                    Text(
-                      'آخرین ویرایش: ',
-                      style: TextStyle(
-                        color: const Color(0xFFD4AF37).withValues(alpha: 0.8),
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      exerciseCount > 0 ? _formatDate(updatedAt) : '-',
-                      style: TextStyle(
-                        color: const Color(0xFFD4AF37),
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+            child: Text(
+              exerciseCount > 0
+                  ? 'آخرین ذخیره: ${_formatDate(updatedAt)}'
+                  : 'هنوز ذخیره نشده',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: muted,
+                fontSize: 11.sp,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/meal_log/models/meal_quick_log_entry.dart';
 import 'package:gymaipro/meal_log/services/meal_quick_log_service.dart';
+import 'package:gymaipro/meal_log/utils/meal_log_utils.dart';
 import 'package:gymaipro/meal_log/widgets/meal_log_colors.dart';
 import 'package:gymaipro/models/food.dart';
-import 'package:gymaipro/models/food_meta.dart';
 import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/services/user_preferences_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -531,7 +531,6 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
     Key? key,
   }) {
     final protein = double.tryParse(food.nutrition.protein) ?? 0;
-    final group = food.meta.foodGroup.trim();
 
     return Container(
       key: key,
@@ -588,25 +587,14 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                           fontSize: 10.sp,
                         ),
                       ),
-                      if (group.isNotEmpty || protein >= 8) ...[
+                      if (protein >= 8) ...[
                         SizedBox(height: 4.h),
-                        Wrap(
-                          spacing: 4.w,
-                          runSpacing: 3.h,
-                          children: [
-                            if (group.isNotEmpty)
-                              _foodMetaChip(
-                                context,
-                                group,
-                                FoodDisplayLabels.groupColor(group),
-                              ),
-                            if (protein >= 8)
-                              _foodMetaChip(
-                                context,
-                                'پ ${protein.toStringAsFixed(0)}g',
-                                AppTheme.proteinColor,
-                              ),
-                          ],
+                        _foodMetaChip(
+                          context,
+                          MealLogUtils.convertToPersianNumbers(
+                            'پ ${protein.toStringAsFixed(0)}گ',
+                          ),
+                          AppTheme.proteinColor,
                         ),
                       ],
                     ],
@@ -615,9 +603,9 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
                 SizedBox(width: 4.w),
                 IconButton(
                   icon: Icon(
-                    isFavorite ? LucideIcons.heart : LucideIcons.heartOff,
+                    isFavorite ? Icons.favorite : Icons.favorite_border,
                     color: isFavorite
-                        ? Colors.red
+                        ? const Color(0xFFE53935)
                         : MealLogColors.hintText(context),
                     size: 18.sp,
                   ),

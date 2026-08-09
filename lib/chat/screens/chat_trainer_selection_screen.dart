@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/screens/chat_screen.dart';
 import 'package:gymaipro/chat/widgets/search_bar_widget.dart';
 import 'package:gymaipro/chat/widgets/user_avatar_widget.dart';
+import 'package:gymaipro/core/user_presence.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/services/trainer_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -124,7 +125,9 @@ class _ChatTrainerSelectionScreenState
             'specialization': '',
             'rating': '0',
             'avatar': clientProfile['avatar_url'],
-            'is_online': false,
+            'last_seen_at': clientProfile['last_seen_at'],
+            'last_active_at': clientProfile['last_active_at'],
+            'is_online': UserPresence.isOnlineFromMap(clientProfile),
             'role': clientProfile['role'] ?? 'athlete',
           };
         }).toList();
@@ -147,7 +150,9 @@ class _ChatTrainerSelectionScreenState
             'specialization': trainerProfile['bio'] ?? '',
             'rating': '0',
             'avatar': trainerProfile['avatar_url'],
-            'is_online': false,
+            'last_seen_at': trainerProfile['last_seen_at'],
+            'last_active_at': trainerProfile['last_active_at'],
+            'is_online': UserPresence.isOnlineFromMap(trainerProfile),
             'role': trainerProfile['role'] ?? 'trainer',
           };
         }).toList();

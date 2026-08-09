@@ -98,11 +98,10 @@ class LegendCard extends StatelessWidget {
                   children: [
                     Text(
                       legend.fullName,
-                      style: AppTheme.headingStyle.copyWith(
+                      style: context.headingStyle.copyWith(
                         fontSize: 16.sp,
                         fontWeight: FontWeight.w800,
                         fontFamily: AppTheme.fontFamily,
-                        color: context.textColor,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -111,7 +110,7 @@ class LegendCard extends StatelessWidget {
                       SizedBox(height: 4.h),
                       Text(
                         legend.nickname!,
-                        style: AppTheme.bodyStyle.copyWith(
+                        style: context.bodyStyle.copyWith(
                           fontSize: 12.sp,
                           color: AppTheme.goldColor,
                           fontStyle: FontStyle.italic,
@@ -135,7 +134,7 @@ class LegendCard extends StatelessWidget {
                           Flexible(
                             child: Text(
                               legend.nationality!,
-                              style: AppTheme.bodyStyle.copyWith(
+                              style: context.bodyStyle.copyWith(
                                 fontSize: 12.sp,
                                 fontFamily: AppTheme.fontFamily,
                                 color: context.textColor,
@@ -161,7 +160,7 @@ class LegendCard extends StatelessWidget {
                           Flexible(
                             child: Text(
                               '${legend.olympiaTitles} قهرمانی مستر المپیا',
-                              style: AppTheme.bodyStyle.copyWith(
+                              style: context.bodyStyle.copyWith(
                                 fontSize: 11.sp,
                                 color: AppTheme.goldColor,
                                 fontWeight: FontWeight.w600,
@@ -189,9 +188,8 @@ class LegendCard extends StatelessWidget {
                             Flexible(
                               child: Text(
                                 '${legend.heightCm} سانتی‌متر',
-                                style: AppTheme.bodyStyle.copyWith(
+                                style: context.bodyStyle.copyWith(
                                   fontSize: 11.sp,
-                                  color: context.textSecondary,
                                   fontFamily: AppTheme.fontFamily,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -210,9 +208,8 @@ class LegendCard extends StatelessWidget {
                             Flexible(
                               child: Text(
                                 '${legend.weightStage} کیلوگرم',
-                                style: AppTheme.bodyStyle.copyWith(
+                                style: context.bodyStyle.copyWith(
                                   fontSize: 11.sp,
-                                  color: context.textSecondary,
                                   fontFamily: AppTheme.fontFamily,
                                 ),
                                 overflow: TextOverflow.ellipsis,

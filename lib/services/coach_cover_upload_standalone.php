@@ -165,7 +165,9 @@ if (empty($profile_data) || !isset($profile_data[0]['role'])) {
 $user_role = $profile_data[0]['role'];
 $username = $profile_data[0]['username'] ?? $user_id; // fallback to user_id if username not found
 
-if (!in_array($user_role, ['admin', 'trainer'])) {
+$upload_context_early = isset($_POST['upload_context']) ? trim((string)$_POST['upload_context']) : '';
+$allow_any_auth = in_array($upload_context_early, ['private_chat', 'chat'], true);
+if (!$allow_any_auth && !in_array($user_role, ['admin', 'trainer'], true)) {
     http_response_code(403);
     echo json_encode([
         'success' => false,
@@ -213,35 +215,30 @@ if (!in_array($file_extension, $allowed_extensions)) {
     exit;
 }
 
-// بررسی حجم فایل (حداکثر 5MB)
-$max_size = 5 * 1024 * 1024; // 5MB
+$upload_context = isset($_POST['upload_context']) ? trim((string)$_POST['upload_context']) : '';
+$conversation_id = isset($_POST['conversation_id']) ? trim((string)$_POST['conversation_id']) : '';
+require_once __DIR__ . '/upload_paths.php';
+$target = gymai_resolve_media_target(
+    __DIR__,
+    'image',
+    $upload_context,
+    $username,
+    $user_id,
+    $conversation_id
+);
+$safe_username = $target['safe_username'];
+$max_size = (int) $target['max_bytes'];
 if ($file['size'] > $max_size) {
     http_response_code(400);
     echo json_encode([
         'success' => false,
         'error' => 'file_too_large',
-        'message' => 'File size exceeds maximum allowed (5MB)',
+        'message' => 'File size exceeds maximum allowed',
     ]);
     exit;
 }
 
-// 5. ساخت مسیر مقصد (با username یا context)
-// پاک کردن کاراکترهای غیرمجاز از username برای استفاده در مسیر
-$safe_username = preg_replace('/[^a-zA-Z0-9_-]/', '_', $username);
-$upload_context = isset($_POST['upload_context']) ? trim((string)$_POST['upload_context']) : '';
-
-if ($upload_context === 'announcements') {
-    // ساختار منظم برای اخبار: announcements/images/YYYY/MM
-    $year = date('Y');
-    $month = date('m');
-    $base_path = __DIR__ . '/announcements/images/' . $year . '/' . $month;
-    $trainer_folder = $base_path;
-} else {
-    $base_path = __DIR__ . '/coaches_music_covers';
-    $trainer_folder = $base_path . '/' . $safe_username;
-}
-
-// ساخت پوشه مربی اگر وجود نداشته باشد
+$trainer_folder = $target['absolute'];
 if (!file_exists($trainer_folder)) {
     if (!mkdir($trainer_folder, 0755, true)) {
         http_response_code(500);
@@ -254,24 +251,18 @@ if (!file_exists($trainer_folder)) {
     }
 }
 
-// 6. استفاده از نام فایل از header یا تولید نام جدید
 $original_filename = $file['name'];
 $filename_parts = explode('/', $original_filename);
-
-// اگر نام فایل شامل مسیر است (از Dart ارسال شده)
 if (count($filename_parts) > 1) {
-    $file_name = end($filename_parts); // فقط نام فایل را بگیر
+    $file_name = end($filename_parts);
 } else {
-    // تولید نام فایل منحصر به فرد
     $timestamp = time();
     $random_string = bin2hex(random_bytes(4));
-    $prefix = ($upload_context === 'announcements') ? 'announcement_image' : 'cover';
-    $file_name = $prefix . '_' . $timestamp . '_' . $random_string . '.' . $file_extension;
+    $file_name = $target['prefix'] . '_' . $timestamp . '_' . $random_string . '.' . $file_extension;
 }
 
 $file_path = $trainer_folder . '/' . $file_name;
 
-// 7. انتقال فایل
 if (!move_uploaded_file($file['tmp_name'], $file_path)) {
     http_response_code(500);
     echo json_encode([
@@ -282,17 +273,8 @@ if (!move_uploaded_file($file['tmp_name'], $file_path)) {
     exit;
 }
 
-// تنظیم مجوزهای فایل
 chmod($file_path, 0644);
-
-// 8. تولید URL کامل
-if ($upload_context === 'announcements') {
-    $year = date('Y');
-    $month = date('m');
-    $cover_url = 'https://dl.gymaipro.ir/announcements/images/' . $year . '/' . $month . '/' . $file_name;
-} else {
-    $cover_url = 'https://dl.gymaipro.ir/coaches_music_covers/' . $safe_username . '/' . $file_name;
-}
+$cover_url = $target['url_base'] . '/' . $file_name;
 
 // 9. برگرداندن پاسخ موفق
 http_response_code(200);

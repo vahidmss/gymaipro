@@ -322,7 +322,9 @@ class _PrivateMessageNotificationSettingsScreenState
             ),
             SwitchListTile(
               title: const Text('صدا'),
-              subtitle: const Text('صدای نوتیفیکیشن'),
+              subtitle: const Text(
+                'صدای نوتیفیکیشن پیام (جدا از صدای داخل چت)',
+              ),
               value: _settings.soundEnabled,
               onChanged: _settings.enabled
                   ? (value) {

@@ -299,8 +299,6 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildIntroCard(isDark),
-                  SizedBox(height: 16.h),
                   _buildEditableService(
                     icon: LucideIcons.dumbbell,
                     title: 'برنامه تمرینی',
@@ -354,37 +352,6 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildIntroCard(bool isDark) {
-    return Container(
-      padding: EdgeInsets.all(14.w),
-      decoration: BoxDecoration(
-        color: AppTheme.goldColor.withValues(alpha: isDark ? 0.1 : 0.08),
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(
-          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.28 : 0.22),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(LucideIcons.wallet, color: AppTheme.goldColor, size: 20.sp),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: Text(
-              'تعرفه‌ها به تومان و به‌صورت ماهانه است. بسته کامل شامل تمرین و رژیم است؛ مشاوره جداگانه محاسبه می‌شود.',
-              style: TextStyle(
-                color: context.textColor,
-                fontSize: 12.5.sp,
-                height: 1.5,
-                fontFamily: AppTheme.fontFamily,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

@@ -11,6 +11,8 @@ import 'package:gymaipro/utils/cache_service.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+/// تب دوستان — الگوی اپ‌های حرفه‌ای:
+/// یک لیست واحد + بنر درخواست‌ها در بالا + جستجو داخل تب (بدون TabBar تو در تو).
 class MyFriendsScreen extends StatefulWidget {
   const MyFriendsScreen({super.key});
 
@@ -19,27 +21,20 @@ class MyFriendsScreen extends StatefulWidget {
 }
 
 class _MyFriendsScreenState extends State<MyFriendsScreen>
-    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
+    with WidgetsBindingObserver {
   bool _isLoading = true;
   bool _isRefreshing = false;
   List<UserProfile> _friends = [];
   List<FriendshipRequest> _receivedRequests = [];
   List<FriendshipRequest> _sentRequests = [];
-  int _receivedRequestsCount = 0;
 
-  // Stream subscriptions for real-time updates
   StreamSubscription<List<UserProfile>>? _friendsSubscription;
   StreamSubscription<List<FriendshipRequest>>? _requestsSubscription;
-
-  /// تعداد تب‌ها: دوستان | درخواست‌ها (همیشه با tabs و TabBarView هماهنگ باشد)
-  static const int _tabCount = 2;
-  TabController? _tabController;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _tabController = TabController(length: _tabCount, vsync: this);
     _loadFriends(showCache: true);
     _setupRealTimeUpdates();
   }
@@ -49,30 +44,24 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
     WidgetsBinding.instance.removeObserver(this);
     _friendsSubscription?.cancel();
     _requestsSubscription?.cancel();
-    _tabController?.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    // Refresh when app comes to foreground
     if (state == AppLifecycleState.resumed) {
-      _refreshData(forceRefresh: true);
+      unawaited(_refreshData(forceRefresh: true, silent: true));
     }
   }
 
   void _setupRealTimeUpdates() {
     try {
-      // Listen to friends changes
       _friendsSubscription = FriendshipService.watchFriends().listen(
         (friends) {
           if (mounted) {
-            SafeSetState.call(this, () {
-              _friends = friends;
-            });
-            // Update cache silently
-            _updateCache();
+            SafeSetState.call(this, () => _friends = friends);
+            unawaited(_updateCache());
           }
         },
         onError: (Object error) {
@@ -80,16 +69,11 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
         },
       );
 
-      // Listen to received requests changes
       _requestsSubscription = FriendshipService.watchReceivedRequests().listen(
         (requests) {
           if (mounted) {
-            SafeSetState.call(this, () {
-              _receivedRequests = requests;
-              _receivedRequestsCount = requests.length;
-            });
-            // Update cache silently
-            _updateCache();
+            SafeSetState.call(this, () => _receivedRequests = requests);
+            unawaited(_updateCache());
           }
         },
         onError: (Object error) {
@@ -106,7 +90,6 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
       SafeSetState.call(this, () => _isLoading = true);
     }
 
-    // 1) Try cache-first only on initial load
     if (showCache) {
       final cached = await CacheService.getJsonMap('friends_screen_cache');
       if (cached != null) {
@@ -135,7 +118,6 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
           _friends = friends;
           _receivedRequests = received;
           _sentRequests = sent;
-          _receivedRequestsCount = received.length;
           _isLoading = false;
         });
       } else {
@@ -144,7 +126,6 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
     }
 
     try {
-      // Load fresh data from API
       final friends = await FriendshipService.getFriends();
       final receivedRequests = await FriendshipService.getReceivedRequests();
       final sentRequests = await FriendshipService.getSentRequests();
@@ -153,12 +134,10 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
         _friends = friends;
         _receivedRequests = receivedRequests;
         _sentRequests = sentRequests;
-        _receivedRequestsCount = receivedRequests.length;
         _isLoading = false;
         _isRefreshing = false;
       });
 
-      // Update cache
       await _updateCache();
     } catch (e) {
       SafeSetState.call(this, () {
@@ -168,8 +147,11 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطا در بارگذاری دوستان: $e'),
-            backgroundColor: Colors.red,
+            content: Text(
+              'خطا در بارگذاری دوستان: $e',
+              style: const TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
@@ -187,12 +169,10 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
     }
 
     try {
-      // Invalidate cache on manual refresh
       if (forceRefresh) {
         await CacheService.clear('friends_screen_cache');
       }
 
-      // Load fresh data
       final friends = await FriendshipService.getFriends();
       final receivedRequests = await FriendshipService.getReceivedRequests();
       final sentRequests = await FriendshipService.getSentRequests();
@@ -201,19 +181,20 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
         _friends = friends;
         _receivedRequests = receivedRequests;
         _sentRequests = sentRequests;
-        _receivedRequestsCount = receivedRequests.length;
         _isRefreshing = false;
       });
 
-      // Update cache
       await _updateCache();
     } catch (e) {
       SafeSetState.call(this, () => _isRefreshing = false);
       if (mounted && !silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطا در به‌روزرسانی: $e'),
-            backgroundColor: Colors.red,
+            content: Text(
+              'خطا در به‌روزرسانی: $e',
+              style: const TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
@@ -276,259 +257,152 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
     }
   }
 
+  void _openSearch() {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (context) => const FriendshipSearchScreen(),
+      ),
+    ).then((_) {
+      if (mounted) unawaited(_refreshData(forceRefresh: true, silent: true));
+    });
+  }
+
+  Future<void> _openRequestsSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (ctx) {
+        return _RequestsSheet(
+          received: _receivedRequests,
+          sent: _sentRequests,
+          onAccept: _acceptRequest,
+          onReject: _rejectRequest,
+          onCancel: _cancelRequest,
+        );
+      },
+    );
+    if (mounted) unawaited(_refreshData(forceRefresh: true, silent: true));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: AppTheme.goldColor),
-              )
-            : Column(
-                children: [
-                  ColoredBox(
-                    color: context.cardColor,
-                    child: TabBar(
-                      controller: _tabController,
-                      indicatorColor: AppTheme.goldColor,
-                      labelColor: AppTheme.goldColor,
-                      unselectedLabelColor: isDark
-                          ? Colors.white.withValues(alpha: 0.5)
-                          : AppTheme.lightTextSecondary.withValues(alpha: 0.6),
-                      labelStyle: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontFamily: AppTheme.fontFamily,
-                      ),
-                      unselectedLabelStyle: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontFamily: AppTheme.fontFamily,
-                      ),
-                      tabs: [
-                        const Tab(text: 'دوستان'),
-                        Tab(
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              const Text('درخواست‌ها'),
-                              if (_receivedRequestsCount > 0)
-                                Positioned(
-                                  right: -8,
-                                  top: -4,
-                                  child: Container(
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 4.w,
-                                      vertical: 2.h,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red,
-                                      borderRadius: BorderRadius.circular(10.r),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.red.withValues(
-                                            alpha: 0.3,
-                                          ),
-                                          blurRadius: 4.r,
-                                          offset: Offset(0.w, 2.h),
-                                        ),
-                                      ],
-                                    ),
-                                    constraints: const BoxConstraints(
-                                      minWidth: 18,
-                                      minHeight: 18,
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        _receivedRequestsCount > 99
-                                            ? '99+'
-                                            : '$_receivedRequestsCount',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 8.sp,
-                                          fontWeight: FontWeight.bold,
-                                          height: 1.h,
-                                          fontFamily: AppTheme.fontFamily,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildFriendsList(),
-                        _buildRequestsTab(),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-
-  Widget _buildFriendsList() {
-    return RefreshIndicator(
-      onRefresh: () => _refreshData(forceRefresh: true),
-      color: AppTheme.goldColor,
-      child: _friends.isEmpty
-          ? _buildEmptyFriendsState()
-          : ListView.builder(
-              padding: EdgeInsets.all(16.w),
-              itemCount: _friends.length + (_isRefreshing ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == _friends.length && _isRefreshing) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: AppTheme.goldColor,
-                      ),
-                    ),
-                  );
-                }
-                final friend = _friends[index];
-                return _FriendCard(
-                  friend: friend,
-                  onChat: () => _openChat(friend),
-                  onViewProfile: () => _viewProfile(friend),
-                  onRemove: () => _removeFriend(friend),
-                );
-              },
-            ),
-    );
-  }
-
-  /// تب یکپارچه درخواست‌ها: ورودی + ارسال‌شده (سبک اپ‌های حرفه‌ای)
-  Widget _buildRequestsTab() {
-    final bothEmpty =
-        _receivedRequests.isEmpty && _sentRequests.isEmpty;
-    return RefreshIndicator(
-      onRefresh: () => _refreshData(forceRefresh: true),
-      color: AppTheme.goldColor,
-      child: bothEmpty
-          ? SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: SizedBox(
-                height: MediaQuery.of(context).size.height * 0.75,
-                child: const UnifiedEmptyState(
-                  icon: LucideIcons.userPlus,
-                  title: 'درخواست دوستی ندارید',
-                  subtitle:
-                      'وقتی کسی درخواست دوستی بفرستد یا شما درخواست بفرستید، اینجا نمایش داده می‌شود.',
-                ),
-              ),
-            )
-          : ListView.builder(
-              padding: EdgeInsets.all(16.w),
-              itemCount: _requestsListItemCount(),
-              itemBuilder: _buildRequestsListItem,
-            ),
-    );
-  }
-
-  int _requestsListItemCount() {
-    var count = 0;
-    final hasReceived = _receivedRequests.isNotEmpty;
-    final hasSent = _sentRequests.isNotEmpty;
-    if (hasReceived) {
-      count += 2 + _receivedRequests.length;
-      if (hasSent) count += 1;
-    }
-    if (hasSent) {
-      count += 2 + _sentRequests.length;
-    }
-    if (_isRefreshing) count += 1;
-    return count;
-  }
-
-  Widget _buildRequestsListItem(BuildContext context, int index) {
-    var cursor = index;
-    final hasReceived = _receivedRequests.isNotEmpty;
-    final hasSent = _sentRequests.isNotEmpty;
-
-    if (hasReceived) {
-      if (cursor == 0) return _sectionHeader('درخواست‌های ورودی');
-      cursor--;
-      if (cursor == 0) return SizedBox(height: 8.h);
-      cursor--;
-      if (cursor < _receivedRequests.length) {
-        final request = _receivedRequests[cursor];
-        return Padding(
-          padding: EdgeInsets.only(bottom: 12.h),
-          child: _PendingRequestCard(
-            request: request,
-            onAccept: () => _acceptRequest(request),
-            onReject: () => _rejectRequest(request),
-          ),
-        );
-      }
-      cursor -= _receivedRequests.length;
-      if (hasSent && cursor == 0) return SizedBox(height: 20.h);
-      if (hasSent) cursor--;
-    }
-
-    if (hasSent) {
-      if (cursor == 0) return _sectionHeader('ارسال‌شده');
-      cursor--;
-      if (cursor == 0) return SizedBox(height: 8.h);
-      cursor--;
-      if (cursor < _sentRequests.length) {
-        final request = _sentRequests[cursor];
-        return Padding(
-          padding: EdgeInsets.only(bottom: 12.h),
-          child: _SentRequestCard(
-            request: request,
-            onCancel: () => _cancelRequest(request),
-          ),
-        );
-      }
-      cursor -= _sentRequests.length;
-    }
-
-    return const Padding(
-      padding: EdgeInsets.all(16),
-      child: Center(
+    if (_isLoading) {
+      return const Center(
         child: CircularProgressIndicator(color: AppTheme.goldColor),
-      ),
-    );
-  }
+      );
+    }
 
-  Widget _sectionHeader(String title) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 15.sp,
-        fontWeight: FontWeight.w700,
-        color: AppTheme.goldColor,
-        fontFamily: AppTheme.fontFamily,
-      ),
-    );
-  }
+    final hasRequests =
+        _receivedRequests.isNotEmpty || _sentRequests.isNotEmpty;
+    final isEmpty = _friends.isEmpty && !hasRequests;
 
-  Widget _buildEmptyFriendsState() {
-    return UnifiedEmptyState(
-      icon: LucideIcons.users,
-      title: 'هنوز دوستی ندارید',
-      subtitle:
-          'برای شروع، از بخش جستجو دوستان جدید پیدا کنید و با آن‌ها ارتباط برقرار کنید',
-      actionText: 'جستجوی دوستان',
-      actionIcon: LucideIcons.search,
-      onAction: () => Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (context) => const FriendshipSearchScreen(),
-        ),
-      ),
+    return RefreshIndicator(
+      onRefresh: () => _refreshData(forceRefresh: true),
+      color: AppTheme.goldColor,
+      child: isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(height: MediaQuery.of(context).size.height * 0.12),
+                UnifiedEmptyState(
+                  icon: LucideIcons.users,
+                  title: 'هنوز دوستی ندارید',
+                  subtitle:
+                      'با نام کاربری دوست‌تان را پیدا کنید و درخواست دوستی بفرستید',
+                  actionText: 'جستجوی دوستان',
+                  actionIcon: LucideIcons.search,
+                  onAction: _openSearch,
+                ),
+              ],
+            )
+          : ListView(
+              padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 28.h),
+              children: [
+                _SearchEntryCard(onTap: _openSearch),
+                SizedBox(height: 12.h),
+                if (hasRequests) ...[
+                  _RequestsBanner(
+                    receivedCount: _receivedRequests.length,
+                    sentCount: _sentRequests.length,
+                    onTap: _openRequestsSheet,
+                  ),
+                  SizedBox(height: 16.h),
+                ],
+                Row(
+                  children: [
+                    Text(
+                      'دوستان',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w700,
+                        color: context.textColor,
+                      ),
+                    ),
+                    SizedBox(width: 8.w),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 8.w,
+                        vertical: 2.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.goldColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
+                      child: Text(
+                        '${_friends.length}',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.goldColor,
+                        ),
+                      ),
+                    ),
+                    if (_isRefreshing) ...[
+                      SizedBox(width: 10.w),
+                      SizedBox(
+                        width: 14.w,
+                        height: 14.w,
+                        child: const CircularProgressIndicator(
+                          color: AppTheme.goldColor,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                SizedBox(height: 10.h),
+                if (_friends.isEmpty)
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24.h),
+                    child: Text(
+                      'هنوز دوستی در لیست نیست. درخواست‌های در انتظار را از بالا ببینید.',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 13.sp,
+                        color: context.textSecondary,
+                        height: 1.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else
+                  ..._friends.map(
+                    (friend) => _FriendCard(
+                      friend: friend,
+                      onChat: () => _openChat(friend),
+                      onViewProfile: () => _viewProfile(friend),
+                      onRemove: () => _removeFriend(friend),
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 
@@ -551,18 +425,41 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('حذف دوست'),
-        content: const Text(
+        backgroundColor: context.cardColor,
+        title: Text(
+          'حذف دوست',
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            color: context.textColor,
+          ),
+        ),
+        content: Text(
           'آیا مطمئن هستید که می‌خواهید این دوست را حذف کنید؟',
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            color: context.textSecondary,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('لغو'),
+            child: Text(
+              'لغو',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textSecondary,
+              ),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('حذف'),
+            child: const Text(
+              'حذف',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: AppTheme.errorColor,
+              ),
+            ),
           ),
         ],
       ),
@@ -572,12 +469,15 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
       try {
         await FriendshipService.removeFriend(friend.id);
         await CacheService.clear('friends_screen_cache');
-        _refreshData(forceRefresh: true);
+        await _refreshData(forceRefresh: true);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('دوست حذف شد'),
-              backgroundColor: Colors.green,
+              content: Text(
+                'دوست حذف شد',
+                style: TextStyle(fontFamily: AppTheme.fontFamily),
+              ),
+              backgroundColor: AppTheme.successColor,
             ),
           );
         }
@@ -585,8 +485,11 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('خطا در حذف دوست: $e'),
-              backgroundColor: Colors.red,
+              content: Text(
+                'خطا در حذف دوست: $e',
+                style: const TextStyle(fontFamily: AppTheme.fontFamily),
+              ),
+              backgroundColor: AppTheme.errorColor,
             ),
           );
         }
@@ -596,30 +499,18 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
 
   Future<void> _acceptRequest(FriendshipRequest request) async {
     try {
-      // تایید درخواست
       await FriendshipService.acceptFriendRequest(request.id);
-
-      // پاک کردن کش
       await CacheService.clear('friends_screen_cache');
-
-      // کمی صبر می‌کنیم تا trigger دیتابیس دوستی را ایجاد کند
-      await Future<void>.delayed(const Duration(milliseconds: 500));
-
-      // رفرش داده‌ها با retry mechanism
-      await _refreshDataWithRetry(
-        
-      );
-
-      // هدایت به تب دوستان برای نمایش دوست جدید
-      if (mounted && _tabController != null) {
-        _tabController!.animateTo(0); // تب دوستان
-      }
-
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      await _refreshDataWithRetry();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('درخواست دوستی پذیرفته شد'),
-            backgroundColor: Colors.green,
+            content: Text(
+              'درخواست دوستی پذیرفته شد',
+              style: TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
+            backgroundColor: AppTheme.successColor,
           ),
         );
       }
@@ -627,27 +518,27 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطا در پذیرش درخواست: $e'),
-            backgroundColor: Colors.red,
+            content: Text(
+              'خطا در پذیرش درخواست: $e',
+              style: const TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
     }
   }
 
-  /// رفرش داده‌ها با retry mechanism برای اطمینان از دریافت داده‌های جدید
   Future<void> _refreshDataWithRetry({
     int maxRetries = 3,
     Duration retryDelay = const Duration(milliseconds: 500),
   }) async {
-    int retryCount = 0;
-    bool success = false;
+    var retryCount = 0;
+    var success = false;
 
     while (retryCount < maxRetries && !success) {
       try {
         SafeSetState.call(this, () => _isRefreshing = true);
-
-        // بارگذاری داده‌های تازه
         final friends = await FriendshipService.getFriends();
         final receivedRequests = await FriendshipService.getReceivedRequests();
         final sentRequests = await FriendshipService.getSentRequests();
@@ -656,20 +547,13 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
           _friends = friends;
           _receivedRequests = receivedRequests;
           _sentRequests = sentRequests;
-          _receivedRequestsCount = receivedRequests.length;
           _isRefreshing = false;
         });
-
-        // به‌روزرسانی کش
         await _updateCache();
-
         success = true;
       } catch (e) {
         retryCount++;
         if (retryCount < maxRetries) {
-          debugPrint(
-            'Retry $retryCount/$maxRetries: Error refreshing friends: $e',
-          );
           await Future<void>.delayed(retryDelay);
         } else {
           SafeSetState.call(this, () => _isRefreshing = false);
@@ -682,13 +566,15 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
   Future<void> _rejectRequest(FriendshipRequest request) async {
     try {
       await FriendshipService.rejectFriendRequest(request.id);
-
       await CacheService.clear('friends_screen_cache');
-      _refreshData(forceRefresh: true);
+      await _refreshData(forceRefresh: true);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('درخواست دوستی رد شد'),
+            content: Text(
+              'درخواست دوستی رد شد',
+              style: TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
             backgroundColor: Colors.orange,
           ),
         );
@@ -697,8 +583,11 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطا در رد درخواست: $e'),
-            backgroundColor: Colors.red,
+            content: Text(
+              'خطا در رد درخواست: $e',
+              style: const TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
@@ -709,11 +598,14 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
     try {
       await FriendshipService.cancelFriendRequest(request.id);
       await CacheService.clear('friends_screen_cache');
-      _refreshData(forceRefresh: true);
+      await _refreshData(forceRefresh: true);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('درخواست لغو شد'),
+            content: Text(
+              'درخواست لغو شد',
+              style: TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
             backgroundColor: Colors.orange,
           ),
         );
@@ -722,8 +614,11 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطا در لغو درخواست: $e'),
-            backgroundColor: Colors.red,
+            content: Text(
+              'خطا در لغو درخواست: $e',
+              style: const TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
@@ -731,7 +626,344 @@ class _MyFriendsScreenState extends State<MyFriendsScreen>
   }
 }
 
-/// کارت فشرده دوست — سبک اپ‌های فیتنس: یک ردیف با پیام و منوی بیشتر
+class _SearchEntryCard extends StatelessWidget {
+  const _SearchEntryCard({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14.r),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: context.cardColor,
+            borderRadius: BorderRadius.circular(14.r),
+            border: Border.all(
+              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.28 : 0.35),
+            ),
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.search,
+                  size: 18.sp,
+                  color: AppTheme.goldColor,
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: Text(
+                    'جستجو با نام کاربری...',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 14.sp,
+                      color: context.textSecondary,
+                    ),
+                  ),
+                ),
+                Icon(
+                  LucideIcons.userPlus,
+                  size: 18.sp,
+                  color: AppTheme.goldColor,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RequestsBanner extends StatelessWidget {
+  const _RequestsBanner({
+    required this.receivedCount,
+    required this.sentCount,
+    required this.onTap,
+  });
+
+  final int receivedCount;
+  final int sentCount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = receivedCount > 0
+        ? 'درخواست‌های دوستی'
+        : 'درخواست‌های ارسال‌شده';
+    final subtitle = receivedCount > 0
+        ? '$receivedCount درخواست در انتظار'
+        : '$sentCount درخواست در انتظار پاسخ';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14.r),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.orange.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(14.r),
+            border: Border.all(color: Colors.orange.withValues(alpha: 0.35)),
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+            child: Row(
+              children: [
+                Container(
+                  width: 40.w,
+                  height: 40.w,
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    LucideIcons.userPlus,
+                    size: 18.sp,
+                    color: Colors.orange,
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w700,
+                          color: context.textColor,
+                        ),
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 12.sp,
+                          color: context.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (receivedCount > 0)
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 3.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.errorColor,
+                      borderRadius: BorderRadius.circular(10.r),
+                    ),
+                    child: Text(
+                      receivedCount > 99 ? '99+' : '$receivedCount',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: AppTheme.fontFamily,
+                      ),
+                    ),
+                  ),
+                SizedBox(width: 6.w),
+                Icon(
+                  LucideIcons.chevronLeft,
+                  size: 18.sp,
+                  color: context.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RequestsSheet extends StatefulWidget {
+  const _RequestsSheet({
+    required this.received,
+    required this.sent,
+    required this.onAccept,
+    required this.onReject,
+    required this.onCancel,
+  });
+
+  final List<FriendshipRequest> received;
+  final List<FriendshipRequest> sent;
+  final Future<void> Function(FriendshipRequest) onAccept;
+  final Future<void> Function(FriendshipRequest) onReject;
+  final Future<void> Function(FriendshipRequest) onCancel;
+
+  @override
+  State<_RequestsSheet> createState() => _RequestsSheetState();
+}
+
+class _RequestsSheetState extends State<_RequestsSheet> {
+  late List<FriendshipRequest> _received;
+  late List<FriendshipRequest> _sent;
+  final Set<String> _busyIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _received = List<FriendshipRequest>.from(widget.received);
+    _sent = List<FriendshipRequest>.from(widget.sent);
+  }
+
+  Future<void> _handleAccept(FriendshipRequest request) async {
+    if (_busyIds.contains(request.id)) return;
+    setState(() => _busyIds.add(request.id));
+    try {
+      await widget.onAccept(request);
+      if (!mounted) return;
+      setState(() {
+        _received.removeWhere((r) => r.id == request.id);
+        _busyIds.remove(request.id);
+      });
+    } catch (_) {
+      if (mounted) setState(() => _busyIds.remove(request.id));
+    }
+  }
+
+  Future<void> _handleReject(FriendshipRequest request) async {
+    if (_busyIds.contains(request.id)) return;
+    setState(() => _busyIds.add(request.id));
+    try {
+      await widget.onReject(request);
+      if (!mounted) return;
+      setState(() {
+        _received.removeWhere((r) => r.id == request.id);
+        _busyIds.remove(request.id);
+      });
+    } catch (_) {
+      if (mounted) setState(() => _busyIds.remove(request.id));
+    }
+  }
+
+  Future<void> _handleCancel(FriendshipRequest request) async {
+    if (_busyIds.contains(request.id)) return;
+    setState(() => _busyIds.add(request.id));
+    try {
+      await widget.onCancel(request);
+      if (!mounted) return;
+      setState(() {
+        _sent.removeWhere((r) => r.id == request.id);
+        _busyIds.remove(request.id);
+      });
+    } catch (_) {
+      if (mounted) setState(() => _busyIds.remove(request.id));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewPadding.bottom;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h + bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40.w,
+              height: 4.h,
+              decoration: BoxDecoration(
+                color: context.textSecondary.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(4.r),
+              ),
+            ),
+            SizedBox(height: 14.h),
+            Text(
+              'درخواست‌های دوستی',
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w800,
+                color: context.textColor,
+              ),
+            ),
+            SizedBox(height: 14.h),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.62,
+              ),
+              child: _received.isEmpty && _sent.isEmpty
+                  ? Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32.h),
+                      child: Text(
+                        'درخواستی وجود ندارد',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          color: context.textSecondary,
+                        ),
+                      ),
+                    )
+                  : ListView(
+                      shrinkWrap: true,
+                      children: [
+                        if (_received.isNotEmpty) ...[
+                          _sheetSection('ورودی'),
+                          SizedBox(height: 8.h),
+                          ..._received.map(
+                            (r) => _PendingRequestCard(
+                              request: r,
+                              onAccept: _busyIds.contains(r.id)
+                                  ? null
+                                  : () => unawaited(_handleAccept(r)),
+                              onReject: _busyIds.contains(r.id)
+                                  ? null
+                                  : () => unawaited(_handleReject(r)),
+                            ),
+                          ),
+                        ],
+                        if (_sent.isNotEmpty) ...[
+                          if (_received.isNotEmpty) SizedBox(height: 12.h),
+                          _sheetSection('ارسال‌شده'),
+                          SizedBox(height: 8.h),
+                          ..._sent.map(
+                            (r) => _SentRequestCard(
+                              request: r,
+                              onCancel: _busyIds.contains(r.id)
+                                  ? null
+                                  : () => unawaited(_handleCancel(r)),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sheetSection(String title) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 13.sp,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.goldColor,
+          fontFamily: AppTheme.fontFamily,
+        ),
+      ),
+    );
+  }
+}
+
 class _FriendCard extends StatelessWidget {
   const _FriendCard({
     required this.friend,
@@ -748,7 +980,7 @@ class _FriendCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
+      margin: EdgeInsets.only(bottom: 10.h),
       decoration: BoxDecoration(
         color: context.cardColor,
         borderRadius: BorderRadius.circular(14.r),
@@ -756,18 +988,9 @@ class _FriendCard extends StatelessWidget {
           color: friend.isOnline
               ? Colors.green.withValues(alpha: 0.25)
               : isDark
-                  ? Colors.grey[700]!
+                  ? Colors.white12
                   : AppTheme.lightDividerColor.withValues(alpha: 0.5),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.2)
-                : AppTheme.goldColor.withValues(alpha: 0.06),
-            blurRadius: 6.r,
-            offset: Offset(0, 2.h),
-          ),
-        ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -781,8 +1004,9 @@ class _FriendCard extends StatelessWidget {
                 Stack(
                   children: [
                     CircleAvatar(
-                      radius: 26.r,
-                      backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
+                      radius: 24.r,
+                      backgroundColor:
+                          AppTheme.goldColor.withValues(alpha: 0.2),
                       backgroundImage: friend.avatarUrl != null
                           ? NetworkImage(friend.avatarUrl!)
                           : null,
@@ -790,7 +1014,7 @@ class _FriendCard extends StatelessWidget {
                           ? Icon(
                               LucideIcons.user,
                               color: context.textSecondary,
-                              size: 22.sp,
+                              size: 20.sp,
                             )
                           : null,
                     ),
@@ -799,8 +1023,8 @@ class _FriendCard extends StatelessWidget {
                         right: 0,
                         bottom: 0,
                         child: Container(
-                          width: 12.w,
-                          height: 12.h,
+                          width: 11.w,
+                          height: 11.w,
                           decoration: BoxDecoration(
                             color: Colors.green,
                             shape: BoxShape.circle,
@@ -823,7 +1047,7 @@ class _FriendCard extends StatelessWidget {
                         friend.fullName ?? friend.username,
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
-                          fontSize: 16.sp,
+                          fontSize: 15.sp,
                           color: context.textColor,
                           fontFamily: AppTheme.fontFamily,
                         ),
@@ -835,24 +1059,12 @@ class _FriendCard extends StatelessWidget {
                         '@${friend.username}',
                         style: TextStyle(
                           color: context.textSecondary,
-                          fontSize: 13.sp,
+                          fontSize: 12.5.sp,
                           fontFamily: AppTheme.fontFamily,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (friend.isOnline) ...[
-                        SizedBox(height: 4.h),
-                        Text(
-                          'آنلاین',
-                          style: TextStyle(
-                            color: Colors.green,
-                            fontSize: 11.sp,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: AppTheme.fontFamily,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -860,7 +1072,7 @@ class _FriendCard extends StatelessWidget {
                   onPressed: onChat,
                   icon: Icon(
                     LucideIcons.messageCircle,
-                    size: 22.sp,
+                    size: 20.sp,
                     color: AppTheme.goldColor,
                   ),
                   tooltip: 'پیام',
@@ -868,7 +1080,7 @@ class _FriendCard extends StatelessWidget {
                 PopupMenuButton<String>(
                   icon: Icon(
                     LucideIcons.moreVertical,
-                    size: 20.sp,
+                    size: 18.sp,
                     color: context.textSecondary,
                   ),
                   shape: RoundedRectangleBorder(
@@ -885,7 +1097,10 @@ class _FriendCard extends StatelessWidget {
                         children: [
                           Icon(LucideIcons.user, size: 18),
                           SizedBox(width: 8),
-                          Text('پروفایل'),
+                          Text(
+                            'پروفایل',
+                            style: TextStyle(fontFamily: AppTheme.fontFamily),
+                          ),
                         ],
                       ),
                     ),
@@ -893,9 +1108,19 @@ class _FriendCard extends StatelessWidget {
                       value: 'remove',
                       child: Row(
                         children: [
-                          Icon(LucideIcons.userMinus, size: 18, color: Colors.red),
+                          Icon(
+                            LucideIcons.userMinus,
+                            size: 18,
+                            color: AppTheme.errorColor,
+                          ),
                           SizedBox(width: 8),
-                          Text('حذف دوست', style: TextStyle(color: Colors.red)),
+                          Text(
+                            'حذف دوست',
+                            style: TextStyle(
+                              color: AppTheme.errorColor,
+                              fontFamily: AppTheme.fontFamily,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -917,47 +1142,36 @@ class _PendingRequestCard extends StatelessWidget {
     required this.onReject,
   });
   final FriendshipRequest request;
-  final VoidCallback onAccept;
-  final VoidCallback onReject;
+  final VoidCallback? onAccept;
+  final VoidCallback? onReject;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.only(bottom: 10.h),
       decoration: BoxDecoration(
-        color: context.cardColor,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: Colors.orange.withValues(alpha: 0.3),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.orange.withValues(alpha: 0.1),
-            blurRadius: 8.r,
-            offset: Offset(0.w, 4.h),
-          ),
-        ],
+        color: context.backgroundColor.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
       ),
       child: Padding(
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.all(12.w),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 CircleAvatar(
-                  radius: 24,
-                  backgroundColor: Colors.orange,
+                  radius: 22.r,
+                  backgroundColor: Colors.orange.withValues(alpha: 0.3),
                   backgroundImage: request.requesterAvatar != null
                       ? NetworkImage(request.requesterAvatar!)
                       : null,
                   child: request.requesterAvatar == null
-                      ? const Icon(LucideIcons.user, color: Colors.white)
+                      ? const Icon(LucideIcons.user, color: Colors.orange)
                       : null,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 10.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -967,8 +1181,8 @@ class _PendingRequestCard extends StatelessWidget {
                             request.requesterUsername ??
                             'کاربر ناشناس',
                         style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14.sp,
                           color: context.textColor,
                           fontFamily: AppTheme.fontFamily,
                         ),
@@ -978,74 +1192,78 @@ class _PendingRequestCard extends StatelessWidget {
                           '@${request.requesterUsername}',
                           style: TextStyle(
                             color: context.textSecondary,
-                            fontSize: 14.sp,
+                            fontSize: 12.sp,
                             fontFamily: AppTheme.fontFamily,
                           ),
                         ),
-                      Text(
-                        'درخواست دوستی',
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontSize: 14.sp,
-                          fontFamily: AppTheme.fontFamily,
-                        ),
-                      ),
                     ],
                   ),
                 ),
                 Text(
-                  _formatDateTime(request.createdAt),
+                  _formatRelative(request.createdAt),
                   style: TextStyle(
                     color: context.textSecondary,
-                    fontSize: 12.sp,
+                    fontSize: 11.sp,
                     fontFamily: AppTheme.fontFamily,
                   ),
                 ),
               ],
             ),
             if (request.message != null && request.message!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: EdgeInsets.all(8.w),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.grey[800]
-                      : AppTheme.lightDividerColor.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(8.r),
-                ),
-                child: Text(
-                  request.message!,
-                  style: TextStyle(
-                    color: isDark ? Colors.grey[300] : context.textSecondary,
-                    fontSize: 14.sp,
-                    fontFamily: AppTheme.fontFamily,
-                  ),
+              SizedBox(height: 8.h),
+              Text(
+                request.message!,
+                style: TextStyle(
+                  color: context.textSecondary,
+                  fontSize: 13.sp,
+                  fontFamily: AppTheme.fontFamily,
                 ),
               ),
             ],
-            const SizedBox(height: 12),
+            SizedBox(height: 10.h),
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
+                  child: ElevatedButton(
                     onPressed: onAccept,
-                    icon: const Icon(LucideIcons.check, size: 16),
-                    label: const Text('پذیرش'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: EdgeInsets.symmetric(vertical: 10.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10.r),
+                      ),
+                    ),
+                    child: Text(
+                      'پذیرش',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13.sp,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8.w),
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: OutlinedButton(
                     onPressed: onReject,
-                    icon: const Icon(LucideIcons.x, size: 16),
-                    label: const Text('رد'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
+                      foregroundColor: AppTheme.errorColor,
+                      side: const BorderSide(color: AppTheme.errorColor),
+                      padding: EdgeInsets.symmetric(vertical: 10.h),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10.r),
+                      ),
+                    ),
+                    child: Text(
+                      'رد',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13.sp,
+                      ),
                     ),
                   ),
                 ),
@@ -1056,83 +1274,39 @@ class _PendingRequestCard extends StatelessWidget {
       ),
     );
   }
-
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays == 0) {
-      if (difference.inHours == 0) {
-        if (difference.inMinutes == 0) {
-          return 'همین الان';
-        }
-        return '${difference.inMinutes} دقیقه پیش';
-      }
-      return '${difference.inHours} ساعت پیش';
-    } else if (difference.inDays == 1) {
-      return 'دیروز';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} روز پیش';
-    } else {
-      return '${dateTime.year}/${dateTime.month}/${dateTime.day}';
-    }
-  }
 }
 
 class _SentRequestCard extends StatelessWidget {
   const _SentRequestCard({required this.request, required this.onCancel});
   final FriendshipRequest request;
-  final VoidCallback onCancel;
-
-  String _formatDateTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inDays == 0) {
-      if (difference.inHours == 0) {
-        if (difference.inMinutes == 0) {
-          return 'همین الان';
-        }
-        return '${difference.inMinutes} دقیقه پیش';
-      }
-      return '${difference.inHours} ساعت پیش';
-    } else if (difference.inDays == 1) {
-      return 'دیروز';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays} روز پیش';
-    } else {
-      return '${dateTime.year}/${dateTime.month}/${dateTime.day}';
-    }
-  }
+  final VoidCallback? onCancel;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.only(bottom: 10.h),
       decoration: BoxDecoration(
-        color: context.cardColor,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: Colors.blue),
+        color: context.backgroundColor.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
       ),
       child: Padding(
-        padding: EdgeInsets.all(16.w),
+        padding: EdgeInsets.all(12.w),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 CircleAvatar(
-                  radius: 24,
-                  backgroundColor: Colors.blue,
+                  radius: 22.r,
+                  backgroundColor: Colors.blue.withValues(alpha: 0.25),
                   backgroundImage: request.requestedAvatar != null
                       ? NetworkImage(request.requestedAvatar!)
                       : null,
                   child: request.requestedAvatar == null
-                      ? const Icon(LucideIcons.user, color: Colors.white)
+                      ? const Icon(LucideIcons.user, color: Colors.blue)
                       : null,
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 10.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1142,26 +1316,17 @@ class _SentRequestCard extends StatelessWidget {
                             request.requestedUsername ??
                             'کاربر ناشناس',
                         style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14.sp,
                           color: context.textColor,
                           fontFamily: AppTheme.fontFamily,
                         ),
                       ),
-                      if (request.requestedUsername != null)
-                        Text(
-                          '@${request.requestedUsername}',
-                          style: TextStyle(
-                            color: context.textSecondary,
-                            fontSize: 14.sp,
-                            fontFamily: AppTheme.fontFamily,
-                          ),
-                        ),
                       Text(
                         'در انتظار پاسخ',
                         style: TextStyle(
                           color: Colors.blue,
-                          fontSize: 14.sp,
+                          fontSize: 12.sp,
                           fontFamily: AppTheme.fontFamily,
                         ),
                       ),
@@ -1169,54 +1334,55 @@ class _SentRequestCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  _formatDateTime(request.createdAt),
+                  _formatRelative(request.createdAt),
                   style: TextStyle(
                     color: context.textSecondary,
-                    fontSize: 12.sp,
+                    fontSize: 11.sp,
                     fontFamily: AppTheme.fontFamily,
                   ),
                 ),
               ],
             ),
-            if (request.message != null && request.message!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: EdgeInsets.all(8.w),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.grey[800]
-                      : AppTheme.lightDividerColor.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(8.r),
+            SizedBox(height: 10.h),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: onCancel,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.errorColor,
+                  side: const BorderSide(color: AppTheme.errorColor),
+                  padding: EdgeInsets.symmetric(vertical: 10.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
                 ),
                 child: Text(
-                  request.message!,
+                  'لغو درخواست',
                   style: TextStyle(
-                    color: isDark ? Colors.grey[300] : context.textSecondary,
-                    fontSize: 14.sp,
                     fontFamily: AppTheme.fontFamily,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13.sp,
                   ),
                 ),
               ),
-            ],
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onCancel,
-                    icon: const Icon(LucideIcons.x, size: 16),
-                    label: const Text('لغو درخواست'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ],
         ),
       ),
     );
   }
+}
+
+String _formatRelative(DateTime dateTime) {
+  final difference = DateTime.now().difference(dateTime);
+  if (difference.inDays == 0) {
+    if (difference.inHours == 0) {
+      if (difference.inMinutes == 0) return 'همین الان';
+      return '${difference.inMinutes} دقیقه پیش';
+    }
+    return '${difference.inHours} ساعت پیش';
+  }
+  if (difference.inDays == 1) return 'دیروز';
+  if (difference.inDays < 7) return '${difference.inDays} روز پیش';
+  return '${dateTime.year}/${dateTime.month}/${dateTime.day}';
 }

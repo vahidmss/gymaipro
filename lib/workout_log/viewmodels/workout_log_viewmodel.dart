@@ -1,13 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:gymaipro/achievements/achievement_hooks.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/features/product_experience/active_workout_session_service.dart';
 import 'package:gymaipro/features/product_experience/domain/workout_exercise_coach_feedback.dart';
+import 'package:gymaipro/ranking/services/ranking_tracker_helper.dart';
 import 'package:gymaipro/services/active_program_service.dart';
 import 'package:gymaipro/services/muscle_heatmap_aggregate.dart';
 import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
+import 'package:gymaipro/workout_log/models/previous_exercise_performance.dart';
 import 'package:gymaipro/workout_log/models/workout_program_log.dart';
 import 'package:gymaipro/workout_log/services/workout_program_log_service.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
@@ -33,6 +36,8 @@ class WorkoutLogViewModel extends ChangeNotifier {
   final Map<int, Exercise> _exerciseDetails = {};
   final Map<String, bool> _collapsedExercises = {};
   final Map<String, WorkoutExerciseCoachFeedback> _exerciseCoachFeedback = {};
+  /// exercise catalog id → ست‌های آخرین جلسهٔ قبلی
+  final Map<int, List<PreviousExerciseSet>> _previousSetsByExerciseId = {};
 
   bool _hasTodayLog = false;
   bool _isLoadingTodayLog = true;
@@ -43,13 +48,22 @@ class WorkoutLogViewModel extends ChangeNotifier {
   final Map<String, Timer> _autoSaveTimers = {};
   final Map<String, Timer> _heatmapPreviewTimers = {};
   int _dbSaveGeneration = 0;
+  int _dayLoadGeneration = 0;
   bool _isLoadingData = false;
+  /// وقتی پد عددی باز است، تایپ نباید auto-save کند.
+  bool _suppressAutoSave = false;
   bool _isDisposed = false;
   MuscleHeatmapSnapshot? _sessionHeatmapCache;
   bool _sessionHeatmapDirty = true;
 
   /// فقط برای به‌روزرسانی چیپ/شیت نقشه — بدون rebuild کل صفحه.
   final ValueNotifier<int> sessionHeatmapTick = ValueNotifier(0);
+
+  /// پیشرفت جلسه (ست‌های ثبت‌شده) — نوار بالا بدون rebuild کل صفحه.
+  final ValueNotifier<int> sessionProgressTick = ValueNotifier(0);
+
+  /// revision هر حرکت — فقط همان کارت rebuild شود.
+  final Map<String, ValueNotifier<int>> _exerciseRevision = {};
 
   // Getters
   Jalali get selectedDate => _selectedDate;
@@ -64,10 +78,185 @@ class WorkoutLogViewModel extends ChangeNotifier {
   Map<String, bool> get collapsedExercises => _collapsedExercises;
   Map<String, WorkoutExerciseCoachFeedback> get exerciseCoachFeedback =>
       _exerciseCoachFeedback;
+  Map<int, List<PreviousExerciseSet>> get previousSetsByExerciseId =>
+      _previousSetsByExerciseId;
   bool get hasTodayLog => _hasTodayLog;
   bool get isLoadingTodayLog => _isLoadingTodayLog;
   bool get isLoadingDayLog => _isLoadingDayLog;
   String? get loggedSessionDay => _loggedSessionDay;
+
+  /// (completed, total) ست‌های جلسهٔ فعلی.
+  (int, int) get sessionSetCounts {
+    var completed = 0;
+    var total = 0;
+    for (final status in _setSavedStatus.values) {
+      total += status.length;
+      for (final saved in status) {
+        if (saved) completed++;
+      }
+    }
+    return (completed, total);
+  }
+
+  bool get hasAnySavedSet {
+    for (final status in _setSavedStatus.values) {
+      if (status.any((s) => s)) return true;
+    }
+    return false;
+  }
+
+  ValueNotifier<int> exerciseListenable(String exerciseKey) {
+    return _exerciseRevision.putIfAbsent(
+      exerciseKey,
+      () => ValueNotifier<int>(0),
+    );
+  }
+
+  void _bumpExerciseUi(String exerciseKey, {bool bumpProgress = true}) {
+    if (_isDisposed) return;
+    final tick = _exerciseRevision.putIfAbsent(
+      exerciseKey,
+      () => ValueNotifier<int>(0),
+    );
+    tick.value++;
+    final parent = _parentExerciseKey(exerciseKey);
+    if (parent != null && parent != exerciseKey) {
+      final parentTick = _exerciseRevision.putIfAbsent(
+        parent,
+        () => ValueNotifier<int>(0),
+      );
+      parentTick.value++;
+    }
+    if (bumpProgress) {
+      sessionProgressTick.value++;
+    }
+  }
+
+  String? _parentExerciseKey(String exerciseKey) {
+    final session = _selectedSession;
+    if (session == null) return null;
+    for (final exercise in session.exercises) {
+      if (exercise is! SupersetExercise) continue;
+      for (final item in exercise.exercises) {
+        if ('${exercise.id}_${item.exerciseId}' == exerciseKey) {
+          return exercise.id;
+        }
+      }
+    }
+    return null;
+  }
+
+  String _cardKey(WorkoutExercise exercise) {
+    if (exercise is NormalExercise) return exercise.exerciseId.toString();
+    if (exercise is SupersetExercise) return exercise.id;
+    return exercise.hashCode.toString();
+  }
+
+  WorkoutExercise? _findExerciseByCardKey(String cardKey) {
+    final session = _selectedSession;
+    if (session == null) return null;
+    for (final exercise in session.exercises) {
+      if (_cardKey(exercise) == cardKey) return exercise;
+    }
+    return null;
+  }
+
+  bool _isCardComplete(WorkoutExercise exercise) {
+    if (exercise is NormalExercise) {
+      final id = exercise.exerciseId.toString();
+      final status = _setSavedStatus[id];
+      final n = exercise.sets.length;
+      return status != null &&
+          n > 0 &&
+          status.length >= n &&
+          status.take(n).every((s) => s);
+    }
+    if (exercise is SupersetExercise) {
+      if (exercise.exercises.isEmpty) return true;
+      for (final item in exercise.exercises) {
+        final itemId = '${exercise.id}_${item.exerciseId}';
+        final status = _setSavedStatus[itemId];
+        final n = item.sets.length;
+        if (status == null ||
+            n == 0 ||
+            status.length < n ||
+            status.take(n).any((s) => !s)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
+  String? _firstIncompleteCardKey() {
+    final session = _selectedSession;
+    if (session == null) return null;
+    for (final exercise in session.exercises) {
+      if (!_isCardComplete(exercise)) return _cardKey(exercise);
+    }
+    return null;
+  }
+
+  String? _nextIncompleteCardKeyAfter(String cardKey) {
+    final session = _selectedSession;
+    if (session == null) return null;
+    var passed = false;
+    for (final exercise in session.exercises) {
+      final key = _cardKey(exercise);
+      if (!passed) {
+        if (key == cardKey) passed = true;
+        continue;
+      }
+      if (!_isCardComplete(exercise)) return key;
+    }
+    // اگر حرکت کامل‌شده اول لیست نبود، اولین ناتمام کلی
+    return _firstIncompleteCardKey();
+  }
+
+  /// فقط یک حرکت ناتمام باز — بقیهٔ ناتمام‌ها و کامل‌ها بسته.
+  void _applyFocusAccordion({String? preferOpen}) {
+    final session = _selectedSession;
+    if (session == null) return;
+
+    String? focusKey = preferOpen;
+    if (focusKey != null) {
+      final preferred = _findExerciseByCardKey(focusKey);
+      if (preferred == null || _isCardComplete(preferred)) {
+        focusKey = null;
+      }
+    }
+    focusKey ??= _firstIncompleteCardKey();
+
+    for (final exercise in session.exercises) {
+      final key = _cardKey(exercise);
+      if (_isCardComplete(exercise)) {
+        _collapsedExercises[key] = true;
+      } else if (focusKey != null && key == focusKey) {
+        _collapsedExercises[key] = false;
+      } else {
+        _collapsedExercises[key] = true;
+      }
+    }
+  }
+
+  /// بعد از تکمیل همهٔ ست‌های یک کارت: ببند و بعدی ناتمام را باز کن.
+  void _advanceAccordionAfterComplete(String cardKey) {
+    _collapsedExercises[cardKey] = true;
+    _bumpExerciseUi(cardKey, bumpProgress: false);
+
+    final next = _nextIncompleteCardKeyAfter(cardKey);
+    if (next == null || next == cardKey) return;
+    _collapsedExercises[next] = false;
+    _bumpExerciseUi(next, bumpProgress: false);
+  }
+
+  void _maybeAutoCollapse(String exerciseKey) {
+    final cardKey = _parentExerciseKey(exerciseKey) ?? exerciseKey;
+    final exercise = _findExerciseByCardKey(cardKey);
+    if (exercise == null || !_isCardComplete(exercise)) return;
+    _advanceAccordionAfterComplete(cardKey);
+  }
 
   /// هیت‌مپ جلسه — با کش؛ فقط وقتی لاگ عوض می‌شود دوباره حساب می‌شود.
   MuscleHeatmapSnapshot get sessionHeatmapSnapshot {
@@ -76,7 +265,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
       return _sessionHeatmapCache!;
     }
     _sessionHeatmapCache = MuscleHeatmapAggregate.fromExerciseLogs(
-      _buildExerciseLogs(),
+      _buildSavedExerciseLogsForHeatmap(),
       _exerciseDetails,
       catalogFallback: _exerciseService.cachedExercisesSync,
     );
@@ -206,7 +395,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
   void toggleExerciseCollapse(String exerciseId) {
     _collapsedExercises[exerciseId] =
         !(_collapsedExercises[exerciseId] ?? false);
-    _safeNotifyListeners();
+    _bumpExerciseUi(exerciseId, bumpProgress: false);
   }
 
   Future<void> loadExerciseDetails() async {
@@ -334,6 +523,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
   void initExerciseControllers() {
     _isLoadingData = true;
     disposeControllers();
+    _collapsedExercises.clear();
 
     if (_selectedSession == null) {
       _isLoadingData = false;
@@ -347,6 +537,9 @@ class WorkoutLogViewModel extends ChangeNotifier {
         _initSupersetExerciseControllers(exercise);
       }
     }
+
+    // جلسه تازه / قبل از لود لاگ: فقط اولین ناتمام باز
+    _applyFocusAccordion();
   }
 
   void _initNormalExerciseControllers(NormalExercise exercise) {
@@ -466,7 +659,13 @@ class WorkoutLogViewModel extends ChangeNotifier {
   }
 
   void scheduleAutoSave(String setKey, String exerciseId, int setIndex) {
-    if (_isLoadingData) return;
+    if (_isLoadingData || _suppressAutoSave) return;
+
+    // فقط ستِ از قبل ثبت‌شده با ویرایش زنده آپدیت می‌شود — تیک = ثبت اولیه
+    final saved = _setSavedStatus[exerciseId];
+    final isSaved =
+        saved != null && saved.length > setIndex && saved[setIndex];
+    if (!isSaved) return;
 
     _autoSaveTimers[setKey]?.cancel();
 
@@ -479,27 +678,62 @@ class WorkoutLogViewModel extends ChangeNotifier {
     final time = setControllers['time']?.text.trim() ?? '';
 
     if (weight.isEmpty && reps.isEmpty && time.isEmpty) {
-      final savedStatus = _setSavedStatus[exerciseId];
-      if (savedStatus != null &&
-          savedStatus.length > setIndex &&
-          savedStatus[setIndex]) {
-        savedStatus[setIndex] = false;
-        bumpSessionHeatmapPreview();
-        _refreshExerciseCoachFeedback(exerciseId);
-        _safeNotifyListeners();
-      }
+      _autoSaveTimers[setKey] = Timer(const Duration(milliseconds: 450), () {
+        unawaited(clearSet(exerciseId, setIndex));
+      });
       return;
     }
 
     _heatmapPreviewTimers[setKey]?.cancel();
-    _heatmapPreviewTimers[setKey] = Timer(
-      const Duration(milliseconds: 350),
-      bumpSessionHeatmapPreview,
-    );
+    _heatmapPreviewTimers.remove(setKey);
 
-    _autoSaveTimers[setKey] = Timer(const Duration(seconds: 1), () {
+    _autoSaveTimers[setKey] = Timer(const Duration(milliseconds: 500), () {
       saveSet(exerciseId, setIndex);
     });
+  }
+
+  /// پد باز → تایپ فقط UI؛ ذخیره فقط با تیک/ثبت صریح.
+  void setSuppressAutoSave(bool suppress) {
+    _suppressAutoSave = suppress;
+    if (!suppress) return;
+    for (final timer in _autoSaveTimers.values) {
+      timer.cancel();
+    }
+    _autoSaveTimers.clear();
+  }
+
+  /// لغو ثبت یک ست (پاک شدن فیلدها یا آن‌چک).
+  Future<void> clearSet(String exerciseId, int setIndex) async {
+    final savedStatus = _setSavedStatus[exerciseId];
+    final wasSaved =
+        savedStatus != null &&
+        savedStatus.length > setIndex &&
+        savedStatus[setIndex];
+
+    if (savedStatus != null && savedStatus.length > setIndex) {
+      savedStatus[setIndex] = false;
+    }
+
+    // اگر کامل بود و بسته شده، دوباره باز کن و تمرکز را روی همین بگذار
+    final cardKey = _parentExerciseKey(exerciseId) ?? exerciseId;
+    if (_collapsedExercises[cardKey] == true) {
+      _applyFocusAccordion(preferOpen: cardKey);
+    } else {
+      _collapsedExercises[cardKey] = false;
+    }
+
+    bumpSessionHeatmapPreview();
+    _refreshExerciseCoachFeedback(exerciseId, notify: false);
+    _bumpExerciseUi(exerciseId);
+
+    if (!wasSaved || _selectedSession == null) return;
+
+    final sessionDay = _selectedSession!.day;
+    final generation = _dbSaveGeneration;
+    await _persistSessionToDatabase(
+      sessionDay: sessionDay,
+      generation: generation,
+    );
   }
 
   Future<void> saveSet(String exerciseId, int setIndex) async {
@@ -521,15 +755,22 @@ class WorkoutLogViewModel extends ChangeNotifier {
           ? (int.tryParse(timeText) ?? 0)
           : 0;
 
+      final hasWork = (reps > 0) || (timeSeconds > 0) || (weight > 0);
+      if (!hasWork) {
+        await clearSet(exerciseId, setIndex);
+        return;
+      }
+
       if (savedStatus != null && savedStatus.length > setIndex) {
         savedStatus[setIndex] = true;
       }
 
       bumpSessionHeatmapPreview();
-      _refreshExerciseCoachFeedback(exerciseId);
+      _refreshExerciseCoachFeedback(exerciseId, notify: false);
       if (!wasSaved) {
-        _safeNotifyListeners();
+        _maybeAutoCollapse(exerciseId);
       }
+      _bumpExerciseUi(exerciseId);
 
       final sessionDay = _selectedSession!.day;
       final generation = _dbSaveGeneration;
@@ -544,13 +785,25 @@ class WorkoutLogViewModel extends ChangeNotifier {
       );
     } catch (e) {
       debugPrint('Error auto-saving set: $e');
-      // Rollback optimistic update on failure
       if (savedStatus != null && savedStatus.length > setIndex && !wasSaved) {
         savedStatus[setIndex] = false;
         _refreshExerciseCoachFeedback(exerciseId, notify: false);
-        _safeNotifyListeners();
+        _bumpExerciseUi(exerciseId);
       }
     }
+  }
+
+  /// آن‌چک دستی: پاک‌کردن فیلدها + حذف از DB / هیت‌مپ.
+  Future<void> unsaveSet(String exerciseId, int setIndex) async {
+    final controllers = _exerciseControllers[exerciseId];
+    if (controllers != null && controllers.length > setIndex) {
+      final c = controllers[setIndex];
+      c['weight']?.clear();
+      c['reps']?.clear();
+      c['time']?.clear();
+      c['rpe']?.clear();
+    }
+    await clearSet(exerciseId, setIndex);
   }
 
   void _refreshAllExerciseCoachFeedback() {
@@ -567,7 +820,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
     // نکته مربی فقط برای برنامه‌های هوش مصنوعی / شروع باشگاه
     if (_selectedProgram?.isSelfServiceAi != true) {
       _exerciseCoachFeedback.remove(exerciseKey);
-      if (notify) _safeNotifyListeners();
+      if (notify) _bumpExerciseUi(exerciseKey, bumpProgress: false);
       return;
     }
 
@@ -576,7 +829,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
     final savedStatus = _setSavedStatus[exerciseKey];
     if (resolved == null || controllers == null || savedStatus == null) {
       _exerciseCoachFeedback.remove(exerciseKey);
-      if (notify) _safeNotifyListeners();
+      if (notify) _bumpExerciseUi(exerciseKey, bumpProgress: false);
       return;
     }
 
@@ -606,7 +859,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
     } else {
       _exerciseCoachFeedback[exerciseKey] = feedback;
     }
-    if (notify) _safeNotifyListeners();
+    if (notify) _bumpExerciseUi(exerciseKey, bumpProgress: false);
   }
 
   ({int exerciseId, List<ExerciseSet> sets, ExerciseStyle style, String? note})?
@@ -647,6 +900,17 @@ class WorkoutLogViewModel extends ChangeNotifier {
     double weight,
     int reps,
     int timeSeconds, {
+    required String sessionDay,
+    required int generation,
+  }) async {
+    // وزن/تکرار/زمان از کنترلرها در _buildCurrentSessionLog خوانده می‌شوند.
+    await _persistSessionToDatabase(
+      sessionDay: sessionDay,
+      generation: generation,
+    );
+  }
+
+  Future<void> _persistSessionToDatabase({
     required String sessionDay,
     required int generation,
   }) async {
@@ -703,8 +967,11 @@ class WorkoutLogViewModel extends ChangeNotifier {
               .eq('id', _selectedProgram!.id);
         }
       } catch (_) {}
+
+      unawaited(RankingTrackerHelper().trackWorkoutLog());
+      unawaited(AchievementHooks.unlockOnce('log_exercise'));
     } catch (e) {
-      debugPrint('Error saving set to database: $e');
+      debugPrint('Error persisting session log: $e');
     }
   }
 
@@ -846,6 +1113,60 @@ class WorkoutLogViewModel extends ChangeNotifier {
     return exercises;
   }
 
+  /// فقط ست‌های ثبت‌شده — برای هیت‌مپ علمی جلسه.
+  List<WorkoutExerciseLog> _buildSavedExerciseLogsForHeatmap() {
+    final exercises = <WorkoutExerciseLog>[];
+
+    for (final exercise in _selectedSession!.exercises) {
+      if (exercise is NormalExercise) {
+        final exerciseId = exercise.exerciseId.toString();
+        final sets = _buildSavedSetLogs(exerciseId);
+        if (sets.isEmpty) continue;
+        final details = _exerciseDetails[exercise.exerciseId];
+        exercises.add(
+          NormalExerciseLog(
+            id: const Uuid().v4(),
+            exerciseId: exercise.exerciseId,
+            exerciseName: details?.name ??
+                (exercise.tag.isNotEmpty ? exercise.tag : 'تمرین'),
+            tag: exercise.tag,
+            style: exercise.style.toString().split('.').last,
+            sets: sets,
+            note: exercise.note,
+          ),
+        );
+      } else if (exercise is SupersetExercise) {
+        final items = <SupersetItemLog>[];
+        for (final item in exercise.exercises) {
+          final itemId = '${exercise.id}_${item.exerciseId}';
+          final sets = _buildSavedSetLogs(itemId);
+          if (sets.isEmpty) continue;
+          final details = _exerciseDetails[item.exerciseId];
+          items.add(
+            SupersetItemLog(
+              exerciseId: item.exerciseId,
+              exerciseName: details?.name ??
+                  (exercise.tag.isNotEmpty ? exercise.tag : 'تمرین'),
+              sets: sets,
+            ),
+          );
+        }
+        if (items.isEmpty) continue;
+        exercises.add(
+          SupersetExerciseLog(
+            id: const Uuid().v4(),
+            tag: exercise.tag,
+            style: exercise.style.toString().split('.').last,
+            exercises: items,
+            note: exercise.note,
+          ),
+        );
+      }
+    }
+
+    return exercises;
+  }
+
   bool _sessionLogHasSavedSets(WorkoutSessionLog sessionLog) {
     for (final exercise in sessionLog.exercises) {
       if (exercise is NormalExerciseLog) {
@@ -863,36 +1184,36 @@ class WorkoutLogViewModel extends ChangeNotifier {
     return false;
   }
 
+  /// فقط ست‌هایی که کاربر ثبت کرده — برای ذخیرهٔ DB هم از همین منطق استفاده شود
+  /// تا با پاک‌کردن فیلدها، ست از لاگ حذف شود.
   List<ExerciseSetLog> _buildSetLogs(String exerciseId) {
+    return _buildSavedSetLogs(exerciseId);
+  }
+
+  /// فقط ست‌هایی که کاربر ثبت کرده (چک سبز) — مبنای هیت‌مپ علمی.
+  List<ExerciseSetLog> _buildSavedSetLogs(String exerciseId) {
     final controllers = _exerciseControllers[exerciseId];
-    if (controllers == null) return [];
+    final saved = _setSavedStatus[exerciseId];
+    if (controllers == null || saved == null) return [];
 
     final sets = <ExerciseSetLog>[];
-    for (int i = 0; i < controllers.length; i++) {
+    for (var i = 0; i < controllers.length; i++) {
+      if (i >= saved.length || !saved[i]) continue;
       final setControllers = controllers[i];
       final repsText = setControllers['reps']?.text.trim() ?? '';
       final timeText = setControllers['time']?.text.trim() ?? '';
       final weightText = setControllers['weight']?.text.trim() ?? '';
       final rpeText = setControllers['rpe']?.text.trim() ?? '';
 
-      final hasData =
-          repsText.isNotEmpty ||
-          timeText.isNotEmpty ||
-          weightText.isNotEmpty ||
-          rpeText.isNotEmpty;
-
-      if (hasData) {
-        sets.add(
-          ExerciseSetLog(
-            reps: repsText.isNotEmpty ? int.tryParse(repsText) : null,
-            seconds: timeText.isNotEmpty ? int.tryParse(timeText) : null,
-            weight: weightText.isNotEmpty ? double.tryParse(weightText) : null,
-            rpe: rpeText.isNotEmpty ? int.tryParse(rpeText) : null,
-          ),
-        );
-      }
+      final log = ExerciseSetLog(
+        reps: repsText.isNotEmpty ? int.tryParse(repsText) : null,
+        seconds: timeText.isNotEmpty ? int.tryParse(timeText) : null,
+        weight: weightText.isNotEmpty ? double.tryParse(weightText) : null,
+        rpe: rpeText.isNotEmpty ? int.tryParse(rpeText) : null,
+      );
+      if (!MuscleHeatmapAggregate.setHasWork(log)) continue;
+      sets.add(log);
     }
-
     return sets;
   }
 
@@ -946,10 +1267,54 @@ class WorkoutLogViewModel extends ChangeNotifier {
     disposeControllers();
     bumpSessionHeatmapPreview();
     _selectedSession = null;
+    _previousSetsByExerciseId.clear();
     _clearLoggedSessionMeta();
     _hasTodayLog = false;
     _collapsedExercises.clear();
     _isLoadingData = false;
+  }
+
+  Future<void> _loadPreviousExercisePerformance() async {
+    final session = _selectedSession;
+    final user = Supabase.instance.client.auth.currentUser;
+    if (session == null || user == null) {
+      _previousSetsByExerciseId.clear();
+      return;
+    }
+
+    final ids = <int>{};
+    for (final exercise in session.exercises) {
+      if (exercise is NormalExercise) {
+        ids.add(exercise.exerciseId);
+      } else if (exercise is SupersetExercise) {
+        for (final item in exercise.exercises) {
+          ids.add(item.exerciseId);
+        }
+      }
+    }
+
+    if (ids.isEmpty) {
+      _previousSetsByExerciseId.clear();
+      return;
+    }
+
+    try {
+      final logs = await _workoutLogService.getRecentLogsBeforeDate(
+        user.id,
+        _selectedDateOnly,
+      );
+      if (_isDisposed) return;
+      final mapped = PreviousExercisePerformance.fromLogs(
+        logs: logs,
+        exerciseIds: ids,
+      );
+      _previousSetsByExerciseId
+        ..clear()
+        ..addAll(mapped);
+    } catch (e) {
+      debugPrint('Error loading previous exercise performance: $e');
+      if (!_isDisposed) _previousSetsByExerciseId.clear();
+    }
   }
 
   /// تغییر تاریخ تقویم: فرم خالی + بارگذاری لاگ همان روز (در صورت وجود).
@@ -961,7 +1326,11 @@ class WorkoutLogViewModel extends ChangeNotifier {
     if (sameDay) return;
 
     _awaitingSessionPickAfterDateChange = true;
-    await checkLogForDate(date, showFullScreenLoader: false);
+    await checkLogForDate(
+      date,
+      showFullScreenLoader: false,
+      preferRemote: true,
+    );
     if (_selectedSession != null && _hasLoggedSessionOnSelectedDate) {
       _awaitingSessionPickAfterDateChange = false;
     }
@@ -970,7 +1339,9 @@ class WorkoutLogViewModel extends ChangeNotifier {
   Future<void> checkLogForDate(
     Jalali date, {
     bool showFullScreenLoader = true,
+    bool preferRemote = false,
   }) async {
+    final generation = ++_dayLoadGeneration;
     _selectedDate = date;
     _clearSessionFormState();
     if (showFullScreenLoader) {
@@ -982,11 +1353,13 @@ class WorkoutLogViewModel extends ChangeNotifier {
 
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
+      _finishDayLoad(generation, showFullScreenLoader);
       return;
     }
 
     if (_selectedProgram == null) {
       await loadActiveProgram();
+      if (!_isDayLoadCurrent(generation)) return;
     }
 
     final dateTime = DateTime(
@@ -999,7 +1372,9 @@ class WorkoutLogViewModel extends ChangeNotifier {
       final dailyLog = await _workoutLogService.getDailyLogByDate(
         user.id,
         dateTime,
+        preferRemote: preferRemote,
       );
+      if (!_isDayLoadCurrent(generation)) return;
 
       if (dailyLog != null && _logMatchesDate(dailyLog, dateTime)) {
         _hasTodayLog = true;
@@ -1022,13 +1397,18 @@ class WorkoutLogViewModel extends ChangeNotifier {
             _selectedSession = foundSession;
             initExerciseControllers();
             await loadExerciseDetails();
+            if (!_isDayLoadCurrent(generation)) return;
             await loadSavedData(sessionLog);
           } else {
             _selectedSession = _reconstructSessionFromLog(sessionLog);
             initExerciseControllers();
             await loadExerciseDetails();
+            if (!_isDayLoadCurrent(generation)) return;
             await loadSavedData(sessionLog);
           }
+          if (!_isDayLoadCurrent(generation)) return;
+          await _loadPreviousExercisePerformance();
+          if (!_isDayLoadCurrent(generation)) return;
         } else {
           _selectedSession = null;
         }
@@ -1039,18 +1419,27 @@ class WorkoutLogViewModel extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error loading today log: $e');
+      if (!_isDayLoadCurrent(generation)) return;
       _hasTodayLog = false;
       _clearLoggedSessionMeta();
       _selectedSession = null;
     } finally {
-      if (showFullScreenLoader) {
-        _isLoadingTodayLog = false;
-      } else {
-        _isLoadingDayLog = false;
-      }
-      bumpSessionHeatmapPreview();
-      _safeNotifyListeners();
+      _finishDayLoad(generation, showFullScreenLoader);
     }
+  }
+
+  bool _isDayLoadCurrent(int generation) =>
+      !_isDisposed && generation == _dayLoadGeneration;
+
+  void _finishDayLoad(int generation, bool showFullScreenLoader) {
+    if (!_isDayLoadCurrent(generation)) return;
+    if (showFullScreenLoader) {
+      _isLoadingTodayLog = false;
+    } else {
+      _isLoadingDayLog = false;
+    }
+    bumpSessionHeatmapPreview();
+    _safeNotifyListeners();
   }
 
   /// اگر چند سشن در یک روز ثبت شده، آخرین سشن را بارگذاری می‌کند.
@@ -1059,6 +1448,27 @@ class WorkoutLogViewModel extends ChangeNotifier {
       return dailyLog.sessions.first;
     }
     return dailyLog.sessions.last;
+  }
+
+  /// ست‌هایی که مقدار دارند ولی هنوز تیک نخورده‌اند (برای هشدار تغییر تاریخ).
+  bool hasUncommittedSetEdits() {
+    if (_selectedSession == null) return false;
+    for (final entry in _exerciseControllers.entries) {
+      final saved = _setSavedStatus[entry.key];
+      final controllers = entry.value;
+      for (var i = 0; i < controllers.length; i++) {
+        final isSaved = saved != null && i < saved.length && saved[i];
+        if (isSaved) continue;
+        final c = controllers[i];
+        final weight = c['weight']?.text.trim() ?? '';
+        final reps = c['reps']?.text.trim() ?? '';
+        final time = c['time']?.text.trim() ?? '';
+        if (weight.isNotEmpty || reps.isNotEmpty || time.isNotEmpty) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /// آیا برای تعویض سشن در **همین روز** باید از کاربر تأیید گرفت؟
@@ -1184,6 +1594,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
     }
 
     _isLoadingData = false;
+    _applyFocusAccordion();
     _refreshAllExerciseCoachFeedback();
     bumpSessionHeatmapPreview();
   }
@@ -1229,7 +1640,9 @@ class WorkoutLogViewModel extends ChangeNotifier {
       final setControllers = controllers[i];
 
       if (set.weight != null && set.weight! > 0) {
-        setControllers['weight']?.text = set.weight.toString();
+        final w = set.weight!;
+        setControllers['weight']?.text =
+            w == w.roundToDouble() ? w.toInt().toString() : w.toString();
       }
       if (set.reps != null && set.reps! > 0) {
         setControllers['reps']?.text = set.reps.toString();
@@ -1262,6 +1675,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
 
     if (session == null) {
       _selectedSession = null;
+      _previousSetsByExerciseId.clear();
       disposeControllers();
       bumpSessionHeatmapPreview();
       _safeNotifyListeners();
@@ -1278,6 +1692,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
     } else {
       await loadSavedDataForSession(session);
     }
+    await _loadPreviousExercisePerformance();
     _isLoadingData = false;
     bumpSessionHeatmapPreview();
     _safeNotifyListeners();
@@ -1436,6 +1851,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _dayLoadGeneration++;
     disposeControllers();
     for (final timer in _autoSaveTimers.values) {
       timer.cancel();
@@ -1446,6 +1862,11 @@ class WorkoutLogViewModel extends ChangeNotifier {
     }
     _heatmapPreviewTimers.clear();
     sessionHeatmapTick.dispose();
+    sessionProgressTick.dispose();
+    for (final tick in _exerciseRevision.values) {
+      tick.dispose();
+    }
+    _exerciseRevision.clear();
     super.dispose();
   }
 

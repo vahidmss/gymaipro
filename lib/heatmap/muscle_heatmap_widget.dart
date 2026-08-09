@@ -302,8 +302,8 @@ class _InteractiveBodyMap extends StatelessWidget {
   final ValueChanged<BodyView> onSuggestView;
 
   static const _minMapIntensity = 10;
-  static const _frontAsset = 'images/gymai_body_front_premium.png';
-  static const _backAsset = 'images/gymai_body_back_premium.png';
+  static const _frontAsset = 'images/gymai_body_front_v2.png';
+  static const _backAsset = 'images/gymai_body_back_v2.png';
 
   BodyView? _suggestedView() {
     final current = _viewMuscleKeys(view);
@@ -698,12 +698,12 @@ class _SelectedMuscleCard extends StatelessWidget {
 
 enum _BodyImageFrame {
   front(
-    imageAspect: 1536 / 1024,
-    viewport: Rect.fromLTWH(0.342, 0.027, 0.299, 0.972),
+    imageAspect: 300 / 600,
+    viewport: Rect.fromLTWH(0.163, 0.047, 0.667, 0.848),
   ),
   back(
-    imageAspect: 1536 / 1024,
-    viewport: Rect.fromLTWH(0.365, 0.035, 0.265, 0.945),
+    imageAspect: 300 / 600,
+    viewport: Rect.fromLTWH(0.143, 0.047, 0.707, 0.848),
   );
 
   const _BodyImageFrame({
@@ -757,39 +757,39 @@ class _MuscleHotspotLayout {
       view == BodyView.front ? _front : _back;
 
   static const _front = <_MuscleHotspot>[
-    _MuscleHotspot('chest_upper', 0.524, 0.19, 0.11),
-    _MuscleHotspot('chest_middle', 0.524, 0.24, 0.12),
-    _MuscleHotspot('chest_lower', 0.524, 0.29, 0.10),
-    _MuscleHotspot('shoulder_anterior', 0.355, 0.15, 0.065),
-    _MuscleHotspot('shoulder_anterior', 0.693, 0.15, 0.065),
-    _MuscleHotspot('shoulder_lateral', 0.428, 0.13, 0.058),
-    _MuscleHotspot('shoulder_lateral', 0.620, 0.13, 0.058),
-    _MuscleHotspot('biceps', 0.200, 0.27, 0.075),
-    _MuscleHotspot('biceps', 0.848, 0.27, 0.075),
-    _MuscleHotspot('forearms', 0.090, 0.39, 0.065),
-    _MuscleHotspot('forearms', 0.910, 0.39, 0.065),
-    _MuscleHotspot('abs', 0.524, 0.35, 0.11),
-    _MuscleHotspot('quads', 0.380, 0.57, 0.095),
-    _MuscleHotspot('quads', 0.668, 0.57, 0.095),
-    _MuscleHotspot('calf', 0.350, 0.74, 0.075),
-    _MuscleHotspot('calf', 0.698, 0.74, 0.075),
+    _MuscleHotspot('chest_upper', 0.50, 0.19, 0.10),
+    _MuscleHotspot('chest_middle', 0.50, 0.235, 0.11),
+    _MuscleHotspot('chest_lower', 0.50, 0.28, 0.095),
+    _MuscleHotspot('shoulder_anterior', 0.33, 0.155, 0.055),
+    _MuscleHotspot('shoulder_anterior', 0.67, 0.155, 0.055),
+    _MuscleHotspot('shoulder_lateral', 0.27, 0.145, 0.05),
+    _MuscleHotspot('shoulder_lateral', 0.73, 0.145, 0.05),
+    _MuscleHotspot('biceps', 0.20, 0.255, 0.06),
+    _MuscleHotspot('biceps', 0.80, 0.255, 0.06),
+    _MuscleHotspot('forearms', 0.10, 0.36, 0.055),
+    _MuscleHotspot('forearms', 0.90, 0.36, 0.055),
+    _MuscleHotspot('abs', 0.50, 0.355, 0.10),
+    _MuscleHotspot('quads', 0.37, 0.57, 0.09),
+    _MuscleHotspot('quads', 0.63, 0.57, 0.09),
+    _MuscleHotspot('calf', 0.355, 0.78, 0.07),
+    _MuscleHotspot('calf', 0.645, 0.78, 0.07),
   ];
 
   static const _back = <_MuscleHotspot>[
-    _MuscleHotspot('back_trap', 0.519, 0.145, 0.105, scaleX: 1.65, scaleY: 0.88),
-    _MuscleHotspot('shoulder_posterior', 0.444, 0.128, 0.050),
-    _MuscleHotspot('shoulder_posterior', 0.562, 0.128, 0.050),
-    _MuscleHotspot('back_lat', 0.180, 0.21, 0.11),
-    _MuscleHotspot('back_lat', 0.820, 0.21, 0.11),
-    _MuscleHotspot('triceps', 0.166, 0.241, 0.065),
-    _MuscleHotspot('triceps', 0.834, 0.241, 0.065),
-    _MuscleHotspot('forearms', 0.090, 0.39, 0.065),
-    _MuscleHotspot('forearms', 0.910, 0.39, 0.065),
-    _MuscleHotspot('lower_back', 0.500, 0.33, 0.10),
-    _MuscleHotspot('glutes', 0.500, 0.41, 0.12),
-    _MuscleHotspot('hamstrings', 0.380, 0.54, 0.095),
-    _MuscleHotspot('hamstrings', 0.668, 0.54, 0.095),
-    _MuscleHotspot('calf', 0.350, 0.72, 0.075),
-    _MuscleHotspot('calf', 0.698, 0.72, 0.075),
+    _MuscleHotspot('back_trap', 0.50, 0.135, 0.10, scaleX: 1.45, scaleY: 0.85),
+    _MuscleHotspot('shoulder_posterior', 0.36, 0.145, 0.048),
+    _MuscleHotspot('shoulder_posterior', 0.64, 0.145, 0.048),
+    _MuscleHotspot('back_lat', 0.30, 0.24, 0.095),
+    _MuscleHotspot('back_lat', 0.70, 0.24, 0.095),
+    _MuscleHotspot('triceps', 0.18, 0.255, 0.055),
+    _MuscleHotspot('triceps', 0.82, 0.255, 0.055),
+    _MuscleHotspot('forearms', 0.10, 0.36, 0.055),
+    _MuscleHotspot('forearms', 0.90, 0.36, 0.055),
+    _MuscleHotspot('lower_back', 0.50, 0.34, 0.09),
+    _MuscleHotspot('glutes', 0.50, 0.44, 0.11),
+    _MuscleHotspot('hamstrings', 0.37, 0.56, 0.09),
+    _MuscleHotspot('hamstrings', 0.63, 0.56, 0.09),
+    _MuscleHotspot('calf', 0.355, 0.76, 0.07),
+    _MuscleHotspot('calf', 0.645, 0.76, 0.07),
   ];
 }

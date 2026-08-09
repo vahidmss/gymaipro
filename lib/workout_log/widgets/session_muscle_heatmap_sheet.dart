@@ -203,7 +203,7 @@ class _EmptySessionBody extends StatelessWidget {
             child: const Opacity(
               opacity: 0.25,
               child: AppRemoteImage(
-                path: 'images/gymai_body_front_premium.png',
+                path: 'images/gymai_body_front_v2.png',
               ),
             ),
           ),
@@ -351,7 +351,7 @@ class _SessionHeatmapCopy {
       if (sessionDay != null && sessionDay.isNotEmpty) {
         parts.add(sessionDay);
       }
-      parts.add('${snap.completedSets} ست');
+      parts.add('${snap.completedSets} ثبت‌شده');
       if (snap.exercisesWithSets > 0) {
         parts.add('${snap.exercisesWithSets} حرکت');
       }
@@ -365,16 +365,16 @@ class _SessionHeatmapCopy {
         emptyHeadline: '',
         emptySub: '',
         tip: _pick(const [
-          'همین‌طور ادامه بده — نقشه با هر ست پرتر می‌شود',
+          'همین‌طور ادامه بده — نقشه با هر ثبت پرتر می‌شود',
           'خوبه؛ بعد از جلسه همین نقشه توی داشبورد هفته می‌آید',
-          'تمرینت داره شکل می‌گیره — روی ثبت ست‌ها تمرکز کن',
+          'تمرینت داره شکل می‌گیره — روی ثبت حرکات تمرکز کن',
         ]),
       );
     }
 
     if (snap.hasAnySets) {
       return _SessionHeatmapCopy(
-        subtitle: '${snap.completedSets} ست · نقشه در راه',
+        subtitle: '${snap.completedSets} ثبت‌شده · نقشه در راه',
         heroLine: '',
         emptyHeadline: 'حرکاتت نقشه ندارن',
         emptySub: 'با حرکات دارای نقشه عضلانی، اینجا رنگی می‌شه',
@@ -386,14 +386,14 @@ class _SessionHeatmapCopy {
       subtitle: sessionDay ?? 'جلسهٔ امروز',
       heroLine: '',
       emptyHeadline: _pick(const [
-        'هنوز ست‌ای نزدی',
+        'هنوز چیزی ثبت نشده',
         'نقشه خاموشه',
-        'منتظر اولین ست',
+        'منتظر اولین ثبت',
       ]),
       emptySub: 'تکرار یا زمان را وارد کن — نقشه زنده می‌شود',
       tip: _pick(const [
-        'هر ست ثبت‌شده، نقشه را روشن‌تر می‌کند',
-        'اولین ست = اولین رنگ روی بدن',
+        'هر ثبت، نقشه را روشن‌تر می‌کند',
+        'اولین ثبت = اولین رنگ روی بدن',
         'لاگ کن؛ نقشه خودش می‌آید',
       ]),
     );

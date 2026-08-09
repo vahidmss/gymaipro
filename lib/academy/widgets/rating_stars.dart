@@ -33,7 +33,7 @@ class RatingStars extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           '${average.toStringAsFixed(1)} ($count)',
-          style: AppTheme.bodyStyle.copyWith(fontSize: 12),
+          style: context.bodyStyle.copyWith(fontSize: 12),
         ),
       ],
     );

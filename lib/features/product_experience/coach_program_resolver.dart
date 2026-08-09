@@ -284,6 +284,7 @@ class CoachProgramResolver {
               catalog,
               catalogById,
               block.note,
+              restSeconds: block.restSeconds,
               order: order++,
             ),
           );
@@ -457,6 +458,9 @@ class CoachProgramResolver {
     required int order,
   }) {
     final firstSet = exercise.sets.firstOrNull;
+    final perSet = exercise.sets
+        .map((s) => s.reps ?? s.timeSeconds ?? 0)
+        .toList(growable: false);
     return CoachResolvedExercise(
       exerciseId: exercise.exerciseId,
       name: _resolveExerciseName(
@@ -471,9 +475,10 @@ class CoachProgramResolver {
       ),
       sets: exercise.sets.length,
       reps: firstSet?.reps ?? firstSet?.timeSeconds ?? 0,
-      restSeconds: 90,
+      restSeconds: exercise.restSeconds ?? 90,
       notes: exercise.note,
       weightKg: firstSet?.weight,
+      repsPerSet: perSet.isEmpty ? null : perSet,
     );
   }
 
@@ -483,8 +488,12 @@ class CoachProgramResolver {
     Map<int, Exercise> catalogById,
     String? blockNote, {
     required int order,
+    int? restSeconds,
   }) {
     final firstSet = item.sets.firstOrNull;
+    final perSet = item.sets
+        .map((s) => s.reps ?? s.timeSeconds ?? 0)
+        .toList(growable: false);
     return CoachResolvedExercise(
       exerciseId: item.exerciseId,
       name: _resolveExerciseName(
@@ -498,9 +507,10 @@ class CoachProgramResolver {
       ),
       sets: item.sets.length,
       reps: firstSet?.reps ?? firstSet?.timeSeconds ?? 0,
-      restSeconds: 90,
+      restSeconds: restSeconds ?? 90,
       notes: blockNote,
       weightKg: firstSet?.weight,
+      repsPerSet: perSet.isEmpty ? null : perSet,
     );
   }
 

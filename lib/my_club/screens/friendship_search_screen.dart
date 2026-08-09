@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/models/friendship_models.dart';
@@ -6,6 +8,8 @@ import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+/// جستجوی دوستان — الگوی اپ‌های حرفه‌ای:
+/// فقط با نام کاربری شناخته‌شده، حداقل ۳ کاراکتر، debounce، بدون لیست کشف کاربران.
 class FriendshipSearchScreen extends StatefulWidget {
   const FriendshipSearchScreen({super.key});
 
@@ -14,182 +18,214 @@ class FriendshipSearchScreen extends StatefulWidget {
 }
 
 class _FriendshipSearchScreenState extends State<FriendshipSearchScreen> {
+  static const _debounceMs = 350;
+
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
   List<UserProfile> _searchResults = [];
-  List<UserProfile> _suggestedUsers = [];
   bool _isLoading = false;
   bool _hasSearched = false;
+  String? _activeQuery;
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    _loadSuggestedUsers();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
-  Future<void> _loadSuggestedUsers() async {
-    try {
-      final users = await FriendshipService.getSuggestedUsers();
-      SafeSetState.call(this, () {
-        _suggestedUsers = users;
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطا در بارگذاری پیشنهادات: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
+  void _onQueryChanged(String raw) {
+    final query = raw.trim();
+    _debounce?.cancel();
 
-  Future<void> _searchUsers(String query) async {
-    if (query.trim().isEmpty) {
+    if (query.length < FriendshipService.searchMinLength) {
       SafeSetState.call(this, () {
         _searchResults = [];
         _hasSearched = false;
+        _isLoading = false;
+        _activeQuery = null;
       });
       return;
     }
 
-    SafeSetState.call(this, () {
-      _isLoading = true;
+    SafeSetState.call(this, () => _isLoading = true);
+    _debounce = Timer(const Duration(milliseconds: _debounceMs), () {
+      unawaited(_searchUsers(query));
     });
+  }
+
+  Future<void> _searchUsers(String query) async {
+    if (!mounted) return;
+    if (query.trim().length < FriendshipService.searchMinLength) return;
+
+    _activeQuery = query;
+    SafeSetState.call(this, () => _isLoading = true);
 
     try {
       final users = await FriendshipService.searchUsers(query);
+      if (!mounted || _activeQuery != query) return;
       SafeSetState.call(this, () {
         _searchResults = users;
         _hasSearched = true;
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطا در جستجو: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      SafeSetState.call(this, () {
         _isLoading = false;
       });
+    } catch (e) {
+      if (!mounted || _activeQuery != query) return;
+      SafeSetState.call(this, () => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'خطا در جستجو: $e',
+            style: const TextStyle(fontFamily: AppTheme.fontFamily),
+          ),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
     }
+  }
+
+  void _clearSearch() {
+    _debounce?.cancel();
+    _searchController.clear();
+    SafeSetState.call(this, () {
+      _searchResults = [];
+      _hasSearched = false;
+      _isLoading = false;
+      _activeQuery = null;
+    });
+    _focusNode.requestFocus();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final typed = _searchController.text.trim();
+    final needsMoreChars =
+        typed.isNotEmpty && typed.length < FriendshipService.searchMinLength;
+
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: isDark
-              ? context.backgroundColor
-              : Colors.transparent,
-          elevation: 0,
-          title: Text(
-            'جستجوی دوستان',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 20.sp,
-              color: AppTheme.goldColor,
-              fontFamily: AppTheme.fontFamily,
+      child: DecoratedBox(
+        decoration: context.pageDecoration,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: isDark
+                ? context.backgroundColor
+                : Colors.transparent,
+            elevation: 0,
+            title: Text(
+              'جستجوی دوستان',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18.sp,
+                color: isDark ? AppTheme.goldColor : context.textColor,
+                fontFamily: AppTheme.fontFamily,
+              ),
+            ),
+            centerTitle: true,
+            leading: IconButton(
+              icon: Icon(
+                LucideIcons.arrowRight,
+                color: isDark ? AppTheme.goldColor : context.textColor,
+              ),
+              onPressed: () => Navigator.pop(context),
             ),
           ),
-          centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(
-              LucideIcons.arrowRight,
-              color: AppTheme.goldColor,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
-        body: Column(
-          children: [
-            // Search Bar
-            Container(
-              padding: EdgeInsets.all(16.w),
-              child: TextField(
-                controller: _searchController,
-                onChanged: _searchUsers,
-                style: TextStyle(
-                  color: context.textColor,
-                  fontFamily: AppTheme.fontFamily,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'جستجو بر اساس نام کاربری...',
-                  hintStyle: TextStyle(
+          body: Column(
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 12.h),
+                child: TextField(
+                  controller: _searchController,
+                  focusNode: _focusNode,
+                  onChanged: _onQueryChanged,
+                  textInputAction: TextInputAction.search,
+                  style: TextStyle(
+                    color: context.textColor,
                     fontFamily: AppTheme.fontFamily,
-                    color: isDark
-                        ? Colors.grey[400]
-                        : AppTheme.lightTextSecondary.withValues(alpha: 0.6),
+                    fontSize: 15.sp,
                   ),
-                  prefixIcon: const Icon(
-                    LucideIcons.search,
-                    color: AppTheme.goldColor,
-                  ),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(
-                            LucideIcons.x,
-                            color: isDark
-                                ? Colors.grey
-                                : AppTheme.lightTextSecondary.withValues(alpha: 0.6),
-                          ),
-                          onPressed: () {
-                            _searchController.clear();
-                            _searchUsers('');
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: context.cardColor,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.r),
-                    borderSide: BorderSide(
-                      color: isDark
-                          ? Colors.grey[600]!
-                          : AppTheme.lightDividerColor.withValues(alpha: 0.5),
+                  decoration: InputDecoration(
+                    hintText: 'نام کاربری را وارد کنید...',
+                    hintStyle: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: context.textSecondary.withValues(alpha: 0.7),
+                      fontSize: 14.sp,
                     ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.r),
-                    borderSide: BorderSide(
-                      color: isDark
-                          ? Colors.grey[600]!
-                          : AppTheme.lightDividerColor.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.r),
-                    borderSide: const BorderSide(
+                    prefixIcon: const Icon(
+                      LucideIcons.search,
                       color: AppTheme.goldColor,
-                      width: 2,
+                    ),
+                    suffixIcon: typed.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(
+                              LucideIcons.x,
+                              color: context.textSecondary,
+                              size: 18.sp,
+                            ),
+                            onPressed: _clearSearch,
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: context.cardColor,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 14.w,
+                      vertical: 14.h,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14.r),
+                      borderSide: BorderSide(
+                        color: AppTheme.goldColor.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14.r),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? Colors.white12
+                            : AppTheme.lightDividerColor.withValues(
+                                alpha: 0.6,
+                              ),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14.r),
+                      borderSide: const BorderSide(
+                        color: AppTheme.goldColor,
+                        width: 1.5,
+                      ),
+                    ),
+                    helperText: needsMoreChars
+                        ? 'حداقل ${FriendshipService.searchMinLength} کاراکتر وارد کنید'
+                        : null,
+                    helperStyle: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      color: AppTheme.goldColor.withValues(alpha: 0.85),
+                      fontSize: 12.sp,
                     ),
                   ),
                 ),
               ),
-            ),
-            // Content
-            Expanded(child: _buildContent()),
-          ],
+              Expanded(child: _buildContent(needsMoreChars: needsMoreChars)),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildContent() {
+  Widget _buildContent({required bool needsMoreChars}) {
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: AppTheme.goldColor),
@@ -198,158 +234,117 @@ class _FriendshipSearchScreenState extends State<FriendshipSearchScreen> {
 
     if (_hasSearched) {
       return _buildSearchResults();
-    } else {
-      return _buildSuggestedUsers();
     }
+
+    return _buildIdleHint(needsMoreChars: needsMoreChars);
   }
 
-  Widget _buildSearchResults() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    if (_searchResults.isEmpty) {
-      return Center(
+  Widget _buildIdleHint({required bool needsMoreChars}) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 32.w),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              LucideIcons.search,
-              size: 64.sp,
-              color: isDark
-                  ? Colors.grey[600]
-                  : AppTheme.lightTextSecondary.withValues(alpha: 0.5),
+            Container(
+              width: 80.w,
+              height: 80.w,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.goldColor.withValues(alpha: 0.12),
+                border: Border.all(
+                  color: AppTheme.goldColor.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Icon(
+                LucideIcons.search,
+                size: 34.sp,
+                color: AppTheme.goldColor,
+              ),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 20.h),
             Text(
-              'نتیجه‌ای یافت نشد',
+              needsMoreChars
+                  ? 'ادامه بدهید...'
+                  : 'دوست‌تان را با نام کاربری پیدا کنید',
               style: TextStyle(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w600,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w700,
                 color: context.textColor,
                 fontFamily: AppTheme.fontFamily,
               ),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8.h),
             Text(
-              'نام کاربری دیگری امتحان کنید',
+              'برای حفظ حریم خصوصی، جستجو فقط با حداقل '
+              '${FriendshipService.searchMinLength} کاراکتر از نام کاربری انجام می‌شود.',
               style: TextStyle(
+                fontSize: 13.sp,
                 color: context.textSecondary,
                 fontFamily: AppTheme.fontFamily,
+                height: 1.55,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    if (_searchResults.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 32.w),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                LucideIcons.searchX,
+                size: 52.sp,
+                color: context.textSecondary.withValues(alpha: 0.5),
+              ),
+              SizedBox(height: 16.h),
+              Text(
+                'نتیجه‌ای یافت نشد',
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w700,
+                  color: context.textColor,
+                  fontFamily: AppTheme.fontFamily,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                'نام کاربری را دقیق‌تر وارد کنید',
+                style: TextStyle(
+                  color: context.textSecondary,
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 13.sp,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 24.h),
       itemCount: _searchResults.length,
       itemBuilder: (context, index) {
         final user = _searchResults[index];
         return _UserCard(
           user: user,
-          onSendRequest: () => _sendFriendRequest(user),
           onViewProfile: () => _viewProfile(user),
         );
       },
     );
   }
 
-  Widget _buildSuggestedUsers() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    if (_suggestedUsers.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              LucideIcons.users,
-              size: 64.sp,
-              color: isDark
-                  ? Colors.grey[600]
-                  : AppTheme.lightTextSecondary.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'پیشنهادی نداریم',
-              style: TextStyle(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w600,
-                color: context.textColor,
-                fontFamily: AppTheme.fontFamily,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'برای پیدا کردن دوستان، نام کاربری آن‌ها را جستجو کنید',
-              style: TextStyle(
-                color: context.textSecondary,
-                fontFamily: AppTheme.fontFamily,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.all(16.w),
-          child: Text(
-            'پیشنهادات دوستی',
-            style: TextStyle(
-              fontSize: 18.sp,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.goldColor,
-              fontFamily: AppTheme.fontFamily,
-            ),
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _suggestedUsers.length,
-            itemBuilder: (context, index) {
-              final user = _suggestedUsers[index];
-              return _UserCard(
-                user: user,
-                onSendRequest: () => _sendFriendRequest(user),
-                onViewProfile: () => _viewProfile(user),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _sendFriendRequest(UserProfile user) async {
-    try {
-      await FriendshipService.sendFriendRequest(user.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('درخواست دوستی به ${user.username} ارسال شد'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطا در ارسال درخواست: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
   void _viewProfile(UserProfile user) {
-    // Navigate to user profile
     Navigator.pushNamed(context, '/user-profile', arguments: user.id);
   }
 }
@@ -357,11 +352,9 @@ class _FriendshipSearchScreenState extends State<FriendshipSearchScreen> {
 class _UserCard extends StatefulWidget {
   const _UserCard({
     required this.user,
-    required this.onSendRequest,
     required this.onViewProfile,
   });
   final UserProfile user;
-  final VoidCallback onSendRequest;
   final VoidCallback onViewProfile;
 
   @override
@@ -378,6 +371,15 @@ class _UserCardState extends State<_UserCard> {
     _checkFriendshipStatus();
   }
 
+  @override
+  void didUpdateWidget(covariant _UserCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.user.id != widget.user.id) {
+      _isLoading = true;
+      _checkFriendshipStatus();
+    }
+  }
+
   Future<void> _checkFriendshipStatus() async {
     try {
       final status = await FriendshipService.getFriendshipStatus(
@@ -387,119 +389,104 @@ class _UserCardState extends State<_UserCard> {
         _friendshipStatus = status;
         _isLoading = false;
       });
-    } catch (e) {
-      SafeSetState.call(this, () {
-        _isLoading = false;
-      });
+    } catch (_) {
+      SafeSetState.call(this, () => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return InkWell(
-      onTap: widget.onViewProfile,
-      borderRadius: BorderRadius.circular(12.r),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: context.cardColor,
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(
-            color: isDark
-                ? Colors.grey[600]!
-                : AppTheme.lightDividerColor.withValues(alpha: 0.5),
-          ),
-          boxShadow: [
-            BoxShadow(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: widget.onViewProfile,
+        borderRadius: BorderRadius.circular(14.r),
+        child: Container(
+          margin: EdgeInsets.only(bottom: 10.h),
+          decoration: BoxDecoration(
+            color: context.cardColor,
+            borderRadius: BorderRadius.circular(14.r),
+            border: Border.all(
               color: isDark
-                  ? Colors.black.withValues(alpha: 0.2)
-                  : AppTheme.goldColor.withValues(alpha: 0.08),
-              blurRadius: 4.r,
-              offset: Offset(0.w, 2.h),
+                  ? Colors.white12
+                  : AppTheme.lightDividerColor.withValues(alpha: 0.5),
             ),
-          ],
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(16.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 24,
-                        backgroundColor: AppTheme.goldColor,
-                        backgroundImage: widget.user.avatarUrl != null
-                            ? NetworkImage(widget.user.avatarUrl!)
-                            : null,
-                        child: widget.user.avatarUrl == null
-                            ? const Icon(
-                                LucideIcons.user,
-                                color: AppTheme.onGoldColor,
-                              )
-                            : null,
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+            child: Row(
+              children: [
+                Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 24.r,
+                      backgroundColor: AppTheme.goldColor.withValues(
+                        alpha: 0.2,
                       ),
-                      if (widget.user.isOnline)
-                        Positioned(
-                          right: 0.w,
-                          bottom: 0.h,
-                          child: Container(
-                            width: 12.w,
-                            height: 12.h,
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: context.cardColor,
-                                width: 2,
-                              ),
+                      backgroundImage: widget.user.avatarUrl != null
+                          ? NetworkImage(widget.user.avatarUrl!)
+                          : null,
+                      child: widget.user.avatarUrl == null
+                          ? Icon(
+                              LucideIcons.user,
+                              color: context.textSecondary,
+                              size: 20.sp,
+                            )
+                          : null,
+                    ),
+                    if (widget.user.isOnline)
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 11.w,
+                          height: 11.w,
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: context.cardColor,
+                              width: 2,
                             ),
                           ),
                         ),
+                      ),
+                  ],
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.user.fullName ?? widget.user.username,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15.sp,
+                          color: context.textColor,
+                          fontFamily: AppTheme.fontFamily,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        '@${widget.user.username}',
+                        style: TextStyle(
+                          color: context.textSecondary,
+                          fontSize: 13.sp,
+                          fontFamily: AppTheme.fontFamily,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.user.fullName ?? widget.user.username,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16.sp,
-                            color: context.textColor,
-                            fontFamily: AppTheme.fontFamily,
-                          ),
-                        ),
-                        Text(
-                          '@${widget.user.username}',
-                          style: TextStyle(
-                            color: context.textSecondary,
-                            fontSize: 14.sp,
-                            fontFamily: AppTheme.fontFamily,
-                          ),
-                        ),
-                        if (widget.user.isOnline)
-                          Text(
-                            'آنلاین',
-                            style: TextStyle(
-                              color: Colors.green,
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w500,
-                              fontFamily: AppTheme.fontFamily,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  _buildActionButton(),
-                ],
-              ),
-            ],
+                ),
+                _buildActionButton(),
+              ],
+            ),
           ),
         ),
       ),
@@ -510,7 +497,7 @@ class _UserCardState extends State<_UserCard> {
     if (_isLoading) {
       return SizedBox(
         width: 20.w,
-        height: 20.h,
+        height: 20.w,
         child: const CircularProgressIndicator(
           color: AppTheme.goldColor,
           strokeWidth: 2,
@@ -520,72 +507,106 @@ class _UserCardState extends State<_UserCard> {
 
     switch (_friendshipStatus) {
       case FriendshipStatus.none:
-        return ElevatedButton.icon(
+        return _pillButton(
+          label: 'افزودن',
+          icon: LucideIcons.userPlus,
+          filled: true,
           onPressed: _sendFriendRequest,
-          icon: const Icon(LucideIcons.userPlus, size: 16),
-          label: const Text('ارسال درخواست'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.goldColor,
-            foregroundColor: AppTheme.onGoldColor,
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8),
-          ),
         );
       case FriendshipStatus.friends:
-        return OutlinedButton.icon(
+        return _pillButton(
+          label: 'دوست',
+          icon: LucideIcons.userCheck,
+          color: Colors.green,
           onPressed: widget.onViewProfile,
-          icon: const Icon(LucideIcons.user, size: 16),
-          label: const Text('دوستان'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.green,
-            side: const BorderSide(color: Colors.green),
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8),
-          ),
         );
       case FriendshipStatus.requestSent:
-        return OutlinedButton.icon(
-          onPressed: null,
-          icon: const Icon(LucideIcons.clock, size: 16),
-          label: const Text('ارسال شده'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.orange,
-            side: const BorderSide(color: Colors.orange),
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8),
-          ),
+        return _pillButton(
+          label: 'ارسال شد',
+          icon: LucideIcons.clock,
+          color: Colors.orange,
         );
       case FriendshipStatus.requestReceived:
-        return ElevatedButton.icon(
+        return _pillButton(
+          label: 'تایید',
+          icon: LucideIcons.check,
+          filled: true,
+          color: Colors.green,
           onPressed: _acceptFriendRequest,
-          icon: const Icon(LucideIcons.check, size: 16),
-          label: const Text('تایید'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8),
-          ),
         );
       case FriendshipStatus.requestRejected:
-        return ElevatedButton.icon(
+        return _pillButton(
+          label: 'ارسال مجدد',
+          icon: LucideIcons.userPlus,
+          filled: true,
           onPressed: _sendFriendRequest,
-          icon: const Icon(LucideIcons.userPlus, size: 16),
-          label: const Text('ارسال مجدد'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.goldColor,
-            foregroundColor: AppTheme.onGoldColor,
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8),
-          ),
         );
       case FriendshipStatus.blocked:
-        return OutlinedButton.icon(
-          onPressed: null,
-          icon: const Icon(LucideIcons.userX, size: 16),
-          label: const Text('بلاک شده'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.red,
-            side: const BorderSide(color: Colors.red),
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8),
-          ),
+        return _pillButton(
+          label: 'مسدود',
+          icon: LucideIcons.userX,
+          color: AppTheme.errorColor,
         );
     }
+  }
+
+  Widget _pillButton({
+    required String label,
+    required IconData icon,
+    Color color = AppTheme.goldColor,
+    bool filled = false,
+    VoidCallback? onPressed,
+  }) {
+    if (filled) {
+      return ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 14.sp),
+        label: Text(
+          label,
+          style: TextStyle(
+            fontFamily: AppTheme.fontFamily,
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: color == AppTheme.goldColor
+              ? AppTheme.onGoldColor
+              : Colors.white,
+          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10.r),
+          ),
+        ),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 14.sp),
+      label: Text(
+        label,
+        style: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontSize: 12.sp,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color.withValues(alpha: 0.6)),
+        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10.r),
+        ),
+      ),
+    );
   }
 
   Future<void> _sendFriendRequest() async {
@@ -597,8 +618,11 @@ class _UserCardState extends State<_UserCard> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('درخواست دوستی به ${widget.user.username} ارسال شد'),
-            backgroundColor: Colors.green,
+            content: Text(
+              'درخواست دوستی به ${widget.user.username} ارسال شد',
+              style: const TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
+            backgroundColor: AppTheme.successColor,
           ),
         );
       }
@@ -606,8 +630,11 @@ class _UserCardState extends State<_UserCard> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطا در ارسال درخواست: $e'),
-            backgroundColor: Colors.red,
+            content: Text(
+              'خطا در ارسال درخواست: $e',
+              style: const TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
@@ -623,8 +650,11 @@ class _UserCardState extends State<_UserCard> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('درخواست دوستی پذیرفته شد'),
-            backgroundColor: Colors.green,
+            content: Text(
+              'درخواست دوستی پذیرفته شد',
+              style: TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
+            backgroundColor: AppTheme.successColor,
           ),
         );
       }
@@ -632,8 +662,11 @@ class _UserCardState extends State<_UserCard> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطا در تایید درخواست: $e'),
-            backgroundColor: Colors.red,
+            content: Text(
+              'خطا در تایید درخواست: $e',
+              style: const TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }

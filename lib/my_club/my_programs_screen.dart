@@ -593,14 +593,25 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
                 child: CircularProgressIndicator(color: AppTheme.goldColor),
               )
             : !hasContent
-            ? UnifiedEmptyState(
-                icon: LucideIcons.folderSearch,
-                title: 'هیچ برنامه‌ای یافت نشد',
-                subtitle:
-                    'برای شروع سفر ورزشی خود، یک برنامه تمرینی یا رژیمی تهیه کنید',
-                actionText: 'جستجوی مربی',
-                actionIcon: LucideIcons.search,
-                onAction: () => Navigator.pushNamed(context, '/trainer-ranking'),
+            ? RefreshIndicator(
+                onRefresh: _loadData,
+                color: AppTheme.goldColor,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.1),
+                    UnifiedEmptyState(
+                      icon: LucideIcons.folderSearch,
+                      title: 'هنوز برنامه‌ای ندارید',
+                      subtitle:
+                          'از مربی برنامه بگیرید یا مربی هوشمند جیم‌ای‌آی را فعال کنید',
+                      actionText: 'جستجوی مربی',
+                      actionIcon: LucideIcons.search,
+                      onAction: () =>
+                          Navigator.pushNamed(context, '/trainer-ranking'),
+                    ),
+                  ],
+                ),
               )
             : ListView.builder(
                 padding: EdgeInsets.all(16.w),

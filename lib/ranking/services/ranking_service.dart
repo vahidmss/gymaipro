@@ -95,16 +95,21 @@ class RankingService {
     }
   }
 
+  /// به‌روزرسانی رتبه‌های یک لیگ خاص (قابل فراخوانی از UI)
+  Future<void> refreshLeagueRanks(String leagueId) async {
+    await _updateLeagueRanks(leagueId);
+  }
+
   /// به‌روزرسانی رتبه‌های یک لیگ خاص
   Future<void> _updateLeagueRanks(String leagueId) async {
     try {
       final rankings = await _client
           .from('user_rankings')
-          .select('user_id, league_points')
+          .select('user_id, total_score')
           .eq('current_league', leagueId)
-          .order('league_points', ascending: false);
+          .order('total_score', ascending: false);
 
-      int rank = 1;
+      var rank = 1;
       for (final ranking in rankings) {
         await _client
             .from('user_rankings')
@@ -200,6 +205,20 @@ class RankingService {
     }
   }
 
+  /// تعداد اعضای یک لیگ (تقریبی — همه ردیف‌های user_rankings آن لیگ)
+  Future<int> getLeagueMemberCount(String leagueId) async {
+    try {
+      final rows = await _client
+          .from('user_rankings')
+          .select('user_id')
+          .eq('current_league', leagueId);
+      return (rows as List).length;
+    } catch (e) {
+      debugPrint('❌ Error counting league members: $e');
+      return 0;
+    }
+  }
+
   /// دریافت Leaderboard برای یک لیگ خاص
   /// بهینه‌سازی شده: فقط فیلدهای لازم رو می‌گیره
   /// فقط ورزشکاران (athletes) نمایش داده می‌شوند - مربیان حذف می‌شوند
@@ -227,7 +246,7 @@ class RankingService {
           ''')
           .eq('current_league', leagueId)
           .eq('profiles.role', 'athlete') // فقط ورزشکاران
-          .order('league_points', ascending: false)
+          .order('total_score', ascending: false)
           .limit(limit);
 
       final rankings = <UserRanking>[];

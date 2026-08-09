@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -49,16 +51,16 @@ class WeightWidgets {
 
   static void showWeightGuidanceDialog(
     BuildContext context,
-    void Function(String) onWeightSubmitted,
+    FutureOr<void> Function(String) onWeightSubmitted,
   ) {
     final weightController = TextEditingController();
 
     showDialog<void>(
       context: context,
-      builder: (BuildContext context) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
+      builder: (BuildContext dialogContext) {
+        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
         return AlertDialog(
-          backgroundColor: context.cardColor,
+          backgroundColor: dialogContext.cardColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20.r),
             side: BorderSide(
@@ -72,7 +74,7 @@ class WeightWidgets {
             'ثبت وزن جدید',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
-              color: context.textColor,
+              color: dialogContext.textColor,
               fontSize: 18.sp,
               fontWeight: FontWeight.bold,
             ),
@@ -86,38 +88,40 @@ class WeightWidgets {
                   'وزن فعلی خود را وارد کنید:',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    color: context.textSecondary,
+                    color: dialogContext.textSecondary,
                     fontSize: 14.sp,
                   ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: weightController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
+                    color: dialogContext.textColor,
                     fontSize: 14.sp,
                   ),
                   decoration: InputDecoration(
                     hintText: 'مثال: 75.5',
                     hintStyle: TextStyle(
                       fontFamily: AppTheme.fontFamily,
-                      color: context.textSecondary.withValues(alpha: 0.6),
+                      color: dialogContext.textSecondary.withValues(alpha: 0.6),
                       fontSize: 14.sp,
                     ),
                     filled: true,
-                    fillColor: context.veryDarkBackground,
+                    fillColor: dialogContext.veryDarkBackground,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12.r),
                       borderSide: BorderSide(
-                        color: context.separatorColor,
+                        color: dialogContext.separatorColor,
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12.r),
                       borderSide: BorderSide(
-                        color: context.separatorColor,
+                        color: dialogContext.separatorColor,
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
@@ -138,12 +142,12 @@ class WeightWidgets {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: Text(
                 'انصراف',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  color: context.textSecondary,
+                  color: dialogContext.textSecondary,
                   fontSize: 14.sp,
                 ),
               ),
@@ -151,10 +155,10 @@ class WeightWidgets {
             ElevatedButton(
               onPressed: () {
                 final weight = weightController.text.trim();
-                if (weight.isNotEmpty) {
-                  onWeightSubmitted(weight);
-                  Navigator.pop(context);
-                }
+                if (weight.isEmpty) return;
+                Navigator.pop(dialogContext);
+                // بعد از بسته‌شدن دیالوگ؛ fire-and-forget تا UI گیر نکند
+                unawaited(Future.sync(() => onWeightSubmitted(weight)));
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.goldColor,
@@ -175,7 +179,12 @@ class WeightWidgets {
           ],
         );
       },
-    ).whenComplete(weightController.dispose);
+    ).whenComplete(() {
+      // یک فریم بعد از بستن تا IME گیر نکند
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        weightController.dispose();
+      });
+    });
   }
 
   static void showWeightHistoryDialog(

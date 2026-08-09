@@ -122,8 +122,8 @@ class TrainerKpiService {
       
       final totalCount = totalRes.count;
       
-      // تعداد برنامه‌های فعال (ارسال شده - sent_at != null)
-      int activeCount = totalCount; // پیش‌فرض: همه برنامه‌ها فعال
+      // تعداد برنامه‌های ارسال‌شده (sent_at != null) — بدون fallback جعلی به کل برنامه‌ها
+      int activeCount = 0;
       try {
         final activeRes = await _client
             .from('workout_programs')
@@ -134,8 +134,8 @@ class TrainerKpiService {
             .count();
         activeCount = activeRes.count;
       } catch (_) {
-        // اگر ستون sent_at وجود نداشت، همه برنامه‌ها را فعال در نظر می‌گیریم
-        // activeCount قبلاً برابر totalCount تنظیم شده
+        // اگر ستون نبود، «ارسال‌شده» را نامشخص می‌گذاریم (۰) تا امتیاز لیگ باد نکند
+        activeCount = 0;
       }
       
       return (totalCount, activeCount);

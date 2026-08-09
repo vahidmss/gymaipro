@@ -357,15 +357,14 @@ class _ConfidentialUserInfoScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // هشدار مهم
           Container(
             width: double.infinity,
-            padding: EdgeInsets.all(16.w),
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
             decoration: BoxDecoration(
-              color: AppTheme.errorColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12.r),
+              color: AppTheme.errorColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14.r),
               border: Border.all(
-                color: AppTheme.errorColor.withValues(alpha: 0.3),
+                color: AppTheme.errorColor.withValues(alpha: 0.28),
               ),
             ),
             child: Row(
@@ -374,16 +373,16 @@ class _ConfidentialUserInfoScreenState
                 Icon(
                   LucideIcons.alertTriangle,
                   color: AppTheme.errorColor,
-                  size: 24.sp,
+                  size: 20.sp,
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 10.w),
                 Expanded(
                   child: Text(
                     'هشدار: اطلاعات فوق‌العاده محرمانه',
                     style: TextStyle(
                       color: AppTheme.errorColor,
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w700,
                       fontFamily: AppTheme.fontFamily,
                     ),
                   ),
@@ -391,26 +390,25 @@ class _ConfidentialUserInfoScreenState
               ],
             ),
           ),
-          SizedBox(height: 24.h),
+          SizedBox(height: 18.h),
 
           // متن قانونی
           Text(
             'موافقت‌نامه دسترسی به اطلاعات محرمانه',
             style: TextStyle(
               color: AppTheme.goldColor,
-              fontSize: 20.sp,
-              fontWeight: FontWeight.bold,
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w800,
               fontFamily: AppTheme.fontFamily,
             ),
-            textAlign: TextAlign.center,
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 12.h),
 
           Container(
-            padding: EdgeInsets.all(16.w),
+            padding: EdgeInsets.all(14.w),
             decoration: BoxDecoration(
               color: context.cardColor,
-              borderRadius: BorderRadius.circular(12.r),
+              borderRadius: BorderRadius.circular(14.r),
               border: Border.all(
                 color: AppTheme.goldColor.withValues(alpha: 0.2),
               ),
@@ -422,12 +420,12 @@ class _ConfidentialUserInfoScreenState
                   'تعهدات و مسئولیت‌های کاربر:',
                   style: TextStyle(
                     color: AppTheme.goldColor,
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w700,
                     fontFamily: AppTheme.fontFamily,
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 10.h),
 
                 _buildConsentItem(
                   '1. من متعهد می‌شوم که تمام اطلاعات ارائه شده در این بخش '

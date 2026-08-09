@@ -37,6 +37,7 @@ class WorkoutTodayExercise {
     this.tempo,
     this.notes,
     this.weightKg,
+    this.repsScheme,
   });
 
   final String name;
@@ -47,4 +48,5 @@ class WorkoutTodayExercise {
   final String? tempo;
   final String? notes;
   final double? weightKg;
+  final String? repsScheme;
 }

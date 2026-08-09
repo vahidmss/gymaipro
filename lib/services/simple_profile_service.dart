@@ -26,7 +26,16 @@ class SimpleProfileService {
   static void invalidateCache() {
     _cachedProfile = null;
     _cachedProfileAt = null;
-    _inFlightProfile = null;
+    // Do NOT clear `_inFlightProfile` here — waiters may still be awaiting it.
+  }
+
+  /// خواندن کش بدون I/O — برای جلوگیری از بن‌بست با `_inFlightProfile`.
+  static Map<String, dynamic>? peekCachedProfile() {
+    if (_cachedProfile == null || _cachedProfileAt == null) return null;
+    if (DateTime.now().difference(_cachedProfileAt!) >= _profileCacheTtl) {
+      return null;
+    }
+    return _cachedProfile;
   }
 
   static void _warmDashboardProfileCache(Map<String, dynamic> profile) {
@@ -181,9 +190,10 @@ class SimpleProfileService {
       }
 
       // Deduplicate concurrent calls (many screens/services call this together)
-      if (_inFlightProfile != null) return await _inFlightProfile;
+      final existing = _inFlightProfile;
+      if (existing != null) return await existing;
 
-      _inFlightProfile = () async {
+      final fetch = () async {
         _log('=== SIMPLE PROFILE SERVICE: Getting current profile ===');
 
         // دریافت شناسه کاربر واقعی
@@ -272,13 +282,17 @@ class SimpleProfileService {
         return null;
       }();
 
-      final result = await _inFlightProfile;
-      return result;
+      _inFlightProfile = fetch;
+      try {
+        return await fetch;
+      } finally {
+        if (identical(_inFlightProfile, fetch)) {
+          _inFlightProfile = null;
+        }
+      }
     } catch (e) {
       _log('=== SIMPLE PROFILE SERVICE: Error getting profile: $e ===');
       return null;
-    } finally {
-      _inFlightProfile = null;
     }
   }
 

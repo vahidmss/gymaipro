@@ -362,18 +362,8 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
         child: RepaintBoundary(
           child: Stack(
             children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.lightGradientStart.withValues(alpha: 0.15),
-                      AppTheme.lightCardColor,
-                      AppTheme.lightGradientEnd.withValues(alpha: 0.1),
-                    ],
-                  ),
-                ),
+              Positioned.fill(
+                child: ColoredBox(color: context.backgroundColor),
               ),
               SafeArea(
                 child: Column(
@@ -527,7 +517,9 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
                       height: 24.h,
                       child: const CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.veryDarkBackground),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppTheme.veryDarkBackground,
+                        ),
                       ),
                     )
                   : Row(
@@ -1128,8 +1120,9 @@ class _ProfileCompletionScreenState extends State<ProfileCompletionScreen>
     });
 
     try {
-      final response =
-          await ProfileRepository.instance.fetchProfileByUsername(code);
+      final response = await ProfileRepository.instance.fetchProfileByUsername(
+        code,
+      );
 
       if (response == null) {
         setState(() {
@@ -1247,8 +1240,9 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
   }
 
   void _listenConnectivity() {
-    _connectivitySub =
-        ConnectivityService.instance.isConnectedStream.listen((online) {
+    _connectivitySub = ConnectivityService.instance.isConnectedStream.listen((
+      online,
+    ) {
       if (!online || !mounted || _isSuccess || _attemptInFlight) return;
       if (_isLoading || _showRetryActions) {
         _scheduleAutoRetryOnReconnect();
@@ -1335,11 +1329,7 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
         .saveAuthState(session, phoneNumber: normalizedPhone)
         .timeout(const Duration(seconds: 8));
 
-    final jalali = Jalali(
-      widget.birthYear,
-      widget.birthMonth,
-      widget.birthDay,
-    );
+    final jalali = Jalali(widget.birthYear, widget.birthMonth, widget.birthDay);
     final gregorian = jalali.toGregorian();
     final birthDate = gregorian.toDateTime();
 
@@ -1446,9 +1436,7 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
   bool _rowIndicatesCompleteRegistration(Map<String, dynamic>? row) {
     if (row == null) return false;
     final username = row['username'] as String?;
-    if (username == null ||
-        username.isEmpty ||
-        username.startsWith('user_')) {
+    if (username == null || username.isEmpty || username.startsWith('user_')) {
       return false;
     }
     final firstName = row['first_name'] as String?;
@@ -1471,10 +1459,7 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
     }
   }
 
-  Future<void> _finishSuccess(
-    Session session, {
-    double? weightValue,
-  }) async {
+  Future<void> _finishSuccess(Session session, {double? weightValue}) async {
     final parsedWeight =
         weightValue ?? double.tryParse(widget.weight.trim()) ?? 0;
 
@@ -1518,7 +1503,8 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
       _isLoading = false;
       _isSuccess = false;
       _showRetryActions = true;
-      _errorMessage = message ??
+      _errorMessage =
+          message ??
           'اتصال قطع شد یا کند است. ثبت‌نام ممکن است انجام شده باشد.';
     });
   }
@@ -1599,9 +1585,7 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
           return true;
         }
       } catch (e) {
-        debugPrint(
-          '⚠️ REGISTRATION: profile save attempt $attempt failed: $e',
-        );
+        debugPrint('⚠️ REGISTRATION: profile save attempt $attempt failed: $e');
       }
 
       if (attempt < 3) {
@@ -1770,7 +1754,9 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton(
-                            onPressed: _attemptInFlight ? null : _onVerifyAndEnterApp,
+                            onPressed: _attemptInFlight
+                                ? null
+                                : _onVerifyAndEnterApp,
                             style: FilledButton.styleFrom(
                               backgroundColor: AppTheme.goldColor,
                               foregroundColor: AppTheme.onGoldColor,
@@ -1790,11 +1776,15 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton(
-                            onPressed: _attemptInFlight ? null : _onRetryPressed,
+                            onPressed: _attemptInFlight
+                                ? null
+                                : _onRetryPressed,
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.goldColor,
                               side: BorderSide(
-                                color: AppTheme.goldColor.withValues(alpha: 0.6),
+                                color: AppTheme.goldColor.withValues(
+                                  alpha: 0.6,
+                                ),
                               ),
                               padding: EdgeInsets.symmetric(vertical: 14.h),
                             ),
@@ -1825,7 +1815,11 @@ class _RegistrationLoadingScreenState extends State<RegistrationLoadingScreen>
                     ),
                   )
                 else if (!_showRetryActions)
-                  Icon(Icons.error_outline, color: AppTheme.errorColor, size: 40.sp),
+                  Icon(
+                    Icons.error_outline,
+                    color: AppTheme.errorColor,
+                    size: 40.sp,
+                  ),
               ],
             ),
           ),
