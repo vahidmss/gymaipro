@@ -104,6 +104,7 @@ class CrashReportService {
             ...item,
             'user_id': userId,
           });
+          await _requestAlert(item['fingerprint']?.toString());
         } catch (e) {
           remaining.add(item);
           if (kDebugMode) {
@@ -123,6 +124,20 @@ class CrashReportService {
       }
     } finally {
       _flushing = false;
+    }
+  }
+
+  Future<void> _requestAlert(String? fingerprint) async {
+    if (fingerprint == null || fingerprint.isEmpty) return;
+    try {
+      await Supabase.instance.client.functions.invoke(
+        'alert-client-crash',
+        body: <String, Object?>{'fingerprint': fingerprint},
+      );
+    } on Object catch (e) {
+      if (kDebugMode) {
+        debugPrint('CrashReportService.alert request failed: $e');
+      }
     }
   }
 
