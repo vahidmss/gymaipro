@@ -22,7 +22,7 @@ $scp = "scp -P $Port"
 $remoteFunction = "$RemoteBase/volumes/functions/alert-client-crash/index.ts"
 
 Write-Host '[1/5] Checking SSH access...'
-& ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -p $Port $Server 'echo ssh-ok'
+& ssh -o StrictHostKeyChecking=accept-new -p $Port $Server 'echo ssh-ok'
 if ($LASTEXITCODE -ne 0) {
   throw 'SSH authentication failed. Configure the correct key/password for this server first.'
 }
