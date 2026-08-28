@@ -5,6 +5,15 @@ set -euo pipefail
 
 cd /root/supabase/docker || exit 1
 
+# Docker uses ANON_KEY/SERVICE_ROLE_KEY while application functions use
+# SUPABASE_* names. Keep both contracts aligned.
+if ! grep -q '^SUPABASE_ANON_KEY=' .env && grep -q '^ANON_KEY=' .env; then
+  printf 'SUPABASE_ANON_KEY=%s\n' "$(grep '^ANON_KEY=' .env | cut -d= -f2-)" >> .env
+fi
+if ! grep -q '^SUPABASE_SERVICE_ROLE_KEY=' .env && grep -q '^SERVICE_ROLE_KEY=' .env; then
+  printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$(grep '^SERVICE_ROLE_KEY=' .env | cut -d= -f2-)" >> .env
+fi
+
 COMPOSE="docker-compose.yml"
 if [ ! -f "$COMPOSE" ]; then
   echo "ERROR: $COMPOSE not found"
