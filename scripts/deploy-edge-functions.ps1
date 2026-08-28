@@ -15,6 +15,7 @@ $Functions = @(
   "send-program-sms",
   "send-notifications",
   "send-chat-notification",
+  "alert-client-crash",
   "music-proxy",
   "wallet-topup-confirm"
 )

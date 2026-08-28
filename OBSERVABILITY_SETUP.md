@@ -26,6 +26,16 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=... SMS_API_USERNAME=... SMS_API_
 Run these commands from the repository linked to the correct Supabase project.
 Do not place the values shown as `...` in source control or in a client build.
 
+For the repository's self-hosted Supabase layout, upload/reload all functions
+with:
+
+```powershell
+.\scripts\deploy-edge-functions.ps1
+```
+
+This script now includes `alert-client-crash`. It requires the SSH key or
+password configured for the server's SSH account.
+
 The alert function uses the service role only on the server. Never put these
 values in Flutter, `.env` shipped to users, or `--dart-define` for release:
 
@@ -53,6 +63,22 @@ parameters:
 
 The destination number is configured only as the server secret
 `OPS_ALERT_PHONE`. The application does not contain a phone number.
+
+## Safe SMS smoke test
+
+Use a real access token from an authenticated user session. Never use or paste
+the service-role key into the client or chat. First obtain a 64-character
+fingerprint from an existing row in the admin crash report screen, then run:
+
+```powershell
+$env:GYMAI_SUPABASE_ANON_KEY = '<public-anon-key>'
+.\scripts\test-crash-alert.ps1 -AccessToken $env:GYMAI_TEST_ACCESS_TOKEN -Fingerprint '<64-char-fingerprint>'
+```
+
+For a test on an empty database, set `CRASH_ALERT_THRESHOLD=1` temporarily on
+the Edge Function, insert one sanitized test row through the server-side SQL
+admin path, run the smoke test, and restore the normal threshold (`3`). Do not
+add a public test endpoint and do not bypass authentication.
 
 ## Operational safety
 
