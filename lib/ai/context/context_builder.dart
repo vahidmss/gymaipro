@@ -69,8 +69,10 @@ class AIContextBuilder {
     var patch = seed;
 
     for (final provider in providers) {
-      final providerPatch = await provider.build(request);
-      patch = patch.merge(providerPatch);
+      try {
+        final providerPatch = await provider.build(request);
+        patch = patch.merge(providerPatch);
+      } on Object {}
     }
 
     return patch;

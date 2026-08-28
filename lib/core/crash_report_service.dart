@@ -22,12 +22,18 @@ class CrashReportService {
 
   bool _flushing = false;
 
-  Future<void> record(Object error, StackTrace stack) async {
+  Future<void> record(
+    Object error,
+    StackTrace stack, {
+    bool fatal = true,
+    String? sessionId,
+    Map<String, Object?> context = const <String, Object?>{},
+  }) async {
     try {
-      final message = error.toString();
+      final message = _sanitize(error.toString());
       if (_shouldIgnore(message)) return;
 
-      final stackText = stack.toString();
+      final stackText = _sanitize(stack.toString());
       final fingerprint = _fingerprint(message, stackText);
       await AppVersionService.instance.ensureLoaded();
       final version = AppVersionService.instance;
@@ -40,14 +46,30 @@ class CrashReportService {
             ? stackText.substring(0, _maxStackChars)
             : stackText,
         'fingerprint': fingerprint,
+        'error_type': error.runtimeType.toString(),
+        'is_fatal': fatal,
+        'session_id': sessionId,
+        'context': _sanitizeMap(context),
         'app_version': version.version,
         'build_number': version.buildNumber,
         'platform': defaultTargetPlatform.name,
+        'last_seen_at': DateTime.now().toUtc().toIso8601String(),
+        'occurrence_count': 1,
       };
 
       final prefs = await SharedPreferences.getInstance();
       final queue = _readQueue(prefs);
-      if (queue.any((item) => item['fingerprint'] == fingerprint)) {
+      final existingIndex = queue.indexWhere(
+        (item) => item['fingerprint'] == fingerprint,
+      );
+      if (existingIndex >= 0) {
+        final existing = queue[existingIndex];
+        existing['occurrence_count'] =
+            (existing['occurrence_count'] as num?)?.toInt() ?? 1;
+        existing['occurrence_count'] =
+            (existing['occurrence_count'] as int) + 1;
+        existing['last_seen_at'] = payload['last_seen_at'];
+        await prefs.setString(_queueKey, jsonEncode(queue));
         return;
       }
       queue.add(payload);
@@ -130,5 +152,33 @@ class CrashReportService {
   String _fingerprint(String message, String stack) {
     final firstLines = stack.split('\n').take(4).join('|');
     return '${message.hashCode}:${firstLines.hashCode}';
+  }
+
+  String _sanitize(String value) {
+    return value
+        .replaceAll(
+          RegExp(
+            r'(authorization\s*:\s*bearer\s+)[^\s,;]+',
+            caseSensitive: false,
+          ),
+          r'${1}[REDACTED]',
+        )
+        .replaceAll(
+          RegExp(
+            r'(api[_-]?key|password|token|secret)\s*[:=]\s*[^\s,;]+',
+            caseSensitive: false,
+          ),
+          r'$1=[REDACTED]',
+        )
+        .replaceAll(RegExp(r'(?<!\d)09\d{9}(?!\d)'), '[PHONE_REDACTED]');
+  }
+
+  Map<String, Object?> _sanitizeMap(Map<String, Object?> value) {
+    return <String, Object?>{
+      for (final entry in value.entries)
+        entry.key: entry.value is String
+            ? _sanitize(entry.value! as String)
+            : entry.value,
+    };
   }
 }

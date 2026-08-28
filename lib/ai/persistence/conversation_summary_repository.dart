@@ -35,7 +35,12 @@ class ConversationSummaryRepository {
     final local = await _loadLocal(userId);
     if (local != null && !local.placeholder) return local;
 
-    final remote = enableRemoteSync ? await _fetchRemote(userId) : null;
+    CoachConversationSummary? remote;
+    if (enableRemoteSync) {
+      try {
+        remote = await _fetchRemote(userId);
+      } on Object {}
+    }
     if (remote != null) {
       await _saveLocal(userId, remote);
       return remote;

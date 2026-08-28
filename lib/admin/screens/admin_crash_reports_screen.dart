@@ -119,7 +119,12 @@ class _AdminCrashReportsScreenState extends State<AdminCrashReportsScreen> {
           final version =
               '${row['app_version'] ?? '?'}+${row['build_number'] ?? '?'}';
           final platform = '${row['platform'] ?? ''}';
+          final errorType = '${row['error_type'] ?? 'UnknownError'}';
+          final occurrenceCount =
+              (row['occurrence_count'] as num?)?.toInt() ?? 1;
+          final isFatal = row['is_fatal'] != false;
           final createdAt = '${row['created_at'] ?? ''}';
+          final stackTrace = '${row['stack_trace'] ?? ''}'.trim();
           return Container(
             padding: EdgeInsets.all(14.w),
             decoration: BoxDecoration(
@@ -139,7 +144,7 @@ class _AdminCrashReportsScreenState extends State<AdminCrashReportsScreen> {
                     SizedBox(width: 8.w),
                     Expanded(
                       child: Text(
-                        '$version · $platform',
+                        '$version · $platform · ${isFatal ? 'Fatal' : 'Error'}',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 12.sp,
@@ -148,6 +153,15 @@ class _AdminCrashReportsScreenState extends State<AdminCrashReportsScreen> {
                       ),
                     ),
                   ],
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  '$errorType - تکرار: $occurrenceCount',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 11.sp,
+                    color: context.textSecondary,
+                  ),
                 ),
                 SizedBox(height: 8.h),
                 Text(
@@ -172,6 +186,33 @@ class _AdminCrashReportsScreenState extends State<AdminCrashReportsScreen> {
                     ),
                   ),
                 ],
+                if (stackTrace.isNotEmpty)
+                  ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    childrenPadding: EdgeInsets.zero,
+                    title: Text(
+                      'جزئیات فنی',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 12.sp,
+                        color: context.textSecondary,
+                      ),
+                    ),
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: SelectableText(
+                          stackTrace,
+                          style: TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 10.sp,
+                            color: context.textSecondary,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           );
