@@ -10,6 +10,8 @@ $MigrationOne = Join-Path $Root 'supabase\migrations\20260828130000_harden_clien
 $MigrationTwo = Join-Path $Root 'supabase\migrations\20260828140000_create_client_crash_alerts.sql'
 $FunctionFile = Join-Path $Root 'supabase\functions\alert-client-crash\index.ts'
 $EnsureFile = Join-Path $Root 'scripts\ensure-functions-sms-env.sh'
+$TempEnsure = Join-Path $env:TEMP 'ensure-functions-sms-env-crash-alert.sh'
+$Utf8NoBom = New-Object System.Text.UTF8Encoding $false
 
 foreach ($path in @($MigrationOne, $MigrationTwo, $FunctionFile, $EnsureFile)) {
   if (-not (Test-Path $path)) {
@@ -32,7 +34,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Upload of migration one failed.' }
 if ($LASTEXITCODE -ne 0) { throw 'Upload of migration two failed.' }
 & scp -P $Port $FunctionFile "${Server}:/tmp/alert-client-crash-index.ts"
 if ($LASTEXITCODE -ne 0) { throw 'Upload of Edge Function failed.' }
-& scp -P $Port $EnsureFile "${Server}:/tmp/ensure-functions-sms-env.sh"
+$ensureText = [System.IO.File]::ReadAllText($EnsureFile) -replace "`r`n", "`n" -replace "`r", "`n"
+[System.IO.File]::WriteAllText($TempEnsure, $ensureText, $Utf8NoBom)
+& scp -P $Port $TempEnsure "${Server}:/tmp/ensure-functions-sms-env.sh"
 if ($LASTEXITCODE -ne 0) { throw 'Upload of env wiring script failed.' }
 
 Write-Host '[3/5] Installing function and applying migrations...'
@@ -43,7 +47,7 @@ cp /tmp/alert-client-crash-index.ts '$remoteFunction'
 cd '$RemoteBase'
 docker compose exec -T db psql -U postgres -d postgres < /tmp/20260828130000_harden_client_crash_reports.sql
 docker compose exec -T db psql -U postgres -d postgres < /tmp/20260828140000_create_client_crash_alerts.sql
-"@
+"@ -replace "`r`n", "`n" -replace "`r", "`n"
 & ssh -p $Port $Server $remoteInstall
 if ($LASTEXITCODE -ne 0) { throw 'Remote install or migration failed.' }
 
@@ -55,5 +59,6 @@ Write-Host '[5/5] Checking function container...'
 & ssh -p $Port $Server "cd '$RemoteBase'; docker compose ps functions; docker exec supabase-edge-functions env | grep -E '^(OPS_ALERT_PHONE|SMS_BODY_ID_CRASH_ALERT|SMS_API_USERNAME|SMS_API_PASSWORD|SUPABASE_SERVICE_ROLE_KEY)=' | sed 's/=.*/=<set>/'"
 if ($LASTEXITCODE -ne 0) { throw 'Function container verification failed.' }
 
+Remove-Item -Path $TempEnsure -Force -ErrorAction SilentlyContinue
 Write-Host 'Crash alert deployment completed.'
 Write-Host 'Next: run scripts/test-crash-alert.ps1 with a real user access token and a 64-character crash fingerprint.'
