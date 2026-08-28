@@ -123,4 +123,40 @@ abstract final class LlmWorkoutMuscleTags {
         isTricep(t) ||
         (isShoulder(t) && !t.contains('posterior'));
   }
+
+  /// Isolation chest/shoulder (fly, crossover, lateral raise) — not a press.
+  static bool isIsolationPush(String name, String muscle) {
+    final n = name.toLowerCase();
+    final m = muscle.toLowerCase();
+    if (!isChest(m) && !isShoulder(m)) return false;
+    if (n.contains('فلای') ||
+        n.contains('فلاي') ||
+        n.contains('قفسه') ||
+        n.contains('کراس') ||
+        n.contains('كراس') ||
+        n.contains('fly') ||
+        n.contains('crossover') ||
+        n.contains('pec deck') ||
+        n.contains('pec-deck') ||
+        n.contains('پک دک')) {
+      return true;
+    }
+    if (n.contains('نشر') ||
+        n.contains('لاترال') ||
+        n.contains('raise') ||
+        (n.contains('lateral') && !n.contains('press')) ||
+        n.contains('rear delt') ||
+        n.contains('فیس پول') ||
+        n.contains('face pull')) {
+      return true;
+    }
+    return false;
+  }
+
+  /// Multi-joint chest/shoulder press. Isolation does not count toward press cap.
+  static bool isCompoundPress(String name, String muscle) {
+    final m = muscle.toLowerCase();
+    if (!isChest(m) && !isShoulder(m)) return false;
+    return !isIsolationPush(name, muscle);
+  }
 }

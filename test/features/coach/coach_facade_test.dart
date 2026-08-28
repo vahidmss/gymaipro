@@ -9,34 +9,43 @@ import 'package:gymaipro/ai/skills/runtime/coach_skill_response.dart';
 import 'package:gymaipro/features/coach/application/coach_facade.dart';
 import 'package:gymaipro/features/coach/application/coach_preview_seed_loader.dart';
 import 'package:gymaipro/features/product_experience/coach_program_resolver.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
   test('CoachFacade calls coach loader and maps CoachHomeState', () async {
     Map<String, Object?>? metadataSeen;
     String? userIdSeen;
     final facade = CoachFacade(
       seedLoader: _FakeSeedLoader(),
       programResolver: CoachProgramResolver(programLoader: (_) async => null),
-      coachLoader: ({
-        required userMessage,
-        userId = 'preview_user',
-        context,
-        metadata = const <String, Object?>{},
-      }) async {
-        metadataSeen = metadata;
-        userIdSeen = userId;
-        expect(context, isNotNull);
-        return _integrationResult();
-      },
+      coachLoader:
+          ({
+            required userMessage,
+            userId = 'preview_user',
+            context,
+            metadata = const <String, Object?>{},
+          }) async {
+            metadataSeen = metadata;
+            userIdSeen = userId;
+            expect(context, isNotNull);
+            return _integrationResult();
+          },
     );
 
-    final result = await facade.load();
+    final result = await facade.load(enrichWithCoach: true);
 
     expect(metadataSeen?['feature'], 'coach_home');
     expect(userIdSeen, 'user_1');
     expect(result.state.isLoaded, true);
     expect(result.state.todayWorkout, isNotNull);
     expect(result.state.greeting, contains('وحید'));
+    expect(result.state.memories.join(), contains('وحید'));
   });
 }
 

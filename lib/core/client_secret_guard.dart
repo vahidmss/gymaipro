@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 /// جلوگیری از استفادهٔ credentialهای سرور-محور در bundle کلاینت وب.
 ///
-/// روی وب: SMS، OTP legacy، و API مستقیم درگاه (زرین‌پال) مجاز نیست.
+/// روی وب: SMS، OTP legacy، و API مستقیم درگاه (زیبال مستقیم) مجاز نیست.
 /// OpenAI مستقیم از کلاینت — با محدودیت rate-limit — عمداً مجاز است
 /// (به‌خاطر فیلترینگ سرور؛ کلید باید در OpenAI محدود شود).
 class ClientSecretGuard {

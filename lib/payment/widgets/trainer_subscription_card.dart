@@ -20,14 +20,14 @@ class TrainerSubscriptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
-      color: const Color(0xFF2A2A2A),
+      color: context.cardColor,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.r),
-        side: BorderSide(color: _getStatusColor().withValues(alpha: 0.1)),
+        borderRadius: BorderRadius.circular(16.r),
+        side: BorderSide(color: _getStatusColor().withValues(alpha: 0.35)),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(16.r),
         child: Padding(
           padding: EdgeInsets.all(16.w),
           child: Column(
@@ -58,8 +58,8 @@ class TrainerSubscriptionCard extends StatelessWidget {
                         Text(
                           subscription.serviceTypeText,
                           style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                            color: Colors.white,
+                            fontFamily: AppTheme.fontFamily,
+                            color: context.textColor,
                             fontSize: 16.sp,
                             fontWeight: FontWeight.bold,
                           ),
@@ -68,8 +68,8 @@ class TrainerSubscriptionCard extends StatelessWidget {
                         Text(
                           subscription.description,
                           style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                            color: Colors.grey[400],
+                            fontFamily: AppTheme.fontFamily,
+                            color: context.textSecondary,
                             fontSize: 12.sp,
                           ),
                         ),
@@ -89,7 +89,7 @@ class TrainerSubscriptionCard extends StatelessWidget {
                     child: Text(
                       subscription.statusText,
                       style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                        fontFamily: AppTheme.fontFamily,
                         color: _getStatusColor(),
                         fontSize: 10.sp,
                         fontWeight: FontWeight.bold,
@@ -104,6 +104,7 @@ class TrainerSubscriptionCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _buildInfoItem(
+                      context,
                       icon: LucideIcons.dollarSign,
                       label: 'مبلغ',
                       value: subscription.formattedFinalAmount,
@@ -114,6 +115,7 @@ class TrainerSubscriptionCard extends StatelessWidget {
                     const SizedBox(width: 16),
                     Expanded(
                       child: _buildInfoItem(
+                        context,
                         icon: LucideIcons.percent,
                         label: 'تخفیف',
                         value: subscription.formattedDiscountAmount,
@@ -129,6 +131,7 @@ class TrainerSubscriptionCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _buildInfoItem(
+                      context,
                       icon: LucideIcons.calendar,
                       label: 'تاریخ خرید',
                       value: _formatDate(subscription.purchaseDate),
@@ -139,6 +142,7 @@ class TrainerSubscriptionCard extends StatelessWidget {
                     const SizedBox(width: 16),
                     Expanded(
                       child: _buildInfoItem(
+                        context,
                         icon: LucideIcons.clock,
                         label: 'ثبت برنامه',
                         value: _formatDate(
@@ -162,16 +166,16 @@ class TrainerSubscriptionCard extends StatelessWidget {
                         Text(
                           'زمان باقی‌مانده',
                           style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                            color: Colors.grey[400],
+                            fontFamily: AppTheme.fontFamily,
+                            color: context.textSecondary,
                             fontSize: 12.sp,
                           ),
                         ),
                         Text(
                           subscription.remainingTimeText,
                           style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                            color: Colors.white,
+                            fontFamily: AppTheme.fontFamily,
+                            color: context.textColor,
                             fontSize: 12.sp,
                             fontWeight: FontWeight.bold,
                           ),
@@ -181,7 +185,7 @@ class TrainerSubscriptionCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     LinearProgressIndicator(
                       value: _calculateRemainingPercentage(),
-                      backgroundColor: Colors.grey[800],
+                      backgroundColor: context.separatorColor,
                       valueColor: AlwaysStoppedAnimation<Color>(
                         subscription.isExpired ? Colors.red : Colors.green,
                       ),
@@ -213,7 +217,7 @@ class TrainerSubscriptionCard extends StatelessWidget {
                         child: Text(
                           'تاخیر مربی: ${subscription.trainerDelayDays} روز',
                           style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                            fontFamily: AppTheme.fontFamily,
                             color: Colors.orange,
                             fontSize: 12.sp,
                             fontWeight: FontWeight.bold,
@@ -231,7 +235,8 @@ class TrainerSubscriptionCard extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoItem({
+  Widget _buildInfoItem(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required String value,
@@ -248,16 +253,16 @@ class TrainerSubscriptionCard extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                  color: Colors.grey[400],
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textSecondary,
                   fontSize: 10.sp,
                 ),
               ),
               Text(
                 value,
                 style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                  color: Colors.white,
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textColor,
                   fontSize: 12.sp,
                   fontWeight: FontWeight.bold,
                 ),

@@ -428,7 +428,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: SingleChildScrollView(
               controller: _scrollController,
               physics: WebInteraction.alwaysScrollableListPhysics,
-              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
+              padding: EdgeInsets.fromLTRB(16.w, 2.h, 16.w, 32.h),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -442,14 +442,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                       streak: _snapshot?.loginStreak ?? 0,
                     ),
                   ),
-                  SizedBox(height: 16.h),
+                  SizedBox(height: 18.h),
 
                   // نقطه کانونی روز
                   DashboardAnimatedSection(
                     index: 1,
                     child: const TodaysProgramSection(),
                   ),
-                  SizedBox(height: 14.h),
+                  SizedBox(height: 12.h),
 
                   // ادامه جلسه / آخرین تمرین — فقط وقتی داده شخصی هست
                   DashboardAnimatedSection(
@@ -458,34 +458,33 @@ class _DashboardScreenState extends State<DashboardScreen>
                       refreshToken: _refreshKey,
                     ),
                   ),
+                  SizedBox(height: 12.h),
 
                   // اکشن دوم روز: تغذیه (سبک‌تر از Hero تمرین)
                   const DashboardAnimatedSection(
                     index: 3,
                     child: DashboardCalorieHero(),
                   ),
-                  SizedBox(height: 14.h),
+                  SizedBox(height: 18.h),
 
                   // میانبرها — نه تکرار هیرو تمرین/تغذیه
                   const DashboardAnimatedSection(
                     index: 4,
                     child: DashboardQuickAccess(),
                   ),
-                  SizedBox(height: 14.h),
+                  SizedBox(height: 18.h),
 
                   // مربی AI — کشف روی خانه؛ تب پایین برایش نیست
                   const DashboardAnimatedSection(
                     index: 5,
                     child: DashboardAiBanner(),
                   ),
-                  SizedBox(height: 16.h),
+                  SizedBox(height: 18.h),
 
                   // وضعیت بدن
                   DashboardAnimatedSection(
                     index: 6,
-                    child: DashboardStatsStrip(
-                      profileData: _profileData,
-                    ),
+                    child: DashboardStatsStrip(profileData: _profileData),
                   ),
                   SizedBox(height: 20.h),
 

@@ -458,8 +458,9 @@ class KnowledgeRegistry {
         KnowledgeRequirements.goals,
         KnowledgeRequirements.restrictions,
       ],
-      missingBehaviour: KnowledgeMissingBehaviour.askFollowUp,
-      recommendedFollowUp: 'سوال فیتنس خودت را واضح‌تر بنویس.',
+      missingBehaviour: KnowledgeMissingBehaviour.continueWithLowerConfidence,
+      recommendedFollowUp:
+          'اگر جزئیات بیشتری می‌خواهی بگو؛ وگرنه با همین داده جواب می‌دهم.',
       defaultAction: CoachAction.callOpenAI,
       requiresAI: true,
     ),
@@ -477,8 +478,9 @@ class KnowledgeRegistry {
         KnowledgeRequirements.chatHistory,
         KnowledgeRequirements.memory,
       ],
-      missingBehaviour: KnowledgeMissingBehaviour.askFollowUp,
-      recommendedFollowUp: 'دوست داری درباره تمرین، تغذیه یا پیشرفت صحبت کنیم؟',
+      missingBehaviour: KnowledgeMissingBehaviour.continueWithLowerConfidence,
+      recommendedFollowUp:
+          'اگر موضوع خاصی مد نظرته بگو؛ من با دادهٔ فعلی‌ات جواب می‌دهم.',
       defaultAction: CoachAction.callOpenAI,
       requiresAI: true,
     ),

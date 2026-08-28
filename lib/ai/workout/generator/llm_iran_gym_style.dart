@@ -125,11 +125,8 @@ abstract final class LlmIranGymStyleGuide {
     required List<String> goals,
   }) {
     final isBeginner =
-        experience.contains('مبتدی') || experience.toLowerCase().contains('beginner');
-    final isAdvanced =
-        experience.contains('پیشرفته') ||
-        experience.contains('حرفه') ||
-        experience.toLowerCase().contains('advanced');
+        experience.contains('مبتدی') ||
+        experience.toLowerCase().contains('beginner');
     final fatLoss = goals.any(
       (g) => g.contains('چربی') || g.toLowerCase().contains('fat'),
     );
@@ -148,12 +145,10 @@ abstract final class LlmIranGymStyleGuide {
         '- متوسط ۳ روز: فشار / کشش / پا (PPL) با ۵ تا ۷ حرکت؛ روز فشار = '
         'سینه+سرشانه+پشت‌بازو؛ کشش = پشت+جلوبازو؛ پا = اسکوات/پرس‌پا+پشت‌پا+ساق+شکم.',
       )
+      ..writeln('- ۴ روز: بالاتنه / پایین‌تنه (هر کدام ۲ بار در هفته).')
       ..writeln(
-        '- ۴ روز: بالاتنه / پایین‌تنه (هر کدام ۲ بار در هفته).',
-      )
-      ..writeln(
-        '- ۵–۶ روز: اسپلیت عضلانی کلاسیک ایرانی '
-        '(مثلاً سینه+پشت‌بازو، پشت+جلوبازو، پا، سرشانه، اختیاری بازو/شکم).',
+        '- ۵–۶ روز: فشار/کشش/پا دو بار در هفته — هر عضله ۲ جلسه '
+        '(نه اسپلیت سینه‌تنها یک‌بار در هفته).',
       )
       ..writeln(
         '- چربی‌سوزی: ستون اصلی همان تمرین مقاومتی باشگاهی است؛ کاردیو کوتاه '
@@ -178,9 +173,9 @@ abstract final class LlmIranGymStyleGuide {
       );
     } else if (daysPerWeek >= 5) {
       buffer.writeln(
-        isAdvanced
-            ? 'برای این کاربر: اسپلیت عضلانی کلاسیک باشگاهی ایران.'
-            : 'برای این کاربر: اسپلیت عضلانی ساده و آشنا برای باشگاه ایران.',
+        'برای این کاربر: فشار/کشش/پا دو بار در هفته '
+        '(برچسب یکتا: فشار ۱، کشش ۱، پا ۱، فشار ۲، …). '
+        'اسپلیت یک‌عضله‌در‌هفته ننویس.',
       );
     }
 

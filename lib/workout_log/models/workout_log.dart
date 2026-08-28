@@ -15,8 +15,10 @@ class WorkoutLog {
 
     // Check if we're getting data from the new structure or legacy format
     if (json.containsKey('workout_data')) {
-      // New JSON structure
-      workoutData = Map<String, dynamic>.from(json['workout_data'] as Map);
+      final raw = json['workout_data'];
+      workoutData = raw is Map
+          ? Map<String, dynamic>.from(raw)
+          : <String, dynamic>{};
     } else {
       // Legacy format or direct mapping
       workoutData = {

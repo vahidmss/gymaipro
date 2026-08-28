@@ -120,6 +120,8 @@ if (!function_exists('gymai_pop20_external_links')) {
             'squat' => 'https://en.wikipedia.org/wiki/Squat_(exercise)',
             'lunge' => 'https://en.wikipedia.org/wiki/Lunge_(exercise)',
             'spinal_flexion' => 'https://en.wikipedia.org/wiki/Crunch_(exercise)',
+            'gait' => 'https://en.wikipedia.org/wiki/Treadmill',
+            'cardio' => 'https://en.wikipedia.org/wiki/Aerobic_exercise',
         );
         if (isset($wiki[$pattern])) {
             $links[] = array($wiki[$pattern], 'ویکی‌پدیا — مرجع حرکت');
@@ -637,6 +639,8 @@ if (!function_exists('gymai_pop20_meta_label')) {
                 'carry' => 'حمل وزنه',
                 'isometric' => 'ایزومتریک',
                 'back_extension' => 'اکستنشن کمر',
+                'gait' => 'گام / پیاده‌روی',
+                'cardio' => 'هوازی',
             ),
             'body' => array(
                 'compound' => 'چند مفصلی',
@@ -833,7 +837,7 @@ if (!function_exists('gymai_pop20_reapply_all_meta')) {
     function gymai_pop20_reapply_all_meta() {
         gymai_pop20_load_batch_files();
         $funcs = array();
-        for ($i = 1; $i <= 16; $i++) {
+        for ($i = 1; $i <= 17; $i++) {
             $fn = 'gymai_pop20_batch' . $i . '_definitions';
             if (function_exists($fn)) {
                 $funcs[] = $fn;
@@ -1008,6 +1012,10 @@ if (!function_exists('gymai_pop20_load_batch_files')) {
                 defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR . '/gymai-seed/pop20-batch16.php' : '',
                 defined('WP_PLUGIN_DIR') ? WP_PLUGIN_DIR . '/gymai-popular-20-seed/pop20-batch16.php' : '',
             ),
+            'gymai_pop20_batch17_definitions' => array(
+                defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR . '/gymai-seed/pop20-batch17.php' : '',
+                defined('WP_PLUGIN_DIR') ? WP_PLUGIN_DIR . '/gymai-popular-20-seed/pop20-batch17.php' : '',
+            ),
         );
 
         foreach ($map as $func => $paths) {
@@ -1044,6 +1052,7 @@ if (!function_exists('gymai_pop20_batch_status')) {
             'batch14' => function_exists('gymai_pop20_batch14_definitions'),
             'batch15' => function_exists('gymai_pop20_batch15_definitions'),
             'batch16' => function_exists('gymai_pop20_batch16_definitions'),
+            'batch17' => function_exists('gymai_pop20_batch17_definitions'),
         );
     }
 }
@@ -1175,6 +1184,9 @@ if (!function_exists('gymai_pop20_handle_admin_request')) {
             } elseif ($which === '16' && $status['batch16']) {
                 $flash['result'] = gymai_pop20_run_batch(gymai_pop20_batch16_definitions(), $update);
                 $flash['batch_label'] = '۲۰ حرکت شانزدهم (۲۸۱–۳۰۰)';
+            } elseif ($which === '17' && $status['batch17']) {
+                $flash['result'] = gymai_pop20_run_batch(gymai_pop20_batch17_definitions(), $update);
+                $flash['batch_label'] = '۴ حرکت کاردیو باشگاهی (۳۰۱–۳۰۴)';
             } elseif ($which === 'aliases' && function_exists('gymai_pop20_apply_iran_alias_patch')) {
                 $flash['result'] = gymai_pop20_apply_iran_alias_patch();
                 $flash['batch_label'] = 'بروزرسانی نام‌های جایگزین (جستجو)';
@@ -1258,11 +1270,12 @@ if (!function_exists('gymai_pop20_admin_page')) {
         $b14_ok = $status['batch14'];
         $b15_ok = $status['batch15'];
         $b16_ok = $status['batch16'];
-        $all_ok = $b1_ok && $b2_ok && $b3_ok && $b4_ok && $b5_ok && $b6_ok && $b7_ok && $b8_ok && $b9_ok && $b10_ok && $b11_ok && $b12_ok && $b13_ok && $b14_ok && $b15_ok && $b16_ok;
+        $b17_ok = $status['batch17'];
+        $all_ok = $b1_ok && $b2_ok && $b3_ok && $b4_ok && $b5_ok && $b6_ok && $b7_ok && $b8_ok && $b9_ok && $b10_ok && $b11_ok && $b12_ok && $b13_ok && $b14_ok && $b15_ok && $b16_ok && $b17_ok;
         $alias_ok = function_exists('gymai_pop20_apply_iran_alias_patch');
         ?>
         <div class="wrap">
-            <h1>GymAI Exercises (۳۰۰ حرکت پرطرفدار)</h1>
+            <h1>GymAI Exercises (۳۰۰ حرکت + کاردیو باشگاهی)</h1>
             <p>برای <strong>بروزرسانی سئو</strong> روی حرکات موجود، تیک «بروزرسانی موجود» را بزن و batch را دوباره اجرا کن.</p>
             <p>امتیاز Rank Math: بعد از ایجاد، از لیست پست‌ها «بروزرسانی» بزن (همان روشی که خودت انجام می‌دهی).</p>
 
@@ -1288,10 +1301,11 @@ if (!function_exists('gymai_pop20_admin_page')) {
                     <?php if (!$b14_ok) : ?><strong>Batch 14 لود نشد</strong> — <code>pop20-batch14.php</code><br><?php endif; ?>
                     <?php if (!$b15_ok) : ?><strong>Batch 15 لود نشد</strong> — <code>pop20-batch15.php</code><br><?php endif; ?>
                     <?php if (!$b16_ok) : ?><strong>Batch 16 لود نشد</strong> — <code>pop20-batch16.php</code><br><?php endif; ?>
+                    <?php if (!$b17_ok) : ?><strong>Batch 17 لود نشد</strong> — <code>pop20-batch17.php</code> (تردمیل / دوچرخه / الپتیکال)<br><?php endif; ?>
                     مسیر پیشنهادی: <code>wp-content/gymai-seed/</code>
                 </p></div>
             <?php else : ?>
-                <div class="notice notice-info"><p>هر ۱۶ batch آماده‌اند — batch 12 تا 16 = ۱۰۰ حرکت جدید (۲۰۱ تا ۳۰۰).</p></div>
+                <div class="notice notice-info"><p>هر ۱۶ batch قدرتی + batch 17 کاردیو آماده‌اند (تردمیل، دوچرخه ثابت، الپتیکال).</p></div>
             <?php endif; ?>
 
             <h2>نام‌های جایگزین جستجو (مهم)</h2>
@@ -1468,11 +1482,20 @@ if (!function_exists('gymai_pop20_admin_page')) {
 
             <h2>Batch 16 — حرکات ۲۸۱ تا ۳۰۰ (تکمیل باشگاهی)</h2>
             <p>سامو/پلایه اسکات، کلام‌شل، پیستول، کوپنهاگن، ریورس پک‌دک، یوک واک و...</p>
-            <form method="post">
+            <form method="post" style="margin-bottom:24px;">
                 <?php wp_nonce_field('gymai_pop20', 'gymai_pop20_nonce'); ?>
                 <input type="hidden" name="batch" value="16" />
                 <p><label><input type="checkbox" name="update_existing" value="1" /> بروزرسانی موجود</label></p>
                 <?php submit_button('اجرای ۲۰ حرکت شانزدهم', 'primary', 'submit', false); ?>
+            </form>
+
+            <h2>Batch 17 — کاردیو باشگاهی (۳۰۱ تا ۳۰۴)</h2>
+            <p>تردمیل پیاده‌روی، تردمیل دویدن، دوچرخه ثابت، الپتیکال — زمان‌محور (نه ست×تکرار قدرتی). برای برنامهٔ مبتدی دیواری.</p>
+            <form method="post">
+                <?php wp_nonce_field('gymai_pop20', 'gymai_pop20_nonce'); ?>
+                <input type="hidden" name="batch" value="17" />
+                <p><label><input type="checkbox" name="update_existing" value="1" /> بروزرسانی موجود</label></p>
+                <?php submit_button('اجرای ۴ حرکت کاردیو', 'primary', 'submit', false); ?>
             </form>
         </div>
         <?php

@@ -753,7 +753,7 @@ class TrainerEscrowService {
       final v = txFinal ?? txAmt;
       if (v != null) {
         final isDirect =
-            pm == 'direct' || gw == 'zibal' || gw == 'zarinpal';
+            pm == 'direct' || gw == 'zibal';
         return isDirect ? v : (v * 10);
       }
     }

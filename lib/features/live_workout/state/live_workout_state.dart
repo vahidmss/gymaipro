@@ -207,6 +207,7 @@ class LiveWorkoutState {
     String? errorMessage,
     ActiveProgramOption? activeProgram,
     ActiveWorkoutSessionContext? sessionContext,
+    bool clearCompletionSummary = false,
   }) {
     return LiveWorkoutState(
       status: status ?? this.status,
@@ -216,7 +217,9 @@ class LiveWorkoutState {
       explainability: explainability ?? this.explainability,
       readinessHint: readinessHint ?? this.readinessHint,
       rest: rest ?? this.rest,
-      completionSummary: completionSummary ?? this.completionSummary,
+      completionSummary: clearCompletionSummary
+          ? null
+          : (completionSummary ?? this.completionSummary),
       errorMessage: errorMessage ?? this.errorMessage,
       activeProgram: activeProgram ?? this.activeProgram,
       sessionContext: sessionContext ?? this.sessionContext,

@@ -116,8 +116,8 @@ class DashboardQuickAccess extends StatelessWidget {
                 'دسترسی سریع',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14.sp,
                   color: context.textColor,
                 ),
               ),
@@ -153,12 +153,12 @@ class DashboardQuickAccess extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: 8.h),
+        SizedBox(height: 10.h),
         Row(
           textDirection: TextDirection.rtl,
           children: [
             for (var i = 0; i < items.length; i++) ...[
-              if (i > 0) SizedBox(width: 6.w),
+              if (i > 0) SizedBox(width: 8.w),
               Expanded(child: _QuickTile(item: items[i])),
             ],
           ],
@@ -193,12 +193,13 @@ class _QuickTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: item.onTap,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(14.r),
         child: Ink(
-          padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 2.w),
+          height: 72.h,
+          padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 4.w),
           decoration: BoxDecoration(
             color: context.cardColor,
-            borderRadius: BorderRadius.circular(12.r),
+            borderRadius: BorderRadius.circular(14.r),
             border: Border.all(color: context.separatorColor),
           ),
           child: Column(
@@ -207,7 +208,13 @@ class _QuickTile extends StatelessWidget {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Icon(item.icon, size: 18.sp, color: context.textColor),
+                  Icon(
+                    item.icon,
+                    size: 20.sp,
+                    color: context.isDark
+                        ? AppTheme.darkTextColor
+                        : context.textColor,
+                  ),
                   if (item.badge != null)
                     Positioned(
                       right: -10.w,
@@ -234,14 +241,14 @@ class _QuickTile extends StatelessWidget {
                     ),
                 ],
               ),
-              SizedBox(height: 4.h),
+              SizedBox(height: 7.h),
               Text(
                 item.label,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 9.5.sp,
-                  color: context.textSecondary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10.5.sp,
+                  color: context.textColor,
                   height: 1.1,
                 ),
                 maxLines: 1,

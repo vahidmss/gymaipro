@@ -6,21 +6,26 @@ class ArticleStatsCacheService {
 
   // Cache for article stats
   static final Map<int, ArticleStats> _statsCache = {};
-  static DateTime? _lastCacheTime;
+  static final Map<int, DateTime> _entryTimes = {};
 
-  static bool get _isCacheValid {
-    if (_lastCacheTime == null) return false;
-    return DateTime.now().difference(_lastCacheTime!) < _cacheExpiry;
+  static bool _isEntryValid(int articleId) {
+    final t = _entryTimes[articleId];
+    if (t == null) return false;
+    return DateTime.now().difference(t) < _cacheExpiry;
   }
 
-  // Get stats for a single article
-  static Future<ArticleStats> getArticleStats(int articleId) async {
-    // Check cache first
-    if (_isCacheValid && _statsCache.containsKey(articleId)) {
+  /// Get stats for a single article.
+  /// [forceRefresh] bypasses cache (e.g. after like/rating on detail).
+  static Future<ArticleStats> getArticleStats(
+    int articleId, {
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh &&
+        _isEntryValid(articleId) &&
+        _statsCache.containsKey(articleId)) {
       return _statsCache[articleId]!;
     }
 
-    // Load from database
     try {
       final likeState = await ArticleLikeSupabaseService.getState(articleId);
       final rating = await ArticleRatingSupabaseService.getStats(articleId);
@@ -31,38 +36,34 @@ class ArticleStatsCacheService {
         ratingCount: rating.count,
       );
 
-      // Cache the result
-      _statsCache[articleId] = stats;
-      _lastCacheTime = DateTime.now();
-
+      put(articleId, stats);
       return stats;
     } catch (e) {
-      // Return default stats on error
       return ArticleStats(likeCount: 0, avgRating: 0, ratingCount: 0);
     }
   }
 
-  // Load stats for multiple articles at once
+  /// Load stats for multiple articles at once
   static Future<Map<int, ArticleStats>> loadMultipleStats(
-    List<int> articleIds,
-  ) async {
+    List<int> articleIds, {
+    bool forceRefresh = false,
+  }) async {
     final Map<int, ArticleStats> results = {};
 
-    // Check cache for existing stats
-    for (final id in articleIds) {
-      if (_isCacheValid && _statsCache.containsKey(id)) {
-        results[id] = _statsCache[id]!;
+    if (!forceRefresh) {
+      for (final id in articleIds) {
+        if (_isEntryValid(id) && _statsCache.containsKey(id)) {
+          results[id] = _statsCache[id]!;
+        }
       }
     }
 
-    // Find articles that need loading
     final articlesToLoad = articleIds
         .where((id) => !results.containsKey(id))
         .toList();
 
     if (articlesToLoad.isNotEmpty) {
       try {
-        // Load all stats in parallel
         final futures = articlesToLoad.map(_loadSingleStats);
         final stats = await Future.wait(futures);
 
@@ -70,12 +71,9 @@ class ArticleStatsCacheService {
           final articleId = articlesToLoad[i];
           final statsData = stats[i];
           results[articleId] = statsData;
-          _statsCache[articleId] = statsData;
+          put(articleId, statsData);
         }
-
-        _lastCacheTime = DateTime.now();
       } catch (e) {
-        // Fill with default stats for failed articles
         for (final id in articlesToLoad) {
           if (!results.containsKey(id)) {
             results[id] = ArticleStats(
@@ -106,10 +104,21 @@ class ArticleStatsCacheService {
     }
   }
 
-  // Clear cache
+  /// Write/update cached stats (e.g. right after like toggle).
+  static void put(int articleId, ArticleStats stats) {
+    _statsCache[articleId] = stats;
+    _entryTimes[articleId] = DateTime.now();
+  }
+
+  /// Drop one article so next read hits the network.
+  static void invalidate(int articleId) {
+    _statsCache.remove(articleId);
+    _entryTimes.remove(articleId);
+  }
+
   static void clearCache() {
     _statsCache.clear();
-    _lastCacheTime = null;
+    _entryTimes.clear();
   }
 }
 
@@ -122,4 +131,16 @@ class ArticleStats {
   final int likeCount;
   final double avgRating;
   final int ratingCount;
+
+  ArticleStats copyWith({
+    int? likeCount,
+    double? avgRating,
+    int? ratingCount,
+  }) {
+    return ArticleStats(
+      likeCount: likeCount ?? this.likeCount,
+      avgRating: avgRating ?? this.avgRating,
+      ratingCount: ratingCount ?? this.ratingCount,
+    );
+  }
 }

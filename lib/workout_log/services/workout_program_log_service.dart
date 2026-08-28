@@ -380,6 +380,8 @@ class WorkoutDailyLogService {
         day: session.day,
         exercises: exercises,
         notes: session.notes,
+        programId: session.programId,
+        sessionAnalysis: session.sessionAnalysis,
       );
     }).toList();
 

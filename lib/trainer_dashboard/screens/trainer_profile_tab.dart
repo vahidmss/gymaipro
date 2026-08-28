@@ -190,10 +190,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
                   elevation: isDark ? 4 : 2,
                   shadowColor: AppTheme.goldColor.withValues(alpha: 0.3),
                 ),
-                icon: Icon(
-                  LucideIcons.save,
-                  size: 20.sp,
-                ),
+                icon: Icon(LucideIcons.save, size: 20.sp),
                 label: Text(
                   'ذخیره پروفایل مربی',
                   style: TextStyle(
@@ -346,14 +343,14 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
               color: selected
                   ? AppTheme.goldColor
                   : (isDark
-                      ? context.cardColor.withValues(alpha: 0.6)
-                      : context.separatorColor.withValues(alpha: 0.3)),
+                        ? context.cardColor.withValues(alpha: 0.6)
+                        : context.separatorColor.withValues(alpha: 0.3)),
               border: Border.all(
                 color: selected
                     ? AppTheme.goldColor
                     : (isDark
-                        ? context.separatorColor
-                        : AppTheme.goldColor.withValues(alpha: 0.3)),
+                          ? context.separatorColor
+                          : AppTheme.goldColor.withValues(alpha: 0.3)),
                 width: selected ? 0 : 1.5,
               ),
               borderRadius: BorderRadius.circular(18.r),
@@ -373,17 +370,13 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
                 Icon(
                   selected ? LucideIcons.check : LucideIcons.plus,
                   size: 14.sp,
-                  color: selected
-                      ? AppTheme.onGoldColor
-                      : AppTheme.goldColor,
+                  color: selected ? AppTheme.onGoldColor : AppTheme.goldColor,
                 ),
                 SizedBox(width: 6.w),
                 Text(
                   s,
                   style: TextStyle(
-                    color: selected
-                        ? AppTheme.onGoldColor
-                        : context.textColor,
+                    color: selected ? AppTheme.onGoldColor : context.textColor,
                     fontWeight: FontWeight.w600,
                     fontSize: 12.sp,
                     letterSpacing: 0.2,
@@ -406,11 +399,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
-      style: TextStyle(
-        color: context.textColor,
-        fontSize: 14.sp,
-        height: 1.5,
-      ),
+      style: TextStyle(color: context.textColor, fontSize: 14.sp, height: 1.5),
       decoration: _inputDecoration(
         label: label,
         hint: hint,
@@ -428,10 +417,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
     return TextFormField(
       controller: controller,
       keyboardType: TextInputType.number,
-      style: TextStyle(
-        color: context.textColor,
-        fontSize: 14.sp,
-      ),
+      style: TextStyle(color: context.textColor, fontSize: 14.sp),
       validator: validator,
       decoration: _inputDecoration(label: label, icon: icon),
     );
@@ -457,11 +443,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
         fontSize: 13.sp,
       ),
       prefixIcon: icon != null
-          ? Icon(
-              icon,
-              color: AppTheme.goldColor,
-              size: 20.sp,
-            )
+          ? Icon(icon, color: AppTheme.goldColor, size: 20.sp)
           : null,
       filled: true,
       fillColor: isDark
@@ -478,10 +460,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16.r),
-        borderSide: const BorderSide(
-          color: AppTheme.goldColor,
-          width: 2,
-        ),
+        borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16.r),
@@ -492,10 +471,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16.r),
-        borderSide: const BorderSide(
-          color: AppTheme.errorColor,
-          width: 2,
-        ),
+        borderSide: const BorderSide(color: AppTheme.errorColor, width: 2),
       ),
       contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
     );
@@ -647,7 +623,9 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
               children: [
                 _channelStatusChip(
                   label: isEnabled ? 'فعال' : 'غیرفعال',
-                  color: isEnabled ? AppTheme.successColor : context.textSecondary,
+                  color: isEnabled
+                      ? AppTheme.successColor
+                      : context.textSecondary,
                   isDark: isDark,
                 ),
                 _channelStatusChip(
@@ -664,7 +642,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
                 if (isEnabled && postCount == 0)
                   _channelStatusChip(
                     label: 'منتظر اولین پست',
-                    color: Colors.orange.shade700,
+                    color: AppTheme.fatColor,
                     isDark: isDark,
                   )
                 else if (isPublic)
@@ -813,10 +791,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
                     ),
                   );
                 },
-                icon: Icon(
-                  LucideIcons.plus,
-                  size: 16.sp,
-                ),
+                icon: Icon(LucideIcons.plus, size: 16.sp),
                 label: Text(
                   'افزودن',
                   style: TextStyle(
@@ -869,7 +844,9 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
                 return Container(
                   padding: EdgeInsets.all(16.w),
                   decoration: BoxDecoration(
-                    color: AppTheme.errorColor.withValues(alpha: isDark ? 0.15 : 0.1),
+                    color: AppTheme.errorColor.withValues(
+                      alpha: isDark ? 0.15 : 0.1,
+                    ),
                     borderRadius: BorderRadius.circular(12.r),
                     border: Border.all(
                       color: AppTheme.errorColor.withValues(alpha: 0.3),
@@ -903,7 +880,10 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
 
               if (certificates.isEmpty) {
                 return Container(
-                  padding: EdgeInsets.symmetric(vertical: 32.h, horizontal: 16.w),
+                  padding: EdgeInsets.symmetric(
+                    vertical: 32.h,
+                    horizontal: 16.w,
+                  ),
                   decoration: BoxDecoration(
                     color: isDark
                         ? context.cardColor.withValues(alpha: 0.5)
@@ -948,7 +928,7 @@ class _TrainerProfileTabState extends State<TrainerProfileTab> {
 
               // Group certificates by type
               final Map<CertificateType, List<Certificate>>
-                  groupedCertificates = {};
+              groupedCertificates = {};
               for (final certificate in certificates) {
                 if (!groupedCertificates.containsKey(certificate.type)) {
                   groupedCertificates[certificate.type] = [];

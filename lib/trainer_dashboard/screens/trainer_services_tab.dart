@@ -136,7 +136,8 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
       }
       // IMPORTANT: read raw columns to include custom fields not modeled in UserProfile
       final profile = await SimpleProfileService.queryCurrentUserProfile(
-        select: 'monthly_training_cost, monthly_diet_cost, package_discount_pct, service_training_enabled, service_diet_enabled, service_consulting_enabled, service_package_enabled',
+        select:
+            'monthly_training_cost, monthly_diet_cost, package_discount_pct, service_training_enabled, service_diet_enabled, service_consulting_enabled, service_package_enabled',
       );
       final json = profile ?? {};
       setState(() {
@@ -320,7 +321,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                     title: 'برنامه رژیم غذایی',
                     controller: _dietPriceCtr,
                     hint: 'هزینه ماهانه برنامه رژیم غذایی',
-                    color: Colors.purple,
+                    color: AppTheme.successColor,
                     enabled: _enableDiet,
                     isDark: isDark,
                     onToggleEnabled: (v) {
@@ -375,7 +376,9 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
             ? null
             : [
                 BoxShadow(
-                  color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.25),
+                  color: AppTheme.goldColor.withValues(
+                    alpha: isDark ? 0.3 : 0.25,
+                  ),
                   blurRadius: 12.r,
                   offset: Offset(0, 4.h),
                 ),
@@ -412,7 +415,11 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                     ),
                   ),
                 ] else ...[
-                  Icon(LucideIcons.save, size: 20.sp, color: AppTheme.onGoldColor),
+                  Icon(
+                    LucideIcons.save,
+                    size: 20.sp,
+                    color: AppTheme.onGoldColor,
+                  ),
                   SizedBox(width: 8.w),
                   Text(
                     'ذخیره تعرفه‌ها',
@@ -518,7 +525,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                       Text(
                         title,
                         style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                          fontFamily: AppTheme.fontFamily,
                           color: context.textColor,
                           fontSize: 18.sp,
                           fontWeight: FontWeight.bold,
@@ -527,7 +534,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                       Text(
                         hint,
                         style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                          fontFamily: AppTheme.fontFamily,
                           color: context.textSecondary,
                           fontSize: 12.sp,
                         ),
@@ -552,7 +559,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                     keyboardType: TextInputType.number,
                     textDirection: TextDirection.ltr,
                     style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                      fontFamily: AppTheme.fontFamily,
                       color: context.textColor,
                       fontSize: 14.sp,
                     ),
@@ -573,7 +580,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                       isDense: true,
                       hintText: _toPersianDigits('0'),
                       hintStyle: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                        fontFamily: AppTheme.fontFamily,
                         color: context.textSecondary.withValues(alpha: 0.5),
                         fontSize: 12.sp,
                       ),
@@ -604,7 +611,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                         child: Text(
                           'تومان',
                           style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                            fontFamily: AppTheme.fontFamily,
                             color: context.textSecondary,
                             fontSize: 12.sp,
                           ),
@@ -617,7 +624,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                 Text(
                   'ماهانه',
                   style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                    fontFamily: AppTheme.fontFamily,
                     color: context.textSecondary,
                     fontSize: 12.sp,
                   ),
@@ -736,7 +743,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                   child: Text(
                     title,
                     style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                      fontFamily: AppTheme.fontFamily,
                       color: context.textColor,
                       fontSize: 18.sp,
                       fontWeight: FontWeight.bold,
@@ -758,7 +765,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                         Text(
                           'تومان ',
                           style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                            fontFamily: AppTheme.fontFamily,
                             color: context.textSecondary,
                             fontSize: 12.sp,
                           ),
@@ -769,7 +776,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                           child: Text(
                             _formatAmountFa(value),
                             style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                              fontFamily: AppTheme.fontFamily,
                               color: AppTheme.goldColor,
                               fontWeight: FontWeight.bold,
                               fontSize: 14.sp,
@@ -781,7 +788,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                     Text(
                       'ماهانه',
                       style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                        fontFamily: AppTheme.fontFamily,
                         color: context.textSecondary,
                         fontSize: 12.sp,
                       ),
@@ -817,7 +824,9 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
           boxShadow: [
             if (active)
               BoxShadow(
-                color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.12),
+                color: AppTheme.goldColor.withValues(
+                  alpha: isDark ? 0.15 : 0.12,
+                ),
                 blurRadius: 14.r,
                 offset: Offset(0, 4.h),
               ),
@@ -832,7 +841,9 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                 Container(
                   padding: EdgeInsets.all(10.w),
                   decoration: BoxDecoration(
-                    color: AppTheme.goldColor.withValues(alpha: isDark ? 0.18 : 0.14),
+                    color: AppTheme.goldColor.withValues(
+                      alpha: isDark ? 0.18 : 0.14,
+                    ),
                     borderRadius: BorderRadius.circular(12.r),
                   ),
                   child: Icon(
@@ -883,18 +894,18 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                 padding: EdgeInsets.all(12.w),
                 decoration: BoxDecoration(
                   color: isDark
-                      ? Colors.orange.withValues(alpha: 0.12)
-                      : Colors.orange.withValues(alpha: 0.08),
+                      ? AppTheme.fatColor.withValues(alpha: 0.12)
+                      : AppTheme.fatColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10.r),
                   border: Border.all(
-                    color: Colors.orange.withValues(alpha: 0.35),
+                    color: AppTheme.fatColor.withValues(alpha: 0.35),
                   ),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       LucideIcons.info,
-                      color: Colors.orange.shade700,
+                      color: AppTheme.fatColor,
                       size: 18.sp,
                     ),
                     SizedBox(width: 8.w),
@@ -959,12 +970,16 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                 onChanged: (val) {
                   if (_isFormatting) return;
                   _isFormatting = true;
-                  final digits = _normalizeDigits(val).replaceAll(RegExp('[^0-9]'), '');
+                  final digits = _normalizeDigits(
+                    val,
+                  ).replaceAll(RegExp('[^0-9]'), '');
                   final n = (int.tryParse(digits) ?? 0).clamp(0, 100);
                   final formatted = _toPersianDigits(n.toString());
                   _discountPctCtr.value = TextEditingValue(
                     text: formatted,
-                    selection: TextSelection.collapsed(offset: formatted.length),
+                    selection: TextSelection.collapsed(
+                      offset: formatted.length,
+                    ),
                   );
                   SafeSetState.call(this, () {});
                   _isFormatting = false;
@@ -996,7 +1011,10 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.r),
-                    borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
+                    borderSide: const BorderSide(
+                      color: AppTheme.goldColor,
+                      width: 2,
+                    ),
                   ),
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: 12.w,
@@ -1007,9 +1025,14 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
               if (_discountPct > 0 && _packageSavings > 0) ...[
                 SizedBox(height: 10.h),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12.w,
+                    vertical: 8.h,
+                  ),
                   decoration: BoxDecoration(
-                    color: AppTheme.successColor.withValues(alpha: isDark ? 0.12 : 0.1),
+                    color: AppTheme.successColor.withValues(
+                      alpha: isDark ? 0.12 : 0.1,
+                    ),
                     borderRadius: BorderRadius.circular(10.r),
                   ),
                   child: Row(
@@ -1039,10 +1062,14 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
               Container(
                 padding: EdgeInsets.all(14.w),
                 decoration: BoxDecoration(
-                  color: AppTheme.goldColor.withValues(alpha: isDark ? 0.12 : 0.1),
+                  color: AppTheme.goldColor.withValues(
+                    alpha: isDark ? 0.12 : 0.1,
+                  ),
                   borderRadius: BorderRadius.circular(14.r),
                   border: Border.all(
-                    color: AppTheme.goldColor.withValues(alpha: isDark ? 0.35 : 0.3),
+                    color: AppTheme.goldColor.withValues(
+                      alpha: isDark ? 0.35 : 0.3,
+                    ),
                   ),
                 ),
                 child: Row(
@@ -1107,7 +1134,9 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
         Text(
           label,
           style: TextStyle(
-            color: enabled ? context.textSecondary : context.textSecondary.withValues(alpha: 0.5),
+            color: enabled
+                ? context.textSecondary
+                : context.textSecondary.withValues(alpha: 0.5),
             fontSize: emphasized ? 14.sp : 13.sp,
             fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500,
             fontFamily: AppTheme.fontFamily,
@@ -1120,7 +1149,9 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
                 ? '${_formatAmountFa(amount)} تومان'
                 : _toPersianDigits('۰'),
             style: TextStyle(
-              color: emphasized ? context.textColor : context.textColor.withValues(alpha: 0.9),
+              color: emphasized
+                  ? context.textColor
+                  : context.textColor.withValues(alpha: 0.9),
               fontSize: emphasized ? 14.sp : 13.sp,
               fontWeight: emphasized ? FontWeight.w700 : FontWeight.w600,
               fontFamily: AppTheme.fontFamily,
@@ -1142,7 +1173,7 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
             child: Text(
               text,
               style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                fontFamily: AppTheme.fontFamily,
                 color: context.textSecondary,
                 fontSize: 12.sp,
               ),
@@ -1152,5 +1183,4 @@ class _TrainerServicesTabState extends State<TrainerServicesTab> {
       ),
     );
   }
-
 }

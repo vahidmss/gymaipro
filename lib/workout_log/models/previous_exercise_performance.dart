@@ -17,6 +17,22 @@ class PreviousExerciseSet {
       (weight != null && weight! > 0) ||
       (seconds != null && seconds! > 0);
 
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      if (reps != null) 'reps': reps,
+      if (weight != null) 'weight': weight,
+      if (seconds != null) 'seconds': seconds,
+    };
+  }
+
+  static PreviousExerciseSet fromJson(Map<String, dynamic> json) {
+    return PreviousExerciseSet(
+      reps: json['reps'] is num ? (json['reps'] as num).round() : null,
+      weight: json['weight'] is num ? (json['weight'] as num).toDouble() : null,
+      seconds: json['seconds'] is num ? (json['seconds'] as num).round() : null,
+    );
+  }
+
   String get summaryLabel {
     if (seconds != null && seconds! > 0 && (reps == null || reps! <= 0)) {
       return '${seconds!}ث';
@@ -36,21 +52,52 @@ class PreviousExerciseSet {
   }
 }
 
+/// آخرین عملکرد meaningful یک حرکت به‌همراه تاریخ لاگ مبدأ.
+class PreviousExerciseRecord {
+  const PreviousExerciseRecord({
+    required this.sets,
+    this.logDate,
+  });
+
+  final List<PreviousExerciseSet> sets;
+  final DateTime? logDate;
+
+  bool get hasData => sets.any((s) => s.hasMeaningfulData);
+}
+
 /// استخراج آخرین ست‌های meaningful برای هر exerciseId از لاگ‌های قدیمی‌تر.
 class PreviousExercisePerformance {
   const PreviousExercisePerformance._();
 
-  /// [logs] باید از جدید به قدیم مرتب باشد و فقط قبل از روز جاری باشد.
+  /// [logs] باید فقط قبل از روز جاری باشد.
+  /// مرتب‌سازی جدید→قدیم اینجا هم harden می‌شود تا تقدم/تأخر خراب نشود.
   static Map<int, List<PreviousExerciseSet>> fromLogs({
+    required List<WorkoutDailyLog> logs,
+    required Set<int> exerciseIds,
+  }) {
+    final detailed = fromLogsWithMeta(logs: logs, exerciseIds: exerciseIds);
+    return <int, List<PreviousExerciseSet>>{
+      for (final e in detailed.entries) e.key: e.value.sets,
+    };
+  }
+
+  static Map<int, PreviousExerciseRecord> fromLogsWithMeta({
     required List<WorkoutDailyLog> logs,
     required Set<int> exerciseIds,
   }) {
     if (exerciseIds.isEmpty || logs.isEmpty) return const {};
 
-    final remaining = Set<int>.of(exerciseIds);
-    final result = <int, List<PreviousExerciseSet>>{};
+    final ordered = List<WorkoutDailyLog>.of(logs)
+      ..sort((a, b) {
+        final byDate = b.logDate.compareTo(a.logDate);
+        if (byDate != 0) return byDate;
+        return b.updatedAt.compareTo(a.updatedAt);
+      });
 
-    for (final log in logs) {
+    final remaining = Set<int>.of(exerciseIds);
+    final result = <int, PreviousExerciseRecord>{};
+
+    for (final log in ordered) {
       if (remaining.isEmpty) break;
       final foundToday = <int, List<PreviousExerciseSet>>{};
 
@@ -76,9 +123,13 @@ class PreviousExercisePerformance {
         }
       }
 
+      final day = DateTime(log.logDate.year, log.logDate.month, log.logDate.day);
       for (final entry in foundToday.entries) {
         if (!result.containsKey(entry.key)) {
-          result[entry.key] = entry.value;
+          result[entry.key] = PreviousExerciseRecord(
+            sets: entry.value,
+            logDate: day,
+          );
           remaining.remove(entry.key);
         }
       }
@@ -93,19 +144,19 @@ class PreviousExercisePerformance {
     required int exerciseId,
     required List<ExerciseSetLog> sets,
   }) {
-    if (!remaining.contains(exerciseId)) return;
-    final mapped = <PreviousExerciseSet>[];
+    if (!remaining.contains(exerciseId) || into.containsKey(exerciseId)) {
+      return;
+    }
+    final meaningful = <PreviousExerciseSet>[];
     for (final set in sets) {
-      final prev = PreviousExerciseSet(
+      final mapped = PreviousExerciseSet(
         reps: set.reps,
         weight: set.weight,
         seconds: set.seconds,
       );
-      if (prev.hasMeaningfulData) mapped.add(prev);
+      if (mapped.hasMeaningfulData) meaningful.add(mapped);
     }
-    if (mapped.isNotEmpty) {
-      // در همان روز، آخرین وقوع برنده است.
-      into[exerciseId] = mapped;
-    }
+    if (meaningful.isEmpty) return;
+    into[exerciseId] = meaningful;
   }
 }

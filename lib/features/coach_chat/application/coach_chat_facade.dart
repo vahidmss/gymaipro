@@ -1,3 +1,4 @@
+import 'package:gymaipro/ai/coach/coach_decision.dart';
 import 'package:gymaipro/ai/context/intent_detector.dart';
 import 'package:gymaipro/ai/integration/coach_integration_result.dart';
 import 'package:gymaipro/ai/integration/coach_state_integration.dart';
@@ -5,6 +6,7 @@ import 'package:gymaipro/ai/intent/intent_intelligence_engine.dart';
 import 'package:gymaipro/ai/memory/memory_fact_confirmation_service.dart';
 import 'package:gymaipro/ai/models/ai_chat_message.dart';
 import 'package:gymaipro/ai/persistence/conversation_summary_service.dart';
+import 'package:gymaipro/ai/services/coach_chat_daily_limit_service.dart';
 import 'package:gymaipro/ai/skills/runtime/coach_skill_response.dart';
 import 'package:gymaipro/ai/workout_modify/models/workout_modify_enums.dart';
 import 'package:gymaipro/ai/workout_modify/models/workout_modify_result.dart';
@@ -38,6 +40,7 @@ class CoachChatFacade {
     CoachChatStorageService? storageService,
     ConversationSummaryService? summaryService,
     MemoryFactConfirmationService? confirmationService,
+    CoachChatDailyLimitService? chatDailyLimitService,
   }) : _coachLoader =
            coachLoader ??
            previewLoader ??
@@ -51,7 +54,9 @@ class CoachChatFacade {
        _storageService = storageService ?? CoachChatStorageService(),
        _summaryService = summaryService ?? ConversationSummaryService(),
        _confirmationService =
-           confirmationService ?? MemoryFactConfirmationService();
+           confirmationService ?? MemoryFactConfirmationService(),
+       _chatDailyLimitService =
+           chatDailyLimitService ?? CoachChatDailyLimitService();
 
   final CoachFeatureLoader _coachLoader;
   final CoachPreviewSeedProvider? _seedLoader;
@@ -62,6 +67,7 @@ class CoachChatFacade {
   final CoachChatStorageService _storageService;
   final ConversationSummaryService _summaryService;
   final MemoryFactConfirmationService _confirmationService;
+  final CoachChatDailyLimitService _chatDailyLimitService;
 
   Future<CoachChatFacadeResult> load() async {
     final userId = _safeUserId();
@@ -71,10 +77,14 @@ class CoachChatFacade {
       );
     }
 
+    final quota = await _loadQuota(userId);
     final messages = await _storageService.loadMessages(userId);
     if (messages.isEmpty) {
-      return const CoachChatFacadeResult(
-        state: CoachChatState.empty(),
+      return CoachChatFacadeResult(
+        state: CoachChatState(
+          status: CoachChatStatus.empty,
+          quota: quota,
+        ),
       );
     }
 
@@ -82,8 +92,15 @@ class CoachChatFacade {
       state: CoachChatState(
         status: CoachChatStatus.loaded,
         messages: messages,
+        quota: quota,
       ),
     );
+  }
+
+  Future<CoachChatQuota?> loadQuota() async {
+    final userId = _safeUserId();
+    if (userId == null) return null;
+    return _loadQuota(userId);
   }
 
   Future<void> persistMessages(List<CoachChatMessage> messages) async {
@@ -104,6 +121,7 @@ class CoachChatFacade {
   Future<CoachChatPreviewResponse> send(
     String prompt, {
     List<ChatMessage> history = const <ChatMessage>[],
+    void Function(String partialText)? onPartialText,
   }) async {
     final userId = _safeUserId();
     if (userId != null) {
@@ -154,6 +172,21 @@ class CoachChatFacade {
       );
     }
 
+    if (userId != null) {
+      final quota = await _chatDailyLimitService.load(userId: userId);
+      if (!quota.canSend) {
+        return CoachChatPreviewResponse(
+          message: CoachChatMessage(
+            id: 'coach_daily_limit_${DateTime.now().microsecondsSinceEpoch}',
+            role: CoachChatMessageRole.coach,
+            type: CoachChatMessageType.warning,
+            text: ProductCopy.chatDailyLimitReached,
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
+    }
+
     final seed = await (_seedLoader ?? CoachPreviewSeedLoader()).load(
       intent: intent,
       message: prompt,
@@ -173,7 +206,18 @@ class CoachChatFacade {
       userMessage: prompt,
       history: history,
       intent: intent,
+      onPartial: onPartialText,
     );
+
+    if (userId != null &&
+        result.decision.status == CoachDecisionStatus.allowed) {
+      try {
+        await _chatDailyLimitService.recordSuccessfulReply(userId: userId);
+      } on Object {
+        // Quota bookkeeping must never block a successful coach reply.
+      }
+    }
+
     return map(
       result,
       prompt: prompt,
@@ -227,15 +271,17 @@ class CoachChatFacade {
           )
         : null;
 
-    final cards = _buildCards(
-      result: result,
-      response: response,
-      resolvedIntent: resolvedIntent,
-      prompt: prompt,
-      review: review,
-      modification: modification,
-      pending: pending,
-    );
+    final cards = (resolvedText != null && !result.isLocalResponse)
+        ? _buildAiReplyCards(pending: pending)
+        : _buildCards(
+            result: result,
+            response: response,
+            resolvedIntent: resolvedIntent,
+            prompt: prompt,
+            review: review,
+            modification: modification,
+            pending: pending,
+          );
 
     return CoachChatPreviewResponse(
       message: CoachChatMessage(
@@ -271,6 +317,20 @@ class CoachChatFacade {
     return CoachChatMessageType.normal;
   }
 
+  /// AI prose already contains the answer — keep only actionable/safety cards.
+  List<CoachChatMessageCard> _buildAiReplyCards({
+    required List<PendingMemoryConfirmation> pending,
+  }) {
+    if (pending.isEmpty) return const <CoachChatMessageCard>[];
+    return <CoachChatMessageCard>[
+      CoachChatMessageCard(
+        type: CoachChatCardType.memoryUpdate,
+        title: 'تأیید اطلاعات',
+        items: pending.map((item) => item.prompt).toList(growable: false),
+      ),
+    ];
+  }
+
   List<CoachChatMessageCard> _buildCards({
     required CoachIntegrationResult result,
     required CoachSkillResponse? response,
@@ -286,9 +346,14 @@ class CoachChatFacade {
       result,
     );
 
+    // Consult chat: avoid dumping every pipeline artifact as accordion cards.
+    final keepExplainCards = resolvedIntent == AIIntent.workoutToday ||
+        resolvedIntent == AIIntent.workoutModification ||
+        resolvedIntent == AIIntent.progressAnalysis;
+
     return <CoachChatMessageCard>[
       ...<CoachChatMessageCard?>[
-        if (response?.explanation != null)
+        if (keepExplainCards && response?.explanation != null)
           _card(
             type: CoachChatCardType.explanation,
             title: ProductExperienceFormatter.localizeCardTitle(
@@ -296,55 +361,31 @@ class CoachChatFacade {
             ),
             items: response.explanation!.bullets,
           ),
-        if ((response?.reasons ?? const []).isNotEmpty)
-          _card(
-            type: CoachChatCardType.reason,
-            title: ProductExperienceFormatter.localizeCardTitle('Reasons'),
-            items: response!.reasons.map((reason) => reason.message).toList(),
-          ),
         if ((response?.warnings ?? const []).isNotEmpty)
           _card(
             type: CoachChatCardType.warning,
             title: ProductExperienceFormatter.localizeCardTitle('Warnings'),
             items: response!.warnings,
           ),
-        if ((response?.recommendations ?? const []).isNotEmpty)
-          _card(
-            type: CoachChatCardType.recommendation,
-            title: ProductExperienceFormatter.localizeCardTitle(
-              'Recommendations',
-            ),
-            items: response!.recommendations
-                .map((item) => '${item.title}: ${item.detail}')
-                .toList(),
-          ),
-        if ((response?.nextActions ?? const []).isNotEmpty)
+        if (keepExplainCards && (response?.nextActions ?? const []).isNotEmpty)
           _card(
             type: CoachChatCardType.nextAction,
             title: ProductExperienceFormatter.localizeCardTitle('Next Actions'),
             items: response!.nextActions,
           ),
-        if (coachNotes.isNotEmpty)
+        if (keepExplainCards && coachNotes.isNotEmpty)
           _card(
             type: CoachChatCardType.coachNotes,
             title: ProductExperienceFormatter.localizeCardTitle('Coach Notes'),
             items: coachNotes,
           ),
-        if (trainingInsights.isNotEmpty)
+        if (keepExplainCards && trainingInsights.isNotEmpty)
           _card(
             type: CoachChatCardType.knowledgeInsight,
             title: ProductExperienceFormatter.localizeCardTitle(
               'Knowledge Insight',
             ),
-            items: trainingInsights,
-          ),
-        if (result.responsePlan.followUpQuestions.isNotEmpty)
-          _card(
-            type: CoachChatCardType.followUpQuestion,
-            title: ProductExperienceFormatter.localizeCardTitle(
-              'Follow-up Question',
-            ),
-            items: result.responsePlan.followUpQuestions,
+            items: trainingInsights.take(2).toList(growable: false),
           ),
         if (pending.isNotEmpty)
           _card(
@@ -384,6 +425,15 @@ class CoachChatFacade {
         .where((item) => item.trim().isNotEmpty)
         .take(4)
         .toList(growable: false);
+  }
+
+  Future<CoachChatQuota> _loadQuota(String userId) async {
+    final snapshot = await _chatDailyLimitService.load(userId: userId);
+    return CoachChatQuota(
+      used: snapshot.used,
+      limit: snapshot.limit,
+      unlimited: snapshot.unlimited,
+    );
   }
 
   String? _safeUserId() {

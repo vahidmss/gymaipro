@@ -185,12 +185,10 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     if (_loading) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: AppTheme.goldColor,
-        ),
+        child: CircularProgressIndicator(color: AppTheme.goldColor),
       );
     }
 
@@ -215,7 +213,7 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                   Text(
                     'فعلاً برنامه ارائه‌شده‌ای وجود ندارد',
                     style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                      fontFamily: AppTheme.fontFamily,
                       color: isDark
                           ? context.textColor.withValues(alpha: 0.6)
                           : context.textSecondary,
@@ -267,7 +265,7 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
           final registeredAt = DateTime.tryParse(
             it['program_registration_date'] as String? ?? '',
           );
-          
+
           // محاسبه expiry_date: از زمان ارسال برنامه (sent_at) تا 33 روز بعد
           // اگر sent_at در دیتابیس نبود، از program_registration_date استفاده می‌کنیم (همان زمان sent_at است)
           DateTime? expiryAt;
@@ -293,10 +291,10 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
           String fmtAmount(int? a) => _formatTomanFromRial(a);
 
           final isDark = Theme.of(context).brightness == Brightness.dark;
-          
+
           return DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20.r),
+              borderRadius: BorderRadius.circular(16.r),
               gradient: isDark
                   ? LinearGradient(
                       begin: Alignment.topLeft,
@@ -317,9 +315,7 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                       ],
                     ),
               border: Border.all(
-                color: AppTheme.goldColor.withValues(
-                  alpha: isDark ? 0.2 : 0.3,
-                ),
+                color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.3),
                 width: 1.5.w,
               ),
               boxShadow: [
@@ -354,65 +350,41 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            Text(
+                              displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                color: context.textColor,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14.sp,
+                              ),
+                            ),
+                            SizedBox(height: 7.h),
+                            Wrap(
+                              spacing: 6.w,
+                              runSpacing: 6.h,
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    displayName,
-                                    style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                                      color: context.textColor,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14.sp,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
                                 _Chip(
                                   text: serviceType == 'diet'
                                       ? 'غذایی'
                                       : 'تمرینی',
-                                  fg: serviceType == 'diet'
+                                  color: serviceType == 'diet'
                                       ? AppTheme.successColor
                                       : AppTheme.goldColor,
-                                  bg1: serviceType == 'diet'
-                                      ? AppTheme.successColor.withValues(
-                                          alpha: 0.22,
-                                        )
-                                      : AppTheme.goldColor.withValues(
-                                          alpha: 0.2,
-                                        ),
-                                  bg2: serviceType == 'diet'
-                                      ? AppTheme.successColor.withValues(
-                                          alpha: 0.14,
-                                        )
-                                      : AppTheme.goldColor.withValues(
-                                          alpha: 0.12,
-                                        ),
                                 ),
-                                const SizedBox(width: 6),
                                 _Chip(
                                   text: programStatus == 'completed'
                                       ? 'تکمیل شده'
                                       : 'در حال انجام',
-                                  fg: programStatus == 'completed'
-                                      ? AppTheme.goldColor
-                                      : context.textSecondary,
-                                  bg1: programStatus == 'completed'
-                                      ? AppTheme.goldColor.withValues(
-                                          alpha: 0.2,
-                                        )
-                                      : AppTheme.darkCardColor,
-                                  bg2: programStatus == 'completed'
-                                      ? AppTheme.goldColor.withValues(
-                                          alpha: 0.12,
-                                        )
-                                      : context.veryDarkBackground,
+                                  color: programStatus == 'completed'
+                                      ? AppTheme.successColor
+                                      : AppTheme.fatColor,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 6),
+                            SizedBox(height: 8.h),
                             Row(
                               children: [
                                 Expanded(
@@ -424,35 +396,46 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                                         color: AppTheme.goldColor,
                                       ),
                                       const SizedBox(width: 6),
-                                      Text(
-                                      fmtAmount(finalAmount),
-                                      style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                                        color: AppTheme.goldColor,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 15.sp,
+                                      Expanded(
+                                        child: Text(
+                                          fmtAmount(finalAmount),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontFamily: AppTheme.fontFamily,
+                                            color: AppTheme.goldColor,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 15.sp,
+                                          ),
+                                        ),
                                       ),
-                                    ),
                                     ],
                                   ),
                                 ),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.event_available_outlined,
-                                      size: 16.sp,
-                                      color: Colors.white60,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'ثبت: ${fmtDate(registeredAt ?? purchaseAt)}',
-                                      style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                                SizedBox(width: 8.w),
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.event_available_outlined,
+                                        size: 16.sp,
                                         color: context.textSecondary,
-                                        fontSize: 12.sp,
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          'ثبت: ${fmtDate(registeredAt ?? purchaseAt)}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontFamily: AppTheme.fontFamily,
+                                            color: context.textSecondary,
+                                            fontSize: 12.sp,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
@@ -465,41 +448,54 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
                                       Icon(
                                         Icons.shopping_bag_outlined,
                                         size: 16.sp,
-                                        color: Colors.white38,
+                                        color: context.textSecondary.withValues(
+                                          alpha: 0.75,
+                                        ),
                                       ),
                                       const SizedBox(width: 6),
-                                      Text(
-                                        'خرید: ${fmtDate(purchaseAt)}',
-                                        style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                                          color: context.textSecondary.withValues(
-                                            alpha: 0.7,
+                                      Expanded(
+                                        child: Text(
+                                          'خرید: ${fmtDate(purchaseAt)}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontFamily: AppTheme.fontFamily,
+                                            color: context.textSecondary
+                                                .withValues(alpha: 0.75),
+                                            fontSize: 12.sp,
                                           ),
-                                          fontSize: 12.sp,
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.lock_clock,
-                                      size: 16.sp,
-                                      color: Colors.white38,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'انقضا: ${fmtDate(expiryAt)}',
-                                      style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                                SizedBox(width: 8.w),
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.lock_clock,
+                                        size: 16.sp,
                                         color: context.textSecondary.withValues(
-                                          alpha: 0.7,
+                                          alpha: 0.75,
                                         ),
-                                        fontSize: 12.sp,
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          'انقضا: ${fmtDate(expiryAt)}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontFamily: AppTheme.fontFamily,
+                                            color: context.textSecondary
+                                                .withValues(alpha: 0.75),
+                                            fontSize: 12.sp,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
@@ -519,30 +515,24 @@ class _TrainerActivitiesTabState extends State<TrainerActivitiesTab> {
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.text,
-    required this.fg,
-    required this.bg1,
-    required this.bg2,
-  });
+  const _Chip({required this.text, required this.color});
   final String text;
-  final Color fg;
-  final Color bg1;
-  final Color bg2;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [bg1, bg2]),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999.r),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
       child: Text(
         text,
         style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-          color: fg,
+          fontFamily: AppTheme.fontFamily,
+          color: color,
           fontSize: 12.sp,
           fontWeight: FontWeight.w600,
         ),
@@ -563,7 +553,7 @@ class _Avatar extends StatelessWidget {
         : 'ک';
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return DecoratedBox(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -584,9 +574,7 @@ class _Avatar extends StatelessWidget {
         child: Container(
           width: 52.w,
           height: 52.h,
-          color: isDark
-              ? context.veryDarkBackground
-              : AppTheme.lightCardColor,
+          color: isDark ? context.veryDarkBackground : AppTheme.lightCardColor,
           child: avatarUrl != null && avatarUrl!.isNotEmpty
               ? GymaiNetworkImage(
                   imageUrl: avatarUrl!,
@@ -616,15 +604,13 @@ class _Initials extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Center(
       child: Text(
         initials,
         style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-          color: isDark
-              ? AppTheme.goldColor
-              : AppTheme.lightTextColor,
+          fontFamily: AppTheme.fontFamily,
+          color: isDark ? AppTheme.goldColor : AppTheme.lightTextColor,
           fontWeight: FontWeight.w700,
           fontSize: 18.sp,
         ),

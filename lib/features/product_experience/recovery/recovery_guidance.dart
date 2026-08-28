@@ -4,7 +4,7 @@ import 'package:gymaipro/features/product_experience/product_experience_formatte
 
 /// High-level coaching situation for recovery copy and CTAs.
 enum RecoveryScenario {
-  /// Meaningful workout already logged today — focus on recovery, not intensity.
+  /// Live workout finished today — focus on recovery, not intensity.
   postSessionToday,
 
   /// Ready for a normal/hard session.
@@ -78,7 +78,8 @@ class RecoveryGuidance {
         daysSinceLastWorkout: days,
       ),
       suggestLighterSession: scenario == RecoveryScenario.needsRestOrLighter,
-      suggestStartWorkout: scenario == RecoveryScenario.readyToTrain ||
+      suggestStartWorkout:
+          scenario == RecoveryScenario.readyToTrain ||
           scenario == RecoveryScenario.trainCautiously ||
           scenario == RecoveryScenario.returningAfterBreak,
       daysSinceLastWorkout: days,
@@ -95,9 +96,25 @@ class RecoveryGuidance {
   final bool suggestStartWorkout;
   final int? daysSinceLastWorkout;
 
-  bool get trainedToday =>
-      scenario == RecoveryScenario.postSessionToday ||
-      (daysSinceLastWorkout != null && daysSinceLastWorkout! <= 0);
+  bool get trainedToday => snapshot.sessionCompletedToday;
+
+  /// 0–1 multiplier for program-generation / modify engines.
+  ///
+  /// Unknown keeps the historical default (0.85) so missing data does not
+  /// suddenly shrink every generated program.
+  double get programEngineRecoveryScore {
+    return switch (scenario) {
+      RecoveryScenario.postSessionToday => 0.4,
+      RecoveryScenario.needsRestOrLighter => 0.4,
+      RecoveryScenario.returningAfterBreak => 0.55,
+      RecoveryScenario.trainCautiously => 0.65,
+      RecoveryScenario.readyToTrain => 0.9,
+      RecoveryScenario.unknown =>
+        snapshot.readiness > 0
+            ? (snapshot.readiness / 100).clamp(0.35, 0.95)
+            : 0.85,
+    };
+  }
 
   /// Full chat / skill message in Persian.
   String get chatMessage {
@@ -126,9 +143,9 @@ class RecoveryGuidance {
     required CoachRecoverySnapshot snapshot,
     int? daysSinceLastWorkout,
   }) {
-    // Already trained today: readiness drop is expected — never tell them to
-    // "train lighter today" as if the session were still ahead.
-    if (daysSinceLastWorkout != null && daysSinceLastWorkout <= 0) {
+    // Only a finished live session counts as "جلسه امروز ثبت شد".
+    // Meaningful-but-incomplete logs (or empty shells) must not trigger this.
+    if (snapshot.sessionCompletedToday) {
       return RecoveryScenario.postSessionToday;
     }
 
@@ -153,11 +170,13 @@ class RecoveryGuidance {
 
   static String _headlineFor(RecoveryScenario scenario) {
     return switch (scenario) {
-      RecoveryScenario.postSessionToday => 'جلسه امروزت ثبت شد — حالا نوبت ریکاوری است',
+      RecoveryScenario.postSessionToday =>
+        'جلسه امروزت ثبت شد — حالا نوبت ریکاوری است',
       RecoveryScenario.readyToTrain => 'آمادگی امروز خوبه',
       RecoveryScenario.trainCautiously => 'آمادگی امروز متوسطه',
       RecoveryScenario.needsRestOrLighter => 'بدن امروز به فشار کمتر نیاز دارد',
-      RecoveryScenario.returningAfterBreak => 'بعد از چند روز فاصله، آرام برگرد',
+      RecoveryScenario.returningAfterBreak =>
+        'بعد از چند روز فاصله، آرام برگرد',
       RecoveryScenario.unknown => 'هنوز تصویر کامل از ریکاوری نداریم',
     };
   }
@@ -197,13 +216,13 @@ class RecoveryGuidance {
       RecoveryScenario.trainCautiously =>
         '$metrics تمرین کردن مشکلی نداره؛ یکی دو ست اول را گرم‌تر بگیر و فشار را پله‌پله بالا ببر.',
       RecoveryScenario.needsRestOrLighter => () {
-          final restGap = daysSinceLastWorkout == null
-              ? ''
-              : daysSinceLastWorkout == 1
-              ? ' از آخرین تمرین حدود ۱ روز گذشته.'
-              : ' از آخرین تمرین حدود $daysSinceLastWorkout روز گذشته.';
-          return '$metrics$restGap اگر هنوز تمرین امروز را شروع نکرده‌ای، بهتر است حجم یا شدت را کم کنی؛ کیفیت فرم مهم‌تر از سنگینی است.';
-        }(),
+        final restGap = daysSinceLastWorkout == null
+            ? ''
+            : daysSinceLastWorkout == 1
+            ? ' از آخرین تمرین حدود ۱ روز گذشته.'
+            : ' از آخرین تمرین حدود $daysSinceLastWorkout روز گذشته.';
+        return '$metrics$restGap اگر هنوز تمرین امروز را شروع نکرده‌ای، بهتر است حجم یا شدت را کم کنی؛ کیفیت فرم مهم‌تر از سنگینی است.';
+      }(),
       RecoveryScenario.returningAfterBreak =>
         '$metrics حدود $daysSinceLastWorkout روز از آخرین تمرین گذشته. با شدت متوسط برگرد، نه با حداکثر توان — بدن دوباره هماهنگ می‌شود.',
       RecoveryScenario.unknown =>
@@ -217,6 +236,7 @@ class RecoveryGuidance {
     int? daysSinceLastWorkout,
   }) {
     final tips = <String>[];
+    final lastNight = snapshot.lastNightSleepHours;
 
     switch (scenario) {
       case RecoveryScenario.postSessionToday:
@@ -259,7 +279,26 @@ class RecoveryGuidance {
       case RecoveryScenario.unknown:
         tips
           ..add('یک جلسه کامل ثبت کن تا آمادگی از دادهٔ واقعی به‌روز شود.')
-          ..add('ساعت خواب را در پروفایل وارد کن تا تخمین دقیق‌تر شود.');
+          ..add(
+            lastNight == null
+                ? 'خواب مفید دیشب را وارد کن تا آمادگی دقیق‌تر شود.'
+                : 'با چند جلسه ثبت‌شده، همین خواب دیشب روی توصیه امروز اثر می‌گذارد.',
+          );
+    }
+
+    if (lastNight != null) {
+      if (lastNight < 6) {
+        tips.add(
+          scenario == RecoveryScenario.postSessionToday
+              ? 'دیشب خواب مفیدت کم بوده؛ امشب زودتر بخواب تا ریکاوری جبران شود.'
+              : 'دیشب کمتر از ۶ ساعت خواب مفید داشتی؛ شدت را متعادل نگه دار.',
+        );
+      } else if (lastNight >= 8 &&
+          scenario != RecoveryScenario.postSessionToday) {
+        tips.add(
+          'خواب مفید دیشبت خوب بوده؛ از این آمادگی برای ست‌های اصلی استفاده کن.',
+        );
+      }
     }
 
     return tips;

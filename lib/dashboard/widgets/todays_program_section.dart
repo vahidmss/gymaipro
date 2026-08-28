@@ -38,14 +38,15 @@ class _TodaysProgramSectionState extends State<TodaysProgramSection> {
           color: Colors.transparent,
           child: InkWell(
             onTap: _openWorkoutLog,
-            borderRadius: BorderRadius.circular(22.r),
+            borderRadius: BorderRadius.circular(20.r),
             child: Ink(
-              height: 210.h,
+              height: 196.h,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22.r),
+                borderRadius: BorderRadius.circular(20.r),
+                border: Border.all(color: context.separatorColor),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(22.r),
+                borderRadius: BorderRadius.circular(20.r),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -55,11 +56,11 @@ class _TodaysProgramSectionState extends State<TodaysProgramSection> {
                       alignment: const Alignment(0, -0.2),
                       errorBuilder: (context, error, stackTrace) {
                         return ColoredBox(
-                          color: const Color(0xFF1A1A1A),
+                          color: context.surfaceElevated,
                           child: Icon(
                             LucideIcons.dumbbell,
                             size: 48.sp,
-                            color: Colors.white54,
+                            color: context.textSecondary,
                           ),
                         );
                       },
@@ -70,9 +71,9 @@ class _TodaysProgramSectionState extends State<TodaysProgramSection> {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
+                            Color(0x22000000),
                             Color(0x33000000),
-                            Color(0x00000000),
-                            Color(0xE6000000),
+                            Color(0xF2000000),
                           ],
                           stops: [0, 0.4, 1],
                         ),
@@ -81,7 +82,7 @@ class _TodaysProgramSectionState extends State<TodaysProgramSection> {
                     Positioned(
                       left: 18.w,
                       right: 18.w,
-                      bottom: 18.h,
+                      bottom: 16.h,
                       child: Row(
                         children: [
                           Expanded(
@@ -89,23 +90,50 @@ class _TodaysProgramSectionState extends State<TodaysProgramSection> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 8.w,
+                                    vertical: 4.h,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.42),
+                                    borderRadius: BorderRadius.circular(20.r),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.14,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'برنامه امروز',
+                                    style: TextStyle(
+                                      fontFamily: AppTheme.fontFamily,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 10.sp,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(height: 8.h),
                                 Text(
-                                  'شروع تمرین امروز',
+                                  'شروع تمرین',
                                   style: TextStyle(
                                     fontFamily: AppTheme.fontFamily,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 22.sp,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 23.sp,
                                     color: Colors.white,
                                     height: 1.15,
                                   ),
                                 ),
-                                SizedBox(height: 6.h),
+                                SizedBox(height: 5.h),
                                 Text(
                                   'ثبت ست‌ها، وزنه و پیشرفت جلسه',
                                   style: TextStyle(
                                     fontFamily: AppTheme.fontFamily,
                                     fontWeight: FontWeight.w500,
-                                    fontSize: 13.sp,
+                                    fontSize: 12.5.sp,
                                     color: Colors.white.withValues(alpha: 0.82),
                                     height: 1.25,
                                   ),
@@ -115,11 +143,18 @@ class _TodaysProgramSectionState extends State<TodaysProgramSection> {
                           ),
                           SizedBox(width: 12.w),
                           Container(
-                            width: 52.w,
-                            height: 52.w,
+                            width: 50.w,
+                            height: 50.w,
                             decoration: BoxDecoration(
                               color: context.actionFill,
                               shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.28),
+                                  blurRadius: 14.r,
+                                  offset: Offset(0, 5.h),
+                                ),
+                              ],
                             ),
                             child: Icon(
                               LucideIcons.play,

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/auth/widgets/auth_gradient_background.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/widgets/app_remote_image.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key, this.jumpToLastPage = false});
@@ -16,41 +18,39 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   late final PageController _pageController;
   late int _currentPage;
 
-  final List<_WelcomePageData> _pages = [
+  final List<_WelcomePageData> _pages = const [
     _WelcomePageData(
       title: 'مربی هوشمند همیشه همراه تو',
       description:
-          'مربی هوشمند، همیشه کنارته\nحرکاتت رو زیر نظر بگیر، از اشتباهات جلوگیری کن و با پشتیبانی لحظه‌ای پیشرفت کن.',
+          'حرکاتت را زیر نظر بگیر، از اشتباهات جلوگیری کن و با پشتیبانی لحظه‌ای پیشرفت کن.',
       image: 'images/poster1.jpg',
-      icon: Icons.image,
+      alignment: Alignment(0, -0.15),
     ),
     _WelcomePageData(
-      title: 'برنامه تمرینی و تغذیه شخصی‌سازی شده',
+      title: 'برنامه تمرینی و تغذیه شخصی',
       description:
-          'برنامه‌ای که فقط برای تو ساخته شده\nمربیان واقعی و هوش مصنوعی، دست به دست هم می‌دن تا بهترین برنامه رو برای بدن و هدفت طراحی کنن.',
+          'مربیان واقعی و هوش مصنوعی با هم بهترین برنامه را برای بدن و هدفت می‌سازند.',
       image: 'images/poster2.jpg',
-      icon: Icons.schedule,
     ),
     _WelcomePageData(
-      title: 'پیشرفتت رو ببین',
+      title: 'پیشرفتت را ببین',
       description:
-          'پیشرفتت رو به چشم ببین\nبا نمودارها و آمار دقیق، هر قدمی که جلو میری ثبت و بررسی میشه.',
+          'با نمودارها و آمار دقیق، هر قدمی که جلو می‌روی ثبت و بررسی می‌شود.',
       image: 'images/poster3.jpg',
-      icon: Icons.trending_up,
     ),
     _WelcomePageData(
       title: 'مربیان واقعی، همیشه در دسترس',
       description:
-          'مربی واقعی، انتخاب تو\nمربی‌هات رو بین بهترین‌ها انتخاب کن، رتبه‌بندی ببین و مستقیم باهاشون کار کن.',
+          'از بین بهترین‌ها انتخاب کن، رتبه‌بندی ببین و مستقیم با مربی کار کن.',
       image: 'images/poster5.jpg',
-      icon: Icons.people_alt,
+      // گوشی گرافیکی سمت راست را از مرکز کادر دور کن
+      alignment: Alignment(-0.4, -0.12),
     ),
   ];
 
   @override
   void initState() {
     super.initState();
-    // اگر jumpToLastPage true باشد، مستقیماً از آخرین صفحه شروع کن
     final lastPageIndex = _pages.length - 1;
     if (widget.jumpToLastPage) {
       _currentPage = lastPageIndex;
@@ -61,11 +61,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      for (final page in _pages) {
-        if (!page.image.contains('poster')) continue;
-        precacheImage(AssetImage(page.image), context);
-      }
+      _precacheAround(_currentPage);
     });
+  }
+
+  void _precacheAround(int index) {
+    for (final i in {index, index + 1}) {
+      if (i < 0 || i >= _pages.length) continue;
+      precacheImage(AssetImage(_pages[i].image), context);
+    }
   }
 
   @override
@@ -76,272 +80,171 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final page = _pages[_currentPage];
+    final isLast = _currentPage == _pages.length - 1;
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: context.backgroundColor,
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          // Background gradient
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-                colors: [
-                  AppTheme.darkGold.withValues(alpha: 0.1),
-                  AppTheme.backgroundColor,
-                  AppTheme.backgroundColor,
-                ],
+          PageView.builder(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() => _currentPage = index);
+              _precacheAround(index);
+            },
+            itemCount: _pages.length,
+            itemBuilder: (context, index) {
+              final p = _pages[index];
+              return AppRemoteImage(
+                path: p.image,
+                fit: BoxFit.cover,
+                alignment: p.alignment,
+                errorWidget: ColoredBox(color: context.backgroundColor),
+              );
+            },
+          ),
+
+          // اسکریم پایین قوی — متن/CTA روی ناحیهٔ تاریک
+          const IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x22000000),
+                    Color(0x00000000),
+                    Color(0x99000000),
+                    Color(0xE6000000),
+                  ],
+                  stops: [0.0, 0.28, 0.55, 1.0],
+                ),
               ),
             ),
           ),
 
-          // Fullscreen poster background by current page
-          if (_pages[_currentPage].image.contains('poster'))
-            Positioned.fill(
-              child: AppRemoteImage(
-                path: _pages[_currentPage].image,
-                fit: BoxFit.fill,
-                errorWidget: const SizedBox.shrink(),
-              ),
-            ),
-          if (_pages[_currentPage].image.contains('poster'))
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.1),
-                      Colors.black.withValues(alpha: 0.1),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-          // Main content
-          Column(
-            children: [
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  onPageChanged: (index) {
-                    setState(() => _currentPage = index);
-                  },
-                  itemCount: _pages.length,
-                  itemBuilder: (context, index) {
-                    return _buildPage(_pages[index]);
-                  },
-                ),
-              ),
-
-              // Page indicator + CTAs
-              Padding(
-                padding: const EdgeInsets.only(bottom: 32),
+          // یک ستون واحد تا دات روی متن نیفتد
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 18.h),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    Text(
+                      page.title,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: Colors.white,
+                        fontSize: 22.sp,
+                        fontWeight: FontWeight.w900,
+                        height: 1.35,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 8.h),
+                    Text(
+                      page.description,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        color: Colors.white.withValues(alpha: 0.88),
+                        fontSize: 13.5.sp,
+                        fontWeight: FontWeight.w500,
+                        height: 1.55,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 18.h),
                     _PageDots(
                       controller: _pageController,
                       count: _pages.length,
+                      index: _currentPage,
                     ),
-                    const SizedBox(height: 32),
-                    if (_currentPage == _pages.length - 1)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 32),
-                        child: Column(
-                          children: [
-                            ElevatedButton(
-                              style: AppTheme.primaryButtonStyle,
-                              onPressed: () {
-                                Navigator.pushReplacementNamed(
-                                  context,
-                                  '/register',
-                                );
-                              },
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text('شروع کنید'),
-                                  SizedBox(width: 8),
-                                  Icon(Icons.arrow_forward),
-                                ],
-                              ),
+                    SizedBox(height: 18.h),
+                    if (isLast) ...[
+                      AuthPrimaryButton(
+                        label: 'شروع کنید',
+                        onPressed: () {
+                          Navigator.pushReplacementNamed(context, '/register');
+                        },
+                      ),
+                      SizedBox(height: 10.h),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48.h,
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.pushReplacementNamed(context, '/login');
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.5),
                             ),
-                            const SizedBox(height: 16),
-                            TextButton(
-                              style: AppTheme.secondaryButtonStyle,
-                              onPressed: () {
-                                Navigator.pushReplacementNamed(
-                                  context,
-                                  '/login',
-                                );
-                              },
-                              child: const Text(
-                                'قبلاً ثبت‌نام کرده‌ام',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14.r),
                             ),
-                          ],
+                          ),
+                          child: Text(
+                            'قبلاً ثبت‌نام کرده‌ام',
+                            style: TextStyle(
+                              fontFamily: AppTheme.fontFamily,
+                              fontSize: 13.5.sp,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ] else
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48.h,
+                        child: FilledButton(
+                          onPressed: () {
+                            _pageController.nextPage(
+                              duration: const Duration(milliseconds: 280),
+                              curve: Curves.easeOutCubic,
+                            );
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppTheme.goldColor,
+                            foregroundColor: AppTheme.onGoldColor,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14.r),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'ادامه',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              SizedBox(width: 8.w),
+                              Icon(LucideIcons.chevronLeft, size: 18.sp),
+                            ],
+                          ),
                         ),
                       ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPage(_WelcomePageData page) {
-    // Poster slides: only texts; background image is rendered globally
-    if (page.image.contains('poster')) {
-      return SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(24.w),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                page.title,
-                style: AppTheme.headingStyle.copyWith(
-                  color: Colors.white,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 8.r,
-                    ),
-                  ],
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.w),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
-                  ),
-                ),
-                child: Text(
-                  page.description,
-                  textAlign: TextAlign.center,
-                  style: AppTheme.bodyStyle.copyWith(
-                    fontSize: (AppTheme.bodyStyle.fontSize ?? 14) + 2,
-                    height: 1.5,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 6,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: EdgeInsets.all(32.w),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (page.image.isNotEmpty)
-            Container(
-              padding: EdgeInsets.all(20.w),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppTheme.goldColor.withValues(alpha: 0.1),
-                    AppTheme.cardColor,
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.goldColor.withValues(alpha: 0.1),
-                    blurRadius: 28.r,
-                    spreadRadius: 6.r,
-                  ),
-                ],
-              ),
-              child: Container(
-                padding: EdgeInsets.all(20.w),
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.cardColor,
-                ),
-                child: AppRemoteImage(
-                  path: page.image,
-                  height: 100.h,
-                  width: 100.w,
-                  errorWidget:
-                      Icon(page.icon, size: 80.sp, color: AppTheme.goldColor),
-                ),
-              ),
-            )
-          else
-            Container(
-              padding: EdgeInsets.all(20.w),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    AppTheme.goldColor.withValues(alpha: 0.1),
-                    AppTheme.cardColor,
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.goldColor.withValues(alpha: 0.1),
-                    blurRadius: 28.r,
-                    spreadRadius: 6.r,
-                  ),
-                ],
-              ),
-              child: Container(
-                padding: EdgeInsets.all(24.w),
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.cardColor,
-                ),
-                child: Icon(page.icon, size: 84.sp, color: AppTheme.goldColor),
-              ),
             ),
-          const SizedBox(height: 48),
-          Text(
-            page.title,
-            style: AppTheme.headingStyle.copyWith(
-              color: AppTheme.darkTextColor,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            page.description,
-            style: AppTheme.bodyStyle.copyWith(
-              color: AppTheme.darkTextColor.withValues(alpha: 0.7),
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 4,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -350,45 +253,52 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 }
 
 class _WelcomePageData {
-  _WelcomePageData({
+  const _WelcomePageData({
     required this.title,
     required this.description,
     required this.image,
-    required this.icon,
+    this.alignment = Alignment.center,
   });
   final String title;
   final String description;
   final String image;
-  final IconData icon;
+  final Alignment alignment;
 }
 
 class _PageDots extends StatelessWidget {
-  const _PageDots({required this.controller, required this.count});
+  const _PageDots({
+    required this.controller,
+    required this.count,
+    required this.index,
+  });
   final PageController controller;
   final int count;
+  final int index;
 
   @override
   Widget build(BuildContext context) {
-    // Minimal page dots without external package to keep it simple
     return SizedBox(
-      height: 12,
+      height: 10,
       child: AnimatedBuilder(
         animation: controller,
         builder: (context, _) {
-          final page = controller.hasClients ? controller.page ?? 0.0 : 0.0;
+          final page = controller.hasClients
+              ? (controller.page ?? index.toDouble())
+              : index.toDouble();
           return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(count, (index) {
-              final isActive = (page.round() == index);
-              return Container(
-                width: isActive ? 12 : 8,
-                height: isActive ? 12 : 8,
-                margin: const EdgeInsets.symmetric(horizontal: 6),
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(count, (i) {
+              final active = (page - i).abs() < 0.5;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: active ? 18 : 7,
+                height: 7,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
                 decoration: BoxDecoration(
-                  color: isActive
+                  color: active
                       ? AppTheme.goldColor
-                      : AppTheme.goldColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
+                      : Colors.white.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(999),
                 ),
               );
             }),

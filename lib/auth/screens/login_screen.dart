@@ -29,8 +29,6 @@ class _LoginScreenState extends State<LoginScreen>
   // برای انیمیشن ورود
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  late Animation<double> _logoScaleAnimation;
-  late Animation<double> _cardSlideAnimation;
 
   // Focus nodes for better field management
   final _phoneFocusNode = FocusNode();
@@ -56,21 +54,7 @@ class _LoginScreenState extends State<LoginScreen>
     _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: Curves.easeOut, // سریع‌تر از easeIn
-      ),
-    );
-
-    _logoScaleAnimation = Tween<double>(begin: 0.9, end: 1).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0, 0.5, curve: Curves.easeOut), // سریع‌تر
-      ),
-    );
-
-    _cardSlideAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.1, 1, curve: Curves.easeOut), // سریع‌تر
+        curve: Curves.easeOut,
       ),
     );
 
@@ -80,9 +64,6 @@ class _LoginScreenState extends State<LoginScreen>
         _animationController.safeForward();
       }
     });
-
-    // بهینه‌سازی: حذف listener غیرضروری که باعث rebuild می‌شود
-    // Focus handling توسط Flutter به صورت خودکار انجام می‌شود
   }
 
   @override
@@ -222,14 +203,11 @@ class _LoginScreenState extends State<LoginScreen>
       onPopInvokedWithResult: (didPop, result) {
         if (didPop || _isDisposed) return;
 
-        // ابتدا TextField را از درخت UI حذف می‌کنیم
         _isDisposed = true;
         WidgetSafetyUtils.safeSetState(this, () {});
 
-        // صبر می‌کنیم تا UI به‌روزرسانی شود
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            // همیشه به welcome با آخرین اسلاید برو
             WidgetSafetyUtils.safePushReplacementNamed(
               context,
               '/welcome',
@@ -240,234 +218,91 @@ class _LoginScreenState extends State<LoginScreen>
       },
       child: Scaffold(
         backgroundColor: context.backgroundColor,
-        // بهینه‌سازی: بهبود عملکرد کیبورد
         resizeToAvoidBottomInset: true,
-        body: RepaintBoundary(
-          child: Stack(
-            children: [
-              const AuthGradientBackground(),
-              // Content
-              SafeArea(
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      // دریافت ارتفاع keyboard برای مدیریت بهتر layout
-                      final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-                      final isKeyboardOpen = keyboardHeight > 0;
-                      
-                      return SingleChildScrollView(
-                        // بهینه‌سازی: بهبود رفتار کیبورد
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        physics: WebInteraction.listScrollPhysics,
-                        padding: EdgeInsets.only(
-                          left: 20.w,
-                          right: 20.w,
-                          top: 24.h,
-                          bottom: isKeyboardOpen ? 16.h : 24.h,
+        body: Stack(
+          children: [
+            const AuthGradientBackground(),
+            SafeArea(
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final keyboardHeight =
+                        MediaQuery.of(context).viewInsets.bottom;
+                    final isKeyboardOpen = keyboardHeight > 0;
+
+                    return SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      physics: WebInteraction.listScrollPhysics,
+                      padding: EdgeInsets.only(
+                        left: 24.w,
+                        right: 24.w,
+                        top: isKeyboardOpen ? 12.h : 28.h,
+                        bottom: isKeyboardOpen ? 16.h : 28.h,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: 400.w,
+                          minHeight: constraints.maxHeight -
+                              (isKeyboardOpen ? 28.h : 56.h),
                         ),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: 360.w,
-                            minHeight: constraints.maxHeight - 48.h,
-                          ),
-                          child: IntrinsicHeight(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                  // نمایش لوگو فقط وقتی keyboard باز نیست
-                                  if (!isKeyboardOpen)
-                                    RepaintBoundary(
-                                      child: ScaleTransition(
-                                        scale: _logoScaleAnimation,
-                                        child: Padding(
-                                          padding: EdgeInsets.only(bottom: 28.h),
-                                          child: DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            // بهینه‌سازی: کاهش shadow برای عملکرد بهتر
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: AppTheme.goldColor
-                                                    .withValues(alpha: 0.35),
-                                                blurRadius: 32.r,
-                                                spreadRadius: 6.r,
-                                              ),
-                                            ],
-                                          ),
-                                          child: Image.asset(
-                                            'images/GYMAI_logo_transparent.png',
-                                            height: 140.h,
-                                            width: 140.w,
-                                            fit: BoxFit.contain,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (!isKeyboardOpen) ...[
+                              const AuthLogo(),
+                              SizedBox(height: 28.h),
+                            ],
+                            AuthCard(child: _buildLoginForm()),
+                            SizedBox(height: 18.h),
+                            TextButton(
+                              onPressed: () {
+                                if (_isDisposed) return;
+                                _isDisposed = true;
+                                WidgetSafetyUtils.safeSetState(this, () {});
+                                WidgetsBinding.instance
+                                    .addPostFrameCallback((_) {
+                                  if (mounted) {
+                                    WidgetSafetyUtils
+                                        .safePushReplacementNamed(
+                                      context,
+                                      '/register',
+                                    );
+                                  }
+                                });
+                              },
+                              child: Text.rich(
+                                TextSpan(
+                                  style: TextStyle(
+                                    fontSize: 13.sp,
+                                    fontFamily: AppTheme.fontFamily,
+                                    color: context.textSecondary,
                                   ),
-                                  // کاهش فاصله لوگو وقتی keyboard باز است
-                                  if (isKeyboardOpen) SizedBox(height: 16.h),
-                                  RepaintBoundary(
-                                    child: SlideTransition(
-                                      position: Tween<Offset>(
-                                        begin: const Offset(
-                                          0,
-                                          0.08,
-                                        ), // بهینه‌سازی: کاهش حرکت
-                                        end: Offset.zero,
-                                      ).animate(_cardSlideAnimation),
-                                      child: FadeTransition(
-                                        opacity: _cardSlideAnimation,
-                                        child: Container(
-                                          padding: EdgeInsets.all(24.w),
-                                          decoration: BoxDecoration(
-                                            gradient:
-                                                Theme.of(context).brightness ==
-                                                    Brightness.dark
-                                                ? LinearGradient(
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                    colors: [
-                                                      context.cardColor,
-                                                      AppTheme.darkGold
-                                                          .withValues(
-                                                            alpha: 0.12,
-                                                          ),
-                                                      context.cardColor,
-                                                    ],
-                                                    stops: const [
-                                                      0.0,
-                                                      0.5,
-                                                      1.0,
-                                                    ],
-                                                  )
-                                                : LinearGradient(
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                    colors: [
-                                                      Colors.white.withValues(
-                                                        alpha: 0.95,
-                                                      ),
-                                                      context
-                                                          .goldGradientColors[0]
-                                                          .withValues(
-                                                            alpha: 0.2,
-                                                          ),
-                                                      Colors.white.withValues(
-                                                        alpha: 0.98,
-                                                      ),
-                                                    ],
-                                                    stops: const [
-                                                      0.0,
-                                                      0.5,
-                                                      1.0,
-                                                    ],
-                                                  ),
-                                            borderRadius: BorderRadius.circular(
-                                              28.r,
-                                            ),
-                                            border: Border.all(
-                                              color: AppTheme.goldColor
-                                                  .withValues(
-                                                    alpha:
-                                                        Theme.of(
-                                                              context,
-                                                            ).brightness ==
-                                                            Brightness.dark
-                                                        ? 0.7
-                                                        : 0.8,
-                                                  ),
-                                              width: 2.5.w,
-                                            ),
-                                            // بهینه‌سازی: کاهش تعداد shadow برای عملکرد بهتر
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: AppTheme.goldColor
-                                                    .withValues(
-                                                      alpha:
-                                                          Theme.of(
-                                                                context,
-                                                              ).brightness ==
-                                                              Brightness.dark
-                                                          ? 0.35
-                                                          : 0.5,
-                                                    ),
-                                                blurRadius: 32.r,
-                                                offset: Offset(0.w, 12.h),
-                                                spreadRadius: 3.r,
-                                              ),
-                                              BoxShadow(
-                                                color:
-                                                    Theme.of(
-                                                          context,
-                                                        ).brightness ==
-                                                        Brightness.dark
-                                                    ? Colors.black.withValues(
-                                                        alpha: 0.4,
-                                                      )
-                                                    : AppTheme.lightTextColor
-                                                          .withValues(
-                                                            alpha: 0.15,
-                                                          ),
-                                                blurRadius: 20.r,
-                                                offset: Offset(0.w, 6.h),
-                                                spreadRadius: 1.r,
-                                              ),
-                                            ],
-                                          ),
-                                          child: _buildLoginForm(),
-                                        ),
-                                      ),
+                                  children: [
+                                    const TextSpan(
+                                      text: 'حساب کاربری ندارید؟ ',
                                     ),
-                                  ),
-                                  SizedBox(height: 16.h),
-                                  TextButton(
-                                    onPressed: () {
-                                      if (_isDisposed) return;
-
-                                      // ابتدا TextField را از درخت UI حذف می‌کنیم
-                                      _isDisposed = true;
-                                      WidgetSafetyUtils.safeSetState(this, () {});
-
-                                      // صبر می‌کنیم تا UI به‌روزرسانی شود
-                                      WidgetsBinding.instance.addPostFrameCallback((
-                                        _,
-                                      ) {
-                                        if (mounted) {
-                                          // بهینه‌سازی: استفاده از transition سریع‌تر
-                                          WidgetSafetyUtils.safePushReplacementNamed(
-                                            context,
-                                            '/register',
-                                          );
-                                        }
-                                      });
-                                    },
-                                    child: Text(
-                                      'حساب کاربری ندارید؟ ثبت‌نام کنید',
+                                    TextSpan(
+                                      text: 'ثبت‌نام کنید',
                                       style: TextStyle(
-                                        fontSize: 13.sp,
-                                        fontWeight: FontWeight.w500,
-                                        fontFamily: AppTheme.fontFamily,
-                                        color:
-                                            Theme.of(context).brightness ==
-                                                Brightness.light
-                                            ? AppTheme.lightTextSecondary
-                                            : context.textSecondary,
+                                        color: AppTheme.goldColor,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
-                                  ),
-                              ],
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
-            ],
-          ), // بستن RepaintBoundary
+            ),
+          ],
         ),
       ),
     );
@@ -489,66 +324,19 @@ class _LoginScreenState extends State<LoginScreen>
                     focusNode: _phoneFocusNode,
                     style: TextStyle(
                       color: context.textColor,
-                      fontSize: 12.sp,
+                      fontSize: 14.sp,
                       fontFamily: AppTheme.fontFamily,
                     ),
-                    decoration: InputDecoration(
-                      labelText: 'شماره موبایل',
-                      hintText: 'شماره موبایل خود را وارد کنید',
-                      labelStyle: TextStyle(
-                        color: context.textSecondary,
-                        fontSize: 12.sp,
-                        fontFamily: AppTheme.fontFamily,
-                      ),
-                      hintStyle: TextStyle(
-                        color: context.textSecondary.withValues(alpha: 0.6),
-                        fontSize: 12.sp,
-                        fontFamily: AppTheme.fontFamily,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: BorderSide(color: context.separatorColor),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: const BorderSide(
-                          color: AppTheme.goldColor,
-                          width: 2,
-                        ),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: const BorderSide(
-                          color: AppTheme.errorColor,
-                        ),
-                      ),
-                      focusedErrorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                        borderSide: const BorderSide(
-                          color: AppTheme.errorColor,
-                          width: 2,
-                        ),
-                      ),
-                      filled: true,
-                      fillColor: Theme.of(context).brightness == Brightness.dark
-                          ? context.cardColor
-                          : Colors.white.withValues(alpha: 0.7),
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 14.w,
-                        vertical: 10.h,
-                      ),
-                      prefixIcon: Icon(
-                        Icons.phone_android,
-                        color: AppTheme.goldColor,
-                        size: 20.sp,
-                      ),
+                    decoration: authFieldDecoration(
+                      context,
+                      label: 'شماره موبایل',
+                      hint: 'مثلاً ۰۹۱۲۳۴۵۶۷۸۹',
+                      icon: Icons.phone_android,
                     ),
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) {
-                      if (!_isLoading) {
-                        _login();
-                      }
+                      if (!_isLoading) _login();
                     },
                     validator: (value) {
                       if (value == null || value.isEmpty) {
@@ -567,77 +355,17 @@ class _LoginScreenState extends State<LoginScreen>
               _error!,
               style: TextStyle(
                 color: AppTheme.errorColor,
-                fontSize: 11.sp,
+                fontSize: 12.sp,
                 fontFamily: AppTheme.fontFamily,
               ),
               textAlign: TextAlign.center,
             ),
           ],
-          SizedBox(height: 20.h),
-          // دکمه دریافت کد تایید - با استایل حرفه‌ای مشابه صفحه ثبت‌نام
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppTheme.goldColor,
-                  AppTheme.darkGold,
-                  AppTheme.goldColor,
-                ],
-                stops: [0.0, 0.5, 1.0],
-              ),
-              borderRadius: BorderRadius.circular(14.r),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.goldColor.withValues(alpha: 0.5),
-                  blurRadius: 16.r,
-                  offset: Offset(0.w, 8.h),
-                  spreadRadius: 2.r,
-                ),
-                BoxShadow(
-                  color: AppTheme.darkGold.withValues(alpha: 0.3),
-                  blurRadius: 24.r,
-                  offset: Offset(0.w, 4.h),
-                ),
-              ],
-            ),
-            child: ElevatedButton(
-              onPressed: _isLoading ? null : _login,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                foregroundColor: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white
-                    : const Color(0xFF2C2416),
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 14.h),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14.r),
-                ),
-                elevation: 0,
-              ),
-              child: _isLoading
-                  ? SizedBox(
-                      height: 18.h,
-                      width: 18.w,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white
-                              : const Color(0xFF2C2416),
-                        ),
-                      ),
-                    )
-                  : Text(
-                      'دریافت کد تایید',
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: AppTheme.fontFamily,
-                      ),
-                    ),
-            ),
+          SizedBox(height: 18.h),
+          AuthPrimaryButton(
+            label: 'دریافت کد تایید',
+            loading: _isLoading,
+            onPressed: _login,
           ),
         ],
       ),

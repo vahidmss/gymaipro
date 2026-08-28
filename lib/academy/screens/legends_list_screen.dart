@@ -5,6 +5,7 @@ import 'package:gymaipro/academy/services/fitness_legend_service.dart';
 import 'package:gymaipro/academy/widgets/legend_card.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class LegendsListScreen extends StatefulWidget {
   const LegendsListScreen({super.key});
@@ -73,67 +74,53 @@ class _LegendsListScreenState extends State<LegendsListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: context.backgroundColor,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        toolbarHeight: 0,
-      ),
-      body: RefreshIndicator(
+    return ColoredBox(
+      color: context.backgroundColor,
+      child: RefreshIndicator(
+        color: AppTheme.goldColor,
         onRefresh: () => _loadPage(refresh: true),
-        child: ColoredBox(
-          color: context.backgroundColor,
-          child: Column(
-            children: [
-              // Legends List
-              Expanded(
-                child: _legends.isEmpty && !_isLoading
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.emoji_events_outlined,
-                              size: 64.sp,
-                              color: context.textSecondary,
-                            ),
-                            SizedBox(height: 16.h),
-                            Text(
-                              'اسطوره‌ای یافت نشد',
-                              style: TextStyle(
-                                fontFamily: AppTheme.fontFamily,
-                                fontSize: 14.sp,
-                                color: context.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: EdgeInsets.all(16.w),
-                        itemCount: _legends.length + (_hasMore ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index >= _legends.length) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  color: AppTheme.goldColor,
-                                ),
-                              ),
-                            );
-                          }
-                          final legend = _legends[index];
-                          return LegendCard(legend: legend);
-                        },
+        child: _legends.isEmpty && !_isLoading
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(height: 120.h),
+                  Icon(
+                    LucideIcons.trophy,
+                    size: 48.sp,
+                    color: context.textSecondary,
+                  ),
+                  SizedBox(height: 12.h),
+                  Center(
+                    child: Text(
+                      'اسطوره‌ای یافت نشد',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 14.sp,
+                        color: context.textSecondary,
                       ),
+                    ),
+                  ),
+                ],
+              )
+            : ListView.builder(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 24.h),
+                itemCount: _legends.length + (_hasMore ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index >= _legends.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppTheme.goldColor,
+                        ),
+                      ),
+                    );
+                  }
+                  return LegendCard(legend: _legends[index]);
+                },
               ),
-            ],
-          ),
-        ),
       ),
     );
   }

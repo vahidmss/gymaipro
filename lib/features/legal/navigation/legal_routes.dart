@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gymaipro/features/legal/legal_copy.dart';
 import 'package:gymaipro/features/legal/presentation/about_app_screen.dart';
 import 'package:gymaipro/features/legal/presentation/legal_document_screen.dart';
+import 'package:gymaipro/screens/route_not_found_screen.dart';
 
 abstract final class LegalRoutes {
   static const String privacy = '/privacy-policy';
@@ -35,7 +36,7 @@ abstract final class LegalRoutes {
       ),
       _ => MaterialPageRoute<void>(
         settings: settings,
-        builder: (_) => const SizedBox.shrink(),
+        builder: (_) => const RouteNotFoundScreen(),
       ),
     };
   }

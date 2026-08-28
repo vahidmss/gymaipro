@@ -634,15 +634,6 @@ class _AIHubScreenState extends State<AIHubScreen>
                 );
               },
             ),
-            SizedBox(height: 10.h),
-            AIFeatureCard(
-              icon: LucideIcons.apple,
-              title: 'برنامه غذایی',
-              description: 'رژیم متعادل بر اساس نیازت — به‌زودی',
-              color: AppTheme.fatColor,
-              isComingSoon: true,
-              onTap: () {},
-            ),
           ],
         ),
       ),

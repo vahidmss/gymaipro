@@ -110,4 +110,34 @@ void main() {
     expect(issues.any((i) => i.contains('سینه')), isTrue);
     expect(issues.any((i) => i.contains('کشش') && i.contains('نامرتبط')), isTrue);
   });
+
+  test('isolation fly does not trip the 3-press cap', () {
+    final program = _program(
+      name: 'چربی‌سوز ۳روزه باشگاهی',
+      days: <WorkoutDay>[
+        WorkoutDay(
+          id: 'd1',
+          dayIndex: 0,
+          label: 'روز ۱ — فشار',
+          exercises: <WorkoutExercise>[
+            _ex(id: 1, name: 'پرس سینه', muscle: 'chest'),
+            _ex(id: 2, name: 'پرس شیب', muscle: 'chest'),
+            _ex(id: 3, name: 'قفسه سینه', muscle: 'chest'),
+            _ex(id: 4, name: 'پرس سرشانه', muscle: 'shoulder_anterior'),
+            _ex(id: 5, name: 'پشت بازو', muscle: 'triceps'),
+          ],
+        ),
+      ],
+    );
+    final issues = LlmWorkoutProgramValidator.validate(
+      program,
+      allowedExerciseIds: {1, 2, 3, 4, 5},
+      expectedDaysPerWeek: 1,
+    );
+    expect(
+      issues.any((i) => i.contains('پرس') || i.contains('سنگین')),
+      isFalse,
+      reason: issues.join(' | '),
+    );
+  });
 }

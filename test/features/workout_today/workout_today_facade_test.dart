@@ -164,7 +164,15 @@ class _StubProgramCatalog extends ActiveProgramCatalogService {
   Future<ActiveProgramOption?> getActiveProgramOption() async => _active;
 
   @override
+  Future<ActiveProgramOption?> getActiveAiProgramOption() async =>
+      _active.isAiSupervised ? _active : null;
+
+  @override
   Future<List<ActiveProgramOption>> listWorkoutPrograms() async => [_active];
+
+  @override
+  Future<List<ActiveProgramOption>> listAiWorkoutPrograms() async =>
+      _active.isAiSupervised ? [_active] : const <ActiveProgramOption>[];
 }
 
 class _FakeSessionGateway implements WorkoutSessionSelectionGateway {

@@ -1,14 +1,19 @@
 import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:gymaipro/services/navigation_service.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/design_system/components/gym_button.dart';
+import 'package:gymaipro/features/product_experience/product_copy.dart';
+import 'package:gymaipro/features/session_analysis/domain/session_analysis_snapshot.dart';
+import 'package:gymaipro/features/session_analysis/presentation/widgets/session_analysis_sections.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/workout_log/services/beginner_starter_program_service.dart';
+import 'package:gymaipro/workout_log/utils/workout_exit_guard.dart';
 import 'package:gymaipro/workout_log/utils/workout_log_keyboard.dart';
 import 'package:gymaipro/workout_log/viewmodels/workout_log_viewmodel.dart';
 import 'package:gymaipro/workout_log/widgets/workout_log_widgets.dart';
@@ -113,6 +118,8 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     try {
       final result = await _starterService.installAndActivate();
       await _viewModel.loadActiveProgram();
+      await _viewModel.refreshAnalysisEligibility();
+      await _viewModel.checkLogForDate(_viewModel.selectedDate);
       if (mounted) {
         setState(() {
           _hasStarterProgram = true;
@@ -319,17 +326,19 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
 
   Future<void> _notifyRestCompleted() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final vibrationOn = prefs.getBool('vibration_enabled') ?? true;
-      if (vibrationOn && await Vibration.hasVibrator()) {
-        if (await Vibration.hasCustomVibrationsSupport()) {
-          await Vibration.vibrate(duration: 480);
-          await Future<void>.delayed(const Duration(milliseconds: 140));
-          await Vibration.vibrate(duration: 320);
-        } else {
-          await Vibration.vibrate();
-          await Future<void>.delayed(const Duration(milliseconds: 160));
-          await Vibration.vibrate();
+      if (!kIsWeb) {
+        final prefs = await SharedPreferences.getInstance();
+        final vibrationOn = prefs.getBool('vibration_enabled') ?? true;
+        if (vibrationOn && await Vibration.hasVibrator()) {
+          if (await Vibration.hasCustomVibrationsSupport()) {
+            await Vibration.vibrate(duration: 480);
+            await Future<void>.delayed(const Duration(milliseconds: 140));
+            await Vibration.vibrate(duration: 320);
+          } else {
+            await Vibration.vibrate();
+            await Future<void>.delayed(const Duration(milliseconds: 160));
+            await Vibration.vibrate();
+          }
         }
       }
     } catch (_) {}
@@ -370,6 +379,20 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
   void _dismissKeyboard() {
     _numpad.close();
     WorkoutLogKeyboard.dismiss(context);
+  }
+
+  Future<void> _handleBackPressed() async {
+    final restActive =
+        _restSessionActive.value && _restRemaining.value > 0;
+    final result = WorkoutBackLayer.handle(
+      numpadOpen: _numpad.isOpen,
+      restActive: restActive,
+      closeNumpad: () => _numpad.close(),
+      dismissRest: _skipRestTimer,
+    );
+    if (result == WorkoutBackResult.consumed) return;
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   Future<bool> _handleSaveSet(String exerciseId, int setIndex) async {
@@ -499,34 +522,51 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
             elevation: 0,
           ),
         ),
-        child: Scaffold(
-          // ui-health: keyboard-inset-ok — جلوگیری از resize کل لیست هنگام IME
-          resizeToAvoidBottomInset: false,
-          backgroundColor: context.backgroundColor,
-          appBar: WorkoutLogAppBar(
-            selectedDate: dateTime,
-            onBackPressed: () => NavigationService.safePop(context),
-            onLogSummaryPressed: _viewModel.selectedProgram == null
-                ? null
-                : _showLogSummary,
-            onHeatmapPressed: _viewModel.selectedProgram == null
-                ? null
-                : _showSessionHeatmap,
-          ),
-          body: _viewModel.isLoadingTodayLog
-              ? const WorkoutLogLoadingWidget()
-              : _viewModel.selectedProgram == null
-              ? EmptyStateWidgets.noActiveProgram(
-                  context,
-                  onStarterProgramTap: _onStarterProgramTap,
-                  isInstallingStarter: _isInstallingStarter,
-                  hasStarterProgram: _hasStarterProgram,
-                  needsStarterUpgrade: _needsStarterUpgrade,
-                )
-              : TapRegion(
-                  onTapOutside: (_) => _dismissKeyboard(),
-                  child: Column(
-                    children: [
+        child: ListenableBuilder(
+          listenable: Listenable.merge([
+            _numpad,
+            _restSessionActive,
+            _restRemaining,
+          ]),
+          builder: (context, _) {
+            final restActive =
+                _restSessionActive.value && _restRemaining.value > 0;
+            final overlayOpen = _numpad.isOpen || restActive;
+
+            return PopScope(
+              canPop: !overlayOpen,
+              onPopInvokedWithResult: (didPop, _) {
+                if (didPop) return;
+                unawaited(_handleBackPressed());
+              },
+              child: Scaffold(
+                // ui-health: keyboard-inset-ok — جلوگیری از resize کل لیست هنگام IME
+                resizeToAvoidBottomInset: false,
+                backgroundColor: context.backgroundColor,
+                appBar: WorkoutLogAppBar(
+                  selectedDate: dateTime,
+                  onBackPressed: () => unawaited(_handleBackPressed()),
+                  onLogSummaryPressed: _viewModel.selectedProgram == null
+                      ? null
+                      : _showLogSummary,
+                  onHeatmapPressed: _viewModel.selectedProgram == null
+                      ? null
+                      : _showSessionHeatmap,
+                ),
+                body: _viewModel.isLoadingTodayLog
+                    ? const WorkoutLogLoadingWidget()
+                    : _viewModel.selectedProgram == null
+                    ? EmptyStateWidgets.noActiveProgram(
+                        context,
+                        onStarterProgramTap: _onStarterProgramTap,
+                        isInstallingStarter: _isInstallingStarter,
+                        hasStarterProgram: _hasStarterProgram,
+                        needsStarterUpgrade: _needsStarterUpgrade,
+                      )
+                    : TapRegion(
+                        onTapOutside: (_) => _dismissKeyboard(),
+                        child: Column(
+                          children: [
                       if (hasSession)
                         ListenableBuilder(
                           listenable: Listenable.merge([
@@ -549,6 +589,7 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
                         WorkoutWeekDateStrip(
                           selectedDate: _viewModel.selectedDate,
                           enabled: !_viewModel.isLoadingDayLog,
+                          isDateEnabled: _viewModel.isLogDateAllowed,
                           onDateSelected: (day) {
                             unawaited(_applySelectedJalali(day));
                           },
@@ -597,7 +638,82 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
                                         ),
                                       ),
                                     ),
-                                  ..._buildExerciseSlivers(),
+                                  if (_viewModel.isAnalysisMode &&
+                                      _viewModel.dayAnalysis != null)
+                                    ..._buildAnalysisSlivers(
+                                      _viewModel.dayAnalysis!,
+                                    )
+                                  else ...[
+                                    ..._buildExerciseSlivers(),
+                                    SliverToBoxAdapter(
+                                      child: ValueListenableBuilder<int>(
+                                        valueListenable:
+                                            _viewModel.sessionProgressTick,
+                                        builder: (context, _, __) {
+                                          if (!_viewModel
+                                              .showFinishAndAnalyzeChrome) {
+                                            return const SizedBox.shrink();
+                                          }
+                                          final enabled = _viewModel
+                                                  .canFinishAndAnalyze &&
+                                              !_viewModel.isFinishingAnalysis;
+                                          return Padding(
+                                            padding: EdgeInsets.fromLTRB(
+                                              16.w,
+                                              12.h,
+                                              16.w,
+                                              8.h,
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.stretch,
+                                              children: <Widget>[
+                                                GymButton(
+                                                  label: ProductCopy
+                                                      .finishWorkoutAndAnalyze,
+                                                  fullWidth: true,
+                                                  loading: _viewModel
+                                                      .isFinishingAnalysis,
+                                                  icon: LucideIcons.lineChart,
+                                                  onPressed: enabled
+                                                      ? () {
+                                                          HapticFeedback
+                                                              .mediumImpact();
+                                                          unawaited(
+                                                            _finishAndAnalyze(),
+                                                          );
+                                                        }
+                                                      : null,
+                                                ),
+                                                if (!_viewModel
+                                                    .canFinishAndAnalyze) ...[
+                                                  SizedBox(height: 8.h),
+                                                  Text(
+                                                    ProductCopy
+                                                        .finishWorkoutAndAnalyzeHint,
+                                                    textAlign: TextAlign.center,
+                                                    style: TextStyle(
+                                                      fontFamily:
+                                                          AppTheme.fontFamily,
+                                                      fontSize: 12.sp,
+                                                      height: 1.4,
+                                                      color: isDark
+                                                          ? Colors.white60
+                                                          : AppTheme
+                                                                .backgroundColor
+                                                                .withValues(
+                                                                  alpha: 0.65,
+                                                                ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
                                   SliverToBoxAdapter(
                                     child: SizedBox(height: 88.h),
                                   ),
@@ -608,7 +724,7 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
                         ),
                       ),
                       // داک استراحت — نزدیک اکشن کاربر (بالای نام‌پد)
-                      if (hasSession)
+                      if (hasSession && !_viewModel.isAnalysisMode)
                         ListenableBuilder(
                           listenable: Listenable.merge([
                             _restRemaining,
@@ -638,10 +754,14 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
                             );
                           },
                         ),
-                      WorkoutSetNumpadBar(controller: _numpad),
+                      if (!_viewModel.isAnalysisMode)
+                        WorkoutSetNumpadBar(controller: _numpad),
                     ],
                   ),
                 ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -714,16 +834,49 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     return exercise.hashCode.toString();
   }
 
+  List<Widget> _buildAnalysisSlivers(SessionAnalysisSnapshot snapshot) {
+    return [
+      SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(14.w, 8.h, 14.w, 0),
+          child: SessionAnalysisBody(
+            snapshot: snapshot,
+            compact: true,
+            onResumeEditing: () {
+              HapticFeedback.selectionClick();
+              _viewModel.resumeSessionEditing();
+            },
+            onNarrativeReady: _viewModel.rememberAnalysisNarrative,
+          ),
+        ),
+      ),
+    ];
+  }
+
+  Future<void> _finishAndAnalyze() async {
+    _dismissKeyboard();
+    _numpad.close();
+    final snapshot = await _viewModel.finishAndBuildAnalysis();
+    if (!mounted || snapshot == null) return;
+    // Stay on the same day — analysis replaces the logging list.
+    setState(() {
+      _setupExpanded.value = false;
+    });
+  }
+
   Future<void> _showDatePicker() async {
     if (_viewModel.isLoadingDayLog) return;
     _dismissKeyboard();
     final gregorian = _viewModel.selectedDate.toGregorian();
     final dateTime = gregorian.toDateTime();
+    final bounds = _viewModel.logDateBounds;
 
     final picked = await WidgetSafetyUtils.safeShowDialog<DateTime>(
       context: context,
       builder: (context) => PersianDatePickerDialog(
         selectedDate: dateTime,
+        minDate: bounds?.from,
+        maxDate: bounds?.to,
       ),
     );
 
@@ -742,6 +895,20 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     if (jalali.year == current.year &&
         jalali.month == current.month &&
         jalali.day == current.day) {
+      return;
+    }
+
+    if (!_viewModel.isLogDateAllowed(jalali)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'فقط از روز شروع برنامه تا امروز می‌توانی ثبت کنی',
+            style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 13.sp),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
       return;
     }
 
@@ -781,7 +948,18 @@ class _WorkoutLogScreenState extends State<WorkoutLogScreen> {
     }
 
     _dismissKeyboard();
-    await _viewModel.changeSelectedDate(jalali);
+    final ok = await _viewModel.changeSelectedDate(jalali);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'فقط از روز شروع برنامه تا امروز می‌توانی ثبت کنی',
+            style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 13.sp),
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<void> _showLogSummary() async {

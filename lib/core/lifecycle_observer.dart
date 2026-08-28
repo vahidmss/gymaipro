@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:gymaipro/academy/services/music_player_service.dart';
 import 'package:gymaipro/chat/services/chat_presence_service.dart';
 import 'package:gymaipro/core/app_initializer.dart';
+import 'package:gymaipro/core/crash_report_service.dart';
 import 'package:gymaipro/core/foreground_resume_coordinator.dart';
 import 'package:gymaipro/notification/notification_service.dart';
 import 'package:gymaipro/notification/services/notification_fallback_sync_service.dart';
@@ -82,6 +83,7 @@ class _LifecycleObserverState extends State<LifecycleObserver>
         return;
       }
       unawaited(_markActive('resumed'));
+      unawaited(CrashReportService.instance.flush());
       unawaited(_pollPendingWalletTopup());
       unawaited(_pollPendingDirectPayment());
     } else if (state == AppLifecycleState.paused ||

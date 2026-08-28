@@ -3,6 +3,26 @@ import 'package:gymaipro/features/product_experience/product_experience_formatte
 
 enum CoachChatStatus { empty, loading, loaded, error }
 
+/// Daily free-tier chat quota for the coach consult surface.
+class CoachChatQuota {
+  const CoachChatQuota({
+    required this.used,
+    required this.limit,
+    required this.unlimited,
+  });
+
+  final int used;
+  final int limit;
+  final bool unlimited;
+
+  int get remaining => unlimited ? limit : (limit - used).clamp(0, limit);
+
+  bool get canSend => unlimited || used < limit;
+
+  /// Show remaining counter only for capped (free) users.
+  bool get showRemaining => !unlimited && limit > 0;
+}
+
 class CoachChatState {
   const CoachChatState({
     required this.status,
@@ -11,6 +31,7 @@ class CoachChatState {
     this.isThinking = false,
     this.errorMessage,
     this.thinkingSteps = CoachChatState.defaultThinkingSteps,
+    this.quota,
   });
 
   const CoachChatState.empty()
@@ -19,7 +40,8 @@ class CoachChatState {
       suggestedPrompts = CoachChatState.defaultSuggestedPrompts,
       isThinking = false,
       errorMessage = null,
-      thinkingSteps = CoachChatState.defaultThinkingSteps;
+      thinkingSteps = CoachChatState.defaultThinkingSteps,
+      quota = null;
 
   const CoachChatState.loading()
     : status = CoachChatStatus.loading,
@@ -27,7 +49,8 @@ class CoachChatState {
       suggestedPrompts = CoachChatState.defaultSuggestedPrompts,
       isThinking = true,
       errorMessage = null,
-      thinkingSteps = CoachChatState.defaultThinkingSteps;
+      thinkingSteps = CoachChatState.defaultThinkingSteps,
+      quota = null;
 
   const CoachChatState.error(String message)
     : status = CoachChatStatus.error,
@@ -35,7 +58,8 @@ class CoachChatState {
       suggestedPrompts = CoachChatState.defaultSuggestedPrompts,
       isThinking = false,
       errorMessage = message,
-      thinkingSteps = CoachChatState.defaultThinkingSteps;
+      thinkingSteps = CoachChatState.defaultThinkingSteps,
+      quota = null;
 
   final CoachChatStatus status;
   final List<CoachChatMessage> messages;
@@ -43,12 +67,14 @@ class CoachChatState {
   final bool isThinking;
   final String? errorMessage;
   final List<String> thinkingSteps;
+  final CoachChatQuota? quota;
 
   bool get isEmpty => status == CoachChatStatus.empty;
   bool get isLoading => status == CoachChatStatus.loading;
   bool get isLoaded => status == CoachChatStatus.loaded;
   bool get hasError => status == CoachChatStatus.error;
   bool get hasConversation => messages.isNotEmpty;
+  bool get canSendChat => quota?.canSend ?? true;
 
   CoachChatState copyWith({
     CoachChatStatus? status,
@@ -57,6 +83,7 @@ class CoachChatState {
     bool? isThinking,
     String? errorMessage,
     List<String>? thinkingSteps,
+    CoachChatQuota? quota,
   }) {
     return CoachChatState(
       status: status ?? this.status,
@@ -65,6 +92,7 @@ class CoachChatState {
       isThinking: isThinking ?? this.isThinking,
       errorMessage: errorMessage ?? this.errorMessage,
       thinkingSteps: thinkingSteps ?? this.thinkingSteps,
+      quota: quota ?? this.quota,
     );
   }
 

@@ -41,10 +41,12 @@ class WorkoutSetEntryRow extends StatefulWidget {
   final VoidCallback? onUnsaveSet;
   final Map<String, FocusNode>? focusNodes;
   final bool isLastSet;
+
   /// هدف برنامه (fallback)
   final int? defaultReps;
   final double? defaultWeight;
   final int? defaultTimeSeconds;
+
   /// آخرین اجرای واقعی همان ست — اولویت هینت/seed
   final int? previousReps;
   final double? previousWeight;
@@ -72,8 +74,9 @@ class _WorkoutSetEntryRowState extends State<WorkoutSetEntryRow> {
           _hintWeight != null &&
           _hintWeight! > 0) {
         final w = _hintWeight!;
-        c['weight']!.text =
-            w == w.roundToDouble() ? w.toInt().toString() : w.toString();
+        c['weight']!.text = w == w.roundToDouble()
+            ? w.toInt().toString()
+            : w.toString();
       }
     } else {
       if ((c['time']?.text.trim().isEmpty ?? true) && _hintTime != null) {
@@ -103,7 +106,6 @@ class _WorkoutSetEntryRowState extends State<WorkoutSetEntryRow> {
           _seedDefaults();
           return widget.onSaveSet();
         },
-        onUncommit: () => widget.onUnsaveSet?.call(),
         onPersistEdits: () {
           unawaited(widget.onSaveSet());
         },
@@ -144,20 +146,20 @@ class _WorkoutSetEntryRowState extends State<WorkoutSetEntryRow> {
         textDirection: TextDirection.ltr,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          margin: EdgeInsets.symmetric(vertical: 2.h),
-          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+          margin: EdgeInsets.symmetric(vertical: 3.h),
+          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 5.h),
           decoration: BoxDecoration(
             color: isSaved
-                ? WorkoutLogColors.successBackground(context).withValues(
-                    alpha: 0.45,
-                  )
+                ? WorkoutLogColors.successBackground(
+                    context,
+                  ).withValues(alpha: 0.36)
                 : (active
-                      ? AppTheme.goldColor.withValues(alpha: 0.06)
+                      ? AppTheme.goldColor.withValues(alpha: 0.08)
                       : Colors.transparent),
             borderRadius: BorderRadius.circular(10.r),
             border: Border.all(
               color: active
-                  ? AppTheme.goldColor.withValues(alpha: 0.45)
+                  ? AppTheme.goldColor.withValues(alpha: 0.38)
                   : Colors.transparent,
             ),
           ),
@@ -170,9 +172,10 @@ class _WorkoutSetEntryRowState extends State<WorkoutSetEntryRow> {
                   HapticFeedback.selectionClick();
                   if (isSaved) {
                     numpad?.close(persistEdits: false);
-                    (widget.onUnsaveSet ?? () {
-                      unawaited(widget.onSaveSet());
-                    })();
+                    (widget.onUnsaveSet ??
+                        () {
+                          unawaited(widget.onSaveSet());
+                        })();
                   } else {
                     _seedDefaults();
                     final ok = await widget.onSaveSet();
@@ -325,9 +328,10 @@ class _LegacyEditableRow extends StatelessWidget {
               isSaved: isSaved,
               onTap: () async {
                 if (isSaved) {
-                  (onUnsaveSet ?? () {
-                    unawaited(onSaveSet());
-                  })();
+                  (onUnsaveSet ??
+                      () {
+                        unawaited(onSaveSet());
+                      })();
                 } else {
                   await onSaveSet();
                 }
@@ -443,8 +447,8 @@ class _SetCheck extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: SizedBox(
-          width: 24.w,
-          height: 24.w,
+          width: 32.w,
+          height: 32.w,
           child: DecoratedBox(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
@@ -460,13 +464,13 @@ class _SetCheck extends StatelessWidget {
             ),
             child: Center(
               child: isSaved
-                  ? Icon(Icons.check_rounded, color: Colors.white, size: 14.sp)
+                  ? Icon(Icons.check_rounded, color: Colors.white, size: 17.sp)
                   : Text(
                       '${setIndex + 1}',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontWeight: FontWeight.w800,
-                        fontSize: 11.sp,
+                        fontSize: 12.sp,
                         color: WorkoutLogColors.secondaryText(context),
                         height: 1,
                       ),
@@ -503,14 +507,15 @@ class _ValueChip extends StatelessWidget {
       color: active
           ? AppTheme.goldColor.withValues(alpha: 0.12)
           : (WorkoutLogColors.isDark(context)
-                ? const Color(0xFF141414)
+                ? AppTheme.veryDarkBackground
                 : const Color(0xFFF3F1EC)),
       borderRadius: BorderRadius.circular(8.r),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8.r),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 8.h),
+          constraints: BoxConstraints(minHeight: 42.h),
+          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 9.h),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8.r),
             border: Border.all(
@@ -534,12 +539,13 @@ class _ValueChip extends StatelessWidget {
                   textDirection: TextDirection.ltr,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
-                    fontSize: isHint ? 13.sp : 14.sp,
+                    fontSize: isHint ? 13.5.sp : 15.sp,
                     fontWeight: isHint ? FontWeight.w600 : FontWeight.w800,
                     fontStyle: isHint ? FontStyle.italic : FontStyle.normal,
                     color: ghost
-                        ? WorkoutLogColors.mutedText(context)
-                            .withValues(alpha: 0.75)
+                        ? WorkoutLogColors.mutedText(
+                            context,
+                          ).withValues(alpha: 0.75)
                         : WorkoutLogColors.primaryText(context),
                   ),
                 ),
@@ -551,8 +557,9 @@ class _ValueChip extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontSize: 9.sp,
-                    color: WorkoutLogColors.mutedText(context)
-                        .withValues(alpha: 0.7),
+                    color: WorkoutLogColors.mutedText(
+                      context,
+                    ).withValues(alpha: 0.7),
                   ),
                 ),
               ],

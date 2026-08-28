@@ -70,24 +70,28 @@ class ExerciseCard extends StatelessWidget {
     bool focused = false,
   }) {
     final borderColor = focused
-        ? AppTheme.goldColor
+        ? AppTheme.goldColor.withValues(alpha: 0.42)
         : complete
-            ? WorkoutLogColors.successSolid(context).withValues(alpha: 0.4)
-            : WorkoutLogColors.inputBorder(context).withValues(alpha: 0.4);
+        ? WorkoutLogColors.successSolid(context).withValues(alpha: 0.4)
+        : WorkoutLogColors.inputBorder(context);
 
     return Container(
       margin: EdgeInsets.only(bottom: compact ? 6.h : 8.h),
       decoration: BoxDecoration(
         color: focused
-            ? WorkoutLogColors.sectionBackground(context)
-            : (WorkoutLogColors.isDark(context)
-                  ? WorkoutLogColors.sectionBackground(context)
-                  : const Color(0xFFFBFaf6)),
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: borderColor,
-          width: focused ? 1.6.w : 1.w,
-        ),
+            ? context.surfaceElevated
+            : WorkoutLogColors.sectionBackground(context),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: borderColor, width: focused ? 1.2.w : 1.w),
+        boxShadow: focused
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 12.r,
+                  offset: Offset(0, 4.h),
+                ),
+              ]
+            : null,
       ),
       child: child,
     );
@@ -106,10 +110,10 @@ class ExerciseCard extends StatelessWidget {
     final statusText = isCollapsed && isComplete
         ? _summary(exercise, controllers, savedStatus)
         : isComplete
-            ? 'کامل'
-            : (!isCollapsed
-                  ? 'در حال ثبت · $completedSets/$totalSets'
-                  : '$completedSets/$totalSets');
+        ? 'کامل'
+        : (!isCollapsed
+              ? 'در حال ثبت · $completedSets/$totalSets'
+              : '$completedSets/$totalSets');
     final note = exercise.note?.trim();
 
     return _shell(
@@ -125,9 +129,9 @@ class ExerciseCard extends StatelessWidget {
               numpad?.close();
               onToggleCollapse(exerciseId);
             },
-            borderRadius: BorderRadius.vertical(top: Radius.circular(14.r)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
             child: Padding(
-              padding: EdgeInsets.fromLTRB(12.w, 10.h, 8.w, 10.h),
+              padding: EdgeInsets.fromLTRB(12.w, 12.h, 8.w, 11.h),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -141,7 +145,7 @@ class ExerciseCard extends StatelessWidget {
                           name,
                           style: WorkoutLogTypography.exerciseTitle(
                             context,
-                          ).copyWith(fontSize: 14.sp, height: 1.25),
+                          ).copyWith(fontSize: 15.sp, height: 1.25),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -195,44 +199,48 @@ class ExerciseCard extends StatelessWidget {
             Padding(
               padding: EdgeInsets.fromLTRB(10.w, 0, 10.w, 8.h),
               child: Column(
-                children: List.generate(exercise.sets.length, (setIndex) {
-                  if (controllers.length <= setIndex) {
-                    return const SizedBox.shrink();
-                  }
-                  final previous =
-                      previousSetsByExerciseId[exercise.exerciseId];
-                  final prevSet =
-                      previous != null && setIndex < previous.length
-                      ? previous[setIndex]
-                      : null;
-                  return WorkoutSetEntryRow(
-                    setIndex: setIndex,
-                    isSaved: savedStatus.length > setIndex &&
-                        savedStatus[setIndex],
-                    setControllers: controllers[setIndex],
-                    style: exercise.style,
-                    focusNodes: focusNodes.length > setIndex
-                        ? focusNodes[setIndex]
-                        : null,
-                    isLastSet: setIndex == exercise.sets.length - 1,
-                    defaultReps: exercise.style == ExerciseStyle.setsReps
-                        ? exercise.sets[setIndex].reps
-                        : null,
-                    defaultWeight: exercise.style == ExerciseStyle.setsReps
-                        ? exercise.sets[setIndex].weight
-                        : null,
-                    defaultTimeSeconds:
-                        exercise.style == ExerciseStyle.setsTime
-                        ? exercise.sets[setIndex].timeSeconds
-                        : null,
-                    previousReps: prevSet?.reps,
-                    previousWeight: prevSet?.weight,
-                    previousTimeSeconds: prevSet?.seconds,
-                    numpad: numpad,
-                    onSaveSet: () => onSaveSet(exerciseId, setIndex),
-                    onUnsaveSet: () => onUnsaveSet?.call(exerciseId, setIndex),
-                    onOpenNextSet: setIndex < exercise.sets.length - 1
-                        ? () => _openNextSetDock(
+                children: [
+                  _SetColumnLabels(style: exercise.style),
+                  ...List.generate(exercise.sets.length, (setIndex) {
+                    if (controllers.length <= setIndex) {
+                      return const SizedBox.shrink();
+                    }
+                    final previous =
+                        previousSetsByExerciseId[exercise.exerciseId];
+                    final prevSet =
+                        previous != null && setIndex < previous.length
+                        ? previous[setIndex]
+                        : null;
+                    return WorkoutSetEntryRow(
+                      setIndex: setIndex,
+                      isSaved:
+                          savedStatus.length > setIndex &&
+                          savedStatus[setIndex],
+                      setControllers: controllers[setIndex],
+                      style: exercise.style,
+                      focusNodes: focusNodes.length > setIndex
+                          ? focusNodes[setIndex]
+                          : null,
+                      isLastSet: setIndex == exercise.sets.length - 1,
+                      defaultReps: exercise.style == ExerciseStyle.setsReps
+                          ? exercise.sets[setIndex].reps
+                          : null,
+                      defaultWeight: exercise.style == ExerciseStyle.setsReps
+                          ? exercise.sets[setIndex].weight
+                          : null,
+                      defaultTimeSeconds:
+                          exercise.style == ExerciseStyle.setsTime
+                          ? exercise.sets[setIndex].timeSeconds
+                          : null,
+                      previousReps: prevSet?.reps,
+                      previousWeight: prevSet?.weight,
+                      previousTimeSeconds: prevSet?.seconds,
+                      numpad: numpad,
+                      onSaveSet: () => onSaveSet(exerciseId, setIndex),
+                      onUnsaveSet: () =>
+                          onUnsaveSet?.call(exerciseId, setIndex),
+                      onOpenNextSet: setIndex < exercise.sets.length - 1
+                          ? () => _openNextSetDock(
                               numpad: numpad,
                               controllers: controllers,
                               savedStatus: savedStatus,
@@ -245,9 +253,10 @@ class ExerciseCard extends StatelessWidget {
                               onSaveSet: onSaveSet,
                               onUnsaveSet: onUnsaveSet,
                             )
-                        : null,
-                  );
-                }),
+                          : null,
+                    );
+                  }),
+                ],
               ),
             ),
           if (isComplete && exerciseCoachFeedback[exerciseId] != null)
@@ -292,11 +301,7 @@ class ExerciseCard extends StatelessWidget {
                 children: [
                   _OrderBadge(index: orderIndex, complete: isComplete),
                   SizedBox(width: 10.w),
-                  Icon(
-                    LucideIcons.zap,
-                    size: 14.sp,
-                    color: AppTheme.goldColor,
-                  ),
+                  Icon(LucideIcons.zap, size: 14.sp, color: AppTheme.goldColor),
                   SizedBox(width: 6.w),
                   Expanded(
                     child: Column(
@@ -382,7 +387,8 @@ class ExerciseCard extends StatelessWidget {
                               : null;
                           return WorkoutSetEntryRow(
                             setIndex: setIndex,
-                            isSaved: savedStatus.length > setIndex &&
+                            isSaved:
+                                savedStatus.length > setIndex &&
                                 savedStatus[setIndex],
                             setControllers: controllers[setIndex],
                             style: item.style,
@@ -409,18 +415,18 @@ class ExerciseCard extends StatelessWidget {
                                 onUnsaveSet?.call(itemId, setIndex),
                             onOpenNextSet: setIndex < item.sets.length - 1
                                 ? () => _openNextSetDock(
-                                      numpad: numpad,
-                                      controllers: controllers,
-                                      savedStatus: savedStatus,
-                                      style: item.style,
-                                      exerciseId: itemId,
-                                      nextIndex: setIndex + 1,
-                                      lastIndex: item.sets.length - 1,
-                                      sets: item.sets,
-                                      previousSets: previous,
-                                      onSaveSet: onSaveSet,
-                                      onUnsaveSet: onUnsaveSet,
-                                    )
+                                    numpad: numpad,
+                                    controllers: controllers,
+                                    savedStatus: savedStatus,
+                                    style: item.style,
+                                    exerciseId: itemId,
+                                    nextIndex: setIndex + 1,
+                                    lastIndex: item.sets.length - 1,
+                                    sets: item.sets,
+                                    previousSets: previous,
+                                    onSaveSet: onSaveSet,
+                                    onUnsaveSet: onUnsaveSet,
+                                  )
                                 : null,
                           );
                         }),
@@ -459,8 +465,7 @@ class ExerciseCard extends StatelessWidget {
         ? prev.weight
         : set.weight;
     final hintTime = prev?.seconds ?? set.timeSeconds;
-    final isSaved =
-        savedStatus.length > nextIndex && savedStatus[nextIndex];
+    final isSaved = savedStatus.length > nextIndex && savedStatus[nextIndex];
 
     void seed() {
       if (style == ExerciseStyle.setsReps) {
@@ -471,11 +476,11 @@ class ExerciseCard extends StatelessWidget {
             hintWeight != null &&
             hintWeight > 0) {
           final w = hintWeight;
-          c['weight']!.text =
-              w == w.roundToDouble() ? w.toInt().toString() : w.toString();
+          c['weight']!.text = w == w.roundToDouble()
+              ? w.toInt().toString()
+              : w.toString();
         }
-      } else if ((c['time']?.text.trim().isEmpty ?? true) &&
-          hintTime != null) {
+      } else if ((c['time']?.text.trim().isEmpty ?? true) && hintTime != null) {
         c['time']!.text = hintTime.toString();
       }
     }
@@ -500,25 +505,24 @@ class ExerciseCard extends StatelessWidget {
           seed();
           return onSaveSet(exerciseId, nextIndex);
         },
-        onUncommit: () => onUnsaveSet?.call(exerciseId, nextIndex),
         onPersistEdits: () {
           // ignore: discarded_futures
           onSaveSet(exerciseId, nextIndex);
         },
         onFinished: nextIndex < lastIndex
             ? () => _openNextSetDock(
-                  numpad: numpad,
-                  controllers: controllers,
-                  savedStatus: savedStatus,
-                  style: style,
-                  exerciseId: exerciseId,
-                  nextIndex: nextIndex + 1,
-                  lastIndex: lastIndex,
-                  sets: sets,
-                  previousSets: previousSets,
-                  onSaveSet: onSaveSet,
-                  onUnsaveSet: onUnsaveSet,
-                )
+                numpad: numpad,
+                controllers: controllers,
+                savedStatus: savedStatus,
+                style: style,
+                exerciseId: exerciseId,
+                nextIndex: nextIndex + 1,
+                lastIndex: lastIndex,
+                sets: sets,
+                previousSets: previousSets,
+                onSaveSet: onSaveSet,
+                onUnsaveSet: onUnsaveSet,
+              )
             : null,
         field: field,
       ),
@@ -607,10 +611,7 @@ class _OrderBadge extends StatelessWidget {
 }
 
 class _HeaderActions extends StatelessWidget {
-  const _HeaderActions({
-    required this.isCollapsed,
-    required this.onTutorial,
-  });
+  const _HeaderActions({required this.isCollapsed, required this.onTutorial});
 
   final bool isCollapsed;
   final VoidCallback onTutorial;
@@ -643,6 +644,49 @@ class _HeaderActions extends StatelessWidget {
   }
 }
 
+class _SetColumnLabels extends StatelessWidget {
+  const _SetColumnLabels({required this.style});
+
+  final ExerciseStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget label(String value) => Text(
+      value,
+      textAlign: TextAlign.center,
+      style: WorkoutLogTypography.caption(
+        context,
+        color: WorkoutLogColors.mutedText(context),
+        fontWeight: FontWeight.w700,
+      ).copyWith(fontSize: 9.5.sp),
+    );
+
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(6.w, 2.h, 6.w, 3.h),
+        child: Row(
+          children: [
+            SizedBox(width: 32.w, child: label('ست')),
+            SizedBox(width: 8.w),
+            if (style == ExerciseStyle.setsReps) ...[
+              Expanded(child: label('تکرار')),
+              SizedBox(width: 20.w),
+              Expanded(child: label('وزنه')),
+              SizedBox(width: 6.w),
+              SizedBox(width: 40.w, child: label('RPE')),
+            ] else ...[
+              Expanded(child: label('زمان')),
+              SizedBox(width: 6.w),
+              SizedBox(width: 40.w, child: label('RPE')),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PreviousSetsLine extends StatelessWidget {
   const _PreviousSetsLine({this.previousSets});
 
@@ -669,14 +713,15 @@ class _PreviousSetsLine extends StatelessWidget {
             ),
             TextSpan(
               text: summary,
-              style: WorkoutLogTypography.caption(
-                context,
-                color: WorkoutLogColors.mutedText(context),
-              ).copyWith(
-                fontSize: 10.5.sp,
-                height: 1.3,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
+              style:
+                  WorkoutLogTypography.caption(
+                    context,
+                    color: WorkoutLogColors.mutedText(context),
+                  ).copyWith(
+                    fontSize: 10.5.sp,
+                    height: 1.3,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
             ),
           ],
         ),

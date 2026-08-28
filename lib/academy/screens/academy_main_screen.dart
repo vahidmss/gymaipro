@@ -67,6 +67,7 @@ class _AcademyMainScreenState extends State<AcademyMainScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Theme(
       data: Theme.of(context).copyWith(
         scaffoldBackgroundColor: context.backgroundColor,
@@ -87,125 +88,94 @@ class _AcademyMainScreenState extends State<AcademyMainScreen>
                 : Colors.transparent,
             elevation: 0,
             automaticallyImplyLeading: false,
+            leading: IconButton(
+              tooltip: 'بازگشت',
+              icon: Icon(LucideIcons.arrowRight, color: context.textColor),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
             title: Text(
               'آکادمی',
               style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 20.sp,
-                color: isDark ? AppTheme.goldColor : context.textColor,
+                fontWeight: FontWeight.w900,
+                fontSize: 19.sp,
+                color: context.textColor,
                 fontFamily: AppTheme.fontFamily,
               ),
             ),
             centerTitle: true,
             bottom: PreferredSize(
-              preferredSize: Size.fromHeight(56.h),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? context.backgroundColor
-                      : Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24.r),
-                    topRight: Radius.circular(24.r),
+              preferredSize: Size.fromHeight(54.h),
+              child: Column(
+                children: [
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : AppTheme.goldColor.withValues(alpha: 0.1),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isDark
-                          ? Colors.black.withValues(alpha: 0.2)
-                          : AppTheme.goldColor.withValues(alpha: 0.08),
-                      blurRadius: 12.r,
-                      offset: Offset(0, -2.h),
-                    ),
-                  ],
-                  border: Border(
-                    top: BorderSide(
-                      color: isDark
-                          ? Colors.transparent
-                          : AppTheme.goldColor.withValues(alpha: 0.15),
-                    ),
-                  ),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicator: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14.r),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: isDark
-                          ? [
-                              AppTheme.goldColor.withValues(alpha: 0.25),
-                              AppTheme.goldColor.withValues(alpha: 0.15),
-                            ]
-                          : [
-                              AppTheme.goldColor.withValues(alpha: 0.28),
-                              AppTheme.goldColor.withValues(alpha: 0.16),
-                            ],
-                    ),
-                    border: Border.all(
-                      color: AppTheme.goldColor.withValues(
-                        alpha: isDark ? 0.35 : 0.45,
+                  TabBar(
+                    controller: _tabController,
+                    indicator: BoxDecoration(
+                      color: AppTheme.goldColor.withValues(alpha: 0.13),
+                      borderRadius: BorderRadius.circular(12.r),
+                      border: Border.all(
+                        color: AppTheme.goldColor.withValues(alpha: 0.28),
                       ),
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.goldColor.withValues(
-                          alpha: isDark ? 0.2 : 0.12,
-                        ),
-                        blurRadius: 8.r,
-                        offset: Offset(0, 2.h),
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    indicatorPadding: EdgeInsets.symmetric(
+                      horizontal: 4.w,
+                      vertical: 4.h,
+                    ),
+                    dividerColor: Colors.transparent,
+                    labelColor: isDark ? AppTheme.goldColor : context.textColor,
+                    unselectedLabelColor: context.textSecondary,
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11.sp,
+                      fontFamily: AppTheme.fontFamily,
+                      height: 1.2,
+                    ),
+                    unselectedLabelStyle: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 11.sp,
+                      fontFamily: AppTheme.fontFamily,
+                      height: 1.2,
+                    ),
+                    tabAlignment: TabAlignment.fill,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 4.h,
+                    ),
+                    tabs: [
+                      Tab(
+                        icon: Icon(LucideIcons.bookOpen, size: 16.sp),
+                        text: 'مقالات',
+                        height: 44.h,
+                        iconMargin: EdgeInsets.only(bottom: 3.h),
+                      ),
+                      Tab(
+                        icon: Icon(LucideIcons.music, size: 16.sp),
+                        text: 'موزیک',
+                        height: 44.h,
+                        iconMargin: EdgeInsets.only(bottom: 3.h),
+                      ),
+                      Tab(
+                        icon: Icon(LucideIcons.video, size: 16.sp),
+                        text: 'ویدیو',
+                        height: 44.h,
+                        iconMargin: EdgeInsets.only(bottom: 3.h),
+                      ),
+                      Tab(
+                        icon: Icon(LucideIcons.trophy, size: 16.sp),
+                        text: 'اساطیر',
+                        height: 44.h,
+                        iconMargin: EdgeInsets.only(bottom: 3.h),
                       ),
                     ],
                   ),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  indicatorPadding: EdgeInsets.symmetric(
-                    horizontal: 6.w,
-                    vertical: 6.h,
-                  ),
-                  dividerColor: Colors.transparent,
-                  labelColor: isDark ? AppTheme.goldColor : context.textColor,
-                  unselectedLabelColor: context.textSecondary,
-                  labelStyle: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 9.5.sp,
-                    letterSpacing: 0.1,
-                    fontFamily: AppTheme.fontFamily,
-                  ),
-                  unselectedLabelStyle: TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 9.5.sp,
-                    letterSpacing: 0.05,
-                    fontFamily: AppTheme.fontFamily,
-                  ),
-                  tabAlignment: TabAlignment.fill,
-                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 6.h),
-                  tabs: [
-                    Tab(
-                      icon: Icon(LucideIcons.bookOpen, size: 14.sp),
-                      text: 'مقالات',
-                      height: 46.h,
-                      iconMargin: EdgeInsets.only(bottom: 4.h),
-                    ),
-                    Tab(
-                      icon: Icon(LucideIcons.music, size: 14.sp),
-                      text: 'موزیک',
-                      height: 46.h,
-                      iconMargin: EdgeInsets.only(bottom: 4.h),
-                    ),
-                    Tab(
-                      icon: Icon(LucideIcons.video, size: 14.sp),
-                      text: 'ویدیو',
-                      height: 46.h,
-                      iconMargin: EdgeInsets.only(bottom: 4.h),
-                    ),
-                    Tab(
-                      icon: Icon(LucideIcons.trophy, size: 14.sp),
-                      text: 'اساطیر',
-                      height: 46.h,
-                      iconMargin: EdgeInsets.only(bottom: 4.h),
-                    ),
-                  ],
-                ),
+                ],
               ),
             ),
           ),

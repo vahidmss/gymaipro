@@ -42,7 +42,7 @@ class WorkoutSessionProgressStrip extends StatelessWidget {
           color: WorkoutLogColors.sectionBackground(context),
           elevation: 0,
           child: Container(
-            padding: EdgeInsets.fromLTRB(16.w, 8.h, 12.w, 10.h),
+            padding: EdgeInsets.fromLTRB(16.w, 10.h, 12.w, 11.h),
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(
@@ -68,9 +68,13 @@ class WorkoutSessionProgressStrip extends StatelessWidget {
                                 Flexible(
                                   child: Text(
                                     session.day,
-                                    style: WorkoutLogTypography.sectionTitle(
-                                      context,
-                                    ).copyWith(fontSize: 13.5.sp),
+                                    style:
+                                        WorkoutLogTypography.sectionTitle(
+                                          context,
+                                        ).copyWith(
+                                          fontSize: 14.sp,
+                                          fontWeight: FontWeight.w800,
+                                        ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -91,24 +95,33 @@ class WorkoutSessionProgressStrip extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Text(
-                      done ? 'کامل' : '$completed از $total',
-                      style: WorkoutLogTypography.caption(
-                        context,
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 8.w,
+                        vertical: 4.h,
+                      ),
+                      decoration: BoxDecoration(
                         color: done
-                            ? WorkoutLogColors.successText(context)
-                            : WorkoutLogColors.secondaryText(context),
-                        fontWeight: FontWeight.w800,
+                            ? WorkoutLogColors.successBackground(context)
+                            : context.surfaceElevated,
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
+                      child: Text(
+                        done ? 'کامل' : '$completed از $total ست',
+                        style: WorkoutLogTypography.caption(
+                          context,
+                          color: done
+                              ? WorkoutLogColors.successText(context)
+                              : WorkoutLogColors.secondaryText(context),
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                     if (onRestSettingsTap != null) ...[
                       SizedBox(width: 8.w),
                       Material(
                         color: restDefaultSeconds > 0
-                            ? WorkoutLogColors.chipFill(
-                                context,
-                                selected: true,
-                              )
+                            ? WorkoutLogColors.chipFill(context, selected: true)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(8.r),
                         child: InkWell(
@@ -149,12 +162,12 @@ class WorkoutSessionProgressStrip extends StatelessWidget {
                     ],
                   ],
                 ),
-                SizedBox(height: 8.h),
+                SizedBox(height: 9.h),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(999.r),
                   child: LinearProgressIndicator(
                     value: progress.clamp(0.0, 1.0),
-                    minHeight: 4.h,
+                    minHeight: 5.h,
                     backgroundColor: WorkoutLogColors.pendingDot(
                       context,
                     ).withValues(alpha: 0.35),

@@ -27,6 +27,8 @@ if (!function_exists('gymai_v36_label')) {
             'rhomboids' => 'رومبوئید',
             'forearms' => 'ساعد',
             'lower_back' => 'کمر / ارکتور اسپاین',
+            'full_body' => 'کل بدن',
+            'calves' => 'ساق پا',
         );
         return isset($map[$key]) ? $map[$key] : $key;
     }
@@ -41,6 +43,8 @@ if (!function_exists('gymai_v36_movement_label')) {
             'anti_rotation' => 'ضد چرخش / Anti-Rotation',
             'vertical_pull' => 'کشش عمودی / مثل لت و بارفیکس',
             'horizontal_pull' => 'کشش افقی / مثل قایقی',
+            'gait' => 'گام / پیاده‌روی',
+            'cardio' => 'هوازی',
         );
         return isset($map[$key]) ? $map[$key] : $key;
     }
@@ -625,11 +629,20 @@ if (!function_exists('gymai_v36_classify_by_title')) {
         }
 
         // --- فول‌بادی / کاردیو ---
-        if ($has(array('بورپی', 'برپی', 'فارمر', 'کلین', 'اسنچ', 'جرک', 'تراستر', 'وال بال', 'اسالت', 'روئینگ ارگ', 'اسکی ارگ', 'اسلد', 'طناب نبرد', 'burpee'))) {
+        // «دوچرخه» تنها نه — با کرانچ دوچرخه قاطی نشود. این بلاک بعد از Core است.
+        if ($has(array(
+            'بورپی', 'برپی', 'فارمر', 'کلین', 'اسنچ', 'جرک', 'تراستر', 'وال بال',
+            'اسالت', 'روئینگ ارگ', 'اسکی ارگ', 'اسلد', 'طناب نبرد', 'burpee',
+            'تردمیل', 'treadmill', 'الپتیکال', 'elliptical', 'کراس ترینر', 'cross trainer',
+            'دوچرخه ثابت', 'دوچرخه ایستاده', 'دوچرخه خوابیده',
+            'stationary bike', 'exercise bike', 'upright bike',
+        ))) {
+            $is_walk = $has(array('پیاده', 'walk')) && $has_not(array('دویدن', 'run', 'jog'));
             return array(
                 'main_muscle' => 'full_body',
-                'secondary_muscles' => array(),
-                'muscle_targets' => array('quads' => 55, 'glutes' => 50, 'abs' => 45, 'shoulder_anterior' => 40),
+                'secondary_muscles' => array('quads', 'hamstrings', 'glutes', 'calves'),
+                'movement_pattern' => $is_walk ? 'gait' : 'cardio',
+                'muscle_targets' => array('quads' => 50, 'glutes' => 45, 'hamstrings' => 40, 'calf' => 40, 'abs' => 30),
             );
         }
 

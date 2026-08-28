@@ -171,11 +171,14 @@ class AppConfig {
   static const int apiTimeout = 30000; // 30 seconds
   static const int maxRetries = 3;
 
-  /// مدل پیش‌فرض OpenAI Chat Completions
+  /// مدل پیش‌فرض OpenAI Chat Completions — چت مربی (رایگان و پولی).
   static const String aiDefaultModel = 'gpt-4o-mini';
 
-  /// مدل قوی‌تر برای پرامپت‌های سنگین
+  /// مدل قوی‌تر برای پرامپت‌های سنگین / استدلال.
   static const String aiReasoningModel = 'gpt-4o';
+
+  /// ساخت برنامه تمرینی پولی — همین مدل قوی‌تر؛ چت روی Mini می‌ماند.
+  static const String aiWorkoutProgramModel = aiReasoningModel;
 
   /// OTP از Edge Function سرور (send-otp / verify-otp) — credential پیامک در کلاینت نیست.
   /// روی وب همیشه true. روی موبایل: OTP_USE_SERVER=false برای مسیر legacy.
@@ -263,11 +266,6 @@ class AppConfig {
     return _envString('ZIBAL_API_KEY');
   }
 
-  static String get zarinpalMerchantId {
-    if (ClientSecretGuard.blocksDirectPaymentGatewayApi) return '';
-    return _envString('ZARINPAL_MERCHANT_ID');
-  }
-
   // Zibal requires callbackUrl domain to match merchant (gymaipro.ir).
   // Must hit WordPress `/pay/callback` (not `/payment/callback`) so the bridge
   // can verify and redirect — native → gymaipro:// , web/PWA → /app/?payment=…
@@ -278,8 +276,7 @@ class AppConfig {
   }
 
   /// Extra query for web/PWA so WordPress returns into the SPA under /app/.
-  static String get zibalCallbackPlatformQuery =>
-      kIsWeb ? '&platform=web' : '';
+  static String get zibalCallbackPlatformQuery => kIsWeb ? '&platform=web' : '';
 
   // OTP/SMS configuration
   static String get smsApiBaseUrl {
@@ -354,10 +351,12 @@ class AppConfig {
 
   static int _smsBodyIdFromEnv(String key, int defaultValue) {
     final fromDefine = switch (key) {
-      'SMS_BODY_ID_TRAINER_PROGRAM_REQUEST' =>
-        const String.fromEnvironment('SMS_BODY_ID_TRAINER_PROGRAM_REQUEST'),
-      'SMS_BODY_ID_USER_PROGRAM_PURCHASE' =>
-        const String.fromEnvironment('SMS_BODY_ID_USER_PROGRAM_PURCHASE'),
+      'SMS_BODY_ID_TRAINER_PROGRAM_REQUEST' => const String.fromEnvironment(
+        'SMS_BODY_ID_TRAINER_PROGRAM_REQUEST',
+      ),
+      'SMS_BODY_ID_USER_PROGRAM_PURCHASE' => const String.fromEnvironment(
+        'SMS_BODY_ID_USER_PROGRAM_PURCHASE',
+      ),
       _ => '',
     };
     if (fromDefine.isNotEmpty) {

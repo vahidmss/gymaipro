@@ -3,6 +3,7 @@ import 'package:gymaipro/design_system/components/gym_button.dart';
 import 'package:gymaipro/design_system/theme/gym_spacing.dart';
 import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 import 'package:gymaipro/features/coach/presentation/state/coach_home_state.dart';
+import 'package:gymaipro/features/product_experience/domain/coach_observation.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -523,6 +524,66 @@ class _QuickToolTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class CoachObservationsCard extends StatelessWidget {
+  const CoachObservationsCard({
+    required this.observations,
+    super.key,
+  });
+
+  final List<CoachObservation> observations;
+
+  @override
+  Widget build(BuildContext context) {
+    if (observations.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: GymSpacing.card,
+      decoration: BoxDecoration(
+        color: context.gymCard,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: context.gymBorderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(
+                LucideIcons.eye,
+                size: 18,
+                color: context.gymPrimary,
+              ),
+              GymSpacing.gapSm,
+              Text(
+                ProductCopy.coachObservationsTitle,
+                style: context.gymTextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: context.gymTextPrimary,
+                ),
+              ),
+            ],
+          ),
+          GymSpacing.gapMd,
+          for (var i = 0; i < observations.length; i++) ...<Widget>[
+            if (i > 0) GymSpacing.gapSm,
+            Text(
+              '• [${observations[i].severityLabel}] ${observations[i].message}',
+              style: context.gymTextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+                color: context.gymTextSecondary,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -12,6 +12,7 @@ class CoachContextPatch {
     this.activeProgram,
     this.workoutHistory,
     this.weeklyHeatmap,
+    this.nutrition,
     this.apiUsage,
     this.currentQuestion,
   });
@@ -27,6 +28,9 @@ class CoachContextPatch {
   final Map<String, Object?>? activeProgram;
   final List<WorkoutDailyLog>? workoutHistory;
   final WeeklyMuscleHeatmapResult? weeklyHeatmap;
+
+  /// Nutrition snapshot: macro targets, today's intake, active meal plan.
+  final Map<String, Object?>? nutrition;
   final Map<String, Object?>? apiUsage;
   final String? currentQuestion;
 
@@ -43,6 +47,7 @@ class CoachContextPatch {
           ? other.workoutHistory
           : workoutHistory,
       weeklyHeatmap: other.weeklyHeatmap ?? weeklyHeatmap,
+      nutrition: _mergeMap(nutrition, other.nutrition),
       apiUsage: _mergeMap(apiUsage, other.apiUsage),
       currentQuestion: other.currentQuestion ?? currentQuestion,
     );

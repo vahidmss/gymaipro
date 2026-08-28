@@ -45,7 +45,16 @@ class CoachChatViewModel extends ChangeNotifier {
   Future<void> _fetch() async {
     if (_isDisposed) return;
     final token = ++_requestToken;
-    _setState(const CoachChatState.loading());
+    _setState(
+      CoachChatState(
+        status: CoachChatStatus.loading,
+        messages: _state.messages,
+        suggestedPrompts: _state.suggestedPrompts,
+        isThinking: true,
+        thinkingSteps: _state.thinkingSteps,
+        quota: _state.quota,
+      ),
+    );
     try {
       final result = await (_facade ?? CoachChatFacade()).load();
       if (_isDisposed || token != _requestToken) return;
@@ -53,13 +62,23 @@ class CoachChatViewModel extends ChangeNotifier {
       _setState(result.state);
     } on Object catch (error) {
       if (_isDisposed || token != _requestToken) return;
-      _setState(CoachChatState.error(error.toString()));
+      _setState(
+        CoachChatState(
+          status: CoachChatStatus.error,
+          messages: _state.messages,
+          suggestedPrompts: _state.suggestedPrompts,
+          errorMessage: error.toString(),
+          thinkingSteps: _state.thinkingSteps,
+          quota: _state.quota,
+        ),
+      );
     }
   }
 
   Future<void> sendMessage(String text) async {
     final prompt = text.trim();
     if (prompt.isEmpty || _state.isThinking || _isDisposed) return;
+    if (!_state.canSendChat) return;
 
     ProductAnalytics.track(ProductAnalyticsEvent.coachChatMessageSent);
 
@@ -70,6 +89,7 @@ class CoachChatViewModel extends ChangeNotifier {
       text: prompt,
       createdAt: DateTime.now(),
     );
+    final streamingId = 'coach_stream_${DateTime.now().microsecondsSinceEpoch}';
     final token = ++_requestToken;
     _setState(
       _state.copyWith(
@@ -80,6 +100,8 @@ class CoachChatViewModel extends ChangeNotifier {
         errorMessage: '',
       ),
     );
+
+    var insertedStreamingBubble = false;
 
     try {
       final history = _state.messages
@@ -94,30 +116,78 @@ class CoachChatViewModel extends ChangeNotifier {
                 : ChatMessage.ai(content: message.text),
           )
           .toList(growable: false);
+
       final response = await (_facade ?? CoachChatFacade()).send(
         prompt,
         history: history,
+        onPartialText: (partial) {
+          if (_isDisposed || token != _requestToken) return;
+          if (!insertedStreamingBubble) {
+            insertedStreamingBubble = true;
+            _setState(
+              _state.copyWith(
+                isThinking: false,
+                messages: <CoachChatMessage>[
+                  ..._state.messages,
+                  CoachChatMessage(
+                    id: streamingId,
+                    role: CoachChatMessageRole.coach,
+                    type: CoachChatMessageType.aiResponse,
+                    text: partial,
+                    createdAt: DateTime.now(),
+                    isStreaming: true,
+                  ),
+                ],
+              ),
+            );
+            return;
+          }
+          final messages = List<CoachChatMessage>.from(_state.messages);
+          final index = messages.indexWhere((m) => m.id == streamingId);
+          if (index < 0) return;
+          messages[index] = messages[index].copyWith(
+            text: partial,
+            isStreaming: true,
+          );
+          _setState(_state.copyWith(messages: messages, isThinking: false));
+        },
       );
       if (_isDisposed || token != _requestToken) return;
+
+      final messages = List<CoachChatMessage>.from(_state.messages);
+      final streamIndex = messages.indexWhere((m) => m.id == streamingId);
+      if (streamIndex >= 0) {
+        messages[streamIndex] = response.message.copyWith(
+          id: streamingId,
+          isStreaming: false,
+        );
+      } else {
+        messages.add(response.message.copyWith(isStreaming: false));
+      }
+
+      final quota = await (_facade ?? CoachChatFacade()).loadQuota();
+      if (_isDisposed || token != _requestToken) return;
+
       _setState(
         _state.copyWith(
           status: CoachChatStatus.loaded,
-          messages: <CoachChatMessage>[
-            ..._state.messages,
-            response.message,
-          ],
+          messages: messages,
           isThinking: false,
           thinkingSteps: response.thinkingSteps,
           errorMessage: '',
+          quota: quota,
         ),
       );
       if (_isDisposed || token != _requestToken) return;
       await (_facade ?? CoachChatFacade()).persistMessages(_state.messages);
     } on Object catch (error) {
       if (_isDisposed || token != _requestToken) return;
+      final messages = List<CoachChatMessage>.from(_state.messages)
+        ..removeWhere((m) => m.id == streamingId && m.isStreaming);
       _setState(
         _state.copyWith(
           status: CoachChatStatus.error,
+          messages: messages,
           isThinking: false,
           errorMessage: error.toString(),
         ),

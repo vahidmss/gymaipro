@@ -50,7 +50,7 @@ class WelcomeCard extends StatelessWidget {
     final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
 
     return Padding(
-      padding: EdgeInsets.only(top: 4.h, bottom: 8.h),
+      padding: EdgeInsets.only(top: 6.h, bottom: 6.h),
       child: Row(
         textDirection: TextDirection.rtl,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -63,7 +63,7 @@ class WelcomeCard extends StatelessWidget {
             },
             child: _WelcomeAvatar(avatarUrl: _avatarUrl, name: name),
           ),
-          SizedBox(width: 12.w),
+          SizedBox(width: 14.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,7 +72,7 @@ class WelcomeCard extends StatelessWidget {
                   welcomeMessage,
                   style: TextStyle(
                     color: context.textSecondary,
-                    fontSize: 13.sp,
+                    fontSize: 12.5.sp,
                     fontWeight: FontWeight.w500,
                     fontFamily: AppTheme.fontFamily,
                     height: 1.2,
@@ -81,13 +81,13 @@ class WelcomeCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   textDirection: TextDirection.rtl,
                 ),
-                SizedBox(height: 4.h),
+                SizedBox(height: 3.h),
                 Text(
                   name,
                   style: TextStyle(
                     color: context.textColor,
-                    fontSize: 22.sp,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 21.sp,
+                    fontWeight: FontWeight.w900,
                     fontFamily: AppTheme.fontFamily,
                     height: 1.15,
                   ),
@@ -95,7 +95,7 @@ class WelcomeCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   textDirection: TextDirection.rtl,
                 ),
-                SizedBox(height: 6.h),
+                SizedBox(height: 7.h),
                 _WelcomeMetaRow(streakDays: streakDays),
               ],
             ),
@@ -114,7 +114,7 @@ class _WelcomeAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = 52.w;
+    final size = 56.w;
     final initial = name.isNotEmpty ? name.substring(0, 1) : 'U';
 
     return Container(
@@ -122,7 +122,12 @@ class _WelcomeAvatar extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: context.separatorColor, width: 1.w),
+        border: Border.all(
+          color: context.isDark
+              ? AppTheme.goldColor.withValues(alpha: 0.42)
+              : context.separatorColor,
+          width: 1.2.w,
+        ),
       ),
       child: ClipOval(
         child: avatarUrl != null
@@ -167,11 +172,7 @@ class _WelcomeMetaRow extends StatelessWidget {
       textDirection: TextDirection.rtl,
       children: [
         if (hasStreak) ...[
-          Icon(
-            LucideIcons.flame,
-            size: 13.sp,
-            color: context.textSecondary,
-          ),
+          Icon(LucideIcons.flame, size: 13.sp, color: context.textSecondary),
           SizedBox(width: 4.w),
           Text(
             streakDays == 1 ? 'روز اول' : '$streakDays روز',

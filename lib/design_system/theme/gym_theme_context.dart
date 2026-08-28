@@ -6,22 +6,23 @@ import 'package:gymaipro/theme/app_theme.dart';
 extension GymThemeContext on BuildContext {
   bool get gymIsDark => Theme.of(this).brightness == Brightness.dark;
 
-  Color get gymBackground => Colors.transparent;
+  Color get gymBackground => backgroundColor;
 
   Color get gymSurface => cardColor;
 
   Color get gymCard => cardColor;
 
-  Color get gymElevated =>
-      gymIsDark ? GymColors.elevated : AppTheme.lightSurfaceColor;
+  Color get gymElevated => surfaceElevated;
 
   Color get gymTextPrimary => textColor;
 
   Color get gymTextSecondary => textSecondary;
 
   Color get gymTextTertiary => gymIsDark
-      ? GymColors.textTertiary
+      ? AppTheme.darkTextDisabled
       : textSecondary.withValues(alpha: 0.78);
+
+  Color get gymTextDisabled => textDisabled;
 
   /// Brand accent. Gold on dark; near-black on light.
   Color get gymPrimary =>
@@ -30,16 +31,31 @@ extension GymThemeContext on BuildContext {
   /// Soft gold fill/border ok on light; never use this for body/caption text.
   Color get gymGold => AppTheme.goldColor;
 
-  Color get gymBorderSubtle => separatorColor.withValues(
-    alpha: gymIsDark ? 0.9 : 0.75,
-  );
+  Color get gymBorderSubtle =>
+      separatorColor.withValues(alpha: gymIsDark ? 0.9 : 0.75);
 
   Color get gymBorder => separatorColor;
 
-  Color get gymWarningMuted =>
-      gymIsDark ? GymColors.warningMuted : AppTheme.fatColor.withValues(alpha: 0.12);
+  Color get gymWarningMuted => gymIsDark
+      ? GymColors.warningMuted
+      : AppTheme.fatColor.withValues(alpha: 0.12);
 
   Color get gymWarning => gymIsDark ? GymColors.warning : AppTheme.fatColor;
+
+  Color get gymSuccess => gymIsDark ? GymColors.success : AppTheme.successColor;
+
+  Color get gymDanger => gymIsDark ? GymColors.danger : AppTheme.errorColor;
+
+  Color get gymInfo => gymIsDark ? GymColors.info : AppTheme.carbsColor;
+
+  Color get gymNeutralFill =>
+      gymIsDark ? AppTheme.darkSurfaceElevated : AppTheme.lightButtonBackground;
+
+  Color get gymSkeletonBase =>
+      gymIsDark ? AppTheme.darkSurfaceElevated : const Color(0xFFE7E2D9);
+
+  Color get gymSkeletonHighlight =>
+      gymIsDark ? AppTheme.darkGreyGradient : const Color(0xFFF5F2EA);
 
   TextStyle gymTextStyle({
     required double fontSize,

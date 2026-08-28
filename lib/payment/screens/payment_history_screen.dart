@@ -35,6 +35,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
   List<PaymentTransaction> _paymentTransactions = [];
   List<_HistoryEntry> _mergedList = [];
   bool _isLoading = true;
+  bool _loadFailed = false;
 
   final ScrollController _scrollController = ScrollController();
   static const int _pageSize = 20;
@@ -88,6 +89,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
   Future<void> _loadTransactionHistory() async {
     WidgetSafetyUtils.safeSetState(this, () {
       _isLoading = true;
+      _loadFailed = false;
     });
 
     try {
@@ -118,6 +120,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
           _walletTransactions = [];
           _paymentTransactions = [];
           _mergedList = [];
+          _loadFailed = true;
         });
       }
     } finally {
@@ -421,7 +424,9 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
             ),
             SizedBox(height: 20.h),
             Text(
-              'هنوز تراکنشی انجام نداده‌اید',
+              _loadFailed
+                  ? 'تاریخچه تراکنش‌ها بارگذاری نشد'
+                  : 'هنوز تراکنشی انجام نداده‌اید',
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,
                 fontSize: 16.sp,
@@ -431,7 +436,9 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
             ),
             SizedBox(height: 8.h),
             Text(
-              'پس از انجام اولین تراکنش یا پرداخت، تاریخچه آن اینجا نمایش داده می‌شود',
+              _loadFailed
+                  ? 'اتصال را بررسی کنید و صفحه را دوباره بکشید.'
+                  : 'پس از انجام اولین تراکنش یا پرداخت، تاریخچه آن اینجا نمایش داده می‌شود',
               textAlign: TextAlign.center,
               style: TextStyle(
     fontFamily: AppTheme.fontFamily,

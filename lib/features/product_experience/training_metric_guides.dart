@@ -12,8 +12,7 @@ abstract final class TrainingMetricGuides {
         ? 'امتیاز فعلی تو: $readiness٪.'
         : 'هنوز داده کافی برای محاسبه دقیق نداریم.';
 
-    final postNote = snapshot?.daysSinceLastWorkout != null &&
-            snapshot!.daysSinceLastWorkout! <= 0
+    final postNote = snapshot?.sessionCompletedToday == true
         ? '\n\nاگر همین امروز تمرین کرده‌ای، پایین بودن این عدد طبیعیه و به‌معنی «باید دوباره سبک‌تر بزنی» نیست؛ یعنی بدنت در فاز ریکاوری است.'
         : '';
 
@@ -41,7 +40,11 @@ $readinessLine
 اختیاری است. اگر مطمئن نیستی خالی بگذار. وقتی پر شود، مربی هوشمند شدت جلسات بعد را بهتر تنظیم می‌کند.
 ''';
 
-  static String readinessHint(int readiness, {int? daysSinceLastWorkout}) {
+  static String readinessHint(
+    int readiness, {
+    int? daysSinceLastWorkout,
+    bool sessionCompletedToday = false,
+  }) {
     final guidance = RecoveryGuidance.fromSnapshot(
       CoachRecoverySnapshot(
         recovery: readiness,
@@ -49,6 +52,7 @@ $readinessLine
         sleep: 0,
         readiness: readiness,
         daysSinceLastWorkout: daysSinceLastWorkout,
+        sessionCompletedToday: sessionCompletedToday,
       ),
       daysSinceLastWorkout: daysSinceLastWorkout,
     );

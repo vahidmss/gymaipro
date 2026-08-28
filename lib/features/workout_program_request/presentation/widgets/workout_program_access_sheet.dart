@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:gymaipro/ai/entitlement/coach_subscription_plan.dart';
 import 'package:gymaipro/design_system/theme/gym_spacing.dart';
 import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 import 'package:gymaipro/features/coach/presentation/widgets/coach_plan_purchase_sheet.dart';
@@ -10,42 +9,39 @@ import 'package:gymaipro/payment/models/coach_plan_catalog.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// شیت ارتقا وقتی کاربر بدون اشتراک/توکن روی ساخت برنامه می‌زند.
+/// شیت خرید وقتی کاربر بدون پاس فعال روی ساخت برنامه می‌زند.
 Future<bool?> showWorkoutProgramAccessSheet(
   BuildContext context, {
   required WorkoutProgramAccess access,
+  bool openProgramBuilderOnSuccess = true,
+  String? returnTarget,
 }) {
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => WorkoutProgramAccessSheet(access: access),
+    builder: (_) => WorkoutProgramAccessSheet(
+      access: access,
+      openProgramBuilderOnSuccess: openProgramBuilderOnSuccess,
+      returnTarget: returnTarget,
+    ),
   );
 }
 
 class WorkoutProgramAccessSheet extends StatelessWidget {
-  const WorkoutProgramAccessSheet({required this.access, super.key});
+  const WorkoutProgramAccessSheet({
+    required this.access,
+    this.openProgramBuilderOnSuccess = true,
+    this.returnTarget,
+    super.key,
+  });
 
   final WorkoutProgramAccess access;
-
-  static const List<String> _benefits = <String>[
-    'ساخت برنامه تمرینی شخصی با هوش مصنوعی',
-    'تنظیم بر اساس هدف، تجهیزات و سطح تجربه',
-    'فعال‌سازی خودکار در «تمرین امروز»',
-    'ویرایش و بازبینی برنامه با مربی هوشمند',
-    'تحلیل ریکاوری و گفتگوی مربی',
-  ];
+  final bool openProgramBuilderOnSuccess;
+  final String? returnTarget;
 
   @override
   Widget build(BuildContext context) {
-    final isNoTokens = access.reason == WorkoutProgramAccessReason.noTokens;
-    final title = isNoTokens
-        ? 'توکن ساخت برنامه تموم شده'
-        : 'برای ساخت برنامه اشتراک لازم است';
-    final subtitle = isNoTokens
-        ? 'با هر خرید پلن Coach Pro یا Ultimate AI یک توکن ساخت برنامه می‌گیری — بدون اشتراک رایگان در این بخش.'
-        : 'این بخش رایگان نیست. با اشتراک مربی هوشمند، برنامه اختصاصی‌ات ساخته می‌شود و یک توکن اجرا داری.';
-
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: DecoratedBox(
@@ -94,7 +90,7 @@ class WorkoutProgramAccessSheet extends StatelessWidget {
                       ),
                     ),
                     child: Icon(
-                      isNoTokens ? LucideIcons.ticket : LucideIcons.sparkles,
+                      LucideIcons.clipboardList,
                       color: Colors.white,
                       size: 32.sp,
                     ),
@@ -102,7 +98,7 @@ class WorkoutProgramAccessSheet extends StatelessWidget {
                 ),
                 SizedBox(height: 18.h),
                 Text(
-                  title,
+                  'پرداخت کن، بعد بساز',
                   textAlign: TextAlign.center,
                   style: context.gymTextStyle(
                     fontSize: 20,
@@ -112,7 +108,7 @@ class WorkoutProgramAccessSheet extends StatelessWidget {
                 ),
                 SizedBox(height: 10.h),
                 Text(
-                  subtitle,
+                  access.message ?? CoachPlanCatalog.productDescription,
                   textAlign: TextAlign.center,
                   style: context.gymTextStyle(
                     fontSize: 14,
@@ -122,7 +118,7 @@ class WorkoutProgramAccessSheet extends StatelessWidget {
                 ),
                 SizedBox(height: 22.h),
                 Text(
-                  'با اشتراک چه چیزی می‌گیری؟',
+                  'با خرید چه چیزی می‌گیری؟',
                   style: context.gymTextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -130,16 +126,39 @@ class WorkoutProgramAccessSheet extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 12.h),
-                ..._benefits.map((b) => _BenefitRow(text: b)),
-                SizedBox(height: 8.h),
-                const _PlanHintCard(
-                  plan: CoachSubscriptionPlan.coachPro,
-                  note: 'شامل ساخت و ویرایش برنامه + بازبینی',
+                ...CoachPlanCatalog.productFeatures.map(
+                  (b) => _BenefitRow(text: b),
                 ),
-                SizedBox(height: 8.h),
-                const _PlanHintCard(
-                  plan: CoachSubscriptionPlan.ultimateAI,
-                  note: 'همه قابلیت‌ها + تغذیه و استدلال پیشرفته',
+                SizedBox(height: 12.h),
+                Container(
+                  padding: EdgeInsets.all(14.w),
+                  decoration: BoxDecoration(
+                    color: context.gymPrimary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14.r),
+                    border: Border.all(
+                      color: context.gymPrimary.withValues(alpha: 0.22),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        LucideIcons.calendarDays,
+                        size: 18.sp,
+                        color: context.gymPrimary,
+                      ),
+                      SizedBox(width: GymSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          '${CoachPlanCatalog.defaultValidityDays} روز دسترسی منعطف '
+                          '— مثل خرید برنامه از مربی',
+                          style: context.gymTextStyle(
+                            fontSize: 13,
+                            color: context.gymTextPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 SizedBox(height: 20.h),
                 ElevatedButton(
@@ -148,6 +167,8 @@ class WorkoutProgramAccessSheet extends StatelessWidget {
                     final purchased = await showCoachPlanPurchaseSheet(
                       context,
                       currentPlan: access.plan,
+                      openProgramBuilderOnSuccess: openProgramBuilderOnSuccess,
+                      returnTarget: returnTarget,
                     );
                     if (!context.mounted) return;
                     Navigator.of(context).pop(purchased ?? false);
@@ -161,7 +182,7 @@ class WorkoutProgramAccessSheet extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    isNoTokens ? 'خرید توکن با پلن' : 'مشاهده پلن‌ها و خرید',
+                    'خرید برنامه',
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
                       fontWeight: FontWeight.w800,
@@ -211,63 +232,6 @@ class _BenefitRow extends StatelessWidget {
                 color: context.gymTextPrimary,
                 height: 1.45,
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PlanHintCard extends StatelessWidget {
-  const _PlanHintCard({required this.plan, required this.note});
-
-  final CoachSubscriptionPlan plan;
-  final String note;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(14.w),
-      decoration: BoxDecoration(
-        color: context.gymPrimary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(
-          color: context.gymPrimary.withValues(alpha: 0.22),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(LucideIcons.crown, size: 16.sp, color: context.gymPrimary),
-              SizedBox(width: GymSpacing.sm),
-              Text(
-                CoachPlanCatalog.persianTitle(plan),
-                style: context.gymTextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: context.gymTextPrimary,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                '۱ توکن ساخت',
-                style: context.gymTextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: context.gymPrimary,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 6.h),
-          Text(
-            note,
-            style: context.gymTextStyle(
-              fontSize: 12,
-              color: context.gymTextSecondary,
             ),
           ),
         ],

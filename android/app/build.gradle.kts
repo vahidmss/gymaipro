@@ -16,7 +16,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.gymaipro"
+    namespace = "ir.gymaipro.app"
     compileSdk = flutter.compileSdkVersion
 
     ndkVersion = "28.2.13676358"
@@ -33,7 +33,7 @@ android {
 
     defaultConfig {
         // Keep in sync with google-services.json package_name for FCM.
-        applicationId = "com.example.gymaipro"
+        applicationId = "ir.gymaipro.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -67,9 +67,13 @@ android {
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
             } else {
-                signingConfigs.getByName("debug")
+                error(
+                    "Release signing requires android/key.properties. " +
+                        "A debug-signed release cannot be updated on user devices.",
+                )
             }
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 file("proguard-rules.pro"),

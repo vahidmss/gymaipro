@@ -88,7 +88,20 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
     try {
       final foodIds = widget.foods.map((f) => f.id).toList();
       final preferences = await _preferencesService.getFoodPreferences(foodIds);
-      final favoriteIds = Set<int>.from(preferences['favorites'] as List);
+      final favoriteIds = <int>{};
+      final favoritesRaw = preferences['favorites'];
+      if (favoritesRaw is List) {
+        for (final item in favoritesRaw) {
+          if (item is int) {
+            favoriteIds.add(item);
+          } else if (item is num) {
+            favoriteIds.add(item.toInt());
+          } else {
+            final parsed = int.tryParse(item.toString());
+            if (parsed != null) favoriteIds.add(parsed);
+          }
+        }
+      }
 
       setState(() {
         // Update isFavorite for all foods
@@ -397,7 +410,11 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
   }
 
   Widget _buildRecentListSliver(BuildContext context) {
-    if (_filteredRecentEntries.isEmpty) {
+    final visible = [
+      for (final entry in _filteredRecentEntries)
+        if (_foodForId(entry.foodId) != null) entry,
+    ];
+    if (visible.isEmpty) {
       return SliverFillRemaining(
         hasScrollBody: false,
         child: Center(
@@ -420,11 +437,10 @@ class _AddFoodScreenState extends State<AddFoodScreen> {
       padding: EdgeInsets.fromLTRB(10.w, 2.h, 10.w, 12.h),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate((context, index) {
-          final entry = _filteredRecentEntries[index];
-          final food = _foodForId(entry.foodId);
-          if (food == null) return const SizedBox.shrink();
+          final entry = visible[index];
+          final food = _foodForId(entry.foodId)!;
           return _buildRecentItem(context, entry, food);
-        }, childCount: _filteredRecentEntries.length),
+        }, childCount: visible.length),
       ),
     );
   }

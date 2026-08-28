@@ -65,7 +65,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       final settingsJson = prefs.getString('notification_settings');
 
       if (settingsJson != null) {
-        final settingsMap = json.decode(settingsJson) as Map<String, dynamic>;
+        final decoded = json.decode(settingsJson);
+        if (decoded is! Map || !mounted) return;
+        final settingsMap = Map<String, dynamic>.from(decoded);
         setState(() {
           _settings = NotificationSettingsModel(
             workoutReminders:

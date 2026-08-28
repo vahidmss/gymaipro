@@ -102,8 +102,7 @@ class ExerciseCommentService {
 
       return comments;
     } catch (e) {
-      // ignore: avoid_print
-      print('خطا در دریافت نظرات: $e');
+      if (kDebugMode) debugPrint('خطا در دریافت نظرات: $e');
       return [];
     }
   }
@@ -149,8 +148,7 @@ class ExerciseCommentService {
         reactions: [],
       );
     } catch (e) {
-      // ignore: avoid_print
-      print('خطا در افزودن نظر: $e');
+      if (kDebugMode) debugPrint('خطا در افزودن نظر: $e');
       return null;
     }
   }
@@ -172,8 +170,7 @@ class ExerciseCommentService {
 
       return true;
     } catch (e) {
-      // ignore: avoid_print
-      print('خطا در بروزرسانی نظر: $e');
+      if (kDebugMode) debugPrint('خطا در بروزرسانی نظر: $e');
       return false;
     }
   }
@@ -191,8 +188,7 @@ class ExerciseCommentService {
 
       return true;
     } catch (e) {
-      // ignore: avoid_print
-      print('خطا در حذف نظر: $e');
+      if (kDebugMode) debugPrint('خطا در حذف نظر: $e');
       return false;
     }
   }
@@ -213,8 +209,7 @@ class ExerciseCommentService {
 
       return true;
     } catch (e) {
-      // ignore: avoid_print
-      print('خطا در افزودن واکنش: $e');
+      if (kDebugMode) debugPrint('خطا در افزودن واکنش: $e');
       return false;
     }
   }
@@ -236,8 +231,7 @@ class ExerciseCommentService {
 
       return true;
     } catch (e) {
-      // ignore: avoid_print
-      print('خطا در حذف واکنش: $e');
+      if (kDebugMode) debugPrint('خطا در حذف واکنش: $e');
       return false;
     }
   }

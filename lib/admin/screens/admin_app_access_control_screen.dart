@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/services/app_access_control_service.dart';
@@ -18,7 +20,8 @@ class _AdminAppAccessControlScreenState
   final TextEditingController _maintenanceMessageController =
       TextEditingController();
   final TextEditingController _minVersionController = TextEditingController();
-  final TextEditingController _latestVersionController = TextEditingController();
+  final TextEditingController _latestVersionController =
+      TextEditingController();
   final TextEditingController _updateUrlController = TextEditingController();
   final TextEditingController _aiChatMessageController =
       TextEditingController();
@@ -31,7 +34,7 @@ class _AdminAppAccessControlScreenState
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   @override
@@ -81,7 +84,9 @@ class _AdminAppAccessControlScreenState
     setState(() => _isSaving = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(success ? 'تنظیمات با موفقیت ذخیره شد' : 'خطا در ذخیره تنظیمات'),
+        content: Text(
+          success ? 'تنظیمات با موفقیت ذخیره شد' : 'خطا در ذخیره تنظیمات',
+        ),
         backgroundColor: success ? AppTheme.successColor : AppTheme.errorColor,
       ),
     );
@@ -89,12 +94,12 @@ class _AdminAppAccessControlScreenState
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sortedLogs = [..._auditLogs]..sort((a, b) {
-      final aMs = a.changedAt?.millisecondsSinceEpoch ?? 0;
-      final bMs = b.changedAt?.millisecondsSinceEpoch ?? 0;
-      return bMs.compareTo(aMs);
-    });
+    final sortedLogs = [..._auditLogs]
+      ..sort((a, b) {
+        final aMs = a.changedAt?.millisecondsSinceEpoch ?? 0;
+        final bMs = b.changedAt?.millisecondsSinceEpoch ?? 0;
+        return bMs.compareTo(aMs);
+      });
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: AppTheme.goldColor),
@@ -224,7 +229,7 @@ class _AdminAppAccessControlScreenState
             onPressed: _isSaving ? null : _save,
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.goldColor,
-              foregroundColor: isDark ? AppTheme.veryDarkBackground : AppTheme.darkTextColor,
+              foregroundColor: AppTheme.onGoldColor,
               padding: EdgeInsets.symmetric(vertical: 13.h),
             ),
             icon: _isSaving
@@ -241,20 +246,13 @@ class _AdminAppAccessControlScreenState
           if (sortedLogs.isEmpty)
             Text(
               'هنوز تغییری ثبت نشده است.',
-              style: TextStyle(
-                color: isDark
-                    ? AppTheme.darkTextColor.withValues(alpha: 0.7)
-                    : AppTheme.lightTextSecondary,
-              ),
+              style: TextStyle(color: context.textSecondary),
             ),
           for (final log in sortedLogs)
             Card(
               margin: EdgeInsets.only(bottom: 10.h),
               child: ListTile(
-                title: Text(
-                  log.summary,
-                  style: TextStyle(fontSize: 12.sp),
-                ),
+                title: Text(log.summary, style: TextStyle(fontSize: 12.sp)),
                 subtitle: Text(
                   '${log.adminName} • ${_formatRelativeDateTime(log.changedAt)} • ${_formatDateTime(log.changedAt)}',
                   style: TextStyle(fontSize: 11.sp),

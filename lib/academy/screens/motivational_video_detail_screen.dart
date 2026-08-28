@@ -75,7 +75,7 @@ class _MotivationalVideoDetailScreenState
           ),
         ),
         autoInitialize: true,
-        autoPlay: true,
+        autoPlay: !kIsWeb,
       );
 
       if (mounted) {
@@ -108,6 +108,12 @@ class _MotivationalVideoDetailScreenState
       appBar: AppBar(
         backgroundColor: context.backgroundColor,
         elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          tooltip: 'بازگشت',
+          icon: Icon(LucideIcons.arrowRight, color: context.textColor),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
         title: Text(
           'ویدیو انگیزشی',
           style: context.headingStyle.copyWith(fontSize: 18.sp),

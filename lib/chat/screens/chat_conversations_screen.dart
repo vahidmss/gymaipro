@@ -393,6 +393,15 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen>
   }
 
   Widget _buildConversationsList() {
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    if (currentUserId == null) {
+      return const ChatHubEmptyView(
+        icon: LucideIcons.userX,
+        title: 'نشست منقضی شده',
+        subtitle: 'برای دیدن گفتگوها دوباره وارد شوید',
+      );
+    }
+
     return RefreshIndicator(
       onRefresh: _loadConversations,
       color: AppTheme.goldColor,
@@ -411,18 +420,17 @@ class _ChatConversationsScreenState extends State<ChatConversationsScreen>
         ),
         itemBuilder: (context, index) {
           final conversation = _filteredConversations[index];
-          return _buildConversationTile(conversation);
+          return _buildConversationTile(conversation, currentUserId);
         },
       ),
     );
   }
 
-  Widget _buildConversationTile(ChatConversation conversation) {
+  Widget _buildConversationTile(
+    ChatConversation conversation,
+    String currentUserId,
+  ) {
     final timeString = _formatLastMessageTime(conversation.lastMessageDateTime);
-
-    // دریافت ID کاربر فعلی
-    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-    if (currentUserId == null) return const SizedBox.shrink();
 
     // تشخیص کاربر دیگر
     final otherUserId = conversation.getOtherUserId(currentUserId);

@@ -200,7 +200,7 @@ void main() {
   });
 
   group('ActiveWorkoutSessionService.evaluateProgramChange', () {
-    test('requires confirm when draft or log exists', () {
+    test('requires confirm when log exists without matching program id', () {
       const context = ActiveWorkoutSessionContext(
         programId: 'p1',
         programName: 'Test',
@@ -216,6 +216,39 @@ void main() {
       expect(evaluation.hasSavedLog, isTrue);
     });
 
+    test('requires confirm when switching away from another program log', () {
+      const context = ActiveWorkoutSessionContext(
+        programId: 'p2',
+        programName: 'Other',
+        sessions: <WorkoutSession>[],
+        selectedSessionDay: null,
+        loggedSessionDay: 'روز ۱',
+        loggedProgramId: 'p1',
+        hasSavedLog: true,
+        hasLiveDraft: false,
+      );
+
+      final evaluation = service.evaluateProgramChange(context: context);
+      expect(evaluation.requiresConfirmation, isTrue);
+      expect(evaluation.sessionDayToDelete, isNotEmpty);
+    });
+
+    test('no confirm when target already owns today identity', () {
+      const context = ActiveWorkoutSessionContext(
+        programId: 'p1',
+        programName: 'Test',
+        sessions: <WorkoutSession>[],
+        selectedSessionDay: 'روز ۱',
+        loggedSessionDay: 'روز ۱',
+        loggedProgramId: 'p1',
+        hasSavedLog: true,
+        hasLiveDraft: false,
+      );
+
+      final evaluation = service.evaluateProgramChange(context: context);
+      expect(evaluation.requiresConfirmation, isFalse);
+    });
+
     test('no confirm when nothing to clear', () {
       const context = ActiveWorkoutSessionContext(
         programId: 'p1',
@@ -229,6 +262,30 @@ void main() {
 
       final evaluation = service.evaluateProgramChange(context: context);
       expect(evaluation.requiresConfirmation, isFalse);
+    });
+  });
+
+  group('ActiveWorkoutSessionService.evaluateSessionChange foreign program', () {
+    test('requires confirm even when day labels match', () {
+      const context = ActiveWorkoutSessionContext(
+        programId: 'p2',
+        programName: 'Other',
+        sessions: <WorkoutSession>[],
+        selectedSessionDay: 'روز ۱',
+        loggedSessionDay: 'روز ۱',
+        loggedProgramId: 'p1',
+        hasSavedLog: true,
+        hasLiveDraft: false,
+      );
+
+      final evaluation = service.evaluateSessionChange(
+        context: context,
+        newSessionDay: 'روز ۱',
+        currentSessionDay: 'روز ۱',
+      );
+
+      expect(evaluation.requiresConfirmation, isTrue);
+      expect(evaluation.hasSavedLog, isTrue);
     });
   });
 }

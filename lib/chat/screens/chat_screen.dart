@@ -632,6 +632,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _sendMessage({String? overrideText, String? retryTempId}) async {
     if (!mounted || !_messageController.isSafe) return;
+    final senderId = _currentUserId;
+    if (senderId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('برای ارسال پیام دوباره وارد شوید')),
+      );
+      return;
+    }
     final message = (overrideText ?? _messageController.safeText).trim();
     if (message.isEmpty || (_isSending && retryTempId == null)) return;
 
@@ -641,7 +648,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (retryTempId == null) {
       final tempMessage = ChatMessage(
         id: tempId,
-        senderId: _currentUserId!,
+        senderId: senderId,
         receiverId: widget.otherUserId,
         message: message,
         createdAt: DateTime.now(),
@@ -887,6 +894,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _pickAndSendImage({ImageSource source = ImageSource.gallery}) async {
     try {
+      if (kIsWeb) {
+        await _pickAndSendImageOnWeb();
+        return;
+      }
+
       // Samsung PhotoPicker often crashes; prefer stable document picker for gallery.
       if (source == ImageSource.gallery && !kIsWeb && Platform.isAndroid) {
         final ok = await _pickAndSendImageViaFilePicker();
@@ -909,13 +921,131 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
     } catch (e) {
       debugPrint('pick image failed: $e');
-      if (source == ImageSource.gallery && mounted) {
+      if (source == ImageSource.gallery && mounted && !kIsWeb) {
         final ok = await _pickAndSendImageViaFilePicker();
         if (ok) return;
       }
       if (mounted) {
         WidgetSafetyUtils.safeShowSnackBar(context, 'خطا در انتخاب تصویر');
       }
+    }
+  }
+
+  /// Safari/web: use bytes — filesystem paths from pickers are unreliable.
+  Future<void> _pickAndSendImageOnWeb() async {
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 1920,
+      requestFullMetadata: false,
+    );
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    if (!mounted) return;
+    await _sendMediaBytes(
+      bytes: bytes,
+      messageType: 'image',
+      attachmentName: picked.name.isNotEmpty ? picked.name : 'image.jpg',
+      attachmentType: picked.mimeType ?? 'image/jpeg',
+    );
+  }
+
+  Future<void> _sendMediaBytes({
+    required List<int> bytes,
+    required String messageType,
+    String? attachmentName,
+    String? attachmentType,
+  }) async {
+    if (!mounted || _currentUserId == null) return;
+    if (_isSending) return;
+
+    final tempId = 'media_${DateTime.now().millisecondsSinceEpoch}';
+    final name = attachmentName ?? 'file.bin';
+    final tempMessage = ChatMessage(
+      id: tempId,
+      senderId: _currentUserId!,
+      receiverId: widget.otherUserId,
+      message: '',
+      messageType: messageType,
+      attachmentUrl: null,
+      attachmentName: name,
+      attachmentType: attachmentType,
+      attachmentSize: bytes.length,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    SafeSetState.call(this, () {
+      _isSending = true;
+      _messageIds.add(tempId);
+      _entranceMessageIds.add(tempId);
+      _messageStatuses[tempId] = MessageSendStatus.sending;
+      _messages.add(tempMessage);
+    });
+    unawaited(AppFeedbackService.instance.messageSent());
+    _scrollToBottom();
+
+    try {
+      if (_conversationId == null || _conversationId!.isEmpty) {
+        final conversation = await _chatService.getConversationByUserId(
+          widget.otherUserId,
+        );
+        if (conversation != null) {
+          _conversationId = conversation.id;
+        }
+      }
+
+      final url = await _mediaUpload.uploadBytes(
+        bytes: bytes,
+        mediaKind: messageType == 'image' ? 'image' : 'file',
+        filename: name,
+        conversationId: _conversationId,
+      );
+
+      final sent = await _chatService.sendMessage(
+        receiverId: widget.otherUserId,
+        message: '',
+        messageType: messageType,
+        attachmentUrl: url,
+        attachmentType: attachmentType,
+        attachmentName: name,
+        attachmentSize: bytes.length,
+      );
+
+      if (_conversationId == null || _conversationId!.isEmpty) {
+        final conversation = await _chatService.getConversationByUserId(
+          widget.otherUserId,
+        );
+        _conversationId = conversation?.id;
+      }
+
+      final display = _peerIsActiveInChat ? sent.copyWith(isRead: true) : sent;
+
+      SafeSetState.call(this, () {
+        _messageIds.remove(tempId);
+        _messageStatuses.remove(tempId);
+        final index = _messages.indexWhere((m) => m.id == tempId);
+        if (index != -1) {
+          _messages[index] = display;
+        } else if (!_messageIds.contains(sent.id)) {
+          _messages.add(display);
+        }
+        _messageIds.add(sent.id);
+        _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      });
+      _syncMessagesCache();
+    } catch (e) {
+      SafeSetState.call(this, () {
+        _messageStatuses[tempId] = MessageSendStatus.failed;
+      });
+      if (mounted) {
+        WidgetSafetyUtils.safeShowSnackBar(
+          context,
+          e.toString().replaceAll('Exception: ', ''),
+        );
+      }
+    } finally {
+      SafeSetState.call(this, () => _isSending = false);
     }
   }
 
@@ -963,6 +1093,38 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   Future<void> _pickAndSendFile() async {
     try {
+      if (kIsWeb) {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.any,
+          allowMultiple: false,
+          withData: true,
+        );
+        if (result == null || result.files.isEmpty) return;
+        final picked = result.files.single;
+        final bytes = picked.bytes;
+        if (bytes == null || bytes.isEmpty) {
+          WidgetSafetyUtils.safeShowSnackBar(
+            context,
+            'روی وب‌اپ این فایل قابل خواندن نبود. فرمت دیگری امتحان کنید.',
+          );
+          return;
+        }
+        final name = picked.name;
+        final ext = (picked.extension ?? '').toLowerCase();
+        final isImage = _isImageExtension(ext) ||
+            (picked.extension == null && _isImageFileName(name));
+        if (!mounted) return;
+        await _sendMediaBytes(
+          bytes: bytes,
+          messageType: isImage ? 'image' : 'file',
+          attachmentName: name,
+          attachmentType: isImage
+              ? 'image/${ext.isEmpty ? 'jpeg' : ext}'
+              : (picked.extension ?? 'application/octet-stream'),
+        );
+        return;
+      }
+
       final result = await FilePicker.platform.pickFiles(
         type: FileType.any,
         allowMultiple: false,
@@ -1483,40 +1645,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ),
             ),
             SizedBox(height: 16.h),
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: ListTile(
-                leading: const Icon(LucideIcons.search, color: AppTheme.goldColor),
-                title: Text(
-                  'جستجو در گفتگو',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Search feature not implemented yet
-                },
-              ),
-            ),
-            Directionality(
-              textDirection: TextDirection.rtl,
-              child: ListTile(
-                leading: const Icon(LucideIcons.bell, color: AppTheme.goldColor),
-                title: Text(
-                  'تنظیمات اعلان',
-                  style: TextStyle(
-                    fontFamily: AppTheme.fontFamily,
-                    color: context.textColor,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  // Notification settings not implemented yet
-                },
-              ),
-            ),
             Directionality(
               textDirection: TextDirection.rtl,
               child: ListTile(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/workout_plan_builder/dialogs/exercise_note_dialog.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -17,15 +18,21 @@ class ExerciseNoteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasNote = note?.isNotEmpty ?? false;
+    final accent = color ?? AppTheme.goldColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return IconButton(
       icon: Icon(
-        LucideIcons.messageCircle,
-        color: note?.isNotEmpty ?? false
-            ? (color ?? Colors.amber[700])
-            : Colors.grey[400],
+        hasNote ? LucideIcons.messageSquareText : LucideIcons.messageSquare,
+        color: hasNote
+            ? accent
+            : (isDark
+                  ? AppTheme.goldColor.withValues(alpha: 0.45)
+                  : context.textColor.withValues(alpha: 0.4)),
         size: iconSize,
       ),
-      tooltip: note?.isNotEmpty ?? false ? 'ویرایش یادداشت' : 'افزودن یادداشت',
+      tooltip: hasNote ? 'ویرایش یادداشت' : 'افزودن یادداشت',
       onPressed: () async {
         final result = await showDialog<String>(
           context: context,

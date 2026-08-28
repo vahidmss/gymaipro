@@ -3,12 +3,16 @@ import 'package:gymaipro/ai/entitlement/coach_capability.dart';
 import 'package:gymaipro/ai/entitlement/coach_subscription_plan.dart';
 import 'package:gymaipro/ai/entitlement/subscription_capability_map.dart';
 import 'package:gymaipro/payment/models/coach_plan_catalog.dart';
+import 'package:gymaipro/payment/services/ai_program_access.dart';
 import 'package:gymaipro/payment/services/subscription_service.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// توکن ساخت برنامه تمرینی: با خرید پلن مربوطه ۱ توکن می‌آید؛ هر ساخت موفق ۱ توکن مصرف می‌کند.
+/// دسترسی ساخت برنامه: با پاس فعال (خرید برنامه AI) آزاد است.
+///
+/// موجودی توکن فقط برای سازگاری با دادهٔ قدیمی نگه داشته می‌شود و دیگر
+/// مسیر ساخت را برای کاربر دارای پاس فعال مسدود نمی‌کند.
 class WorkoutProgramTokenService {
   factory WorkoutProgramTokenService() => _instance;
   WorkoutProgramTokenService._internal();
@@ -23,6 +27,7 @@ class WorkoutProgramTokenService {
 
   final SupabaseClient _client = Supabase.instance.client;
   final SubscriptionService _subscriptions = SubscriptionService();
+  final AiProgramAccess _aiAccess = AiProgramAccess();
 
   Future<int> remainingTokens({String? userId}) async {
     final uid = await _resolveUserId(userId);
@@ -54,7 +59,7 @@ class WorkoutProgramTokenService {
     return prefs.getInt(_localBalanceKey) ?? 0;
   }
 
-  /// پس از خرید موفق Coach Pro / Ultimate AI
+  /// سازگاری با خرید موفق — دیگر برای دسترسی لازم نیست.
   Future<void> grantPurchaseTokens({
     String? userId,
     int count = tokensPerPurchase,
@@ -67,9 +72,23 @@ class WorkoutProgramTokenService {
     await _setBalance(uid, current + count);
   }
 
+  /// فقط دیباگ: موجودی توکن ساخت برنامه را صفر می‌کند.
+  Future<void> clearTokensForDebug({String? userId}) async {
+    assert(kDebugMode, 'clearTokensForDebug is debug-only');
+    if (!kDebugMode) return;
+    final uid = await _resolveUserId(userId);
+    if (uid == null) return;
+    await _setBalance(uid, 0);
+  }
+
+  /// No-op موفق وقتی پاس فعال است؛ در غیر این صورت موجودی قدیمی را کم می‌کند.
   Future<bool> consumeToken({String? userId}) async {
     final uid = await _resolveUserId(userId);
     if (uid == null) return false;
+
+    if (await _aiAccess.hasPaidAccess(userId: uid)) {
+      return true;
+    }
 
     final current = await remainingTokens(userId: uid);
     if (current <= 0) return false;
@@ -89,44 +108,28 @@ class WorkoutProgramTokenService {
       );
     }
 
-    final subscription = await _subscriptions.peekActiveSubscription(
-      userId: uid,
-    );
-    final plan = subscription == null
-        ? CoachSubscriptionPlan.free
-        : CoachPlanCatalog.planFromSubscriptionType(subscription.type);
-
-    final caps = SubscriptionCapabilityMap.forPlan(plan);
-    final hasCapability = caps.contains(CoachCapability.generateWorkout);
-
-    if (!hasCapability) {
-      return WorkoutProgramAccess(
+    final snapshot = await _aiAccess.load(userId: uid);
+    if (!snapshot.hasPaidAccess) {
+      return const WorkoutProgramAccess(
         canBuild: false,
         reason: WorkoutProgramAccessReason.needsSubscription,
         remainingTokens: 0,
-        plan: plan,
+        plan: CoachSubscriptionPlan.free,
         message:
-            'ساخت برنامه تمرینی فقط با اشتراک Coach Pro یا Ultimate AI فعال می‌شود.',
+            'سوال‌ها رایگان است؛ برای ساخت برنامه با زدن «بساز»، '
+            'هزینه برنامه مربی هوشمند گرفته می‌شود. '
+            'اعتبار دوره از وقتی برنامه‌ات آماده شود شروع می‌شود.',
       );
     }
 
     final tokens = await remainingTokens(userId: uid);
-    if (tokens <= 0) {
-      return WorkoutProgramAccess(
-        canBuild: false,
-        reason: WorkoutProgramAccessReason.noTokens,
-        remainingTokens: 0,
-        plan: plan,
-        message:
-            'توکن ساخت برنامه‌ات تموم شده. با خرید/تمدید پلن یک توکن جدید می‌گیری.',
-      );
-    }
-
     return WorkoutProgramAccess(
       canBuild: true,
       reason: WorkoutProgramAccessReason.ok,
       remainingTokens: tokens,
-      plan: plan,
+      plan: snapshot.plan,
+      daysRemaining: snapshot.daysRemaining,
+      entitlementStarted: snapshot.hasPass,
     );
   }
 
@@ -244,6 +247,8 @@ class WorkoutProgramAccess {
     required this.remainingTokens,
     required this.plan,
     this.message,
+    this.daysRemaining = 0,
+    this.entitlementStarted = false,
   });
 
   final bool canBuild;
@@ -251,4 +256,8 @@ class WorkoutProgramAccess {
   final int remainingTokens;
   final CoachSubscriptionPlan plan;
   final String? message;
+  final int daysRemaining;
+
+  /// True when the paid period clock has started (program delivered).
+  final bool entitlementStarted;
 }

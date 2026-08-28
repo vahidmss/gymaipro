@@ -170,14 +170,14 @@ class _WorkoutTodayScreenState extends State<WorkoutTodayScreen> {
         return GymPagePadding(
           child: Column(
             children: <Widget>[
-              if (state.activeProgram != null)
-                ActiveProgramSelectorBar(
-                  program: state.activeProgram,
-                  onProgramChanged: _handleProgramChanged,
-                ),
+              ActiveProgramSelectorBar(
+                program: state.activeProgram,
+                onProgramChanged: _handleProgramChanged,
+              ),
               GymSpacing.gapLg,
               StartWorkoutCard(
                 hasWorkout: false,
+                hasExistingAiPrograms: state.availablePrograms.isNotEmpty,
                 onStart: () {},
                 onBuildProgram: _handleBuildProgram,
               ),
@@ -246,7 +246,7 @@ class _WorkoutTodayScreenState extends State<WorkoutTodayScreen> {
         _viewModel.state.data?.activeProgram?.id;
     if (currentId == option.id) return;
 
-    final evaluation = await _viewModel.evaluateProgramChange();
+    final evaluation = await _viewModel.evaluateProgramChangeTo(option.id);
     if (!mounted) return;
 
     final confirmed = await WorkoutSessionSelectionHelper.confirmAndApply(

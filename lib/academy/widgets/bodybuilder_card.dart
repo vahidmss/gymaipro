@@ -13,76 +13,50 @@ class BodybuilderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return InkWell(
-      onTap: () {
-        Navigator.push<BodybuilderDetailScreen>(
-          context,
-          MaterialPageRoute<BodybuilderDetailScreen>(
-            builder: (_) =>
-                BodybuilderDetailScreen(bodybuilder: bodybuilder),
-          ),
-        );
-      },
-      child: Container(
-        margin: EdgeInsets.only(bottom: 12.h),
-        decoration: BoxDecoration(
-          gradient: isDark
-              ? null
-              : LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    context.goldGradientColors[0].withValues(alpha: 0.15),
-                    context.cardColor,
-                    context.goldGradientColors[1].withValues(alpha: 0.1),
-                  ],
-                ),
-          color: isDark ? context.cardColor : null,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.5),
-            width: 1.5.w,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.35),
-              blurRadius: 16.r,
-              offset: Offset(0.w, 6.h),
-              spreadRadius: 1.r,
-            ),
-            BoxShadow(
-              color: isDark
-                  ? Colors.black.withValues(alpha: 0.5)
-                  : AppTheme.lightTextColor.withValues(alpha: 0.08),
-              blurRadius: 8.r,
-              offset: Offset(0.w, 2.h),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Profile Image
-            ClipRRect(
-              borderRadius: BorderRadius.only(
-                topRight: Radius.circular(20.r),
-                bottomRight: Radius.circular(20.r),
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12.h),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push<BodybuilderDetailScreen>(
+              context,
+              MaterialPageRoute<BodybuilderDetailScreen>(
+                builder: (_) =>
+                    BodybuilderDetailScreen(bodybuilder: bodybuilder),
               ),
-              child: Container(
-                width: 120.w,
-                height: 120.h,
-                color: Colors.black26,
-                child: GymaiNetworkImage(
-                  imageUrl: bodybuilder.profileImageUrl,
-                  errorWidget: const Icon(
-                    LucideIcons.user,
-                    color: Colors.white54,
-                    size: 48,
+            );
+          },
+          borderRadius: BorderRadius.circular(16.r),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: context.cardColor,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: context.separatorColor),
+            ),
+            child: Row(
+              children: [
+                // Profile Image
+                ClipRRect(
+                  borderRadius: BorderRadius.horizontal(
+                    right: Radius.circular(16.r),
+                  ),
+                  child: SizedBox(
+                    width: 110.w,
+                    height: 110.w,
+                    child: GymaiNetworkImage(
+                      imageUrl: bodybuilder.profileImageUrl,
+                      errorWidget: ColoredBox(
+                        color: context.surfaceElevated,
+                        child: Icon(
+                          LucideIcons.user,
+                          color: context.textSecondary,
+                          size: 40.sp,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
 
             // Info
             Expanded(
@@ -197,11 +171,13 @@ class BodybuilderCard extends StatelessWidget {
               padding: EdgeInsets.only(left: 8.w),
               child: Icon(
                 LucideIcons.chevronLeft,
-                color: context.textSecondary,
-                size: 24.sp,
+                color: context.textSecondary.withValues(alpha: 0.7),
+                size: 18.sp,
               ),
             ),
           ],
+        ),
+          ),
         ),
       ),
     );
@@ -222,4 +198,5 @@ class BodybuilderCard extends StatelessWidget {
     }
   }
 }
+
 

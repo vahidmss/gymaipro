@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:gymaipro/design_system/theme/gym_colors.dart';
 import 'package:gymaipro/design_system/theme/gym_spacing.dart';
+import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 import 'package:gymaipro/design_system/theme/gym_typography.dart';
 
 /// Horizontal or vertical divider with optional label.
@@ -21,14 +21,14 @@ class GymDivider extends StatelessWidget {
     if (vertical) {
       return Padding(
         padding: EdgeInsets.symmetric(horizontal: spacing),
-        child: Container(width: 1, color: GymColors.divider),
+        child: Container(width: 1, color: context.gymBorder),
       );
     }
 
     if (label == null) {
       return Padding(
         padding: EdgeInsets.symmetric(vertical: spacing),
-        child: const Divider(color: GymColors.divider, height: 1),
+        child: Divider(color: context.gymBorder, height: 1),
       );
     }
 
@@ -36,12 +36,17 @@ class GymDivider extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: spacing),
       child: Row(
         children: <Widget>[
-          const Expanded(child: Divider(color: GymColors.divider)),
+          Expanded(child: Divider(color: context.gymBorder)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: GymSpacing.md),
-            child: Text(label!, style: GymTypography.overline),
+            child: Text(
+              label!,
+              style: GymTypography.overline.copyWith(
+                color: context.gymTextTertiary,
+              ),
+            ),
           ),
-          const Expanded(child: Divider(color: GymColors.divider)),
+          Expanded(child: Divider(color: context.gymBorder)),
         ],
       ),
     );

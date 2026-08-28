@@ -8,6 +8,7 @@ class StartWorkoutCard extends StatelessWidget {
     required this.hasWorkout,
     required this.onStart,
     required this.onBuildProgram,
+    this.hasExistingAiPrograms = false,
     super.key,
   });
 
@@ -15,15 +16,24 @@ class StartWorkoutCard extends StatelessWidget {
   final VoidCallback onStart;
   final VoidCallback onBuildProgram;
 
+  /// True when Coach AI programs exist but none is active for today.
+  final bool hasExistingAiPrograms;
+
   @override
   Widget build(BuildContext context) {
     if (hasWorkout) return const SizedBox.shrink();
 
     return GymEmptyState(
-      title: ProductCopy.emptyWorkoutTitle,
-      message: ProductCopy.emptyWorkoutMessage,
+      title: hasExistingAiPrograms
+          ? ProductCopy.existingAiProgramTitle
+          : ProductCopy.emptyWorkoutTitle,
+      message: hasExistingAiPrograms
+          ? 'برنامه هوش مصنوعی داری؛ یکی را فعال کن یا از گزینه‌های مربی استفاده کن.'
+          : ProductCopy.emptyWorkoutMessage,
       icon: GymIcons.calendar,
-      actionLabel: ProductCopy.buildProgram,
+      actionLabel: hasExistingAiPrograms
+          ? ProductCopy.manageAiProgramOrbit
+          : ProductCopy.buildProgram,
       onAction: onBuildProgram,
     );
   }

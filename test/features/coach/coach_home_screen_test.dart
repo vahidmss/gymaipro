@@ -33,7 +33,6 @@ void main() {
     expect(find.text(ProductCopy.myCoachTitle), findsOneWidget);
     expect(find.text(ProductCopy.programOrbit), findsOneWidget);
     expect(find.text(ProductCopy.todayOrbit), findsOneWidget);
-    expect(find.text(ProductCopy.mealPlanOrbit), findsOneWidget);
     expect(find.text(ProductCopy.chatWithCoach), findsWidgets);
     expect(find.text(ProductCopy.goToTodayWorkout), findsOneWidget);
     expect(find.text(ProductCopy.coachMonitorTitle), findsOneWidget);
@@ -42,7 +41,8 @@ void main() {
     expect(find.text(ProductCopy.logWorkout), findsNothing);
     expect(find.text(ProductCopy.startWorkout), findsNothing);
     expect(find.textContaining('امروز انرژی خوبی داری'), findsOneWidget);
-    expect(find.textContaining('آمادگی 76٪'), findsOneWidget);
+    expect(find.text('آمادگی'), findsWidgets);
+    expect(find.text('76٪'), findsOneWidget);
   });
 
   testWidgets('CoachHomeScreen keeps UI behind CoachV2 gate', (tester) async {
@@ -152,7 +152,7 @@ class _FakeCoachFacade extends CoachFacade {
   final bool shouldThrow;
 
   @override
-  Future<CoachFacadeResult> load() async {
+  Future<CoachFacadeResult> load({bool enrichWithCoach = false}) async {
     if (shouldThrow) throw StateError('preview failed');
     return result!;
   }

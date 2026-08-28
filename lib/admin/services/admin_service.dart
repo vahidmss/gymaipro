@@ -1572,9 +1572,10 @@ class AdminService {
       debugPrint('AdminService.sendBroadcastNotification: $title - $body');
       debugPrint('Target role: $targetRole');
       debugPrint('Data: $data');
-
-      // TODO: پیاده‌سازی ارسال واقعی نوتیفیکیشن
-      return true;
+      debugPrint(
+        'AdminService.sendBroadcastNotification: delivery is not implemented',
+      );
+      return false;
     } catch (e) {
       debugPrint('AdminService.sendBroadcastNotification error: $e');
       return false;

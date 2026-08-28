@@ -50,4 +50,14 @@ void main() {
       'chest',
     );
   });
+
+  test('gym-wall cardio is full_body, bicycle crunch stays abs', () {
+    expect(AiExerciseMuscleNormalizer.inferMainMuscle('تردمیل'), 'full_body');
+    expect(
+      AiExerciseMuscleNormalizer.inferMainMuscle('دوچرخه ثابت'),
+      'full_body',
+    );
+    expect(AiExerciseMuscleNormalizer.inferMainMuscle('الپتیکال'), 'full_body');
+    expect(AiExerciseMuscleNormalizer.inferMainMuscle('کرانچ دوچرخه'), 'abs');
+  });
 }

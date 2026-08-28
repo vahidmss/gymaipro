@@ -124,20 +124,43 @@ void main() {
   testWidgets('CoachChatScreen autoLoad shows empty state after facade load', (
     tester,
   ) async {
+    final viewModel = CoachChatViewModel(
+      facade: _FakeCoachChatFacade(),
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: CoachChatScreen(
+          viewModel: viewModel,
+          autoLoad: false,
+        ),
+      ),
+    );
+    await viewModel.load();
+    await tester.pump();
+
+    expect(find.textContaining('من مربی هستم'), findsOneWidget);
+    expect(find.text('تمرین امروز'), findsOneWidget);
+    expect(find.textContaining('7 از 10 پیام رایگان'), findsOneWidget);
+  });
+
+  testWidgets('CoachChatScreen shows exhausted free quota hint', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CoachChatScreen(
+          autoLoad: false,
           viewModel: CoachChatViewModel(
-            facade: _FakeCoachChatFacade(),
+            initialState: const CoachChatState(
+              status: CoachChatStatus.empty,
+              quota: CoachChatQuota(used: 10, limit: 10, unlimited: false),
+            ),
           ),
         ),
       ),
     );
     await tester.pump();
-    await tester.pump();
 
-    expect(find.textContaining('من مربی هستم'), findsOneWidget);
-    expect(find.text('تمرین امروز'), findsOneWidget);
+    expect(find.textContaining('پیام رایگان نداری'), findsOneWidget);
+    expect(find.text('سقف امروز پر شده'), findsOneWidget);
   });
 
   testWidgets('CoachChatScreen renders conversation cards', (tester) async {
@@ -228,14 +251,23 @@ class _FakeCoachChatFacade extends CoachChatFacade {
   @override
   Future<CoachChatFacadeResult> load() async {
     return const CoachChatFacadeResult(
-      state: CoachChatState.empty(),
+      state: CoachChatState(
+        status: CoachChatStatus.empty,
+        quota: CoachChatQuota(used: 3, limit: 10, unlimited: false),
+      ),
     );
+  }
+
+  @override
+  Future<CoachChatQuota?> loadQuota() async {
+    return const CoachChatQuota(used: 3, limit: 10, unlimited: false);
   }
 
   @override
   Future<CoachChatPreviewResponse> send(
     String prompt, {
     List<ChatMessage> history = const <ChatMessage>[],
+    void Function(String partialText)? onPartialText,
   }) async {
     return _coachResponse();
   }
@@ -254,9 +286,15 @@ class _PendingCoachChatFacade extends CoachChatFacade {
   final Completer<CoachChatPreviewResponse> completer;
 
   @override
+  Future<CoachChatQuota?> loadQuota() async {
+    return const CoachChatQuota(used: 1, limit: 10, unlimited: false);
+  }
+
+  @override
   Future<CoachChatPreviewResponse> send(
     String prompt, {
     List<ChatMessage> history = const <ChatMessage>[],
+    void Function(String partialText)? onPartialText,
   }) {
     return completer.future;
   }
@@ -323,7 +361,7 @@ CoachIntegrationResult _integrationResult() {
           summary: 'Explainability',
           bullets: <String>['Preview used today workout context.'],
         ),
-        nextActions: <String>['Open Workout Today'],
+        nextActions: <String>['برنامه امروز را باز کن'],
       ),
       executionTime: Duration(milliseconds: 1),
       success: true,

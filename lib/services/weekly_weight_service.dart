@@ -340,8 +340,9 @@ class WeeklyWeightService {
   static String calculateWeightTrend(List<Map<String, dynamic>> weightHistory) {
     if (weightHistory.length < 2) return 'ثابت';
 
-    final latest = weightHistory.first['weight'] as double;
-    final previous = weightHistory[1]['weight'] as double;
+    final latest = _asWeight(weightHistory.first['weight']);
+    final previous = _asWeight(weightHistory[1]['weight']);
+    if (latest == null || previous == null) return 'ثابت';
     final difference = latest - previous;
 
     if (difference > 0.5) return 'افزایش';
@@ -363,8 +364,18 @@ class WeeklyWeightService {
       }
 
       final weights = history
-          .map((record) => (record['weight'] as num).toDouble())
+          .map((record) => _asWeight(record['weight']))
+          .whereType<double>()
           .toList();
+      if (weights.isEmpty) {
+        return {
+          'total_records': 0,
+          'average_weight': 0.0,
+          'min_weight': 0.0,
+          'max_weight': 0.0,
+          'trend': 'ثابت',
+        };
+      }
       final average = weights.reduce((a, b) => a + b) / weights.length;
       final min = weights.reduce((a, b) => a < b ? a : b);
       final max = weights.reduce((a, b) => a > b ? a : b);
@@ -411,6 +422,11 @@ class WeeklyWeightService {
     final startOfYear = DateTime(date.year);
     final daysSinceStart = date.difference(startOfYear).inDays;
     return ((daysSinceStart + startOfYear.weekday - 1) / 7).ceil();
+  }
+
+  static double? _asWeight(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
   }
 }
 

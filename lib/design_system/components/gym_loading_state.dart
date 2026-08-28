@@ -5,11 +5,7 @@ import 'package:gymaipro/design_system/theme/gym_typography.dart';
 
 /// Centered loading state with optional message.
 class GymLoadingState extends StatelessWidget {
-  const GymLoadingState({
-    this.message,
-    this.compact = false,
-    super.key,
-  });
+  const GymLoadingState({this.message, this.compact = false, super.key});
 
   final String? message;
   final bool compact;

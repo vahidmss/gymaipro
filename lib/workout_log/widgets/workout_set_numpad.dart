@@ -8,6 +8,8 @@ import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 enum WorkoutSetNumpadFieldKind { reps, weight, time, rpe }
 
 /// جلسهٔ ویرایش یک ست روی پد (الگوی Hevy/Strong).
+///
+/// آن‌چک ست فقط از تیک ردیف است؛ پد همیشه ثبت/تأیید می‌کند.
 class WorkoutSetNumpadSession {
   WorkoutSetNumpadSession({
     required this.controllers,
@@ -15,7 +17,6 @@ class WorkoutSetNumpadSession {
     required this.isSaved,
     required this.onCommit,
     required this.field,
-    this.onUncommit,
     this.onFinished,
     this.onPersistEdits,
     this.repsHint,
@@ -26,9 +27,8 @@ class WorkoutSetNumpadSession {
   final Map<String, TextEditingController> controllers;
   final ExerciseStyle style;
   final bool isSaved;
-  final VoidCallback? onUncommit;
 
-  /// بعد از ثبت موفق — مثلاً باز کردن ست بعدی.
+  /// بعد از ثبت موفق ستِ جدید — مثلاً باز کردن ست بعدی.
   final VoidCallback? onFinished;
 
   /// بستن پد وقتی ست از قبل ثبت بوده → آپدیت DB.
@@ -41,7 +41,7 @@ class WorkoutSetNumpadSession {
 
   WorkoutSetNumpadFieldKind field;
 
-  /// `true` = ثبت شد؛ `false` = لغو/رد (مثلاً وسط استراحت صبر کرد).
+  /// `true` = ثبت/به‌روزرسانی شد؛ `false` = رد (مثلاً وسط استراحت صبر کرد).
   final Future<bool> Function() onCommit;
 
   TextEditingController? get activeController {
@@ -103,16 +103,11 @@ class WorkoutSetNumpadController extends ChangeNotifier {
   bool isSessionFor(Map<String, TextEditingController> controllers) =>
       identical(_session?.controllers, controllers);
 
-  /// تیک روی پد = ثبت/لغو همان ست.
+  /// تیک روی پد = ثبت ست جدید یا تأیید ویرایش ست ثبت‌شده.
   Future<void> toggleCommit() async {
     final s = _session;
     if (s == null || _committing) return;
     HapticFeedback.mediumImpact();
-    if (s.isSaved) {
-      s.onUncommit?.call();
-      close(persistEdits: false);
-      return;
-    }
 
     _committing = true;
     try {
@@ -120,6 +115,15 @@ class WorkoutSetNumpadController extends ChangeNotifier {
       if (!ok) return;
       // جلسه ممکن است وسط await عوض شده باشد
       if (!identical(_session, s)) return;
+
+      // ویرایش ستِ کامل‌شده: به‌روز کن و ببند — به ست بعدی نرو.
+      if (s.isSaved) {
+        _session = null;
+        _replaceNext = true;
+        notifyListeners();
+        return;
+      }
+
       final next = s.onFinished;
       if (next != null) {
         // پد را نببند — فقط جلسه را عوض کن تا صفحه بالا/پایین نپرد
@@ -505,10 +509,9 @@ class _PadGrid extends StatelessWidget {
                 flex: 3,
                 child: _action(
                   context,
-                  icon: isSaved ? Icons.close_rounded : Icons.check_rounded,
-                  label: isSaved ? 'لغو' : 'ثبت',
-                  emphasized: !isSaved,
-                  danger: isSaved,
+                  icon: Icons.check_rounded,
+                  label: isSaved ? 'تأیید' : 'ثبت',
+                  emphasized: true,
                   onTap: onCommit,
                 ),
               ),
@@ -571,19 +574,14 @@ class _PadGrid extends StatelessWidget {
     IconData? icon,
     String? label,
     bool emphasized = false,
-    bool danger = false,
   }) {
     final bg = emphasized
         ? WorkoutLogColors.successSolid(context)
-        : danger
-        ? WorkoutLogColors.warningBackground(context)
         : (WorkoutLogColors.isDark(context)
               ? const Color(0xFF1A1A1A)
               : AppTheme.lightSurfaceColor);
     final fg = emphasized
         ? Colors.white
-        : danger
-        ? WorkoutLogColors.warningText(context)
         : WorkoutLogColors.secondaryText(context);
 
     return Padding(

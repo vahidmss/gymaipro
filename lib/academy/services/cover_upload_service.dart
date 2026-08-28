@@ -311,6 +311,101 @@ class CoverUploadService {
     }
   }
 
+  /// Safari / web-safe cover upload (no dart:io File path required).
+  Future<String> uploadCoverBytes(
+    List<int> bytes, {
+    required String fileName,
+    void Function(double progress)? onProgress,
+    String? uploadContext,
+    int? maxFileSizeBytes,
+  }) async {
+    final fileSize = bytes.length;
+    final maxBytes = maxFileSizeBytes ?? _maxFileSize;
+    if (fileSize == 0) {
+      throw Exception('فایل تصویر وجود ندارد');
+    }
+    if (fileSize > maxBytes) {
+      throw Exception(
+        'حجم فایل بیشتر از حد مجاز است (حداکثر ${maxBytes ~/ (1024 * 1024)}MB)',
+      );
+    }
+
+    Session? session = Supabase.instance.client.auth.currentSession;
+    if (session == null || session.accessToken.isEmpty) {
+      try {
+        final refreshed = await Supabase.instance.client.auth.refreshSession();
+        session = refreshed.session;
+      } catch (_) {}
+      if (session == null || session.accessToken.isEmpty) {
+        throw Exception('لطفاً ابتدا وارد حساب کاربری شوید');
+      }
+    }
+
+    final profile = await SimpleProfileService.queryCurrentUserProfile(
+      select: 'role',
+    );
+    final role = profile?['role'] as String?;
+    if (role == null || role.isEmpty) {
+      throw Exception(
+        'پروفایل کاربر یافت نشد. لطفاً ابتدا پروفایل خود را تکمیل کنید',
+      );
+    }
+    if (role != 'admin' && role != 'trainer') {
+      throw Exception('فقط ادمین و مربی می‌توانند کاور آپلود کنند');
+    }
+
+    final uri = Uri.parse('$_baseUrl$_endpoint');
+    final request = http.MultipartRequest('POST', uri);
+    final bearer = 'Bearer ${session.accessToken}';
+    request.headers['Authorization'] = bearer;
+    request.headers['X-Auth-Token'] = bearer;
+    request.fields['auth_token'] = session.accessToken;
+    if (uploadContext != null && uploadContext.trim().isNotEmpty) {
+      request.fields['upload_context'] = uploadContext.trim();
+    }
+
+    final safeName = fileName.split(RegExp(r'[\\/]')).last;
+    final ext = safeName.contains('.')
+        ? safeName.split('.').last
+        : 'jpg';
+    final outName =
+        'cover_${DateTime.now().millisecondsSinceEpoch}.$ext';
+    onProgress?.call(0.4);
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'cover',
+        bytes,
+        filename: outName,
+      ),
+    );
+
+    final streamed = await request.send().timeout(const Duration(minutes: 5));
+    onProgress?.call(0.95);
+    final response = await http.Response.fromStream(streamed);
+    onProgress?.call(1);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      try {
+        final responseData = jsonDecode(response.body);
+        if (responseData is Map) {
+          final coverUrl = (responseData['url'] ??
+                  responseData['cover_url'] ??
+                  responseData['image_url'])
+              ?.toString();
+          if (coverUrl != null && coverUrl.isNotEmpty) return coverUrl;
+        }
+      } catch (_) {}
+      throw Exception('پاسخ سرور نامعتبر است');
+    }
+    if (response.statusCode == 401) {
+      throw Exception('احراز هویت ناموفق. لطفاً دوباره وارد شوید');
+    }
+    throw Exception(
+      _extractErrorMessage(response.body) ??
+          'خطا در آپلود تصویر کاور (کد خطا: ${response.statusCode})',
+    );
+  }
+
   /// استخراج پیام خطا از پاسخ JSON
   String? _extractErrorMessage(String responseBody) {
     try {

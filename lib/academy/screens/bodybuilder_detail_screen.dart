@@ -25,6 +25,12 @@ class BodybuilderDetailScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: context.backgroundColor,
         elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          tooltip: 'بازگشت',
+          icon: Icon(LucideIcons.arrowRight, color: context.textColor),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
         title: Text(
           bodybuilder.name,
           style: context.headingStyle.copyWith(fontSize: 18.sp),

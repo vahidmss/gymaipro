@@ -91,9 +91,9 @@ class _DashboardStatsStripState extends State<DashboardStatsStrip> {
         hint: m.bmi > 0 ? _bmiLabel(m.bmiCategory) : '—',
       ),
       _StatCell(
-        label: 'کالری روزانه',
+        label: 'نیاز روزانه',
         value: m.tdee > 0 ? m.tdee.round().toString() : '—',
-        hint: 'کیلوکالری',
+        hint: 'برای حفظ وزن',
       ),
     ];
 

@@ -139,10 +139,23 @@ class EntitlementEngine {
       return _result(capability: capability, allowed: false, reasons: reasons);
     }
 
-    final dailyRemaining = _remaining(
-      limit: gate.enforceDailyLimit ? definition?.defaultDailyLimit : null,
-      used: entitlement.usage.dailyFor(capability),
-    );
+    final unlimitedMessages = capability == CoachCapability.coachConversation &&
+        _hasCapability(
+          entitlement: entitlement,
+          capability: CoachCapability.unlimitedMessages,
+          gate: gate,
+          reasons: <EntitlementReason>{},
+          now: now,
+        );
+
+    final dailyRemaining = unlimitedMessages
+        ? null
+        : _remaining(
+            limit: gate.enforceDailyLimit
+                ? definition?.defaultDailyLimit
+                : null,
+            used: entitlement.usage.dailyFor(capability),
+          );
     if (dailyRemaining != null && dailyRemaining < 0) {
       reasons.add(EntitlementReason.dailyLimitReached);
     }

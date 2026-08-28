@@ -53,10 +53,11 @@ class FoodItemCard extends StatelessWidget {
                 width: 3.w,
                 height: 34.h,
                 decoration: BoxDecoration(
-                  color: (isFromPlan
-                          ? MealLogColors.planAccent(context)
-                          : MealLogColors.accent(context))
-                      .withValues(alpha: 0.7),
+                  color:
+                      (isFromPlan
+                              ? MealLogColors.planAccent(context)
+                              : MealLogColors.accent(context))
+                          .withValues(alpha: 0.7),
                   borderRadius: BorderRadius.circular(2.r),
                 ),
               ),
@@ -120,7 +121,9 @@ class FoodItemCard extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                MealLogUtils.convertToPersianNumbers(amountText),
+                                MealLogUtils.convertToPersianNumbers(
+                                  amountText,
+                                ),
                                 textDirection: TextDirection.rtl,
                                 style: MealLogTypography.caption(
                                   context,
@@ -152,13 +155,12 @@ class FoodItemCard extends StatelessWidget {
 
   Widget _buildActionMenu(bool isFromPlan, BuildContext context) {
     return PopupMenuButton<String>(
+      tooltip: 'گزینه‌های غذا',
       icon: Icon(
         LucideIcons.ellipsisVertical,
         color: MealLogColors.hintText(context),
         size: 14.sp,
       ),
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(),
       color: MealLogColors.sectionBackground(context),
       itemBuilder: (context) => isFromPlan
           ? [

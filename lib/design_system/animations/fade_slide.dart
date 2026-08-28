@@ -28,9 +28,9 @@ class GymFadeSlide extends StatelessWidget {
         final adjusted = delay == Duration.zero
             ? value
             : ((value * (duration.inMilliseconds + delay.inMilliseconds) -
-                      delay.inMilliseconds) /
-                  duration.inMilliseconds)
-              .clamp(0.0, 1.0);
+                          delay.inMilliseconds) /
+                      duration.inMilliseconds)
+                  .clamp(0.0, 1.0);
         return Opacity(
           opacity: adjusted,
           child: Transform.translate(

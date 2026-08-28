@@ -75,7 +75,7 @@ void main() {
           memoryManager: MemoryManager(repository: memoryRepository),
         ),
         coachEntitlementRuntime: CoachEntitlementRuntime(
-          provider: entitlementProvider ?? const CurrentSubscriptionAdapter(),
+          provider: entitlementProvider ?? CurrentSubscriptionAdapter(),
         ),
       ),
     );

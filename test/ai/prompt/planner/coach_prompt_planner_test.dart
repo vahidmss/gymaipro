@@ -98,8 +98,13 @@ void main() {
       );
 
       expect(plan.sections.first.priority, CoachPromptPriority.critical);
-      final ranks = plan.sections.map((section) => section.priority.rank).toList();
-      expect(ranks, orderedEquals(List<int>.from(ranks)..sort((a, b) => b.compareTo(a))));
+      final ranks = plan.sections
+          .map((section) => section.priority.rank)
+          .toList();
+      expect(
+        ranks,
+        orderedEquals(List<int>.from(ranks)..sort((a, b) => b.compareTo(a))),
+      );
     });
 
     test('compresses conversation before removals under tight budget', () {
@@ -120,7 +125,8 @@ void main() {
       );
       expect(
         plan.trace.sectionTraces.any(
-          (trace) => trace.sectionId == 'conversation.summary' && trace.compressed,
+          (trace) =>
+              trace.sectionId == 'conversation.summary' && trace.compressed,
         ),
         isTrue,
       );
@@ -147,7 +153,12 @@ void main() {
         containsAll(<CoachPromptSectionType>[
           CoachPromptSectionType.system,
           CoachPromptSectionType.currentQuestion,
+          CoachPromptSectionType.userCard,
         ]),
+      );
+      expect(
+        plan.sections.any((s) => s.id == 'user.card' && !s.removed),
+        isTrue,
       );
     });
 
@@ -202,16 +213,24 @@ void main() {
       );
 
       expect(plan.trace.sectionTraces, isNotEmpty);
-      expect(
-        plan.trace.sectionTraces.any((trace) => trace.removed),
-        isTrue,
-      );
+      expect(plan.trace.sectionTraces.any((trace) => trace.removed), isTrue);
     });
   });
 
   group('CoachPromptValidator', () {
     const planner = CoachPromptPlanner();
     const validator = CoachPromptValidator();
+
+    test('includes decisions.lock and passes numeric lock validation', () {
+      final plan = planner.plan(
+        CoachPromptPlanningRequest(coachContext: richContext()),
+      );
+
+      expect(plan.sections.any((s) => s.id == 'decisions.lock'), isTrue);
+      expect(plan.sections.any((s) => s.id == 'user.card'), isTrue);
+      final result = validator.validate(plan);
+      expect(result.isValid, isTrue);
+    });
 
     test('accepts valid plans with critical sections', () {
       final plan = planner.plan(

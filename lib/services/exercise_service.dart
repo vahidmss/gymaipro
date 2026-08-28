@@ -58,7 +58,9 @@ class ExerciseService {
 
   String get apiUrl =>
       '${AppConfig.wordpressApiOrigin}/wp-json/wp/v2/exercises';
-  final SupabaseClient _client = Supabase.instance.client;
+  // Lazy so constructing the singleton (e.g. in widget tests) doesn't require
+  // an initialized Supabase instance.
+  SupabaseClient get _client => Supabase.instance.client;
   final UserPreferencesService _preferencesService = UserPreferencesService();
   final CustomExerciseService _customExerciseService = CustomExerciseService();
   List<Exercise>? _cachedExercises;

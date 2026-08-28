@@ -35,8 +35,6 @@ class _RegisterScreenState extends State<RegisterScreen>
   String? _usernameError;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-  late Animation<double> _logoScaleAnimation;
-  late Animation<double> _cardSlideAnimation;
 
   // Focus nodes for better field management
   final _usernameFocusNode = FocusNode();
@@ -73,21 +71,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: Curves.easeOut, // سریع‌تر از easeIn
-      ),
-    );
-
-    _logoScaleAnimation = Tween<double>(begin: 0.9, end: 1).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0, 0.5, curve: Curves.easeOut), // سریع‌تر
-      ),
-    );
-
-    _cardSlideAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.1, 1, curve: Curves.easeOut), // سریع‌تر
+        curve: Curves.easeOut,
       ),
     );
 
@@ -387,674 +371,209 @@ class _RegisterScreenState extends State<RegisterScreen>
       },
       child: Scaffold(
         backgroundColor: context.backgroundColor,
-        // بهینه‌سازی: بهبود عملکرد کیبورد
         resizeToAvoidBottomInset: true,
-        body: RepaintBoundary(
-          child: Stack(
-            children: [
-              const AuthGradientBackground(),
-              // Content
-              SafeArea(
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Column(
-                    children: [
-                      // Main content with flexible space
-                      Expanded(
-                        child: Center(
-                          child: SingleChildScrollView(
-                            // بهینه‌سازی: بهبود رفتار کیبورد
-                            keyboardDismissBehavior:
-                                ScrollViewKeyboardDismissBehavior.onDrag,
-                            physics:
-                                const BouncingScrollPhysics(), // بهینه‌سازی: scroll روان‌تر
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 20.w,
-                              vertical: 24.h,
-                            ),
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(maxWidth: 360.w),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  RepaintBoundary(
-                                    child: ScaleTransition(
-                                      scale: _logoScaleAnimation,
-                                      child: Padding(
-                                        padding: EdgeInsets.only(bottom: 28.h),
-                                        child: DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            // بهینه‌سازی: کاهش shadow برای عملکرد بهتر
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: AppTheme.goldColor
-                                                    .withValues(alpha: 0.35),
-                                                blurRadius: 32.r,
-                                                spreadRadius: 6.r,
-                                              ),
-                                            ],
-                                          ),
-                                          child: Image.asset(
-                                            'images/GYMAI_logo_transparent.png',
-                                            height: 140.h,
-                                            width: 140.w,
-                                            fit: BoxFit.contain,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+        body: Stack(
+          children: [
+            const AuthGradientBackground(),
+            SafeArea(
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isKeyboardOpen =
+                        MediaQuery.of(context).viewInsets.bottom > 0;
+                    return SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      physics: const BouncingScrollPhysics(),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 24.w,
+                        vertical: isKeyboardOpen ? 12.h : 28.h,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: 400.w,
+                          minHeight: constraints.maxHeight -
+                              (isKeyboardOpen ? 24.h : 56.h),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (!isKeyboardOpen) ...[
+                              const AuthLogo(),
+                              SizedBox(height: 28.h),
+                            ],
+                            AuthCard(child: _buildRegisterForm()),
+                            SizedBox(height: 18.h),
+                            TextButton(
+                              onPressed: () {
+                                if (!mounted) return;
+                                Navigator.pushReplacementNamed(
+                                  context,
+                                  '/login',
+                                );
+                              },
+                              child: Text.rich(
+                                TextSpan(
+                                  style: TextStyle(
+                                    fontSize: 13.sp,
+                                    fontFamily: AppTheme.fontFamily,
+                                    color: context.textSecondary,
                                   ),
-                                  RepaintBoundary(
-                                    child: SlideTransition(
-                                      position: Tween<Offset>(
-                                        begin: const Offset(
-                                          0,
-                                          0.08,
-                                        ), // بهینه‌سازی: کاهش حرکت
-                                        end: Offset.zero,
-                                      ).animate(_cardSlideAnimation),
-                                      child: FadeTransition(
-                                        opacity: _cardSlideAnimation,
-                                        child: Container(
-                                          padding: EdgeInsets.all(24.w),
-                                          decoration: BoxDecoration(
-                                            gradient:
-                                                Theme.of(context).brightness ==
-                                                    Brightness.dark
-                                                ? LinearGradient(
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                    colors: [
-                                                      context.cardColor,
-                                                      AppTheme.darkGold
-                                                          .withValues(
-                                                            alpha: 0.12,
-                                                          ),
-                                                      context.cardColor,
-                                                    ],
-                                                    stops: const [
-                                                      0.0,
-                                                      0.5,
-                                                      1.0,
-                                                    ],
-                                                  )
-                                                : LinearGradient(
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                    colors: [
-                                                      AppTheme.darkTextColor.withValues(
-                                                        alpha: 0.95,
-                                                      ),
-                                                      context
-                                                          .goldGradientColors[0]
-                                                          .withValues(
-                                                            alpha: 0.2,
-                                                          ),
-                                                      AppTheme.darkTextColor.withValues(
-                                                        alpha: 0.98,
-                                                      ),
-                                                    ],
-                                                    stops: const [
-                                                      0.0,
-                                                      0.5,
-                                                      1.0,
-                                                    ],
-                                                  ),
-                                            borderRadius: BorderRadius.circular(
-                                              28.r,
-                                            ),
-                                            border: Border.all(
-                                              color: AppTheme.goldColor
-                                                  .withValues(
-                                                    alpha:
-                                                        Theme.of(
-                                                              context,
-                                                            ).brightness ==
-                                                            Brightness.dark
-                                                        ? 0.7
-                                                        : 0.8,
-                                                  ),
-                                              width: 2.5.w,
-                                            ),
-                                            // بهینه‌سازی: کاهش تعداد shadow برای عملکرد بهتر
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: AppTheme.goldColor
-                                                    .withValues(
-                                                      alpha:
-                                                          Theme.of(
-                                                                context,
-                                                              ).brightness ==
-                                                              Brightness.dark
-                                                          ? 0.35
-                                                          : 0.5,
-                                                    ),
-                                                blurRadius: 32.r,
-                                                offset: Offset(0.w, 12.h),
-                                                spreadRadius: 3.r,
-                                              ),
-                                              BoxShadow(
-                                                color:
-                                                    Theme.of(
-                                                          context,
-                                                        ).brightness ==
-                                                        Brightness.dark
-                                                    ? AppTheme.veryDarkBackground.withValues(
-                                                        alpha: 0.4,
-                                                      )
-                                                    : AppTheme.lightTextColor
-                                                          .withValues(
-                                                            alpha: 0.15,
-                                                          ),
-                                                blurRadius: 20.r,
-                                                offset: Offset(0.w, 6.h),
-                                                spreadRadius: 1.r,
-                                              ),
-                                            ],
-                                          ),
-                                          child: Form(
-                                            key: _formKey,
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.stretch,
-                                              children: [
-                                                GestureDetector(
-                                                  onTap: _onUsernameFieldTap,
-                                                  child: SafeTextFormField(
-                                                    controller:
-                                                        _usernameController,
-                                                    focusNode:
-                                                        _usernameFocusNode,
-                                                    style: TextStyle(
-                                                      color: context.textColor,
-                                                      fontSize: 12.sp,
-                                                      fontFamily:
-                                                          AppTheme.fontFamily,
-                                                    ),
-                                                    decoration: InputDecoration(
-                                                      labelText: 'نام کاربری',
-                                                      hintText:
-                                                          'نام کاربری خود را وارد کنید',
-                                                      labelStyle: TextStyle(
-                                                        color: context
-                                                            .textSecondary,
-                                                        fontSize: 12.sp,
-                                                        fontFamily:
-                                                            AppTheme.fontFamily,
-                                                      ),
-                                                      hintStyle: TextStyle(
-                                                        color: context
-                                                            .textSecondary
-                                                            .withValues(
-                                                              alpha: 0.6,
-                                                            ),
-                                                        fontSize: 12.sp,
-                                                        fontFamily:
-                                                            AppTheme.fontFamily,
-                                                      ),
-                                                      enabledBorder: OutlineInputBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              12.r,
-                                                            ),
-                                                        borderSide: BorderSide(
-                                                          color: context
-                                                              .separatorColor,
-                                                        ),
-                                                      ),
-                                                      focusedBorder:
-                                                          OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12.r,
-                                                                ),
-                                                            borderSide:
-                                                                const BorderSide(
-                                                                  color: AppTheme
-                                                                      .goldColor,
-                                                                  width: 2,
-                                                                ),
-                                                          ),
-                                                      errorBorder: OutlineInputBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              12.r,
-                                                            ),
-                                                        borderSide:
-                                                            const BorderSide(
-                                                              color: AppTheme
-                                                                  .errorColor,
-                                                            ),
-                                                      ),
-                                                      focusedErrorBorder:
-                                                          OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12.r,
-                                                                ),
-                                                            borderSide:
-                                                                const BorderSide(
-                                                                  color: AppTheme
-                                                                      .errorColor,
-                                                                  width: 2,
-                                                                ),
-                                                          ),
-                                                      filled: true,
-                                                      fillColor:
-                                                          Theme.of(
-                                                                context,
-                                                              ).brightness ==
-                                                              Brightness.dark
-                                                          ? context.cardColor
-                                                          : AppTheme.darkTextColor
-                                                                .withValues(
-                                                                  alpha: 0.7,
-                                                                ),
-                                                      contentPadding:
-                                                          EdgeInsets.symmetric(
-                                                            horizontal: 14.w,
-                                                            vertical: 10.h,
-                                                          ),
-                                                      errorText:
-                                                          _usernameError ==
-                                                                  _kUsernameCheckRetryMessage
-                                                              ? 'اتصال طول کشید.'
-                                                              : _usernameError,
-                                                      prefixIcon: Icon(
-                                                        Icons.person_outline,
-                                                        color:
-                                                            AppTheme.goldColor,
-                                                        size: 20.sp,
-                                                      ),
-                                                      suffixIcon:
-                                                          _isCheckingUsername
-                                                          ? Padding(
-                                                              padding:
-                                                                  EdgeInsets.all(
-                                                                    10.w,
-                                                                  ),
-                                                              child: SizedBox(
-                                                                width: 14.w,
-                                                                height: 14.h,
-                                                                child: const CircularProgressIndicator(
-                                                                  strokeWidth:
-                                                                      2,
-                                                                  valueColor:
-                                                                      AlwaysStoppedAnimation<
-                                                                        Color
-                                                                      >(
-                                                                        AppTheme
-                                                                            .goldColor,
-                                                                      ),
-                                                                ),
-                                                              ),
-                                                            )
-                                                          : null,
-                                                    ),
-                                                    inputFormatters: [
-                                                      UsernameInputFormatter(),
-                                                      // محدود کردن طول به 30 کاراکتر
-                                                      LengthLimitingTextInputFormatter(
-                                                        30,
-                                                      ),
-                                                    ],
-                                                    validator: UsernameValidator.validate,
-                                                    onChanged:
-                                                        _onUsernameChanged,
-                                                    textInputAction:
-                                                        TextInputAction.next,
-                                                    onFieldSubmitted: (_) {
-                                                      _phoneFocusNode
-                                                          .requestFocus();
-                                                    },
-                                                  ),
-                                                ),
-                                                if (_usernameError ==
-                                                    _kUsernameCheckRetryMessage)
-                                                  Padding(
-                                                    padding: EdgeInsets.only(
-                                                      top: 6.h,
-                                                      right: 4.w,
-                                                    ),
-                                                    child: InkWell(
-                                                      onTap: _isCheckingUsername
-                                                          ? null
-                                                          : _checkUsername,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8.r,
-                                                          ),
-                                                      child: Padding(
-                                                        padding:
-                                                            EdgeInsets.symmetric(
-                                                          vertical: 6.h,
-                                                          horizontal: 4.w,
-                                                        ),
-                                                        child: Row(
-                                                          mainAxisSize:
-                                                              MainAxisSize.min,
-                                                          children: [
-                                                            Icon(
-                                                              Icons
-                                                                  .refresh_rounded,
-                                                              size: 16.sp,
-                                                              color: AppTheme
-                                                                  .goldColor,
-                                                            ),
-                                                            SizedBox(
-                                                              width: 6.w,
-                                                            ),
-                                                            Text(
-                                                              'تلاش مجدد',
-                                                              style: TextStyle(
-                                                                fontFamily:
-                                                                    AppTheme
-                                                                        .fontFamily,
-                                                                fontSize:
-                                                                    12.sp,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                color: AppTheme
-                                                                    .goldColor,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                SizedBox(height: 16.h),
-                                                GestureDetector(
-                                                  onTap: _onPhoneFieldTap,
-                                                  child: SafeTextFormField(
-                                                    controller:
-                                                        _phoneController,
-                                                    focusNode: _phoneFocusNode,
-                                                    style: TextStyle(
-                                                      color: context.textColor,
-                                                      fontSize: 12.sp,
-                                                      fontFamily:
-                                                          AppTheme.fontFamily,
-                                                    ),
-                                                    decoration: InputDecoration(
-                                                      labelText: 'شماره موبایل',
-                                                      hintText:
-                                                          'شماره موبایل خود را وارد کنید',
-                                                      labelStyle: TextStyle(
-                                                        color: context
-                                                            .textSecondary,
-                                                        fontSize: 12.sp,
-                                                        fontFamily:
-                                                            AppTheme.fontFamily,
-                                                      ),
-                                                      hintStyle: TextStyle(
-                                                        color: context
-                                                            .textSecondary
-                                                            .withValues(
-                                                              alpha: 0.6,
-                                                            ),
-                                                        fontSize: 12.sp,
-                                                        fontFamily:
-                                                            AppTheme.fontFamily,
-                                                      ),
-                                                      enabledBorder: OutlineInputBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              12.r,
-                                                            ),
-                                                        borderSide: BorderSide(
-                                                          color: context
-                                                              .separatorColor,
-                                                        ),
-                                                      ),
-                                                      focusedBorder:
-                                                          OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12.r,
-                                                                ),
-                                                            borderSide:
-                                                                const BorderSide(
-                                                                  color: AppTheme
-                                                                      .goldColor,
-                                                                  width: 2,
-                                                                ),
-                                                          ),
-                                                      errorBorder: OutlineInputBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              12.r,
-                                                            ),
-                                                        borderSide:
-                                                            const BorderSide(
-                                                              color: AppTheme
-                                                                  .errorColor,
-                                                            ),
-                                                      ),
-                                                      focusedErrorBorder:
-                                                          OutlineInputBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12.r,
-                                                                ),
-                                                            borderSide:
-                                                                const BorderSide(
-                                                                  color: AppTheme
-                                                                      .errorColor,
-                                                                  width: 2,
-                                                                ),
-                                                          ),
-                                                      filled: true,
-                                                      fillColor:
-                                                          Theme.of(
-                                                                context,
-                                                              ).brightness ==
-                                                              Brightness.dark
-                                                          ? context.cardColor
-                                                          : AppTheme.darkTextColor
-                                                                .withValues(
-                                                                  alpha: 0.7,
-                                                                ),
-                                                      contentPadding:
-                                                          EdgeInsets.symmetric(
-                                                            horizontal: 14.w,
-                                                            vertical: 10.h,
-                                                          ),
-                                                      prefixIcon: Icon(
-                                                        Icons.phone_android,
-                                                        color:
-                                                            AppTheme.goldColor,
-                                                        size: 20.sp,
-                                                      ),
-                                                    ),
-                                                    keyboardType:
-                                                        TextInputType.phone,
-                                                    textInputAction:
-                                                        TextInputAction.done,
-                                                    onFieldSubmitted: (_) {
-                                                      if (!_isDisposed &&
-                                                          !_isLoading &&
-                                                          !_isCheckingUsername) {
-                                                        _sendOTP();
-                                                      }
-                                                    },
-                                                    validator: (value) {
-                                                      if (value == null ||
-                                                          value.isEmpty) {
-                                                        return 'لطفاً شماره موبایل را وارد کنید';
-                                                      }
-                                                      if (!PhoneUtils.isValid(
-                                                        PhoneUtils.normalize(
-                                                          value,
-                                                        ),
-                                                      )) {
-                                                        return 'شماره موبایل معتبر نیست';
-                                                      }
-                                                      return null;
-                                                    },
-                                                  ),
-                                                ),
-                                                SizedBox(height: 20.h),
-                                                DecoratedBox(
-                                                  decoration: BoxDecoration(
-                                                    gradient: const LinearGradient(
-                                                      begin: Alignment.topLeft,
-                                                      end:
-                                                          Alignment.bottomRight,
-                                                      colors: [
-                                                        AppTheme.goldColor,
-                                                        AppTheme.darkGold,
-                                                        AppTheme.goldColor,
-                                                      ],
-                                                      stops: [
-                                                        0.0,
-                                                        0.5,
-                                                        1.0,
-                                                      ],
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          14.r,
-                                                        ),
-                                                    boxShadow: [
-                                                      BoxShadow(
-                                                        color: AppTheme
-                                                            .goldColor
-                                                            .withValues(
-                                                              alpha: 0.5,
-                                                            ),
-                                                        blurRadius: 16.r,
-                                                        offset: Offset(
-                                                          0.w,
-                                                          8.h,
-                                                        ),
-                                                        spreadRadius: 2.r,
-                                                      ),
-                                                      BoxShadow(
-                                                        color: AppTheme.darkGold
-                                                            .withValues(
-                                                              alpha: 0.3,
-                                                            ),
-                                                        blurRadius: 24.r,
-                                                        offset: Offset(
-                                                          0.w,
-                                                          4.h,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  child: ElevatedButton(
-                                                    onPressed:
-                                                        _isLoading ||
-                                                            _isCheckingUsername
-                                                        ? null
-                                                        : _sendOTP,
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor:
-                                                          Colors.transparent,
-                                                      shadowColor:
-                                                          Colors.transparent,
-                                                      foregroundColor:
-                                                          Theme.of(
-                                                                context,
-                                                              ).brightness ==
-                                                              Brightness.dark
-                                                          ? AppTheme.darkTextColor
-                                                          : const Color(
-                                                              0xFF2C2416,
-                                                            ),
-                                                      padding:
-                                                          EdgeInsets.symmetric(
-                                                            horizontal: 24.w,
-                                                            vertical: 14.h,
-                                                          ),
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              14.r,
-                                                            ),
-                                                      ),
-                                                      elevation: 0,
-                                                    ),
-                                                    child: _isLoading
-                                                        ? SizedBox(
-                                                            height: 18.h,
-                                                            width: 18.w,
-                                                            child: CircularProgressIndicator(
-                                                              strokeWidth: 2,
-                                                              valueColor: AlwaysStoppedAnimation<Color>(
-                                                                Theme.of(
-                                                                          context,
-                                                                        ).brightness ==
-                                                                        Brightness
-                                                                            .dark
-                                                                    ? Colors
-                                                                          .white
-                                                                    : const Color(
-                                                                        0xFF2C2416,
-                                                                      ),
-                                                              ),
-                                                            ),
-                                                          )
-                                                        : Text(
-                                                            'ارسال کد تایید',
-                                                            style: TextStyle(
-                                                              fontSize: 12.sp,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                              fontFamily: AppTheme
-                                                                  .fontFamily,
-                                                            ),
-                                                          ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                                  children: [
+                                    const TextSpan(
+                                      text: 'قبلاً ثبت‌نام کرده‌اید؟ ',
                                     ),
-                                  ),
-                                  SizedBox(height: 16.h),
-                                  TextButton(
-                                    onPressed: () {
-                                      if (!mounted) return;
-                                      Navigator.pushReplacementNamed(
-                                        context,
-                                        '/login',
-                                      );
-                                    },
-                                    child: Text(
-                                      'قبلاً ثبت‌نام کرده‌اید؟ وارد شوید',
+                                    TextSpan(
+                                      text: 'وارد شوید',
                                       style: TextStyle(
-                                        fontSize: 13.sp,
-                                        fontWeight: FontWeight.w500,
-                                        fontFamily: AppTheme.fontFamily,
-                                        color:
-                                            Theme.of(context).brightness ==
-                                                Brightness.light
-                                            ? AppTheme.lightTextSecondary
-                                            : context.textSecondary,
+                                        color: AppTheme.goldColor,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRegisterForm() {
+    final usernameDeco = authFieldDecoration(
+      context,
+      label: 'نام کاربری',
+      hint: 'نام کاربری خود را وارد کنید',
+      icon: Icons.person_outline,
+    ).copyWith(
+      errorText: _usernameError == _kUsernameCheckRetryMessage
+          ? 'اتصال طول کشید.'
+          : _usernameError,
+      suffixIcon: _isCheckingUsername
+          ? Padding(
+              padding: EdgeInsets.all(10.w),
+              child: SizedBox(
+                width: 14.w,
+                height: 14.h,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.goldColor),
+                ),
+              ),
+            )
+          : null,
+    );
+
+    return Form(
+      key: _formKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          GestureDetector(
+            onTap: _onUsernameFieldTap,
+            child: SafeTextFormField(
+              controller: _usernameController,
+              focusNode: _usernameFocusNode,
+              style: TextStyle(
+                color: context.textColor,
+                fontSize: 14.sp,
+                fontFamily: AppTheme.fontFamily,
+              ),
+              decoration: usernameDeco,
+              inputFormatters: [
+                UsernameInputFormatter(),
+                LengthLimitingTextInputFormatter(30),
+              ],
+              validator: UsernameValidator.validate,
+              onChanged: _onUsernameChanged,
+              textInputAction: TextInputAction.next,
+              onFieldSubmitted: (_) => _phoneFocusNode.requestFocus(),
+            ),
+          ),
+          if (_usernameError == _kUsernameCheckRetryMessage)
+            Padding(
+              padding: EdgeInsets.only(top: 6.h, right: 4.w),
+              child: InkWell(
+                onTap: _isCheckingUsername ? null : _checkUsername,
+                borderRadius: BorderRadius.circular(8.r),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 6.h, horizontal: 4.w),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.refresh_rounded,
+                        size: 16.sp,
+                        color: AppTheme.goldColor,
+                      ),
+                      SizedBox(width: 6.w),
+                      Text(
+                        'تلاش مجدد',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.goldColor,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ],
+            ),
+          SizedBox(height: 14.h),
+          GestureDetector(
+            onTap: _onPhoneFieldTap,
+            child: SafeTextFormField(
+              controller: _phoneController,
+              focusNode: _phoneFocusNode,
+              style: TextStyle(
+                color: context.textColor,
+                fontSize: 14.sp,
+                fontFamily: AppTheme.fontFamily,
+              ),
+              decoration: authFieldDecoration(
+                context,
+                label: 'شماره موبایل',
+                hint: 'مثلاً ۰۹۱۲۳۴۵۶۷۸۹',
+                icon: Icons.phone_android,
+              ),
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) {
+                if (!_isDisposed && !_isLoading && !_isCheckingUsername) {
+                  _sendOTP();
+                }
+              },
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'لطفاً شماره موبایل را وارد کنید';
+                }
+                if (!PhoneUtils.isValid(PhoneUtils.normalize(value))) {
+                  return 'شماره موبایل معتبر نیست';
+                }
+                return null;
+              },
+            ),
           ),
-        ), // بستن RepaintBoundary
+          SizedBox(height: 18.h),
+          AuthPrimaryButton(
+            label: 'ارسال کد تایید',
+            loading: _isLoading || _isCheckingUsername,
+            onPressed: _sendOTP,
+          ),
+        ],
       ),
     );
   }

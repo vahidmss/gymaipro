@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:gymaipro/design_system/theme/gym_colors.dart';
 import 'package:gymaipro/design_system/theme/gym_motion.dart';
 import 'package:gymaipro/design_system/theme/gym_radius.dart';
+import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 
 /// Animated linear progress bar.
 class GymProgressBar extends StatelessWidget {
@@ -23,8 +23,8 @@ class GymProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final clamped = value.clamp(0.0, 1.0);
-    final fillColor = color ?? GymColors.primary;
-    final trackColor = backgroundColor ?? GymColors.neutral800;
+    final fillColor = color ?? context.gymGold;
+    final trackColor = backgroundColor ?? context.gymNeutralFill;
 
     final fill = FractionallySizedBox(
       alignment: Alignment.centerRight,

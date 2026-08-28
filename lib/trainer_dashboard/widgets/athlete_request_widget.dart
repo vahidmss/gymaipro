@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_dashboard/services/user_search_service.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -69,27 +70,33 @@ class _AthleteRequestWidgetState extends State<AthleteRequestWidget> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.w),
+      physics: const AlwaysScrollableScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 8),
+          SizedBox(height: 8.h),
           DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(12.r),
+              color: context.cardColor,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: context.separatorColor),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _usernameController,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(
+                      color: context.textColor,
+                      fontFamily: AppTheme.fontFamily,
+                    ),
                     decoration: InputDecoration(
                       hintText: 'یوزرنیم ورزشکار را وارد کنید',
-                      hintStyle: const TextStyle(color: Colors.amber),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(16.r)),
+                      hintStyle: TextStyle(
+                        color: context.textSecondary,
+                        fontFamily: AppTheme.fontFamily,
                       ),
+                      border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(
                         horizontal: 16.w,
                         vertical: 12.h,
@@ -105,11 +112,12 @@ class _AthleteRequestWidgetState extends State<AthleteRequestWidget> {
                           height: 20.h,
                           child: const CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.amber,
+                            color: AppTheme.goldColor,
                           ),
                         )
-                      : const Icon(LucideIcons.send, color: Colors.amber),
+                      : const Icon(LucideIcons.send, color: AppTheme.goldColor),
                   onPressed: _isLoading ? null : _sendRequest,
+                  tooltip: 'جستجوی ورزشکار',
                 ),
               ],
             ),
@@ -121,18 +129,28 @@ class _AthleteRequestWidgetState extends State<AthleteRequestWidget> {
             Container(
               padding: EdgeInsets.all(12.w),
               decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8.r),
-                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                color: AppTheme.errorColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(
+                  color: AppTheme.errorColor.withValues(alpha: 0.3),
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(LucideIcons.alertCircle, color: Colors.red, size: 16.sp),
-                  const SizedBox(width: 8),
+                  Icon(
+                    LucideIcons.alertCircle,
+                    color: AppTheme.errorColor,
+                    size: 18.sp,
+                  ),
+                  SizedBox(width: 8.w),
                   Expanded(
                     child: Text(
                       _errorMessage!,
-                      style: const TextStyle(color: Colors.red, fontSize: 14),
+                      style: TextStyle(
+                        color: AppTheme.errorColor,
+                        fontSize: 13.sp,
+                        fontFamily: AppTheme.fontFamily,
+                      ),
                     ),
                   ),
                 ],
@@ -146,9 +164,10 @@ class _AthleteRequestWidgetState extends State<AthleteRequestWidget> {
             Text(
               'ورزشکار یافت شد - درخواست ارسال کنید:',
               style: TextStyle(
-                color: Colors.green[300],
-                fontSize: 16.sp,
+                color: AppTheme.successColor,
+                fontSize: 15.sp,
                 fontWeight: FontWeight.bold,
+                fontFamily: AppTheme.fontFamily,
               ),
             ),
             const SizedBox(height: 12),
@@ -160,8 +179,11 @@ class _AthleteRequestWidgetState extends State<AthleteRequestWidget> {
           Container(
             padding: EdgeInsets.all(16.w),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12.r),
+              color: AppTheme.goldColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(
+                color: AppTheme.goldColor.withValues(alpha: 0.22),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,15 +192,16 @@ class _AthleteRequestWidgetState extends State<AthleteRequestWidget> {
                   children: [
                     Icon(
                       LucideIcons.lightbulb,
-                      color: Colors.amber,
-                      size: 16.sp,
+                      color: AppTheme.goldColor,
+                      size: 18.sp,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8.w),
                     Text(
                       'نکات مهم:',
                       style: TextStyle(
-                        color: Colors.amber[200],
+                        color: context.textColor,
                         fontWeight: FontWeight.bold,
+                        fontFamily: AppTheme.fontFamily,
                       ),
                     ),
                   ],
@@ -186,7 +209,12 @@ class _AthleteRequestWidgetState extends State<AthleteRequestWidget> {
                 const SizedBox(height: 8),
                 Text(
                   '• یوزرنیم ورزشکاری که می‌شناسید را وارد کنید\n• درخواست برای ورزشکار ارسال می‌شود\n• ورزشکار درخواست را تایید یا رد می‌کند',
-                  style: TextStyle(color: Colors.amber[300], fontSize: 12),
+                  style: TextStyle(
+                    color: context.textSecondary,
+                    fontSize: 12.sp,
+                    height: 1.7,
+                    fontFamily: AppTheme.fontFamily,
+                  ),
                 ),
               ],
             ),
@@ -218,60 +246,97 @@ class _AthleteRequestWidgetState extends State<AthleteRequestWidget> {
   }
 
   Widget _buildAthleteCard(Map<String, dynamic> athlete) {
-    return DecoratedBox(
+    return Container(
+      padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: Colors.green.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.3)),
       ),
-      child: ListTile(
-        contentPadding: EdgeInsets.all(16.w),
-        leading: CircleAvatar(
-          backgroundColor: Colors.green[700],
-          child: Text(
-            _getSafeInitial(athlete['username'] as String?),
-            style: const TextStyle(
-              color: Colors.black,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        title: Text(
-          _getDisplayName(athlete),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '@${athlete['username']}',
-              style: TextStyle(color: Colors.green[300], fontSize: 12),
-            ),
-            if (athlete['bio'] != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                athlete['bio'] as String,
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 22.r,
+                backgroundColor: AppTheme.successColor.withValues(alpha: 0.16),
+                child: Text(
+                  _getSafeInitial(athlete['username'] as String?),
+                  style: const TextStyle(
+                    color: AppTheme.successColor,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: AppTheme.fontFamily,
+                  ),
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _getDisplayName(athlete),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: context.textColor,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: AppTheme.fontFamily,
+                      ),
+                    ),
+                    SizedBox(height: 3.h),
+                    Text(
+                      '@${athlete['username']}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppTheme.successColor,
+                        fontSize: 12.sp,
+                        fontFamily: AppTheme.fontFamily,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
+          ),
+          if (athlete['bio'] != null) ...[
+            SizedBox(height: 10.h),
+            Text(
+              athlete['bio'] as String,
+              style: TextStyle(
+                color: context.textSecondary,
+                fontSize: 12.sp,
+                fontFamily: AppTheme.fontFamily,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
-        ),
-        trailing: ElevatedButton(
-          onPressed: () => widget.onAthleteSelected(athlete),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green[700],
-            foregroundColor: Colors.black,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8.r),
+          SizedBox(height: 14.h),
+          SizedBox(
+            height: 48.h,
+            child: FilledButton.icon(
+              onPressed: () => widget.onAthleteSelected(athlete),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.successColor,
+                foregroundColor: AppTheme.onGoldColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16.r),
+                ),
+              ),
+              icon: Icon(LucideIcons.send, size: 18.sp),
+              label: const Text(
+                'ارسال درخواست',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
-          child: const Text('ارسال درخواست'),
-        ),
+        ],
       ),
     );
   }

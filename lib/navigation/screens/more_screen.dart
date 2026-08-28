@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:gymaipro/admin/screens/admin_dashboard_screen.dart';
 import 'package:gymaipro/achievements/screens/achievements_screen.dart';
 import 'package:gymaipro/auth/services/auth_state_service.dart';
 import 'package:gymaipro/core/app_navigator.dart';
@@ -14,6 +13,11 @@ import 'package:gymaipro/features/legal/navigation/legal_routes.dart';
 import 'package:gymaipro/features/product_experience/navigation/workout_program_request_navigation.dart';
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
 import 'package:gymaipro/navigation/screens/main_navigation_screen.dart';
+import 'package:gymaipro/navigation/utils/app_role.dart';
+import 'package:gymaipro/ai/entitlement/coach_subscription_plan.dart';
+import 'package:gymaipro/features/coach/presentation/widgets/coach_plan_purchase_sheet.dart';
+import 'package:gymaipro/payment/models/coach_plan_catalog.dart';
+import 'package:gymaipro/payment/services/ai_program_access.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
 import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/ranking/screens/leaderboard_screen.dart';
@@ -61,8 +65,9 @@ class _MoreScreenState extends State<MoreScreen> {
   }
 
   String get _role => (_profile?['role'] as String?) ?? 'athlete';
-  bool get _isTrainer => _role == 'trainer' || _role == 'admin';
-  bool get _isAdmin => _role == 'admin';
+  bool get _isAthlete => AppRole.isAthlete(_role);
+  bool get _isTrainer => AppRole.isTrainer(_role);
+  bool get _isAdmin => AppRole.isAdmin(_role);
 
   String get _displayName {
     final first = _profile?['first_name']?.toString() ?? '';
@@ -95,6 +100,18 @@ class _MoreScreenState extends State<MoreScreen> {
     );
   }
 
+  Future<void> _openAiProgramPurchase() async {
+    final access = await AiProgramAccess().load();
+    if (!mounted) return;
+    final purchased = await showCoachPlanPurchaseSheet(
+      context,
+      currentPlan: access.hasPass ? access.plan : CoachSubscriptionPlan.free,
+    );
+    if ((purchased ?? false) && mounted) {
+      // Purchase sheet already opens program builder when appropriate.
+    }
+  }
+
   Future<void> _signOut() async {
     if (_signingOut) return;
     setState(() => _signingOut = true);
@@ -104,9 +121,7 @@ class _MoreScreenState extends State<MoreScreen> {
       await LogoutCacheClearService.clearAllUserData(previousUserId: userId);
       await AppState().logout();
       await AuthStateService().clearAuthState();
-      unawaited(
-        rootNav.pushNamedAndRemoveUntil('/welcome', (route) => false),
-      );
+      unawaited(rootNav.pushNamedAndRemoveUntil('/welcome', (route) => false));
     } catch (_) {
       if (!mounted) return;
       setState(() => _signingOut = false);
@@ -125,8 +140,9 @@ class _MoreScreenState extends State<MoreScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          backgroundColor:
-              isDark ? context.backgroundColor : Colors.transparent,
+          backgroundColor: isDark
+              ? context.backgroundColor
+              : Colors.transparent,
           elevation: 0,
           centerTitle: true,
           title: Text(
@@ -165,7 +181,7 @@ class _MoreScreenState extends State<MoreScreen> {
               },
             ),
             SizedBox(height: 18.h),
-            if (!_isTrainer) ...[
+            if (_isAthlete) ...[
               _sectionLabel(context, 'مربی و هوش مصنوعی'),
               _MoreTile(
                 icon: LucideIcons.bot,
@@ -183,19 +199,18 @@ class _MoreScreenState extends State<MoreScreen> {
             ],
             if (_isTrainer) ...[
               _sectionLabel(context, 'ابزار مربی'),
-              if (!_isAdmin)
-                _MoreTile(
-                  icon: LucideIcons.radio,
-                  title: 'کانال من',
-                  onTap: () {
-                    Navigator.push<void>(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const TrainerChannelManageScreen(),
-                      ),
-                    );
-                  },
-                ),
+              _MoreTile(
+                icon: LucideIcons.radio,
+                title: 'کانال من',
+                onTap: () {
+                  Navigator.push<void>(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const TrainerChannelManageScreen(),
+                    ),
+                  );
+                },
+              ),
               _MoreTile(
                 icon: LucideIcons.bot,
                 title: 'مربی AI',
@@ -208,22 +223,19 @@ class _MoreScreenState extends State<MoreScreen> {
                   );
                 },
               ),
-              if (_isAdmin)
-                _MoreTile(
-                  icon: LucideIcons.shield,
-                  title: 'میز کار ادمین',
-                  onTap: () {
-                    Navigator.push<void>(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const AdminDashboardScreen(),
-                      ),
-                    );
-                  },
-                ),
               SizedBox(height: 8.h),
             ],
-            if (!_isTrainer) ...[
+            if (_isAdmin) ...[
+              _sectionLabel(context, 'مدیریت سیستم'),
+              _MoreTile(
+                icon: LucideIcons.shield,
+                title: 'پنل ادمین',
+                subtitle: 'کاربران، مالی، محتوا و تنظیمات',
+                onTap: () => Navigator.pushNamed(context, '/admin-dashboard'),
+              ),
+              SizedBox(height: 8.h),
+            ],
+            if (_isAthlete) ...[
               _sectionLabel(context, 'پیشرفت'),
               _MoreTile(
                 icon: GamificationLabels.pointsIcon,
@@ -264,7 +276,7 @@ class _MoreScreenState extends State<MoreScreen> {
               SizedBox(height: 8.h),
             ],
             _sectionLabel(context, 'تمرین و تغذیه'),
-            if (!_isTrainer)
+            if (_isAthlete)
               _MoreTile(
                 icon: LucideIcons.users,
                 title: 'دوستان',
@@ -287,13 +299,12 @@ class _MoreScreenState extends State<MoreScreen> {
                 NavigationConstants.foodListRoute,
               ),
             ),
-            if (!_isTrainer)
+            if (_isAthlete)
               _MoreTile(
                 icon: LucideIcons.clipboardList,
                 title: 'درخواست برنامه',
-                onTap: () => unawaited(
-                  WorkoutProgramRequestNavigation.open(context),
-                ),
+                onTap: () =>
+                    unawaited(WorkoutProgramRequestNavigation.open(context)),
               ),
             SizedBox(height: 8.h),
             _sectionLabel(context, 'کشف و اجتماع'),
@@ -335,7 +346,7 @@ class _MoreScreenState extends State<MoreScreen> {
                   ? null
                   : PaymentConstants.formatAmount(_walletBalance!),
               onTap: () {
-                if (_isTrainer) {
+                if (!_isAthlete) {
                   Navigator.pushNamed(context, '/wallet');
                 } else {
                   openMainMyClub(initialTab: MyClubTabs.wallet);
@@ -343,16 +354,17 @@ class _MoreScreenState extends State<MoreScreen> {
               },
             ),
             _MoreTile(
-              icon: LucideIcons.crown,
-              title: 'اشتراک ویژه',
-              onTap: () => Navigator.pushNamed(context, '/subscriptions'),
+              icon: LucideIcons.clipboardList,
+              title: 'خرید برنامه مربی هوشمند',
+              subtitle: 'یک برنامه منعطف برای ${CoachPlanCatalog.defaultValidityDays} روز',
+              onTap: () => unawaited(_openAiProgramPurchase()),
             ),
             SizedBox(height: 8.h),
             _sectionLabel(context, 'پشتیبانی'),
             _MoreTile(
               icon: LucideIcons.messageSquarePlus,
               title: 'بازخورد و پیشنهاد',
-              subtitle: 'انتقاد، باگ، ایده — نسخه دمو',
+              subtitle: 'پیامک مستقیم به پشتیبانی',
               onTap: () => Navigator.pushNamed(context, LegalRoutes.about),
             ),
             _MoreTile(
@@ -366,14 +378,14 @@ class _MoreScreenState extends State<MoreScreen> {
               _sectionLabel(context, 'ابزارهای دیباگ'),
               _MoreTile(
                 icon: LucideIcons.refreshCw,
-                title: 'سوییچ اکانت تستی',
-                subtitle: 'بدون OTP · athlete / trainer / admin',
+                title: 'ابزارهای دیباگ',
+                subtitle: 'اکانت تستی · پرمیوم AI · بدون OTP',
                 onTap: () => unawaited(showDebugAccountSwitcherSheet(context)),
               ),
             ],
             SizedBox(height: 16.h),
             _PremiumPromoCard(
-              onUpgrade: () => Navigator.pushNamed(context, '/subscriptions'),
+              onUpgrade: () => unawaited(_openAiProgramPurchase()),
             ),
             SizedBox(height: 12.h),
             _MoreTile(
@@ -508,9 +520,7 @@ class _PremiumPromoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: AppTheme.goldColor.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: AppTheme.goldColor.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -522,7 +532,7 @@ class _PremiumPromoCard extends StatelessWidget {
               SizedBox(width: 8.w),
               Expanded(
                 child: Text(
-                  'مربی هوشمند قوی‌تر، سقف بالاتر گفتگو',
+                  CoachPlanCatalog.productTitle,
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontWeight: FontWeight.w700,
@@ -535,7 +545,7 @@ class _PremiumPromoCard extends StatelessWidget {
           ),
           SizedBox(height: 8.h),
           Text(
-            'Coach Pro برای استفاده روزمره · Ultimate AI برای سقف بیشتر و اولویت پشتیبانی. در نسخه دمو خرید ممکن است محدود باشد.',
+            CoachPlanCatalog.productDescription,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 12.sp,
@@ -555,7 +565,7 @@ class _PremiumPromoCard extends StatelessWidget {
               ),
             ),
             child: Text(
-              'مشاهده پلن‌ها',
+              'خرید برنامه',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontWeight: FontWeight.w800,
@@ -575,20 +585,24 @@ class _MoreTile extends StatelessWidget {
     required this.title,
     required this.onTap,
     this.subtitle,
-    this.trailing,
     this.destructive = false,
+    this.informational = false,
   });
 
   final IconData icon;
   final String title;
   final String? subtitle;
-  final Widget? trailing;
   final VoidCallback? onTap;
   final bool destructive;
+  final bool informational;
 
   @override
   Widget build(BuildContext context) {
-    final color = destructive ? const Color(0xFFE05353) : context.textColor;
+    final color = destructive
+        ? const Color(0xFFE05353)
+        : informational
+        ? context.textSecondary
+        : context.textColor;
     final secondary = destructive
         ? const Color(0xFFE05353).withValues(alpha: 0.75)
         : context.textSecondary;
@@ -616,12 +630,12 @@ class _MoreTile extends StatelessWidget {
                 color: secondary,
               ),
             ),
-      trailing: trailing ??
-          Icon(
-            LucideIcons.chevronLeft,
-            size: 16.sp,
-            color: context.textSecondary,
-          ),
+      minTileHeight: 48.h,
+      trailing: Icon(
+        informational ? LucideIcons.info : LucideIcons.chevronLeft,
+        size: 16.sp,
+        color: context.textSecondary,
+      ),
     );
   }
 }

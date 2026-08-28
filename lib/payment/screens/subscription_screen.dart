@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/features/legal/legal_copy.dart';
 import 'package:gymaipro/features/legal/navigation/legal_routes.dart';
+import 'package:gymaipro/payment/models/coach_plan_catalog.dart';
 import 'package:gymaipro/payment/models/payment_plan.dart';
 import 'package:gymaipro/payment/models/subscription.dart';
 import 'package:gymaipro/payment/screens/payment_screen.dart';
@@ -160,7 +161,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         backgroundColor: context.backgroundColor,
         appBar: AppBar(
           title: Text(
-            'اشتراک ویژه',
+            CoachPlanCatalog.productTitle,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 20.sp,
@@ -195,7 +196,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     ),
                     SizedBox(height: 16.h),
                     Text(
-                      'اشتراک یعنی چه؟',
+                      'خرید برنامه یعنی چه؟',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontSize: 16.sp,
@@ -205,9 +206,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     ),
                     SizedBox(height: 6.h),
                     Text(
-                      'با اشتراک، مربی هوشمند و امکانات پیشرفته‌تر باز می‌شود. '
-                      'بدون اشتراک هم می‌توانی اپ را ببینی و تمرین ثبت کنی؛ '
-                      'ولی سقف گفتگو و بعضی تحلیل‌ها محدود است.',
+                      CoachPlanCatalog.productDescription,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontSize: 13.sp,
@@ -242,7 +241,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     ],
                     SizedBox(height: 22.h),
                     Text(
-                      'انتخاب پلن',
+                      'خرید برنامه',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontSize: 16.sp,
@@ -252,7 +251,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                     ),
                     SizedBox(height: 4.h),
                     Text(
-                      'هر دو ماهانه هستند. Ultimate همان Coach Pro است به‌علاوه سقف بالاتر و اولویت پشتیبانی.',
+                      'یک محصول، یک قیمت — مدت دسترسی را ادمین تنظیم می‌کند '
+                      '(پیش‌فرض ${CoachPlanCatalog.defaultValidityDays} روز).',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontSize: 12.sp,
@@ -412,7 +412,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                 ),
               ),
               child: Text(
-                popular ? 'انتخاب Ultimate AI' : 'انتخاب Coach Pro',
+                'خرید برنامه',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 15.sp,
@@ -457,7 +457,7 @@ class _DemoNoticeCard extends StatelessWidget {
               SizedBox(width: 8.w),
               Expanded(
                 child: Text(
-                  'نسخه دمو — خرید ممکن است محدود باشد',
+                  'پرداخت امن از طریق زیبال',
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontWeight: FontWeight.w800,

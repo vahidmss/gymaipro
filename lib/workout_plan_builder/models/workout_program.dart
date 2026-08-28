@@ -40,6 +40,7 @@ class WorkoutProgram {
     DateTime? createdAt,
     DateTime? updatedAt,
     this.sentAt,
+    this.expiryDate,
     this.isSelfServiceAi = false,
   }) : id = _normalizeUuid(id),
        createdAt = createdAt ?? DateTime.now(),
@@ -57,6 +58,7 @@ class WorkoutProgram {
     DateTime createdAt;
     DateTime updatedAt;
     DateTime? sentAt;
+    DateTime? expiryDate;
 
     try {
       if (json['created_at'] is String) {
@@ -97,6 +99,19 @@ class WorkoutProgram {
       sentAt = null;
     }
 
+    try {
+      if (json['expiry_date'] != null) {
+        if (json['expiry_date'] is String) {
+          expiryDate = DateTime.parse(json['expiry_date'] as String);
+        } else if (json['expiry_date'] is DateTime) {
+          expiryDate = json['expiry_date'] as DateTime;
+        }
+      }
+    } catch (e) {
+      debugPrint('خطا در پارس تاریخ انقضا: $e');
+      expiryDate = null;
+    }
+
     // پارس کردن سشن‌ها
     final List<WorkoutSession> sessions = rawSessions.map<WorkoutSession>((
       sessionJson,
@@ -123,9 +138,10 @@ class WorkoutProgram {
       createdAt: createdAt,
       updatedAt: updatedAt,
       sentAt: sentAt,
+      expiryDate: expiryDate,
       isSelfServiceAi:
-          json['is_self_service_ai'] == true ||
-          json['generated_by'] == 'gymai_starter',
+          json['is_self_service_ai'] == true &&
+          json['generated_by'] != 'gymai_starter',
     );
   }
 
@@ -148,6 +164,7 @@ class WorkoutProgram {
   DateTime createdAt;
   DateTime updatedAt;
   DateTime? sentAt; // Date when program was sent to the user
+  DateTime? expiryDate; // null = بدون انقضا (مثل برنامه رایگان starter)
   bool isSelfServiceAi;
 
   Map<String, dynamic> toJson() {
@@ -160,6 +177,7 @@ class WorkoutProgram {
       'created_at': createdAt.toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
       if (sentAt != null) 'sent_at': sentAt!.toIso8601String(),
+      if (expiryDate != null) 'expiry_date': expiryDate!.toIso8601String(),
       'is_self_service_ai': isSelfServiceAi,
     };
   }
@@ -174,6 +192,7 @@ class WorkoutProgram {
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? sentAt,
+    DateTime? expiryDate,
     bool? isSelfServiceAi,
   }) {
     return WorkoutProgram(
@@ -185,6 +204,7 @@ class WorkoutProgram {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       sentAt: sentAt ?? this.sentAt,
+      expiryDate: expiryDate ?? this.expiryDate,
       isSelfServiceAi: isSelfServiceAi ?? this.isSelfServiceAi,
     );
   }
@@ -492,6 +512,15 @@ enum ExerciseType { normal, superset, triset }
 // Exercise style enum
 enum ExerciseStyle { setsReps, setsTime }
 
+/// Human-readable duration for time-based sets (e.g. treadmill).
+String formatExerciseDuration(int seconds) {
+  if (seconds < 60) return '$seconds ثانیه';
+  final m = seconds ~/ 60;
+  final s = seconds % 60;
+  if (s == 0) return '$m دقیقه';
+  return '$m:${s.toString().padLeft(2, '0')}';
+}
+
 /// Human-readable set scheme: `۳ × ۱۰` or `۱۲ - ۱۰ - ۸`.
 String formatSetScheme(List<ExerciseSet> sets, ExerciseStyle style) {
   if (sets.isEmpty) return '';
@@ -504,9 +533,9 @@ String formatSetScheme(List<ExerciseSet> sets, ExerciseStyle style) {
   }
   final values = sets.map((s) => s.timeSeconds ?? 0).toList();
   if (values.every((v) => v == values.first)) {
-    return '${sets.length} × ${values.first}ث';
+    return '${sets.length} × ${formatExerciseDuration(values.first)}';
   }
-  return values.map((v) => '$vث').join(' - ');
+  return values.map(formatExerciseDuration).join(' - ');
 }
 
 bool areSetValuesUniform(List<ExerciseSet> sets, ExerciseStyle style) {

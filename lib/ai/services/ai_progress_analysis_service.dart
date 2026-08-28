@@ -8,6 +8,7 @@ import 'package:gymaipro/ai/services/openai_service.dart';
 import 'package:gymaipro/ai/services/rule_based_progress_analysis_engine.dart';
 import 'package:gymaipro/ai/services/progress_analysis_limit_service.dart';
 import 'package:gymaipro/ai/services/progress_analysis_storage_service.dart';
+import 'package:gymaipro/features/product_experience/domain/coach_decision_lock.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/weekly_weight_service.dart';
 import 'package:gymaipro/workout_log/models/workout_program_log.dart';
@@ -89,7 +90,9 @@ class AIProgressAnalysisService {
     return _limitService.getUsageStats();
   }
 
-  Future<String> _generateAnalysisText(Map<String, dynamic> progressData) async {
+  Future<String> _generateAnalysisText(
+    Map<String, dynamic> progressData,
+  ) async {
     if (!AiEngineConfig.canAttemptOpenAi) {
       return RuleBasedProgressAnalysisEngine().buildReport(progressData);
     }
@@ -316,15 +319,15 @@ class AIProgressAnalysisService {
   /// دریافت system prompt
   String _getSystemPrompt() {
     return '''
-تو یک مربی ورزشی و متخصص تغذیه حرفه‌ای هستی. وظیفه تو تحلیل پیشرفت کاربر و ارائه راهکارهای عملی و کاربردی است.
+تو مربی GymAI هستی. پیشرفت را از روی دادهٔ واقعی کاربر تحلیل کن.
 
-در تحلیل خود:
-1. نقاط قوت و پیشرفت‌های کاربر را برجسته کن
-2. نقاط ضعف و نیاز به بهبود را شناسایی کن
-3. راهکارهای عملی و قابل اجرا ارائه بده
-4. انگیزه‌بخش و مثبت باش
-5. از اصطلاحات تخصصی به صورت ساده استفاده کن
-6. پاسخ را به فارسی و با لحن دوستانه و حرفه‌ای بنویس
+${CoachDecisionLock.systemRule}
+
+قواعد:
+- کامل کردن ست/تکرار برنامه‌ریزی‌شده موفقیت است؛ همیشه «وزنه را زیاد کن» نگو.
+- اگر ست ناقص، اولین ثبت، یا شدت بالا در داده نیست، کیلو پیشنهاد نکن.
+- راهکار باید کلی و قابل اجرا باشد (ثبات، خواب، تکمیل جلسه)، نه عدد اختراعی.
+- فارسی، کوتاه، دوستانه.
 
 ساختار پاسخ:
 - خلاصه پیشرفت

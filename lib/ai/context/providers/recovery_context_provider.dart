@@ -2,6 +2,8 @@ import 'package:gymaipro/ai/context/coach_context_patch.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/context_repository.dart';
 import 'package:gymaipro/ai/context/providers/base_context_provider.dart';
+import 'package:gymaipro/features/product_experience/calendar_day.dart';
+import 'package:gymaipro/features/product_experience/recovery/last_night_sleep.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Loads live recovery signals written after workouts into coach preferences.
@@ -75,6 +77,9 @@ class RecoveryContextProvider implements AIContextProvider {
     final prefs = _preferences ?? await SharedPreferences.getInstance();
     final rawScore = prefs.getString(recoveryScoreKey(userId));
     final rawCompletedAt = prefs.getString(lastWorkoutCompletedAtKey(userId));
+    final sleepLog = await LastNightSleepStore(
+      preferences: prefs,
+    ).readToday(userId);
 
     var score = int.tryParse(rawScore ?? '');
     final completedAt = DateTime.tryParse(rawCompletedAt ?? '');
@@ -82,7 +87,7 @@ class RecoveryContextProvider implements AIContextProvider {
     int? daysSince;
 
     if (completedAt != null) {
-      daysSince = now.difference(completedAt).inDays;
+      daysSince = CalendarDay.daysBetween(completedAt, now);
       // Rest days restore readiness after a logged session.
       if (score != null && daysSince > 0) {
         score = (score + daysSince * 10).clamp(score, 100);
@@ -91,7 +96,10 @@ class RecoveryContextProvider implements AIContextProvider {
       }
     }
 
-    if (score == null && rawScore == null && rawCompletedAt == null) {
+    if (score == null &&
+        rawScore == null &&
+        rawCompletedAt == null &&
+        sleepLog == null) {
       return CoachContextPatch.empty;
     }
 
@@ -101,6 +109,10 @@ class RecoveryContextProvider implements AIContextProvider {
         if (completedAt != null)
           'last_workout_completed_at': completedAt.toIso8601String(),
         if (daysSince != null) 'days_since_last_workout': daysSince,
+        if (sleepLog != null) ...<String, Object?>{
+          'last_night_sleep_hours': sleepLog.hours,
+          'sleep_hours': sleepLog.hours,
+        },
       },
     );
   }

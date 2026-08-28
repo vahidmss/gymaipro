@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -13,7 +14,10 @@ import 'package:shamsi_date/shamsi_date.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:gymaipro/my_club/services/confidential_user_info_service.dart';
+import 'package:gymaipro/meal_log/widgets/nutrition_goal_sheet.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/utils/web_safe_xfile_image.dart';
 import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/utils/safe_set_state.dart';
 
@@ -114,28 +118,32 @@ class _ConfidentialUserInfoScreenState
 
         // Load last photo times for each type
         final album = data['photo_album'] as List<dynamic>? ?? [];
-        _lastPhotoAt.clear(); // Clear existing data
+        _lastPhotoAt.clear();
         for (final photoData in album) {
-          final photo = photoData as Map<String, dynamic>;
+          if (photoData is! Map) continue;
+          final photo = Map<String, dynamic>.from(photoData);
           final type = _PhotoType.values.firstWhere(
             (e) => e.name == photo['type'],
             orElse: () => _PhotoType.front,
           );
-          final takenAt = DateTime.parse(photo['taken_at'] as String);
+          final takenAt = DateTime.tryParse('${photo['taken_at'] ?? ''}');
+          if (takenAt == null) continue;
           if (_lastPhotoAt[type] == null ||
               takenAt.isAfter(_lastPhotoAt[type]!)) {
             _lastPhotoAt[type] = takenAt;
           }
         }
 
-        // Load photos from album
         _photos.clear();
         for (final photoData in album) {
-          final photo = photoData as Map<String, dynamic>;
+          if (photoData is! Map) continue;
+          final photo = Map<String, dynamic>.from(photoData);
+          final takenAt = DateTime.tryParse('${photo['taken_at'] ?? ''}');
+          if (takenAt == null) continue;
           _photos.add(
             _AlbumPhoto(
               url: (photo['url'] as String?) ?? '',
-              takenAt: DateTime.parse(photo['taken_at'] as String),
+              takenAt: takenAt,
               label: photo['notes'] as String?,
               type: _PhotoType.values.firstWhere(
                 (e) => e.name == photo['type'],
@@ -977,8 +985,52 @@ class _ConfidentialUserInfoScreenState
         ),
         _buildBoundTextField('وزن هدف (کیلوگرم)', 'target_weight'),
         _buildBoundTextField('درصد چربی هدف (%)', 'target_body_fat'),
+        SizedBox(height: 8.h),
+        _buildCalorieGoalButton(),
+        SizedBox(height: 8.h),
         _buildBoundTextArea('انگیزه/چالش‌ها', 'motivation'),
       ],
+    );
+  }
+
+  Widget _buildCalorieGoalButton() {
+    return OutlinedButton.icon(
+      onPressed: _openCalorieGoalSheet,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppTheme.goldColor,
+        side: BorderSide(color: AppTheme.goldColor.withValues(alpha: 0.55)),
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12.r),
+        ),
+      ),
+      icon: Icon(LucideIcons.target, size: 18.sp),
+      label: const Text(
+        'هدف کالری',
+        style: TextStyle(
+          fontFamily: AppTheme.fontFamily,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openCalorieGoalSheet() async {
+    final profile = await SimpleProfileService.getCurrentProfile();
+    if (!mounted) return;
+    final prefill = double.tryParse(
+      (_controllers['target_weight']?.text ?? '')
+          .trim()
+          .replaceAll(',', '.'),
+    );
+    final saved = await NutritionGoalSheet.show(
+      context,
+      profileData: profile,
+      prefillTargetWeightKg: prefill != null && prefill > 0 ? prefill : null,
+    );
+    if (!mounted || saved != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('هدف کالری ذخیره شد')),
     );
   }
 
@@ -1711,36 +1763,35 @@ class _ConfidentialUserInfoScreenState
       // Upload to Supabase Storage (bucket: confidential_photos)
       try {
         _openUploadingDialog(processedImage);
+        final bytes = await processedImage.readAsBytes();
+        final contentType = processedImage.mimeType ??
+            (ext == 'png' ? 'image/png' : 'image/jpeg');
         await Supabase.instance.client.storage
             .from('confidential_photos')
-            .upload(filePath, File(processedImage.path));
-      } catch (e) {
-        // اگر فایل وجود داشت، با upsert سعی می‌کنیم
-        try {
-          await Supabase.instance.client.storage
-              .from('confidential_photos')
-              .upload(
-                filePath,
-                File(processedImage.path),
-                fileOptions: const FileOptions(upsert: true),
-              );
-        } catch (e2) {
-          if (mounted) {
-            unawaited(Navigator.of(context, rootNavigator: true).maybePop());
-          }
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'آپلود ناموفق بود: $e2',
-                  style: const TextStyle(fontFamily: AppTheme.fontFamily),
-                ),
-                backgroundColor: Colors.red,
+            .uploadBinary(
+              filePath,
+              bytes,
+              fileOptions: FileOptions(
+                upsert: true,
+                contentType: contentType,
               ),
             );
-          }
-          return;
+      } catch (e) {
+        if (mounted) {
+          unawaited(Navigator.of(context, rootNavigator: true).maybePop());
         }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'آپلود ناموفق بود. دوباره تلاش کنید.',
+                style: const TextStyle(fontFamily: AppTheme.fontFamily),
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
       }
       if (mounted) {
         unawaited(Navigator.of(context, rootNavigator: true).maybePop());
@@ -1874,7 +1925,7 @@ class _ConfidentialUserInfoScreenState
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            Image.file(File(image.path), fit: BoxFit.cover),
+                            WebSafeXFileImage(file: image, fit: BoxFit.cover),
                             Container(
                               color: Colors.black.withValues(alpha: 0.1),
                             ),
@@ -2081,7 +2132,7 @@ class _ImageProcessingDialogState extends State<_ImageProcessingDialog> {
   /// بارگذاری عکس
   Future<void> _loadImage() async {
     try {
-      final bytes = await File(widget.originalImage.path).readAsBytes();
+      final bytes = await widget.originalImage.readAsBytes();
       final codec = await ui.instantiateImageCodec(bytes);
       final frame = await codec.getNextFrame();
       setState(() {
@@ -2424,12 +2475,23 @@ class _ImageProcessingDialogState extends State<_ImageProcessingDialog> {
         return;
       }
 
+      final tempBytes = byteData.buffer.asUint8List();
+      if (kIsWeb) {
+        final editedXFile = XFile.fromData(
+          tempBytes,
+          mimeType: 'image/png',
+          name: 'edited.png',
+        );
+        Navigator.of(context).pop(editedXFile);
+        return;
+      }
+
       final tempDir = await getTemporaryDirectory();
       final file = File(
         '${tempDir.path}/edited_'
         '${DateTime.now().millisecondsSinceEpoch}.png',
       );
-      await file.writeAsBytes(byteData.buffer.asUint8List());
+      await file.writeAsBytes(tempBytes);
       if (!mounted) return;
       final editedXFile = XFile(
         file.path,

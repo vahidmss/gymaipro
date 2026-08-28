@@ -523,7 +523,15 @@ class NotificationService {
     debugPrint('👆 Local notification tapped: ${response.payload}');
 
     if (response.payload != null) {
-      final data = json.decode(response.payload!) as Map<String, dynamic>;
+      Map<String, dynamic> data;
+      try {
+        final decoded = json.decode(response.payload!);
+        if (decoded is! Map) return;
+        data = Map<String, dynamic>.from(decoded);
+      } catch (e) {
+        debugPrint('❌ Invalid local notification payload: $e');
+        return;
+      }
       onNotificationTapped?.call(data);
 
       // تأخیر در navigation تا اپ کاملاً آماده شود
@@ -760,6 +768,9 @@ class NotificationService {
     String? payload,
     int? id,
   }) async {
+    // Web / Safari: no local notification plugin — in-app UI handles alerts.
+    if (kIsWeb) return;
+
     if (!_isInitialized) {
       await initialize();
     }
@@ -807,6 +818,9 @@ class NotificationService {
     String? senderId,
     String? messageAt,
   }) async {
+    // Web / Safari: system tray unavailable; unread badge / in-chat UI is enough.
+    if (kIsWeb) return;
+
     if (!_isInitialized) {
       await initialize();
     }

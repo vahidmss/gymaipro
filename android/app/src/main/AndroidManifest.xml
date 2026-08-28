@@ -15,11 +15,11 @@
     
     <application
         android:enableOnBackInvokedCallback="true"
-        android:label="gymaipro"
+        android:label="GymAI Pro"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
-            android:name="com.example.gymaipro.MainActivity"
+            android:name="ir.gymaipro.app.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:stopWithTask="true"

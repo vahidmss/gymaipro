@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
+import 'package:gymaipro/workout_plan_builder/widgets/exercise_duration_control.dart';
 import 'package:gymaipro/workout_plan_builder/widgets/exercise_stepper.dart';
 
 /// Compact style toggle: reps vs time.
@@ -125,11 +126,11 @@ class _SetSchemeEditorState extends State<SetSchemeEditor> {
 
   int _valueOf(ExerciseSet set) {
     if (_isReps) return set.reps ?? 10;
-    return set.timeSeconds ?? 30;
+    return set.timeSeconds ?? 60;
   }
 
   int get _primaryValue =>
-      widget.sets.isEmpty ? (_isReps ? 10 : 30) : _valueOf(widget.sets.first);
+      widget.sets.isEmpty ? (_isReps ? 10 : 60) : _valueOf(widget.sets.first);
 
   @override
   Widget build(BuildContext context) {
@@ -139,11 +140,8 @@ class _SetSchemeEditorState extends State<SetSchemeEditor> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Fast row: sets · reps/time
-        Wrap(
-          spacing: 10.w,
-          runSpacing: 8.h,
-          crossAxisAlignment: WrapCrossAlignment.center,
+        // Fast row: sets · reps/time — always one line
+        Row(
           children: [
             _LabeledStepper(
               label: 'ست',
@@ -152,14 +150,22 @@ class _SetSchemeEditorState extends State<SetSchemeEditor> {
               max: 12,
               onChanged: widget.onSetsChanged,
             ),
-            if (!_showPerSet)
-              _LabeledStepper(
-                label: _isReps ? 'تکرار' : 'ثانیه',
-                value: _primaryValue,
-                min: 1,
-                max: _isReps ? 50 : 600,
-                onChanged: widget.onApplyAllValues,
-              ),
+            if (!_showPerSet) ...[
+              SizedBox(width: 12.w),
+              if (_isReps)
+                _LabeledStepper(
+                  label: 'تکرار',
+                  value: _primaryValue,
+                  min: 1,
+                  max: 50,
+                  onChanged: widget.onApplyAllValues,
+                )
+              else
+                ExerciseDurationControl(
+                  seconds: _primaryValue,
+                  onChanged: widget.onApplyAllValues,
+                ),
+            ],
           ],
         ),
         SizedBox(height: 8.h),
@@ -218,7 +224,7 @@ class _SetSchemeEditorState extends State<SetSchemeEditor> {
                   _SetPill(
                     index: i + 1,
                     value: _valueOf(widget.sets[i]),
-                    unit: _isReps ? null : 'ث',
+                    isTime: !_isReps,
                     onChanged: (v) => widget.onSetValueChanged(i, v),
                   ),
                 ],
@@ -301,14 +307,12 @@ class _LabeledStepper extends StatelessWidget {
     required this.min,
     required this.onChanged,
     this.max,
-    this.suffix,
   });
 
   final String label;
   final int value;
   final int min;
   final int? max;
-  final String? suffix;
   final ValueChanged<int> onChanged;
 
   @override
@@ -333,7 +337,6 @@ class _LabeledStepper extends StatelessWidget {
           max: max,
           onChanged: onChanged,
           small: true,
-          suffix: suffix,
         ),
       ],
     );
@@ -345,12 +348,12 @@ class _SetPill extends StatelessWidget {
     required this.index,
     required this.value,
     required this.onChanged,
-    this.unit,
+    this.isTime = false,
   });
 
   final int index;
   final int value;
-  final String? unit;
+  final bool isTime;
   final ValueChanged<int> onChanged;
 
   @override
@@ -380,14 +383,20 @@ class _SetPill extends StatelessWidget {
             ),
           ),
           SizedBox(height: 2.h),
-          ExerciseStepper(
-            value: value,
-            min: 1,
-            max: unit != null ? 600 : 50,
-            onChanged: onChanged,
-            small: true,
-            suffix: unit,
-          ),
+          if (isTime)
+            ExerciseDurationControl(
+              seconds: value,
+              onChanged: onChanged,
+              compact: true,
+            )
+          else
+            ExerciseStepper(
+              value: value,
+              min: 1,
+              max: 50,
+              onChanged: onChanged,
+              small: true,
+            ),
         ],
       ),
     );

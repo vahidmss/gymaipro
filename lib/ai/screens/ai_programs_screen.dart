@@ -58,27 +58,44 @@ class _AIProgramsScreenState extends State<AIProgramsScreen> {
       _aiTrainerId = await AITrainerService.ensureAITrainerExists();
       debugPrint('AI Trainer ID: $_aiTrainerId');
 
-      if (_aiTrainerId != null && mounted) {
-        // دریافت برنامه‌های AI
-        debugPrint('دریافت برنامه‌های AI از دیتابیس...');
-        final programs = await _programService.getProgramsByTrainer(
+      try {
+        await _programService.ensureSelfServiceAiPublished();
+      } on Object catch (e) {
+        debugPrint('ensureSelfServiceAiPublished: $e');
+      }
+
+      // Prefer flag-based self-service AI programs (works even if trainer_id
+      // differs across environments). Fall back to trainer_id match for legacy.
+      final allPrograms = await _programService.getPrograms();
+      final byFlag = allPrograms
+          .where((program) => program.isSelfServiceAi)
+          .toList(growable: false);
+
+      List<WorkoutProgram> programs = byFlag;
+      if (programs.isEmpty && _aiTrainerId != null) {
+        programs = await _programService.getProgramsByTrainer(_aiTrainerId!);
+      } else if (_aiTrainerId != null) {
+        final byTrainer = await _programService.getProgramsByTrainer(
           _aiTrainerId!,
         );
-        debugPrint('تعداد برنامه‌های دریافت شده: ${programs.length}');
-        if (programs.isNotEmpty) {
-          debugPrint('برنامه‌ها:');
-          for (final program in programs) {
-            debugPrint('  - ${program.name} (ID: ${program.id})');
+        final seen = programs.map((p) => p.id).toSet();
+        for (final program in byTrainer) {
+          if (seen.add(program.id)) {
+            programs = [...programs, program];
           }
         }
-        if (mounted) {
-          WidgetSafetyUtils.safeSetState(this, () {
-            _aiPrograms = programs;
-          });
-          debugPrint('برنامه‌ها در state به‌روزرسانی شدند');
+      }
+
+      debugPrint('تعداد برنامه‌های AI: ${programs.length}');
+      if (programs.isNotEmpty) {
+        for (final program in programs) {
+          debugPrint('  - ${program.name} (ID: ${program.id})');
         }
-      } else {
-        debugPrint('⚠️ AI Trainer ID null است یا صفحه unmount شده');
+      }
+      if (mounted) {
+        WidgetSafetyUtils.safeSetState(this, () {
+          _aiPrograms = programs;
+        });
       }
     } catch (e, stackTrace) {
       debugPrint('❌ خطا در بارگذاری برنامه‌های AI: $e');

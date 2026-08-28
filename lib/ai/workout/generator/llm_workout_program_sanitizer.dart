@@ -1,3 +1,4 @@
+import 'package:gymaipro/ai/knowledge/workout_science.dart';
 import 'package:gymaipro/ai/workout/generator/llm_iran_gym_style.dart';
 import 'package:gymaipro/ai/workout/generator/llm_workout_muscle_tags.dart';
 import 'package:gymaipro/ai/workout/models/workout_day.dart';
@@ -21,12 +22,17 @@ abstract final class LlmWorkoutProgramSanitizer {
     required Set<int> usedAcrossProgram,
   }) {
     final used = Set<int>.from(usedAcrossProgram);
+    final maxChestPerPush =
+        program.allDays.where((day) => _isPushDay(day.label)).length <= 1
+        ? 3
+        : 2;
     final days = <WorkoutDay>[
       for (final day in program.allDays)
         _sanitizeDay(
           day,
           curated: curatedCatalog,
           usedAcrossProgram: used,
+          maxChestPerPush: maxChestPerPush,
         ),
     ];
 
@@ -89,6 +95,7 @@ abstract final class LlmWorkoutProgramSanitizer {
     WorkoutDay day, {
     required List<Exercise> curated,
     required Set<int> usedAcrossProgram,
+    int maxChestPerPush = 2,
   }) {
     final label = day.label;
     var kept = day.exercises
@@ -102,7 +109,7 @@ abstract final class LlmWorkoutProgramSanitizer {
         .where((e) => seen.add(e.catalogExerciseId))
         .toList(growable: true);
 
-    kept = _capPushVolume(label, kept);
+    kept = _capPushVolume(label, kept, maxChestPerPush: maxChestPerPush);
     kept = _capLegQuads(label, kept);
 
     const need = 5;
@@ -113,9 +120,10 @@ abstract final class LlmWorkoutProgramSanitizer {
         curated: curated,
         usedAcrossProgram: usedAcrossProgram,
         targetCount: need,
+        maxChestPerPush: maxChestPerPush,
       );
       // Fill can reintroduce volume — cap again.
-      kept = _capPushVolume(label, kept);
+      kept = _capPushVolume(label, kept, maxChestPerPush: maxChestPerPush);
       kept = _capLegQuads(label, kept);
     }
 
@@ -130,7 +138,7 @@ abstract final class LlmWorkoutProgramSanitizer {
         muscleKey: 'triceps',
         maxTotal: 7,
       );
-      kept = _capPushVolume(label, kept);
+      kept = _capPushVolume(label, kept, maxChestPerPush: maxChestPerPush);
     }
 
     // Push days with only one chest move feel incomplete for gym PPL.
@@ -147,13 +155,15 @@ abstract final class LlmWorkoutProgramSanitizer {
           muscleKey: 'chest',
           maxTotal: 7,
         );
-        kept = _capPushVolume(label, kept);
+        kept = _capPushVolume(label, kept, maxChestPerPush: maxChestPerPush);
       }
     }
 
     // Leg days: ensure posterior chain + calves when missing.
     if (_isLegDay(label)) {
-      final hasHam = kept.any((e) => _isHamstring(e.primaryMuscle.toLowerCase()));
+      final hasHam = kept.any(
+        (e) => _isHamstring(e.primaryMuscle.toLowerCase()),
+      );
       final hasGlute = kept.any((e) => _isGlute(e.primaryMuscle.toLowerCase()));
       if (!hasHam) {
         kept = _ensureMuscleOnDay(
@@ -197,8 +207,9 @@ abstract final class LlmWorkoutProgramSanitizer {
         curated: curated,
         usedAcrossProgram: usedAcrossProgram,
         targetCount: need,
+        maxChestPerPush: maxChestPerPush,
       );
-      kept = _capPushVolume(label, kept);
+      kept = _capPushVolume(label, kept, maxChestPerPush: maxChestPerPush);
       kept = _capLegQuads(label, kept);
     }
 
@@ -252,6 +263,317 @@ abstract final class LlmWorkoutProgramSanitizer {
     );
   }
 
+  /// Raise weekly hard-sets on chest/back/quads up to the science minimum.
+  /// Adds a set to existing moves first; adds one catalog move if the day cap allows.
+  static WorkoutProgram meetWeeklyVolume(
+    WorkoutProgram program, {
+    required List<Exercise> curatedCatalog,
+    required TrainingGoal goal,
+    required String experience,
+  }) {
+    const majors = <MuscleBucket>[
+      MuscleBucket.chest,
+      MuscleBucket.back,
+      MuscleBucket.quads,
+    ];
+    var current = program;
+    final used = <int>{
+      for (final day in current.allDays)
+        for (final exercise in day.exercises) exercise.catalogExerciseId,
+    };
+
+    for (final bucket in majors) {
+      final minSets = WorkoutScience.weeklySetBand(
+        goal: goal,
+        experience: experience,
+        bucket: bucket,
+      ).min;
+      current = _liftBucketToMin(
+        current,
+        bucket: bucket,
+        minSets: minSets,
+        curated: curatedCatalog,
+        used: used,
+      );
+    }
+    return current;
+  }
+
+  static WorkoutProgram _liftBucketToMin(
+    WorkoutProgram program, {
+    required MuscleBucket bucket,
+    required int minSets,
+    required List<Exercise> curated,
+    required Set<int> used,
+  }) {
+    var current = program;
+    for (var guard = 0; guard < 24; guard++) {
+      final actual = _weeklySets(current, bucket);
+      if (actual == 0 || actual >= minSets) return current;
+
+      final toFour = _addOneSetToBucket(current, bucket, maxSets: 4);
+      if (toFour != null) {
+        current = toFour;
+        continue;
+      }
+
+      final withMove = _addCatalogMoveForBucket(
+        current,
+        bucket: bucket,
+        curated: curated,
+        used: used,
+      );
+      if (withMove != null) {
+        current = withMove;
+        continue;
+      }
+
+      final toFive = _addOneSetToBucket(current, bucket, maxSets: 5);
+      if (toFive != null) {
+        current = toFive;
+        continue;
+      }
+
+      final toSix = _addOneSetToBucket(current, bucket, maxSets: 6);
+      if (toSix != null) {
+        current = toSix;
+        continue;
+      }
+      return current;
+    }
+    return current;
+  }
+
+  static int _weeklySets(WorkoutProgram program, MuscleBucket bucket) {
+    var total = 0;
+    for (final day in program.allDays) {
+      for (final exercise in day.exercises) {
+        if (WorkoutScience.muscleBucket(exercise.primaryMuscle) != bucket) {
+          continue;
+        }
+        total += exercise.sets.isEmpty ? 3 : exercise.sets.length;
+      }
+    }
+    return total;
+  }
+
+  static WorkoutProgram? _addOneSetToBucket(
+    WorkoutProgram program,
+    MuscleBucket bucket, {
+    required int maxSets,
+  }) {
+    final days = program.allDays;
+    var bestDay = -1;
+    var bestEx = -1;
+    var bestSets = 1 << 20;
+    for (var d = 0; d < days.length; d++) {
+      final exercises = days[d].exercises;
+      for (var i = 0; i < exercises.length; i++) {
+        final exercise = exercises[i];
+        if (WorkoutScience.muscleBucket(exercise.primaryMuscle) != bucket) {
+          continue;
+        }
+        if (exercise.sets.isNotEmpty &&
+            exercise.sets.every((s) => s.type == WorkoutSetType.time)) {
+          continue;
+        }
+        final count = exercise.sets.isEmpty ? 0 : exercise.sets.length;
+        if (count >= maxSets) continue;
+        if (count < bestSets) {
+          bestSets = count;
+          bestDay = d;
+          bestEx = i;
+        }
+      }
+    }
+    if (bestDay < 0) return null;
+
+    final day = days[bestDay];
+    final exercise = day.exercises[bestEx];
+    final updated = _withExtraSet(exercise);
+    final newExercises = <WorkoutExercise>[
+      for (var i = 0; i < day.exercises.length; i++)
+        i == bestEx ? updated : day.exercises[i],
+    ];
+    return _replaceDay(
+      program,
+      bestDay,
+      WorkoutDay(
+        id: day.id,
+        dayIndex: day.dayIndex,
+        label: day.label,
+        notes: day.notes,
+        exercises: newExercises,
+      ),
+    );
+  }
+
+  static WorkoutProgram? _addCatalogMoveForBucket(
+    WorkoutProgram program, {
+    required MuscleBucket bucket,
+    required List<Exercise> curated,
+    required Set<int> used,
+  }) {
+    final dayIndex = _bestDayIndexForBucket(program, bucket);
+    if (dayIndex < 0) return null;
+    final day = program.allDays[dayIndex];
+    if (day.exercises.length >= 7) return null;
+
+    final maxChest = program.allDays.where((d) => _isPushDay(d.label)).length <= 1
+        ? 3
+        : 2;
+    final pool = List<Exercise>.from(curated)
+      ..sort(
+        (a, b) => LlmIranGymPopularity.score(
+          b,
+        ).compareTo(LlmIranGymPopularity.score(a)),
+      );
+
+    for (final candidate in pool) {
+      if (used.contains(candidate.id)) continue;
+      if (WorkoutScience.muscleBucket(candidate.mainMuscle) != bucket) {
+        continue;
+      }
+      if (!_belongsOnDay(day.label, candidate.mainMuscle)) continue;
+      if (!_fitsPushBudget(
+        day.label,
+        day.exercises,
+        candidate.mainMuscle.toLowerCase(),
+        name: candidate.name,
+        maxChestPerPush: maxChest,
+      )) {
+        continue;
+      }
+
+      used.add(candidate.id);
+      final added = _fromCatalog(candidate, order: day.exercises.length);
+      final withSets = _withSetCount(added, 4);
+      final merged = _orderDayExercises(day.label, <WorkoutExercise>[
+        ...day.exercises,
+        withSets,
+      ]);
+      return _replaceDay(
+        program,
+        dayIndex,
+        WorkoutDay(
+          id: day.id,
+          dayIndex: day.dayIndex,
+          label: day.label,
+          notes: day.notes,
+          exercises: [
+            for (var i = 0; i < merged.length; i++)
+              WorkoutExercise(
+                id: merged[i].id,
+                catalogExerciseId: merged[i].catalogExerciseId,
+                name: merged[i].name,
+                primaryMuscle: merged[i].primaryMuscle,
+                secondaryMuscles: merged[i].secondaryMuscles,
+                equipment: merged[i].equipment,
+                difficulty: merged[i].difficulty,
+                isCompound: merged[i].isCompound,
+                order: i,
+                sets: merged[i].sets,
+                notes: merged[i].notes,
+                selectionReasons: merged[i].selectionReasons,
+              ),
+          ],
+        ),
+      );
+    }
+    return null;
+  }
+
+  static int _bestDayIndexForBucket(WorkoutProgram program, MuscleBucket bucket) {
+    final days = program.allDays;
+    bool matches(WorkoutDay day) {
+      switch (bucket) {
+        case MuscleBucket.chest:
+          return _isPushDay(day.label);
+        case MuscleBucket.back:
+          return _isPullDay(day.label);
+        case MuscleBucket.quads:
+          return _isLegDay(day.label);
+        default:
+          return false;
+      }
+    }
+
+    final labeled = days.indexWhere(matches);
+    if (labeled >= 0) return labeled;
+    return days.indexWhere(
+      (day) => day.exercises.any(
+        (e) => WorkoutScience.muscleBucket(e.primaryMuscle) == bucket,
+      ),
+    );
+  }
+
+  static WorkoutExercise _withExtraSet(WorkoutExercise exercise) {
+    final current = exercise.sets.isEmpty ? _defaultSets() : exercise.sets;
+    final template = current.last;
+    return WorkoutExercise(
+      id: exercise.id,
+      catalogExerciseId: exercise.catalogExerciseId,
+      name: exercise.name,
+      primaryMuscle: exercise.primaryMuscle,
+      secondaryMuscles: exercise.secondaryMuscles,
+      equipment: exercise.equipment,
+      difficulty: exercise.difficulty,
+      isCompound: exercise.isCompound,
+      order: exercise.order,
+      sets: <WorkoutSet>[
+        ...current,
+        WorkoutSet(
+          id: _uuid.v4(),
+          order: current.length,
+          type: WorkoutSetType.reps,
+          reps: template.reps ?? 10,
+        ),
+      ],
+      notes: exercise.notes,
+      selectionReasons: exercise.selectionReasons,
+    );
+  }
+
+  static WorkoutExercise _withSetCount(WorkoutExercise exercise, int count) {
+    if (exercise.sets.length >= count) return exercise;
+    var current = exercise;
+    while (current.sets.length < count) {
+      current = _withExtraSet(current);
+    }
+    return current;
+  }
+
+  static WorkoutProgram _replaceDay(
+    WorkoutProgram program,
+    int dayIndex,
+    WorkoutDay day,
+  ) {
+    final days = [...program.allDays];
+    days[dayIndex] = day;
+    return WorkoutProgram(
+      id: program.id,
+      userId: program.userId,
+      name: program.name,
+      version: program.version,
+      status: program.status,
+      source: program.source,
+      goal: program.goal,
+      experienceLevel: program.experienceLevel,
+      daysPerWeek: program.daysPerWeek,
+      sessionDurationMinutes: program.sessionDurationMinutes,
+      weeks: <WorkoutWeek>[
+        WorkoutWeek(
+          id: program.weeks.isNotEmpty ? program.weeks.first.id : _uuid.v4(),
+          weekIndex: 0,
+          days: days,
+        ),
+      ],
+      programReasons: program.programReasons,
+      createdAt: program.createdAt,
+      updatedAt: DateTime.now(),
+    );
+  }
+
   /// Practical gym order: keep muscle groups together; core/time last.
   static List<WorkoutExercise> _orderDayExercises(
     String label,
@@ -259,8 +581,10 @@ abstract final class LlmWorkoutProgramSanitizer {
   ) {
     final indexed = exercises.asMap().entries.toList(growable: false);
     indexed.sort((a, b) {
-      final byGroup = _muscleGroupRank(label, a.value)
-          .compareTo(_muscleGroupRank(label, b.value));
+      final byGroup = _muscleGroupRank(
+        label,
+        a.value,
+      ).compareTo(_muscleGroupRank(label, b.value));
       if (byGroup != 0) return byGroup;
 
       final bySub = _muscleSubRank(a.value).compareTo(_muscleSubRank(b.value));
@@ -336,8 +660,9 @@ abstract final class LlmWorkoutProgramSanitizer {
 
   static List<WorkoutExercise> _capPushVolume(
     String label,
-    List<WorkoutExercise> exercises,
-  ) {
+    List<WorkoutExercise> exercises, {
+    int maxChestPerPush = 2,
+  }) {
     if (!_isPushDay(label)) return exercises;
 
     var chest = 0;
@@ -352,6 +677,7 @@ abstract final class LlmWorkoutProgramSanitizer {
       final isShoulder = _isShoulder(m);
       final isTricep = _isTricep(m);
       final isCore = _isCore(m);
+      final compoundPress = LlmWorkoutMuscleTags.isCompoundPress(e.name, m);
 
       if (isCore || isTricep) {
         deferred.add(e);
@@ -359,16 +685,18 @@ abstract final class LlmWorkoutProgramSanitizer {
       }
 
       if (isChest) {
-        if (chest >= 2 || presses >= 3) continue;
+        if (chest >= maxChestPerPush) continue;
+        if (compoundPress && presses >= 3) continue;
         chest++;
-        presses++;
+        if (compoundPress) presses++;
         out.add(e);
         continue;
       }
       if (isShoulder) {
-        if (shoulder >= 2 || presses >= 3) continue;
+        if (shoulder >= 2) continue;
+        if (compoundPress && presses >= 3) continue;
         shoulder++;
-        presses++;
+        if (compoundPress) presses++;
         out.add(e);
         continue;
       }
@@ -411,6 +739,7 @@ abstract final class LlmWorkoutProgramSanitizer {
     required List<Exercise> curated,
     required Set<int> usedAcrossProgram,
     required int targetCount,
+    int maxChestPerPush = 2,
   }) {
     final out = List<WorkoutExercise>.from(existing);
     final have = out.map((e) => e.catalogExerciseId).toSet();
@@ -418,8 +747,9 @@ abstract final class LlmWorkoutProgramSanitizer {
     final wantedMuscles = _wantedMusclesForDay(label, existing: out);
     final pool = List<Exercise>.from(curated)
       ..sort(
-        (a, b) => LlmIranGymPopularity.score(b)
-            .compareTo(LlmIranGymPopularity.score(a)),
+        (a, b) => LlmIranGymPopularity.score(
+          b,
+        ).compareTo(LlmIranGymPopularity.score(a)),
       );
 
     for (final muscle in wantedMuscles) {
@@ -433,7 +763,15 @@ abstract final class LlmWorkoutProgramSanitizer {
         final m = candidate.mainMuscle.toLowerCase();
         if (!_muscleMatchesWanted(m, muscle)) continue;
         if (!_belongsOnDay(label, candidate.mainMuscle)) continue;
-        if (!_fitsPushBudget(label, out, m)) continue;
+        if (!_fitsPushBudget(
+          label,
+          out,
+          m,
+          name: candidate.name,
+          maxChestPerPush: maxChestPerPush,
+        )) {
+          continue;
+        }
 
         out.add(_fromCatalog(candidate, order: out.length));
         have.add(candidate.id);
@@ -449,7 +787,15 @@ abstract final class LlmWorkoutProgramSanitizer {
       }
       if (!_belongsOnDay(label, candidate.mainMuscle)) continue;
       final m = candidate.mainMuscle.toLowerCase();
-      if (!_fitsPushBudget(label, out, m)) continue;
+      if (!_fitsPushBudget(
+        label,
+        out,
+        m,
+        name: candidate.name,
+        maxChestPerPush: maxChestPerPush,
+      )) {
+        continue;
+      }
       out.add(_fromCatalog(candidate, order: out.length));
       have.add(candidate.id);
     }
@@ -469,8 +815,9 @@ abstract final class LlmWorkoutProgramSanitizer {
     final have = existing.map((e) => e.catalogExerciseId).toSet();
     final pool = List<Exercise>.from(curated)
       ..sort(
-        (a, b) => LlmIranGymPopularity.score(b)
-            .compareTo(LlmIranGymPopularity.score(a)),
+        (a, b) => LlmIranGymPopularity.score(
+          b,
+        ).compareTo(LlmIranGymPopularity.score(a)),
       );
     for (final candidate in pool) {
       if (have.contains(candidate.id) ||
@@ -491,8 +838,10 @@ abstract final class LlmWorkoutProgramSanitizer {
   static bool _fitsPushBudget(
     String label,
     List<WorkoutExercise> existing,
-    String muscle,
-  ) {
+    String muscle, {
+    String name = '',
+    int maxChestPerPush = 2,
+  }) {
     if (_isPushDay(label)) {
       final chest = existing
           .where((e) => _isChest(e.primaryMuscle.toLowerCase()))
@@ -500,12 +849,27 @@ abstract final class LlmWorkoutProgramSanitizer {
       final shoulder = existing
           .where((e) => _isShoulder(e.primaryMuscle.toLowerCase()))
           .length;
-      final presses = chest + shoulder;
+      final presses = existing
+          .where(
+            (e) => LlmWorkoutMuscleTags.isCompoundPress(
+              e.name,
+              e.primaryMuscle,
+            ),
+          )
+          .length;
       if (_isChest(muscle)) {
-        return chest < 2 && presses < 3;
+        if (chest >= maxChestPerPush) return false;
+        if (LlmWorkoutMuscleTags.isCompoundPress(name, muscle)) {
+          return presses < 3;
+        }
+        return true;
       }
       if (_isShoulder(muscle)) {
-        return shoulder < 2 && presses < 3;
+        if (shoulder >= 2) return false;
+        if (LlmWorkoutMuscleTags.isCompoundPress(name, muscle)) {
+          return presses < 3;
+        }
+        return true;
       }
       return true;
     }
@@ -538,14 +902,14 @@ abstract final class LlmWorkoutProgramSanitizer {
   }
 
   static List<WorkoutSet> _defaultSets() => List<WorkoutSet>.generate(
-        3,
-        (i) => WorkoutSet(
-          id: _uuid.v4(),
-          order: i,
-          type: WorkoutSetType.reps,
-          reps: i == 0 ? 12 : 10,
-        ),
-      );
+    3,
+    (i) => WorkoutSet(
+      id: _uuid.v4(),
+      order: i,
+      type: WorkoutSetType.reps,
+      reps: i == 0 ? 12 : 10,
+    ),
+  );
 
   static List<String> _wantedMusclesForDay(
     String label, {

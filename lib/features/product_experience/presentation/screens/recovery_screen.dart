@@ -16,10 +16,13 @@ import 'package:gymaipro/features/live_workout/navigation/live_workout_route.dar
 import 'package:gymaipro/features/product_experience/application/recovery_facade.dart';
 import 'package:gymaipro/features/product_experience/domain/program_modify_options.dart';
 import 'package:gymaipro/features/product_experience/navigation/program_modify_navigation.dart';
+import 'package:gymaipro/features/product_experience/presentation/widgets/last_night_sleep_gate.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
+import 'package:gymaipro/features/product_experience/recovery/last_night_sleep.dart';
 import 'package:gymaipro/features/product_experience/recovery/recovery_guidance.dart';
 import 'package:gymaipro/features/product_experience/training_metric_guides.dart';
 import 'package:gymaipro/features/workout_today/presentation/cards/coach_speech_card.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Dedicated readiness / recovery surface — metrics + local coach guidance.
 class RecoveryScreen extends StatefulWidget {
@@ -34,8 +37,13 @@ class RecoveryScreen extends StatefulWidget {
 class _RecoveryScreenState extends State<RecoveryScreen> {
   late final RecoveryFacade _facade;
   bool _loading = true;
+  bool _savingSleep = false;
+  bool _editingSleep = false;
   String? _error;
   RecoveryGuidance? _guidance;
+  String _userId = '';
+  double? _lastNightSleepHours;
+  double _suggestedSleepHours = LastNightSleep.defaultHours;
 
   @override
   void initState() {
@@ -43,6 +51,8 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
     _facade = widget.facade ?? RecoveryFacade();
     unawaited(_load());
   }
+
+  bool get _needsSleep => _lastNightSleepHours == null || _editingSleep;
 
   Future<void> _load() async {
     setState(() {
@@ -54,6 +64,10 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       if (!mounted) return;
       setState(() {
         _guidance = result.guidance;
+        _userId = result.userId;
+        _lastNightSleepHours = result.lastNightSleepHours;
+        _suggestedSleepHours = result.suggestedSleepHours;
+        _editingSleep = false;
         _loading = false;
       });
     } on Object catch (error) {
@@ -61,6 +75,33 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       setState(() {
         _error = error.toString();
         _loading = false;
+      });
+    }
+  }
+
+  Future<void> _submitSleep(double hours) async {
+    if (_userId.isEmpty || _savingSleep) return;
+    HapticFeedback.selectionClick().ignore();
+    setState(() => _savingSleep = true);
+    try {
+      final result = await _facade.saveLastNightSleep(
+        userId: _userId,
+        hours: hours,
+      );
+      if (!mounted) return;
+      setState(() {
+        _guidance = result.guidance;
+        _userId = result.userId;
+        _lastNightSleepHours = result.lastNightSleepHours;
+        _suggestedSleepHours = result.suggestedSleepHours;
+        _editingSleep = false;
+        _savingSleep = false;
+      });
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString();
+        _savingSleep = false;
       });
     }
   }
@@ -136,6 +177,17 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
       );
     }
 
+    if (_needsSleep) {
+      return GymPagePadding(
+        child: LastNightSleepGate(
+          initialHours: _lastNightSleepHours ?? _suggestedSleepHours,
+          isEditing: _editingSleep,
+          submitting: _savingSleep,
+          onSubmit: (hours) => unawaited(_submitSleep(hours)),
+        ),
+      );
+    }
+
     final guidance = _guidance;
     if (guidance == null) {
       return const GymPagePadding(
@@ -147,6 +199,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
     }
 
     final readiness = guidance.snapshot.readiness;
+    final lastNight = _lastNightSleepHours;
     return GymPagePadding(
       child: ListView(
         children: <Widget>[
@@ -178,6 +231,15 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
                 fontWeight: FontWeight.w600,
                 color: context.gymTextSecondary,
               ),
+            ),
+          ],
+          if (lastNight != null) ...<Widget>[
+            GymSpacing.gapLg,
+            _LastNightSleepChip(
+              hours: lastNight,
+              onEdit: () {
+                setState(() => _editingSleep = true);
+              },
             ),
           ],
           GymSpacing.gapLg,
@@ -243,6 +305,54 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
             fullWidth: true,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LastNightSleepChip extends StatelessWidget {
+  const _LastNightSleepChip({required this.hours, required this.onEdit});
+
+  final double hours;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: context.gymCard,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onEdit,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: GymSpacing.lg,
+            vertical: GymSpacing.md,
+          ),
+          child: Row(
+            children: <Widget>[
+              Icon(LucideIcons.moon, size: 16, color: context.gymPrimary),
+              GymSpacing.gapSm,
+              Expanded(
+                child: Text(
+                  'دیشب ${LastNightSleep.formatHoursLabel(hours)} خواب مفید',
+                  style: context.gymTextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                ProductCopy.lastNightSleepEdit,
+                style: context.gymTextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: context.gymPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

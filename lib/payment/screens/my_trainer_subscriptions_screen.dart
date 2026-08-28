@@ -50,12 +50,16 @@ class _MyTrainerSubscriptionsScreenState
         final subscriptions = await _subscriptionService.getUserSubscriptions(
           currentUser.id,
         );
+        if (!mounted) return;
         setState(() {
           _subscriptions = subscriptions;
           _isLoading = false;
         });
+      } else if (mounted) {
+        setState(() => _isLoading = false);
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
@@ -64,8 +68,7 @@ class _MyTrainerSubscriptionsScreenState
           SnackBar(
             content: Text(
               'خطا در بارگذاری اشتراک‌ها: $e',
-              style: const TextStyle(
-    fontFamily: AppTheme.fontFamily,),
+              style: const TextStyle(fontFamily: AppTheme.fontFamily),
             ),
             backgroundColor: Colors.red,
           ),
@@ -77,43 +80,51 @@ class _MyTrainerSubscriptionsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
+      backgroundColor: context.backgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: context.backgroundColor,
+        foregroundColor: context.textColor,
         title: Text(
           'اشتراک‌های مربی من',
           style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-            color: Colors.white,
+            fontFamily: AppTheme.fontFamily,
+            color: context.textColor,
             fontSize: 18.sp,
             fontWeight: FontWeight.bold,
           ),
         ),
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(LucideIcons.arrowRight, color: Colors.white),
+          icon: Icon(LucideIcons.arrowRight, color: context.textColor),
         ),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppTheme.goldColor,
           labelColor: AppTheme.goldColor,
-          unselectedLabelColor: Colors.grey[400],
+          unselectedLabelColor: context.textSecondary,
           tabs: const [
-            Tab(child: Text('همه', style: TextStyle(
-    fontFamily: AppTheme.fontFamily,fontSize: 12))),
             Tab(
-              child: Text('فعال', style: TextStyle(
-    fontFamily: AppTheme.fontFamily,fontSize: 12)),
+              child: Text(
+                'همه',
+                style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 12),
+              ),
             ),
             Tab(
-              child: Text('منقضی', style: TextStyle(
-    fontFamily: AppTheme.fontFamily,fontSize: 12)),
+              child: Text(
+                'فعال',
+                style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 12),
+              ),
+            ),
+            Tab(
+              child: Text(
+                'منقضی',
+                style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 12),
+              ),
             ),
             Tab(
               child: Text(
                 'در انتظار',
-                style: TextStyle(
-    fontFamily: AppTheme.fontFamily,fontSize: 12),
+                style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 12),
               ),
             ),
           ],
@@ -202,13 +213,13 @@ class _MyTrainerSubscriptionsScreenState
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 64.sp, color: Colors.grey[600]),
+          Icon(icon, size: 64.sp, color: context.textSecondary),
           const SizedBox(height: 16),
           Text(
             title,
             style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-              color: Colors.grey[600],
+              fontFamily: AppTheme.fontFamily,
+              color: context.textColor,
               fontSize: 18.sp,
               fontWeight: FontWeight.bold,
             ),
@@ -217,21 +228,27 @@ class _MyTrainerSubscriptionsScreenState
           Text(
             message,
             style: TextStyle(
-    fontFamily: AppTheme.fontFamily,color: Colors.grey[500], fontSize: 14),
+              fontFamily: AppTheme.fontFamily,
+              color: context.textSecondary,
+              fontSize: 14,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(LucideIcons.search),
-            label: const Text('جستجوی مربی', style: TextStyle(
-    fontFamily: AppTheme.fontFamily,)),
+            label: const Text(
+              'جستجوی مربی',
+              style: TextStyle(fontFamily: AppTheme.fontFamily),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.goldColor,
-              foregroundColor: Colors.white,
+              foregroundColor: AppTheme.onGoldColor,
+              minimumSize: Size(48.w, 48.h),
               padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.r),
+                borderRadius: BorderRadius.circular(16.r),
               ),
             ),
           ),
@@ -244,15 +261,15 @@ class _MyTrainerSubscriptionsScreenState
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A2A2A),
+        backgroundColor: context.surfaceElevated,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16.r),
         ),
         title: Text(
           'جزئیات اشتراک',
           style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-            color: Colors.white,
+            fontFamily: AppTheme.fontFamily,
+            color: context.textColor,
             fontSize: 18.sp,
             fontWeight: FontWeight.bold,
           ),
@@ -296,7 +313,9 @@ class _MyTrainerSubscriptionsScreenState
             child: const Text(
               'بستن',
               style: TextStyle(
-    fontFamily: AppTheme.fontFamily,color: AppTheme.goldColor),
+                fontFamily: AppTheme.fontFamily,
+                color: AppTheme.goldColor,
+              ),
             ),
           ),
         ],
@@ -313,13 +332,16 @@ class _MyTrainerSubscriptionsScreenState
           Text(
             label,
             style: TextStyle(
-    fontFamily: AppTheme.fontFamily,color: Colors.grey[400], fontSize: 14),
+              fontFamily: AppTheme.fontFamily,
+              color: context.textSecondary,
+              fontSize: 14,
+            ),
           ),
           Text(
             value,
             style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-              color: Colors.white,
+              fontFamily: AppTheme.fontFamily,
+              color: context.textColor,
               fontSize: 14.sp,
               fontWeight: FontWeight.bold,
             ),

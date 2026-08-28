@@ -20,12 +20,11 @@ class ExerciseImageUploadService {
     XFile imageFile, {
     void Function(double progress)? onProgress,
   }) async {
-    final file = File(imageFile.path);
-    if (!await file.exists()) {
+    final bytes = await imageFile.readAsBytes();
+    final fileSize = bytes.length;
+    if (fileSize == 0) {
       throw Exception('فایل تصویر وجود ندارد');
     }
-
-    final fileSize = await file.length();
     if (fileSize > _maxFileSize) {
       throw Exception('حجم تصویر بیشتر از حد مجاز است (حداکثر ۱۰MB)');
     }
@@ -61,27 +60,19 @@ class ExerciseImageUploadService {
     request.fields['auth_token'] = session.accessToken;
     request.fields['upload_context'] = 'custom_exercise';
 
-    var uploadedBytes = 0;
-    final progressStream = file.openRead().transform<List<int>>(
-      StreamTransformer<List<int>, List<int>>.fromHandlers(
-        handleData: (data, sink) {
-          uploadedBytes += data.length;
-          onProgress?.call((uploadedBytes / fileSize).clamp(0.0, 0.95));
-          sink.add(data);
-        },
-      ),
-    );
-
-    final ext = imageFile.path.split('.').last.toLowerCase();
+    final name = imageFile.name;
+    final pathExt = imageFile.path.split('.').last.toLowerCase();
+    final nameExt = name.contains('.') ? name.split('.').last.toLowerCase() : '';
+    final ext = nameExt.isNotEmpty ? nameExt : pathExt;
     final safeExt = (ext.isEmpty || ext.length > 5) ? 'jpg' : ext;
     final fileName =
         'exercise_img_${DateTime.now().millisecondsSinceEpoch}.$safeExt';
 
+    onProgress?.call(0.4);
     request.files.add(
-      http.MultipartFile(
+      http.MultipartFile.fromBytes(
         'image',
-        progressStream,
-        fileSize,
+        bytes,
         filename: fileName,
       ),
     );

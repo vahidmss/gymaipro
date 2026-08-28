@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gymaipro/features/live_workout/application/live_workout_session_persistence.dart';
 import 'package:gymaipro/workout_log/models/workout_program_log.dart';
+import 'package:gymaipro/workout_log/utils/workout_day_identity.dart';
 
 void main() {
   group('LiveWorkoutSessionPersistence.mergeSessionIntoDailyLog', () {
@@ -29,6 +30,7 @@ void main() {
       final first = WorkoutSessionLog(
         id: 'live-1',
         day: 'Push',
+        programId: 'prog-a',
         notes: LiveWorkoutSessionPersistence.liveSessionNote('live-1'),
         exercises: <WorkoutExerciseLog>[
           NormalExerciseLog(
@@ -51,6 +53,7 @@ void main() {
       final updated = WorkoutSessionLog(
         id: 'live-1',
         day: 'Push',
+        programId: 'prog-a',
         notes: LiveWorkoutSessionPersistence.liveSessionNote('live-1'),
         exercises: <WorkoutExerciseLog>[
           NormalExerciseLog(
@@ -75,11 +78,12 @@ void main() {
       );
 
       expect(merged.sessions, hasLength(1));
-      final exercise = merged.sessions.single.exercises.single as NormalExerciseLog;
+      final exercise =
+          merged.sessions.single.exercises.single as NormalExerciseLog;
       expect(exercise.sets, hasLength(2));
     });
 
-    test('keeps other sessions and appends a different live session', () {
+    test('replaces ghost shell instead of appending', () {
       final other = WorkoutSessionLog(
         id: 'manual-1',
         day: 'Pull',
@@ -94,6 +98,7 @@ void main() {
       final live = WorkoutSessionLog(
         id: 'live-2',
         day: 'Push',
+        programId: 'prog-b',
         notes: LiveWorkoutSessionPersistence.liveSessionNote('live-2'),
         exercises: const <WorkoutExerciseLog>[],
       );
@@ -105,8 +110,75 @@ void main() {
         logDate: logDate,
       );
 
-      expect(merged.sessions, hasLength(2));
-      expect(merged.sessions.map((s) => s.id), containsAll(<String>['manual-1', 'live-2']));
+      expect(merged.sessions, hasLength(1));
+      expect(merged.sessions.single.id, 'live-2');
+    });
+
+    test('refuses second meaningful identity for the same day', () {
+      final dashboard = WorkoutSessionLog(
+        id: 'manual-1',
+        day: 'روز ۱',
+        programId: 'prog-a',
+        exercises: <WorkoutExerciseLog>[
+          NormalExerciseLog(
+            id: 'ex1',
+            exerciseId: 1,
+            exerciseName: 'Squat',
+            tag: 'legs',
+            style: 'sets_reps',
+            sets: <ExerciseSetLog>[ExerciseSetLog(reps: 8, weight: 60)],
+          ),
+        ],
+      );
+      final existing = WorkoutDailyLog(
+        id: 'daily-1',
+        userId: 'user_1',
+        logDate: logDate,
+        sessions: <WorkoutSessionLog>[dashboard],
+      );
+      final liveOtherProgram = WorkoutSessionLog(
+        id: 'live-2',
+        day: 'روز ۲',
+        programId: 'prog-b',
+        notes: LiveWorkoutSessionPersistence.liveSessionNote('live-2'),
+        exercises: <WorkoutExerciseLog>[
+          NormalExerciseLog(
+            id: 'ex2',
+            exerciseId: 2,
+            exerciseName: 'Bench',
+            tag: 'chest',
+            style: 'sets_reps',
+            sets: <ExerciseSetLog>[ExerciseSetLog(reps: 10, weight: 40)],
+          ),
+        ],
+      );
+
+      expect(
+        () => LiveWorkoutSessionPersistence.mergeSessionIntoDailyLog(
+          existing: existing,
+          sessionLog: liveOtherProgram,
+          userId: 'user_1',
+          logDate: logDate,
+        ),
+        throwsA(isA<DayWorkoutConflictException>()),
+      );
+    });
+  });
+
+  group('WorkoutDayIdentity', () {
+    test('detects program conflict', () {
+      const identity = WorkoutDayIdentity(
+        sessionDay: 'روز ۱',
+        programId: 'prog-a',
+      );
+      expect(
+        identity.conflictsWith(programId: 'prog-b', sessionDay: 'روز ۱'),
+        isTrue,
+      );
+      expect(
+        identity.conflictsWith(programId: 'prog-a', sessionDay: 'روز ۱'),
+        isFalse,
+      );
     });
   });
 }

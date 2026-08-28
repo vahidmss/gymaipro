@@ -26,16 +26,17 @@ class StarterProgramActivationResult {
   final WorkoutProgram program;
   final String trainerDisplayName;
   final bool isNewAiStudent;
+
   /// اگر برنامهٔ قدیمی حذف و نسخهٔ جدید ساخته شد.
   final int? upgradedFromVersion;
   final bool rebuiltProgram;
 }
 
-/// برنامهٔ رایگان شروع باشگاه — تمام‌بدن ۳ روز در هفته، فقط تازه‌وارد.
+/// برنامهٔ رایگان شروع باشگاه — تمام‌بدن ۳ روز در هفته، تازه‌وارد باشگاه ایران.
 ///
-/// بر پایهٔ الگوی رایج «Full Body ×3» (ماشین/اسمیت) و توصیه ACSM:
-/// تمرین منظم همه گروه‌های عضلانی، ۴۸س فاصله بین جلسات، ۳ست×۱۰–۱۲
-/// با ۲–۳ تکرار ذخیره (بدون رسیدن به ناتوانی).
+/// الگوی «برگهٔ دیواری»: Full Body ×3 روی ماشین/اسمیت/سیمکش.
+/// ACSM: همهٔ گروه‌های اصلی ۲–۳ روز در هفته، ۴۸ ساعت فاصله، ۳×۱۰–۱۲،
+/// ۲–۳ تکرار ذخیره (بدون ناتوانی). همسترینگ و یک کشش پشت در هر جلسه اجباری است.
 class BeginnerStarterProgramService {
   BeginnerStarterProgramService({
     WorkoutProgramService? programService,
@@ -50,11 +51,15 @@ class BeginnerStarterProgramService {
   static const String programDisplayName = 'برنامه شروع باشگاه (مبتدی)';
   static const String generatedByKey = 'gymai_starter';
   static const int recommendedWeeks = 4;
-  static const int week1Sets = 2;
-  static const int defaultSets = 3;
 
-  /// نسخهٔ محتوای برنامه — ID ثابت از کاتالوگ + ۲ ست هفتهٔ اول.
-  static const int programVersion = 5;
+  /// دادهٔ برنامه همیشه [workingSets] است؛ هفتهٔ ۱ در نوت: ست سوم اختیاری.
+  static const int week1Sets = 2;
+  static const int workingSets = 3;
+  static const int defaultSets = workingSets;
+  static const int minRequiredExercisesPerSession = 5;
+
+  /// نسخهٔ محتوا — v7: اسکلت ثابت، روز ۲ ایزوله (بدون لگ‌پرس تکراری).
+  static const int programVersion = 7;
 
   final WorkoutProgramService _programs;
   final ActiveProgramService _active;
@@ -108,6 +113,7 @@ class BeginnerStarterProgramService {
     if (existing != null) {
       final version = await _installedStarterVersion();
       if (version != null && version >= programVersion) {
+        await _programs.ensureStarterPublished();
         await _active.setActiveProgram(existing.id);
         return _completeAiTrainerEnrollment(existing);
       }
@@ -123,7 +129,9 @@ class BeginnerStarterProgramService {
 
     final allExercises = await _exercises.getExercises();
     if (allExercises.isEmpty) {
-      throw Exception('لیست تمرین‌ها در دسترس نیست. اتصال اینترنت را بررسی کنید.');
+      throw Exception(
+        'لیست تمرین‌ها در دسترس نیست. اتصال اینترنت را بررسی کنید.',
+      );
     }
 
     if (kDebugMode) {
@@ -132,8 +140,12 @@ class BeginnerStarterProgramService {
 
     final built = _buildProgram(allExercises);
     final program = built.program;
-    final weakSession = program.sessions.where((s) => s.exercises.length < 4);
-    if (weakSession.isNotEmpty || program.sessions.isEmpty) {
+    final weakSession = program.sessions.where(
+      (s) => s.exercises.length < minRequiredExercisesPerSession,
+    );
+    if (weakSession.isNotEmpty ||
+        program.sessions.length != _sessionTemplates.length ||
+        built.missingSlots.isNotEmpty) {
       final missing = built.missingSlots.join('، ');
       if (kDebugMode) {
         debugPrint('[StarterProgram] اسلات خالی: $missing');
@@ -153,6 +165,8 @@ class BeginnerStarterProgramService {
       autoSend: true,
       starterProgram: true,
     );
+    // createProgram برای starter همین‌جا sent_at می‌گذارد؛ برای اطمینان بک‌فیل هم می‌زنیم.
+    await _programs.ensureStarterPublished();
     await _active.setActiveProgram(saved.id);
     if (kDebugMode) {
       debugPrint('[StarterProgram] نصب v$programVersion: ${saved.id}');
@@ -216,7 +230,8 @@ class BeginnerStarterProgramService {
     if (aiTrainerId != null) {
       await _ensureProgramTrainerId(program.id, aiTrainerId);
       program.trainerId = aiTrainerId;
-      program.isSelfServiceAi = true;
+      // Keep starter out of Coach AI product surfaces.
+      program.isSelfServiceAi = false;
     }
 
     var isNewStudent = false;
@@ -241,7 +256,10 @@ class BeginnerStarterProgramService {
     );
   }
 
-  Future<void> _ensureProgramTrainerId(String programId, String trainerId) async {
+  Future<void> _ensureProgramTrainerId(
+    String programId,
+    String trainerId,
+  ) async {
     try {
       await Supabase.instance.client
           .from('workout_programs')
@@ -257,19 +275,47 @@ class BeginnerStarterProgramService {
     }
   }
 
-  _StarterBuildResult _buildProgram(List<Exercise> all) {
+  /// ساخت برنامه از کاتالوگ — برای تست.
+  @visibleForTesting
+  static WorkoutProgram buildFromCatalog(List<Exercise> all) {
+    final built = _buildProgram(all);
+    if (built.missingSlots.isNotEmpty) {
+      throw StateError(built.missingSlots.join('، '));
+    }
+    return built.program;
+  }
+
+  @visibleForTesting
+  static List<String> missingRequiredSlots(List<Exercise> all) {
+    return _buildProgram(all).missingSlots;
+  }
+
+  static _StarterBuildResult _buildProgram(List<Exercise> all) {
     final missingSlots = <String>[];
 
     final sessions = _sessionTemplates.map((tpl) {
-      // تکرار همان حرکت در جلسات مختلف مجاز است (مثلاً لگ پرس هر جلسه).
+      // تکرار بین جلسات مجاز است (لگ‌پرس روز ۱ و ۳؛ گرم‌کردن و پایان تردمیل).
       final usedIds = <int>{};
       final exercises = <WorkoutExercise>[];
       for (final spec in tpl.exercises) {
-        final ex = _resolveExercise(all, spec, usedIds: usedIds);
+        final ex = _resolveExercise(
+          all,
+          spec,
+          usedIds: usedIds,
+          ignoreUsed: spec.allowDuplicate,
+        );
         if (ex == null) {
+          if (!spec.required) {
+            if (kDebugMode) {
+              debugPrint(
+                '[StarterProgram] اسلات اختیاری خالی: ${tpl.day} / ${spec.tag}',
+              );
+            }
+            continue;
+          }
           final idHint = spec.preferredIds.isNotEmpty
               ? ' (id: ${spec.preferredIds.first})'
-              : '';
+              : (spec.slugs.isNotEmpty ? ' (${spec.slugs.first})' : '');
           missingSlots.add('${tpl.day} / ${spec.tag}$idHint');
           continue;
         }
@@ -302,28 +348,29 @@ class BeginnerStarterProgramService {
     return _StarterBuildResult(
       program: WorkoutProgram(
         name: programDisplayName,
-        isSelfServiceAi: true,
+        // Starter is free gym onboarding — NOT Coach AI product.
+        isSelfServiceAi: false,
         sessions: sessions,
       ),
       missingSlots: missingSlots,
     );
   }
 
-  Exercise? _resolveExercise(
+  static Exercise? _resolveExercise(
     List<Exercise> all,
     _ExerciseSpec spec, {
     Set<int>? usedIds,
+    bool ignoreUsed = false,
   }) {
     final byId = {for (final e in all) e.id: e};
+    final activeUsed = ignoreUsed ? null : usedIds;
 
     for (final id in spec.preferredIds) {
       final hit = byId[id];
       if (hit == null) continue;
-      if (usedIds != null && usedIds.contains(hit.id)) continue;
-      final blob = _searchBlob(hit);
-      final exclude = spec.excludePatterns.map((p) => p.toLowerCase()).toList();
-      if (exclude.any(blob.contains)) continue;
-      if (_looksComplexForNewcomer(blob)) continue;
+      if (activeUsed != null && activeUsed.contains(hit.id)) continue;
+      // ID ثابت کاتالوگ را به exclude/complexity نمی‌سپاریم
+      // (مثلاً اکستنشن پا اگر اشتباهاً hamstrings تگ شده باشد).
       return hit;
     }
 
@@ -332,7 +379,12 @@ class BeginnerStarterProgramService {
 
     if (spec.slugs.isNotEmpty) {
       for (final slug in spec.slugs) {
-        final hit = _findBySlug(all, slug, exclude: exclude, usedIds: usedIds);
+        final hit = _findBySlug(
+          all,
+          slug,
+          exclude: exclude,
+          usedIds: activeUsed,
+        );
         if (hit != null) return hit;
       }
     }
@@ -385,7 +437,19 @@ class BeginnerStarterProgramService {
       }
 
       final type = e.exerciseType.toLowerCase();
-      if (type.contains('cardio') || blob.contains('بورپی')) s -= 25;
+      final isCardio =
+          type.contains('cardio') ||
+          type.contains('هوازی') ||
+          blob.contains('تردمیل') ||
+          blob.contains('treadmill') ||
+          blob.contains('الپتیکال') ||
+          blob.contains('دوچرخه ثابت');
+      if (spec.preferCardio) {
+        if (isCardio) s += 24;
+        if (blob.contains('بورپی') || blob.contains('اسالت')) s -= 30;
+      } else if (isCardio || blob.contains('بورپی')) {
+        s -= 25;
+      }
 
       for (final m in spec.preferredMainMuscles) {
         if (muscle == m.toLowerCase()) s += 12;
@@ -401,9 +465,9 @@ class BeginnerStarterProgramService {
           s += 7;
         }
       }
-      if (spec.slugs.any((s) => _slugOf(e) == _normalizeSlug(s))) s += 40;
+      if (spec.slugs.any((slug) => _slugOf(e) == _normalizeSlug(slug))) s += 40;
 
-      if (usedIds != null && usedIds.contains(e.id)) s -= 18;
+      if (activeUsed != null && activeUsed.contains(e.id)) s -= 18;
 
       return s;
     }
@@ -411,6 +475,9 @@ class BeginnerStarterProgramService {
     matches.sort((a, b) => score(b).compareTo(score(a)));
 
     Exercise pickBest() {
+      if (spec.preferCardio) {
+        return matches.first;
+      }
       final beginners = matches
           .where((e) => _isBeginnerDifficulty(e.difficulty.toLowerCase()))
           .toList();
@@ -453,10 +520,7 @@ class BeginnerStarterProgramService {
       'hack squat',
       'ددلیفت',
       'deadlift',
-      'هالتر',
-      'barbell',
       'پشت سر',
-      'overhead',
     ];
     return hard.any(blob.contains);
   }
@@ -532,7 +596,10 @@ class BeginnerStarterProgramService {
         blob.contains('دستگاه') ||
         blob.contains('اسمیت') ||
         blob.contains('لگ پرس') ||
-        blob.contains('leg press');
+        blob.contains('leg press') ||
+        blob.contains('تردمیل') ||
+        blob.contains('دوچرخه ثابت') ||
+        blob.contains('الپتیکال');
   }
 
   /// متن دیالوگ اطلاع‌رسانی شاگردی زیر نظارت GymAI.
@@ -548,10 +615,12 @@ class BeginnerStarterProgramService {
 
     final upgradeBlock = rebuiltProgram && upgradedFromVersion != null
         ? 'برنامهٔ شما به نسخهٔ جدید ($programVersion) به‌روز شد '
-            '(قبلاً نسخه $upgradedFromVersion).\n'
-            'هفتهٔ اول: ۲ ست؛ از هفتهٔ ۲ ست سوم را اضافه کنید.\n\n'
-        : 'برنامهٔ شروع باشگاه فعال شد.\n'
-            'هفتهٔ اول: ۲ ست برای هر حرکت؛ از هفتهٔ ۲ ست سوم.\n\n';
+              '(قبلاً نسخه $upgradedFromVersion).\n'
+              'تمام‌بدن ۳ روز در هفته، حدود ۴۵–۵۵ دقیقه.\n'
+              '۳ ست × ۱۰–۱۲؛ هفتهٔ اول اگر خسته شدی ست سوم را رد کن.\n\n'
+        : 'برنامهٔ شروع باشگاه فعال شد — تمام‌بدن ۳ روزه، حدود ۴۵–۵۵ دقیقه.\n'
+              '۳ ست × ۱۰–۱۲؛ هفتهٔ اول اگر خسته شدی ست سوم را رد کن.\n'
+              'بین روزها حداقل یک روز استراحت بگذار.\n\n';
 
     if (isNewAiStudent) {
       return '$upgradeBlockاز این پس به‌عنوان شاگرد $coach '
@@ -590,17 +659,21 @@ class _ExerciseSpec {
     required this.tag,
     this.preferredIds = const [],
     this.slugs = const [],
+    this.sets = 3,
     this.reps = 10,
     this.timeSeconds,
     this.note,
+    this.required = true,
+    this.allowDuplicate = false,
     this.preferMachine = true,
     this.preferCable = false,
+    this.preferCardio = false,
     this.preferredMainMuscles = const [],
     this.preferredMovements = const [],
     this.excludePatterns = _defaultExcludePatterns,
   });
 
-  /// حرکت‌های نامناسب برای تازه‌وارد — همیشه حذف می‌شوند.
+  /// حرکت‌های نامناسب برای تازه‌وارد — از فال‌بک الگویی حذف می‌شوند.
   static const List<String> _defaultExcludePatterns = <String>[
     'هالتر',
     'barbell',
@@ -616,51 +689,71 @@ class _ExerciseSpec {
     'lunge',
     'پالوف',
     'pallof',
-    'دیپ',
     'incline',
     'اینکلاین',
     'مکث',
     'هاک',
   ];
 
-  /// شناسهٔ ثابت از `ai_exercises` — اولویت اول (کاتالوگ ۲۱۴ تایی).
+  static const List<String> _cardioExcludePatterns = <String>[
+    ..._defaultExcludePatterns,
+    'دویدن',
+    'jog',
+    'running',
+    'اسپرینت',
+    'اسالت',
+    'روئینگ ارگ',
+    'اسکی ارگ',
+  ];
+
   final List<int> preferredIds;
   final List<String> patterns;
   final List<String> slugs;
   final String tag;
-  final int sets = 3;
+  final int sets;
   final int reps;
   final int? timeSeconds;
   final String? note;
+  final bool required;
+  final bool allowDuplicate;
   final bool preferMachine;
   final bool preferCable;
+  final bool preferCardio;
   final List<String> preferredMainMuscles;
   final List<String> preferredMovements;
   final List<String> excludePatterns;
 }
 
-const _warmupChecklist =
-    '☐ گرم‌کردن ۵ دقیقه (راه‌رفت / دوچرخه + مفصل) انجام شد';
+const _wallRules =
+    '۳ روز در هفته با حداقل ۱ روز فاصله (مثلاً شنبه / دوشنبه / چهارشنبه).\n'
+    'سه جلسه یک شکل نیستند؛ ستون یکی است (پا، سینه، پشت).\n'
+    'وزنه: ۱۰–۱۲ تکرار تمیز؛ ۲ تکرار آخر سخت؛ فرم که خراب شد وزنه را کم کن.\n'
+    'استراحت بین ست‌ها ۶۰–۹۰ ثانیه. درد تیز = توقف.\n'
+    'هفتهٔ ۱: اگر خسته شدی ست سوم قدرتی را رد کن.\n'
+    'بعد از ۴ هفته: پرسشنامه یا برنامه شخصی GymAI.';
 
-const _programIntro =
-    'تمام‌بدن برای تازه‌وارد — ۳ جلسه در هفته.\n'
-    '• بین جلسات حداقل ۱ روز استراحت\n'
-    '• هفته ۱: ۲ ست × ۱۰–۱۲ | از هفته ۲: ست سوم اضافه کنید\n'
-    '• اگر ۱۲ تکرار راحت بود → هفته بعد کمی وزنه+ | اگر فرم خراب شد → وزنه−\n'
-    '• بعد از ۴ هفته: برنامه شخصی‌سازی‌شده یا پرسشنامه GymAI';
-
-/// هر جلسه: پا + سینه + پشت + شکم — ۴ حرکت، حدود ۳۵–۴۵ دقیقه.
-/// منبع ساختار: ACSM 2026 (تمرین منظم گروه‌های اصلی)، Gold's Gym beginner machine full-body.
+/// برگهٔ دیواری: گرم‌کردن هوازی + پا جلو + پشت‌پا + پرس سینه + کشش پشت + یک تکمیلی.
+/// ACSM 2026 (گروه‌های اصلی ۲–۳×/هفته) + الگوی ماشین مبتدی باشگاه ایران.
 const _sessionTemplates = <_SessionTemplate>[
   _SessionTemplate(
     day: 'جلسه ۱',
     notes:
-        '$_programIntro\n\n'
-        'جلسه ۱ — یادگیری مسیر حرکت\n'
-        '$_warmupChecklist\n'
-        '• ترتیب حرکت‌ها را رعایت کنید؛ بین ست‌ها ۶۰–۹۰ ثانیه\n'
-        '• درد تیز = توقف',
+        '$_wallRules\n\nجلسه ۱ — روز فشار. دستگاه‌های اصلی را یاد بگیر؛ عجله نکن.',
     exercises: [
+      _ExerciseSpec(
+        slugs: ['تردمیل', 'دوچرخه-ثابت', 'الپتیکال'],
+        patterns: ['تردمیل', 'treadmill', 'دوچرخه ثابت'],
+        tag: 'گرم‌کردن',
+        sets: 1,
+        reps: 0,
+        timeSeconds: 300,
+        required: false,
+        preferCardio: true,
+        preferredMainMuscles: ['full_body'],
+        preferredMovements: ['gait', 'cardio'],
+        excludePatterns: _ExerciseSpec._cardioExcludePatterns,
+        note: 'پیاده‌روی ۴–۵ کیلومتر در ساعت؛ شیب ۰–۲٪؛ به دسته آویزان نشو',
+      ),
       _ExerciseSpec(
         preferredIds: [4008],
         slugs: ['لگ-پرس'],
@@ -669,7 +762,23 @@ const _sessionTemplates = <_SessionTemplate>[
         reps: 12,
         preferredMainMuscles: ['quads'],
         preferredMovements: ['knee_dominant_press'],
-        note: 'پا روی پد؛ پایین رفتن کنترل‌شده؛ زانو قفل کامل نکنید',
+        note: 'پا وسط پد؛ پایین رفتن کنترل‌شده؛ زانو را قفل کامل نکن',
+      ),
+      _ExerciseSpec(
+        preferredIds: [3842, 4114, 4113],
+        slugs: ['پشت-پا-دستگاه', 'پشت-پا-نشسته-دستگاه', 'پشت-پا-خوابیده'],
+        patterns: ['پشت پا دستگاه', 'پشت پا نشسته', 'پشت پا خوابیده'],
+        tag: 'پشت پا',
+        reps: 12,
+        preferredMainMuscles: ['hamstrings'],
+        preferredMovements: ['knee_flexion'],
+        excludePatterns: [
+          ..._ExerciseSpec._defaultExcludePatterns,
+          'نوردیک',
+          'کابل ایستاده',
+          'تک پا',
+        ],
+        note: 'باسن روی صندلی ثابت؛ فقط ساق را خم کن؛ کمر را تاب نده',
       ),
       _ExerciseSpec(
         preferredIds: [4007, 3832],
@@ -684,7 +793,7 @@ const _sessionTemplates = <_SessionTemplate>[
           'دمبل',
           'تک',
         ],
-        note: 'کتف روی نیمکت؛ وزنه سبک تا فرم درست ثابت بماند',
+        note: 'کتف روی پشتی؛ وزنه‌ای که ۱۲ تکرار را با فرم تمام کنی',
       ),
       _ExerciseSpec(
         preferredIds: [4021],
@@ -695,7 +804,23 @@ const _sessionTemplates = <_SessionTemplate>[
         preferCable: true,
         preferredMainMuscles: ['back_lat'],
         preferredMovements: ['horizontal_pull'],
-        note: 'سینه بالا؛ کتف را به عقب ببرید؛ آرنج کنار بدن',
+        note: 'سینه بالا؛ کتف را به عقب ببر؛ آرنج کنار بدن',
+      ),
+      _ExerciseSpec(
+        preferredIds: [3853, 4024],
+        slugs: ['پشت-بازو-سیم-کش', 'پشت-بازو-سیمکش'],
+        patterns: ['پشت بازو سیم کش', 'پشت بازو سیمکش'],
+        tag: 'پشت بازو',
+        reps: 12,
+        preferCable: true,
+        preferredMainMuscles: ['triceps'],
+        preferredMovements: ['elbow_extension'],
+        excludePatterns: [
+          ..._ExerciseSpec._defaultExcludePatterns,
+          'پشت سر',
+          'دمبل',
+        ],
+        note: 'آرنج ثابت کنار بدن؛ فقط ساعد حرکت کند',
       ),
       _ExerciseSpec(
         preferredIds: [4012, 3928],
@@ -705,36 +830,80 @@ const _sessionTemplates = <_SessionTemplate>[
         reps: 12,
         preferCable: true,
         preferredMainMuscles: ['abs'],
-        note: 'شکم را جمع کنید؛ گردن خنثی؛ بدون کشش گردن',
+        excludePatterns: [
+          ..._ExerciseSpec._defaultExcludePatterns,
+          'دوچرخه',
+          'رول',
+        ],
+        note: 'شکم را جمع کن؛ گردن را نکش',
       ),
     ],
   ),
   _SessionTemplate(
     day: 'جلسه ۲',
     notes:
-        'جلسه ۲ — تنوع سبک (کشش عمودی + سینه ایزوله)\n'
-        '$_warmupChecklist\n'
-        '• بین جلسه ۱ و ۲ حداقل یک روز استراحت',
+        '$_wallRules\n\nجلسه ۲ — روز ایزوله. امروز لگ‌پرس نیست: جلو پا + لت. بین جلسه ۱ و ۲ یک روز استراحت.',
     exercises: [
       _ExerciseSpec(
-        preferredIds: [4008],
-        slugs: ['لگ-پرس'],
-        patterns: ['لگ پرس', 'leg press'],
-        tag: 'پا',
-        reps: 12,
-        preferredMainMuscles: ['quads'],
-        preferredMovements: ['knee_dominant_press'],
-        note: 'همان حرکت جلسه قبل — تمرکز روی تکرار با کیفیت',
+        slugs: ['تردمیل', 'دوچرخه-ثابت', 'الپتیکال'],
+        patterns: ['تردمیل', 'treadmill', 'دوچرخه ثابت'],
+        tag: 'گرم‌کردن',
+        sets: 1,
+        reps: 0,
+        timeSeconds: 300,
+        required: false,
+        preferCardio: true,
+        preferredMainMuscles: ['full_body'],
+        preferredMovements: ['gait', 'cardio'],
+        excludePatterns: _ExerciseSpec._cardioExcludePatterns,
+        note: '۵ دقیقه پیاده‌روی آرام؛ بدن را گرم کن',
       ),
       _ExerciseSpec(
-        preferredIds: [4014],
-        slugs: ['فلای-پک-دستگاه'],
-        patterns: ['فلای پک', 'pec deck', 'پک دک'],
+        preferredIds: [3949],
+        slugs: ['اکستنشن-پا'],
+        patterns: ['اکستنشن پا', 'جلو پا', 'leg extension', 'لگ پرس'],
+        tag: 'پا',
+        reps: 15,
+        preferredMainMuscles: ['quads'],
+        preferredMovements: ['knee_extension'],
+        excludePatterns: [
+          ..._ExerciseSpec._defaultExcludePatterns,
+          'پشت پا',
+          'همستر',
+        ],
+        note:
+            'پشت به پشتی؛ تا پایان دامنه بدون قفل کامل زانو. امروز لگ‌پرس نیست',
+      ),
+      _ExerciseSpec(
+        preferredIds: [4114, 4113, 3842],
+        slugs: ['پشت-پا-نشسته-دستگاه', 'پشت-پا-خوابیده', 'پشت-پا-دستگاه'],
+        patterns: ['پشت پا نشسته', 'پشت پا خوابیده', 'پشت پا دستگاه'],
+        tag: 'پشت پا',
+        reps: 12,
+        preferredMainMuscles: ['hamstrings'],
+        preferredMovements: ['knee_flexion'],
+        excludePatterns: [
+          ..._ExerciseSpec._defaultExcludePatterns,
+          'نوردیک',
+          'کابل ایستاده',
+          'تک پا',
+        ],
+        note: 'نسخهٔ نشسته/خوابیده — زاویه فرق دارد با جلسه ۱',
+      ),
+      _ExerciseSpec(
+        preferredIds: [3832, 4007],
+        slugs: ['پرس-سینه-دستگاه', 'پرس-سینه-اسمیت'],
+        patterns: ['پرس سینه دستگاه', 'پرس سینه اسمیت'],
         tag: 'سینه',
         reps: 12,
         preferredMainMuscles: ['chest'],
-        preferredMovements: ['horizontal_adduction'],
-        note: 'آرام باز و بسته کنید؛ احساس کشش وسط سینه',
+        preferredMovements: ['horizontal_push'],
+        excludePatterns: [
+          ..._ExerciseSpec._defaultExcludePatterns,
+          'دمبل',
+          'تک',
+        ],
+        note: 'پرس دستگاه؛ ۱۲–۱۵ تکرار کنترل‌شده. فلای به‌تنهایی نیست',
       ),
       _ExerciseSpec(
         preferredIds: [3969, 3844],
@@ -750,29 +919,66 @@ const _sessionTemplates = <_SessionTemplate>[
           'نشسته',
           'تک بازو',
         ],
-        note: 'سیم‌کش جمع؛ سینه ثابت؛ آرنج به پایین',
+        note: 'سینه ثابت؛ میله را به بالای سینه بکش؛ تاب نخور',
       ),
       _ExerciseSpec(
-        preferredIds: [4025, 3906],
-        slugs: ['وال-سیت', 'پلانک'],
-        patterns: ['وال سیت', 'wall sit', 'پلانک'],
-        tag: 'شکم / پا',
+        preferredIds: [3962],
+        slugs: ['جلو-بازو-سیمکش', 'جلو-بازو-کابل'],
+        patterns: ['جلو بازو سیمکش', 'جلو بازو کابل'],
+        tag: 'جلو بازو',
+        reps: 12,
+        preferCable: true,
+        preferredMainMuscles: ['biceps'],
+        preferredMovements: ['elbow_flexion'],
+        excludePatterns: [
+          ..._ExerciseSpec._defaultExcludePatterns,
+          'دمبل',
+          'چکش',
+          '۲۱',
+          'اسپایدر',
+        ],
+        note: 'آرنج کنار بدن؛ تاب دادن ممنوع',
+      ),
+      _ExerciseSpec(
+        preferredIds: [3906],
+        slugs: ['پلانک'],
+        patterns: ['پلانک', 'plank'],
+        tag: 'شکم',
+        sets: 2,
         reps: 0,
         timeSeconds: 30,
         preferMachine: false,
-        preferredMainMuscles: ['quads'],
-        preferredMovements: ['isometric_hold'],
-        note: 'پشت به دیوار؛ زانو ۹۰ درجه؛ ۳۰ ثانیه نگه دارید',
+        preferredMainMuscles: ['abs'],
+        preferredMovements: ['isometric_hold', 'anti_extension'],
+        excludePatterns: [
+          ..._ExerciseSpec._defaultExcludePatterns,
+          'جانبی',
+          'خرس',
+          'دوچرخه',
+        ],
+        note: 'بدن در یک خط؛ باسن بالا یا پایین نرود؛ ۳۰ ثانیه',
       ),
     ],
   ),
   _SessionTemplate(
     day: 'جلسه ۳',
     notes:
-        'جلسه ۳ — تثبیت عادت تمرین\n'
-        '$_warmupChecklist\n'
-        '• ۳ دقیقه کشش سبک بعد از جلسه',
+        '$_wallRules\n\nجلسه ۳ — روز سرشانه. لگ‌پرس برمی‌گردد؛ پایان با پیاده‌روی آرام.',
     exercises: [
+      _ExerciseSpec(
+        slugs: ['تردمیل', 'دوچرخه-ثابت', 'الپتیکال'],
+        patterns: ['تردمیل', 'treadmill', 'دوچرخه ثابت'],
+        tag: 'گرم‌کردن',
+        sets: 1,
+        reps: 0,
+        timeSeconds: 300,
+        required: false,
+        preferCardio: true,
+        preferredMainMuscles: ['full_body'],
+        preferredMovements: ['gait', 'cardio'],
+        excludePatterns: _ExerciseSpec._cardioExcludePatterns,
+        note: '۵ دقیقه پیاده‌روی؛ اگر تردمیل شلوغ است دوچرخه یا الپتیکال',
+      ),
       _ExerciseSpec(
         preferredIds: [4008],
         slugs: ['لگ-پرس'],
@@ -781,11 +987,27 @@ const _sessionTemplates = <_SessionTemplate>[
         reps: 12,
         preferredMainMuscles: ['quads'],
         preferredMovements: ['knee_dominant_press'],
-        note: 'آخرین هفته می‌توانید کمی وزنه اضافه کنید',
+        note: 'اگر ۱۲ تکرار راحت بود هفته بعد کمی وزنه اضافه کن',
+      ),
+      _ExerciseSpec(
+        preferredIds: [4113, 3842, 4114],
+        slugs: ['پشت-پا-خوابیده', 'پشت-پا-دستگاه', 'پشت-پا-نشسته-دستگاه'],
+        patterns: ['پشت پا خوابیده', 'پشت پا دستگاه', 'پشت پا نشسته'],
+        tag: 'پشت پا',
+        reps: 12,
+        preferredMainMuscles: ['hamstrings'],
+        preferredMovements: ['knee_flexion'],
+        excludePatterns: [
+          ..._ExerciseSpec._defaultExcludePatterns,
+          'نوردیک',
+          'کابل ایستاده',
+          'تک پا',
+        ],
+        note: 'اگر خوابیده بود، باسن را از نیمکت جدا نکن',
       ),
       _ExerciseSpec(
         preferredIds: [4007, 3832],
-        slugs: ['پرس-سینه-اسمیت'],
+        slugs: ['پرس-سینه-اسمیت', 'پرس-سینه-دستگاه'],
         patterns: ['پرس سینه اسمیت', 'پرس سینه دستگاه'],
         tag: 'سینه',
         reps: 12,
@@ -796,37 +1018,53 @@ const _sessionTemplates = <_SessionTemplate>[
           'دمبل',
           'تک',
         ],
-        note: 'سعی کنید یک تکرار بیشتر از هفته قبل',
+        note: 'سعی کن همان وزنه را تمیزتر از جلسه ۱ بزنی',
+      ),
+      _ExerciseSpec(
+        preferredIds: [3969, 3844],
+        slugs: ['زیربغل-دست-جمع', 'زیربغل-سیمکش-دست-باز'],
+        patterns: ['زیربغل دست جمع', 'لت پول', 'pulldown'],
+        tag: 'پشت',
+        reps: 12,
+        preferCable: true,
+        preferredMainMuscles: ['back_lat'],
+        preferredMovements: ['vertical_pull'],
+        excludePatterns: [
+          ..._ExerciseSpec._defaultExcludePatterns,
+          'نشسته',
+          'تک بازو',
+        ],
+        note: 'کشش عمودی — با قایقی جلسه ۱ فرق دارد',
       ),
       _ExerciseSpec(
         preferredIds: [3831, 4053],
-        slugs: ['پرس-سرشانه-دستگاه'],
-        patterns: ['پرس سرشانه دستگاه', 'نشر از جلو دستگاه'],
+        slugs: ['پرس-سرشانه-دستگاه', 'پرس-سرشانه-اسمیت'],
+        patterns: ['پرس سرشانه دستگاه', 'پرس سرشانه اسمیت'],
         tag: 'سرشانه',
         reps: 12,
         preferredMainMuscles: ['shoulder', 'shoulder_anterior'],
         preferredMovements: ['vertical_push'],
         excludePatterns: [
           ..._ExerciseSpec._defaultExcludePatterns,
-          'هالتر',
+          'پشت سر',
           'دمبل',
         ],
-        note: 'کتف پایین؛ آرنج جلو؛ وزنه سبک',
+        note: 'کتف پایین؛ آرنج کمی جلو؛ وزنه سبک',
       ),
       _ExerciseSpec(
-        preferredIds: [4012, 4018],
-        slugs: ['کرانچ-سیمکش', 'ددباگ'],
-        patterns: ['کرانچ سیمکش', 'کرانچ', 'ددباگ'],
-        tag: 'شکم',
-        reps: 12,
-        preferCable: true,
-        preferredMainMuscles: ['abs'],
-        excludePatterns: [
-          ..._ExerciseSpec._defaultExcludePatterns,
-          'دوچرخه',
-          'رول',
-        ],
-        note: 'حرکت آهسته؛ هر تکرار کنترل‌شده',
+        slugs: ['تردمیل', 'دوچرخه-ثابت', 'الپتیکال'],
+        patterns: ['تردمیل', 'treadmill', 'دوچرخه ثابت'],
+        tag: 'پایان',
+        sets: 1,
+        reps: 0,
+        timeSeconds: 480,
+        required: false,
+        allowDuplicate: true,
+        preferCardio: true,
+        preferredMainMuscles: ['full_body'],
+        preferredMovements: ['gait', 'cardio'],
+        excludePatterns: _ExerciseSpec._cardioExcludePatterns,
+        note: '۸ دقیقه پیاده‌روی آرام برای سرد کردن',
       ),
     ],
   ),

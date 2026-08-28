@@ -5,13 +5,7 @@ library;
 import 'package:gymaipro/ai/workout/labels/workout_session_labels.dart';
 
 /// هدف تمرینی استاندارد
-enum TrainingGoal {
-  hypertrophy,
-  strength,
-  fatLoss,
-  endurance,
-  general,
-}
+enum TrainingGoal { hypertrophy, strength, fatLoss, endurance, general }
 
 /// گروه عضلانی برای چیدمان برنامه
 enum MuscleBucket {
@@ -85,10 +79,12 @@ class WorkoutScience {
   }
 
   static int exercisesPerSession(String sessionVolumeHint) {
-    if (sessionVolumeHint.contains('۵-۶') || sessionVolumeHint.contains('5-6')) {
+    if (sessionVolumeHint.contains('۵-۶') ||
+        sessionVolumeHint.contains('5-6')) {
       return 6;
     }
-    if (sessionVolumeHint.contains('۴-۵') || sessionVolumeHint.contains('4-5')) {
+    if (sessionVolumeHint.contains('۴-۵') ||
+        sessionVolumeHint.contains('4-5')) {
       return 5;
     }
     return 4;
@@ -104,7 +100,8 @@ class WorkoutScience {
       return isCompound ? (isBeginner ? 4 : 5) : 3;
     }
     if (goal == TrainingGoal.fatLoss) {
-      return isBeginner ? 3 : 3;
+      // 3-day PPL hits each muscle once; 3 sets/move undershoots weekly MEV.
+      return isCompound ? (isBeginner ? 3 : 4) : 3;
     }
     if (goal == TrainingGoal.endurance) {
       return 3;
@@ -171,7 +168,9 @@ class WorkoutScience {
         (m.contains('پا') && !m.contains('پشت') && !m.contains('ساق'))) {
       return MuscleBucket.quads;
     }
-    if (m.contains('همستر') || m.contains('hamstring') || m.contains('پشت پا')) {
+    if (m.contains('همستر') ||
+        m.contains('hamstring') ||
+        m.contains('پشت پا')) {
       return MuscleBucket.hamstrings;
     }
     if (m.contains('گلوت') ||
@@ -205,9 +204,7 @@ class WorkoutScience {
       return MuscleBucket.core;
     }
     if (m.contains('ساق') || m.contains('calf')) return MuscleBucket.calves;
-    if (m.contains('کاردیو') ||
-        m.contains('هوازی') ||
-        m.contains('cardio')) {
+    if (m.contains('کاردیو') || m.contains('هوازی') || m.contains('cardio')) {
       return MuscleBucket.cardio;
     }
     if (m.contains('تمام') ||
@@ -316,4 +313,124 @@ class WorkoutScience {
         return 'استراحت بین ست‌ها: ۶۰–۹۰ ثانیه (حرکت‌های بزرگ تا ۱۲۰ ثانیه).';
     }
   }
+
+  /// Weekly hard-set band per muscle.
+  ///
+  /// Hypertrophy dose-response: Schoenfeld, Ogborn & Krieger 2017 (J Sports Sci)
+  /// — <5 sets/week inferior; ~10+ better. Practice ceiling from Helms, Aragon
+  /// & Fitschen 2014 (JISSN) and RP volume landmarks (Israetel): 10–20 for
+  /// trained lifters. Beginners sit at the low end (ACSM 2009 Position Stand).
+  static WeeklySetBand weeklySetBand({
+    required TrainingGoal goal,
+    required String experience,
+    required MuscleBucket bucket,
+  }) {
+    final beginner = isBeginnerExperience(experience);
+    final advanced = isAdvancedExperience(experience);
+    final small =
+        bucket == MuscleBucket.biceps ||
+        bucket == MuscleBucket.triceps ||
+        bucket == MuscleBucket.calves ||
+        bucket == MuscleBucket.core;
+
+    switch (goal) {
+      case TrainingGoal.strength:
+        if (small) {
+          return beginner
+              ? const WeeklySetBand(min: 4, target: 6, max: 10)
+              : const WeeklySetBand(min: 6, target: 8, max: 12);
+        }
+        if (beginner) return const WeeklySetBand(min: 6, target: 8, max: 12);
+        if (advanced) return const WeeklySetBand(min: 10, target: 14, max: 18);
+        return const WeeklySetBand(min: 8, target: 12, max: 16);
+      case TrainingGoal.hypertrophy:
+      case TrainingGoal.fatLoss:
+        if (small) {
+          return beginner
+              ? const WeeklySetBand(min: 4, target: 6, max: 10)
+              : const WeeklySetBand(min: 6, target: 10, max: 14);
+        }
+        if (beginner) return const WeeklySetBand(min: 8, target: 10, max: 14);
+        if (advanced) return const WeeklySetBand(min: 12, target: 16, max: 22);
+        return const WeeklySetBand(min: 10, target: 14, max: 18);
+      case TrainingGoal.endurance:
+      case TrainingGoal.general:
+        if (small) {
+          return const WeeklySetBand(min: 4, target: 6, max: 12);
+        }
+        return beginner
+            ? const WeeklySetBand(min: 6, target: 8, max: 12)
+            : const WeeklySetBand(min: 8, target: 12, max: 16);
+    }
+  }
+
+  /// Sessions per muscle per week. Schoenfeld et al. 2016 (Sports Med):
+  /// ≥2x/week beats 1x when volume can be distributed.
+  static int muscleFrequencyForDays(int daysPerWeek) {
+    if (daysPerWeek <= 2) return 2;
+    if (daysPerWeek == 3) return 1;
+    if (daysPerWeek == 4) return 2;
+    return 2;
+  }
+
+  /// Compound rest (seconds). Schoenfeld et al. 2016 rest-interval review:
+  /// ≥2 min favors hypertrophy on multi-joint work vs <1 min.
+  static int compoundRestSeconds(TrainingGoal goal) {
+    switch (goal) {
+      case TrainingGoal.strength:
+        return 180;
+      case TrainingGoal.fatLoss:
+      case TrainingGoal.endurance:
+        return 60;
+      default:
+        return 120;
+    }
+  }
+
+  static int isolationRestSeconds(TrainingGoal goal) {
+    switch (goal) {
+      case TrainingGoal.strength:
+        return 90;
+      case TrainingGoal.fatLoss:
+      case TrainingGoal.endurance:
+        return 45;
+      default:
+        return 75;
+    }
+  }
+
+  /// Helms / Zourdos RIR: trained hypertrophy 1–3; beginners 2–4 (no grind).
+  static String rirGuidance(String experience) {
+    if (isBeginnerExperience(experience)) {
+      return 'RIR ۲–۴ (۱–۴ تکرار ذخیره؛ ست آخر را تا خستگی مطلق نبر).';
+    }
+    return 'RIR ۱–۳ (نزدیک به شکست، بدون از دست دادن فرم).';
+  }
+
+  static (int min, int max) repRange(TrainingGoal goal) {
+    switch (goal) {
+      case TrainingGoal.strength:
+        return (3, 6);
+      case TrainingGoal.endurance:
+        return (12, 20);
+      case TrainingGoal.fatLoss:
+        return (8, 15);
+      default:
+        // Hypertrophy across ~6–20 RM (Schoenfeld; Carvalho 2022).
+        return (6, 12);
+    }
+  }
+}
+
+/// Inclusive weekly hard-set target for one muscle.
+class WeeklySetBand {
+  const WeeklySetBand({
+    required this.min,
+    required this.target,
+    required this.max,
+  });
+
+  final int min;
+  final int target;
+  final int max;
 }

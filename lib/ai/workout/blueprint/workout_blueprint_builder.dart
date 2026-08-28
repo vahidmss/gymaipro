@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:gymaipro/ai/context/coach_context.dart';
 import 'package:gymaipro/ai/context/profile_age_resolver.dart';
 import 'package:gymaipro/ai/entitlement/coach_capability.dart';
@@ -24,6 +26,7 @@ import 'package:gymaipro/ai/workout/blueprint/workout_exercise_replacement_polic
 import 'package:gymaipro/ai/workout/blueprint/workout_training_style.dart';
 import 'package:gymaipro/ai/workout/blueprint/workout_volume_strategy.dart';
 import 'package:gymaipro/ai/workout/models/workout_progression.dart';
+import 'package:gymaipro/features/product_experience/recovery/recovery_guidance.dart';
 
 /// Plans high-level workout strategy from Coach runtime artifacts.
 ///
@@ -62,7 +65,10 @@ class WorkoutBlueprintBuilder {
     final recoveryScore = _recoveryScore(context);
     final medical = _medicalConditions(context.memories);
     final limitations = <String>[...restrictions, ...medical];
-    final goal = WorkoutScience.goalFromProfile(goals, '$experience ${goals.join(' ')}');
+    final goal = WorkoutScience.goalFromProfile(
+      goals,
+      '$experience ${goals.join(' ')}',
+    );
 
     final entitlementAllowed = _entitlementAllowed(entitlementSnapshot);
     if (!entitlementAllowed) {
@@ -116,8 +122,16 @@ class WorkoutBlueprintBuilder {
 
     steps.add('select_volume_intensity');
     final recoveryStrategy = _recoveryStrategy(recoveryScore);
-    final volume = _volumeStrategy(goal: goal, experience: experience, recoveryScore: recoveryScore);
-    final intensity = _intensityStrategy(goal: goal, experience: experience, recoveryScore: recoveryScore);
+    final volume = _volumeStrategy(
+      goal: goal,
+      experience: experience,
+      recoveryScore: recoveryScore,
+    );
+    final intensity = _intensityStrategy(
+      goal: goal,
+      experience: experience,
+      recoveryScore: recoveryScore,
+    );
     final periodization = _periodizationType(
       goal: goal,
       recoveryScore: recoveryScore,
@@ -230,7 +244,8 @@ class WorkoutBlueprintBuilder {
           'Frequency=${frequency.daysPerWeek}',
           if (knowledgeResult != null)
             'Knowledge=${knowledgeResult.selectedNode.id}',
-          if (avoidExercises.isNotEmpty) 'MemoryAvoid=${avoidExercises.join(',')}',
+          if (avoidExercises.isNotEmpty)
+            'MemoryAvoid=${avoidExercises.join(',')}',
         ],
       ),
       WorkoutBlueprintDecisionStep(
@@ -386,7 +401,9 @@ class WorkoutBlueprintBuilder {
     final isBeginner = WorkoutScience.isBeginnerExperience(experience);
     final knowledge = (knowledgeDescription ?? '').toLowerCase();
 
-    if (knowledge.contains('phat') && isAdvanced && frequency.daysPerWeek >= 5) {
+    if (knowledge.contains('phat') &&
+        isAdvanced &&
+        frequency.daysPerWeek >= 5) {
       return WorkoutSplitStrategy.phat;
     }
     if (knowledge.contains('phul') && frequency.daysPerWeek == 4) {
@@ -406,7 +423,9 @@ class WorkoutBlueprintBuilder {
       case WorkoutFrequencyStrategy.four:
         return WorkoutSplitStrategy.upperLower;
       case WorkoutFrequencyStrategy.five:
-        return isAdvanced ? WorkoutSplitStrategy.broSplit : WorkoutSplitStrategy.upperLower;
+        return isAdvanced
+            ? WorkoutSplitStrategy.broSplit
+            : WorkoutSplitStrategy.upperLower;
       case WorkoutFrequencyStrategy.six:
         if (isAdvanced && recoveryScore >= 0.65) {
           return WorkoutSplitStrategy.phat;
@@ -431,7 +450,9 @@ class WorkoutBlueprintBuilder {
     final isAdvanced = WorkoutScience.isAdvancedExperience(experience);
     switch (goal) {
       case TrainingGoal.strength:
-        return isAdvanced ? WorkoutVolumeStrategy.high : WorkoutVolumeStrategy.medium;
+        return isAdvanced
+            ? WorkoutVolumeStrategy.high
+            : WorkoutVolumeStrategy.medium;
       case TrainingGoal.hypertrophy:
         if (isBeginner) return WorkoutVolumeStrategy.medium;
         if (isAdvanced) return WorkoutVolumeStrategy.veryHigh;
@@ -441,7 +462,9 @@ class WorkoutBlueprintBuilder {
       case TrainingGoal.endurance:
         return WorkoutVolumeStrategy.low;
       case TrainingGoal.general:
-        return isBeginner ? WorkoutVolumeStrategy.low : WorkoutVolumeStrategy.medium;
+        return isBeginner
+            ? WorkoutVolumeStrategy.low
+            : WorkoutVolumeStrategy.medium;
     }
   }
 
@@ -455,7 +478,9 @@ class WorkoutBlueprintBuilder {
     final isAdvanced = WorkoutScience.isAdvancedExperience(experience);
     switch (goal) {
       case TrainingGoal.strength:
-        return isAdvanced ? WorkoutIntensityStrategy.maximum : WorkoutIntensityStrategy.hard;
+        return isAdvanced
+            ? WorkoutIntensityStrategy.maximum
+            : WorkoutIntensityStrategy.hard;
       case TrainingGoal.hypertrophy:
         return isBeginner
             ? WorkoutIntensityStrategy.moderate
@@ -652,12 +677,20 @@ class WorkoutBlueprintBuilder {
   }
 
   double _recoveryScore(CoachContext context) {
+    final guidance = RecoveryGuidance.fromContext(context);
+    var heatmapScore = 0.85;
     final heatmap = context.weeklyHeatmap;
-    if (heatmap == null || !heatmap.hasHeatmapData) return 0.85;
-    final highLoad = heatmap.targets.values.where((value) => value >= 5).length;
-    if (highLoad >= 3) return 0.45;
-    if (highLoad >= 2) return 0.6;
-    return 0.85;
+    if (heatmap != null && heatmap.hasHeatmapData) {
+      final highLoad = heatmap.targets.values
+          .where((value) => value >= 5)
+          .length;
+      if (highLoad >= 3) {
+        heatmapScore = 0.45;
+      } else if (highLoad >= 2) {
+        heatmapScore = 0.6;
+      }
+    }
+    return math.min(heatmapScore, guidance.programEngineRecoveryScore);
   }
 
   List<String> _medicalConditions(List<CoachMemory> memories) {

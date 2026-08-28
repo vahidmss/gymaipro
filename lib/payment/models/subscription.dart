@@ -188,6 +188,34 @@ class Subscription {
   /// آیا در انتظار پرداخت است؟
   bool get isPendingPayment => status == SubscriptionStatus.pendingPayment;
 
+  /// Metadata keys for AI coach pass lifecycle.
+  static const String metaEntitlementStarted = 'entitlement_started';
+  static const String metaValidityDays = 'validity_days';
+  static const String metaPaidAt = 'paid_at';
+  static const String metaProgramDeliveredAt = 'program_delivered_at';
+  static const String metaDeliveredProgramId = 'delivered_program_id';
+
+  /// True after the AI program was built/delivered (clock started).
+  ///
+  /// Legacy rows without the flag are treated as already started (payment-era).
+  bool get coachEntitlementStarted {
+    final raw = metadata?[metaEntitlementStarted];
+    if (raw == false || raw == 'false') return false;
+    return true;
+  }
+
+  /// Purchased validity window in days (defaults to 33).
+  int get coachValidityDays {
+    final raw = metadata?[metaValidityDays];
+    if (raw is num) {
+      final days = raw.toInt();
+      if (days > 0) return days;
+    }
+    final parsed = int.tryParse(raw?.toString() ?? '');
+    if (parsed != null && parsed > 0) return parsed;
+    return 33;
+  }
+
   /// تعداد روزهای باقی‌مانده
   int get remainingDays {
     if (isExpired) return 0;

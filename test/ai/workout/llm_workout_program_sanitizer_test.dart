@@ -415,4 +415,157 @@ void main() {
       reason: issues.join(' | '),
     );
   });
+
+  test('isolation fly and lateral raise do not count as presses', () {
+    final program = WorkoutProgram(
+      id: 'p6',
+      name: 'فشار متعادل باشگاهی',
+      goal: TrainingGoal.fatLoss,
+      experienceLevel: 'پیشرفته',
+      daysPerWeek: 1,
+      weeks: <WorkoutWeek>[
+        WorkoutWeek(
+          id: 'w1',
+          weekIndex: 0,
+          days: <WorkoutDay>[
+            WorkoutDay(
+              id: 'd1',
+              dayIndex: 0,
+              label: 'روز ۱ — فشار',
+              exercises: <WorkoutExercise>[
+                _ex(id: 1, name: 'پرس سینه', muscle: 'chest'),
+                _ex(id: 2, name: 'پرس شیب', muscle: 'chest'),
+                _ex(id: 3, name: 'قفسه سینه', muscle: 'chest'),
+                _ex(id: 4, name: 'پرس سرشانه', muscle: 'shoulder_anterior'),
+                _ex(id: 5, name: 'نشر جانب', muscle: 'shoulder_lateral'),
+                _ex(id: 6, name: 'پشت بازو', muscle: 'triceps'),
+              ],
+            ),
+          ],
+        ),
+      ],
+      createdAt: DateTime(2026, 8, 13),
+      updatedAt: DateTime(2026, 8, 13),
+    );
+
+    final issues = LlmWorkoutProgramValidator.validate(
+      program,
+      allowedExerciseIds: {1, 2, 3, 4, 5, 6},
+      expectedDaysPerWeek: 1,
+    );
+    expect(
+      issues.any((i) => i.contains('پرس') || i.contains('سنگین')),
+      isFalse,
+      reason: issues.join(' | '),
+    );
+    expect(issues.any((i) => i.contains('حداکثر ۳ حرکت سینه')), isFalse);
+  });
+
+  test('meetWeeklyVolume lifts 3-day advanced fat-loss chest and quads to min', () {
+    final catalog = <Exercise>[
+      _catalog(id: 1, name: 'پرس سینه', muscle: 'chest'),
+      _catalog(id: 2, name: 'پرس شیب', muscle: 'chest'),
+      _catalog(id: 3, name: 'قفسه سینه', muscle: 'chest'),
+      _catalog(id: 4, name: 'پرس سرشانه', muscle: 'shoulder_anterior'),
+      _catalog(id: 5, name: 'پشت بازو', muscle: 'triceps'),
+      _catalog(id: 6, name: 'لت', muscle: 'back_lat'),
+      _catalog(id: 7, name: 'رویینگ', muscle: 'back_lat'),
+      _catalog(id: 8, name: 'فیس پول', muscle: 'back_upper'),
+      _catalog(id: 9, name: 'جلو بازو', muscle: 'biceps'),
+      _catalog(id: 10, name: 'کرانچ', muscle: 'abs'),
+      _catalog(id: 11, name: 'اسکوات', muscle: 'quads'),
+      _catalog(id: 12, name: 'پرس پا', muscle: 'quads'),
+      _catalog(id: 13, name: 'لانج', muscle: 'quads'),
+      _catalog(id: 14, name: 'لگ کرل', muscle: 'hamstrings'),
+      _catalog(id: 15, name: 'هیپ', muscle: 'glutes'),
+      _catalog(id: 16, name: 'ساق', muscle: 'calves'),
+      _catalog(id: 17, name: 'پلانک', muscle: 'abs'),
+    ];
+
+    final thin = WorkoutProgram(
+      id: 'p-vol',
+      name: 'چربی‌سوز ۳روزه باشگاهی',
+      goal: TrainingGoal.fatLoss,
+      experienceLevel: 'پیشرفته',
+      daysPerWeek: 3,
+      weeks: <WorkoutWeek>[
+        WorkoutWeek(
+          id: 'w1',
+          weekIndex: 0,
+          days: <WorkoutDay>[
+            WorkoutDay(
+              id: 'd1',
+              dayIndex: 0,
+              label: 'روز ۱ — فشار',
+              exercises: <WorkoutExercise>[
+                _ex(id: 1, name: 'پرس سینه', muscle: 'chest'),
+                _ex(id: 2, name: 'پرس شیب', muscle: 'chest'),
+                _ex(id: 4, name: 'پرس سرشانه', muscle: 'shoulder_anterior'),
+                _ex(id: 5, name: 'پشت بازو', muscle: 'triceps'),
+                _ex(id: 17, name: 'پلانک', muscle: 'abs'),
+              ],
+            ),
+            WorkoutDay(
+              id: 'd2',
+              dayIndex: 1,
+              label: 'روز ۲ — کشش',
+              exercises: <WorkoutExercise>[
+                _ex(id: 6, name: 'لت', muscle: 'back_lat'),
+                _ex(id: 7, name: 'رویینگ', muscle: 'back_lat'),
+                _ex(id: 8, name: 'فیس پول', muscle: 'back_upper'),
+                _ex(id: 9, name: 'جلو بازو', muscle: 'biceps'),
+                _ex(id: 10, name: 'کرانچ', muscle: 'abs'),
+              ],
+            ),
+            WorkoutDay(
+              id: 'd3',
+              dayIndex: 2,
+              label: 'روز ۳ — پا',
+              exercises: <WorkoutExercise>[
+                _ex(id: 11, name: 'اسکوات', muscle: 'quads'),
+                _ex(id: 12, name: 'پرس پا', muscle: 'quads'),
+                _ex(id: 14, name: 'لگ کرل', muscle: 'hamstrings'),
+                _ex(id: 15, name: 'هیپ', muscle: 'glutes'),
+                _ex(id: 16, name: 'ساق', muscle: 'calves'),
+              ],
+            ),
+          ],
+        ),
+      ],
+      createdAt: DateTime(2026, 8, 13),
+      updatedAt: DateTime(2026, 8, 13),
+    );
+
+    final lifted = LlmWorkoutProgramSanitizer.meetWeeklyVolume(
+      thin,
+      curatedCatalog: catalog,
+      goal: TrainingGoal.fatLoss,
+      experience: 'پیشرفته',
+    );
+
+    int setsFor(String muscle) {
+      var total = 0;
+      for (final day in lifted.allDays) {
+        for (final e in day.exercises) {
+          if (e.primaryMuscle.toLowerCase().contains(muscle)) {
+            total += e.sets.length;
+          }
+        }
+      }
+      return total;
+    }
+
+    expect(setsFor('chest'), greaterThanOrEqualTo(12));
+    expect(setsFor('quad'), greaterThanOrEqualTo(12));
+    expect(setsFor('back'), greaterThanOrEqualTo(12));
+
+    final issues = LlmWorkoutProgramValidator.validate(
+      lifted,
+      allowedExerciseIds: catalog.map((e) => e.id).toSet(),
+      expectedDaysPerWeek: 3,
+      goal: TrainingGoal.fatLoss,
+      experience: 'پیشرفته',
+    );
+    expect(issues, isEmpty, reason: issues.join(' | '));
+  });
 }

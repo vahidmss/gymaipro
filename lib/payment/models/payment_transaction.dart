@@ -33,7 +33,6 @@ enum PaymentMethod {
 /// درگاه پرداخت
 enum PaymentGateway {
   zibal, // زیبال
-  zarinpal, // زرین‌پال
   wallet, // کیف پول داخلی
 }
 
@@ -363,8 +362,6 @@ class PaymentTransaction {
     switch (gateway) {
       case PaymentGateway.zibal:
         return 'زیبال';
-      case PaymentGateway.zarinpal:
-        return 'زرین‌پال';
       case PaymentGateway.wallet:
         return 'کیف پول';
     }

@@ -1,3 +1,4 @@
+import 'package:gymaipro/features/product_experience/domain/session_debrief.dart';
 import 'package:gymaipro/models/muscle_targets.dart';
 import 'package:gymaipro/services/muscle_heatmap_aggregate.dart';
 
@@ -14,6 +15,7 @@ class LiveWorkoutCompletionSummary {
     required this.muscleTargets,
     required this.synced,
     this.topMuscleLabel,
+    this.debrief,
   });
 
   factory LiveWorkoutCompletionSummary.fromSessionStats({
@@ -23,23 +25,28 @@ class LiveWorkoutCompletionSummary {
     required double totalVolumeKg,
     required MuscleHeatmapSnapshot heatmap,
     required bool synced,
+    SessionDebrief? debrief,
   }) {
     final top = heatmap.topMuscleLabel;
     final volumePart = totalVolumeKg > 0
         ? ' · حجم ${formatVolume(totalVolumeKg)} کیلو'
         : '';
 
-    final headline = completedSets >= totalSets && totalSets > 0
-        ? 'آفرین — جلسه کامل ثبت شد'
-        : 'جلسه امروز ثبت شد';
+    final headline = debrief?.headline ??
+        (completedSets >= totalSets && totalSets > 0
+            ? 'آفرین — جلسه کامل ثبت شد'
+            : 'جلسه امروز ثبت شد');
 
-    final bodyLine = top != null
-        ? 'بیشترین فشار روی $top بود · $completedSets ست$volumePart'
-        : '$completedSets از $totalSets ست ثبت شد$volumePart';
+    final bodyLine = debrief != null && debrief.bullets.isNotEmpty
+        ? debrief.bullets.first
+        : (top != null
+            ? 'بیشترین فشار روی $top بود · $completedSets ست$volumePart'
+            : '$completedSets از $totalSets ست ثبت شد$volumePart');
 
-    final tipLine = top != null
-        ? 'نقشه عضلانی همین جلسه اینجاست. برای دیدن روند هفته، تحلیل امروز را باز کن.'
-        : 'ست‌ها ذخیره شدند. برای دیدن روند تمرین، تحلیل امروز را باز کن.';
+    final tipLine = debrief?.nextFocus ??
+        (top != null
+            ? 'نقشه عضلانی همین جلسه اینجاست. برای دیدن روند هفته، تحلیل امروز را باز کن.'
+            : 'ست‌ها ذخیره شدند. برای دیدن روند تمرین، تحلیل امروز را باز کن.');
 
     return LiveWorkoutCompletionSummary(
       focus: focus,
@@ -52,6 +59,7 @@ class LiveWorkoutCompletionSummary {
       muscleTargets: Map<String, int>.from(heatmap.targets),
       topMuscleLabel: top,
       synced: synced,
+      debrief: debrief,
     );
   }
 
@@ -65,6 +73,7 @@ class LiveWorkoutCompletionSummary {
   final Map<String, int> muscleTargets;
   final String? topMuscleLabel;
   final bool synced;
+  final SessionDebrief? debrief;
 
   bool get hasHeatmapData => MuscleTargets.hasData(muscleTargets);
 

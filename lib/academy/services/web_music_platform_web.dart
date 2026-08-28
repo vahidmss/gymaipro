@@ -26,6 +26,13 @@ class WebMusicPlatform {
     }
   }
 
+  static Future<void> clearBlobCache() async {
+    for (final url in _blobUrls.values) {
+      URL.revokeObjectURL(url);
+    }
+    _blobUrls.clear();
+  }
+
   static Future<void> saveToDownloads(
     Uint8List bytes, {
     required String fileName,

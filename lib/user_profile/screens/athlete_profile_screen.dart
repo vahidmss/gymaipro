@@ -9,25 +9,30 @@ import 'package:gymaipro/ranking/services/ranking_score_service.dart';
 import 'package:gymaipro/ranking/services/ranking_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:gymaipro/user_profile/services/user_profile_service.dart';
 import 'package:gymaipro/user_profile/widgets/progress_metrics_widget.dart';
 import 'package:gymaipro/user_profile/widgets/streak_calendar_widget.dart';
+import 'package:gymaipro/user_profile/widgets/trainer_student_sections.dart';
 import 'package:gymaipro/utils/format_utils.dart';
+import 'package:gymaipro/widgets/gymai_network_image.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// اسکرین پروفایل ورزشکار (عمومی)
+/// اگر [isTrainerViewer] باشد، همان صفحه با سلسله‌مراتب و اکشن‌های مربی نمایش داده می‌شود.
 class AthleteProfileScreen extends StatefulWidget {
   const AthleteProfileScreen({
     required this.userId,
-    this.trainerOnlySection,
+    this.isTrainerViewer = false,
+    this.confHasConsented = false,
+    this.confidentialData,
     super.key,
   });
 
   final String userId;
-  /// بخش اختیاری فقط برای مربی (بالای پروفایل، در همان اسکرول)
-  final Widget? trainerOnlySection;
+  final bool isTrainerViewer;
+  final bool confHasConsented;
+  final Map<String, dynamic>? confidentialData;
 
   @override
   State<AthleteProfileScreen> createState() => _AthleteProfileScreenState();
@@ -43,6 +48,8 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
   bool _actionLoading = false;
   List<DateTime> _streakDates = [];
 
+  bool get _isCoachView => widget.isTrainerViewer;
+
   @override
   void initState() {
     super.initState();
@@ -56,10 +63,8 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
       final targetId = profileId.isNotEmpty ? profileId : widget.userId;
 
       if (targetId.isNotEmpty) {
-        // Load Stats
         _userStats = await UserProfileService.getUserStats(targetId);
 
-        // Load Ranking
         try {
           final rankingService = RankingService();
           final scoreService = RankingScoreService();
@@ -69,14 +74,6 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
           _userRanking = ranking;
           _scoreBreakdown = breakdown;
 
-          if (breakdown != null) {
-            debugPrint(
-              '=== STREAK DEBUG: profile=$targetId current_streak=${breakdown.currentStreak} '
-              'longest_streak=${breakdown.longestStreak} last_login=${_profile?['last_login_date']} ===',
-            );
-          }
-
-          // Calculate streak dates
           final currentStreak = breakdown?.currentStreak ?? 0;
           if (currentStreak > 0) {
             final lastLoginDateStr = _profile?['last_login_date'] as String?;
@@ -97,7 +94,6 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
           }
         } catch (_) {}
 
-        // Check Friendship Status
         final viewerProfile = await SimpleProfileService.getCurrentProfile();
         final viewerProfileId = (viewerProfile?['id'] ?? '').toString();
 
@@ -170,6 +166,46 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
     }
   }
 
+  String get _displayName {
+    final firstName = (_profile?['first_name'] ?? '').toString();
+    final lastName = (_profile?['last_name'] ?? '').toString();
+    final username = (_profile?['username'] ?? '').toString();
+    final joined = [firstName, lastName].join(' ').trim();
+    if (joined.isNotEmpty) return joined;
+    if (username.isNotEmpty) return username;
+    return 'کاربر';
+  }
+
+  RankingScoreBreakdown get _breakdown {
+    return _scoreBreakdown ??
+        RankingScoreBreakdown(
+          totalScore: _userRanking?.totalScore ?? 0,
+          dailyActivitiesScore: 0,
+          currentStreak: 0,
+          currentStreakScore: 0,
+          longestStreak: 0,
+          longestStreakScore: 0,
+          activeDays: 0,
+          activeDaysScore: 0,
+          totalWorkouts: 0,
+          totalWorkoutsScore: 0,
+          totalMeals: 0,
+          totalMealsScore: 0,
+        );
+  }
+
+  void _openChat() {
+    final targetProfileId = (_profile?['id'] ?? widget.userId).toString();
+    Navigator.pushNamed(
+      context,
+      '/chat',
+      arguments: {
+        'otherUserId': targetProfileId,
+        'otherUserName': _displayName,
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -192,21 +228,46 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (widget.trainerOnlySection != null) ...[
-            widget.trainerOnlySection!,
-            SizedBox(height: 12.h),
-          ],
           _buildModernHeader(),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.w),
             child: Column(
               children: [
                 SizedBox(height: 70.h),
-                _buildQuickActions(),
-                SizedBox(height: 20.h),
-                _buildSocialStats(),
-                SizedBox(height: 20.h),
-                _buildGamificationStats(),
+                if (_isCoachView) ...[
+                  TrainerStudentOverviewCard(
+                    activePrograms: _userStats['active_programs'] ?? 0,
+                    totalWorkouts: _breakdown.totalWorkouts,
+                    totalMeals: _breakdown.totalMeals,
+                    currentStreak: _breakdown.currentStreak,
+                    height: _formatBodyMetric(_profile?['height'], 'سانتی‌متر'),
+                    weight: _formatBodyMetric(_profile?['weight'], 'کیلوگرم'),
+                    fitnessGoals: _formatFitnessGoals(
+                      _profile?['fitness_goals'],
+                    ),
+                    lastLoginLabel: _formatLastLogin(
+                      _profile?['last_login_date'],
+                    ),
+                  ),
+                  SizedBox(height: 14.h),
+                  _buildQuickActions(),
+                  SizedBox(height: 14.h),
+                  TrainerConfidentialSection(
+                    hasConsented: widget.confHasConsented,
+                    confidentialData: widget.confidentialData,
+                  ),
+                  SizedBox(height: 20.h),
+                  _buildGamificationStats(
+                    title: 'عملکرد شاگرد',
+                    subtitle: 'تمرین، استریک و فعالیت‌های ثبت‌شده',
+                  ),
+                ] else ...[
+                  _buildQuickActions(),
+                  SizedBox(height: 20.h),
+                  _buildSocialStats(),
+                  SizedBox(height: 20.h),
+                  _buildGamificationStats(),
+                ],
               ],
             ),
           ),
@@ -215,20 +276,61 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
     );
   }
 
+  String? _formatBodyMetric(dynamic raw, String unit) {
+    if (raw == null) return null;
+    final text = raw.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') return null;
+    final number = num.tryParse(text);
+    if (number != null) {
+      final pretty = number % 1 == 0
+          ? number.toInt().toString()
+          : number.toStringAsFixed(1);
+      return '$pretty $unit';
+    }
+    return '$text $unit';
+  }
+
+  String? _formatFitnessGoals(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is List) {
+      final joined = raw
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .join('، ');
+      return joined.isEmpty ? null : joined;
+    }
+    final text = raw.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') return null;
+    return text;
+  }
+
+  String? _formatLastLogin(dynamic raw) {
+    if (raw == null) return null;
+    final text = raw.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') return null;
+
+    try {
+      final parsed = DateTime.parse(text);
+      final loginDate = DateTime(parsed.year, parsed.month, parsed.day);
+      final today = DateTime.now();
+      final todayDate = DateTime(today.year, today.month, today.day);
+      final diff = todayDate.difference(loginDate).inDays;
+
+      if (diff <= 0) return 'امروز';
+      if (diff == 1) return 'دیروز';
+      return '$diff روز پیش';
+    } catch (_) {
+      return null;
+    }
+  }
+
   Widget _buildModernHeader() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final firstName = (_profile?['first_name'] ?? '').toString();
-    final lastName = (_profile?['last_name'] ?? '').toString();
     final username = (_profile?['username'] ?? '').toString();
     final bio = (_profile?['bio'] ?? '').toString();
     String avatarUrl = (_profile?['avatar_url'] ?? '').toString();
     if (avatarUrl.toLowerCase() == 'null') avatarUrl = '';
 
-    final displayName = [firstName, lastName].join(' ').trim().isNotEmpty
-        ? [firstName, lastName].join(' ')
-        : (username.isNotEmpty ? username : 'کاربر');
-
-    // League info
     final totalScore =
         _userRanking?.totalScore ?? _scoreBreakdown?.totalScore ?? 0;
     final league = League.getLeagueByScore(totalScore);
@@ -236,13 +338,16 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
     final nextLeague = league.nextLeague;
     final leagueAccentColor = Color(league.color);
     final leagueLabel = league.nameFa;
+    final pointsToNext = nextLeague == null
+        ? 0
+        : (nextLeague.minScore - totalScore).clamp(0, nextLeague.minScore);
 
     return Stack(
       alignment: Alignment.bottomCenter,
       clipBehavior: Clip.none,
       children: [
         Container(
-          height: 240.h,
+          height: _isCoachView ? 210.h : 240.h,
           width: double.infinity,
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -331,7 +436,7 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  displayName,
+                                  _displayName,
                                   style: TextStyle(
                                     fontFamily: AppTheme.fontFamily,
                                     fontSize: 18.sp,
@@ -350,9 +455,50 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
                                 ),
                             ],
                           ),
-                          SizedBox(height: 4.h),
-                          Row(
+                          SizedBox(height: 6.h),
+                          Wrap(
+                            spacing: 8.w,
+                            runSpacing: 6.h,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
+                              if (_isCoachView)
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 10.w,
+                                    vertical: 4.h,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.goldColor.withValues(
+                                      alpha: 0.16,
+                                    ),
+                                    borderRadius: BorderRadius.circular(999.r),
+                                    border: Border.all(
+                                      color: AppTheme.goldColor.withValues(
+                                        alpha: 0.35,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        LucideIcons.graduationCap,
+                                        size: 12.sp,
+                                        color: AppTheme.onGoldColor,
+                                      ),
+                                      SizedBox(width: 5.w),
+                                      Text(
+                                        'شاگرد شما',
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.fontFamily,
+                                          fontSize: 11.sp,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppTheme.onGoldColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               Container(
                                 padding: EdgeInsets.symmetric(
                                   horizontal: 10.w,
@@ -390,24 +536,19 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
                                   ],
                                 ),
                               ),
-                              SizedBox(width: 8.w),
-                              Flexible(
-                                child: Text(
-                                  username.isNotEmpty
-                                      ? '@$username'
-                                      : 'بدون نام کاربری',
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.fontFamily,
-                                    fontSize: 12.sp,
-                                    color: context.textSecondary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                              Text(
+                                username.isNotEmpty
+                                    ? '@$username'
+                                    : 'بدون نام کاربری',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 12.sp,
+                                  color: context.textSecondary,
                                 ),
                               ),
                             ],
                           ),
-                          if (bio.isNotEmpty) ...[
+                          if (bio.isNotEmpty && !_isCoachView) ...[
                             SizedBox(height: 6.h),
                             Text(
                               bio,
@@ -427,146 +568,150 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
                   ],
                 ),
                 SizedBox(height: 16.h),
-                Container(
-                  padding: EdgeInsets.all(14.w),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppTheme.darkGreySeparator.withValues(alpha: 0.4)
-                        : AppTheme.lightCardColor,
-                    borderRadius: BorderRadius.circular(16.r),
-                    border: Border.all(
-                      color: AppTheme.goldColor.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(6.w),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.goldColor.withValues(
-                                    alpha: 0.12,
-                                  ),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  LucideIcons.trendingUp,
-                                  size: 14.sp,
-                                  color: AppTheme.goldColor,
-                                ),
-                              ),
-                              SizedBox(width: 8.w),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'پیشرفت به لیگ بعدی',
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.fontFamily,
-                                      fontSize: 12.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: context.textColor,
-                                    ),
-                                  ),
-                                  SizedBox(height: 2.h),
-                                  Text(
-                                    nextLeague?.nameFa ?? 'در بالاترین لیگ',
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.fontFamily,
-                                      fontSize: 11.sp,
-                                      color: context.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 10.w,
-                              vertical: 4.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.goldColor.withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(999.r),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  LucideIcons.sparkles,
-                                  size: 11.sp,
-                                  color: AppTheme.onGoldColor,
-                                ),
-                                SizedBox(width: 4.w),
-                                Text(
-                                  '${(((nextLeague == null) ? 1.0 : progressToNext) * 100).toStringAsFixed(0)}%',
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.fontFamily,
-                                    fontSize: 11.sp,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.onGoldColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 10.h),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(999.r),
-                        child: LinearProgressIndicator(
-                          value: (nextLeague == null)
-                              ? 1.0
-                              : progressToNext.clamp(0.0, 1.0),
-                          minHeight: 8.h,
-                          backgroundColor: context.separatorColor.withValues(
-                            alpha: 0.25,
-                          ),
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            AppTheme.goldColor,
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 6.h),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'امتیاز فعلی: ${FormatUtils.formatNumber(totalScore)}',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 10.sp,
-                              color: context.textSecondary,
-                            ),
-                          ),
-                          Text(
-                            nextLeague == null
-                                ? 'در بالاترین لیگ'
-                                : 'امتیاز مورد نیاز: ${FormatUtils.formatNumber(nextLeague.minScore)}',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 10.sp,
-                              color: AppTheme.goldColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                _buildLeagueProgressCard(
+                  totalScore: totalScore,
+                  progressToNext: progressToNext,
+                  nextLeague: nextLeague,
+                  pointsToNext: pointsToNext,
+                  isDark: isDark,
+                  compact: _isCoachView,
                 ),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLeagueProgressCard({
+    required int totalScore,
+    required double progressToNext,
+    required League? nextLeague,
+    required int pointsToNext,
+    required bool isDark,
+    required bool compact,
+  }) {
+    final progressValue = nextLeague == null
+        ? 1.0
+        : progressToNext.clamp(0.0, 1.0);
+    final percentLabel = ((nextLeague == null ? 1.0 : progressToNext) * 100)
+        .toStringAsFixed(0);
+
+    return Container(
+      padding: EdgeInsets.all(compact ? 12.w : 14.w),
+      decoration: BoxDecoration(
+        color: isDark
+            ? AppTheme.darkGreySeparator.withValues(alpha: 0.4)
+            : AppTheme.lightCardColor,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(6.w),
+                    decoration: BoxDecoration(
+                      color: AppTheme.goldColor.withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      LucideIcons.trendingUp,
+                      size: 14.sp,
+                      color: AppTheme.goldColor,
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        compact ? 'پیشرفت لیگ' : 'پیشرفت به لیگ بعدی',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
+                          color: context.textColor,
+                        ),
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        nextLeague?.nameFa ?? 'در بالاترین لیگ',
+                        style: TextStyle(
+                          fontFamily: AppTheme.fontFamily,
+                          fontSize: 11.sp,
+                          color: context.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: AppTheme.goldColor.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(999.r),
+                ),
+                child: Text(
+                  '$percentLabel%',
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.onGoldColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 10.h),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999.r),
+            child: LinearProgressIndicator(
+              value: progressValue,
+              minHeight: compact ? 6.h : 8.h,
+              backgroundColor: context.separatorColor.withValues(alpha: 0.25),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppTheme.goldColor,
+              ),
+            ),
+          ),
+          SizedBox(height: 6.h),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'امتیاز: ${FormatUtils.formatNumber(totalScore)}',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 10.sp,
+                  color: context.textSecondary,
+                ),
+              ),
+              Text(
+                nextLeague == null
+                    ? 'در بالاترین لیگ'
+                    : 'مانده تا ${nextLeague.nameFa}: ${FormatUtils.formatNumber(pointsToNext)}',
+                style: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 10.sp,
+                  color: context.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -580,12 +725,13 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
 
     if (isSelf) return const SizedBox.shrink();
 
-    final firstName = (_profile?['first_name'] ?? '').toString();
-    final lastName = (_profile?['last_name'] ?? '').toString();
-    final username = (_profile?['username'] ?? '').toString();
-    final displayName = [firstName, lastName].join(' ').trim().isNotEmpty
-        ? [firstName, lastName].join(' ')
-        : (username.isNotEmpty ? username : 'کاربر');
+    if (_isCoachView) {
+      return _buildPrimaryActionButton(
+        icon: LucideIcons.messageCircle,
+        label: 'پیام به شاگرد',
+        onTap: _openChat,
+      );
+    }
 
     final isPrimaryAction =
         _friendshipStatus == FriendshipStatus.none ||
@@ -593,7 +739,6 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
 
     return Row(
       children: [
-        // دکمه اصلی (درخواست دوستی)
         Expanded(
           child: _buildPrimaryActionButton(
             icon: _getFriendshipIcon(_friendshipStatus),
@@ -604,23 +749,11 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
           ),
         ),
         SizedBox(width: 12.w),
-        // دکمه پیام
         Expanded(
           child: _buildSecondaryActionButton(
             icon: LucideIcons.messageCircle,
             label: 'پیام',
-            onTap: () {
-              final targetProfileId = (_profile?['id'] ?? widget.userId)
-                  .toString();
-              Navigator.pushNamed(
-                context,
-                '/chat',
-                arguments: {
-                  'otherUserId': targetProfileId,
-                  'otherUserName': displayName,
-                },
-              );
-            },
+            onTap: _openChat,
           ),
         ),
       ],
@@ -674,7 +807,7 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
                   style: TextStyle(
                     fontFamily: AppTheme.fontFamily,
                     fontWeight: FontWeight.w600,
-                    fontSize: 10.sp,
+                    fontSize: 11.sp,
                     color: isActive ? AppTheme.onGoldColor : context.textColor,
                   ),
                   maxLines: 1,
@@ -693,15 +826,16 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    bool isLoading = false,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: isLoading ? null : onTap,
         borderRadius: BorderRadius.circular(14.r),
         child: Container(
-          padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 16.w),
+          padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 12.w),
           decoration: BoxDecoration(
             color: isDark
                 ? Colors.white.withValues(alpha: 0.05)
@@ -714,7 +848,19 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 16.sp, color: context.textColor),
+              if (isLoading)
+                SizedBox(
+                  width: 14.w,
+                  height: 14.w,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      context.textColor,
+                    ),
+                  ),
+                )
+              else
+                Icon(icon, size: 16.sp, color: context.textColor),
               SizedBox(width: 6.w),
               Flexible(
                 child: Text(
@@ -750,23 +896,8 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
     }
   }
 
-  Widget _buildGamificationStats() {
-    final bd =
-        _scoreBreakdown ??
-        RankingScoreBreakdown(
-          totalScore: _userRanking?.totalScore ?? 0,
-          dailyActivitiesScore: 0,
-          currentStreak: 0,
-          currentStreakScore: 0,
-          longestStreak: 0,
-          longestStreakScore: 0,
-          activeDays: 0,
-          activeDaysScore: 0,
-          totalWorkouts: 0,
-          totalWorkoutsScore: 0,
-          totalMeals: 0,
-          totalMealsScore: 0,
-        );
+  Widget _buildGamificationStats({String? title, String? subtitle}) {
+    final bd = _breakdown;
 
     final bool hasAnyScore =
         bd.totalScore > 0 ||
@@ -782,20 +913,40 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.only(bottom: 16.h),
-          child: Row(
+          padding: EdgeInsets.only(bottom: 12.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(LucideIcons.trophy, size: 20.sp, color: AppTheme.goldColor),
-              SizedBox(width: 8.w),
-              Text(
-                'عملکرد و امتیازات',
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.bold,
-                  color: context.textColor,
-                ),
+              Row(
+                children: [
+                  Icon(
+                    LucideIcons.trophy,
+                    size: 20.sp,
+                    color: AppTheme.goldColor,
+                  ),
+                  SizedBox(width: 8.w),
+                  Text(
+                    title ?? 'عملکرد و امتیازات',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.bold,
+                      color: context.textColor,
+                    ),
+                  ),
+                ],
               ),
+              if (subtitle != null) ...[
+                SizedBox(height: 4.h),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontFamily: AppTheme.fontFamily,
+                    fontSize: 12.sp,
+                    color: context.textSecondary,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -872,7 +1023,9 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
         if (!hasAnyScore) ...[
           SizedBox(height: 16.h),
           Text(
-            'هنوز امتیازی برای این کاربر ثبت نشده است. با فعالیت روزانه، ثبت تمرین و تغذیه، این بخش به‌تدریج پر می‌شود.',
+            _isCoachView
+                ? 'هنوز فعالیت ثبت‌شده‌ای برای این شاگرد دیده نمی‌شود. بعد از تمرین و ثبت تغذیه، اینجا پر می‌شود.'
+                : 'هنوز امتیازی برای این کاربر ثبت نشده است. با فعالیت روزانه، ثبت تمرین و تغذیه، این بخش به‌تدریج پر می‌شود.',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 11.sp,

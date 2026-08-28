@@ -6,6 +6,9 @@ import 'package:gymaipro/features/live_workout/application/live_workout_session_
 import 'package:gymaipro/features/live_workout/domain/session/workout_session.dart';
 import 'package:gymaipro/features/live_workout/domain/session/workout_set_session_status.dart';
 import 'package:gymaipro/features/live_workout/state/live_workout_completion_summary.dart';
+import 'package:gymaipro/features/product_experience/domain/coach_observation.dart';
+import 'package:gymaipro/features/product_experience/domain/session_debrief.dart';
+import 'package:gymaipro/features/product_experience/domain/workout_exercise_coach_feedback.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/services/muscle_heatmap_aggregate.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,10 +17,14 @@ class LiveWorkoutCompletionResult {
   const LiveWorkoutCompletionResult({
     required this.summary,
     required this.persistence,
+    this.debrief,
+    this.observations = const <CoachObservation>[],
   });
 
   final LiveWorkoutCompletionSummary summary;
   final LiveWorkoutPersistenceResult persistence;
+  final SessionDebrief? debrief;
+  final List<CoachObservation> observations;
 }
 
 /// Integrates completion side-effects: persist, memory, recovery, summary.
@@ -34,10 +41,14 @@ class LiveWorkoutCompletionService {
   final MemoryManager _memoryManager;
   final SharedPreferences? _preferences;
 
+  static const _observationsPrefsKeyPrefix = 'coach_observations_';
+
   Future<LiveWorkoutCompletionResult> complete({
     required WorkoutSession session,
     required String userId,
     Map<int, Exercise> exerciseById = const <int, Exercise>{},
+    Map<String, WorkoutExerciseCoachFeedback> feedbackByExerciseKey =
+        const <String, WorkoutExerciseCoachFeedback>{},
   }) async {
     final currentSets = session.completedSets;
     final volume = _totalVolume(session);
@@ -47,11 +58,17 @@ class LiveWorkoutCompletionService {
       userId: userId,
     );
 
+    final debrief = SessionDebriefEngine.build(
+      session: session,
+      feedbackByExerciseKey: feedbackByExerciseKey,
+    );
+
     await _updateMemory(
       userId: userId,
       session: session,
       completedSets: currentSets,
       volume: volume,
+      debrief: debrief,
     );
     await _updateRecovery(
       userId: userId,
@@ -59,29 +76,43 @@ class LiveWorkoutCompletionService {
       completedSets: currentSets,
     );
 
+    final observations = CoachObservationDetector.fromDebrief(debrief);
+    await _persistObservations(userId: userId, observations: observations);
+
     final summary = buildSummary(
       session: session,
       exerciseById: exerciseById,
       synced: persistence.synced,
+      debrief: debrief,
     );
 
     return LiveWorkoutCompletionResult(
       summary: summary,
       persistence: persistence,
+      debrief: debrief,
+      observations: observations,
     );
   }
 
   /// Rebuilds the on-screen completion card without re-running side effects.
-  /// Used when reopening today's already-logged session.
   LiveWorkoutCompletionSummary buildSummary({
     required WorkoutSession session,
     Map<int, Exercise> exerciseById = const <int, Exercise>{},
     bool synced = true,
+    SessionDebrief? debrief,
+    Map<String, WorkoutExerciseCoachFeedback> feedbackByExerciseKey =
+        const <String, WorkoutExerciseCoachFeedback>{},
   }) {
     final heatmap = MuscleHeatmapAggregate.fromLiveSession(
       session,
       exerciseById,
     );
+    final resolvedDebrief =
+        debrief ??
+        SessionDebriefEngine.build(
+          session: session,
+          feedbackByExerciseKey: feedbackByExerciseKey,
+        );
     return LiveWorkoutCompletionSummary.fromSessionStats(
       focus: session.focus,
       completedSets: session.completedSets,
@@ -89,7 +120,49 @@ class LiveWorkoutCompletionService {
       totalVolumeKg: _totalVolume(session),
       heatmap: heatmap,
       synced: synced,
+      debrief: resolvedDebrief,
     );
+  }
+
+  Future<List<CoachObservation>> loadStoredObservations(String userId) async {
+    final prefs = _preferences ?? await SharedPreferences.getInstance();
+    final raw = prefs.getStringList('$_observationsPrefsKeyPrefix$userId');
+    if (raw == null || raw.isEmpty) return const <CoachObservation>[];
+    return raw
+        .map((line) {
+          final parts = line.split('|');
+          if (parts.length < 2) return null;
+          final matches = CoachObservationCode.values.where(
+            (c) => c.name == parts.first,
+          );
+          if (matches.isEmpty) return null;
+          final code = matches.first;
+          return CoachObservation(
+            code: code,
+            severity: CoachObservationSeverity.watch,
+            severityLabel: 'پیگیری',
+            evidence: const <String>['stored'],
+            message: parts.sublist(1).join('|'),
+          );
+        })
+        .whereType<CoachObservation>()
+        .toList(growable: false);
+  }
+
+  Future<void> _persistObservations({
+    required String userId,
+    required List<CoachObservation> observations,
+  }) async {
+    if (observations.isEmpty) return;
+    try {
+      final prefs = _preferences ?? await SharedPreferences.getInstance();
+      final lines = observations
+          .map((o) => '${o.code.name}|${o.message}')
+          .toList(growable: false);
+      await prefs.setStringList('$_observationsPrefsKeyPrefix$userId', lines);
+    } on Object {
+      // Best-effort local cache for coach home.
+    }
   }
 
   Future<void> _updateMemory({
@@ -97,14 +170,26 @@ class LiveWorkoutCompletionService {
     required WorkoutSession session,
     required int completedSets,
     required double volume,
+    SessionDebrief? debrief,
   }) async {
     try {
+      final bits = <String>[
+        '${session.focus}: $completedSets ست، حجم ${volume.toStringAsFixed(0)} کیلو',
+      ];
+      final focus = debrief?.nextFocus.trim();
+      if (focus != null && focus.isNotEmpty) {
+        bits.add(focus);
+      }
+      final holds = debrief?.heldCount ?? 0;
+      final improved = debrief?.improvedCount ?? 0;
+      if (holds > 0 && improved == 0) {
+        bits.add('وزنه را همین جلسه زیاد نکن.');
+      }
       await _memoryManager.addOrUpdateMemory(
         userId,
         MemoryUpdateRequest(
           key: 'last_completed_workout',
-          value:
-              '${session.focus}: $completedSets ست، حجم ${volume.toStringAsFixed(0)} کیلو',
+          value: bits.join(' — '),
           category: MemoryCategory.workout,
           source: MemorySource.user,
           confidence: 0.95,
@@ -140,7 +225,7 @@ class LiveWorkoutCompletionService {
             set.status != WorkoutSetSessionStatus.failed) {
           continue;
         }
-        volume += set.effectiveReps * set.effectiveWeightKg;
+        volume += (set.actualReps ?? 0) * (set.actualWeightKg ?? 0);
       }
     }
     return volume;

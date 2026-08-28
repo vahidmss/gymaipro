@@ -3,6 +3,7 @@ import 'package:gymaipro/ai/context/coach_context.dart';
 import 'package:gymaipro/ai/context/coach_context_metadata.dart';
 import 'package:gymaipro/ai/context/coach_context_patch.dart';
 import 'package:gymaipro/ai/context/coach_conversation_summary.dart';
+import 'package:gymaipro/ai/context/coach_profile_metrics.dart';
 import 'package:gymaipro/ai/context/context_builder.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/context/intent_detector.dart';
@@ -87,11 +88,26 @@ class CoachContextAssembler {
     restrictions.addAll(memoryProjection.restrictions);
     equipment.addAll(memoryProjection.equipment);
     preferences.addAll(memoryProjection.preferences);
+    // Questionnaire / lifestyle aliases often live under preferences.
+    for (final key in <String>[
+      ...CoachProfileMetrics.heightKeys,
+      ...CoachProfileMetrics.weightKeys,
+      ...CoachProfileMetrics.bodyFatKeys,
+    ]) {
+      if (!_hasPositiveNumber(profile[key]) &&
+          _hasPositiveNumber(preferences[key])) {
+        profile[key] = preferences[key];
+      }
+    }
+    CoachProfileMetrics.enrich(profile);
     final activeProgram = patch.activeProgram == null
         ? null
         : Map<String, Object?>.from(patch.activeProgram!);
     final workoutHistory = List<WorkoutDailyLog>.from(
       patch.workoutHistory ?? const <WorkoutDailyLog>[],
+    );
+    final nutrition = Map<String, Object?>.from(
+      patch.nutrition ?? const <String, Object?>{},
     );
     final apiUsage = Map<String, Object?>.from(
       patch.apiUsage ?? const <String, Object?>{},
@@ -107,6 +123,7 @@ class CoachContextAssembler {
       activeProgram: activeProgram,
       workoutHistory: workoutHistory,
       weeklyHeatmap: patch.weeklyHeatmap,
+      nutrition: nutrition,
       memories: memories,
       apiUsage: apiUsage,
       currentQuestion: currentQuestion,
@@ -127,6 +144,7 @@ class CoachContextAssembler {
       activeProgram: activeProgram,
       workoutHistory: workoutHistory,
       weeklyHeatmap: patch.weeklyHeatmap,
+      nutrition: nutrition,
       memories: memories,
       apiUsage: apiUsage,
       currentQuestion: currentQuestion,
@@ -155,6 +173,7 @@ class CoachContextAssembler {
     required Map<String, Object?>? activeProgram,
     required List<WorkoutDailyLog> workoutHistory,
     required WeeklyMuscleHeatmapResult? weeklyHeatmap,
+    required Map<String, Object?> nutrition,
     required List<CoachMemory> memories,
     required Map<String, Object?> apiUsage,
     required String? currentQuestion,
@@ -168,10 +187,17 @@ class CoachContextAssembler {
     if (activeProgram != null && activeProgram.isNotEmpty) count++;
     if (workoutHistory.isNotEmpty) count++;
     if (weeklyHeatmap != null && weeklyHeatmap.hasHeatmapData) count++;
+    if (nutrition.isNotEmpty) count++;
     if (memories.isNotEmpty) count++;
     if (apiUsage.isNotEmpty) count++;
     if (currentQuestion != null && currentQuestion.trim().isNotEmpty) count++;
     return count;
+  }
+
+  bool _hasPositiveNumber(Object? value) {
+    if (value is num) return value > 0;
+    final parsed = double.tryParse(value?.toString().trim() ?? '');
+    return parsed != null && parsed > 0;
   }
 
   double _confidence({required int sourceCount, required int missingRequired}) {

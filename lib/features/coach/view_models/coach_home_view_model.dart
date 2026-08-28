@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/features/coach/application/coach_facade.dart';
 import 'package:gymaipro/features/coach/presentation/state/coach_home_state.dart';
+import 'package:gymaipro/features/product_experience/calendar_day.dart';
 import 'package:gymaipro/features/product_experience/product_analytics.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
 
@@ -15,6 +16,7 @@ class CoachHomeViewModel extends ChangeNotifier {
   final CoachFacade? _facade;
   CoachHomeState _state;
   bool _loaded = false;
+  String? _loadedForDateKey;
   bool _isDisposed = false;
   int _fetchToken = 0;
 
@@ -28,14 +30,27 @@ class CoachHomeViewModel extends ChangeNotifier {
   }
 
   Future<void> load() async {
-    if (_loaded || _isDisposed) return;
+    if (_isDisposed) return;
+    final today = CalendarDay.dateKey(DateTime.now());
+    // Same calendar day + already loaded → skip. New day → force reload.
+    if (_loaded && _loadedForDateKey == today) return;
     _loaded = true;
+    _loadedForDateKey = today;
     await _fetch();
+  }
+
+  /// Soft refresh when app resumes: only reloads if the calendar day changed.
+  Future<void> ensureFreshForToday() async {
+    if (_isDisposed) return;
+    final today = CalendarDay.dateKey(DateTime.now());
+    if (_loadedForDateKey == today && _loaded) return;
+    await refresh();
   }
 
   Future<void> refresh() async {
     if (_isDisposed) return;
     _loaded = false;
+    _loadedForDateKey = null;
     await load();
   }
 

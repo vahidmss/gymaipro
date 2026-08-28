@@ -94,7 +94,7 @@ class _MyClubMainScreenState extends State<MyClubMainScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final leadingColor = isDark ? AppTheme.goldColor : context.textColor;
+    final leadingColor = context.textColor;
 
     return Theme(
       data: Theme.of(context).copyWith(
@@ -123,15 +123,15 @@ class _MyClubMainScreenState extends State<MyClubMainScreen>
             title: Text(
               'باشگاه من',
               style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 18.sp,
-                color: isDark ? AppTheme.goldColor : context.textColor,
+                fontWeight: FontWeight.w900,
+                fontSize: 19.sp,
+                color: context.textColor,
                 fontFamily: AppTheme.fontFamily,
               ),
             ),
             centerTitle: true,
             bottom: PreferredSize(
-              preferredSize: Size.fromHeight(58.h),
+              preferredSize: Size.fromHeight(54.h),
               child: Column(
                 children: [
                   Divider(
@@ -145,12 +145,16 @@ class _MyClubMainScreenState extends State<MyClubMainScreen>
                     controller: _tabController,
                     isScrollable: true,
                     tabAlignment: TabAlignment.start,
-                    indicatorColor: AppTheme.goldColor,
-                    indicatorWeight: 2.5,
-                    indicatorSize: TabBarIndicatorSize.label,
+                    indicator: BoxDecoration(
+                      color: AppTheme.goldColor.withValues(alpha: 0.13),
+                      borderRadius: BorderRadius.circular(12.r),
+                      border: Border.all(
+                        color: AppTheme.goldColor.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    indicatorSize: TabBarIndicatorSize.tab,
                     dividerColor: Colors.transparent,
-                    labelColor:
-                        isDark ? AppTheme.goldColor : context.textColor,
+                    labelColor: isDark ? AppTheme.goldColor : context.textColor,
                     unselectedLabelColor: context.textSecondary,
                     labelStyle: TextStyle(
                       fontWeight: FontWeight.w700,
@@ -164,37 +168,40 @@ class _MyClubMainScreenState extends State<MyClubMainScreen>
                       fontFamily: AppTheme.fontFamily,
                       height: 1.2,
                     ),
-                    padding: EdgeInsets.symmetric(horizontal: 4.w),
-                    labelPadding: EdgeInsets.symmetric(horizontal: 14.w),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 10.w,
+                      vertical: 4.h,
+                    ),
+                    labelPadding: EdgeInsets.symmetric(horizontal: 12.w),
                     tabs: [
                       Tab(
-                        height: 52.h,
-                        icon: Icon(LucideIcons.dumbbell, size: 18.sp),
+                        height: 44.h,
+                        icon: Icon(LucideIcons.dumbbell, size: 17.sp),
                         text: 'برنامه‌ها',
                       ),
                       Tab(
-                        height: 52.h,
-                        icon: Icon(LucideIcons.userCheck, size: 18.sp),
+                        height: 44.h,
+                        icon: Icon(LucideIcons.userCheck, size: 17.sp),
                         text: 'مربی‌ها',
                       ),
                       Tab(
-                        height: 52.h,
-                        icon: Icon(LucideIcons.users, size: 18.sp),
+                        height: 44.h,
+                        icon: Icon(LucideIcons.users, size: 17.sp),
                         text: 'دوستان',
                       ),
                       Tab(
-                        height: 52.h,
-                        icon: Icon(LucideIcons.sparkles, size: 18.sp),
+                        height: 44.h,
+                        icon: Icon(LucideIcons.sparkles, size: 17.sp),
                         text: 'امتیازات',
                       ),
                       Tab(
-                        height: 52.h,
-                        icon: Icon(LucideIcons.wallet, size: 18.sp),
+                        height: 44.h,
+                        icon: Icon(LucideIcons.wallet, size: 17.sp),
                         text: 'مالی',
                       ),
                       Tab(
-                        height: 52.h,
-                        icon: Icon(LucideIcons.shield, size: 18.sp),
+                        height: 44.h,
+                        icon: Icon(LucideIcons.shield, size: 17.sp),
                         text: 'محرمانه',
                       ),
                     ],

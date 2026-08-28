@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gymaipro/design_system/components/gym_back_button.dart';
 import 'package:gymaipro/design_system/layout/page_padding.dart';
 import 'package:gymaipro/design_system/layout/responsive_breakpoints.dart';
 import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
@@ -15,6 +16,9 @@ class GymPageScaffold extends StatelessWidget {
     this.useSafeArea = true,
     this.centerContent = true,
     this.padding,
+    this.resizeToAvoidBottomInset = true,
+    this.onBack,
+    this.showBack,
     super.key,
   });
 
@@ -26,6 +30,15 @@ class GymPageScaffold extends StatelessWidget {
   final bool useSafeArea;
   final bool centerContent;
   final EdgeInsetsGeometry? padding;
+  final bool resizeToAvoidBottomInset;
+
+  /// Custom back handler (e.g. layered dismiss before pop).
+  /// When set, an in-app back button is always shown.
+  final VoidCallback? onBack;
+
+  /// Force show/hide the in-app back button.
+  /// Default: show when [onBack] is set or the route can pop.
+  final bool? showBack;
 
   @override
   Widget build(BuildContext context) {
@@ -51,17 +64,28 @@ class GymPageScaffold extends StatelessWidget {
       content = SafeArea(child: content);
     }
 
+    final wantsBack =
+        showBack ?? (onBack != null || GymBackButton.shouldShow(context));
+
     return Directionality(
       textDirection: GymTypography.direction,
       child: Scaffold(
         backgroundColor: context.gymBackground,
+        resizeToAvoidBottomInset: resizeToAvoidBottomInset,
         appBar: title == null
             ? null
             : AppBar(
                 backgroundColor: Colors.transparent,
                 foregroundColor: context.gymTextPrimary,
                 elevation: 0,
-                automaticallyImplyLeading: true,
+                // Explicit leading — Safari system-back is unreliable on web.
+                automaticallyImplyLeading: false,
+                leading: wantsBack
+                    ? GymBackButton(
+                        onPressed: onBack,
+                        color: context.gymTextPrimary,
+                      )
+                    : null,
                 title: Text(
                   title!,
                   style: context.gymTextStyle(

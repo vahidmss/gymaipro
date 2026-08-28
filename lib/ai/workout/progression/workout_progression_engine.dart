@@ -20,7 +20,8 @@ class WorkoutProgressionEngine {
       exercise.exerciseType,
     );
     final goal = blueprint.goal;
-    final isCardio = exercise.exerciseType.contains('کاردیو') ||
+    final isCardio =
+        exercise.exerciseType.contains('کاردیو') ||
         exercise.exerciseType.contains('هوازی');
     final setCount = _setCountFromBlueprint(blueprint, compound);
     final strategy = blueprint.progressionStrategy;
@@ -77,7 +78,7 @@ class WorkoutProgressionEngine {
   String _strategyDescription(WorkoutProgressionStrategy strategy) {
     switch (strategy) {
       case WorkoutProgressionStrategy.increaseWeight:
-        return 'Increase load when all sets hit target reps with RIR 1-2.';
+        return 'Increase load only after all prescribed sets hit target reps with RIR 1-2; completing the prescription is success.';
       case WorkoutProgressionStrategy.increaseReps:
         return 'Add reps before increasing load for hypertrophy.';
       case WorkoutProgressionStrategy.increaseVolume:

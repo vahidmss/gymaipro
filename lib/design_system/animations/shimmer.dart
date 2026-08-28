@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:gymaipro/design_system/theme/gym_colors.dart';
 import 'package:gymaipro/design_system/theme/gym_motion.dart';
 import 'package:gymaipro/design_system/theme/gym_radius.dart';
+import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 
 /// Shimmer loading effect overlay.
 class GymShimmer extends StatefulWidget {
@@ -31,10 +31,7 @@ class _GymShimmerState extends State<GymShimmer>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: GymMotion.shimmer,
-    );
+    _controller = AnimationController(vsync: this, duration: GymMotion.shimmer);
     if (widget.enabled) {
       unawaited(_controller.repeat());
     }
@@ -60,8 +57,8 @@ class _GymShimmerState extends State<GymShimmer>
   Widget build(BuildContext context) {
     if (!widget.enabled) return widget.child;
 
-    final base = widget.baseColor ?? GymColors.neutral800;
-    final highlight = widget.highlightColor ?? GymColors.neutral600;
+    final base = widget.baseColor ?? context.gymSkeletonBase;
+    final highlight = widget.highlightColor ?? context.gymSkeletonHighlight;
 
     return AnimatedBuilder(
       animation: _controller,
@@ -104,7 +101,7 @@ class GymShimmerBlock extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: GymColors.neutral800,
+          color: context.gymSkeletonBase,
           borderRadius: BorderRadius.circular(radius),
         ),
       ),

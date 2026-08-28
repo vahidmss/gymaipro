@@ -77,7 +77,7 @@ void main() {
   });
 
   group('CoachEntitlementRuntime', () {
-    const runtime = CoachEntitlementRuntime();
+    final runtime = CoachEntitlementRuntime();
 
     test('returns null when Coach v2 flag is disabled', () async {
       if (CoachV2Config.coachV2Enabled) return;

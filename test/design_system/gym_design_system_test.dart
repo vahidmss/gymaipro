@@ -68,9 +68,7 @@ void main() {
 
     testWidgets('shows loading indicator', (tester) async {
       await tester.pumpWidget(
-        _wrap(
-          GymButton(label: 'Start', onPressed: () {}, loading: true),
-        ),
+        _wrap(GymButton(label: 'Start', onPressed: () {}, loading: true)),
       );
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
@@ -102,10 +100,7 @@ void main() {
     testWidgets('expandable card toggles body', (tester) async {
       await tester.pumpWidget(
         _wrap(
-          const GymExpandableCard(
-            title: 'Details',
-            child: Text('Hidden body'),
-          ),
+          const GymExpandableCard(title: 'Details', child: Text('Hidden body')),
         ),
       );
       expect(find.text('Hidden body'), findsNothing);
@@ -124,10 +119,7 @@ void main() {
     testWidgets('badge renders variant label', (tester) async {
       await tester.pumpWidget(
         _wrap(
-          const GymBadge(
-            label: 'Online',
-            variant: GymBadgeVariant.success,
-          ),
+          const GymBadge(label: 'Online', variant: GymBadgeVariant.success),
         ),
       );
       expect(find.text('Online'), findsOneWidget);
@@ -145,11 +137,7 @@ void main() {
     testWidgets('progress ring renders label', (tester) async {
       await tester.pumpWidget(
         _wrap(
-          const GymProgressRing(
-            value: 0.75,
-            animated: false,
-            label: '75%',
-          ),
+          const GymProgressRing(value: 0.75, animated: false, label: '75%'),
         ),
       );
       expect(find.text('75%'), findsOneWidget);
@@ -192,15 +180,10 @@ void main() {
 
     testWidgets('error state shows retry', (tester) async {
       await tester.pumpWidget(
-        _wrap(
-          GymErrorState(
-            message: 'Preview failed',
-            onRetry: () {},
-          ),
-        ),
+        _wrap(GymErrorState(message: 'Preview failed', onRetry: () {})),
       );
       expect(find.text('Preview failed'), findsOneWidget);
-      expect(find.text('Retry'), findsOneWidget);
+      expect(find.text('تلاش دوباره'), findsOneWidget);
     });
 
     testWidgets('loading state shows spinner', (tester) async {
@@ -231,11 +214,7 @@ void main() {
 
     testWidgets('fade slide and scale in render child', (tester) async {
       await tester.pumpWidget(
-        _wrap(
-          const GymScaleIn(
-            child: GymFadeSlide(child: Text('Animated')),
-          ),
-        ),
+        _wrap(const GymScaleIn(child: GymFadeSlide(child: Text('Animated')))),
       );
       await tester.pump();
       expect(find.text('Animated'), findsOneWidget);
@@ -244,12 +223,7 @@ void main() {
     testWidgets('stagger column renders children', (tester) async {
       await tester.pumpWidget(
         _wrap(
-          const GymStaggerColumn(
-            children: <Widget>[
-              Text('One'),
-              Text('Two'),
-            ],
-          ),
+          const GymStaggerColumn(children: <Widget>[Text('One'), Text('Two')]),
         ),
       );
       expect(find.text('One'), findsOneWidget);
@@ -267,14 +241,43 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: GymTheme.dark,
-          home: const GymPageScaffold(
-            title: 'Coach',
-            body: Text('Body'),
-          ),
+          home: const GymPageScaffold(title: 'Coach', body: Text('Body')),
         ),
       );
       expect(find.text('Coach'), findsOneWidget);
       expect(find.text('Body'), findsOneWidget);
+      // Root route: no in-app back.
+      expect(find.byTooltip('بازگشت'), findsNothing);
+    });
+
+    testWidgets('page scaffold shows back when route can pop', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GymTheme.dark,
+          home: Builder(
+            builder: (context) {
+              return Scaffold(
+                body: TextButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const GymPageScaffold(
+                          title: 'Detail',
+                          body: Text('Child'),
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('بازگشت'), findsOneWidget);
     });
   });
 

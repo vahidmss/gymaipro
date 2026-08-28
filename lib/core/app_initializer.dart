@@ -10,6 +10,7 @@ import 'package:gymaipro/ai/config/ai_engine_config.dart';
 import 'package:gymaipro/ai/services/user_context_cache_service.dart';
 import 'package:gymaipro/auth/services/auth_state_service.dart';
 import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/core/crash_report_service.dart';
 import 'package:gymaipro/notification/notification_service.dart';
 import 'package:gymaipro/notification/services/private_message_notification_service.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
@@ -273,6 +274,7 @@ class AppInitializer {
     if (kDebugMode) {
       debugPrint('Supabase initialized successfully');
     }
+    unawaited(CrashReportService.instance.flush());
 
     // Non-critical post-init (safe to fail)
     try {

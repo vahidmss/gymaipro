@@ -29,8 +29,7 @@ class WorkoutLogAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final hasActions =
-        onLogSummaryPressed != null || onHeatmapPressed != null;
+    final hasActions = onLogSummaryPressed != null || onHeatmapPressed != null;
 
     return AppBar(
       backgroundColor: isDark ? context.backgroundColor : Colors.transparent,
@@ -38,12 +37,12 @@ class WorkoutLogAppBar extends StatelessWidget implements PreferredSizeWidget {
       leading: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(8.r),
+          borderRadius: BorderRadius.circular(12.r),
           onTap: onBackPressed,
           child: Container(
-            width: 36.w,
-            height: 36.h,
-            padding: EdgeInsets.all(6.w),
+            width: 44.w,
+            height: 44.h,
+            padding: EdgeInsets.all(10.w),
             child: Icon(
               LucideIcons.arrowRight,
               color: WorkoutLogColors.iconOnSurface(context),
@@ -55,8 +54,8 @@ class WorkoutLogAppBar extends StatelessWidget implements PreferredSizeWidget {
       title: Text(
         'ثبت تمرین',
         style: WorkoutLogTypography.sectionTitle(context).copyWith(
-          fontSize: 18.sp,
-          fontWeight: FontWeight.w800,
+          fontSize: 19.sp,
+          fontWeight: FontWeight.w900,
           color: WorkoutLogColors.primaryText(context),
         ),
       ),
@@ -77,14 +76,14 @@ class WorkoutLogAppBar extends StatelessWidget implements PreferredSizeWidget {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                borderRadius: BorderRadius.circular(8.r),
+                borderRadius: BorderRadius.circular(12.r),
                 onTap: () {
                   HapticFeedback.selectionClick();
                   onHeatmapPressed!();
                 },
                 child: SizedBox(
-                  width: 36.w,
-                  height: 36.h,
+                  width: 44.w,
+                  height: 44.h,
                   child: Padding(
                     padding: EdgeInsets.all(6.w),
                     child: Image.asset(
@@ -123,14 +122,15 @@ class _AppBarIconButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: Colors.transparent,
+        color: context.surfaceElevated,
+        borderRadius: BorderRadius.circular(12.r),
         child: InkWell(
-          borderRadius: BorderRadius.circular(8.r),
+          borderRadius: BorderRadius.circular(12.r),
           onTap: onTap,
           child: Container(
-            width: 36.w,
-            height: 36.h,
-            padding: EdgeInsets.all(8.w),
+            width: 44.w,
+            height: 44.h,
+            padding: EdgeInsets.all(12.w),
             child: Icon(
               icon,
               color: WorkoutLogColors.iconOnSurface(context),

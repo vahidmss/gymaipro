@@ -78,7 +78,7 @@ class _StoreScreenState extends State<StoreScreen> {
           elevation: 0,
           centerTitle: true,
           title: Text(
-            'فروشگاه',
+            'فروشگاه GymAI',
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontWeight: FontWeight.bold,

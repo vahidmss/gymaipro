@@ -36,13 +36,18 @@ import 'package:provider/provider.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  if (kIsWeb) {
-    usePathUrlStrategy();
-  }
-  configureImagePickerForPlatform();
-  AppErrorHandler.initialize();
-  runApp(const BootstrapApp());
+  runZonedGuarded(
+    () {
+      WidgetsFlutterBinding.ensureInitialized();
+      if (kIsWeb) {
+        usePathUrlStrategy();
+      }
+      configureImagePickerForPlatform();
+      AppErrorHandler.initialize();
+      runApp(const BootstrapApp());
+    },
+    AppErrorHandler.handleUncaughtError,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -632,7 +637,10 @@ class _MyAppState extends State<MyApp> {
                                 top: false,
                                 child: Directionality(
                                   textDirection: TextDirection.rtl,
-                                  child: child ?? const SizedBox.shrink(),
+                                  child: child ??
+                                      const Scaffold(
+                                        body: SizedBox.expand(),
+                                      ),
                                 ),
                               ),
                               const OfflineBanner(),

@@ -17,12 +17,15 @@ class AppTheme {
   // رنگ‌های Dark Mode
   // مشکیِ مطلق نه — سطح گرمِ خیلی تیره + کارت کمی روشن‌تر (سلسله‌مراتب نرم)
   // ============================================
-  static const Color darkBackgroundColor = Color(0xFF121212); // قبل: #000
-  static const Color darkCardColor = Color(0xFF1C1C1C); // قبل: #1E1E1E — نزدیک‌تر به bg
-  static const Color darkTextColor = Colors.white;
-  static const Color darkGreySeparator = Color(0xFF2A2A2A); // جداکننده ملایم‌تر
-  static const Color darkGreyGradient = Color(0xFF3A3A3A);
-  static const Color veryDarkBackground = Color(0xFF0E0E0E);
+  static const Color darkBackgroundColor = Color(0xFF0B0D0F);
+  static const Color darkCardColor = Color(0xFF14171A);
+  static const Color darkSurfaceElevated = Color(0xFF1A1E22);
+  static const Color darkTextColor = Color(0xFFF5F6F7);
+  static const Color darkTextSecondary = Color(0xFFA6ADB4);
+  static const Color darkTextDisabled = Color(0xFF626970);
+  static const Color darkGreySeparator = Color(0xFF252A2F);
+  static const Color darkGreyGradient = Color(0xFF20252A);
+  static const Color veryDarkBackground = Color(0xFF080A0C);
 
   // ============================================
   // رنگ‌های Light Mode — گرمِ ملایم، کم‌زرد (بازطراحی)
@@ -40,12 +43,8 @@ class AppTheme {
     0xFFE6E1D6,
   ); // جداکنندهٔ خنثی‌گرم
   static const Color lightButtonBackground = Color(0xFFF0EBE3);
-  static const Color lightGradientStart = Color(
-    0xFFEDE6DA,
-  );
-  static const Color lightGradientEnd = Color(
-    0xFFE0D2B5,
-  );
+  static const Color lightGradientStart = Color(0xFFEDE6DA);
+  static const Color lightGradientEnd = Color(0xFFE0D2B5);
   static const Color lightGoldGradient = Color(0xFFF5E6C0);
   static const Color goldTabIndicator = Color(
     0xFFE7B628,
@@ -60,8 +59,8 @@ class AppTheme {
   // ============================================
   // رنگ‌های معنایی (برای استفاده در ماژول‌های دیگر)
   // ============================================
-  static const Color errorColor = Colors.red;
-  static const Color successColor = Colors.green;
+  static const Color errorColor = Color(0xFFFF6B6B);
+  static const Color successColor = Color(0xFF42C878);
   static const Color onGoldColor = Color(0xFF0A0A0A); // رنگ تیره روی طلایی
 
   // رنگ‌های ماکرو (برای نمودارها)
@@ -372,12 +371,14 @@ class AppTheme {
       surface: darkCardColor,
       onPrimary: Color(0xFF0A0A0A), // متن تیره روی طلایی
       onSecondary: Color(0xFFFFFFFF), // سفید روی طلایی تیره
-      surfaceContainerHighest: veryDarkBackground,
-      onSurfaceVariant: Color(0xFFB0B0B0), // متن خاکستری روشن
+      surfaceContainerHighest: darkSurfaceElevated,
+      onSurfaceVariant: darkTextSecondary,
+      error: errorColor,
+      onError: Color(0xFF180505),
     ),
     textTheme: ThemeData.dark().textTheme.apply(
       bodyColor: darkTextColor,
-      displayColor: goldColor,
+      displayColor: darkTextColor,
       fontFamily: fontFamily,
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
@@ -388,9 +389,22 @@ class AppTheme {
           borderRadius: BorderRadius.circular(16.r),
         ),
         textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        elevation: 4,
-        shadowColor: goldColor.withValues(alpha: 0.3),
+        elevation: 0,
+        shadowColor: Colors.transparent,
       ),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? onGoldColor
+            : darkTextSecondary,
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? goldColor
+            : darkGreySeparator,
+      ),
+      trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -421,15 +435,25 @@ class AppTheme {
     ),
     appBarTheme: AppBarTheme(
       backgroundColor: darkBackgroundColor,
-      foregroundColor: goldColor,
+      foregroundColor: darkTextColor,
       elevation: 0,
-      shadowColor: goldColor.withValues(alpha: 0.1),
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
       titleTextStyle: TextStyle(
-        color: goldColor,
+        color: darkTextColor,
         fontWeight: FontWeight.bold,
         fontSize: 18.sp,
       ),
-      iconTheme: const IconThemeData(color: goldColor),
+      iconTheme: const IconThemeData(color: darkTextColor),
+    ),
+    cardTheme: CardThemeData(
+      color: darkCardColor,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16.r),
+        side: const BorderSide(color: darkGreySeparator),
+      ),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: darkCardColor,
@@ -474,6 +498,10 @@ extension AppThemeExtension on BuildContext {
         : AppTheme.lightCardColor;
   }
 
+  Color get surfaceElevated {
+    return isDark ? AppTheme.darkSurfaceElevated : AppTheme.lightCardColor;
+  }
+
   Color get textColor {
     final brightness = Theme.of(this).brightness;
     return brightness == Brightness.dark
@@ -484,8 +512,14 @@ extension AppThemeExtension on BuildContext {
   Color get textSecondary {
     final brightness = Theme.of(this).brightness;
     return brightness == Brightness.dark
-        ? AppTheme.darkTextColor.withValues(alpha: 0.6)
+        ? AppTheme.darkTextSecondary
         : AppTheme.lightTextSecondary;
+  }
+
+  Color get textDisabled {
+    return isDark
+        ? AppTheme.darkTextDisabled
+        : AppTheme.lightTextSecondary.withValues(alpha: 0.55);
   }
 
   // رنگ‌های جداکننده بر اساس تم
@@ -589,11 +623,11 @@ extension AppThemeExtension on BuildContext {
   }
 
   /// عنوان استاندارد تم‌آگاه
-  TextStyle get headingStyle => AppTheme.headingStyle.copyWith(color: textColor);
+  TextStyle get headingStyle =>
+      AppTheme.headingStyle.copyWith(color: textColor);
 
   /// بدنهٔ ثانویه تم‌آگاه
-  TextStyle get bodyStyle =>
-      AppTheme.bodyStyle.copyWith(color: textSecondary);
+  TextStyle get bodyStyle => AppTheme.bodyStyle.copyWith(color: textSecondary);
 
   TextStyle get dialogTitleStyle =>
       AppTheme.dialogTitleStyle.copyWith(color: textColor);
@@ -607,15 +641,12 @@ extension AppThemeExtension on BuildContext {
   TextStyle get dialogValueStyle =>
       AppTheme.dialogValueStyle.copyWith(color: textColor);
 
-  TextStyle get dialogDescriptionStyle =>
-      AppTheme.dialogDescriptionStyle.copyWith(
-        color: textColor.withValues(alpha: 0.85),
-      );
+  TextStyle get dialogDescriptionStyle => AppTheme.dialogDescriptionStyle
+      .copyWith(color: textColor.withValues(alpha: 0.85));
 
-  TextStyle get dialogKeyPointStyle =>
-      AppTheme.dialogKeyPointStyle.copyWith(
-        color: textColor.withValues(alpha: 0.9),
-      );
+  TextStyle get dialogKeyPointStyle => AppTheme.dialogKeyPointStyle.copyWith(
+    color: textColor.withValues(alpha: 0.9),
+  );
 
   InputDecoration goldTextFieldDecoration(String label, {String? hint}) {
     return InputDecoration(
@@ -639,9 +670,7 @@ extension AppThemeExtension on BuildContext {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15.r),
-        borderSide: BorderSide(
-          color: isDark ? AppTheme.goldColor : textColor,
-        ),
+        borderSide: BorderSide(color: isDark ? AppTheme.goldColor : textColor),
       ),
       filled: true,
       fillColor: cardColor,

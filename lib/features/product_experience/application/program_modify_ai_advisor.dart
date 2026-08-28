@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/ai/services/openai_service.dart';
+import 'package:gymaipro/features/product_experience/domain/coach_decision_lock.dart';
 import 'package:gymaipro/features/product_experience/domain/program_modify_coach_voice.dart';
 import 'package:gymaipro/features/product_experience/domain/program_modify_options.dart';
 
@@ -33,7 +34,10 @@ class ProgramModifyAiAdvisor {
               <String, String>{
                 'role': 'system',
                 'content':
-                    'تو مربی GymAI هستی. فقط فارسی، کوتاه، بدون مقدمه اضافه.',
+                    'تو مربی GymAI هستی. فقط فارسی، کوتاه، بدون مقدمه اضافه. '
+                    '${CoachDecisionLock.systemRule} '
+                    'فقط همان پیشنهاد اصلاح را تعریف کن؛ کیلو/ست از خودت نساز '
+                    'و برنامه کامل ننویس.',
               },
               <String, String>{'role': 'user', 'content': prompt},
             ],

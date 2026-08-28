@@ -146,11 +146,12 @@ class MealInsightEngine {
       );
     }
 
-    // از مرجع گذشته
+    // از حد کالری گذشته
     if (consumedCalories > targets.calorieTarget * 1.08) {
+      final word = targets.hasActiveGoal ? 'هدف' : 'نیاز روزانه';
       return MealInsightResult(
         message:
-            'امروز یکم بیشتر از مرجع رفتی — اشکال نداره، فردا سبک‌تر جبران کن 💪',
+            'امروز یکم بیشتر از $word رفتی — اشکال نداره، فردا سبک‌تر جبران کن',
         tone: MealInsightTone.warning,
         barGuidance: barGuidance,
         streakDays: streak,
@@ -299,8 +300,9 @@ class MealInsightEngine {
       'گرم پروتئین',
       'پروتئین',
       '٪ مصرف',
-      'نزدیک مرجع',
-      'از مرجع',
+      'نزدیک هدف',
+      'نزدیک نیاز',
+      'بیش از',
       'مصرف شده',
     ];
     final cStatus = statusTokens.any(c.contains);
@@ -367,14 +369,13 @@ class MealInsightEngine {
     required DateTime referenceTime,
   }) {
     final ref = targets.calorieTarget.round();
-    final referenceWord =
-        targets.goalAdjustmentLabel != null ? 'برآورد روزانه' : 'نیاز روزانه';
+    final ceilingWord = targets.hasActiveGoal ? 'سقف روزانه' : 'نیاز روزانه';
 
     if (loggedFoodCount == 0) {
       final proteinGoal = targets.proteinTarget.round();
       return MealCalorieBarGuidance(
         message:
-            '$referenceWord $ref کالری · پروتئین هدف $proteinGoalگ — با $nextMeal شروع کن.',
+            '$ceilingWord $ref کالری · پروتئین حدود $proteinGoalگ — با $nextMeal شروع کن.',
         tone: MealInsightTone.tip,
       );
     }
@@ -382,7 +383,7 @@ class MealInsightEngine {
     if (calorieGap < 0) {
       final over = (-calorieGap).round();
       return MealCalorieBarGuidance(
-        message: '+$over کالری از مرجع — وعده بعدی رو سبک بگیر.',
+        message: '+$over کالری از $ceilingWord رد شدی — وعده بعدی رو سبک بگیر.',
         tone: MealInsightTone.warning,
       );
     }
@@ -390,7 +391,8 @@ class MealInsightEngine {
     if (proteinGap > 25 && referenceTime.hour >= 14) {
       final targetMeal = !nextMealLogged ? nextMeal : 'وعده بعدی';
       return MealCalorieBarGuidance(
-        message: 'پروتئین ${proteinGap.round()} گرم کمه — $targetMeal پروتئینی بزن.',
+        message:
+            'پروتئین ${proteinGap.round()} گرم کمه — $targetMeal پروتئینی بزن.',
         tone: MealInsightTone.info,
       );
     }
@@ -401,15 +403,15 @@ class MealInsightEngine {
 
     if (progress >= 0.85 && calorieGap > 0) {
       return MealCalorieBarGuidance(
-        message: 'نزدیک مرجع — فقط ${calorieGap.round()} کالری مونده ✓',
-        tone: MealInsightTone.success,
+        message: 'از بودجه فقط ${calorieGap.round()} کالری مونده.',
+        tone: MealInsightTone.info,
       );
     }
 
     if (progress >= 0.5 && calorieGap > 0) {
       return MealCalorieBarGuidance(
         message:
-            '${calorieGap.round()} کالری مونده | ${consumedProtein.round()} گرم پروتئین تا الان',
+            '${calorieGap.round()} کالری جا داری | ${consumedProtein.round()} گرم پروتئین تا الان',
         tone: MealInsightTone.info,
       );
     }
@@ -418,21 +420,21 @@ class MealInsightEngine {
         referenceTime.hour >= 7 &&
         referenceTime.hour <= 22) {
       return MealCalorieBarGuidance(
-        message: '$nextMeal هنوز ثبت نشده — ${calorieGap.round()} کالری مونده.',
+        message:
+            '$nextMeal هنوز ثبت نشده — ${calorieGap.round()} کالری جا داری.',
         tone: MealInsightTone.tip,
       );
     }
 
     if (calorieGap > targets.calorieTarget * 0.35) {
       return MealCalorieBarGuidance(
-        message:
-            '${(progress * 100).round()}٪ مصرف — ${calorieGap.round()} کالری تا $referenceWord.',
+        message: '${calorieGap.round()} کالری از $ceilingWord جا داری.',
         tone: MealInsightTone.info,
       );
     }
 
     return MealCalorieBarGuidance(
-      message: '${calorieGap.round()} کالری تا $referenceWord.',
+      message: '${calorieGap.round()} کالری از $ceilingWord جا داری.',
       tone: MealInsightTone.info,
     );
   }
@@ -447,12 +449,7 @@ class MealInsightEngine {
     required bool isFuture,
     required String dayLabel,
   }) {
-    final referenceWord =
-        targets.goalAdjustmentLabel != null ? 'برآورد روزانه' : 'نیاز روزانه';
-    final progress = targets.calorieTarget > 0
-        ? consumedCalories / targets.calorieTarget
-        : 0.0;
-    final pct = (progress * 100).round();
+    final ceilingWord = targets.hasActiveGoal ? 'سقف روزانه' : 'نیاز روزانه';
 
     if (loggedFoodCount == 0) {
       if (isFuture) {
@@ -472,30 +469,31 @@ class MealInsightEngine {
       final over = (-calorieGap).round();
       return MealCalorieBarGuidance(
         message:
-            '$dayLabel: ${consumedCalories.round()} کالری (+$over از مرجع) — $pct٪',
+            '$dayLabel: ${consumedCalories.round()} کالری · +$over بیش از $ceilingWord',
         tone: MealInsightTone.warning,
       );
     }
 
-    if (progress >= 0.85 && proteinGap <= 15) {
-      return MealCalorieBarGuidance(
-        message:
-            '$dayLabel: ${consumedCalories.round()} کالری — $pct٪ از $referenceWord ✓',
-        tone: MealInsightTone.success,
-      );
-    }
+    final used = consumedCalories.round();
+    final budget = targets.calorieTarget.round();
 
     if (proteinGap > 25) {
       return MealCalorieBarGuidance(
         message:
-            '$dayLabel: $pct٪ مصرف — پروتئین ${proteinGap.round()} گرم کمتر از برآورد',
+            '$dayLabel: $used از $budget · پروتئین ${proteinGap.round()} گرم کمتر از برآورد',
+        tone: MealInsightTone.info,
+      );
+    }
+
+    if (calorieGap <= targets.calorieTarget * 0.15) {
+      return MealCalorieBarGuidance(
+        message: '$dayLabel: $used از $budget کالری · نزدیک سقف',
         tone: MealInsightTone.info,
       );
     }
 
     return MealCalorieBarGuidance(
-      message:
-          '$dayLabel: ${consumedCalories.round()} کالری — $pct٪ از $referenceWord',
+      message: '$dayLabel: $used از $budget کالری',
       tone: MealInsightTone.info,
     );
   }

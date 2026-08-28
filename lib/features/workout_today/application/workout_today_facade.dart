@@ -49,9 +49,8 @@ class WorkoutTodayFacade {
   ActiveProgramOption? _activeProgram;
 
   Future<WorkoutTodayFacadeResult> load({bool enrichWithCoach = false}) async {
-    final programs = await _programCatalog.listWorkoutPrograms();
-    _activeProgram = await _programCatalog.getActiveProgramOption() ??
-        programs.firstOrNull;
+    final programs = await _programCatalog.listAiWorkoutPrograms();
+    _activeProgram = await _programCatalog.getActiveAiProgramOption();
 
     const message = 'تمرین امروز چیه؟';
     final seed = await (_seedLoader ?? CoachPreviewSeedLoader()).load(
@@ -61,8 +60,15 @@ class WorkoutTodayFacade {
 
     if (_activeProgram == null) {
       return WorkoutTodayFacadeResult(
-        state: const WorkoutTodayState.empty(),
-        gaps: const <String>['برنامه فعال برای امروز پیدا نشد.'],
+        state: WorkoutTodayState.empty(availablePrograms: programs),
+        gaps: programs.isEmpty
+            ? const <String>[
+                'برای تمرین هوشمند، اول از مربی من یک برنامه هوش مصنوعی بساز.',
+              ]
+            : const <String>[
+                'برنامه فعال فعلی برای مسیر هوش مصنوعی نیست. '
+                    'یک برنامه AI انتخاب کن.',
+              ],
         previewDuration: Duration.zero,
       );
     }
@@ -129,8 +135,9 @@ class WorkoutTodayFacade {
   }
 
   Future<WorkoutTodayQuickActionResult> runQuickAction(String actionId) async {
-    final normalized =
-        CoachExperienceRuntimeBridge.normalizeQuickActionId(actionId);
+    final normalized = CoachExperienceRuntimeBridge.normalizeQuickActionId(
+      actionId,
+    );
     final prompt = ProductExperienceFormatter.promptForQuickAction(normalized);
     final routeName = switch (normalized) {
       'modify' ||
@@ -166,13 +173,19 @@ class WorkoutTodayFacade {
 
   Future<WorkoutTodayFacadeResult> map(CoachIntegrationResult result) async {
     _lastResult = result;
-    final programs = await _programCatalog.listWorkoutPrograms();
-    _activeProgram = await _programCatalog.getActiveProgramOption() ??
-        programs.firstOrNull;
+    final programs = await _programCatalog.listAiWorkoutPrograms();
+    _activeProgram = await _programCatalog.getActiveAiProgramOption();
     if (_activeProgram == null) {
       return WorkoutTodayFacadeResult(
-        state: const WorkoutTodayState.empty(),
-        gaps: const <String>['برنامه فعال برای امروز پیدا نشد.'],
+        state: WorkoutTodayState.empty(availablePrograms: programs),
+        gaps: programs.isEmpty
+            ? const <String>[
+                'برای تمرین هوشمند، اول از مربی من یک برنامه هوش مصنوعی بساز.',
+              ]
+            : const <String>[
+                'برنامه فعال فعلی برای مسیر هوش مصنوعی نیست. '
+                    'یک برنامه AI انتخاب کن.',
+              ],
         previewDuration: result.processingTime,
       );
     }
@@ -260,6 +273,7 @@ class WorkoutTodayFacade {
       resolved: resolved,
       readiness: recovery.readiness,
       daysSinceLastWorkout: recovery.daysSinceLastWorkout,
+      sessionCompletedToday: recovery.sessionCompletedToday,
       sessionDay: sessionDay,
       fromEngine: integrationResult == null
           ? const <String>[]
@@ -291,6 +305,7 @@ class WorkoutTodayFacade {
             readinessHint: TrainingMetricGuides.readinessHint(
               recovery.readiness,
               daysSinceLastWorkout: recovery.daysSinceLastWorkout,
+              sessionCompletedToday: recovery.sessionCompletedToday,
             ),
           ),
           quickActions: _quickActions,
@@ -312,6 +327,7 @@ class WorkoutTodayFacade {
     required String sessionDay,
     required List<String> fromEngine,
     int? daysSinceLastWorkout,
+    bool sessionCompletedToday = false,
   }) {
     final grounded = _defaultCoachNotes(
       program,
@@ -319,6 +335,7 @@ class WorkoutTodayFacade {
       readiness,
       sessionDay,
       daysSinceLastWorkout: daysSinceLastWorkout,
+      sessionCompletedToday: sessionCompletedToday,
     );
     if (fromEngine.isEmpty) return grounded;
 
@@ -347,26 +364,28 @@ class WorkoutTodayFacade {
     int readiness,
     String sessionDay, {
     int? daysSinceLastWorkout,
+    bool sessionCompletedToday = false,
   }) {
     final notes = <String>[
-      'امروز جلسه «$sessionDay» از برنامه «${program.title}» را می‌زنی.',
+      sessionCompletedToday
+          ? 'جلسه «$sessionDay» امروز ثبت شد؛ امشب ریکاوری مهم‌تر از فشار اضافه است.'
+          : 'امروز جلسه «$sessionDay» از برنامه «${program.title}» را می‌زنی.',
     ];
 
-    if (resolved.muscleGroups.isNotEmpty) {
+    if (!sessionCompletedToday && resolved.muscleGroups.isNotEmpty) {
       final muscles = resolved.muscleGroups.take(3).join('، ');
       notes.add('تمرکز امروز روی $muscles است.');
     }
 
-    if (resolved.totalSets > 0) {
+    if (!sessionCompletedToday && resolved.totalSets > 0) {
       final sets = resolved.totalSets;
-      notes.add(
-        'حدود $sets ست در این جلسه داری؛ دو ست اول را کنترل‌شده بزن، بعد فشار را بالا ببر.',
-      );
+      notes.add('حدود $sets ست در این جلسه داری؛ دو ست اول را کنترل‌شده بزن.');
     }
 
     final hint = TrainingMetricGuides.readinessHint(
       readiness,
       daysSinceLastWorkout: daysSinceLastWorkout,
+      sessionCompletedToday: sessionCompletedToday,
     ).trim();
     if (hint.isNotEmpty && notes.length < 3) {
       notes.add(hint.endsWith('.') ? hint : '$hint.');

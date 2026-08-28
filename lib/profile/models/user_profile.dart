@@ -25,6 +25,13 @@ class UserProfile {
     this.gender,
     this.role = 'athlete',
     this.weightHistory,
+    this.nutritionGoalMode,
+    this.targetWeightKg,
+    this.weeklyRateKg,
+    this.calorieGoalKcal,
+    this.calorieGoalSource,
+    this.calorieGoalUpdatedAt,
+    this.goalReachedAt,
     this.createdAt,
     this.updatedAt,
     this.lastSeenAt,
@@ -109,6 +116,13 @@ class UserProfile {
               json['weight_history'] as Iterable<dynamic>,
             )
           : null,
+      nutritionGoalMode: json['nutrition_goal_mode'] as String?,
+      targetWeightKg: _parseDouble(json['target_weight_kg']),
+      weeklyRateKg: _parseDouble(json['weekly_rate_kg']),
+      calorieGoalKcal: _parseInt(json['calorie_goal_kcal']),
+      calorieGoalSource: json['calorie_goal_source'] as String?,
+      calorieGoalUpdatedAt: _parseDate(json['calorie_goal_updated_at']),
+      goalReachedAt: _parseDate(json['goal_reached_at']),
       createdAt:
           json['created_at'] != null && json['created_at'].toString().isNotEmpty
           ? DateTime.tryParse(json['created_at'] as String)
@@ -179,6 +193,13 @@ class UserProfile {
   final String? gender;
   final String role;
   final List<Map<String, dynamic>>? weightHistory;
+  final String? nutritionGoalMode;
+  final double? targetWeightKg;
+  final double? weeklyRateKg;
+  final int? calorieGoalKcal;
+  final String? calorieGoalSource;
+  final DateTime? calorieGoalUpdatedAt;
+  final DateTime? goalReachedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final DateTime? lastSeenAt;
@@ -226,6 +247,13 @@ class UserProfile {
       'gender': gender,
       'role': role,
       'weight_history': weightHistory, // Added weight_history
+      'nutrition_goal_mode': nutritionGoalMode,
+      'target_weight_kg': targetWeightKg,
+      'weekly_rate_kg': weeklyRateKg,
+      'calorie_goal_kcal': calorieGoalKcal,
+      'calorie_goal_source': calorieGoalSource,
+      'calorie_goal_updated_at': calorieGoalUpdatedAt?.toIso8601String(),
+      'goal_reached_at': goalReachedAt?.toIso8601String(),
       'created_at': createdAt?.toIso8601String(),
       'updated_at': updatedAt?.toIso8601String(),
       'last_seen_at': lastSeenAt?.toIso8601String(),
@@ -271,6 +299,13 @@ class UserProfile {
     String? gender,
     String? role,
     List<Map<String, dynamic>>? weightHistory,
+    String? nutritionGoalMode,
+    double? targetWeightKg,
+    double? weeklyRateKg,
+    int? calorieGoalKcal,
+    String? calorieGoalSource,
+    DateTime? calorieGoalUpdatedAt,
+    DateTime? goalReachedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? lastSeenAt,
@@ -317,6 +352,13 @@ class UserProfile {
       gender: gender ?? this.gender,
       role: role ?? this.role,
       weightHistory: weightHistory ?? this.weightHistory,
+      nutritionGoalMode: nutritionGoalMode ?? this.nutritionGoalMode,
+      targetWeightKg: targetWeightKg ?? this.targetWeightKg,
+      weeklyRateKg: weeklyRateKg ?? this.weeklyRateKg,
+      calorieGoalKcal: calorieGoalKcal ?? this.calorieGoalKcal,
+      calorieGoalSource: calorieGoalSource ?? this.calorieGoalSource,
+      calorieGoalUpdatedAt: calorieGoalUpdatedAt ?? this.calorieGoalUpdatedAt,
+      goalReachedAt: goalReachedAt ?? this.goalReachedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       lastSeenAt: lastSeenAt ?? this.lastSeenAt,
@@ -368,4 +410,23 @@ class UserProfile {
   bool get isAdmin => role == 'admin';
 
   bool get isAthlete => role == 'athlete';
+
+  static double? _parseDouble(Object? raw) {
+    if (raw == null) return null;
+    if (raw is num) return raw.toDouble();
+    return double.tryParse(raw.toString());
+  }
+
+  static int? _parseInt(Object? raw) {
+    if (raw == null) return null;
+    if (raw is int) return raw;
+    if (raw is num) return raw.round();
+    return int.tryParse(raw.toString());
+  }
+
+  static DateTime? _parseDate(Object? raw) {
+    if (raw == null) return null;
+    if (raw is DateTime) return raw;
+    return DateTime.tryParse(raw.toString());
+  }
 }

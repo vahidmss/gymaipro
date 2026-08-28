@@ -22,7 +22,7 @@ class RelationshipStatsWidget extends StatelessWidget {
         icon: LucideIcons.clock4,
         label: 'در انتظار',
         count: stats['pending'] ?? 0,
-        color: Colors.amber.shade700,
+        color: AppTheme.fatColor,
       ),
       _StatItem(
         icon: LucideIcons.shieldAlert,
@@ -46,8 +46,8 @@ class RelationshipStatsWidget extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
       decoration: BoxDecoration(
-        color: item.color.withValues(alpha: isDark ? 0.12 : 0.08),
-        borderRadius: BorderRadius.circular(12.r),
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: item.color.withValues(alpha: isDark ? 0.28 : 0.2),
         ),
@@ -63,7 +63,7 @@ class RelationshipStatsWidget extends StatelessWidget {
                 Text(
                   item.count.toString(),
                   style: TextStyle(
-                    color: item.color,
+                    color: context.textColor,
                     fontSize: 16.sp,
                     fontWeight: FontWeight.bold,
                     fontFamily: AppTheme.fontFamily,

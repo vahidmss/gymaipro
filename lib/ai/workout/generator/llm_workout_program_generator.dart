@@ -6,10 +6,14 @@ import 'package:gymaipro/ai/context/coach_context.dart';
 import 'package:gymaipro/ai/knowledge/workout_science.dart';
 import 'package:gymaipro/ai/services/ai_chat_availability.dart';
 import 'package:gymaipro/ai/services/openai_service.dart';
+import 'package:gymaipro/ai/exercise/models/exercise_profile_mapper.dart';
 import 'package:gymaipro/ai/workout/generator/llm_iran_gym_style.dart';
 import 'package:gymaipro/ai/workout/generator/llm_workout_catalog_curator.dart';
+import 'package:gymaipro/ai/workout/generator/llm_workout_science_brief.dart';
 import 'package:gymaipro/ai/workout/generator/llm_workout_program_sanitizer.dart';
 import 'package:gymaipro/ai/workout/generator/llm_workout_program_validator.dart';
+import 'package:gymaipro/ai/workout/generator/llm_workout_quality_gate.dart';
+import 'package:gymaipro/ai/workout_review/runtime/workout_review_runtime.dart';
 import 'package:gymaipro/ai/workout/labels/workout_session_labels.dart';
 import 'package:gymaipro/ai/workout/models/workout_day.dart';
 import 'package:gymaipro/ai/workout/models/workout_exercise.dart';
@@ -22,7 +26,7 @@ import 'package:uuid/uuid.dart';
 
 /// User-facing copy only — never leak validator/repair internals.
 const String llmWorkoutProgramUserFailureMessage =
-    'ساخت برنامه ممکن نشد. لطفاً دوباره تلاش کنید.';
+    'ساخت برنامه تموم نشد. دوباره «بساز» را بزن.';
 
 class LlmWorkoutProgramOutcome {
   const LlmWorkoutProgramOutcome.success(this.program) : errorMessage = null;
@@ -42,8 +46,8 @@ class LlmWorkoutProgramGenerator {
 
   final OpenAIService _openAi;
   static const _uuid = Uuid();
-  static const int _maxTokens = 4096;
-  static const Duration _timeout = Duration(seconds: 90);
+  static const int _maxTokens = 6000;
+  static const Duration _timeout = Duration(seconds: 150);
 
   Future<LlmWorkoutProgramOutcome> generate({
     required CoachContext context,
@@ -90,17 +94,15 @@ class LlmWorkoutProgramGenerator {
         );
       }
 
-      var current = _sanitize(
-        program,
-        curated: curatedList,
-      );
-      var issues = LlmWorkoutProgramValidator.validate(
+      var current = _localFix(program, curated: curatedList, context: context);
+      var issues = _validate(
         current,
-        allowedExerciseIds: allowedIds,
-        expectedDaysPerWeek: daysPerWeek,
+        allowedIds: allowedIds,
+        daysPerWeek: daysPerWeek,
+        context: context,
       );
 
-      // Up to two repair rounds — then sanitize again before final validate.
+      // Up to two repair rounds — then local volume/structure fix before final validate.
       for (var attempt = 0; attempt < 2 && issues.isNotEmpty; attempt++) {
         if (kDebugMode) {
           debugPrint(
@@ -124,31 +126,33 @@ class LlmWorkoutProgramGenerator {
           // Keep last sanitized attempt; try local sanitize-only pass below.
           break;
         }
-        current = _sanitize(repaired, curated: curatedList);
-        issues = LlmWorkoutProgramValidator.validate(
+        current = _localFix(repaired, curated: curatedList, context: context);
+        issues = _validate(
           current,
-          allowedExerciseIds: allowedIds,
-          expectedDaysPerWeek: daysPerWeek,
+          allowedIds: allowedIds,
+          daysPerWeek: daysPerWeek,
+          context: context,
         );
       }
 
       if (issues.isNotEmpty) {
-        // Final silent fix pass (no more LLM) — strip/fill from catalog.
-        current = _sanitize(current, curated: curatedList);
-        issues = LlmWorkoutProgramValidator.validate(
+        current = _localFix(current, curated: curatedList, context: context);
+        issues = _validate(
           current,
-          allowedExerciseIds: allowedIds,
-          expectedDaysPerWeek: daysPerWeek,
+          allowedIds: allowedIds,
+          daysPerWeek: daysPerWeek,
+          context: context,
         );
       }
 
-      // One more local pass if only leftover focus noise remains.
+      // One more local pass if leftover volume/focus noise remains.
       if (issues.isNotEmpty) {
-        current = _sanitize(current, curated: curatedList);
-        issues = LlmWorkoutProgramValidator.validate(
+        current = _localFix(current, curated: curatedList, context: context);
+        issues = _validate(
           current,
-          allowedExerciseIds: allowedIds,
-          expectedDaysPerWeek: daysPerWeek,
+          allowedIds: allowedIds,
+          daysPerWeek: daysPerWeek,
+          context: context,
         );
       }
 
@@ -160,6 +164,17 @@ class LlmWorkoutProgramGenerator {
           llmWorkoutProgramUserFailureMessage,
         );
       }
+
+      current = await _repairReviewIssues(
+        current: current,
+        prompt: prompt,
+        userId: userId,
+        context: context,
+        byId: byId,
+        daysPerWeek: daysPerWeek,
+        curatedList: curatedList,
+        allowedIds: allowedIds,
+      );
 
       return LlmWorkoutProgramOutcome.success(current);
     } on OpenAIException catch (e) {
@@ -179,6 +194,23 @@ class LlmWorkoutProgramGenerator {
     }
   }
 
+  WorkoutProgram _localFix(
+    WorkoutProgram program, {
+    required List<Exercise> curated,
+    required CoachContext context,
+  }) {
+    final sanitized = _sanitize(program, curated: curated);
+    return LlmWorkoutProgramSanitizer.meetWeeklyVolume(
+      sanitized,
+      curatedCatalog: curated,
+      goal: WorkoutScience.goalFromProfile(
+        context.goals,
+        '${_experience(context)} ${context.goals.join(' ')}',
+      ),
+      experience: _experience(context),
+    );
+  }
+
   WorkoutProgram _sanitize(
     WorkoutProgram program, {
     required List<Exercise> curated,
@@ -189,6 +221,88 @@ class LlmWorkoutProgramGenerator {
       curatedCatalog: curated,
       usedAcrossProgram: used,
     );
+  }
+
+  List<String> _validate(
+    WorkoutProgram program, {
+    required Set<int> allowedIds,
+    required int daysPerWeek,
+    required CoachContext context,
+  }) {
+    final experience = _experience(context);
+    return LlmWorkoutProgramValidator.validate(
+      program,
+      allowedExerciseIds: allowedIds,
+      expectedDaysPerWeek: daysPerWeek,
+      goal: WorkoutScience.goalFromProfile(
+        context.goals,
+        '$experience ${context.goals.join(' ')}',
+      ),
+      experience: experience,
+    );
+  }
+
+  Future<WorkoutProgram> _repairReviewIssues({
+    required WorkoutProgram current,
+    required String prompt,
+    required String userId,
+    required CoachContext context,
+    required Map<int, Exercise> byId,
+    required int daysPerWeek,
+    required List<Exercise> curatedList,
+    required Set<int> allowedIds,
+  }) async {
+    final notes = _reviewRepairNotes(current, context, curatedList);
+    if (notes.isEmpty) return current;
+
+    if (kDebugMode) {
+      debugPrint('[LlmWorkoutGen] review repair: $notes');
+    }
+
+    final repaired = await _requestAndParse(
+      prompt: _buildRepairPrompt(
+        originalPrompt: prompt,
+        issues: notes,
+        previousJson: jsonEncode(_compactProgramJson(current)),
+      ),
+      userId: userId,
+      context: context,
+      byId: byId,
+      daysPerWeek: daysPerWeek,
+    );
+    if (repaired == null) return current;
+
+    final sanitized = _localFix(repaired, curated: curatedList, context: context);
+    final issues = _validate(
+      sanitized,
+      allowedIds: allowedIds,
+      daysPerWeek: daysPerWeek,
+      context: context,
+    );
+    return issues.isEmpty ? sanitized : current;
+  }
+
+  List<String> _reviewRepairNotes(
+    WorkoutProgram program,
+    CoachContext context,
+    List<Exercise> curated,
+  ) {
+    try {
+      final review = const WorkoutReviewRuntime(enforceCoachV2Gate: false)
+          .review(
+            program: program,
+            context: context,
+            catalogProfiles: const ExerciseProfileMapper().fromExercises(
+              curated,
+            ),
+          );
+      return LlmWorkoutQualityGate.repairNotes(review);
+    } on Object catch (e) {
+      if (kDebugMode) {
+        debugPrint('[LlmWorkoutGen] review skipped: $e');
+      }
+      return const <String>[];
+    }
   }
 
   Future<WorkoutProgram?> _requestAndParse({
@@ -204,12 +318,12 @@ class LlmWorkoutProgramGenerator {
           'role': 'system',
           'content':
               'تو مربی حرفه‌ای بدنسازی هستی. فقط JSON معتبر برمی‌گردانی. '
-              'برنامه باید خلاقانه، متنوع و شخصی‌سازی‌شده باشد.',
+              'برنامه باید شخصی، ایمن نسبت به آسیب‌ها، و قابل اجرا در باشگاه ایران باشد.',
         },
         {'role': 'user', 'content': prompt},
       ],
-      model: AppConfig.aiDefaultModel,
-      temperature: 0.7,
+      model: AppConfig.aiWorkoutProgramModel,
+      temperature: 0.45,
       maxTokens: _maxTokens,
       responseFormat: const <String, dynamic>{'type': 'json_object'},
       requestTimeout: _timeout,
@@ -230,11 +344,10 @@ class LlmWorkoutProgramGenerator {
   }) {
     final days = _daysPerWeek(context);
     final experience = _experience(context);
-    final goals = context.goals.isEmpty
-        ? <String>['عمومی']
-        : context.goals;
+    final goals = context.goals.isEmpty ? <String>['عمومی'] : context.goals;
     final sessionMinutes = _sessionMinutes(context);
-    final intensity = context.preferences['desired_intensity']?.toString() ??
+    final intensity =
+        context.preferences['desired_intensity']?.toString() ??
         context.preferences['intensity']?.toString() ??
         'متوسط';
 
@@ -250,6 +363,11 @@ class LlmWorkoutProgramGenerator {
       experience: experience,
       goals: goals,
     );
+    final scienceBrief = LlmWorkoutScienceBrief.build(
+      context: context,
+      daysPerWeek: days,
+      experience: experience,
+    );
 
     return '''
 تو مربی باشگاه ایران هستی. برنامه‌ای بده که کاربر ایرانی در باشگاه معمولی بفهمد و دوست داشته باشد — شبیه برنامه‌های رایگان محبوب، نه حرکات غریب آزمایشگاهی.
@@ -263,6 +381,7 @@ class LlmWorkoutProgramGenerator {
 - اهداف: ${goals.join('، ')}
 - تجهیزات: ${context.equipment.join('، ')}
 - محدودیت‌ها/آسیب‌ها: ${context.restrictions.isEmpty ? 'ندارد' : context.restrictions.join('، ')}
+  (فهرست پایین از قبل از حرکات پرخطر برای این آسیب‌ها پاک شده؛ جایگزین ایمن بساز.)
 - روز در هفته: $days
 - مدت هر جلسه (دقیقه): $sessionMinutes
 - شدت مطلوب: $intensity
@@ -270,6 +389,8 @@ class LlmWorkoutProgramGenerator {
 
 ### سبک رایج در ایران (الگوی ذهنی — برنامه را از کاتالوگ بساز)
 $styleGuide
+
+$scienceBrief
 
 ### فهرست تمرینات مجاز (فقط از این‌ها)
 فرمت: [★رایج|]id|نام|عضله اصلی|تجهیزات
@@ -286,12 +407,13 @@ ${_sessionNamingGuide(days)}
    اگر نقش تکراری است شماره بگذار: بالاتنه ۱ / بالاتنه ۲ یا فشار ۱ / فشار ۲.
 3. هر جلسه قدرتی حداقل ۵ حرکت.
 4. ترتیب هر روز: عضله‌ها را پشت‌سرهم نگه دار (سینه→سینه، بعد سرشانه، بعد پشت‌بازو). شکم/زمان‌دار همیشه آخر. بین عضله‌ها نپر.
-5. روز فشار: حداکثر ۲ سینه + حداکثر ۲ سرشانه فشاری؛ حتماً ۱ پشت‌بازو؛ ممنوع زیربغل/پا/جلوبازو. پنج پرس پشت‌سرهم ممنوع.
+5. روز فشار: حداکثر ۳ سینه (۲ پرس + ۱ ایزوله مثل قفسه/کراس) و حداکثر ۲ سرشانه؛ حتماً ۱ پشت‌بازو. پنج پرس پشت‌سرهم ممنوع.
 6. روز کشش: پشت/زیربغل با هم، بعد جلوبازو، شکم آخر؛ ممنوع اسکوات/پا/سینه/پشت‌بازو.
 7. روز پا: چهارسر با هم → همسترینگ/باسن → ساق → شکم آخر؛ ممنوع سینه/زیربغل/سرشانه.
-8. ست‌ها معمولاً ۳ ست؛ تکرار متناسب هدف — همه را یکسان نکن.
+8. تعداد ست را از «نسخه علمی اجباری» بالا بگیر — برای ۳روزه روی مرکب ۴ ست بگذار تا حجم هفتگی کم نیاید.
 9. فقط exercise_id از فهرست؛ بین روزها حرکت تکراری نگذار.
 10. حرکات ★رایج را ترجیح بده وقتی موجودند.
+11. در notes ننویس «هر هفته ۲.۵ کیلو اضافه کن». کامل کردن ست/تکرار برنامه موفقیت است؛ افزایش وزنه فقط بعد از ثبات فرم.
 
 ### JSON خروجی (فقط همین)
 {
@@ -370,8 +492,7 @@ $previousJson
         final ex = Map<String, dynamic>.from(exItem);
         final providedId =
             int.tryParse(ex['exercise_id']?.toString() ?? '') ?? 0;
-        final providedName =
-            (ex['name'] ?? ex['tag'] ?? '').toString().trim();
+        final providedName = (ex['name'] ?? ex['tag'] ?? '').toString().trim();
 
         Exercise? catalogExercise = byId[providedId];
         if (catalogExercise == null && providedName.isNotEmpty) {
@@ -430,8 +551,9 @@ $previousJson
     ];
 
     final now = DateTime.now();
-    final programName =
-        (data['program_name'] ?? data['name'] ?? '').toString().trim();
+    final programName = (data['program_name'] ?? data['name'] ?? '')
+        .toString()
+        .trim();
 
     return WorkoutProgram(
       id: _uuid.v4(),
@@ -476,10 +598,9 @@ $previousJson
     for (final item in raw) {
       if (item is! Map) continue;
       final map = Map<String, dynamic>.from(item);
-      final time =
-          int.tryParse(
-            (map['time_seconds'] ?? map['timeSeconds'] ?? '').toString(),
-          );
+      final time = int.tryParse(
+        (map['time_seconds'] ?? map['timeSeconds'] ?? '').toString(),
+      );
       final reps = int.tryParse((map['reps'] ?? '').toString());
       if (preferTime || (time != null && time > 0 && reps == null)) {
         sets.add(

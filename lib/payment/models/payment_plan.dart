@@ -546,52 +546,27 @@ class PredefinedPlans {
     ),
   ];
 
-  /// طرح‌های اشتراک
+  /// طرح اشتراک مربی هوشمند — تک‌محصول (هم‌زبان با CoachPlanCatalog)
   static List<PaymentPlan> get subscriptions => [
     PaymentPlan(
-      id: 'monthly_basic',
-      name: 'Coach Pro',
-      shortDescription: 'مربی هوشمند برای تمرین روزمره',
+      id: 'coach_pro',
+      name: 'برنامه مربی هوشمند',
+      shortDescription: 'برنامه تمرینی منعطف با مربی هوشمند',
       fullDescription:
-          'برای کسی که می‌خواهد برنامه بگیرد، حین تمرین سؤال بپرسد و پیشرفت را پیگیری کند — بدون امکانات سازمانی.',
+          'یک برنامه تمرینی منعطف با مربی هوشمند — تا ۳۳ روز ساخت، اصلاح، '
+          'تمرین لایو و گفتگو در اختیارت است.',
       type: PaymentPlanType.subscription,
       accessLevel: PlanAccessLevel.basic,
-      price: 2000000, // 200 هزار تومان (ریال)
-      validityDays: 31,
-      features: [
-        'ساخت و ویرایش برنامه تمرینی با AI',
-        'چت با مربی هوشمند (سقف روزانه منطقی)',
-        'تحلیل جلسه و نکات بعد از تمرین',
-        'پیگیری وزن، استریک و پیشرفت',
-      ],
-      limitations: {'max_ai_requests': 5, 'max_programs': 10},
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    ),
-    PaymentPlan(
-      id: 'monthly_premium',
-      name: 'Ultimate AI',
-      shortDescription: 'همهٔ امکانات مربی + اولویت پشتیبانی',
-      fullDescription:
-          'دسترسی کامل‌تر به مربی هوشمند، تحلیل قوی‌تر، و پشتیبانی اولویت‌دار برای نسخهٔ جدی‌تر استفاده.',
-      type: PaymentPlanType.subscription,
-      accessLevel: PlanAccessLevel.premium,
-      price: 3500000, // 350 هزار تومان (ریال)
-      originalPrice: 4000000,
-      validityDays: 31,
+      price: 990000,
+      validityDays: 33,
       isPopular: true,
-      features: [
-        'همهٔ امکانات Coach Pro',
-        'سقف بالاتر گفتگو با مربی AI',
-        'تحلیل پیشرفته‌تر برنامه و ریکاوری',
-        'اولویت در پشتیبانی و بازخورد',
-        'دسترسی زودتر به قابلیت‌های جدید دمو',
+      features: const [
+        'ساخت برنامه تمرینی شخصی با هوش مصنوعی',
+        'اصلاح و تنظیم برنامه در طول دوره',
+        'تمرین امروز و لایو هوشمند',
+        'گفتگو و راهنمایی مربی',
+        'ریکاوری و بازبینی جلسه',
       ],
-      bonuses: {
-        'free_consultation': true,
-        'priority_support': true,
-        'exclusive_content': true,
-      },
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     ),

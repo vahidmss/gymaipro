@@ -30,16 +30,13 @@ class ProfileFormWidgets {
   static Widget buildFormSection(String title, List<Widget> children) {
     return Builder(
       builder: (context) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
         return Container(
           margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
           padding: EdgeInsets.fromLTRB(14.w, 12.h, 14.w, 8.h),
           decoration: BoxDecoration(
-            color: isDark ? AppTheme.darkCardColor : Colors.white,
-            borderRadius: BorderRadius.circular(14.r),
-            border: Border.all(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.2 : 0.22),
-            ),
+            color: context.cardColor,
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(color: context.separatorColor),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -48,7 +45,7 @@ class ProfileFormWidgets {
                 title,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  color: isDark ? AppTheme.goldColor : context.textColor,
+                  color: context.textColor,
                   fontSize: 14.sp,
                   fontWeight: FontWeight.w700,
                 ),
@@ -93,15 +90,11 @@ class ProfileFormWidgets {
               fillColor: context.veryDarkBackground,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(
-                  color: context.separatorColor,
-                ),
+                borderSide: BorderSide(color: context.separatorColor),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(
-                  color: context.separatorColor,
-                ),
+                borderSide: BorderSide(color: context.separatorColor),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
@@ -149,15 +142,11 @@ class ProfileFormWidgets {
               fillColor: context.veryDarkBackground,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(
-                  color: context.separatorColor,
-                ),
+                borderSide: BorderSide(color: context.separatorColor),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(
-                  color: context.separatorColor,
-                ),
+                borderSide: BorderSide(color: context.separatorColor),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
@@ -209,15 +198,11 @@ class ProfileFormWidgets {
               fillColor: context.veryDarkBackground,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(
-                  color: context.separatorColor,
-                ),
+                borderSide: BorderSide(color: context.separatorColor),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(
-                  color: context.separatorColor,
-                ),
+                borderSide: BorderSide(color: context.separatorColor),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
@@ -249,8 +234,9 @@ class ProfileFormWidgets {
         return Padding(
           padding: EdgeInsets.only(bottom: 16.h),
           child: DropdownButtonFormField<String>(
-            initialValue:
-                validOptions.contains(currentValue) ? currentValue : null,
+            initialValue: validOptions.contains(currentValue)
+                ? currentValue
+                : null,
             onChanged: onChanged,
             style: TextStyle(
               fontFamily: AppTheme.fontFamily,
@@ -270,15 +256,11 @@ class ProfileFormWidgets {
               fillColor: context.veryDarkBackground,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(
-                  color: context.separatorColor,
-                ),
+                borderSide: BorderSide(color: context.separatorColor),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(
-                  color: context.separatorColor,
-                ),
+                borderSide: BorderSide(color: context.separatorColor),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/academy/models/custom_music.dart';
@@ -9,6 +10,7 @@ import 'package:gymaipro/academy/services/music_upload_service.dart';
 import 'package:gymaipro/academy/services/cover_upload_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_dashboard/widgets/upload_progress_dialog.dart';
+import 'package:gymaipro/utils/web_safe_xfile_image.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -106,6 +108,14 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
   }
 
   Future<void> _pickAudio() async {
+    if (kIsWeb) {
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'آپلود فایل موزیک روی وب‌اپ پشتیبانی نمی‌شود. از اپ اندروید استفاده کنید.',
+        backgroundColor: AppTheme.goldColor,
+      );
+      return;
+    }
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.audio,
@@ -162,10 +172,12 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
       String? finalImageUrl = _uploadedImageUrl;
       if (_selectedImage != null && (_uploadedImageUrl == null || _uploadedImageUrl!.isEmpty)) {
         debugPrint('CustomMusicEditor: Image selected but not uploaded, uploading to download host now...');
-        
-        final imageFile = File(_selectedImage!.path);
-        final fileName = _selectedImage!.path.split('/').last;
-        final fileSize = await imageFile.length();
+
+        final coverBytes = await _selectedImage!.readAsBytes();
+        final fileName = _selectedImage!.name.isNotEmpty
+            ? _selectedImage!.name
+            : 'cover.jpg';
+        final fileSize = coverBytes.length;
         final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
 
         if (!mounted) return;
@@ -177,8 +189,9 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
         );
 
         try {
-          finalImageUrl = await _coverUploadService.uploadCover(
-            imageFile,
+          finalImageUrl = await _coverUploadService.uploadCoverBytes(
+            coverBytes,
+            fileName: fileName,
             onProgress: (progress) {
               String statusText;
               if (progress < 0.3) {
@@ -492,8 +505,8 @@ class _CustomMusicEditorScreenState extends State<CustomMusicEditorScreen> {
                             child: AspectRatio(
                               aspectRatio: 16 / 9,
                               child: _selectedImage != null
-                                  ? Image.file(
-                                      File(_selectedImage!.path),
+                                  ? WebSafeXFileImage(
+                                      file: _selectedImage!,
                                       fit: BoxFit.cover,
                                     )
                                   : Image.network(

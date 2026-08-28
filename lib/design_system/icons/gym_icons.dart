@@ -26,4 +26,6 @@ abstract final class GymIcons {
   static const IconData target = LucideIcons.target;
   static const IconData activity = LucideIcons.activity;
   static const IconData message = LucideIcons.messageCircle;
+  /// RTL back chevron (arrow points to the trailing side in Persian UI).
+  static const IconData back = LucideIcons.arrowRight;
 }

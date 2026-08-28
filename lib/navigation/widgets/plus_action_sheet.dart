@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/core/app_navigator.dart';
 import 'package:gymaipro/features/product_experience/navigation/workout_program_request_navigation.dart';
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
+import 'package:gymaipro/navigation/utils/app_role.dart';
 import 'package:gymaipro/profile/widgets/weight_widgets.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
@@ -13,13 +14,12 @@ import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// شیت اکشن مرکزی (+) — نقش‌محور، فقط ساخت/ثبت.
-Future<void> showPlusActionSheet(
-  BuildContext context, {
-  String? userRole,
-}) {
+Future<void> showPlusActionSheet(BuildContext context, {String? userRole}) {
   return showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.45),
+    useSafeArea: true,
     builder: (sheetContext) => _PlusActionSheet(userRole: userRole),
   );
 }
@@ -29,7 +29,8 @@ class _PlusActionSheet extends StatelessWidget {
 
   final String? userRole;
 
-  bool get _isTrainer => userRole == 'trainer' || userRole == 'admin';
+  bool get _isTrainer => AppRole.isTrainer(userRole);
+  bool get _isAdmin => AppRole.isAdmin(userRole);
 
   Future<void> _closeThen(
     BuildContext sheetContext,
@@ -90,7 +91,28 @@ class _PlusActionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final actions = _isTrainer
+    final actions = _isAdmin
+        ? <_PlusAction>[
+            _PlusAction(
+              icon: LucideIcons.shield,
+              title: 'ورود به پنل ادمین',
+              onTap: () => unawaited(
+                _closeThen(context, (nav) {
+                  Navigator.pushNamed(nav, '/admin-dashboard');
+                }),
+              ),
+            ),
+            _PlusAction(
+              icon: LucideIcons.arrowUpCircle,
+              title: 'درخواست‌های برداشت',
+              onTap: () => unawaited(
+                _closeThen(context, (nav) {
+                  Navigator.pushNamed(nav, '/admin-payout-requests');
+                }),
+              ),
+            ),
+          ]
+        : _isTrainer
         ? <_PlusAction>[
             _PlusAction(
               icon: LucideIcons.dumbbell,
@@ -157,16 +179,14 @@ class _PlusActionSheet extends StatelessWidget {
             _PlusAction(
               icon: LucideIcons.scale,
               title: 'ثبت وزن',
-              onTap: () => unawaited(
-                _closeThen(context, _logWeight),
-              ),
+              onTap: () => unawaited(_closeThen(context, _logWeight)),
             ),
           ];
 
     return Align(
       alignment: Alignment.bottomCenter,
       child: Material(
-        color: context.cardColor,
+        color: context.surfaceElevated,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
         child: SafeArea(
           top: false,
@@ -200,6 +220,10 @@ class _PlusActionSheet extends StatelessWidget {
                 for (final action in actions)
                   ListTile(
                     onTap: action.onTap,
+                    minTileHeight: 52.h,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16.r),
+                    ),
                     contentPadding: EdgeInsets.symmetric(horizontal: 4.w),
                     leading: Container(
                       width: 40.w,

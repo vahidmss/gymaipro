@@ -3,16 +3,29 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gymaipro/achievements/achievement_hooks.dart';
 import 'package:gymaipro/models/exercise.dart';
+import 'package:gymaipro/features/product_experience/active_program_catalog_service.dart';
 import 'package:gymaipro/features/product_experience/active_workout_session_service.dart';
+import 'package:gymaipro/features/product_experience/domain/coach_observation.dart';
+import 'package:gymaipro/features/product_experience/domain/session_debrief.dart';
 import 'package:gymaipro/features/product_experience/domain/workout_exercise_coach_feedback.dart';
+import 'package:gymaipro/features/session_analysis/application/session_analysis_assembler.dart';
+import 'package:gymaipro/features/session_analysis/application/session_analysis_completion_signals.dart';
+import 'package:gymaipro/features/session_analysis/application/session_analysis_store.dart';
+import 'package:gymaipro/features/session_analysis/application/workout_log_session_bridge.dart';
+import 'package:gymaipro/features/session_analysis/domain/session_analysis_eligibility.dart';
+import 'package:gymaipro/features/session_analysis/domain/session_analysis_snapshot.dart';
 import 'package:gymaipro/ranking/services/ranking_tracker_helper.dart';
 import 'package:gymaipro/services/active_program_service.dart';
 import 'package:gymaipro/services/muscle_heatmap_aggregate.dart';
 import 'package:gymaipro/services/custom_exercise_service.dart';
 import 'package:gymaipro/services/exercise_service.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/workout_log/models/previous_exercise_performance.dart';
 import 'package:gymaipro/workout_log/models/workout_program_log.dart';
+import 'package:gymaipro/workout_log/services/beginner_starter_program_service.dart';
 import 'package:gymaipro/workout_log/services/workout_program_log_service.dart';
+import 'package:gymaipro/workout_log/utils/program_log_date_bounds.dart';
+import 'package:gymaipro/workout_log/utils/workout_day_identity.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:gymaipro/workout_plan_builder/services/workout_program_service.dart';
 import 'package:shamsi_date/shamsi_date.dart';
@@ -38,6 +51,8 @@ class WorkoutLogViewModel extends ChangeNotifier {
   final Map<String, WorkoutExerciseCoachFeedback> _exerciseCoachFeedback = {};
   /// exercise catalog id → ست‌های آخرین جلسهٔ قبلی
   final Map<int, List<PreviousExerciseSet>> _previousSetsByExerciseId = {};
+  final Map<int, DateTime> _previousLogDateByExerciseId = {};
+  SessionAnalysisSnapshot? _dayAnalysis;
 
   bool _hasTodayLog = false;
   bool _isLoadingTodayLog = true;
@@ -69,6 +84,16 @@ class WorkoutLogViewModel extends ChangeNotifier {
   Jalali get selectedDate => _selectedDate;
   WorkoutProgram? get selectedProgram => _selectedProgram;
   WorkoutSession? get selectedSession => _selectedSession;
+
+  /// بازه مجاز تاریخ ثبت برای برنامهٔ فعال (از شروع مالکیت تا min(انقضا، امروز)).
+  ProgramLogDateBounds? get logDateBounds =>
+      ProgramLogDateBounds.forProgram(_selectedProgram);
+
+  bool isLogDateAllowed(Jalali date) {
+    final bounds = logDateBounds;
+    if (bounds == null) return true;
+    return bounds.containsJalali(date);
+  }
   Map<String, List<Map<String, TextEditingController>>>
   get exerciseControllers => _exerciseControllers;
   Map<String, List<bool>> get setSavedStatus => _setSavedStatus;
@@ -80,6 +105,15 @@ class WorkoutLogViewModel extends ChangeNotifier {
       _exerciseCoachFeedback;
   Map<int, List<PreviousExerciseSet>> get previousSetsByExerciseId =>
       _previousSetsByExerciseId;
+  Map<int, DateTime> get previousLogDateByExerciseId =>
+      _previousLogDateByExerciseId;
+  SessionAnalysisSnapshot? get dayAnalysis => _dayAnalysis;
+  bool get isAnalysisMode => _dayAnalysis != null;
+  Map<String, dynamic>? get _dayAnalysisJson {
+    final snapshot = _dayAnalysis;
+    if (snapshot == null) return null;
+    return Map<String, dynamic>.from(snapshot.toJson());
+  }
   bool get hasTodayLog => _hasTodayLog;
   bool get isLoadingTodayLog => _isLoadingTodayLog;
   bool get isLoadingDayLog => _isLoadingDayLog;
@@ -103,6 +137,230 @@ class WorkoutLogViewModel extends ChangeNotifier {
       if (status.any((s) => s)) return true;
     }
     return false;
+  }
+
+  SessionAnalysisProgramKind _analysisProgramKind =
+      SessionAnalysisProgramKind.unsupported;
+  bool _isFinishingAnalysis = false;
+
+  SessionAnalysisProgramKind get analysisProgramKind => _analysisProgramKind;
+  bool get isFinishingAnalysis => _isFinishingAnalysis;
+
+  bool get canFinishAndAnalyze =>
+      SessionAnalysisEligibility.canShowFinishCta(_analysisProgramKind) &&
+      hasAnySavedSet &&
+      _selectedSession != null;
+
+  /// Show finish chrome (enabled or disabled) once an eligible session is open.
+  bool get showFinishAndAnalyzeChrome =>
+      SessionAnalysisEligibility.canShowFinishCta(_analysisProgramKind) &&
+      _selectedSession != null;
+
+  Future<void> refreshAnalysisEligibility() async {
+    try {
+      final option =
+          await ActiveProgramCatalogService().getActiveProgramOption();
+      if (option != null) {
+        _analysisProgramKind =
+            SessionAnalysisEligibility.fromActiveOption(option);
+        _safeNotifyListeners();
+        return;
+      }
+    } on Object {
+      // Fall through to program flags.
+    }
+
+    final program = _selectedProgram;
+    if (program == null) {
+      _analysisProgramKind = SessionAnalysisProgramKind.unsupported;
+    } else if (program.isSelfServiceAi) {
+      _analysisProgramKind = SessionAnalysisProgramKind.aiSupervised;
+    } else if (_looksLikeStarterProgram(program)) {
+      _analysisProgramKind = SessionAnalysisProgramKind.starter;
+    } else {
+      // Starter programs are not isSelfServiceAi — detect via catalog list.
+      try {
+        final programs =
+            await ActiveProgramCatalogService().listWorkoutPrograms();
+        final match = programs.where((p) => p.id == program.id).toList();
+        if (match.isNotEmpty && match.first.isStarter) {
+          _analysisProgramKind = SessionAnalysisProgramKind.starter;
+        } else {
+          _analysisProgramKind = SessionAnalysisProgramKind.unsupported;
+        }
+      } on Object {
+        _analysisProgramKind = SessionAnalysisProgramKind.unsupported;
+      }
+    }
+    _safeNotifyListeners();
+  }
+
+  static bool _looksLikeStarterProgram(WorkoutProgram program) {
+    final name = program.name.trim();
+    return name == BeginnerStarterProgramService.programDisplayName ||
+        name.contains('شروع باشگاه');
+  }
+
+  void resumeSessionEditing() {
+    _dayAnalysis = null;
+    final generation = ++_dbSaveGeneration;
+    final sessionDay = _selectedSession?.day;
+    _safeNotifyListeners();
+    unawaited(
+      _clearPersistedDayAnalysis(
+        generation: generation,
+        sessionDay: sessionDay,
+      ),
+    );
+  }
+
+  Future<void> rememberAnalysisNarrative(String text) async {
+    final current = _dayAnalysis;
+    if (current == null || _isDisposed) return;
+    final trimmed = text.trim();
+    if (trimmed.isEmpty || current.coachNarrative == trimmed) return;
+    _dayAnalysis = current.copyWith(coachNarrative: trimmed);
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    await SessionAnalysisStore.save(
+      userId: user.id,
+      date: _selectedDateOnly,
+      snapshot: _dayAnalysis!,
+    );
+    final sessionDay = _selectedSession?.day;
+    if (sessionDay == null) return;
+    unawaited(
+      _persistSessionToDatabase(
+        sessionDay: sessionDay,
+        generation: _dbSaveGeneration,
+      ),
+    );
+  }
+
+  Future<void> _clearPersistedDayAnalysis({
+    required int generation,
+    required String? sessionDay,
+  }) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      await SessionAnalysisStore.clear(
+        userId: user.id,
+        date: _selectedDateOnly,
+      );
+    }
+    if (sessionDay == null || _isDisposed) return;
+    await _persistSessionToDatabase(
+      sessionDay: sessionDay,
+      generation: generation,
+    );
+  }
+
+  Future<void> _restoreDayAnalysis(WorkoutSessionLog sessionLog) async {
+    if (!SessionAnalysisEligibility.canShowFinishCta(_analysisProgramKind) ||
+        !_sessionLogHasSavedSets(sessionLog)) {
+      _dayAnalysis = null;
+      return;
+    }
+    final user = Supabase.instance.client.auth.currentUser;
+    final restored = await SessionAnalysisStore.load(
+      userId: user?.id ?? '',
+      date: _selectedDateOnly,
+      programId: _selectedProgram?.id ?? sessionLog.programId,
+      sessionDay: sessionLog.day,
+      embeddedJson: sessionLog.sessionAnalysis,
+    );
+    if (_isDisposed) return;
+    _dayAnalysis = restored;
+  }
+
+  /// Explicit finish for AI/starter programs → session analysis snapshot.
+  Future<SessionAnalysisSnapshot?> finishAndBuildAnalysis() async {
+    if (!canFinishAndAnalyze || _isFinishingAnalysis || _isDisposed) {
+      return null;
+    }
+    final planned = _selectedSession;
+    final program = _selectedProgram;
+    if (planned == null || program == null) return null;
+
+    _isFinishingAnalysis = true;
+    _safeNotifyListeners();
+    try {
+      _cancelPendingAutoSaves();
+      final generation = ++_dbSaveGeneration;
+      await _persistSessionToDatabase(
+        sessionDay: planned.day,
+        generation: generation,
+      );
+
+      final user = Supabase.instance.client.auth.currentUser;
+      final userId = user?.id ?? '';
+      final liveSession = WorkoutLogSessionBridge.buildSession(
+        planned: planned,
+        setSavedStatus: _setSavedStatus,
+        controllers: _exerciseControllers,
+        exerciseDetails: _exerciseDetails,
+        programId: program.id,
+        userId: userId.isEmpty ? null : userId,
+      );
+
+      final feedback = WorkoutLogSessionBridge.buildFeedbackMap(
+        session: liveSession,
+        previousByExerciseId: _previousSetsByExerciseId,
+      );
+      final debrief = SessionDebriefEngine.build(
+        session: liveSession,
+        feedbackByExerciseKey: feedback,
+      );
+      final observations = CoachObservationDetector.fromDebrief(debrief);
+
+      if (userId.isNotEmpty) {
+        await SessionAnalysisCompletionSignals.markCompleted(
+          userId: userId,
+          completedSets: liveSession.completedSets,
+        );
+      }
+
+      double? bodyWeightKg;
+      try {
+        final profile = await SimpleProfileService.getCurrentProfile();
+        bodyWeightKg = double.tryParse(profile?['weight']?.toString() ?? '');
+      } on Object {
+        bodyWeightKg = null;
+      }
+
+      final snapshot = SessionAnalysisAssembler.assemble(
+        session: liveSession,
+        programKind: _analysisProgramKind,
+        debrief: debrief,
+        exerciseById: Map<int, Exercise>.from(_exerciseDetails),
+        feedbackByExerciseKey: feedback,
+        previousByExerciseId:
+            Map<int, List<PreviousExerciseSet>>.from(_previousSetsByExerciseId),
+        previousLogDateByExerciseId:
+            Map<int, DateTime>.from(_previousLogDateByExerciseId),
+        observations: observations,
+        programTitle: program.name,
+        sessionDay: planned.day,
+        bodyWeightKg: bodyWeightKg,
+        synced: true,
+      );
+      _dayAnalysis = snapshot;
+      if (userId.isNotEmpty) {
+        await SessionAnalysisStore.save(
+          userId: userId,
+          date: _selectedDateOnly,
+          snapshot: snapshot,
+        );
+      }
+      await _persistSessionToDatabase(
+        sessionDay: planned.day,
+        generation: generation,
+      );
+      return snapshot;
+    } finally {
+      _isFinishingAnalysis = false;
+      _safeNotifyListeners();
+    }
   }
 
   ValueNotifier<int> exerciseListenable(String exerciseKey) {
@@ -312,7 +570,10 @@ class WorkoutLogViewModel extends ChangeNotifier {
 
   Future<void> initialize() async {
     await loadActiveProgram();
-    await checkLogForDate(_selectedDate);
+    await refreshAnalysisEligibility();
+    final bounds = logDateBounds;
+    final date = bounds?.clampJalali(_selectedDate) ?? _selectedDate;
+    await checkLogForDate(date);
   }
 
   Future<void> loadActiveProgram() async {
@@ -322,6 +583,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
       if (activeProgramId == null) {
         _selectedProgram = null;
         _selectedSession = null;
+        _analysisProgramKind = SessionAnalysisProgramKind.unsupported;
         _safeNotifyListeners();
         return;
       }
@@ -331,6 +593,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
       );
       _selectedProgram = program;
       _selectedSession = null;
+      await refreshAnalysisEligibility();
       _safeNotifyListeners();
 
       if (program != null && program.sessions.isNotEmpty) {
@@ -339,6 +602,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
     } catch (_) {
       _selectedProgram = null;
       _selectedSession = null;
+      _analysisProgramKind = SessionAnalysisProgramKind.unsupported;
       _safeNotifyListeners();
     }
   }
@@ -702,7 +966,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
     _autoSaveTimers.clear();
   }
 
-  /// لغو ثبت یک ست (پاک شدن فیلدها یا آن‌چک).
+  /// لغو ثبت یک ست (آن‌چک؛ مقادیر فیلدها دست نخورده می‌مانند).
   Future<void> clearSet(String exerciseId, int setIndex) async {
     final savedStatus = _setSavedStatus[exerciseId];
     final wasSaved =
@@ -793,16 +1057,8 @@ class WorkoutLogViewModel extends ChangeNotifier {
     }
   }
 
-  /// آن‌چک دستی: پاک‌کردن فیلدها + حذف از DB / هیت‌مپ.
+  /// آن‌چک دستی: فقط وضعیت ثبت برداشته می‌شود؛ مقادیر فیلدها می‌مانند.
   Future<void> unsaveSet(String exerciseId, int setIndex) async {
-    final controllers = _exerciseControllers[exerciseId];
-    if (controllers != null && controllers.length > setIndex) {
-      final c = controllers[setIndex];
-      c['weight']?.clear();
-      c['reps']?.clear();
-      c['time']?.clear();
-      c['rpe']?.clear();
-    }
     await clearSet(exerciseId, setIndex);
   }
 
@@ -834,6 +1090,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
     }
 
     final details = _exerciseDetails[resolved.exerciseId];
+    final previous = _previousSetsByExerciseId[resolved.exerciseId];
     final feedback = WorkoutExerciseCoachFeedbackEngine.fromControllers(
       prescription: resolved.sets,
       setValues: controllers
@@ -852,6 +1109,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
         tips: details?.tips ?? const <String>[],
         programNote: resolved.note,
       ),
+      previousSets: previous,
     );
 
     if (feedback == null) {
@@ -916,6 +1174,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
   }) async {
     try {
       if (!_isDbSaveStillValid(generation, sessionDay)) return;
+      if (!isLogDateAllowed(_selectedDate)) return;
 
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null ||
@@ -987,20 +1246,54 @@ class WorkoutLogViewModel extends ChangeNotifier {
       if (user == null || _selectedSession == null) return;
 
       final activeDay = sessionDay;
-      var activeFound = false;
+      final incoming = _buildCurrentSessionLog();
+      if (!WorkoutDayIdentity.canUpsertSession(
+        existing: dailyLog,
+        incoming: incoming,
+      )) {
+        debugPrint(
+          'Day workout identity conflict — refuse dashboard save '
+          '(existing program/day differs from active selection).',
+        );
+        return;
+      }
 
+      var activeFound = false;
       final updatedSessions = <WorkoutSessionLog>[];
       for (final session in dailyLog.sessions) {
-        if (session.day == activeDay) {
+        final sameDay = session.day == activeDay;
+        final sessionProgram = session.programId?.trim() ?? '';
+        final selectedProgram = _selectedProgram?.id.trim() ?? '';
+        final sameProgram = sessionProgram.isEmpty ||
+            selectedProgram.isEmpty ||
+            sessionProgram == selectedProgram;
+        if (sameDay && sameProgram) {
           activeFound = true;
-          updatedSessions.add(_buildCurrentSessionLog(existingId: session.id));
+          updatedSessions.add(
+            _buildCurrentSessionLog(existingId: session.id),
+          );
+        } else if (!sessionHasMeaningfulSets(session)) {
+          // Drop empty shells so they cannot become a second identity.
+          continue;
         } else {
+          // Should be unreachable when canUpsertSession is true.
           updatedSessions.add(session);
         }
       }
 
       if (!activeFound) {
-        updatedSessions.add(_buildCurrentSessionLog());
+        updatedSessions
+          ..clear()
+          ..add(incoming);
+      } else if (updatedSessions.length > 1) {
+        // Collapse to the active identity only.
+        final active = updatedSessions.firstWhere(
+          (s) => s.day == activeDay,
+          orElse: () => incoming,
+        );
+        updatedSessions
+          ..clear()
+          ..add(active);
       }
 
       final updatedDailyLog = WorkoutDailyLog(
@@ -1042,6 +1335,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
       exercises: _buildExerciseLogs(),
       notes: _selectedSession!.notes,
       programId: _selectedProgram?.id,
+      sessionAnalysis: _dayAnalysisJson,
     );
 
     final dailyLog = WorkoutDailyLog(
@@ -1258,6 +1552,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
       exercises: _buildExerciseLogs(),
       notes: _selectedSession?.notes,
       programId: _selectedProgram?.id,
+      sessionAnalysis: _dayAnalysisJson,
     );
   }
 
@@ -1267,7 +1562,9 @@ class WorkoutLogViewModel extends ChangeNotifier {
     disposeControllers();
     bumpSessionHeatmapPreview();
     _selectedSession = null;
+    _dayAnalysis = null;
     _previousSetsByExerciseId.clear();
+    _previousLogDateByExerciseId.clear();
     _clearLoggedSessionMeta();
     _hasTodayLog = false;
     _collapsedExercises.clear();
@@ -1279,6 +1576,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
     final user = Supabase.instance.client.auth.currentUser;
     if (session == null || user == null) {
       _previousSetsByExerciseId.clear();
+      _previousLogDateByExerciseId.clear();
       return;
     }
 
@@ -1295,6 +1593,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
 
     if (ids.isEmpty) {
       _previousSetsByExerciseId.clear();
+      _previousLogDateByExerciseId.clear();
       return;
     }
 
@@ -1304,26 +1603,40 @@ class WorkoutLogViewModel extends ChangeNotifier {
         _selectedDateOnly,
       );
       if (_isDisposed) return;
-      final mapped = PreviousExercisePerformance.fromLogs(
+      final mapped = PreviousExercisePerformance.fromLogsWithMeta(
         logs: logs,
         exerciseIds: ids,
       );
       _previousSetsByExerciseId
         ..clear()
-        ..addAll(mapped);
+        ..addAll({
+          for (final e in mapped.entries) e.key: e.value.sets,
+        });
+      _previousLogDateByExerciseId
+        ..clear()
+        ..addAll({
+          for (final e in mapped.entries)
+            if (e.value.logDate != null) e.key: e.value.logDate!,
+        });
     } catch (e) {
       debugPrint('Error loading previous exercise performance: $e');
-      if (!_isDisposed) _previousSetsByExerciseId.clear();
+      if (!_isDisposed) {
+        _previousSetsByExerciseId.clear();
+        _previousLogDateByExerciseId.clear();
+      }
     }
   }
 
   /// تغییر تاریخ تقویم: فرم خالی + بارگذاری لاگ همان روز (در صورت وجود).
-  Future<void> changeSelectedDate(Jalali date) async {
+  /// اگر خارج از بازهٔ برنامه باشد، هیچ کاری نمی‌کند و `false` برمی‌گرداند.
+  Future<bool> changeSelectedDate(Jalali date) async {
+    if (!isLogDateAllowed(date)) return false;
+
     final sameDay =
         date.year == _selectedDate.year &&
         date.month == _selectedDate.month &&
         date.day == _selectedDate.day;
-    if (sameDay) return;
+    if (sameDay) return true;
 
     _awaitingSessionPickAfterDateChange = true;
     await checkLogForDate(
@@ -1334,6 +1647,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
     if (_selectedSession != null && _hasLoggedSessionOnSelectedDate) {
       _awaitingSessionPickAfterDateChange = false;
     }
+    return true;
   }
 
   Future<void> checkLogForDate(
@@ -1593,6 +1907,8 @@ class WorkoutLogViewModel extends ChangeNotifier {
       }
     }
 
+    await _restoreDayAnalysis(sessionLog);
+
     _isLoadingData = false;
     _applyFocusAccordion();
     _refreshAllExerciseCoachFeedback();
@@ -1676,6 +1992,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
     if (session == null) {
       _selectedSession = null;
       _previousSetsByExerciseId.clear();
+      _previousLogDateByExerciseId.clear();
       disposeControllers();
       bumpSessionHeatmapPreview();
       _safeNotifyListeners();
@@ -1684,6 +2001,7 @@ class WorkoutLogViewModel extends ChangeNotifier {
 
     _awaitingSessionPickAfterDateChange = false;
     _isLoadingData = true;
+    _dayAnalysis = null;
     _selectedSession = session;
     initExerciseControllers();
     await loadExerciseDetails();

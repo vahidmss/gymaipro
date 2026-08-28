@@ -131,8 +131,12 @@ class _ExerciseTrainerPaneState extends State<ExerciseTrainerPane> {
         }
 
         final data = snapshot.data;
-        if (data == null) {
-          return const ExerciseShimmerGrid();
+        if (snapshot.hasError || data == null) {
+          return const ExerciseEmptyView(
+            icon: LucideIcons.wifiOff,
+            title: 'تمرینات مربی بارگذاری نشد',
+            subtitle: 'اتصال را بررسی کنید و دوباره تلاش کنید.',
+          );
         }
 
         switch (data.kind) {

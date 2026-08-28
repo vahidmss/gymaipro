@@ -29,12 +29,8 @@ class _TrainerContentTabState extends State<TrainerContentTab> {
               color: isDark
                   ? context.veryDarkBackground
                   : AppTheme.lightSurfaceColor,
-              borderRadius: BorderRadius.circular(14.r),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.black.withValues(alpha: 0.06),
-              ),
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: context.separatorColor),
             ),
             child: Padding(
               padding: EdgeInsets.all(4.w),
@@ -64,10 +60,7 @@ class _TrainerContentTabState extends State<TrainerContentTab> {
         Expanded(
           child: IndexedStack(
             index: _segment,
-            children: const [
-              CustomExercisesTab(),
-              CustomMusicsTab(),
-            ],
+            children: const [CustomExercisesTab(), CustomMusicsTab()],
           ),
         ),
       ],
@@ -96,15 +89,16 @@ class _SegmentChip extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(12.r),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
+          constraints: BoxConstraints(minHeight: 44.h),
           padding: EdgeInsets.symmetric(vertical: 10.h),
           decoration: BoxDecoration(
             color: selected
                 ? AppTheme.goldColor.withValues(alpha: isDark ? 0.22 : 0.18)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(10.r),
+            borderRadius: BorderRadius.circular(12.r),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,

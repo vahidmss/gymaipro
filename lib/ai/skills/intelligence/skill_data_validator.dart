@@ -186,10 +186,12 @@ class SkillDataValidator {
     final recovery = context.preferences['recovery'];
     final recoveryScore = context.preferences['recovery_score'];
     final sleepHours = context.preferences['bb_sleep_hours'];
+    final lastNightSleep = context.preferences['last_night_sleep_hours'];
     final days = context.preferences['days_since_last_workout'];
     return recovery != null ||
         recoveryScore != null ||
         sleepHours != null ||
+        lastNightSleep != null ||
         days != null;
   }
 

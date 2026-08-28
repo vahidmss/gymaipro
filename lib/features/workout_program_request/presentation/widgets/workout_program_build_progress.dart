@@ -29,11 +29,11 @@ class _WorkoutProgramBuildProgressState
     extends State<WorkoutProgramBuildProgress>
     with SingleTickerProviderStateMixin {
   static const List<String> _stages = <String>[
-    'در حال جمع‌آوری داده‌های تو…',
+    'در حال جمع‌آوری اطلاعات تو…',
     'تحلیل هدف، تجهیزات و سطح تجربه…',
     'طراحی جلسات تمرینی شخصی‌سازی‌شده…',
-    'انتخاب حرکات مناسب از کاتالوگ…',
-    'بهینه‌سازی ست‌ها و ترتیب تمرین…',
+    'انتخاب حرکات مناسب برای تو…',
+    'تنظیم ست‌ها و ترتیب تمرین…',
     'داره برنامه نهایی آماده می‌شه…',
   ];
 

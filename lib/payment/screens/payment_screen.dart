@@ -519,38 +519,24 @@ class _PaymentScreenState extends State<PaymentScreen> {
             },
           ),
 
-        // انتخاب درگاه پرداخت
+        // پرداخت آنلاین فقط از طریق زیبال
         if (_selectedPaymentMethod == PaymentMethod.direct ||
             _selectedPaymentMethod == PaymentMethod.mixed) ...[
           const SizedBox(height: 24),
           Text(
             'درگاه پرداخت',
             style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+              fontFamily: AppTheme.fontFamily,
               fontSize: 16.sp,
               fontWeight: FontWeight.bold,
               color: AppTheme.goldColor,
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildGatewayOption(
-                  PaymentGateway.zibal,
-                  'زیبال',
-                  'assets/images/zibal_logo.png',
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildGatewayOption(
-                  PaymentGateway.zarinpal,
-                  'زرین‌پال',
-                  'assets/images/zarinpal_logo.png',
-                ),
-              ),
-            ],
+          _buildGatewayOption(
+            PaymentGateway.zibal,
+            'زیبال',
+            'assets/images/zibal_logo.png',
           ),
         ],
       ],

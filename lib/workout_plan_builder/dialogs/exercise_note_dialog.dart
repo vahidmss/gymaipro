@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/text_controller_utils.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -28,18 +29,26 @@ class _ExerciseNoteDialogState extends State<ExerciseNoteDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Dialog(
       backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.all(20.w),
       child: Container(
-        padding: EdgeInsets.all(24.w),
+        padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1310),
-          borderRadius: BorderRadius.circular(20.r),
+          color: isDark ? context.backgroundColor : context.cardColor,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.1),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 16.r,
-              offset: Offset(0.w, 8.h),
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.25)
+                  : Colors.black.withValues(alpha: 0.06),
+              blurRadius: 12.r,
+              offset: Offset(0, 4.h),
             ),
           ],
         ),
@@ -49,76 +58,137 @@ class _ExerciseNoteDialogState extends State<ExerciseNoteDialog> {
           children: [
             Row(
               children: [
-                const Icon(
-                  LucideIcons.messageCircle,
-                  color: Colors.amber,
-                  size: 28,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'یادداشت حرکت',
-                  style: TextStyle(
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber,
+                Expanded(
+                  child: Text(
+                    'یادداشت حرکت',
+                    style: TextStyle(
+                      fontFamily: AppTheme.fontFamily,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      color: context.textColor,
+                    ),
                   ),
                 ),
-                const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.amber),
                   onPressed: () => Navigator.of(context).pop(),
+                  icon: Icon(
+                    LucideIcons.x,
+                    size: 18.sp,
+                    color: context.textColor.withValues(alpha: 0.55),
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 12.h),
             TextField(
               controller: _controller,
               maxLines: 4,
-              minLines: 2,
+              minLines: 3,
               maxLength: 100,
+              textDirection: TextDirection.rtl,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                color: context.textColor,
+                fontSize: 14.sp,
+              ),
               decoration: InputDecoration(
-                hintText: 'یادداشت خود را وارد کنید... (مثلاً: وزن را کم کنید)',
-                hintStyle: const TextStyle(color: Colors.amberAccent),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12.r),
+                hintText:
+                    'یادداشت خود را وارد کنید... (مثلاً: وزن را کم کنید)',
+                hintStyle: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  color: context.textColor.withValues(alpha: 0.4),
+                ),
+                counterStyle: TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontSize: 11.sp,
+                  color: context.textColor.withValues(alpha: 0.4),
                 ),
                 filled: true,
-                fillColor: Colors.black.withValues(alpha: 0.1),
+                fillColor: isDark
+                    ? AppTheme.darkCardColor
+                    : AppTheme.lightButtonBackground,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(
+                    color: isDark
+                        ? AppTheme.darkGreySeparator
+                        : AppTheme.lightDividerColor,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(
+                    color: isDark
+                        ? AppTheme.darkGreySeparator
+                        : AppTheme.lightDividerColor,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: BorderSide(
+                    color: AppTheme.goldColor.withValues(alpha: 0.7),
+                  ),
+                ),
+                contentPadding: EdgeInsets.all(12.w),
               ),
-              style: const TextStyle(color: Colors.amber),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 14.h),
             Row(
               children: [
                 Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: context.textColor.withValues(
+                        alpha: 0.7,
+                      ),
+                      side: BorderSide(
+                        color: isDark
+                            ? AppTheme.darkGreySeparator
+                            : AppTheme.lightDividerColor,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10.r),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      'انصراف',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14.sp,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber[700],
-                      foregroundColor: Colors.black,
+                      backgroundColor: AppTheme.goldColor,
+                      foregroundColor: AppTheme.onGoldColor,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r),
+                        borderRadius: BorderRadius.circular(10.r),
                       ),
+                      padding: EdgeInsets.symmetric(vertical: 12.h),
                     ),
                     onPressed: () {
                       if (_controller.isSafe) {
                         Navigator.of(context).pop(_controller.safeText.trim());
                       }
                     },
-                    child: const Text('ثبت یادداشت'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.amber[200],
-                      side: const BorderSide(color: Colors.amber),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r),
+                    child: Text(
+                      'ثبت یادداشت',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14.sp,
                       ),
                     ),
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('انصراف'),
                   ),
                 ),
               ],

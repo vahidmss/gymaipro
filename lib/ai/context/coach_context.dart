@@ -22,6 +22,7 @@ class CoachContext {
     this.activeProgram,
     this.workoutHistory = const <WorkoutDailyLog>[],
     this.weeklyHeatmap,
+    this.nutrition = const <String, Object?>{},
     this.memories = const <CoachMemory>[],
     this.apiUsage = const <String, Object?>{},
     this.currentQuestion,
@@ -52,7 +53,13 @@ class CoachContext {
   static const Set<String> _profileKeys = <String>{
     'age',
     'height',
+    'height_cm',
     'weight',
+    'weight_kg',
+    'bmi',
+    'bmi_category',
+    'body_fat',
+    'body_fat_percent',
     'first_name',
     'last_name',
     'gender',
@@ -101,6 +108,9 @@ class CoachContext {
 
   /// Weekly muscle heatmap snapshot.
   final WeeklyMuscleHeatmapResult? weeklyHeatmap;
+
+  /// Nutrition snapshot: macro targets, today's logged intake, meal plan.
+  final Map<String, Object?> nutrition;
 
   /// Read-only coach memories included in this package.
   final List<CoachMemory> memories;
@@ -166,6 +176,7 @@ class CoachContext {
       activeProgram: activeProgram,
       workoutHistory: workoutHistory,
       weeklyHeatmap: weeklyHeatmap,
+      nutrition: nutrition,
       memories: memories,
       apiUsage: apiUsage,
       currentQuestion: currentQuestion,

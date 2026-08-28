@@ -9,11 +9,14 @@ enum CoachPromptSectionType {
   memory,
   conversation,
   userProfile,
+  userCard,
   goals,
   restrictions,
   equipment,
   workout,
   heatmap,
+  nutrition,
+  preferences,
   state,
   currentQuestion,
   strategy,
@@ -97,6 +100,8 @@ class CoachPromptSection {
         return PromptSectionType.conversation;
       case CoachPromptSectionType.userProfile:
         return PromptSectionType.profile;
+      case CoachPromptSectionType.userCard:
+        return PromptSectionType.profile;
       case CoachPromptSectionType.goals:
         return PromptSectionType.goals;
       case CoachPromptSectionType.restrictions:
@@ -107,6 +112,10 @@ class CoachPromptSection {
         return PromptSectionType.workout;
       case CoachPromptSectionType.heatmap:
         return PromptSectionType.heatmap;
+      case CoachPromptSectionType.nutrition:
+        return PromptSectionType.nutrition;
+      case CoachPromptSectionType.preferences:
+        return PromptSectionType.preferences;
       case CoachPromptSectionType.state:
         return PromptSectionType.state;
       case CoachPromptSectionType.currentQuestion:

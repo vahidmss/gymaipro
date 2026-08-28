@@ -12,18 +12,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// سرویس AI — مسیر proxy (`openai-chat`) یا مستقیم کلاینت بسته به OPENAI_USE_PROXY.
 class OpenAIService {
   OpenAIService({ChatSettings? settings})
-    : _settings =
-          settings ??
-          const ChatSettings(
-            maxTokens: 2000,
-          );
+    : _settings = settings ?? const ChatSettings(maxTokens: 2000);
 
   String get _apiKey => AppConfig.openaiApiKey;
 
   bool get _useServerProxy => AiEngineConfig.usesServerProxyRoute;
 
-  bool get _canUseDirect =>
-      !AppConfig.openaiUseProxy && _apiKey.isNotEmpty;
+  bool get _canUseDirect => !AppConfig.openaiUseProxy && _apiKey.isNotEmpty;
 
   final ChatSettings _settings;
 
@@ -196,9 +191,7 @@ class OpenAIService {
         }
 
         final errorMessage = _extractErrorMessage(response.body);
-        throw OpenAIException(
-          'خطا در ارتباط با AI: $errorMessage',
-        );
+        throw OpenAIException('خطا در ارتباط با AI: $errorMessage');
       } catch (e) {
         lastError = e;
         if (e is OpenAIException || !_isRetryableNetworkError(e)) {
@@ -331,17 +324,11 @@ class OpenAIService {
     return apiMessages;
   }
 
-  Future<http.Response> _getDirect(
-    Uri uri, {
-    required Duration timeout,
-  }) async {
+  Future<http.Response> _getDirect(Uri uri, {required Duration timeout}) async {
     final client = createOpenAiHttpClient();
     try {
       return await client
-          .get(
-            uri,
-            headers: {'Authorization': 'Bearer $_apiKey'},
-          )
+          .get(uri, headers: {'Authorization': 'Bearer $_apiKey'})
           .timeout(timeout);
     } finally {
       client.close();
@@ -372,7 +359,7 @@ class OpenAIService {
 
   Future<List<String>> getAvailableModels() async {
     if (_useServerProxy) {
-      return [AppConfig.aiDefaultModel, AppConfig.aiReasoningModel];
+      return [AppConfig.aiDefaultModel, AppConfig.aiWorkoutProgramModel];
     }
 
     try {
@@ -412,50 +399,5 @@ class OpenAIException implements Exception {
   String toString() => 'OpenAIException: $message';
 }
 
-class GymAIPrompts {
-  static const String defaultPrompt = '''
-شما یک مربی ورزشی و متخصص تغذیه هوش مصنوعی هستید که به کاربران در زمینه‌های زیر کمک می‌کنید:
-
-1. **راهنمایی تمرینی**: توضیح تکنیک، ایمنی و نکات کوتاه تمرین
-2. **تغذیه ورزشی**: راهنمایی کلی (نه رژیم کامل) برای ورزشکاران
-3. **تکنیک‌های تمرین**: آموزش صحیح انجام حرکات ورزشی
-4. **انگیزه و مشاوره**: ارائه انگیزه و راهنمایی برای رسیدن به اهداف
-
-**قوانین مهم:**
-- همیشه پاسخ‌های خود را به فارسی ارائه دهید
-- هرگز برنامه کامل تمرینی یا غذایی/رژیمی داخل چت ننویسید
-- اگر کاربر خواست برنامه کامل، او را به بخش «مربیان» یا «مربی هوشمند → درخواست برنامه» هدایت کنید
-- از اصطلاحات تخصصی ورزشی استفاده کنید اما توضیح دهید
-- ایمنی کاربر را در اولویت قرار دهید
-- در صورت نیاز به مشاوره پزشکی، کاربر را به پزشک ارجاع دهید
-- پاسخ‌های خود را کوتاه و مفید نگه دارید
-
-**سبک پاسخ‌دهی:**
-- دوستانه و انگیزه‌بخش
-- علمی اما قابل فهم
-- عملی و قابل اجرا
-- مثبت و تشویق‌کننده
-''';
-
-  static const String workoutPrompt = '''
-شما یک مربی ورزشی حرفه‌ای هستید. در پاسخ‌های خود:
-
-1. **تکنیک**: نحوه صحیح انجام حرکات را توضیح دهید
-2. **ایمنی**: نکات ایمنی مهم را ذکر کنید
-3. **پیشرفت**: راه‌های بهبود و پیشرفت را پیشنهاد دهید
-4. **ممنوع**: برنامه کامل تمرینی ننویسید؛ کاربر را به بخش مربیان یا درخواست برنامه مربی هوشمند هدایت کنید
-
-همیشه سطح تجربه کاربر را در نظر بگیرید.
-''';
-
-  static const String nutritionPrompt = '''
-شما یک متخصص تغذیه ورزشی هستید. در پاسخ‌های خود:
-
-1. **راهنمایی کلی**: نکات کوتاه تغذیه ورزشی بدهید
-2. **مکمل‌ها**: در مورد مکمل‌های ورزشی راهنمایی کنید
-3. **هیدراتاسیون**: اهمیت آب و مایعات را توضیح دهید
-4. **ممنوع**: رژیم/برنامه غذایی کامل ننویسید؛ برای برنامه کامل به بخش مربیان ارجاع دهید
-
-همیشه نیازهای فردی کاربر را در نظر بگیرید و توصیه‌های عملی ارائه دهید.
-''';
-}
+// NOTE: legacy GymAIPrompts templates were removed — the live system prompt
+// is built by CoachPromptPlanner + PromptPackageRenderer (Coach v2).

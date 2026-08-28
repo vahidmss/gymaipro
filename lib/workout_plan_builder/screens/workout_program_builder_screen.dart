@@ -1173,7 +1173,7 @@ class _WorkoutProgramBuilderScreenState
                                         set.reps = set.reps ?? 10;
                                         set.timeSeconds = null;
                                       } else {
-                                        set.timeSeconds = set.timeSeconds ?? 30;
+                                        set.timeSeconds = set.timeSeconds ?? 60;
                                         set.reps = null;
                                       }
                                     }
@@ -1205,7 +1205,7 @@ class _WorkoutProgramBuilderScreenState
                                             timeSeconds:
                                                 exercise.style ==
                                                     ExerciseStyle.setsTime
-                                                ? (last?.timeSeconds ?? 30)
+                                                ? (last?.timeSeconds ?? 60)
                                                 : null,
                                             weight: last?.weight ?? 0,
                                           ),
@@ -1310,7 +1310,7 @@ class _WorkoutProgramBuilderScreenState
                                           set.timeSeconds = null;
                                         } else {
                                           set.timeSeconds =
-                                              set.timeSeconds ?? 30;
+                                              set.timeSeconds ?? 60;
                                           set.reps = null;
                                         }
                                       }
@@ -1354,7 +1354,7 @@ class _WorkoutProgramBuilderScreenState
                                                       supersetItem.style ==
                                                           ExerciseStyle.setsTime
                                                       ? (last?.timeSeconds ??
-                                                            30)
+                                                            60)
                                                       : null,
                                                   weight: last?.weight ?? 0,
                                                 ),

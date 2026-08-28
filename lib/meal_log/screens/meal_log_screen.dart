@@ -27,10 +27,12 @@ import 'package:gymaipro/meal_log/widgets/amount_keypad_sheet.dart';
 import 'package:gymaipro/widgets/food_serving_amount_sheet.dart';
 import 'package:gymaipro/meal_log/widgets/meal_log_app_bar.dart';
 import 'package:gymaipro/meal_log/widgets/meals_list_widget.dart';
+import 'package:gymaipro/meal_log/widgets/nutrition_goal_sheet.dart';
 import 'package:gymaipro/meal_log/widgets/substitute_food_dialog.dart';
 import 'package:gymaipro/meal_log/widgets/supplement_card.dart';
 import 'package:gymaipro/meal_log/widgets/trainer_supervision_card.dart';
 import 'package:gymaipro/meal_log/widgets/water_intake_strip.dart';
+import 'package:gymaipro/meal_log/services/nutrition_goal_service.dart';
 import 'package:gymaipro/meal_log/services/water_log_service.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/models/meal_plan.dart';
@@ -145,17 +147,23 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
     final cacheService = DashboardCacheService();
     try {
       // بررسی کش برای profile data
-      final Map<String, dynamic>? cachedProfileData = cacheService
-          .getProfileData();
-      if (cachedProfileData != null) {
-        if (_profileData == null) {
+      if (!force) {
+        final Map<String, dynamic>? cachedProfileData = cacheService
+            .getProfileData();
+        if (cachedProfileData != null) {
+          final merged = await NutritionGoalService.mergeLocalGoalIntoProfile(
+            Map<String, dynamic>.from(cachedProfileData),
+          );
+          cacheService.setProfileData(merged);
           SafeSetState.call(this, () {
-            _profileData = cachedProfileData;
+            _profileData = merged;
           });
           _refreshMealIntelligence();
+          _profileInitialized = true;
+          return;
         }
-        _profileInitialized = true;
-        return;
+      } else {
+        cacheService.invalidateDashboard();
       }
 
       // بارگذاری از API
@@ -177,12 +185,15 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
         }
 
         final builtProfileData = _buildProfileData(profileData, latestWeight);
+        final merged = await NutritionGoalService.mergeLocalGoalIntoProfile(
+          Map<String, dynamic>.from(builtProfileData),
+        );
 
         // ذخیره در کش
-        cacheService.setProfileData(builtProfileData);
+        cacheService.setProfileData(merged);
 
         SafeSetState.call(this, () {
-          _profileData = builtProfileData;
+          _profileData = merged;
         });
         _refreshMealIntelligence();
       }
@@ -225,7 +236,43 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
       'avatar_url': profileData['avatar_url'] ?? '',
       'role': profileData['role'] ?? 'athlete',
       'latest_weight': latestWeight,
+      'nutrition_goal_mode': profileData['nutrition_goal_mode'],
+      'target_weight_kg': profileData['target_weight_kg'],
+      'weekly_rate_kg': profileData['weekly_rate_kg'],
+      'calorie_goal_kcal': profileData['calorie_goal_kcal'],
+      'calorie_goal_source': profileData['calorie_goal_source'],
+      'calorie_goal_updated_at': profileData['calorie_goal_updated_at'],
+      'goal_reached_at': profileData['goal_reached_at'],
     };
+  }
+
+  Future<void> _openNutritionGoal() async {
+    final saved = await NutritionGoalSheet.show(
+      context,
+      profileData: _profileData,
+    );
+    if (!mounted || saved != true) return;
+
+    await _loadProfileData(force: true);
+    if (!mounted) return;
+
+    final reached = await NutritionGoalService().checkGoalReached(
+      profileOverride: _profileData,
+    );
+    if (!mounted) return;
+
+    if (reached != null) {
+      await _loadProfileData(force: true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'آفرین! به وزن هدف رسیدی. از الان هدف حفظ وزن '
+            '(${reached.next.calorieGoalKcal} کالری) فعال شد.',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _syncAllLocalLogsAndLoad() async {
@@ -736,6 +783,7 @@ class _FoodLogScreenState extends State<FoodLogScreen> {
                                               referenceTime: _isTodaySelected
                                                   ? DateTime.now()
                                                   : _selectedDate,
+                                              onEditGoal: _openNutritionGoal,
                                             ),
                                           ),
                                   if (!_isLoading)

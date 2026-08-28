@@ -8,6 +8,7 @@ import 'package:gymaipro/features/live_workout/domain/session/workout_set_sessio
 import 'package:gymaipro/utils/auth_helper.dart';
 import 'package:gymaipro/workout_log/models/workout_program_log.dart';
 import 'package:gymaipro/workout_log/services/workout_program_log_service.dart';
+import 'package:gymaipro/workout_log/utils/workout_day_identity.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
 import 'package:gymaipro/workout_plan_builder/services/workout_program_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -82,6 +83,7 @@ class ActiveWorkoutSessionService implements WorkoutSessionSelectionGateway {
 
     final today = dateOnly(DateTime.now());
     String? loggedSessionDay;
+    String? loggedProgramId;
     var hasSavedLog = false;
 
     if (effectiveUserId.isNotEmpty) {
@@ -91,15 +93,12 @@ class ActiveWorkoutSessionService implements WorkoutSessionSelectionGateway {
         preferRemote: true,
       );
       if (dailyLog != null && _logMatchesDate(dailyLog, today)) {
-        if (dailyLog.hasMeaningfulLoggedSets) {
-          final saved = dailyLog.sessions
-              .where(_sessionLogHasSavedSets)
-              .toList(growable: false);
-          if (saved.isNotEmpty) {
-            loggedSessionDay = saved.last.day;
-            hasSavedLog = true;
-          }
-        } else {
+        final identity = WorkoutDayIdentity.fromDailyLog(dailyLog);
+        if (identity != null) {
+          loggedSessionDay = identity.sessionDay;
+          loggedProgramId = identity.programId;
+          hasSavedLog = true;
+        } else if (!dailyLog.hasMeaningfulLoggedSets) {
           // Ghost / empty shell in cache — do not treat as a real log.
           await _logService.deleteLogLocal(effectiveUserId, today);
         }
@@ -112,7 +111,13 @@ class ActiveWorkoutSessionService implements WorkoutSessionSelectionGateway {
       date: today,
     );
 
-    final selectedSessionDay = loggedSessionDay ?? prefsDay;
+    // Never auto-adopt another program's logged day label onto this program.
+    final loggedBelongsHere = hasSavedLog &&
+        (loggedProgramId == null ||
+            loggedProgramId.isEmpty ||
+            loggedProgramId == programId);
+    final selectedSessionDay =
+        loggedBelongsHere ? (loggedSessionDay ?? prefsDay) : prefsDay;
     var hasLiveDraft = false;
     String? draftSessionDay;
     if (effectiveUserId.isNotEmpty) {
@@ -153,6 +158,7 @@ class ActiveWorkoutSessionService implements WorkoutSessionSelectionGateway {
       debugPrint(
         '[ActiveWorkoutSession] loadContext '
         'hasSavedLog=$hasSavedLog loggedDay=$loggedSessionDay '
+        'loggedProgramId=$loggedProgramId '
         'hasLiveDraft=$hasLiveDraft draftDay=$draftSessionDay '
         'prefsDay=$prefsDay',
       );
@@ -164,6 +170,7 @@ class ActiveWorkoutSessionService implements WorkoutSessionSelectionGateway {
       sessions: sessions,
       selectedSessionDay: selectedSessionDay,
       loggedSessionDay: loggedSessionDay,
+      loggedProgramId: loggedProgramId,
       hasSavedLog: hasSavedLog,
       hasLiveDraft: hasLiveDraft,
       draftSessionDay: draftSessionDay,
@@ -205,21 +212,28 @@ class ActiveWorkoutSessionService implements WorkoutSessionSelectionGateway {
     String? currentSessionDay,
   }) {
     final current = currentSessionDay ?? context.selectedSessionDay;
-    if (current == newSessionDay) {
+    final foreignProgramLog = context.hasSavedLog &&
+        context.loggedProgramId != null &&
+        context.loggedProgramId!.isNotEmpty &&
+        context.loggedProgramId != context.programId;
+
+    if (current == newSessionDay && !foreignProgramLog) {
       return const SessionChangeEvaluation.none();
     }
 
     // Selecting the same session the live draft already belongs to is resume,
     // not a destructive change — even when prefs selection is still null.
-    if (context.hasLiveDraft &&
+    if (!foreignProgramLog &&
+        context.hasLiveDraft &&
         context.draftSessionDay != null &&
         context.draftSessionDay == newSessionDay) {
       return const SessionChangeEvaluation.none();
     }
 
     final conflictWithSavedLog = context.hasSavedLog &&
-        context.loggedSessionDay != null &&
-        context.loggedSessionDay != newSessionDay;
+        (foreignProgramLog ||
+            (context.loggedSessionDay != null &&
+                context.loggedSessionDay != newSessionDay));
 
     final conflictWithDraft = context.hasLiveDraft &&
         (context.draftSessionDay == null ||
@@ -246,13 +260,25 @@ class ActiveWorkoutSessionService implements WorkoutSessionSelectionGateway {
   SessionChangeEvaluation evaluateProgramChange({
     required ActiveWorkoutSessionContext context,
   }) {
+    // [context.programId] must be the *target* program being switched to.
+    // Only skip confirm when today's identity is known to already belong here.
+    final ownsTarget = context.hasSavedLog &&
+        context.loggedProgramId != null &&
+        context.loggedProgramId!.isNotEmpty &&
+        context.loggedProgramId == context.programId;
+
+    if (ownsTarget && !context.hasLiveDraft) {
+      return const SessionChangeEvaluation.none();
+    }
+
     if (!context.hasSavedLog && !context.hasLiveDraft) {
       return const SessionChangeEvaluation.none();
     }
 
     return SessionChangeEvaluation.needConfirm(
+      // Non-empty sentinel so cleanup wipes the whole calendar-day passport.
       sessionDayToDelete:
-          context.loggedSessionDay ?? context.selectedSessionDay,
+          context.loggedSessionDay ?? context.selectedSessionDay ?? '__today__',
       loggedSessionDayForDialog:
           context.selectedSessionDay ?? context.loggedSessionDay ?? '',
       hasUnsavedData: context.hasLiveDraft,
@@ -270,12 +296,24 @@ class ActiveWorkoutSessionService implements WorkoutSessionSelectionGateway {
     if (effectiveUserId.isEmpty) return;
 
     if (sessionDayToDelete.isNotEmpty) {
-      await deleteTodaySessionLog(
-        userId: effectiveUserId,
-        sessionDay: sessionDayToDelete,
-      );
+      // One identity per calendar day — clear the whole day passport.
+      await clearTodayDailyLog(userId: effectiveUserId);
     }
     await _draftStore.clearDraft(effectiveUserId);
+  }
+
+  /// Deletes today's entire daily log (local + remote), if any.
+  Future<void> clearTodayDailyLog({required String userId}) async {
+    final today = dateOnly(DateTime.now());
+    await _logService.deleteLogLocal(userId, today);
+
+    final dailyLog = await _logService.getDailyLogByDate(
+      userId,
+      today,
+      preferRemote: true,
+    );
+    if (dailyLog == null || !_logMatchesDate(dailyLog, today)) return;
+    await _logService.deleteDailyLog(dailyLog.id);
   }
 
   /// Draft focus is the program session day label (`session.day`).
@@ -384,26 +422,6 @@ class ActiveWorkoutSessionService implements WorkoutSessionSelectionGateway {
   static bool _logMatchesDate(WorkoutDailyLog log, DateTime expected) {
     return dateOnly(log.logDate) == dateOnly(expected);
   }
-
-  static bool _sessionLogHasSavedSets(WorkoutSessionLog session) {
-    for (final exercise in session.exercises) {
-      if (exercise is NormalExerciseLog) {
-        if (exercise.sets.any(_setHasData)) return true;
-      } else if (exercise is SupersetExerciseLog) {
-        for (final item in exercise.exercises) {
-          if (item.sets.any(_setHasData)) return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  static bool _setHasData(ExerciseSetLog set) {
-    return (set.reps != null && set.reps! > 0) ||
-        (set.seconds != null && set.seconds! > 0) ||
-        (set.weight != null && set.weight! > 0) ||
-        (set.rpe != null && set.rpe! > 0);
-  }
 }
 
 class ActiveWorkoutSessionContext {
@@ -415,6 +433,7 @@ class ActiveWorkoutSessionContext {
     required this.loggedSessionDay,
     required this.hasSavedLog,
     required this.hasLiveDraft,
+    this.loggedProgramId,
     this.draftSessionDay,
   });
 
@@ -423,6 +442,9 @@ class ActiveWorkoutSessionContext {
   final List<WorkoutSession> sessions;
   final String? selectedSessionDay;
   final String? loggedSessionDay;
+
+  /// Program id of today's meaningful log, when known.
+  final String? loggedProgramId;
   final bool hasSavedLog;
   final bool hasLiveDraft;
 

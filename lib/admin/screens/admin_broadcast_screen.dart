@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/admin/services/admin_broadcast_service.dart';
@@ -19,7 +21,9 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
   final AdminBroadcastService _broadcastService = AdminBroadcastService();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _bodyController = TextEditingController();
-  final TextEditingController _topicController = TextEditingController(text: 'all');
+  final TextEditingController _topicController = TextEditingController(
+    text: 'all',
+  );
   final TextEditingController _imageUrlController = TextEditingController();
 
   String _selectedTargetType = 'all'; // all, inactive_7d, topic
@@ -46,7 +50,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadHistory();
+    unawaited(_loadHistory());
     _titleController.addListener(() => setState(() {}));
     _bodyController.addListener(() => setState(() {}));
   }
@@ -77,7 +81,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
         WidgetSafetyUtils.safeShowSnackBar(
           context,
           'خطا در بارگذاری تاریخچه: $e',
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
         );
       }
     }
@@ -89,16 +93,17 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
       WidgetSafetyUtils.safeShowSnackBar(
         context,
         'لطفاً عنوان و متن را وارد کنید',
-        backgroundColor: Colors.orange,
+        backgroundColor: AppTheme.goldColor,
       );
       return;
     }
 
-    if (_selectedTargetType == 'topic' && _topicController.text.trim().isEmpty) {
+    if (_selectedTargetType == 'topic' &&
+        _topicController.text.trim().isEmpty) {
       WidgetSafetyUtils.safeShowSnackBar(
         context,
         'لطفاً نام تاپیک را وارد کنید',
-        backgroundColor: Colors.orange,
+        backgroundColor: AppTheme.goldColor,
       );
       return;
     }
@@ -149,19 +154,19 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
           WidgetSafetyUtils.safeShowSnackBar(
             context,
             (result['message'] as String?) ?? 'ارسال موفق',
-            backgroundColor: Colors.green,
+            backgroundColor: AppTheme.successColor,
           );
           // پاک کردن فیلدها
           _titleController.clear();
           _bodyController.clear();
           _imageUrlController.clear();
           // بارگذاری مجدد تاریخچه
-          _loadHistory();
+          unawaited(_loadHistory());
         } else {
           WidgetSafetyUtils.safeShowSnackBar(
             context,
             (result['error'] as String?) ?? 'خطا در ارسال',
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
           );
         }
       }
@@ -170,7 +175,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
         WidgetSafetyUtils.safeShowSnackBar(
           context,
           'خطا: $e',
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
         );
       }
     } finally {
@@ -196,13 +201,13 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
   Color _getStatusColor(String? status) {
     switch (status) {
       case 'sent':
-        return Colors.green;
+        return AppTheme.successColor;
       case 'queued':
-        return Colors.orange;
+        return AppTheme.goldColor;
       case 'failed':
-        return Colors.red;
+        return AppTheme.errorColor;
       default:
-        return Colors.grey;
+        return context.textSecondary;
     }
   }
 
@@ -221,48 +226,42 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Scaffold(
-      backgroundColor: isDark
-          ? AppTheme.darkBackgroundColor
-          : AppTheme.lightBackgroundColor,
-      body: Column(
-        children: [
-          TabBar(
-            controller: _tabController,
-            indicatorColor: AppTheme.goldColor,
-            labelColor: AppTheme.goldColor,
-            unselectedLabelColor: isDark
-                ? AppTheme.darkTextColor.withValues(alpha: 0.6)
-                : AppTheme.lightTextSecondary,
-            tabs: const [
-              Tab(icon: Icon(LucideIcons.send), text: 'ارسال نوتیفیکیشن'),
-              Tab(icon: Icon(LucideIcons.history), text: 'تاریخچه'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
+    return DecoratedBox(
+      decoration: context.pageDecoration,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Column(
+          children: [
+            TabBar(
               controller: _tabController,
-              children: [
-                _buildSendTab(isDark),
-                _buildHistoryTab(isDark),
+              indicatorColor: AppTheme.goldColor,
+              labelColor: AppTheme.goldColor,
+              unselectedLabelColor: context.textSecondary,
+              tabs: const [
+                Tab(icon: Icon(LucideIcons.send), text: 'ارسال نوتیفیکیشن'),
+                Tab(icon: Icon(LucideIcons.history), text: 'تاریخچه'),
               ],
             ),
-          ),
-        ],
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [_buildSendTab(), _buildHistoryTab()],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSendTab(bool isDark) {
+  Widget _buildSendTab() {
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // پیش‌نمایش نوتیفیکیشن
-          _buildPreviewCard(isDark),
+          _buildPreviewCard(),
 
           SizedBox(height: 24.h),
 
@@ -272,40 +271,33 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
             style: TextStyle(
               fontSize: 16.sp,
               fontWeight: FontWeight.bold,
-              color: isDark ? AppTheme.darkTextColor : AppTheme.lightTextColor,
+              color: context.textColor,
             ),
           ),
           SizedBox(height: 8.h),
           TextField(
             controller: _titleController,
             textDirection: TextDirection.rtl,
-            style: TextStyle(
-              color: isDark ? AppTheme.darkTextColor : AppTheme.lightTextColor,
-            ),
+            style: TextStyle(color: context.textColor),
             decoration: InputDecoration(
               hintText: 'مثال: اطلاعیه مهم',
               hintTextDirection: TextDirection.rtl,
               filled: true,
-              fillColor: isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor,
+              fillColor: context.cardColor,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(
-                  color: isDark
-                      ? AppTheme.darkGreySeparator
-                      : AppTheme.lightDividerColor,
-                ),
+                borderSide: BorderSide(color: context.separatorColor),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(
-                  color: isDark
-                      ? AppTheme.darkGreySeparator
-                      : AppTheme.lightDividerColor,
-                ),
+                borderSide: BorderSide(color: context.separatorColor),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
+                borderSide: const BorderSide(
+                  color: AppTheme.goldColor,
+                  width: 2,
+                ),
               ),
             ),
           ),
@@ -318,7 +310,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
             style: TextStyle(
               fontSize: 16.sp,
               fontWeight: FontWeight.bold,
-              color: isDark ? AppTheme.darkTextColor : AppTheme.lightTextColor,
+              color: context.textColor,
             ),
           ),
           SizedBox(height: 8.h),
@@ -326,33 +318,26 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
             controller: _bodyController,
             textDirection: TextDirection.rtl,
             maxLines: 4,
-            style: TextStyle(
-              color: isDark ? AppTheme.darkTextColor : AppTheme.lightTextColor,
-            ),
+            style: TextStyle(color: context.textColor),
             decoration: InputDecoration(
               hintText: 'متن کامل نوتیفیکیشن را اینجا بنویسید...',
               hintTextDirection: TextDirection.rtl,
               filled: true,
-              fillColor: isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor,
+              fillColor: context.cardColor,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(
-                  color: isDark
-                      ? AppTheme.darkGreySeparator
-                      : AppTheme.lightDividerColor,
-                ),
+                borderSide: BorderSide(color: context.separatorColor),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: BorderSide(
-                  color: isDark
-                      ? AppTheme.darkGreySeparator
-                      : AppTheme.lightDividerColor,
-                ),
+                borderSide: BorderSide(color: context.separatorColor),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
-                borderSide: const BorderSide(color: AppTheme.goldColor, width: 2),
+                borderSide: const BorderSide(
+                  color: AppTheme.goldColor,
+                  width: 2,
+                ),
               ),
             ),
           ),
@@ -365,7 +350,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
             style: TextStyle(
               fontSize: 16.sp,
               fontWeight: FontWeight.bold,
-              color: isDark ? AppTheme.darkTextColor : AppTheme.lightTextColor,
+              color: context.textColor,
             ),
           ),
           SizedBox(height: 8.h),
@@ -373,10 +358,13 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
             spacing: 8.w,
             runSpacing: 8.h,
             children: [
-              _buildTargetTypeChip('all', 'همه کاربران', LucideIcons.users, isDark),
+              _buildTargetTypeChip('all', 'همه کاربران', LucideIcons.users),
               _buildTargetTypeChip(
-                  'inactive_7d', 'غیرفعال 7 روزه', LucideIcons.userX, isDark),
-              _buildTargetTypeChip('topic', 'تاپیک خاص', LucideIcons.hash, isDark),
+                'inactive_7d',
+                'غیرفعال 7 روزه',
+                LucideIcons.userX,
+              ),
+              _buildTargetTypeChip('topic', 'تاپیک خاص', LucideIcons.hash),
             ],
           ),
 
@@ -390,7 +378,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
                 hintText: 'مثال: all, fa, premium',
                 hintTextDirection: TextDirection.rtl,
                 filled: true,
-                fillColor: isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor,
+                fillColor: context.cardColor,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12.r),
                 ),
@@ -407,7 +395,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
             style: TextStyle(
               fontSize: 16.sp,
               fontWeight: FontWeight.bold,
-              color: isDark ? AppTheme.darkTextColor : AppTheme.lightTextColor,
+              color: context.textColor,
             ),
           ),
           SizedBox(height: 8.h),
@@ -455,7 +443,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
             style: TextStyle(
               fontSize: 16.sp,
               fontWeight: FontWeight.bold,
-              color: isDark ? AppTheme.darkTextColor : AppTheme.lightTextColor,
+              color: context.textColor,
             ),
           ),
           SizedBox(height: 8.h),
@@ -466,7 +454,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
               hintText: 'https://example.com/image.jpg',
               hintTextDirection: TextDirection.rtl,
               filled: true,
-              fillColor: isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor,
+              fillColor: context.cardColor,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.r),
               ),
@@ -524,8 +512,9 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
     );
   }
 
-  Widget _buildPreviewCard(bool isDark) {
-    final hasContent = _titleController.text.trim().isNotEmpty ||
+  Widget _buildPreviewCard() {
+    final hasContent =
+        _titleController.text.trim().isNotEmpty ||
         _bodyController.text.trim().isNotEmpty;
 
     return Container(
@@ -563,7 +552,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
                   style: TextStyle(
                     fontSize: 14.sp,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? AppTheme.darkTextColor : AppTheme.lightTextColor,
+                    color: context.textColor,
                   ),
                 ),
               ),
@@ -606,24 +595,14 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
           else
             Text(
               'پیش‌نمایش پس از وارد کردن عنوان و متن نمایش داده می‌شود',
-              style: TextStyle(
-                fontSize: 12.sp,
-                color: isDark
-                    ? AppTheme.darkTextColor.withValues(alpha: 0.6)
-                    : AppTheme.lightTextSecondary,
-              ),
+              style: TextStyle(fontSize: 12.sp, color: context.textSecondary),
             ),
         ],
       ),
     );
   }
 
-  Widget _buildTargetTypeChip(
-    String value,
-    String label,
-    IconData icon,
-    bool isDark,
-  ) {
+  Widget _buildTargetTypeChip(String value, String label, IconData icon) {
     final isSelected = _selectedTargetType == value;
     return FilterChip(
       selected: isSelected,
@@ -643,16 +622,12 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
       selectedColor: AppTheme.goldColor.withValues(alpha: 0.2),
       checkmarkColor: AppTheme.goldColor,
       side: BorderSide(
-        color: isSelected
-            ? AppTheme.goldColor
-            : (isDark
-                ? AppTheme.darkGreySeparator
-                : AppTheme.lightDividerColor),
+        color: isSelected ? AppTheme.goldColor : context.separatorColor,
       ),
     );
   }
 
-  Widget _buildHistoryTab(bool isDark) {
+  Widget _buildHistoryTab() {
     if (_isLoadingHistory) {
       return const Center(
         child: CircularProgressIndicator(color: AppTheme.goldColor),
@@ -667,19 +642,12 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
             Icon(
               LucideIcons.inbox,
               size: 64.sp,
-              color: isDark
-                  ? AppTheme.darkTextColor.withValues(alpha: 0.3)
-                  : AppTheme.lightTextSecondary,
+              color: context.textSecondary.withValues(alpha: 0.5),
             ),
             SizedBox(height: 16.h),
             Text(
               'تاریخچه‌ای وجود ندارد',
-              style: TextStyle(
-                fontSize: 16.sp,
-                color: isDark
-                    ? AppTheme.darkTextColor.withValues(alpha: 0.6)
-                    : AppTheme.lightTextSecondary,
-              ),
+              style: TextStyle(fontSize: 16.sp, color: context.textSecondary),
             ),
           ],
         ),
@@ -712,7 +680,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
 
           return Card(
             margin: EdgeInsets.only(bottom: 12.h),
-            color: isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor,
+            color: context.cardColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12.r),
             ),
@@ -729,9 +697,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
                           style: TextStyle(
                             fontSize: 16.sp,
                             fontWeight: FontWeight.bold,
-                            color: isDark
-                                ? AppTheme.darkTextColor
-                                : AppTheme.lightTextColor,
+                            color: context.textColor,
                           ),
                         ),
                       ),
@@ -761,9 +727,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
                       body,
                       style: TextStyle(
                         fontSize: 14.sp,
-                        color: isDark
-                            ? AppTheme.darkTextColor.withValues(alpha: 0.8)
-                            : AppTheme.lightTextSecondary,
+                        color: context.textSecondary,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -775,18 +739,14 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
                       Icon(
                         LucideIcons.users,
                         size: 14.sp,
-                        color: isDark
-                            ? AppTheme.darkTextColor.withValues(alpha: 0.6)
-                            : AppTheme.lightTextSecondary,
+                        color: context.textSecondary,
                       ),
                       SizedBox(width: 4.w),
                       Text(
                         _getTargetTypeText(targetType, topic),
                         style: TextStyle(
                           fontSize: 12.sp,
-                          color: isDark
-                              ? AppTheme.darkTextColor.withValues(alpha: 0.6)
-                              : AppTheme.lightTextSecondary,
+                          color: context.textSecondary,
                         ),
                       ),
                       const Spacer(),
@@ -795,9 +755,7 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
                           '${dateTime.year}/${dateTime.month}/${dateTime.day} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}',
                           style: TextStyle(
                             fontSize: 12.sp,
-                            color: isDark
-                                ? AppTheme.darkTextColor.withValues(alpha: 0.6)
-                                : AppTheme.lightTextSecondary,
+                            color: context.textSecondary,
                           ),
                         ),
                     ],
@@ -811,4 +769,3 @@ class _AdminBroadcastScreenState extends State<AdminBroadcastScreen>
     );
   }
 }
-

@@ -11,6 +11,8 @@ class WebMusicPlatform {
 
   static void revoke(String key) {}
 
+  static Future<void> clearBlobCache() async {}
+
   static Future<void> saveToDownloads(
     Uint8List bytes, {
     required String fileName,

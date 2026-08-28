@@ -29,14 +29,56 @@ abstract final class DebugTestAccounts {
     phone: '09129999001',
     username: 'debug_athlete',
     role: 'athlete',
-    labelFa: 'ورزشکار',
+    labelFa: 'ورزشکار ۱',
+  );
+
+  static const athlete2 = DebugTestAccount(
+    phone: '09129999004',
+    username: 'debug_athlete_2',
+    role: 'athlete',
+    labelFa: 'ورزشکار ۲',
+  );
+
+  static const athlete3 = DebugTestAccount(
+    phone: '09129999005',
+    username: 'debug_athlete_3',
+    role: 'athlete',
+    labelFa: 'ورزشکار ۳',
+  );
+
+  static const athlete4 = DebugTestAccount(
+    phone: '09129999006',
+    username: 'debug_athlete_4',
+    role: 'athlete',
+    labelFa: 'ورزشکار ۴',
   );
 
   static const trainer = DebugTestAccount(
     phone: '09129999002',
     username: 'debug_trainer',
     role: 'trainer',
-    labelFa: 'مربی',
+    labelFa: 'مربی ۱',
+  );
+
+  static const trainer2 = DebugTestAccount(
+    phone: '09129999007',
+    username: 'debug_trainer_2',
+    role: 'trainer',
+    labelFa: 'مربی ۲',
+  );
+
+  static const trainer3 = DebugTestAccount(
+    phone: '09129999008',
+    username: 'debug_trainer_3',
+    role: 'trainer',
+    labelFa: 'مربی ۳',
+  );
+
+  static const trainer4 = DebugTestAccount(
+    phone: '09129999009',
+    username: 'debug_trainer_4',
+    role: 'trainer',
+    labelFa: 'مربی ۴',
   );
 
   static const admin = DebugTestAccount(
@@ -46,9 +88,23 @@ abstract final class DebugTestAccounts {
     labelFa: 'ادمین',
   );
 
-  static const List<DebugTestAccount> all = <DebugTestAccount>[
+  static const List<DebugTestAccount> athletes = <DebugTestAccount>[
     athlete,
+    athlete2,
+    athlete3,
+    athlete4,
+  ];
+
+  static const List<DebugTestAccount> trainers = <DebugTestAccount>[
     trainer,
+    trainer2,
+    trainer3,
+    trainer4,
+  ];
+
+  static const List<DebugTestAccount> all = <DebugTestAccount>[
+    ...athletes,
+    ...trainers,
     admin,
   ];
 

@@ -55,6 +55,12 @@ class _MusicFavoritesScreenState extends State<MusicFavoritesScreen> {
       value: MusicPlayerService(),
       child: Scaffold(
         appBar: AppBar(
+          automaticallyImplyLeading: false,
+          leading: IconButton(
+            tooltip: 'بازگشت',
+            icon: Icon(LucideIcons.arrowRight, color: context.textColor),
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
           title: const Text('موزیک‌های مورد علاقه'),
           actions: [
             if (_favorites.isNotEmpty)

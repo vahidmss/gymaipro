@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:gymaipro/design_system/theme/gym_colors.dart';
 import 'package:gymaipro/design_system/theme/gym_radius.dart';
 import 'package:gymaipro/design_system/theme/gym_spacing.dart';
+import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 import 'package:gymaipro/design_system/theme/gym_typography.dart';
 
 enum GymButtonVariant { primary, secondary, ghost, danger }
@@ -44,7 +44,7 @@ class GymButton extends StatelessWidget {
             height: 18,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: _foregroundColor(),
+              color: _foregroundColor(context),
             ),
           )
         : Row(
@@ -52,15 +52,15 @@ class GymButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               if (icon != null) ...<Widget>[
-                Icon(icon, size: 18, color: _foregroundColor()),
+                Icon(icon, size: 18, color: _foregroundColor(context)),
                 const SizedBox(width: GymSpacing.sm),
               ],
-              Text(label, style: _textStyle()),
+              Text(label, style: _textStyle(context)),
             ],
           );
 
     final button = Material(
-      color: _backgroundColor(),
+      color: _backgroundColor(context),
       borderRadius: GymRadius.radiusLg,
       child: InkWell(
         onTap: _enabled ? onPressed : null,
@@ -71,7 +71,7 @@ class GymButton extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: GymRadius.radiusLg,
-            border: _border(),
+            border: _border(context),
           ),
           child: child,
         ),
@@ -84,38 +84,38 @@ class GymButton extends StatelessWidget {
     return button;
   }
 
-  Color _backgroundColor() {
-    if (!_enabled) return GymColors.neutral800;
+  Color _backgroundColor(BuildContext context) {
+    if (!_enabled) return context.gymNeutralFill;
     return switch (variant) {
-      GymButtonVariant.primary => GymColors.primary,
-      GymButtonVariant.secondary => GymColors.surface,
+      GymButtonVariant.primary => context.gymGold,
+      GymButtonVariant.secondary => context.gymSurface,
       GymButtonVariant.ghost => Colors.transparent,
-      GymButtonVariant.danger => GymColors.dangerMuted,
+      GymButtonVariant.danger => context.gymDanger.withValues(alpha: 0.14),
     };
   }
 
-  Color _foregroundColor() {
-    if (!_enabled) return GymColors.textDisabled;
+  Color _foregroundColor(BuildContext context) {
+    if (!_enabled) return context.gymTextDisabled;
     return switch (variant) {
-      GymButtonVariant.primary => GymColors.onPrimary,
-      GymButtonVariant.secondary => GymColors.primary,
-      GymButtonVariant.ghost => GymColors.primary,
-      GymButtonVariant.danger => GymColors.danger,
+      GymButtonVariant.primary => const Color(0xFF0A0A0A),
+      GymButtonVariant.secondary => context.gymPrimary,
+      GymButtonVariant.ghost => context.gymPrimary,
+      GymButtonVariant.danger => context.gymDanger,
     };
   }
 
-  Border? _border() {
+  Border? _border(BuildContext context) {
     if (!_enabled) {
-      return Border.all(color: GymColors.borderSubtle);
+      return Border.all(color: context.gymBorderSubtle);
     }
     return switch (variant) {
-      GymButtonVariant.secondary => Border.all(color: GymColors.primary),
-      GymButtonVariant.ghost => Border.all(color: GymColors.border),
+      GymButtonVariant.secondary => Border.all(color: context.gymPrimary),
+      GymButtonVariant.ghost => Border.all(color: context.gymBorder),
       _ => null,
     };
   }
 
-  TextStyle _textStyle() {
-    return GymTypography.button.copyWith(color: _foregroundColor());
+  TextStyle _textStyle(BuildContext context) {
+    return GymTypography.button.copyWith(color: _foregroundColor(context));
   }
 }

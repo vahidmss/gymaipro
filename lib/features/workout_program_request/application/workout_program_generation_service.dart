@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/ai/services/ai_chat_availability.dart';
 import 'package:gymaipro/ai/workout/generator/llm_workout_program_generator.dart';
+import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/features/workout_program_request/application/ai_to_stored_workout_program_mapper.dart';
 import 'package:gymaipro/features/workout_program_request/application/workout_program_gap_fill_service.dart';
 import 'package:gymaipro/features/workout_program_request/application/workout_program_token_service.dart';
 import 'package:gymaipro/features/workout_program_request/domain/workout_program_gap_answers.dart';
 import 'package:gymaipro/models/exercise.dart';
+import 'package:gymaipro/payment/services/subscription_service.dart';
 import 'package:gymaipro/services/active_program_service.dart';
 import 'package:gymaipro/services/ai_exercise_read_service.dart';
 import 'package:gymaipro/services/ai_trainer_service.dart';
@@ -39,6 +41,7 @@ class WorkoutProgramGenerationService {
     AIExerciseReadService? aiExerciseReadService,
     ExerciseService? exerciseService,
     WorkoutProgramTokenService? tokenService,
+    SubscriptionService? subscriptionService,
   }) : _gapFill = gapFillService ?? WorkoutProgramGapFillService(),
        _llm = llmGenerator ?? LlmWorkoutProgramGenerator(),
        _mapper = mapper ?? const AiToStoredWorkoutProgramMapper(),
@@ -46,7 +49,8 @@ class WorkoutProgramGenerationService {
        _active = activeProgramService ?? ActiveProgramService(),
        _aiExercises = aiExerciseReadService ?? AIExerciseReadService(),
        _exercises = exerciseService ?? ExerciseService(),
-       _tokens = tokenService ?? WorkoutProgramTokenService();
+       _tokens = tokenService ?? WorkoutProgramTokenService(),
+       _subscriptions = subscriptionService ?? SubscriptionService();
 
   final WorkoutProgramGapFillService _gapFill;
   final LlmWorkoutProgramGenerator _llm;
@@ -56,6 +60,7 @@ class WorkoutProgramGenerationService {
   final AIExerciseReadService _aiExercises;
   final ExerciseService _exercises;
   final WorkoutProgramTokenService _tokens;
+  final SubscriptionService _subscriptions;
 
   Future<WorkoutProgramGenerationOutcome> generateAndActivate(
     WorkoutProgramGapAnswers answers,
@@ -72,7 +77,8 @@ class WorkoutProgramGenerationService {
       if (!access.canBuild) {
         return WorkoutProgramGenerationOutcome.failure(
           access.message ??
-              'برای ساخت برنامه به اشتراک و توکن اجرا نیاز داری.',
+              'برای ساخت برنامه، اول باید پرداخت را کامل کنی. '
+              'اگر الان پرداخت کردی، چند ثانیه صبر کن و دوباره «بساز» را بزن.',
         );
       }
 
@@ -92,7 +98,7 @@ class WorkoutProgramGenerationService {
       final catalogExercises = await _loadCatalog();
       if (catalogExercises.isEmpty) {
         return const WorkoutProgramGenerationOutcome.failure(
-          'کاتالوگ تمرین‌ها خالی است. لطفاً بعداً دوباره تلاش کنید.',
+          'الان نتونستم تمرین‌ها رو آماده کنم. لطفاً کمی بعد دوباره تلاش کن.',
         );
       }
 
@@ -117,7 +123,14 @@ class WorkoutProgramGenerationService {
         return WorkoutProgramGenerationOutcome.failure(safe);
       }
 
-      final aiTrainerId = await AITrainerService.ensureAITrainerExists();
+      final aiTrainerId = await AITrainerService.ensureAITrainerExists() ??
+          AppConfig.aiTrainerProfileId.trim();
+      if (aiTrainerId.isEmpty) {
+        return const WorkoutProgramGenerationOutcome.failure(
+          'الان ساخت برنامه ممکن نیست. کمی بعد دوباره تلاش کن.',
+        );
+      }
+
       final stored = _mapper.map(
         result.program!,
         userId: userId,
@@ -136,6 +149,19 @@ class WorkoutProgramGenerationService {
       );
       await _programs.sendProgram(saved.id);
       await _active.setActiveProgram(saved.id);
+
+      // Clock for chat/subscription starts when the program is delivered.
+      try {
+        await _subscriptions.startCoachPlanEntitlementFromDelivery(
+          userId: userId,
+          programId: saved.id,
+          deliveredAt: saved.sentAt ?? DateTime.now(),
+        );
+      } on Object catch (e) {
+        if (kDebugMode) {
+          debugPrint('[ProgramGen] entitlement start skipped: $e');
+        }
+      }
 
       final consumed = await _tokens.consumeToken(userId: userId);
       if (kDebugMode) {

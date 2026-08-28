@@ -51,10 +51,10 @@ class AIWorkoutGeneratorService {
   static final AIWorkoutGeneratorService _instance =
       AIWorkoutGeneratorService._internal();
 
-  // gpt-4o-mini سریع‌تر است و کمتر 504 می‌دهد؛ برای کیفیت بالاتر: gpt-4o
-  static const String _model = AppConfig.aiDefaultModel;
-  static const int _workoutMaxTokens = 4096;
-  static const Duration _workoutRequestTimeout = Duration(seconds: 60);
+  // ساخت برنامه: gpt-4o. چت مربی روی gpt-4o-mini می‌ماند.
+  static const String _model = AppConfig.aiWorkoutProgramModel;
+  static const int _workoutMaxTokens = 6000;
+  static const Duration _workoutRequestTimeout = Duration(seconds: 150);
 
   // ذخیره آخرین پروفایل کاربر برای بهبود نام‌گذاری و پس‌پردازش خروجی
   Map<String, dynamic>? _lastUserProfile;
@@ -252,10 +252,7 @@ class AIWorkoutGeneratorService {
     // تلاش دوم با دستور سخت‌گیرانه و دمای کمتر
     final strictPrompt =
         '$prompt\n\nIMPORTANT: فقط و فقط یک شیء JSON معتبر استاندارد برگردان. هیچ متن اضافه‌ای مجاز نیست.';
-    response = await _sendRequestToOpenAI(
-      strictPrompt,
-      temperature: 0.2,
-    );
+    response = await _sendRequestToOpenAI(strictPrompt, temperature: 0.2);
     if (response != null) {
       final program = await _parseWorkoutProgram(response, analysis);
       if (program != null) {
@@ -988,7 +985,7 @@ ${extraNotes.isNotEmpty ? '- **یادداشت‌های اضافی**: $extraNotes
         : analysis.goals.contains('ریکامپ')
         ? 'ترکیب هوازی متوسط و مقاومتی با تکرار 8-12. تعادل بین حجم و چربی‌سوزی.'
         : 'متناسب با هدف مشخص شده'}
-4. **تدریجی بودن و پیشرفت علمی**: پیشرفت هفتگی کنترل‌شده (افزایش 2.5-5% وزن یا 1-2 تکرار). از افزایش ناگهانی حجم یا شدت پرهیز شود.
+4. **تدریجی بودن و پیشرفت علمی**: پیشرفت فقط بعد از تکمیل ست/تکرار برنامه‌ریزی‌شده. افزایش وزن اجباری نیست؛ اول ثبات فرم و تکرار، بعد در صورت آمادگی یک پله کوچک. از افزایش ناگهانی حجم یا شدت پرهیز شود.
 5. **بازیابی و ریکاوری مناسب**: ${analysis.stressLevel == 'زیاد' ? 'توجه ویژه به استراحت بیشتر بین ست‌ها و روزهای استراحت. کاهش حجم تمرین.' : 'استراحت استاندارد بین ست‌ها و روزهای استراحت کافی.'} خواب ${analysis.sleepHours} ساعت باید در نظر گرفته شود.
 6. **شدت مطلوب کاربر**: کاربر «${analysis.desiredIntensity}» می‌خواهد. شدت واقعی تمرین‌ها، حجم ست/تکرار/زمان، استراحت بین ست‌ها، و انتخاب حرکات باید این را بازتاب دهد.
    - برای «سنگین»: حرکات چندمفصلی بیشتر، محدوده تکرار پایین‌تر (4-8 تکرار) یا ست‌های زمان‌محور با RPE بالا (8-10)، استراحت بلندتر (3-5 دقیقه)، حجم متوسط.
@@ -1042,7 +1039,7 @@ ${analysis.experience == 'مبتدی'
     {"name": "روز 3 - گروه عضلانی", "notes": "...", "exercises": []},
     {"name": "روز 4 - گروه عضلانی", "notes": "...", "exercises": []}
   ],
-  "weekly_progression": "نحوه پیشرفت هفتگی (مثال: افزایش 2.5 کیلوگرم به وزنه‌ها یا افزایش یک تکرار)",
+  "weekly_progression": "نحوه پیشرفت (مثال: اول ست و تکرار برنامه را کامل کن؛ بعد در صورت ثبات فرم یک پله وزنه یا یک تکرار — نه افزایش اجباری هر هفته)",
   "nutrition_tips": [
     "توصیه تغذیه‌ای 1",
     "توصیه تغذیه‌ای 2"
@@ -1635,7 +1632,7 @@ ${analysis.experience == 'مبتدی'
 
     if (analysis.experience == 'مبتدی') {
       enhanced.writeln(
-        '🔰 مبتدی: روی فرم صحیح تمرکز کنید، وزن را آرام افزایش دهید.',
+        '🔰 مبتدی: روی فرم صحیح تمرکز کنید؛ وزنه را فقط وقتی همه ست‌ها تمیز کامل شد آرام افزایش دهید.',
       );
     }
 
@@ -1748,12 +1745,14 @@ ${analysis.experience == 'مبتدی'
     // نکات بر اساس نوع تمرین
     if (tag.contains('قدرتی') || tag.contains('سنگین')) {
       tips.addAll([
-        '💪 تمرین قدرتی: روی فرم صحیح تمرکز کنید، وزن را کنترل شده افزایش دهید.',
+        '💪 تمرین قدرتی: روی فرم صحیح تمرکز کنید؛ وزنه را فقط بعد از تکمیل ست‌های برنامه افزایش دهید.',
         '💪 تمرین قدرتی: نفس‌گیری صحیح در حین حرکت مهم است.',
         '💪 تمرین قدرتی: استراحت کافی بین ست‌ها برای ریکاوری کاملاً ضروری است.',
       ]);
       if (analysis.experience == 'مبتدی') {
-        tips.add('🔰 مبتدی: با وزن سبک شروع کنید و تدریجاً افزایش دهید.');
+        tips.add(
+          '🔰 مبتدی: با وزن سبک شروع کنید؛ افزایش فقط وقتی همه ست‌ها تمیز کامل شد.',
+        );
       }
     } else if (tag.contains('استقامتی') || tag.contains('کاردیو')) {
       tips.addAll([

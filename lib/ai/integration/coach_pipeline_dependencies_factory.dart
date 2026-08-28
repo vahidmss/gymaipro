@@ -71,7 +71,7 @@ class CoachPipelineDependenciesFactory {
       coachKnowledgeRuntime:
           coachKnowledgeRuntime ?? const CoachKnowledgeRuntime(),
       coachEntitlementRuntime:
-          coachEntitlementRuntime ?? const CoachEntitlementRuntime(),
+          coachEntitlementRuntime ?? CoachEntitlementRuntime(),
       coachPromptPlanner: coachPromptPlanner ?? const CoachPromptPlanner(),
     );
   }

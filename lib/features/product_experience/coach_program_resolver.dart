@@ -6,6 +6,7 @@ import 'package:gymaipro/ai/workout/models/workout_exercise.dart' as ai;
 import 'package:gymaipro/ai/workout/models/workout_program.dart' as ai;
 import 'package:gymaipro/ai/workout/models/workout_set.dart' as ai;
 import 'package:gymaipro/ai/workout/models/workout_week.dart' as ai;
+import 'package:gymaipro/features/product_experience/active_workout_session_service.dart';
 import 'package:gymaipro/features/product_experience/coach_resolved_program.dart';
 import 'package:gymaipro/features/product_experience/product_experience_formatter.dart';
 import 'package:gymaipro/models/exercise.dart';
@@ -25,14 +26,17 @@ class CoachProgramResolver {
     CoachStoredProgramLoader? programLoader,
     ActiveProgramService? activeProgramService,
     ExerciseService? exerciseService,
+    ActiveWorkoutSessionService? sessionService,
   }) : _programLoader =
            programLoader ??
            ((id) => WorkoutProgramService().getProgramById(id)),
        _activeProgramService = activeProgramService ?? ActiveProgramService(),
+       _sessionService = sessionService ?? ActiveWorkoutSessionService(),
        _exerciseServiceOrCreate = exerciseService;
 
   final CoachStoredProgramLoader _programLoader;
   final ActiveProgramService _activeProgramService;
+  final ActiveWorkoutSessionService _sessionService;
   final ExerciseService? _exerciseServiceOrCreate;
   ExerciseService? _exerciseServiceCache;
 
@@ -71,8 +75,10 @@ class CoachProgramResolver {
 
     final storedProgram = await _programLoader(programId);
     if (storedProgram == null) return null;
+    // Coach surfaces only use real AI programs — not starter / human.
+    if (!storedProgram.isSelfServiceAi) return null;
 
-    return _fromStoredProgram(storedProgram, catalogById);
+    return await _fromStoredProgram(storedProgram, catalogById);
   }
 
   /// Resolves a stored program for an explicit session day (no auto-guess).
@@ -84,6 +90,7 @@ class CoachProgramResolver {
     final catalogById = await _loadCatalogById();
     final storedProgram = await _programLoader(programId);
     if (storedProgram == null) return null;
+    if (!storedProgram.isSelfServiceAi) return null;
     final session = _findSessionByDay(storedProgram.sessions, sessionDay);
     if (session == null) return null;
     return _fromStoredProgramSession(storedProgram, session, catalogById);
@@ -248,11 +255,11 @@ class CoachProgramResolver {
     );
   }
 
-  CoachResolvedTodayWorkout? _fromStoredProgram(
+  Future<CoachResolvedTodayWorkout?> _fromStoredProgram(
     stored.WorkoutProgram program,
     Map<int, Exercise> catalogById,
-  ) {
-    final session = _pickTodaySession(program.sessions);
+  ) async {
+    final session = await _pickTodaySession(program);
     if (session == null) return null;
     return _fromStoredProgramSession(program, session, catalogById);
   }
@@ -312,13 +319,32 @@ class CoachProgramResolver {
     );
   }
 
-  stored.WorkoutSession? _pickTodaySession(List<stored.WorkoutSession> sessions) {
-    final usable = sessions
+  Future<stored.WorkoutSession?> _pickTodaySession(
+    stored.WorkoutProgram program,
+  ) async {
+    final usable = program.sessions
         .where((session) => session.exercises.isNotEmpty)
         .toList(growable: false);
     if (usable.isEmpty) return null;
-    final index = DateTime.now().weekday % usable.length;
-    return usable[index];
+
+    // Align with Workout Today: log for today → prefs for today → draft.
+    try {
+      final context = await _sessionService.loadContext(programId: program.id);
+      final preferred =
+          context.draftSessionDay ??
+          context.selectedSessionDay ??
+          context.loggedSessionDay;
+      if (preferred != null && preferred.trim().isNotEmpty) {
+        for (final session in usable) {
+          if (session.day == preferred) return session;
+        }
+      }
+    } on Object {
+      // Fall through to stable first-session fallback.
+    }
+
+    // Never use weekday % n — that disagrees with Workout Today after midnight.
+    return usable.first;
   }
 
   ai.WorkoutProgram _toAiProgram(

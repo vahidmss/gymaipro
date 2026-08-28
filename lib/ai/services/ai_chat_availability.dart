@@ -4,7 +4,7 @@ import 'package:gymaipro/services/app_access_control_service.dart';
 
 /// پیام واحد وقتی مدل‌های هوش مصنوعی در دسترس نیستند (ساخت برنامه و مسیرهای AI).
 const String gymAiModelsUnavailableMessage =
-    'در حال حاضر دسترسی به مدل‌های هوش مصنوعی امکان‌پذیر نیست.';
+    'الان ساخت برنامه ممکن نیست. لطفاً کمی بعد دوباره تلاش کن.';
 
 /// آیا چت GPT برای کاربر فعال است؟
 bool isGymAiChatAvailable([AppAccessConfig? access]) {

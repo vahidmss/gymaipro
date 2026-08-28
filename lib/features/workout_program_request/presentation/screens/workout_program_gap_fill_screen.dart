@@ -8,17 +8,22 @@ import 'package:gymaipro/design_system/layout/page_scaffold.dart';
 import 'package:gymaipro/design_system/theme/gym_colors.dart';
 import 'package:gymaipro/design_system/theme/gym_spacing.dart';
 import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
+import 'package:gymaipro/features/product_experience/navigation/workout_program_request_navigation.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
 import 'package:gymaipro/features/workout_program_request/application/workout_program_gap_fill_service.dart';
 import 'package:gymaipro/features/workout_program_request/application/workout_program_generation_service.dart';
 import 'package:gymaipro/features/workout_program_request/application/workout_program_token_service.dart';
 import 'package:gymaipro/features/workout_program_request/domain/workout_program_gap_answers.dart';
 import 'package:gymaipro/features/workout_program_request/domain/workout_program_request_defaults.dart';
+import 'package:gymaipro/features/workout_program_request/presentation/widgets/workout_program_access_sheet.dart';
 import 'package:gymaipro/features/workout_program_request/presentation/widgets/workout_program_build_progress.dart';
+import 'package:gymaipro/features/workout_today/navigation/workout_today_route.dart';
+import 'package:gymaipro/payment/services/pending_direct_payment_tracker.dart';
 import 'package:gymaipro/theme/app_theme.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Asks useful essentials (+ optional advanced), then builds a real program.
+///
+/// Payment is requested only when the user taps Build (not on entry).
 class WorkoutProgramGapFillScreen extends StatefulWidget {
   const WorkoutProgramGapFillScreen({
     this.gapFillService,
@@ -37,7 +42,8 @@ class WorkoutProgramGapFillScreen extends StatefulWidget {
 }
 
 class _WorkoutProgramGapFillScreenState
-    extends State<WorkoutProgramGapFillScreen> {
+    extends State<WorkoutProgramGapFillScreen>
+    with WidgetsBindingObserver {
   late final WorkoutProgramGapFillService _gapFill;
   late final WorkoutProgramGenerationService _generation;
   late final WorkoutProgramTokenService _tokens;
@@ -52,8 +58,8 @@ class _WorkoutProgramGapFillScreenState
   bool _askAge = false;
   bool _askHeight = true;
   bool _askWeight = true;
+  bool _hasPaidPass = false;
   int? _derivedAge;
-  int _remainingTokens = 0;
   String? _error;
   String _buildStatus = 'building';
 
@@ -68,6 +74,10 @@ class _WorkoutProgramGapFillScreenState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WorkoutProgramRequestNavigation.paymentReturnTick.addListener(
+      _onPaymentReturn,
+    );
     _gapFill = widget.gapFillService ?? WorkoutProgramGapFillService();
     _generation =
         widget.generationService ?? WorkoutProgramGenerationService();
@@ -77,10 +87,43 @@ class _WorkoutProgramGapFillScreenState
 
   @override
   void dispose() {
+    WorkoutProgramRequestNavigation.paymentReturnTick.removeListener(
+      _onPaymentReturn,
+    );
+    WidgetsBinding.instance.removeObserver(this);
     _heightController.dispose();
     _weightController.dispose();
     _ageController.dispose();
     super.dispose();
+  }
+
+  void _onPaymentReturn() {
+    unawaited(_refreshAccess(clearUnpaidError: true));
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_loading && !_generating) {
+      unawaited(_refreshAccess(clearUnpaidError: true));
+      // Verify/activate may finish a moment after resume.
+      Future<void>.delayed(const Duration(milliseconds: 1800), () {
+        if (!mounted || _generating) return;
+        unawaited(_refreshAccess(clearUnpaidError: true));
+      });
+    }
+  }
+
+  Future<void> _refreshAccess({bool clearUnpaidError = false}) async {
+    try {
+      final access = await _tokens.checkAccess();
+      if (!mounted) return;
+      setState(() {
+        _hasPaidPass = access.canBuild;
+        if (clearUnpaidError && access.canBuild) {
+          _error = null;
+        }
+      });
+    } catch (_) {}
   }
 
   Future<void> _bootstrap() async {
@@ -113,7 +156,7 @@ class _WorkoutProgramGapFillScreenState
         if (seed.weight != null) {
           _weightController.text = seed.weight!.round().toString();
         }
-        _remainingTokens = access.remainingTokens;
+        _hasPaidPass = access.canBuild;
         _loading = false;
       });
     } catch (_) {
@@ -156,12 +199,59 @@ class _WorkoutProgramGapFillScreenState
     return true;
   }
 
+  Future<bool> _ensurePaidBeforeBuild() async {
+    final access = await _tokens.checkAccess();
+    if (!mounted) return false;
+
+    if (access.canBuild) {
+      setState(() => _hasPaidPass = true);
+      return true;
+    }
+
+    // Persist answers before leaving for gateway so return can seed context.
+    try {
+      await _gapFill.persistAnswers(_collectAnswers());
+    } catch (_) {}
+
+    if (!mounted) return false;
+    final purchased = await showWorkoutProgramAccessSheet(
+      context,
+      access: access,
+      openProgramBuilderOnSuccess: false,
+      returnTarget: PendingDirectPaymentTracker.returnTargetWorkoutBuilder,
+    );
+    if (!mounted) return false;
+
+    if (purchased ?? false) {
+      final again = await _tokens.checkAccess();
+      if (!mounted) return false;
+      setState(() => _hasPaidPass = again.canBuild);
+      return again.canBuild;
+    }
+
+    // Zibal path pops false and leaves the app; refresh when they return.
+    await _refreshAccess();
+    return _hasPaidPass;
+  }
+
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
     if (!_validate()) {
       setState(
         () => _error =
             'قد باید حدود ۱۰۰–۲۵۰ و وزن حدود ۳۰–۳۰۰ باشد. موارد لازم را کامل کن.',
+      );
+      return;
+    }
+
+    final paid = await _ensurePaidBeforeBuild();
+    if (!mounted) return;
+    if (!paid) {
+      setState(
+        () => _error = _hasPaidPass
+            ? null
+            : 'برای ساخت، اول باید پرداخت را کامل کنی. '
+                'اگر الان پرداخت کردی، چند ثانیه صبر کن و دوباره «بساز» را بزن.',
       );
       return;
     }
@@ -198,7 +288,15 @@ class _WorkoutProgramGapFillScreenState
         backgroundColor: Color(0xFF2E7D32),
       ),
     );
-    Navigator.of(context).pop(outcome.program);
+
+    // Always land on Workout Today — never leave the user on a blank stack.
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      WorkoutTodayRoute.routeName,
+      (route) {
+        final name = route.settings.name ?? '';
+        return route.isFirst || name == '/main' || name == '/coach';
+      },
+    );
   }
 
   void _toggleInjury(String value) {
@@ -245,47 +343,12 @@ class _WorkoutProgramGapFillScreenState
         children: [
           GymPageScaffold(
             title: ProductCopy.requestWorkoutProgram,
-            actions: _loading
-                ? null
-                : <Widget>[
-                    Padding(
-                      padding: const EdgeInsetsDirectional.only(end: 8),
-                      child: Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: context.gymPrimary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: context.gymPrimary.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                LucideIcons.ticket,
-                                size: 14,
-                                color: context.gymPrimary,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '$_remainingTokens توکن',
-                                style: context.gymTextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: context.gymTextPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+            // Keep back visible even while PopScope blocks system dismiss mid-generate.
+            showBack: true,
+            onBack: () {
+              if (_generating && _buildStatus != 'error') return;
+              Navigator.of(context).maybePop();
+            },
             body: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : GymPagePadding(
@@ -398,18 +461,25 @@ class _WorkoutProgramGapFillScreenState
                         ],
                         GymSpacing.gapXxl,
                         GymButton(
-                          label: 'بساز برنامه‌ام',
+                          label: ProductCopy.buildProgramCta,
                           fullWidth: true,
                           onPressed:
                               _generating ? null : () => unawaited(_submit()),
                         ),
-                        GymSpacing.gapLg,
+                        GymSpacing.gapSm,
                         Text(
-                          'هر ساخت موفق یک توکن مصرف می‌کند. بعد از ساخت، برنامه در «تمرین امروز» فعال می‌شود.',
+                          _hasPaidPass
+                              ? ProductCopy.buildProgramAlreadyPaidHint
+                              : ProductCopy.buildProgramPayOnBuildHint,
                           textAlign: TextAlign.center,
                           style: context.gymTextStyle(
                             fontSize: 12,
-                            color: context.gymTextSecondary,
+                            fontWeight: _hasPaidPass
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: _hasPaidPass
+                                ? context.gymPrimary
+                                : context.gymTextSecondary,
                           ),
                         ),
                         const SizedBox(height: GymSpacing.massive),
@@ -426,6 +496,7 @@ class _WorkoutProgramGapFillScreenState
                   setState(() {
                     _generating = false;
                     _buildStatus = 'building';
+                    _error = null;
                   });
                 },
               ),

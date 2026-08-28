@@ -25,7 +25,7 @@ import 'package:gymaipro/features/product_experience/navigation/workout_program_
 import 'package:gymaipro/features/product_experience/product_copy.dart';
 import 'package:gymaipro/features/product_experience/product_experience_formatter.dart';
 import 'package:gymaipro/features/product_experience/recovery/recovery_guidance.dart';
-import 'package:gymaipro/theme/app_theme.dart';
+import 'package:gymaipro/payment/models/coach_plan_catalog.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Unified coach hub — orbit menu + message + CTA + quick tools.
@@ -45,13 +45,15 @@ class CoachHomeScreen extends StatefulWidget {
   State<CoachHomeScreen> createState() => _CoachHomeScreenState();
 }
 
-class _CoachHomeScreenState extends State<CoachHomeScreen> {
+class _CoachHomeScreenState extends State<CoachHomeScreen>
+    with WidgetsBindingObserver {
   late final CoachHomeViewModel _viewModel;
   late final bool _ownsViewModel;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _ownsViewModel = widget.viewModel == null;
     _viewModel = widget.viewModel ?? CoachHomeViewModel();
     final gateDisabled =
@@ -63,8 +65,16 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (_ownsViewModel) _viewModel.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_viewModel.ensureFreshForToday());
+    }
   }
 
   Future<void> _openPlanSheet(CoachHomeState state) async {
@@ -97,9 +107,8 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
             ),
             IconButton(
               tooltip: 'اعلان‌ها',
-              onPressed: () => unawaited(
-                Navigator.of(context).pushNamed('/notifications'),
-              ),
+              onPressed: () =>
+                  unawaited(Navigator.of(context).pushNamed('/notifications')),
               icon: Icon(
                 LucideIcons.bell,
                 color: context.gymTextSecondary,
@@ -127,6 +136,9 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
     final hasWorkout = state.todayWorkout != null;
     final message = _resolveMessage(state);
     final tip = _resolveTip(state);
+    final guidance = RecoveryGuidance.fromSnapshot(state.recovery);
+    final postSession = guidance.scenario == RecoveryScenario.postSessionToday;
+    final freeTeaser = !CoachPlanCatalog.isPaidAiProgramPlan(state.plan);
 
     return RefreshIndicator(
       color: context.gymPrimary,
@@ -149,7 +161,9 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                     actions: <CoachOrbitAction>[
                       CoachOrbitAction(
                         id: 'program',
-                        label: ProductCopy.programOrbit,
+                        label: hasWorkout
+                            ? ProductCopy.manageAiProgramOrbit
+                            : ProductCopy.programOrbit,
                         icon: LucideIcons.clipboardList,
                         onTap: _openProgramRequest,
                       ),
@@ -158,14 +172,6 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                         label: ProductCopy.todayOrbit,
                         icon: LucideIcons.calendarDays,
                         onTap: _openToday,
-                      ),
-                      CoachOrbitAction(
-                        id: 'meal',
-                        label: ProductCopy.mealPlanOrbit,
-                        icon: LucideIcons.utensils,
-                        locked: true,
-                        lockedHint: ProductCopy.mealPlanComingSoon,
-                        onTap: _showMealPlanLocked,
                       ),
                       CoachOrbitAction(
                         id: 'consult',
@@ -179,23 +185,31 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                   CoachMessageCard(message: message),
                   GymSpacing.gapLg,
                   CoachPrimaryStartButton(
-                    label: hasWorkout
+                    label: postSession
+                        ? ProductCopy.recovery
+                        : hasWorkout
                         ? ProductCopy.goToTodayWorkout
                         : ProductCopy.requestWorkoutProgram,
-                    icon: hasWorkout
+                    icon: postSession
+                        ? LucideIcons.heartPulse
+                        : hasWorkout
                         ? LucideIcons.calendarDays
                         : LucideIcons.clipboardList,
-                    onPressed: hasWorkout ? _openToday : _openProgramRequest,
+                    onPressed: postSession
+                        ? _openRecovery
+                        : hasWorkout
+                        ? _openToday
+                        : _openProgramRequest,
                   ),
                   GymSpacing.gapXxl,
                   CoachStatusMonitor(recovery: state.recovery),
+                  if (state.observations.isNotEmpty) ...<Widget>[
+                    GymSpacing.gapLg,
+                    CoachObservationsCard(observations: state.observations),
+                  ],
                   if (tip != null) ...<Widget>[
                     GymSpacing.gapLg,
-                    CoachTipCard(
-                      title: tip.$1,
-                      body: tip.$2,
-                      icon: tip.$3,
-                    ),
+                    CoachTipCard(title: tip.$1, body: tip.$2, icon: tip.$3),
                   ],
                   GymSpacing.gapXxl,
                   CoachGuideChips(
@@ -204,7 +218,11 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                         id: 'form',
                         label: ProductCopy.askFormTip,
                         icon: LucideIcons.personStanding,
-                        onTap: _askFormTip,
+                        onTap: () => _runPremiumOr(
+                          state,
+                          locked: freeTeaser,
+                          action: _askFormTip,
+                        ),
                       ),
                       CoachGuideChip(
                         id: 'recovery',
@@ -216,7 +234,11 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                         id: 'modify',
                         label: ProductCopy.modifyProgramTitle,
                         icon: LucideIcons.pencil,
-                        onTap: _askModify,
+                        onTap: () => _runPremiumOr(
+                          state,
+                          locked: freeTeaser,
+                          action: _askModify,
+                        ),
                       ),
                     ],
                   ),
@@ -227,7 +249,11 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
                         id: 'progress',
                         label: ProductCopy.progressAnalysis,
                         icon: LucideIcons.chartColumn,
-                        onTap: _openProgress,
+                        onTap: () => _runPremiumOr(
+                          state,
+                          locked: freeTeaser,
+                          action: _openProgress,
+                        ),
                       ),
                       CoachQuickTool(
                         id: 'recovery',
@@ -251,6 +277,18 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
         ],
       ),
     );
+  }
+
+  void _runPremiumOr(
+    CoachHomeState state, {
+    required bool locked,
+    required VoidCallback action,
+  }) {
+    if (locked) {
+      unawaited(_openPlanSheet(state));
+      return;
+    }
+    action();
   }
 
   String _resolveMessage(CoachHomeState state) {
@@ -308,27 +346,19 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
           .take(3)
           .map((reason) => '• $reason')
           .join('\n');
-      return (
-        ProductCopy.whyThisSuggestion,
-        body,
-        LucideIcons.circleHelp,
-      );
+      return (ProductCopy.whyThisSuggestion, body, LucideIcons.circleHelp);
     }
 
     if (state.insights.isNotEmpty) {
       final insight = ProductCopy.humanizeReason(state.insights.first);
       if (insight.isNotEmpty) {
-        return (
-          ProductCopy.coachTipTitle,
-          insight,
-          LucideIcons.lightbulb,
-        );
+        return (ProductCopy.coachTipTitle, insight, LucideIcons.lightbulb);
       }
     }
     if (state.memories.isNotEmpty) {
       return (
-        'یادم هست',
-        state.memories.first,
+        ProductCopy.knownAboutYouTitle,
+        state.memories.take(4).join('\n'),
         LucideIcons.brain,
       );
     }
@@ -381,19 +411,6 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
     unawaited(CoachChatNavigation.open(context, quickActionId: 'ask_coach'));
   }
 
-  void _showMealPlanLocked() {
-    unawaited(HapticFeedback.selectionClick());
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          ProductCopy.mealPlanComingSoon,
-          style: const TextStyle(fontFamily: AppTheme.fontFamily),
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
   void _openProgress() {
     unawaited(HapticFeedback.selectionClick());
     unawaited(
@@ -405,9 +422,12 @@ class _CoachHomeScreenState extends State<CoachHomeScreen> {
     );
   }
 
-  void _openRecovery() {
-    unawaited(HapticFeedback.selectionClick());
-    unawaited(RecoveryNavigation.open(context));
+  Future<void> _openRecovery() async {
+    await HapticFeedback.selectionClick();
+    if (!mounted) return;
+    await RecoveryNavigation.open(context);
+    if (!mounted) return;
+    unawaited(_viewModel.load());
   }
 
   void _askFormTip() {
@@ -458,11 +478,7 @@ class _PlanBadgeChip extends StatelessWidget {
       padding: const EdgeInsetsDirectional.only(end: 4),
       child: ActionChip(
         onPressed: onTap,
-        avatar: Icon(
-          LucideIcons.sparkles,
-          size: 14,
-          color: context.gymPrimary,
-        ),
+        avatar: Icon(LucideIcons.sparkles, size: 14, color: context.gymPrimary),
         label: Text(
           label,
           style: TextStyle(
@@ -472,9 +488,7 @@ class _PlanBadgeChip extends StatelessWidget {
           ),
         ),
         backgroundColor: context.gymPrimary.withValues(alpha: 0.12),
-        side: BorderSide(
-          color: context.gymPrimary.withValues(alpha: 0.35),
-        ),
+        side: BorderSide(color: context.gymPrimary.withValues(alpha: 0.35)),
         visualDensity: VisualDensity.compact,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         padding: const EdgeInsets.symmetric(horizontal: 4),

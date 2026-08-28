@@ -1,6 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:gymaipro/features/product_experience/domain/exercise_coach_decision.dart';
 import 'package:gymaipro/features/product_experience/domain/workout_exercise_coach_feedback.dart';
+import 'package:gymaipro/workout_log/models/previous_exercise_performance.dart';
 import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
+
+List<PreviousExerciseSet> _prev(double kg, {int reps = 12, int n = 3}) {
+  return List<PreviousExerciseSet>.generate(
+    n,
+    (_) => PreviousExerciseSet(reps: reps, weight: kg),
+  );
+}
 
 void main() {
   group('WorkoutExerciseCoachFeedbackEngine', () {
@@ -20,7 +29,7 @@ void main() {
       expect(feedback, isNull);
     });
 
-    test('celebrates full reps and suggests weight bump', () {
+    test('first complete log consolidates load instead of bumping', () {
       final feedback = WorkoutExerciseCoachFeedbackEngine.fromControllers(
         prescription: <ExerciseSet>[
           ExerciseSet(reps: 15, weight: 35),
@@ -38,43 +47,53 @@ void main() {
       );
 
       expect(feedback, isNotNull);
-      expect(feedback!.analysis, contains('تکرار کامل'));
-      expect(feedback.nextSession, contains('40'));
+      expect(feedback!.decision!.action, ExerciseCoachAction.hold);
+      expect(
+        feedback.decision!.pattern,
+        ExerciseCoachPattern.stableHoldFirstSession,
+      );
+      expect(feedback.decision!.toLockJson()['first_session'], isTrue);
+      expect(feedback.decision!.toLockJson()['chase_load'], isFalse);
+      expect(feedback.nextSession, contains('35'));
+      expect(feedback.nextSession, isNot(contains('40')));
       expect(feedback.formTip, contains('لگنت'));
     });
 
-    test('failed heavy probe 12x30 / 12x30 / 8x40 does NOT start next at 40', () {
-      final feedback = WorkoutExerciseCoachFeedbackEngine.build(
-        sets: const <LoggedSetPerformance>[
-          LoggedSetPerformance(
-            targetReps: 12,
-            actualReps: 12,
-            actualWeightKg: 30,
-          ),
-          LoggedSetPerformance(
-            targetReps: 12,
-            actualReps: 12,
-            actualWeightKg: 30,
-          ),
-          LoggedSetPerformance(
-            targetReps: 12,
-            actualReps: 8,
-            actualWeightKg: 40,
-          ),
-        ],
-        isTimedStyle: false,
-      );
+    test(
+      'failed heavy probe 12x30 / 12x30 / 8x40 does NOT start next at 40',
+      () {
+        final feedback = WorkoutExerciseCoachFeedbackEngine.build(
+          sets: const <LoggedSetPerformance>[
+            LoggedSetPerformance(
+              targetReps: 12,
+              actualReps: 12,
+              actualWeightKg: 30,
+            ),
+            LoggedSetPerformance(
+              targetReps: 12,
+              actualReps: 12,
+              actualWeightKg: 30,
+            ),
+            LoggedSetPerformance(
+              targetReps: 12,
+              actualReps: 8,
+              actualWeightKg: 40,
+            ),
+          ],
+          isTimedStyle: false,
+        );
 
-      expect(feedback, isNotNull);
-      expect(feedback!.analysis, contains('30'));
-      expect(feedback.analysis, contains('40'));
-      expect(feedback.analysis, contains('8'));
-      expect(feedback.analysis, contains('سنگینه'));
-      expect(feedback.nextSession, contains('30'));
-      expect(feedback.nextSession, contains('از 40 شروع نکن'));
-      expect(feedback.nextSession, isNot(contains('از 40 برای همه')));
-      expect(feedback.nextSession, isNot(contains('45')));
-    });
+        expect(feedback, isNotNull);
+        expect(feedback!.analysis, contains('30'));
+        expect(feedback.analysis, contains('40'));
+        expect(feedback.analysis, contains('8'));
+        expect(feedback.analysis, contains('سنگینه'));
+        expect(feedback.nextSession, contains('30'));
+        expect(feedback.nextSession, contains('از 40 شروع نکن'));
+        expect(feedback.nextSession, isNot(contains('از 40 برای همه')));
+        expect(feedback.nextSession, isNot(contains('45')));
+      },
+    );
 
     test('successful heavy probe earns a bridge, not a full jump to peak', () {
       final feedback = WorkoutExerciseCoachFeedbackEngine.build(
@@ -98,7 +117,8 @@ void main() {
         isTimedStyle: false,
       );
 
-      expect(feedback!.analysis, contains('پایهٔ پایدار'));
+      expect(feedback!.analysis, contains('پایه'));
+      expect(feedback.analysis, contains('هر سه ست نیست'));
       expect(feedback.nextSession, contains('شروع نکن'));
       expect(feedback.nextSession, contains('35'));
       expect(feedback.nextSession, contains('40'));
@@ -152,37 +172,46 @@ void main() {
           ),
         ],
         isTimedStyle: false,
+        previousSets: _prev(20, reps: 8),
       );
 
       expect(feedback!.nextSession, contains('25'));
       expect(feedback.analysis, contains('تکرار کامل'));
     });
 
-    test('clean ascending pyramid with full reps uses peak as base', () {
-      final feedback = WorkoutExerciseCoachFeedbackEngine.build(
-        sets: const <LoggedSetPerformance>[
-          LoggedSetPerformance(
-            targetReps: 10,
-            actualReps: 10,
-            actualWeightKg: 20,
-          ),
-          LoggedSetPerformance(
-            targetReps: 10,
-            actualReps: 10,
-            actualWeightKg: 25,
-          ),
-          LoggedSetPerformance(
-            targetReps: 10,
-            actualReps: 10,
-            actualWeightKg: 30,
-          ),
-        ],
-        isTimedStyle: false,
-      );
+    test(
+      'clean ascending pyramid with full reps does not jump every set to the peak',
+      () {
+        final feedback = WorkoutExerciseCoachFeedbackEngine.build(
+          sets: const <LoggedSetPerformance>[
+            LoggedSetPerformance(
+              targetReps: 10,
+              actualReps: 10,
+              actualWeightKg: 20,
+            ),
+            LoggedSetPerformance(
+              targetReps: 10,
+              actualReps: 10,
+              actualWeightKg: 25,
+            ),
+            LoggedSetPerformance(
+              targetReps: 10,
+              actualReps: 10,
+              actualWeightKg: 30,
+            ),
+          ],
+          isTimedStyle: false,
+        );
 
-      expect(feedback!.nextSession, contains('35'));
-      expect(feedback.analysis, contains('30'));
-    });
+        expect(feedback!.decision!.action, isNot(ExerciseCoachAction.increase));
+        expect(feedback.nextSession, contains('30'));
+        expect(feedback.nextSession, isNot(contains('35')));
+        expect(
+          feedback.nextSession,
+          anyOf(contains('25'), contains('شروع نکن')),
+        );
+      },
+    );
 
     test('RPE 8 with full reps holds load without claiming missed reps', () {
       final feedback = WorkoutExerciseCoachFeedbackEngine.build(
@@ -241,9 +270,10 @@ void main() {
           ),
         ],
         isTimedStyle: false,
+        previousSets: _prev(30),
       );
 
-      expect(feedback!.analysis, contains('جا برای پیشرفت'));
+      expect(feedback!.analysis, contains('جا افتاده'));
       expect(feedback.nextSession, contains('35'));
     });
 
@@ -266,8 +296,10 @@ void main() {
         isTimedStyle: false,
       );
 
-      expect(feedback!.analysis, contains('کمتر از هدف'));
+      expect(feedback!.analysis, contains('تکرار'));
+      expect(feedback.analysis, contains('وزنه بیشتر'));
       expect(feedback.nextSession, contains('همین'));
+      expect(feedback.nextSession, contains('12'));
     });
 
     test('holds when reps fade across stable weight', () {
@@ -295,6 +327,90 @@ void main() {
       expect(feedback!.analysis, contains('افت'));
       expect(feedback.nextSession, contains('40'));
       expect(feedback.nextSession, isNot(contains('45')));
+    });
+
+    test('2 of 3 sets at 40kg does NOT bump all 3 to 45', () {
+      final feedback = WorkoutExerciseCoachFeedbackEngine.build(
+        sets: const <LoggedSetPerformance>[
+          LoggedSetPerformance(
+            targetReps: 12,
+            actualReps: 12,
+            actualWeightKg: 40,
+          ),
+          LoggedSetPerformance(
+            targetReps: 12,
+            actualReps: 12,
+            actualWeightKg: 40,
+          ),
+        ],
+        isTimedStyle: false,
+        prescribedSetCount: 3,
+      );
+
+      expect(feedback, isNotNull);
+      expect(feedback!.decision!.action, ExerciseCoachAction.hold);
+      expect(feedback.decision!.pattern, ExerciseCoachPattern.incompleteVolume);
+      expect(feedback.decision!.workingWeightKg, 40);
+      expect(feedback.decision!.nextWeightKg, 40);
+      expect(feedback.decision!.prescribedSetCount, 3);
+      expect(feedback.decision!.setCount, 2);
+      expect(feedback.decision!.isIncompleteVolume, isTrue);
+      expect(feedback.decision!.toLockJson()['incomplete_volume'], isTrue);
+      expect(feedback.analysis, contains('3'));
+      expect(feedback.analysis, contains('2'));
+      expect(feedback.analysis, contains('40'));
+      expect(feedback.nextSession, contains('40'));
+      expect(feedback.nextSession, isNot(contains('45')));
+      expect(feedback.decision!.targetLine, contains('40'));
+      expect(feedback.decision!.targetLine, isNot(contains('45')));
+    });
+
+    test('all 3 prescribed sets at 40kg still earns 45', () {
+      final feedback = WorkoutExerciseCoachFeedbackEngine.build(
+        sets: const <LoggedSetPerformance>[
+          LoggedSetPerformance(
+            targetReps: 12,
+            actualReps: 12,
+            actualWeightKg: 40,
+          ),
+          LoggedSetPerformance(
+            targetReps: 12,
+            actualReps: 12,
+            actualWeightKg: 40,
+          ),
+          LoggedSetPerformance(
+            targetReps: 12,
+            actualReps: 12,
+            actualWeightKg: 40,
+          ),
+        ],
+        isTimedStyle: false,
+        prescribedSetCount: 3,
+        previousSets: _prev(40),
+      );
+
+      expect(feedback!.decision!.action, ExerciseCoachAction.increase);
+      expect(feedback.decision!.nextWeightKg, 45);
+      expect(feedback.decision!.targetLine, contains('45'));
+      expect(feedback.nextSession, contains('45'));
+    });
+
+    test('single-set prescription can still progress', () {
+      final feedback = WorkoutExerciseCoachFeedbackEngine.build(
+        sets: const <LoggedSetPerformance>[
+          LoggedSetPerformance(
+            targetReps: 12,
+            actualReps: 12,
+            actualWeightKg: 40,
+          ),
+        ],
+        isTimedStyle: false,
+        prescribedSetCount: 1,
+        previousSets: _prev(40, n: 1),
+      );
+
+      expect(feedback!.decision!.action, ExerciseCoachAction.increase);
+      expect(feedback.decision!.nextWeightKg, 45);
     });
   });
 }

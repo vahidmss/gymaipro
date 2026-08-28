@@ -98,7 +98,7 @@ class WorkoutProgramModifyService {
     String? programId,
     String? sessionDay,
   }) async {
-    final active = await _catalog.getActiveProgramOption();
+    final active = await _catalog.getActiveAiProgramOption();
     final effectiveProgramId = (programId != null && programId.isNotEmpty)
         ? programId
         : active?.id;
@@ -175,7 +175,7 @@ class WorkoutProgramModifyService {
       );
     }
 
-    final active = await _catalog.getActiveProgramOption();
+    final active = await _catalog.getActiveAiProgramOption();
     final effectiveProgramId = (programId != null && programId.isNotEmpty)
         ? programId
         : active?.id;
@@ -313,7 +313,7 @@ class WorkoutProgramModifyService {
       );
     }
 
-    final active = await _catalog.getActiveProgramOption();
+    final active = await _catalog.getActiveAiProgramOption();
     final effectiveProgramId = (programId != null && programId.isNotEmpty)
         ? programId
         : active?.id;

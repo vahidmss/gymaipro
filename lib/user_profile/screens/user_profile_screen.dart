@@ -86,6 +86,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   String get _userRole => (_profile?['role'] ?? 'athlete').toString();
   bool get _isTrainerProfile => _userRole == 'trainer';
 
+  String get _appBarTitle {
+    if (_isTrainerProfile) return 'پروفایل مربی';
+    if (_hasTrainerAccess) return 'پروفایل شاگرد';
+    return 'پروفایل کاربر';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -114,7 +120,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         tooltip: 'بازگشت',
       ),
       title: Text(
-        _isTrainerProfile ? 'پروفایل مربی' : 'پروفایل کاربر',
+        _appBarTitle,
         style: TextStyle(
           fontFamily: AppTheme.fontFamily,
           fontSize: 22.sp,
@@ -147,209 +153,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     return AthleteProfileScreen(
       userId: widget.userId,
-      trainerOnlySection:
-          _hasTrainerAccess ? _buildTrainerOnlySection() : null,
-    );
-  }
-
-  /// کارت اطلاعات محرمانه (فقط برای مربی) — بالای پروفایل، در همان اسکرول
-  Widget _buildTrainerOnlySection() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 0),
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(16.w),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [
-                    AppTheme.goldColor.withValues(alpha: 0.12),
-                    AppTheme.goldColor.withValues(alpha: 0.04),
-                  ]
-                : [
-                    AppTheme.goldColor.withValues(alpha: 0.08),
-                    AppTheme.lightCardColor,
-                  ],
-          ),
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(
-            color: AppTheme.goldColor.withValues(alpha: 0.25),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.goldColor.withValues(alpha: 0.06),
-              blurRadius: 12.r,
-              offset: Offset(0, 4.h),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(8.w),
-                  decoration: BoxDecoration(
-                    color: AppTheme.goldColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: Icon(
-                    LucideIcons.shieldCheck,
-                    color: AppTheme.goldColor,
-                    size: 20.sp,
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Text(
-                    'اطلاعات محرمانه شاگرد',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w700,
-                      color: context.textColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              'فقط برای شما (مربی) قابل مشاهده است.',
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 11.sp,
-                color: AppTheme.goldColor,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            SizedBox(height: 14.h),
-            if (!_confHasConsented)
-              Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8.h),
-                  child: Text(
-                    'شاگرد هنوز دسترسی به اطلاعات محرمانه را تایید نکرده است.',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 12.sp,
-                      color: context.textSecondary,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              )
-            else
-              _buildConfidentialContent(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildConfidentialContent() {
-    final prefs =
-        (_confidentialData?['lifestyle_preferences']
-            as Map<String, dynamic>?) ??
-        {};
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _trainerCard(
-          icon: LucideIcons.heart,
-          title: 'سلامت و شرایط خاص',
-          lines: [
-            _kv('شرایط پزشکی', prefs['medical_conditions']),
-            _kv('داروها', prefs['medications']),
-            _kv('آلرژی‌ها', prefs['allergies']),
-          ],
-        ),
-        SizedBox(height: 12.h),
-        _trainerCard(
-          icon: LucideIcons.target,
-          title: 'هدف‌ها',
-          lines: [
-            _kv('اهداف اصلی', prefs['primary_goals']),
-            _kv('وزن هدف', prefs['target_weight']),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _trainerCard({
-    required IconData icon,
-    required String title,
-    required List<Widget> lines,
-  }) {
-    return Container(
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-        color: context.cardColor,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: context.separatorColor),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: AppTheme.goldColor, size: 18.sp),
-              SizedBox(width: 8.w),
-              Text(
-                title,
-                style: TextStyle(
-                  fontFamily: AppTheme.fontFamily,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14.sp,
-                  color: context.textColor,
-                ),
-              ),
-            ],
-          ),
-          Divider(height: 24.h),
-          ...lines,
-        ],
-      ),
-    );
-  }
-
-  Widget _kv(String label, dynamic value) {
-    final String v = (value ?? '').toString();
-    if (v.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: EdgeInsets.only(bottom: 8.h),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '$label: ',
-            style: TextStyle(
-              fontFamily: AppTheme.fontFamily,
-              color: context.textSecondary,
-              fontSize: 13.sp,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              v,
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                color: context.textColor,
-                fontSize: 13.sp,
-              ),
-            ),
-          ),
-        ],
-      ),
+      isTrainerViewer: _hasTrainerAccess,
+      confHasConsented: _confHasConsented,
+      confidentialData: _confidentialData,
     );
   }
 }

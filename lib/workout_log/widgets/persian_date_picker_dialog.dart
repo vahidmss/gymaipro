@@ -12,12 +12,20 @@ class PersianDatePickerDialog extends StatefulWidget {
   const PersianDatePickerDialog({
     required this.selectedDate,
     this.onDateSelected,
+    this.minDate,
+    this.maxDate,
     super.key,
   });
   final DateTime selectedDate;
 
   /// اختیاری / منسوخ — ترجیح با نتیجهٔ `showDialog` است.
   final void Function(DateTime)? onDateSelected;
+
+  /// اولین روز قابل انتخاب (شامل).
+  final DateTime? minDate;
+
+  /// آخرین روز قابل انتخاب (شامل).
+  final DateTime? maxDate;
 
   @override
   State<PersianDatePickerDialog> createState() =>
@@ -34,6 +42,19 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
     super.initState();
     _currentMonth = widget.selectedDate;
     _selectedDate = widget.selectedDate;
+    if (!_isDateAllowed(_selectedDate)) {
+      final max = widget.maxDate;
+      final min = widget.minDate;
+      if (max != null &&
+          DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day)
+              .isAfter(DateTime(max.year, max.month, max.day))) {
+        _selectedDate = DateTime(max.year, max.month, max.day);
+        _currentMonth = _selectedDate;
+      } else if (min != null) {
+        _selectedDate = DateTime(min.year, min.month, min.day);
+        _currentMonth = _selectedDate;
+      }
+    }
     _loadWorkoutLogDates();
   }
 
@@ -376,13 +397,18 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
               now.year == gregorianDate.year &&
               now.month == gregorianDate.month &&
               now.day == gregorianDate.day;
+          final isAllowed = _isDateAllowed(dateKey);
           return Expanded(
             child: GestureDetector(
-              onTap: () {
-                // یک ضربه = انتخاب و بستن (مثل Hevy)
-                Navigator.of(context).pop(gregorianDate);
-              },
-              child: Container(
+              onTap: isAllowed
+                  ? () {
+                      // یک ضربه = انتخاب و بستن (مثل Hevy)
+                      Navigator.of(context).pop(gregorianDate);
+                    }
+                  : null,
+              child: Opacity(
+                opacity: isAllowed ? 1 : 0.35,
+                child: Container(
                 margin: EdgeInsets.symmetric(horizontal: 2.w, vertical: 2.h),
                 height: 48.h,
                 decoration: BoxDecoration(
@@ -469,11 +495,27 @@ class _PersianDatePickerDialogState extends State<PersianDatePickerDialog> {
                   ],
                 ),
               ),
+              ),
             ),
           );
         }),
       ),
     );
+  }
+
+  bool _isDateAllowed(DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    final min = widget.minDate;
+    final max = widget.maxDate;
+    if (min != null) {
+      final minDay = DateTime(min.year, min.month, min.day);
+      if (day.isBefore(minDay)) return false;
+    }
+    if (max != null) {
+      final maxDay = DateTime(max.year, max.month, max.day);
+      if (day.isAfter(maxDay)) return false;
+    }
+    return true;
   }
 
   String _getPersianMonthName(int month) {

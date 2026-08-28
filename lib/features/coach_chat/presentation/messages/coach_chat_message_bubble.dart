@@ -15,6 +15,13 @@ class CoachChatMessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final isUser = message.role == CoachChatMessageRole.user;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textStyle = TextStyle(
+      fontFamily: AppTheme.fontFamily,
+      fontSize: 15,
+      height: 1.55,
+      fontWeight: FontWeight.w600,
+      color: isUser ? AppTheme.onGoldColor : context.textColor,
+    );
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -73,16 +80,11 @@ class CoachChatMessageBubble extends StatelessWidget {
               ),
               const SizedBox(height: 6),
             ],
-            Text(
-              message.text,
-              textDirection: TextDirection.rtl,
-              style: TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontSize: 15,
-                height: 1.55,
-                fontWeight: FontWeight.w600,
-                color: isUser ? AppTheme.onGoldColor : context.textColor,
+            Text.rich(
+              TextSpan(
+                children: _parseInlineMarkdown(message.text, textStyle),
               ),
+              textDirection: TextDirection.rtl,
             ),
             if (!isUser)
               for (final card in message.cards)
@@ -92,4 +94,26 @@ class CoachChatMessageBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Minimal inline markdown: `**bold**` and plain text / newlines.
+List<InlineSpan> _parseInlineMarkdown(String input, TextStyle base) {
+  final boldStyle = base.copyWith(fontWeight: FontWeight.w800);
+  final spans = <InlineSpan>[];
+  final pattern = RegExp(r'\*\*(.+?)\*\*');
+  var start = 0;
+  for (final match in pattern.allMatches(input)) {
+    if (match.start > start) {
+      spans.add(TextSpan(text: input.substring(start, match.start), style: base));
+    }
+    spans.add(TextSpan(text: match.group(1) ?? '', style: boldStyle));
+    start = match.end;
+  }
+  if (start < input.length) {
+    spans.add(TextSpan(text: input.substring(start), style: base));
+  }
+  if (spans.isEmpty) {
+    spans.add(TextSpan(text: input, style: base));
+  }
+  return spans;
 }

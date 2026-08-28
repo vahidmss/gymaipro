@@ -468,6 +468,20 @@ class LiveWorkoutCompletionCard extends StatelessWidget {
           ],
           GymSpacing.gapMd,
           Text(summary.tipLine, style: context.lwCaption),
+          if (summary.debrief != null &&
+              summary.debrief!.bullets.length > 1) ...<Widget>[
+            GymSpacing.gapMd,
+            Text(
+              ProductCopy.sessionDebriefTitle,
+              style: context.lwCaption.copyWith(fontWeight: FontWeight.w800),
+            ),
+            GymSpacing.gapSm,
+            for (final bullet in summary.debrief!.bullets.skip(1).take(4))
+              Padding(
+                padding: const EdgeInsets.only(bottom: GymSpacing.xs),
+                child: Text('• $bullet', style: context.lwBody),
+              ),
+          ],
           if (!summary.synced) ...<Widget>[
             GymSpacing.gapSm,
             Text(
@@ -478,7 +492,7 @@ class LiveWorkoutCompletionCard extends StatelessWidget {
           if (onOpenAnalysis != null) ...<Widget>[
             GymSpacing.gapLg,
             GymButton(
-              label: 'برو به تحلیل امروز',
+              label: ProductCopy.finishWorkoutAndAnalyze,
               fullWidth: true,
               icon: GymIcons.progress,
               onPressed: onOpenAnalysis,

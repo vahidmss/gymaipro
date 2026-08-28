@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/dashboard/services/dashboard_cache_service.dart';
 import 'package:gymaipro/dashboard/services/dashboard_profile_mapper.dart';
+import 'package:gymaipro/meal_log/models/nutrition_goal.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -70,6 +71,11 @@ class SimpleProfileService {
     if (_cachedProfile == null) return;
     _cachedProfile!.addAll(updates);
     _cachedProfileAt = DateTime.now();
+  }
+
+  /// Public cache patch used when nutrition goal is saved locally first.
+  static void patchCachedProfileFields(Map<String, dynamic> updates) {
+    _patchCachedProfile(updates);
   }
 
   static List<String> _phoneVariants(String raw) {
@@ -360,6 +366,8 @@ class SimpleProfileService {
         'chest_circumference',
         'waist_circumference',
         'hip_circumference',
+        'target_weight_kg',
+        'weekly_rate_kg',
       ]) {
         if (cleanUpdates.containsKey(key) && cleanUpdates[key] != null) {
           final value = cleanUpdates[key];
@@ -514,6 +522,21 @@ class SimpleProfileService {
       return await updateProfile({'fitness_goals': goals});
     } catch (e) {
       debugPrint('Error updating fitness goals: $e');
+      return false;
+    }
+  }
+
+  /// Persists nutrition calorie goal columns on profiles.
+  static Future<bool> updateNutritionGoal(
+    NutritionGoal goal, {
+    bool clearReachedAt = false,
+  }) async {
+    try {
+      return await updateProfile(
+        goal.toProfileUpdates(clearReachedAt: clearReachedAt),
+      );
+    } catch (e) {
+      debugPrint('Error updating nutrition goal: $e');
       return false;
     }
   }

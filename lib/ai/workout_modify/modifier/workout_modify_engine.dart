@@ -14,6 +14,7 @@ import 'package:gymaipro/ai/workout_modify/models/workout_modify_versions.dart';
 import 'package:gymaipro/ai/workout_modify/rules/workout_modify_rules.dart';
 import 'package:gymaipro/ai/workout_modify/trace/workout_modify_trace_builder.dart';
 import 'package:gymaipro/ai/workout_modify/validator/workout_modify_validator.dart';
+import 'package:gymaipro/features/product_experience/recovery/recovery_guidance.dart';
 
 /// Main engine that modifies existing workout programs.
 ///
@@ -50,18 +51,18 @@ class WorkoutModifyEngine {
       for (final profile in request.catalogProfiles) profile.id: profile,
     };
 
-    final experience =
-        original.experienceLevel.isNotEmpty
-            ? original.experienceLevel
-            : (request.context.profile['experience_level'] as String?) ??
-                'متوسط';
+    final experience = original.experienceLevel.isNotEmpty
+        ? original.experienceLevel
+        : (request.context.profile['experience_level'] as String?) ?? 'متوسط';
 
     final query = ExerciseIntelligenceQuery(
       goal: original.goal,
       experience: experience,
       availableEquipment: _expandEquipment(request.context.equipment),
       limitations: request.context.restrictions,
-      recoveryScore: 0.85,
+      recoveryScore: RecoveryGuidance.fromContext(
+        request.context,
+      ).programEngineRecoveryScore,
       avoidExerciseNames: _avoidNamesFromOptions(request.options),
     );
 
@@ -165,10 +166,18 @@ class WorkoutModifyEngine {
   /// Expands coarse labels like «باشگاه» so dumbbell/machine candidates can match.
   static List<String> _expandEquipment(List<String> raw) {
     if (raw.isEmpty) {
-      return const <String>['هالتر', 'دمبل', 'دستگاه', 'کابل', 'پولی', 'باشگاه'];
+      return const <String>[
+        'هالتر',
+        'دمبل',
+        'دستگاه',
+        'کابل',
+        'پولی',
+        'باشگاه',
+      ];
     }
     final joined = raw.join(' ').toLowerCase();
-    final gymLike = joined.contains('باشگاه') ||
+    final gymLike =
+        joined.contains('باشگاه') ||
         joined.contains('gym') ||
         joined.contains('فول') ||
         joined.contains('full');

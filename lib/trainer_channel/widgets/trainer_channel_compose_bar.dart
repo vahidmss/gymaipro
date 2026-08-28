@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -42,7 +43,9 @@ enum _DraftKind { none, audioFile }
 class _TrainerChannelComposeBarState extends State<TrainerChannelComposeBar> {
   final _textController = TextEditingController();
   final _picker = ImagePicker();
-  final _recorder = AudioRecorder();
+  AudioRecorder? _recorder;
+
+  AudioRecorder get _audioRecorder => _recorder ??= AudioRecorder();
 
   _DraftKind _draft = _DraftKind.none;
   File? _audioFile;
@@ -82,18 +85,20 @@ class _TrainerChannelComposeBarState extends State<TrainerChannelComposeBar> {
     _amplitudeSub?.cancel();
     _removeRecordOverlay();
     unawaited(_forceStopRecorder());
-    _recorder.dispose();
+    _recorder?.dispose();
     super.dispose();
   }
 
   Future<void> _forceStopRecorder() async {
+    final recorder = _recorder;
+    if (recorder == null) return;
     try {
-      if (await _recorder.isRecording()) {
-        await _recorder.stop();
+      if (await recorder.isRecording()) {
+        await recorder.stop();
       }
     } catch (_) {
       try {
-        await _recorder.cancel();
+        await recorder.cancel();
       } catch (_) {}
     }
   }
@@ -101,6 +106,12 @@ class _TrainerChannelComposeBarState extends State<TrainerChannelComposeBar> {
   /// مثل تلگرام: یک‌ضرب گالری (عکس + ویدیو)
   Future<void> _openGallery() async {
     if (_sending || widget.remainingToday <= 0) return;
+    if (kIsWeb) {
+      _snack(
+        'روی وب‌اپ ارسال عکس/ویدیو کانال پشتیبانی نمی‌شود. از اپ اندروید استفاده کنید.',
+      );
+      return;
+    }
     try {
       final media = await _picker.pickMedia();
       if (media == null || !mounted) return;
@@ -136,6 +147,12 @@ class _TrainerChannelComposeBarState extends State<TrainerChannelComposeBar> {
   /// نگه‌داشتن دکمه پیوست = فایل صوتی (پادکست)
   Future<void> _openAudioPicker() async {
     if (_sending || widget.remainingToday <= 0) return;
+    if (kIsWeb) {
+      _snack(
+        'روی وب‌اپ فایل صوتی کانال پشتیبانی نمی‌شود. از اپ اندروید استفاده کنید.',
+      );
+      return;
+    }
     await _pickAudioFile();
   }
 
@@ -181,6 +198,12 @@ class _TrainerChannelComposeBarState extends State<TrainerChannelComposeBar> {
 
   void _onMicPointerDown(PointerDownEvent e) {
     if (_sending || widget.remainingToday <= 0 || _isRecording) return;
+    if (kIsWeb) {
+      _snack(
+        'روی وب‌اپ ضبط ویس کانال پشتیبانی نمی‌شود. متن بفرستید یا از اپ اندروید استفاده کنید.',
+      );
+      return;
+    }
     _recordStartPos = e.position;
     _holdDelayTimer?.cancel();
     _holdDelayTimer = Timer(const Duration(milliseconds: 120), () {
@@ -217,7 +240,7 @@ class _TrainerChannelComposeBarState extends State<TrainerChannelComposeBar> {
 
   Future<void> _beginRecording() async {
     if (_isRecording || _sending) return;
-    if (!await _recorder.hasPermission()) {
+    if (!await _audioRecorder.hasPermission()) {
       _snack('دسترسی میکروفون داده نشد');
       return;
     }
@@ -228,9 +251,11 @@ class _TrainerChannelComposeBarState extends State<TrainerChannelComposeBar> {
         '${Directory.systemTemp.path}/ch_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
     try {
-      await _recorder.start(
+      await _audioRecorder.start(
         const RecordConfig(
-          
+          encoder: AudioEncoder.aacLc,
+          bitRate: 128000,
+          sampleRate: 44100,
         ),
         path: _recordPath!,
       );
@@ -253,7 +278,7 @@ class _TrainerChannelComposeBarState extends State<TrainerChannelComposeBar> {
     });
 
     _amplitudeSub?.cancel();
-    _amplitudeSub = _recorder
+    _amplitudeSub = _audioRecorder
         .onAmplitudeChanged(const Duration(milliseconds: 80))
         .listen((amp) {
       if (!mounted) return;
@@ -362,12 +387,12 @@ class _TrainerChannelComposeBarState extends State<TrainerChannelComposeBar> {
 
     String? path;
     try {
-      if (await _recorder.isRecording()) {
-        path = await _recorder.stop();
+      if (await _audioRecorder.isRecording()) {
+        path = await _audioRecorder.stop();
       }
     } catch (_) {
       try {
-        await _recorder.cancel();
+        await _audioRecorder.cancel();
       } catch (_) {}
     }
 

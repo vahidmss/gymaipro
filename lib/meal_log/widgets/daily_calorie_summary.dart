@@ -7,6 +7,7 @@ import 'package:gymaipro/meal_log/models/food_meal_log.dart';
 import 'package:gymaipro/meal_log/services/meal_insight_engine.dart';
 import 'package:gymaipro/meal_log/utils/meal_log_utils.dart';
 import 'package:gymaipro/meal_log/utils/meal_nutrition_targets.dart';
+import 'package:gymaipro/meal_log/utils/nutrition_copy.dart';
 import 'package:gymaipro/meal_log/widgets/meal_log_colors.dart';
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/theme/app_theme.dart';
@@ -20,6 +21,7 @@ class DailyCalorieSummary extends StatefulWidget {
     required this.profileData,
     this.barGuidance,
     this.referenceTime,
+    this.onEditGoal,
     super.key,
   });
 
@@ -28,6 +30,40 @@ class DailyCalorieSummary extends StatefulWidget {
   final Map<String, dynamic>? profileData;
   final MealCalorieBarGuidance? barGuidance;
   final DateTime? referenceTime;
+  final VoidCallback? onEditGoal;
+
+  /// Pure progress metrics for the daily calorie bar (testable).
+  static ({
+    double ratio,
+    double barFill,
+    int percentage,
+    bool isOver,
+    double remainingAbs,
+  })
+  computeProgress({
+    required double consumed,
+    required double target,
+  }) {
+    if (target <= 0) {
+      return (
+        ratio: 0,
+        barFill: 0,
+        percentage: 0,
+        isOver: false,
+        remainingAbs: 0,
+      );
+    }
+    final ratio = consumed / target;
+    final isOver = consumed > target;
+    return (
+      ratio: ratio,
+      barFill: ratio.clamp(0.0, 1.0),
+      // Show true % even when over (e.g. 120%) — never fake 100% when over.
+      percentage: (ratio * 100).round(),
+      isOver: isOver,
+      remainingAbs: (target - consumed).abs(),
+    );
+  }
 
   @override
   State<DailyCalorieSummary> createState() => _DailyCalorieSummaryState();
@@ -40,6 +76,7 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary>
 
   MealNutritionTargets? _cachedTargets;
   Map<String, dynamic>? _cachedProfileRef;
+  String? _cachedProfileNutritionSig;
   Map<String, double>? _cachedTotals;
   int? _cachedMealsSignature;
   List<Food>? _cachedFoodsRef;
@@ -79,7 +116,11 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary>
     super.didUpdateWidget(oldWidget);
     final oldSig = _mealsContentSignature(oldWidget.meals);
     final newSig = _mealsContentSignature(widget.meals);
-    if (oldSig != newSig) {
+    final mealsChanged = oldSig != newSig;
+    final targetChanged =
+        _profileNutritionSignature(oldWidget.profileData) !=
+        _profileNutritionSignature(widget.profileData);
+    if (mealsChanged || targetChanged) {
       _progressAnim
         ..reset()
         ..forward();
@@ -94,8 +135,11 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary>
 
   void _ensureComputed() {
     final profile = widget.profileData;
-    if (_cachedProfileRef != profile) {
+    final profileSig = _profileNutritionSignature(profile);
+    if (_cachedProfileRef != profile ||
+        _cachedProfileNutritionSig != profileSig) {
       _cachedProfileRef = profile;
+      _cachedProfileNutritionSig = profileSig;
       _cachedTargets = MealNutritionTargets.fromProfile(profile);
     }
 
@@ -116,6 +160,22 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary>
     }
   }
 
+  /// Invalidates target cache when goal fields change even if map identity stays.
+  static String _profileNutritionSignature(Map<String, dynamic>? profile) {
+    if (profile == null) return 'null';
+    return [
+      profile['nutrition_goal_mode'],
+      profile['calorie_goal_kcal'],
+      profile['target_weight_kg'],
+      profile['weekly_rate_kg'],
+      profile['latest_weight'],
+      profile['weight'],
+      profile['height'],
+      profile['activity_level'],
+      profile['gender'],
+    ].join('|');
+  }
+
   @override
   Widget build(BuildContext context) {
     _ensureComputed();
@@ -128,20 +188,29 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary>
     final consumedCarbs = totals['carbs'] ?? 0;
     final consumedFat = totals['fat'] ?? 0;
 
-    final calorieDelta = dailyCalorieTarget - consumedCalories;
-    final isOver = calorieDelta < 0;
-    final progress = dailyCalorieTarget > 0
-        ? (consumedCalories / dailyCalorieTarget).clamp(0.0, 1.0)
-        : 0.0;
-    final percentage = (progress * 100).round();
+    final metrics = DailyCalorieSummary.computeProgress(
+      consumed: consumedCalories,
+      target: dailyCalorieTarget,
+    );
+    final isOver = metrics.isOver;
+    final progress = metrics.barFill;
+    final remainingAbs = metrics.remainingAbs;
     final barGuidance = widget.barGuidance ?? MealCalorieBarGuidance.empty;
-    final remainingAbs = isOver ? -calorieDelta : calorieDelta;
+    final hasActiveGoal = targets.hasActiveGoal;
+    final remainingLabel = NutritionCopy.remainingLabel(
+      hasActiveGoal: hasActiveGoal,
+    );
+    final overLabel = NutritionCopy.overLabel(hasActiveGoal: hasActiveGoal);
+    final usedOfBudget = NutritionCopy.usedOfBudget(
+      consumed: consumedCalories.round(),
+      budget: dailyCalorieTarget.round(),
+    );
 
     return Container(
       margin: EdgeInsets.symmetric(vertical: 4.h),
       decoration: BoxDecoration(
         color: MealLogColors.sectionBackground(context),
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: MealLogColors.chipBorder(context, selected: false),
         ),
@@ -169,7 +238,7 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isOver ? 'بیش از مرجع' : 'باقیمانده',
+                        isOver ? overLabel : remainingLabel,
                         style: MealLogTypography.statLabel(context),
                       ),
                       SizedBox(height: 2.h),
@@ -208,13 +277,12 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary>
                       ),
                       SizedBox(height: 2.h),
                       Text(
-                        MealLogUtils.convertToPersianNumbers(
-                          '$percentage٪ از مرجع',
-                        ),
+                        MealLogUtils.convertToPersianNumbers(usedOfBudget),
                         style: MealLogTypography.caption(
                           context,
-                          color: _pctColor(context, progress, isOver),
-                          fontWeight: FontWeight.w700,
+                          color: isOver
+                              ? MealLogColors.errorText(context)
+                              : MealLogColors.mutedText(context),
                         ).copyWith(fontSize: 10.sp),
                       ),
                     ],
@@ -246,17 +314,47 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary>
                         ),
                       ),
                       SizedBox(height: 2.h),
-                      Text(
-                        MealLogUtils.convertToPersianNumbers(
-                          '${targets.calorieReferenceTitle}: ${dailyCalorieTarget.round()}',
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: hasActiveGoal && widget.onEditGoal != null
+                              ? widget.onEditGoal
+                              : null,
+                          borderRadius: BorderRadius.circular(6.r),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 2.h),
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    MealLogUtils.convertToPersianNumbers(
+                                      '${targets.calorieReferenceTitle}: '
+                                      '${dailyCalorieTarget.round()}',
+                                    ),
+                                    style: MealLogTypography.caption(
+                                      context,
+                                      color: hasActiveGoal
+                                          ? MealLogColors.accent(context)
+                                          : MealLogColors.mutedText(context),
+                                      fontWeight: FontWeight.w500,
+                                    ).copyWith(fontSize: 10.sp),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (hasActiveGoal &&
+                                    widget.onEditGoal != null) ...[
+                                  SizedBox(width: 4.w),
+                                  Icon(
+                                    LucideIcons.pencil,
+                                    size: 11.sp,
+                                    color: MealLogColors.accent(context),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
                         ),
-                        style: MealLogTypography.caption(
-                          context,
-                          color: MealLogColors.mutedText(context),
-                          fontWeight: FontWeight.w500,
-                        ).copyWith(fontSize: 10.sp),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -273,10 +371,35 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary>
                 return _CalorieProgressBar(
                   progress: progress * t,
                   isOver: isOver,
+                  overRatio: isOver ? metrics.ratio : 1.0,
                 );
               },
             ),
           ),
+          if (!hasActiveGoal && widget.onEditGoal != null)
+            Padding(
+              padding: EdgeInsets.fromLTRB(14.w, 8.h, 14.w, 0),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: widget.onEditGoal,
+                  style: TextButton.styleFrom(
+                    foregroundColor: MealLogColors.accent(context),
+                    padding: EdgeInsets.symmetric(horizontal: 4.w),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: Icon(LucideIcons.wallet, size: 14.sp),
+                  label: Text(
+                    'تعیین بودجه کالری',
+                    style: MealLogTypography.caption(
+                      context,
+                      color: MealLogColors.accent(context),
+                      fontWeight: FontWeight.w700,
+                    ).copyWith(fontSize: 11.sp),
+                  ),
+                ),
+              ),
+            ),
           if (barGuidance.hasContent)
             Padding(
               padding: EdgeInsets.fromLTRB(14.w, 8.h, 14.w, 0),
@@ -287,10 +410,10 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary>
             child: InkWell(
               onTap: () => setState(() => _isExpanded = !_isExpanded),
               borderRadius: BorderRadius.vertical(
-                bottom: Radius.circular(_isExpanded ? 0 : 14.r),
+                bottom: Radius.circular(_isExpanded ? 0 : 16.r),
               ),
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 6.h),
+              child: SizedBox(
+                height: 48.h,
                 child: Icon(
                   _isExpanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
                   size: 16.sp,
@@ -324,61 +447,56 @@ class _DailyCalorieSummaryState extends State<DailyCalorieSummary>
       ),
     );
   }
-
-  Color _pctColor(BuildContext context, double progress, bool isOver) {
-    if (isOver) return MealLogColors.errorText(context);
-    if (progress >= 0.85) return MealLogColors.successText(context);
-    if (progress >= 0.5) return MealLogColors.accent(context);
-    return MealLogColors.mutedText(context);
-  }
 }
 
 class _CalorieProgressBar extends StatelessWidget {
   const _CalorieProgressBar({
     required this.progress,
     required this.isOver,
+    this.overRatio = 1.0,
   });
 
   final double progress;
   final bool isOver;
+  final double overRatio;
 
   @override
   Widget build(BuildContext context) {
-    final clamped = progress.clamp(0.0, 1.0);
-    return Directionality(
-      textDirection: TextDirection.ltr,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(999.r),
-        child: SizedBox(
-          height: 7.h,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ColoredBox(color: MealLogColors.inputBorder(context)),
+    final fill = progress.clamp(0.0, 1.0);
+    final fillColor = isOver
+        ? MealLogColors.errorText(context)
+        : AppTheme.goldColor;
+    final trackColor = MealLogColors.inputBorder(context);
+
+    // Iranian calorie apps (and MFP/etc.) fill LTR: left → right,
+    // even inside an RTL page.
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999.r),
+      child: SizedBox(
+        height: 8.h,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ColoredBox(color: trackColor),
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: LinearProgressIndicator(
+                value: fill,
+                minHeight: 8.h,
+                backgroundColor: Colors.transparent,
+                color: fillColor,
+              ),
+            ),
+            if (isOver && overRatio > 1.02)
               Align(
-                alignment: Alignment.centerLeft,
-                child: FractionallySizedBox(
-                  widthFactor: clamped,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isOver
-                            ? [
-                                MealLogColors.errorText(context)
-                                    .withValues(alpha: 0.75),
-                                MealLogColors.errorText(context),
-                              ]
-                            : [
-                                AppTheme.darkGold,
-                                AppTheme.goldColor,
-                              ],
-                      ),
-                    ),
-                  ),
+                alignment: Alignment.centerRight,
+                child: Container(
+                  width: 3.w,
+                  color: MealLogColors.errorText(context),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -482,9 +600,9 @@ class _ExpandedBody extends StatelessWidget {
               Expanded(
                 child: Text(
                   showChart ? 'توزیع کالری ماکرو' : 'دریافتی ماکرو',
-                  style: MealLogTypography.sectionTitle(context).copyWith(
-                    fontSize: 12.sp,
-                  ),
+                  style: MealLogTypography.sectionTitle(
+                    context,
+                  ).copyWith(fontSize: 12.sp),
                 ),
               ),
               Material(
@@ -777,9 +895,9 @@ class _MacroPie extends StatelessWidget {
                 MealLogUtils.convertToPersianNumbers(
                   '${calories.round()} کالری',
                 ),
-                style: MealLogTypography.sectionTitle(context).copyWith(
-                  fontSize: 13.sp,
-                ),
+                style: MealLogTypography.sectionTitle(
+                  context,
+                ).copyWith(fontSize: 13.sp),
               ),
               SizedBox(height: 8.h),
               _legend(context, 'پروتئین', AppTheme.proteinColor),

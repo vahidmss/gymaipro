@@ -7,8 +7,10 @@ import 'package:gymaipro/ai/skills/intelligence/skill_recommendation.dart';
 import 'package:gymaipro/ai/workout/models/workout_generator_reason.dart';
 import 'package:gymaipro/ai/workout_review/models/workout_review_result.dart';
 import 'package:gymaipro/features/coach/presentation/state/coach_home_state.dart';
+import 'package:gymaipro/features/product_experience/calendar_day.dart';
 import 'package:gymaipro/features/product_experience/coach_resolved_program.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
+import 'package:gymaipro/features/product_experience/recovery/last_night_sleep.dart';
 import 'package:gymaipro/features/product_experience/recovery/recovery_guidance.dart';
 import 'package:gymaipro/features/workout_today/domain/workout_today_domain_model.dart';
 import 'package:gymaipro/models/exercise_display_labels.dart';
@@ -57,12 +59,17 @@ abstract final class ProductExperienceFormatter {
       recovery = _readInt(context.preferences['recovery']);
     }
 
+    final lastNightHours = _readDouble(
+      context.preferences['last_night_sleep_hours'],
+    );
     var sleep = profileSleep;
-    if (sleep == 0) {
+    if (lastNightHours != null && lastNightHours > 0) {
+      sleep = LastNightSleep.scoreFromHours(lastNightHours);
+    } else if (sleep == 0) {
       final sleepHours = _readDouble(context.preferences['bb_sleep_hours']) ??
           _readDouble(context.preferences['sleep_hours']);
       if (sleepHours != null && sleepHours > 0) {
-        sleep = (sleepHours / 8 * 100).round().clamp(0, 100);
+        sleep = LastNightSleep.scoreFromHours(sleepHours);
       }
     }
 
@@ -71,17 +78,28 @@ abstract final class ProductExperienceFormatter {
         context.preferences.containsKey('days_since_last_workout');
     final days = _daysSinceLastWorkout(context) ??
         (hasDaysPref ? daysFromPrefs : null);
+    final sessionCompletedToday = _sessionCompletedToday(context);
 
     // If we know rest days but have no stored score, estimate from rest.
+    // Do NOT treat "had some sets today" as a finished session for estimates.
     if (recovery == 0 && days != null) {
-      recovery = (48 + days * 11).clamp(35, 96);
+      if (sessionCompletedToday) {
+        recovery = (48 + days * 11).clamp(35, 96);
+      } else if (days <= 0) {
+        // Active/incomplete today — keep readiness nearer to neutral.
+        recovery = 62;
+      } else {
+        recovery = (48 + days * 11).clamp(35, 96);
+      }
     }
 
     var fatigue = profileFatigue;
     if (fatigue == 0) {
-      if (days != null) {
+      if (sessionCompletedToday) {
+        fatigue = 62;
+      } else if (days != null) {
         if (days <= 0) {
-          fatigue = 62;
+          fatigue = 40; // started something today, not finished
         } else if (days == 1) {
           fatigue = 48;
         } else if (days >= 4) {
@@ -102,6 +120,12 @@ abstract final class ProductExperienceFormatter {
     // Inverse coupling when we have recovery but no fatigue signal.
     if (fatigue == 0 && recovery > 0) {
       fatigue = (100 - recovery).clamp(15, 85);
+    }
+
+    if (lastNightHours != null && lastNightHours > 0) {
+      if (fatigue <= 0) fatigue = 40;
+      fatigue = (fatigue + LastNightSleep.fatigueAdjustment(lastNightHours))
+          .clamp(15, 90);
     }
 
     var readiness = profileReadiness;
@@ -127,6 +151,10 @@ abstract final class ProductExperienceFormatter {
       sleep: sleep.clamp(0, 100),
       readiness: readiness.clamp(0, 100),
       daysSinceLastWorkout: days,
+      sessionCompletedToday: sessionCompletedToday,
+      lastNightSleepHours: lastNightHours != null && lastNightHours > 0
+          ? LastNightSleep.snap(lastNightHours)
+          : null,
     );
   }
 
@@ -139,25 +167,52 @@ abstract final class ProductExperienceFormatter {
     List<String> insights = const <String>[],
   }) {
     final lines = <String>[];
+    final guidance = RecoveryGuidance.fromSnapshot(recovery);
 
-    if (recovery.readiness >= 70) {
-      lines.add('امروز ریکاوری خوبی داری.');
-    } else if (recovery.readiness >= 45) {
-      lines.add('امروز می‌توانی با شدت متوسط تمرین کنی.');
-    } else if (recovery.readiness > 0) {
-      lines.add('امروز بهتر است تمرین سبک‌تری انجام بدهی.');
+    switch (guidance.scenario) {
+      case RecoveryScenario.postSessionToday:
+        lines.add(
+          'جلسه امروزت ثبت شده — الان فاز ریکاوری است، نه فشار دوباره.',
+        );
+      case RecoveryScenario.readyToTrain:
+        lines.add('امروز ریکاوری خوبی داری.');
+      case RecoveryScenario.trainCautiously:
+        lines.add('امروز می‌توانی با شدت متوسط تمرین کنی.');
+      case RecoveryScenario.needsRestOrLighter:
+        lines.add(
+          'اگر هنوز تمرین نکرده‌ای، امروز فرم دقیق و فشار سبک‌تر بهتر است.',
+        );
+      case RecoveryScenario.returningAfterBreak:
+        lines.add(
+          'چند روز فاصله داشته‌ای؛ با شدت متوسط برگرد، نه با حداکثر توان.',
+        );
+      case RecoveryScenario.unknown:
+        if (recovery.readiness >= 70) {
+          lines.add('امروز ریکاوری خوبی داری.');
+        } else if (recovery.readiness >= 45) {
+          lines.add('امروز می‌توانی با شدت متوسط تمرین کنی.');
+        } else if (recovery.readiness > 0) {
+          lines.add(
+            'اگر هنوز تمرین نکرده‌ای، امروز فرم دقیق و فشار سبک‌تر بهتر است.',
+          );
+        }
     }
 
-    if (workout != null && workout.focus.trim().isNotEmpty) {
+    if (guidance.scenario != RecoveryScenario.postSessionToday &&
+        workout != null &&
+        workout.focus.trim().isNotEmpty) {
       lines.add('بهترین زمان برای تمرین ${workout.focus} است.');
       if (workout.durationMinutes > 0) {
         lines.add(
           'جلسه حدود ${workout.durationMinutes} ${ProductCopy.minutes} طول می‌کشد و شدت آن ${workout.intensity} است.',
         );
       }
-    } else if (insights.isNotEmpty) {
+    } else if (guidance.scenario != RecoveryScenario.postSessionToday &&
+        insights.isNotEmpty) {
       final insight = humanizeReason(insights.first);
-      if (insight.isNotEmpty) lines.add(insight);
+      if (insight.isNotEmpty) {
+        lines.add(insight);
+      }
     }
 
     final goal = context.goals.firstOrNull;
@@ -240,12 +295,16 @@ abstract final class ProductExperienceFormatter {
         (context.preferences.containsKey('days_since_last_workout')
             ? _readInt(context.preferences['days_since_last_workout'])
             : null);
-    final trainedToday = days != null && days <= 0;
+    final trainedToday = recovery.sessionCompletedToday;
 
-    if (days != null) {
-      if (trainedToday) {
+    if (trainedToday) {
+      lines.add(
+        'جلسه امروز ثبت شده؛ الان فاز ریکاوری است، نه زمان فشار دوباره.',
+      );
+    } else if (days != null) {
+      if (days <= 0) {
         lines.add(
-          'جلسه امروز ثبت شده؛ الان فاز ریکاوری است، نه زمان فشار دوباره.',
+          'امروز کمی فعالیت ثبت شده، ولی جلسه هنوز کامل نشده؛ می‌تونی ادامه بدی.',
         );
       } else if (days == 1) {
         lines.add('از آخرین تمرین حدود یک روز گذشته؛ ریکاوری در جریان است.');
@@ -399,9 +458,10 @@ abstract final class ProductExperienceFormatter {
   static String localizeEntitlementStatus(CoachDecisionStatus status) {
     return switch (status) {
       CoachDecisionStatus.upgradeRequired =>
-        'برای این قابلیت به اشتراک مربی پیشرفته نیاز داری. از بخش اشتراک می‌توانی ارتقا بدهی.',
-      CoachDecisionStatus.usageExceeded =>
-        'سقف استفاده از این قابلیت امروز تمام شده. فردا دوباره امتحان کن.',
+        'این یکی از قابلیت‌های پیشرفتهٔ مربیه و توی پلن فعلی‌ت فعال نیست. '
+        'اگر خواستی، از بخش اشتراک می‌تونی فعالش کنی — '
+        'ولی هر سوال دیگه‌ای درباره تمرین، تغذیه یا ریکاوری داری همین‌جا بپرس، جواب می‌دم.',
+      CoachDecisionStatus.usageExceeded => ProductCopy.chatDailyLimitReached,
       CoachDecisionStatus.featureDisabled =>
         'این قابلیت در حال حاضر غیرفعال است.',
       CoachDecisionStatus.temporarilyLocked =>
@@ -494,6 +554,12 @@ abstract final class ProductExperienceFormatter {
           RegExp(r'\bselected_workout\b', caseSensitive: false),
           'تمرین انتخاب‌شده',
         )
+        .replaceAll(RegExp(r'\bbarbell\b', caseSensitive: false), 'هالتر')
+        .replaceAll(RegExp(r'\bdumbbells?\b', caseSensitive: false), 'دمبل')
+        .replaceAll(RegExp(r'\bcable\b', caseSensitive: false), 'کابل')
+        .replaceAll(RegExp(r'\bmachine\b', caseSensitive: false), 'دستگاه')
+        .replaceAll(RegExp(r'\bbodyweight\b', caseSensitive: false), 'وزن بدن')
+        .replaceAll(RegExp(r'\bkettlebell\b', caseSensitive: false), 'کتل‌بل')
         .replaceAll(RegExp(r'intent matched\s+\w+', caseSensitive: false), '')
         .replaceAll(
           RegExp(
@@ -539,6 +605,30 @@ abstract final class ProductExperienceFormatter {
     }
 
     return text;
+  }
+
+  /// Localizes common English equipment tokens for coach UI.
+  static String localizeEquipment(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return value;
+    const map = <String, String>{
+      'barbell': 'هالتر',
+      'dumbbell': 'دمبل',
+      'dumbbells': 'دمبل',
+      'cable': 'کابل',
+      'machine': 'دستگاه',
+      'bodyweight': 'وزن بدن',
+      'body weight': 'وزن بدن',
+      'kettlebell': 'کتل‌بل',
+      'smith': 'اسمیت',
+      'band': 'کش',
+      'resistance band': 'کش مقاومتی',
+      'bench': 'نیمکت',
+      'pull-up bar': 'میله بارفیکس',
+      'pullup bar': 'میله بارفیکس',
+    };
+    final lower = value.toLowerCase();
+    return map[lower] ?? humanizeReason(value);
   }
 
   static String workoutHeadline({
@@ -763,18 +853,39 @@ abstract final class ProductExperienceFormatter {
     };
   }
 
+  /// True only when a live workout was finished today.
+  static bool _sessionCompletedToday(CoachContext context) {
+    final completedAtRaw =
+        context.preferences['last_workout_completed_at']?.toString();
+    final completedAt = DateTime.tryParse(completedAtRaw ?? '');
+    if (completedAt == null) return false;
+    return CalendarDay.daysBetween(completedAt, context.metadata.buildTime) <=
+        0;
+  }
+
   static int? _daysSinceLastWorkout(CoachContext context) {
     final completedAtRaw =
         context.preferences['last_workout_completed_at']?.toString();
     final completedAt = DateTime.tryParse(completedAtRaw ?? '');
     if (completedAt != null) {
-      return context.metadata.buildTime.difference(completedAt).inDays;
+      return CalendarDay.daysBetween(completedAt, context.metadata.buildTime);
     }
-    if (context.workoutHistory.isEmpty) return null;
-    final latest = context.workoutHistory
-        .map((log) => log.logDate)
-        .reduce((a, b) => a.isAfter(b) ? a : b);
-    return context.metadata.buildTime.difference(latest).inDays;
+
+    // Empty / ghost daily logs must NOT count as activity today.
+    // Incomplete meaningful sets still advance daysSince for readiness
+    // estimates, but never mark [sessionCompletedToday].
+    DateTime? latestMeaningful;
+    for (final log in context.workoutHistory) {
+      if (!log.hasMeaningfulLoggedSets) continue;
+      if (latestMeaningful == null || log.logDate.isAfter(latestMeaningful)) {
+        latestMeaningful = log.logDate;
+      }
+    }
+    if (latestMeaningful == null) return null;
+    return CalendarDay.daysBetween(
+      latestMeaningful,
+      context.metadata.buildTime,
+    );
   }
 
   static int _readInt(Object? value) {

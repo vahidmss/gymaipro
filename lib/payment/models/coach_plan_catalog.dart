@@ -6,17 +6,35 @@ import 'package:gymaipro/payment/models/ai_coach_plan_price.dart';
 import 'package:gymaipro/payment/models/payment_plan.dart';
 import 'package:gymaipro/payment/models/subscription.dart';
 
-/// کاتالوگ پلن‌های قابل خرید مربی هوشمند + نگاشت به اشتراک اپ
+/// کاتالوگ محصول مربی هوشمند — یک SKU قابل فروش (برنامه AI).
 class CoachPlanCatalog {
   const CoachPlanCatalog._();
 
+  /// شناسه پایدار محصول در DB / ادمین قیمت‌ها.
   static const String coachProId = 'coach_pro';
+
+  /// نگه داشته می‌شود فقط برای اشتراک‌های قدیمی Ultimate.
   static const String ultimateAiId = 'ultimate_ai';
 
-  /// پلن‌های فروش در فاز اول (به‌جز Free که فقط نمایش است)
-  static const List<String> sellablePlanIds = <String>[
-    coachProId,
-    ultimateAiId,
+  /// مدت پیش‌فرض دسترسی برنامه (روز).
+  static const int defaultValidityDays = 33;
+
+  /// فقط یک محصول قابل خرید.
+  static const List<String> sellablePlanIds = <String>[coachProId];
+
+  /// عنوان محصول‌محور برای UI فروش.
+  static const String productTitle = 'برنامه مربی هوشمند';
+
+  static const String productDescription =
+      'یک برنامه تمرینی منعطف با مربی هوشمند — تا ۳۳ روز ساخت، اصلاح، '
+      'تمرین لایو و گفتگو در اختیارت است.';
+
+  static const List<String> productFeatures = <String>[
+    'ساخت برنامه تمرینی شخصی با هوش مصنوعی',
+    'اصلاح و تنظیم برنامه در طول دوره',
+    'تمرین امروز و لایو هوشمند',
+    'گفتگو و راهنمایی مربی',
+    'ریکاوری و بازبینی جلسه',
   ];
 
   static CoachSubscriptionPlan planFromId(String planId) {
@@ -73,14 +91,20 @@ class CoachPlanCatalog {
     }
   }
 
+  /// True when this plan grants the AI program toolkit (active pass).
+  static bool isPaidAiProgramPlan(CoachSubscriptionPlan plan) {
+    return plan != CoachSubscriptionPlan.free &&
+        plan != CoachSubscriptionPlan.nutritionPro &&
+        plan != CoachSubscriptionPlan.recoveryPro;
+  }
+
   static String persianTitle(CoachSubscriptionPlan plan) {
     switch (plan) {
       case CoachSubscriptionPlan.free:
         return 'رایگان';
       case CoachSubscriptionPlan.coachPro:
-        return 'Coach Pro';
       case CoachSubscriptionPlan.ultimateAI:
-        return 'Ultimate AI';
+        return productTitle;
       case CoachSubscriptionPlan.nutritionPro:
         return 'Nutrition Pro';
       case CoachSubscriptionPlan.recoveryPro:
@@ -130,41 +154,30 @@ class CoachPlanCatalog {
   }
 
   static List<String> featureLabelsForPlan(CoachSubscriptionPlan plan) {
-    final caps = SubscriptionCapabilityMap.capabilities[plan] ?? <CoachCapability>{};
+    if (plan == CoachSubscriptionPlan.coachPro ||
+        plan == CoachSubscriptionPlan.ultimateAI) {
+      return productFeatures;
+    }
+    final caps =
+        SubscriptionCapabilityMap.capabilities[plan] ?? <CoachCapability>{};
     return caps.map(persianCapabilityTitle).toList(growable: false);
   }
 
   static AiCoachPlanPrice fallbackPrice(String planId) {
     final now = DateTime.now();
-    switch (planId) {
-      case ultimateAiId:
-        return AiCoachPlanPrice(
-          id: 'fallback_ultimate_ai',
-          planId: ultimateAiId,
-          title: 'Ultimate AI',
-          description: 'دسترسی کامل به تمام قابلیت‌های مربی هوشمند',
-          priceRial: 1990000,
-          validityDays: 31,
-          features: featureLabelsForPlan(CoachSubscriptionPlan.ultimateAI),
-          isActive: true,
-          createdAt: now,
-          updatedAt: now,
-        );
-      case coachProId:
-      default:
-        return AiCoachPlanPrice(
-          id: 'fallback_coach_pro',
-          planId: coachProId,
-          title: 'Coach Pro',
-          description: 'دسترسی پیشرفته مربی هوشمند برای تمرین و بازبینی برنامه',
-          priceRial: 990000,
-          validityDays: 31,
-          features: featureLabelsForPlan(CoachSubscriptionPlan.coachPro),
-          isActive: true,
-          createdAt: now,
-          updatedAt: now,
-        );
-    }
+    // Single sellable product — ultimate id maps to same product for legacy rows.
+    return AiCoachPlanPrice(
+      id: 'fallback_ai_program',
+      planId: coachProId,
+      title: productTitle,
+      description: productDescription,
+      priceRial: 990000,
+      validityDays: defaultValidityDays,
+      features: productFeatures,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    );
   }
 
   static PaymentPlan toPaymentPlan(AiCoachPlanPrice price) {
@@ -172,19 +185,24 @@ class CoachPlanCatalog {
     final features = price.features.isNotEmpty
         ? price.features
         : featureLabelsForPlan(plan);
+    final title = price.title.isNotEmpty ? price.title : productTitle;
     return PaymentPlan(
-      id: price.planId,
-      name: price.title.isNotEmpty ? price.title : persianTitle(plan),
-      shortDescription: price.description,
-      fullDescription: price.description,
+      id: price.planId == ultimateAiId ? coachProId : price.planId,
+      name: title,
+      shortDescription: price.description.isNotEmpty
+          ? price.description
+          : productDescription,
+      fullDescription: price.description.isNotEmpty
+          ? price.description
+          : productDescription,
       type: PaymentPlanType.subscription,
-      accessLevel: plan == CoachSubscriptionPlan.ultimateAI
-          ? PlanAccessLevel.premium
-          : PlanAccessLevel.basic,
+      accessLevel: PlanAccessLevel.basic,
       price: price.priceRial,
-      validityDays: price.validityDays,
+      validityDays: price.validityDays > 0
+          ? price.validityDays
+          : defaultValidityDays,
       features: features,
-      isPopular: price.planId == ultimateAiId,
+      isPopular: true,
       createdAt: price.createdAt,
       updatedAt: price.updatedAt,
     );
@@ -193,16 +211,29 @@ class CoachPlanCatalog {
   static String descriptionForPlan(CoachSubscriptionPlan plan) {
     switch (plan) {
       case CoachSubscriptionPlan.free:
-        return 'دسترسی پایه به گفتگو و توضیح نقشه عضلانی';
+        return 'وضعیت و ریکاوری محلی؛ برای برنامه هوشمند، برنامه بخر.';
       case CoachSubscriptionPlan.coachPro:
-        return 'برنامه تمرینی، ویرایش، ریکاوری و بازبینی با مربی هوشمند';
       case CoachSubscriptionPlan.ultimateAI:
-        return 'تمام قابلیت‌های مربی هوشمند شامل تغذیه و استدلال پیشرفته';
+        return productDescription;
       case CoachSubscriptionPlan.nutritionPro:
       case CoachSubscriptionPlan.recoveryPro:
       case CoachSubscriptionPlan.enterprise:
       case CoachSubscriptionPlan.lifetime:
         return EntitlementRegistry.defaultPlans[plan]?.description ?? '';
     }
+  }
+
+  /// برچسب بج هاب: روز مانده یا دعوت به خرید.
+  static String hubBadgeLabel({
+    required CoachSubscriptionPlan plan,
+    int? daysRemaining,
+  }) {
+    if (!isPaidAiProgramPlan(plan)) {
+      return 'خرید برنامه';
+    }
+    if (daysRemaining == null) return productTitle;
+    if (daysRemaining <= 0) return 'خرید برنامه';
+    if (daysRemaining == 1) return '۱ روز مانده';
+    return '$daysRemaining روز مانده';
   }
 }

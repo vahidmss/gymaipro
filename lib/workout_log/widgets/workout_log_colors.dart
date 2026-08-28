@@ -10,28 +10,26 @@ abstract final class WorkoutLogColors {
   static Color primaryText(BuildContext context) => context.textColor;
 
   static Color secondaryText(BuildContext context) => isDark(context)
-      ? Colors.white.withValues(alpha: 0.88)
+      ? AppTheme.darkTextSecondary
       : AppTheme.lightTextSecondary;
 
   static Color mutedText(BuildContext context) => isDark(context)
-      ? Colors.white.withValues(alpha: 0.68)
+      ? AppTheme.darkTextSecondary.withValues(alpha: 0.78)
       : AppTheme.lightTextSecondary.withValues(alpha: 0.92);
 
   static Color hintText(BuildContext context) => isDark(context)
-      ? Colors.white.withValues(alpha: 0.55)
+      ? AppTheme.darkTextDisabled
       : AppTheme.lightTextSecondary.withValues(alpha: 0.8);
 
   static Color accent(BuildContext context) =>
       isDark(context) ? AppTheme.goldColor : AppTheme.darkGold;
 
   /// متن و آیکن روی پس‌زمینه روشن — در لایت همیشه تیره.
-  static Color iconOnSurface(BuildContext context) => isDark(context)
-      ? AppTheme.goldColor
-      : AppTheme.lightTextColor;
+  static Color iconOnSurface(BuildContext context) =>
+      isDark(context) ? AppTheme.goldColor : AppTheme.lightTextColor;
 
-  static Color labelAccent(BuildContext context) => isDark(context)
-      ? AppTheme.goldColor
-      : AppTheme.lightTextColor;
+  static Color labelAccent(BuildContext context) =>
+      isDark(context) ? AppTheme.goldColor : AppTheme.lightTextColor;
 
   static Color chipText(BuildContext context, {required bool selected}) {
     if (!isDark(context)) {
@@ -40,12 +38,11 @@ abstract final class WorkoutLogColors {
     return selected ? accent(context) : primaryText(context);
   }
 
-  static Color sectionBackground(BuildContext context) => isDark(context)
-      ? context.cardColor
-      : Colors.white;
+  static Color sectionBackground(BuildContext context) =>
+      isDark(context) ? context.cardColor : Colors.white;
 
   static Color setsPanelBackground(BuildContext context) => isDark(context)
-      ? const Color(0xFF0C0C0C).withValues(alpha: 0.72)
+      ? AppTheme.veryDarkBackground
       : Colors.white.withValues(alpha: 0.88);
 
   static Color chipFill(BuildContext context, {required bool selected}) {
@@ -55,7 +52,7 @@ abstract final class WorkoutLogColors {
           : AppTheme.goldColor.withValues(alpha: 0.18);
     }
     return isDark(context)
-        ? const Color(0xFF161616)
+        ? AppTheme.darkSurfaceElevated
         : AppTheme.lightSurfaceColor;
   }
 
@@ -66,21 +63,18 @@ abstract final class WorkoutLogColors {
             ? AppTheme.darkGreySeparator.withValues(alpha: 0.55)
             : AppTheme.lightDividerColor);
 
-  static Color noteText(BuildContext context) => isDark(context)
-      ? const Color(0xFFFFE082)
-      : const Color(0xFF3E2723);
+  static Color noteText(BuildContext context) =>
+      isDark(context) ? const Color(0xFFFFE082) : const Color(0xFF3E2723);
 
-  static Color noteBackground(BuildContext context) => isDark(context)
-      ? const Color(0xFF2C2618)
-      : const Color(0xFFFFF8E1);
+  static Color noteBackground(BuildContext context) =>
+      isDark(context) ? const Color(0xFF2C2618) : const Color(0xFFFFF8E1);
 
   static Color noteBorder(BuildContext context) => isDark(context)
       ? const Color(0xFFFFB74D).withValues(alpha: 0.45)
       : const Color(0xFFE6A800).withValues(alpha: 0.5);
 
-  static Color inputFill(BuildContext context) => isDark(context)
-      ? const Color(0xFF121212)
-      : Colors.white;
+  static Color inputFill(BuildContext context) =>
+      isDark(context) ? AppTheme.veryDarkBackground : Colors.white;
 
   static Color inputBorder(BuildContext context) => isDark(context)
       ? AppTheme.darkGreySeparator.withValues(alpha: 0.65)
@@ -100,33 +94,28 @@ abstract final class WorkoutLogColors {
     return isDark(context) ? AppTheme.goldColor : AppTheme.lightTextColor;
   }
 
-  static Color successSolid(BuildContext context) => isDark(context)
-      ? const Color(0xFF388E3C)
-      : const Color(0xFF2E7D32);
+  static Color successSolid(BuildContext context) =>
+      isDark(context) ? AppTheme.successColor : const Color(0xFF2E7D32);
 
-  static Color successText(BuildContext context) => isDark(context)
-      ? const Color(0xFFA5D6A7)
-      : const Color(0xFF1B5E20);
+  static Color successText(BuildContext context) =>
+      isDark(context) ? const Color(0xFF8BE3AD) : const Color(0xFF1B5E20);
 
-  static Color successBackground(BuildContext context) => isDark(context)
-      ? const Color(0xFF1B3D1F).withValues(alpha: 0.9)
-      : const Color(0xFFE8F5E9);
+  static Color successBackground(BuildContext context) =>
+      isDark(context) ? const Color(0xFF10291A) : const Color(0xFFE8F5E9);
 
   static Color successBorder(BuildContext context) => isDark(context)
-      ? const Color(0xFF66BB6A).withValues(alpha: 0.55)
+      ? AppTheme.successColor.withValues(alpha: 0.48)
       : const Color(0xFF43A047).withValues(alpha: 0.5);
 
   static Color pendingDot(BuildContext context) => isDark(context)
       ? Colors.white.withValues(alpha: 0.38)
       : AppTheme.lightTextSecondary.withValues(alpha: 0.45);
 
-  static Color warningText(BuildContext context) => isDark(context)
-      ? const Color(0xFFFFCC80)
-      : const Color(0xFFE65100);
+  static Color warningText(BuildContext context) =>
+      isDark(context) ? const Color(0xFFFFCC80) : const Color(0xFFE65100);
 
-  static Color warningBackground(BuildContext context) => isDark(context)
-      ? const Color(0xFF3E2723)
-      : const Color(0xFFFFF3E0);
+  static Color warningBackground(BuildContext context) =>
+      isDark(context) ? const Color(0xFF3E2723) : const Color(0xFFFFF3E0);
 
   static Color warningBorder(BuildContext context) => isDark(context)
       ? const Color(0xFFFFB74D).withValues(alpha: 0.55)
@@ -143,9 +132,8 @@ abstract final class WorkoutLogColors {
 
   static Color onGoldSurface(BuildContext context) => AppTheme.onGoldColor;
 
-  static Color supersetAccent(BuildContext context) => isDark(context)
-      ? const Color(0xFFFFD54F)
-      : AppTheme.lightTextColor;
+  static Color supersetAccent(BuildContext context) =>
+      isDark(context) ? const Color(0xFFFFD54F) : AppTheme.lightTextColor;
 }
 
 abstract final class WorkoutLogTypography {

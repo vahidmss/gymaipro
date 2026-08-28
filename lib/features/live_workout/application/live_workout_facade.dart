@@ -14,6 +14,7 @@ import 'package:gymaipro/features/product_experience/coach_experience_runtime_br
 import 'package:gymaipro/features/product_experience/coach_feature_integration.dart';
 import 'package:gymaipro/features/product_experience/coach_program_resolver.dart';
 import 'package:gymaipro/features/product_experience/product_experience_formatter.dart';
+import 'package:gymaipro/payment/services/ai_program_access.dart';
 import 'package:gymaipro/workout_log/services/workout_program_log_service.dart';
 
 @Deprecated('Use CoachFeatureLoader')
@@ -76,11 +77,33 @@ class LiveWorkoutFacade {
     );
     _lastUserId = seed.userId;
 
-    final activeProgram = await _programCatalog.getActiveProgramOption();
+    final pass = await AiProgramAccess().load(userId: seed.userId);
+    if (!pass.hasPass) {
+      return const LiveWorkoutFacadeResult(
+        state: LiveWorkoutState.error(
+          'دسترسی برنامه مربی هوشمند فعال نیست. '
+          'لاگ‌های قبلی در تقویم می‌مانند؛ برای لایو هوشمند دوباره برنامه بخر.',
+        ),
+        gaps: <String>[
+          'برای ادامه لایو، برنامه مربی هوشمند را بخر یا تمدید کن.',
+        ],
+        previewDuration: Duration.zero,
+      );
+    }
+
+    final activeProgram = await _programCatalog.getActiveAiProgramOption();
     if (activeProgram == null) {
+      final aiPrograms = await _programCatalog.listAiWorkoutPrograms();
       return LiveWorkoutFacadeResult(
         state: const LiveWorkoutState.empty(),
-        gaps: const <String>['برنامه فعال در دسترس نبود.'],
+        gaps: aiPrograms.isEmpty
+            ? const <String>[
+                'برای ثبت تمرین هوشمند، اول از مربی من یک برنامه هوش مصنوعی بساز.',
+              ]
+            : const <String>[
+                'برنامه فعال فعلی برای مسیر هوش مصنوعی نیست. '
+                    'از تمرین امروز یک برنامه AI انتخاب کن.',
+              ],
         previewDuration: Duration.zero,
       );
     }
@@ -117,13 +140,20 @@ class LiveWorkoutFacade {
     );
   }
 
+  Future<SessionChangeEvaluation> evaluateProgramChange({
+    required String programId,
+  }) async {
+    final context = await _sessionGateway.loadContext(programId: programId);
+    return _sessionGateway.evaluateProgramChange(context: context);
+  }
+
   /// Whether a local draft belongs to the currently selected program/session.
   Future<bool> draftMatchesActiveSelection({
     required String userId,
     required LiveWorkoutDraft draft,
   }) async {
     if (draft.session.exercises.isEmpty) return false;
-    final activeProgram = await _programCatalog.getActiveProgramOption();
+    final activeProgram = await _programCatalog.getActiveAiProgramOption();
     if (activeProgram == null) return false;
 
     final sessionContext = await _sessionGateway.loadContext(
@@ -167,9 +197,11 @@ class LiveWorkoutFacade {
     String userId = 'preview_user',
   }) async {
     final gaps = <String>[];
-    final active = await _programCatalog.getActiveProgramOption();
+    final active = await _programCatalog.getActiveAiProgramOption();
     if (active == null) {
-      gaps.add('برنامه فعال در دسترس نبود.');
+      gaps.add(
+        'برنامه فعال فعلی برای مسیر هوش مصنوعی نیست یا برنامه AI نداری.',
+      );
       return LiveWorkoutFacadeResult(
         state: const LiveWorkoutState.empty(),
         gaps: List<String>.unmodifiable(gaps),
@@ -250,7 +282,7 @@ class LiveWorkoutFacade {
     required String userId,
     String? readinessHint,
   }) async {
-    final activeProgram = await _programCatalog.getActiveProgramOption();
+    final activeProgram = await _programCatalog.getActiveAiProgramOption();
     final sessionContext = await _sessionGateway.loadContext(
       programId: programId,
       userId: userId,
@@ -289,9 +321,7 @@ class LiveWorkoutFacade {
 
     final coachTips = <String>[
       if (activeProgram != null)
-        activeProgram.isAiSupervised
-            ? 'برنامه «${activeProgram.title}» را با راهنمایی مربی هوشمند اجرا می‌کنی.'
-            : 'برنامه «${activeProgram.title}» از ${activeProgram.creatorLabel} است؛ مربی هوشمند فقط در اجرا کمکت می‌کند.',
+        'برنامه «${activeProgram.title}» را با راهنمایی مربی هوشمند اجرا می‌کنی.',
       'شدت تلاش اختیاری است — کنار فیلد روی راهنما بزن تا توضیح را ببینی.',
     ];
 

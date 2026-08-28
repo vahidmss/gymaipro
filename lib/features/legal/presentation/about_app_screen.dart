@@ -8,7 +8,7 @@ import 'package:gymaipro/utils/support_launcher.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// صفحه درباره — نسخه دمو + بازخورد + تماس مستقیم.
+/// صفحه درباره — معرفی GymAI Pro + بازخورد + تماس مستقیم.
 class AboutAppScreen extends StatelessWidget {
   const AboutAppScreen({super.key});
 
@@ -109,15 +109,15 @@ class AboutAppScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
-                      LucideIcons.flaskConical,
+                      LucideIcons.sparkles,
                       color: AppTheme.goldColor,
                       size: 22.sp,
                     ),
                     SizedBox(width: 10.w),
                     Expanded(
                       child: Text(
-                        'نسخهٔ دموی محدود — هنوز برای انتشار کامل آماده نیستیم. '
-                        'بازخورد، انتقاد و پیشنهادت مستقیم مسیر بعدی را می‌سازد.',
+                        'GymAI Pro برای تمرین واقعی طراحی شده: برنامه، جلسه زنده، '
+                        'مربی هوشمند و پرداخت امن با زیبال. نظرت مسیر بهتر شدن را می‌سازد.',
                         style: TextStyle(
                           fontFamily: AppTheme.fontFamily,
                           fontSize: 13.sp,
@@ -132,7 +132,7 @@ class AboutAppScreen extends StatelessWidget {
               ),
               SizedBox(height: 20.h),
               Text(
-                'GymAI چیست؟',
+                'GymAI Pro چیست؟',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontWeight: FontWeight.w800,
@@ -144,7 +144,7 @@ class AboutAppScreen extends StatelessWidget {
               Text(
                 'اپ تمرین و تغذیه: برنامه می‌سازد، تمرین امروز را نشان می‌دهد، '
                 'حین جلسه کنارت است و بعد از تمرین جمع‌بندی می‌دهد. '
-                'مربی هوشمند هم برای سؤال‌های تمرینی و تغذیه‌ای اینجاست.',
+                'مربی هوشمند و مربیان انسانی هم اینجا هستند.',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 14.sp,
@@ -199,7 +199,7 @@ class AboutAppScreen extends StatelessWidget {
               ],
               SizedBox(height: 24.h),
               Text(
-                'نسخه ۱.۰.۰ · دمو',
+                'نسخه ۱.۰.۰ · GymAI Pro',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,

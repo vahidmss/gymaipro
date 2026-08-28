@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/chat/services/chat_unread_notifier.dart';
 import 'package:gymaipro/navigation/constants/navigation_constants.dart';
+import 'package:gymaipro/navigation/utils/app_role.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -25,14 +26,12 @@ class CustomBottomNavigation extends StatelessWidget {
   final Map<int, GlobalKey>? navKeys;
   final String? userRole;
 
-  bool get _isTrainer => userRole == 'trainer';
+  bool get _isTrainer => AppRole.isTrainer(userRole);
+  bool get _isAdmin => AppRole.isAdmin(userRole);
 
-  static double get _barHeight => NavigationConstants.bottomNavHeight.h.clamp(
-        72.0,
-        104.0,
-      );
+  static double get _barHeight => 76.h.clamp(68.0, 82.0);
 
-  static double get _plusSize => 56.w.clamp(48.0, 60.0);
+  static double get _plusSize => 54.w.clamp(48.0, 56.0);
 
   @override
   Widget build(BuildContext context) {
@@ -42,9 +41,7 @@ class CustomBottomNavigation extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: context.backgroundColor,
-          border: Border(
-            top: BorderSide(color: context.separatorColor),
-          ),
+          border: Border(top: BorderSide(color: context.separatorColor)),
         ),
         child: SafeArea(
           top: false,
@@ -52,7 +49,7 @@ class CustomBottomNavigation extends StatelessWidget {
             height: _barHeight,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final gap = (_plusSize * 0.95).clamp(48.0, 64.0);
+                final gap = (_plusSize * 0.9).clamp(46.0, 58.0);
                 final plusLeft = (constraints.maxWidth - _plusSize) / 2;
 
                 return Stack(
@@ -73,10 +70,14 @@ class CustomBottomNavigation extends StatelessWidget {
                         Expanded(
                           child: _NavSlot(
                             key: navKeys?[NavigationConstants.hubIndex],
-                            icon: _isTrainer
+                            icon: _isAdmin
+                                ? LucideIcons.shield
+                                : _isTrainer
                                 ? NavigationConstants.deskIcon
                                 : NavigationConstants.myClubIcon,
-                            label: _isTrainer
+                            label: _isAdmin
+                                ? 'پنل ادمین'
+                                : _isTrainer
                                 ? NavigationConstants.deskLabel
                                 : NavigationConstants.myClubLabel,
                             selected:
@@ -90,7 +91,8 @@ class CustomBottomNavigation extends StatelessWidget {
                             key: navKeys?[NavigationConstants.roleTabIndex],
                             icon: NavigationConstants.messagesIcon,
                             label: NavigationConstants.messagesLabel,
-                            selected: currentIndex ==
+                            selected:
+                                currentIndex ==
                                 NavigationConstants.roleTabIndex,
                             onTap: () =>
                                 onTap(NavigationConstants.roleTabIndex),
@@ -110,7 +112,7 @@ class CustomBottomNavigation extends StatelessWidget {
                       ],
                     ),
                     Positioned(
-                      top: -10.h,
+                      top: -9.h,
                       left: plusLeft,
                       width: _plusSize,
                       child: _PlusButton(onTap: onPlusTap, size: _plusSize),
@@ -146,12 +148,12 @@ class _PlusButton extends StatelessWidget {
             decoration: BoxDecoration(
               color: context.actionFill,
               shape: BoxShape.circle,
-              border: Border.all(color: context.actionFill, width: 2.w),
+              border: Border.all(color: context.backgroundColor, width: 3.w),
               boxShadow: [
                 BoxShadow(
-                  color: context.actionFill.withValues(alpha: 0.35),
-                  blurRadius: 10.r,
-                  offset: Offset(0, 4.h),
+                  color: Colors.black.withValues(alpha: 0.32),
+                  blurRadius: 14.r,
+                  offset: Offset(0, 5.h),
                 ),
               ],
             ),
@@ -161,13 +163,13 @@ class _PlusButton extends StatelessWidget {
               color: context.actionOnFill,
             ),
           ),
-          SizedBox(height: 2.h),
+          SizedBox(height: 3.h),
           Text(
             NavigationConstants.plusLabel,
             style: TextStyle(
-              color: context.textSecondary,
+              color: context.textColor,
               fontSize: NavigationConstants.navItemFontSize.sp,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               fontFamily: AppTheme.fontFamily,
             ),
           ),
@@ -206,27 +208,38 @@ class _NavSlot extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Stack(
-                clipBehavior: Clip.none,
+              Container(
+                width: 38.w,
+                height: 30.h,
                 alignment: Alignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    color: color,
-                    size: NavigationConstants.navItemIconSize.sp.clamp(
-                      20.0,
-                      24.0,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? context.inkAccent.withValues(alpha: 0.13)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16.r),
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      color: color,
+                      size: NavigationConstants.navItemIconSize.sp.clamp(
+                        20.0,
+                        24.0,
+                      ),
                     ),
-                  ),
-                  if (showUnreadBadge)
-                    const Positioned(
-                      right: -10,
-                      top: -8,
-                      child: _UnreadBadge(),
-                    ),
-                ],
+                    if (showUnreadBadge)
+                      const Positioned(
+                        right: -10,
+                        top: -8,
+                        child: _UnreadBadge(),
+                      ),
+                  ],
+                ),
               ),
-              SizedBox(height: 4.h),
+              SizedBox(height: 3.h),
               Text(
                 label,
                 style: TextStyle(
@@ -260,16 +273,11 @@ class _UnreadBadge extends StatelessWidget {
         final label = count > 99 ? '99+' : count.toString();
         return Container(
           constraints: BoxConstraints(minWidth: 18.w, minHeight: 18.w),
-          padding: EdgeInsets.symmetric(
-            horizontal: count > 9 ? 5.w : 0,
-          ),
+          padding: EdgeInsets.symmetric(horizontal: count > 9 ? 5.w : 0),
           decoration: BoxDecoration(
             color: const Color(0xFFE53E3E),
             borderRadius: BorderRadius.circular(10.r),
-            border: Border.all(
-              color: context.backgroundColor,
-              width: 1.5.w,
-            ),
+            border: Border.all(color: context.backgroundColor, width: 1.5.w),
           ),
           alignment: Alignment.center,
           child: Text(

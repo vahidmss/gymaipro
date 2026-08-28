@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:gymaipro/design_system/theme/gym_colors.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 
 /// GymAI typography tokens — RTL-first, project font family.
@@ -13,7 +12,6 @@ abstract final class GymTypography {
     fontWeight: FontWeight.w900,
     height: 1.15,
     letterSpacing: -0.6,
-    color: GymColors.textPrimary,
   );
 
   static const TextStyle headline = TextStyle(
@@ -21,7 +19,6 @@ abstract final class GymTypography {
     fontSize: 28,
     fontWeight: FontWeight.w800,
     height: 1.25,
-    color: GymColors.textPrimary,
   );
 
   static const TextStyle title = TextStyle(
@@ -29,7 +26,6 @@ abstract final class GymTypography {
     fontSize: 18,
     fontWeight: FontWeight.w700,
     height: 1.3,
-    color: GymColors.textPrimary,
   );
 
   static const TextStyle body = TextStyle(
@@ -37,7 +33,6 @@ abstract final class GymTypography {
     fontSize: 15,
     fontWeight: FontWeight.w500,
     height: 1.65,
-    color: GymColors.textSecondary,
   );
 
   static const TextStyle bodyStrong = TextStyle(
@@ -45,7 +40,6 @@ abstract final class GymTypography {
     fontSize: 14,
     fontWeight: FontWeight.w700,
     height: 1.5,
-    color: GymColors.textPrimary,
   );
 
   static const TextStyle caption = TextStyle(
@@ -53,7 +47,6 @@ abstract final class GymTypography {
     fontSize: 12,
     fontWeight: FontWeight.w600,
     height: 1.4,
-    color: GymColors.textTertiary,
   );
 
   static const TextStyle overline = TextStyle(
@@ -62,7 +55,6 @@ abstract final class GymTypography {
     fontWeight: FontWeight.w800,
     height: 1.2,
     letterSpacing: 0.6,
-    color: GymColors.textTertiary,
   );
 
   static const TextStyle metric = TextStyle(
@@ -70,7 +62,6 @@ abstract final class GymTypography {
     fontSize: 28,
     fontWeight: FontWeight.w900,
     height: 1.1,
-    color: GymColors.textPrimary,
   );
 
   static const TextStyle button = TextStyle(
@@ -78,7 +69,6 @@ abstract final class GymTypography {
     fontSize: 14,
     fontWeight: FontWeight.w800,
     height: 1.2,
-    color: GymColors.onPrimary,
   );
 
   static TextTheme textTheme = const TextTheme(

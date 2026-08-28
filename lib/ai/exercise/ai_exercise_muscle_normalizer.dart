@@ -110,7 +110,22 @@ abstract final class AiExerciseMuscleNormalizer {
       return 'abs';
     }
 
-    if (_has(name, n, const ['بورپی', 'برپی', 'فارمر', 'کلین', 'اسنچ', 'جرک', 'burpee'])) {
+    if (_has(name, n, const [
+      'بورپی',
+      'برپی',
+      'فارمر',
+      'کلین',
+      'اسنچ',
+      'جرک',
+      'burpee',
+      'تردمیل',
+      'treadmill',
+      'الپتیکال',
+      'elliptical',
+      'دوچرخه ثابت',
+      'stationary bike',
+      'exercise bike',
+    ])) {
       return 'full_body';
     }
 

@@ -48,7 +48,7 @@ class FormGuidanceFacade {
         .map(_fromCatalogExercise)
         .toList(growable: false);
 
-    final program = await _programCatalog.getActiveProgramOption();
+    final program = await _programCatalog.getActiveAiProgramOption();
     if (program == null) {
       return FormGuidanceFacadeResult(
         session: const FormGuidanceSession(

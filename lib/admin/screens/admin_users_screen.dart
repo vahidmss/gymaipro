@@ -42,7 +42,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     setState(() => _isLoading = true);
     try {
       final users = await _adminService.getAllUsers(
-        searchQuery: _searchController.text.isEmpty ? null : _searchController.text,
+        searchQuery: _searchController.text.isEmpty
+            ? null
+            : _searchController.text,
         roleFilter: _selectedRoleFilter == 'all' ? null : _selectedRoleFilter,
         limit: _pageSize,
         offset: _currentPage * _pageSize,
@@ -64,7 +66,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('خطا در بارگذاری کاربران: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -76,7 +78,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('تغییر نقش کاربر'),
-        content: Text('آیا مطمئن هستید که می‌خواهید نقش ${user.username} را به $newRole تغییر دهید؟'),
+        content: Text(
+          'آیا مطمئن هستید که می‌خواهید نقش ${user.username} را به $newRole تغییر دهید؟',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -98,7 +102,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('نقش کاربر با موفقیت تغییر کرد'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppTheme.successColor,
           ),
         );
         _loadUsers(reset: true);
@@ -106,7 +110,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('خطا در تغییر نقش کاربر'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
@@ -128,7 +132,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
             child: const Text('حذف'),
           ),
         ],
@@ -143,7 +147,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('اکانت کاربر با موفقیت حذف شد'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppTheme.successColor,
           ),
         );
         _loadUsers(reset: true);
@@ -151,7 +155,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('خطا در حذف اکانت کاربر'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorColor,
           ),
         );
       }
@@ -168,11 +172,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   Widget _buildUserDetailsSheet(UserProfile user) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: EdgeInsets.all(24.w),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
       ),
       child: Column(
@@ -185,7 +188,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               Text(
                 'اطلاعات کاربر',
                 style: TextStyle(
-                  color: isDark ? AppTheme.darkTextColor : AppTheme.lightTextColor,
+                  color: context.textColor,
                   fontSize: 20.sp,
                   fontWeight: FontWeight.bold,
                 ),
@@ -199,8 +202,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           SizedBox(height: 16.h),
           _buildDetailRow('نام کاربری', user.username),
           if (user.firstName != null) _buildDetailRow('نام', user.firstName!),
-          if (user.lastName != null) _buildDetailRow('نام خانوادگی', user.lastName!),
-          if (user.phoneNumber != null) _buildDetailRow('شماره تلفن', user.phoneNumber!),
+          if (user.lastName != null)
+            _buildDetailRow('نام خانوادگی', user.lastName!),
+          if (user.phoneNumber != null)
+            _buildDetailRow('شماره تلفن', user.phoneNumber!),
           _buildDetailRow('نقش', _getRoleDisplayName(user.role)),
           if (user.createdAt != null)
             _buildDetailRow('تاریخ عضویت', _formatDate(user.createdAt!)),
@@ -211,7 +216,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   Widget _buildDetailRow(String label, String value) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: EdgeInsets.only(bottom: 12.h),
       child: Row(
@@ -221,19 +225,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             width: 100.w,
             child: Text(
               '$label:',
-              style: TextStyle(
-                color: isDark
-                    ? AppTheme.darkTextColor.withValues(alpha: 0.7)
-                    : AppTheme.lightTextSecondary,
-                fontSize: 14.sp,
-              ),
+              style: TextStyle(color: context.textSecondary, fontSize: 14.sp),
             ),
           ),
           Expanded(
             child: Text(
               value,
               style: TextStyle(
-                color: isDark ? AppTheme.darkTextColor : AppTheme.lightTextColor,
+                color: context.textColor,
                 fontSize: 14.sp,
                 fontWeight: FontWeight.w500,
               ),
@@ -263,13 +262,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         // جستجو و فیلتر
         Container(
           padding: EdgeInsets.all(16.w),
-          color: isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor,
+          color: context.cardColor,
           child: Column(
             children: [
               TextField(
@@ -306,7 +304,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                       ),
                       items: const [
                         DropdownMenuItem(value: 'all', child: Text('همه')),
-                        DropdownMenuItem(value: 'athlete', child: Text('ورزشکار')),
+                        DropdownMenuItem(
+                          value: 'athlete',
+                          child: Text('ورزشکار'),
+                        ),
                         DropdownMenuItem(value: 'trainer', child: Text('مربی')),
                         DropdownMenuItem(value: 'admin', child: Text('ادمین')),
                       ],
@@ -327,53 +328,46 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         Expanded(
           child: _isLoading && _users.isEmpty
               ? const Center(
-                  child: CircularProgressIndicator(
-                    color: AppTheme.goldColor,
-                  ),
+                  child: CircularProgressIndicator(color: AppTheme.goldColor),
                 )
               : _users.isEmpty
-                  ? Center(
-                      child: Text(
-                        'کاربری یافت نشد',
-                        style: TextStyle(
-                          color: isDark
-                              ? AppTheme.darkTextColor.withValues(alpha: 0.7)
-                              : AppTheme.lightTextSecondary,
-                        ),
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: () => _loadUsers(reset: true),
-                      color: AppTheme.goldColor,
-                      child: ListView.builder(
-                        itemCount: _users.length + (_isLoading ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index == _users.length) {
-                            return Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(16.w),
-                                child: const CircularProgressIndicator(
-                                  color: AppTheme.goldColor,
-                                ),
-                              ),
-                            );
-                          }
+              ? Center(
+                  child: Text(
+                    'کاربری یافت نشد',
+                    style: TextStyle(color: context.textSecondary),
+                  ),
+                )
+              : RefreshIndicator(
+                  onRefresh: () => _loadUsers(reset: true),
+                  color: AppTheme.goldColor,
+                  child: ListView.builder(
+                    itemCount: _users.length + (_isLoading ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == _users.length) {
+                        return Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.w),
+                            child: const CircularProgressIndicator(
+                              color: AppTheme.goldColor,
+                            ),
+                          ),
+                        );
+                      }
 
-                          final user = _users[index];
-                          return _buildUserCard(user);
-                        },
-                      ),
-                    ),
+                      final user = _users[index];
+                      return _buildUserCard(user);
+                    },
+                  ),
+                ),
         ),
       ],
     );
   }
 
   Widget _buildUserCard(UserProfile user) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      color: isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor,
+      color: context.cardColor,
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: AppTheme.goldColor.withValues(alpha: 0.2),
@@ -388,20 +382,20 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         title: Text(
           user.username,
           style: TextStyle(
-            color: isDark ? AppTheme.darkTextColor : AppTheme.lightTextColor,
+            color: context.textColor,
             fontWeight: FontWeight.bold,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               user.fullName.isNotEmpty ? user.fullName : 'بدون نام',
-              style: TextStyle(
-                color: isDark
-                    ? AppTheme.darkTextColor.withValues(alpha: 0.7)
-                    : AppTheme.lightTextSecondary,
-              ),
+              style: TextStyle(color: context.textSecondary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             Chip(
               label: Text(_getRoleDisplayName(user.role)),
@@ -441,11 +435,15 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             PopupMenuItem<void>(
               child: Row(
                 children: [
-                  const Icon(LucideIcons.trash2, size: 18, color: Colors.red),
+                  const Icon(
+                    LucideIcons.trash2,
+                    size: 18,
+                    color: AppTheme.errorColor,
+                  ),
                   SizedBox(width: 8.w),
                   const Text(
                     'حذف اکانت',
-                    style: TextStyle(color: Colors.red),
+                    style: TextStyle(color: AppTheme.errorColor),
                   ),
                 ],
               ),
@@ -496,14 +494,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   Color _getRoleColor(String role) {
     switch (role) {
       case 'athlete':
-        return Colors.green;
+        return AppTheme.successColor;
       case 'trainer':
-        return Colors.orange;
+        return AppTheme.goldColor;
       case 'admin':
-        return Colors.purple;
+        return Theme.of(context).colorScheme.primary;
       default:
-        return Colors.grey;
+        return context.textSecondary;
     }
   }
 }
-

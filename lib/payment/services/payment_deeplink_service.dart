@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gymaipro/core/foreground_resume_coordinator.dart';
 import 'package:gymaipro/core/app_navigator.dart';
+import 'package:gymaipro/features/product_experience/navigation/workout_program_request_navigation.dart';
 import 'package:gymaipro/payment/services/payment_resume_tracker.dart';
 import 'package:gymaipro/payment/services/pending_direct_payment_tracker.dart';
 import 'package:gymaipro/payment/services/coach_plan_payment_service.dart';
@@ -242,6 +243,9 @@ class PaymentDeeplinkService {
             final meta = txData?['metadata'] as Map<String, dynamic>?;
             serviceName = (meta?['service_name'] as String?) ?? serviceName;
             trainerNameStr = (meta?['trainer_name'] as String?) ?? trainerNameStr;
+            if (meta?['kind']?.toString() == 'program_renewal') {
+              serviceName = 'تمدید $serviceName';
+            }
           } catch (_) {}
 
           if (!ctx.mounted) return;
@@ -370,30 +374,52 @@ class PaymentDeeplinkService {
         );
 
         final success = result['success'] == true;
+        // Read return target BEFORE clearing the pending tracker.
+        final openBuilder =
+            success && await _shouldOpenWorkoutBuilderAfterCoachPlan();
         if (success) {
           unawaited(PendingDirectPaymentTracker.instance.clear());
         }
         if (!ctx.mounted) return;
 
         if (success) {
-          final planTitle =
-              result['plan_title']?.toString() ?? 'پلن مربی هوشمند';
-          await PurchaseSuccessDialog.show(
-            ctx,
-            serviceName: planTitle,
-            trainerName: 'مربی هوشمند',
-            onViewPrograms: () {
+          _collapseTransientPaymentRoutes(ctx);
+          if (!ctx.mounted) return;
+
+          if (openBuilder) {
+            // Build-flow return: skip trainer-style success dialog (wrong copy)
+            // and put the user back on the program builder as paid.
+            ScaffoldMessenger.of(ctx).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'پرداختت ثبت شد — حالا «بساز برنامه‌ام» را بزن.',
+                ),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: Color(0xFF2E7D32),
+              ),
+            );
+            await WorkoutProgramRequestNavigation.openAfterPayment(ctx);
+          } else {
+            final planTitle =
+                result['plan_title']?.toString() ?? 'برنامه مربی هوشمند';
+            await PurchaseSuccessDialog.show(
+              ctx,
+              serviceName: planTitle,
+              trainerName: 'مربی هوشمند',
+              variant: PurchaseSuccessVariant.coachAi,
+              onViewPrograms: () {
+                _collapseTransientPaymentRoutes(ctx);
+                try {
+                  Navigator.of(ctx).pushNamedAndRemoveUntil(
+                    '/coach',
+                    (route) => route.isFirst,
+                  );
+                } catch (_) {}
+              },
+            );
+            if (ctx.mounted) {
               _collapseTransientPaymentRoutes(ctx);
-              try {
-                Navigator.of(ctx).pushNamedAndRemoveUntil(
-                  '/coach',
-                  (route) => route.isFirst,
-                );
-              } catch (_) {}
-            },
-          );
-          if (ctx.mounted) {
-            _collapseTransientPaymentRoutes(ctx);
+            }
           }
         } else {
           await showDialog<void>(
@@ -674,5 +700,12 @@ class PaymentDeeplinkService {
         print('خطا در پردازش initial deeplink: $e');
       }
     }
+  }
+
+  Future<bool> _shouldOpenWorkoutBuilderAfterCoachPlan() async {
+    final pending = await PendingDirectPaymentTracker.instance.load();
+    if (pending?.shouldOpenWorkoutBuilder == true) return true;
+    final target = await PendingDirectPaymentTracker.instance.peekReturnTarget();
+    return target == PendingDirectPaymentTracker.returnTargetWorkoutBuilder;
   }
 }

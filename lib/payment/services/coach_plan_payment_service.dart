@@ -287,12 +287,36 @@ class CoachPlanPaymentService {
       final transaction = PaymentTransaction.fromJson(transactionResponse);
 
       if (transaction.status == TransactionStatus.completed) {
-        return {
-          'success': true,
-          'message': 'پرداخت قبلاً تایید شده است',
-          'transaction_id': transactionId,
-          'plan_title': transaction.metadata?['plan_title'],
-        };
+        // Idempotent: still ensure the coach subscription exists after a
+        // previously-verified gateway callback.
+        try {
+          final planId =
+              transaction.metadata?['plan_id']?.toString() ??
+              CoachPlanCatalog.coachProId;
+          final price = await _priceService.getActivePrice(planId);
+          final subscription = await _activateFromTransaction(
+            transaction: transaction,
+            price: price,
+          );
+          return {
+            'success': true,
+            'message': 'پرداخت قبلاً تایید شده است',
+            'transaction_id': transactionId,
+            'subscription_id': subscription.id,
+            'plan_id': planId,
+            'plan_title': transaction.metadata?['plan_title'] ?? price.title,
+          };
+        } catch (e) {
+          if (kDebugMode) {
+            print('ensure activate on previously-completed tx: $e');
+          }
+          return {
+            'success': true,
+            'message': 'پرداخت قبلاً تایید شده است',
+            'transaction_id': transactionId,
+            'plan_title': transaction.metadata?['plan_title'],
+          };
+        }
       }
 
       final verifyResult = await _paymentGateway.verifyPayment(
@@ -372,7 +396,9 @@ class CoachPlanPaymentService {
     final type = CoachPlanCatalog.subscriptionTypeForPlanId(planId);
     final validityDays =
         (transaction.metadata?['validity_days'] as num?)?.toInt() ??
-        price.validityDays;
+        (price.validityDays > 0
+            ? price.validityDays
+            : CoachPlanCatalog.defaultValidityDays);
 
     final subscription = await _subscriptionService.createAndActivateCoachPlan(
       type: type,

@@ -1,23 +1,15 @@
 ﻿/// ثابت‌های سیستم پرداخت
 class PaymentConstants {
-  // درگاه‌های پرداخت
+  // درگاه پرداخت (فقط زیبال)
   static const String zibalBaseUrl = 'https://gateway.zibal.ir';
-  static const String zarinpalBaseUrl =
-      'https://api.zarinpal.com/pg/v4/payment';
 
   // URL های کامل
   static String get zibalRequestUrl => '$zibalBaseUrl$zibalRequestEndpoint';
-  static String get zarinpalRequestUrl =>
-      '$zarinpalBaseUrl$zarinpalRequestEndpoint';
 
   // اندپوینت‌های زیبال
   static const String zibalRequestEndpoint = '/v1/request';
   static const String zibalVerifyEndpoint = '/v1/verify';
   static const String zibalInquiryEndpoint = '/v1/inquiry';
-
-  // اندپوینت‌های زرین‌پال
-  static const String zarinpalRequestEndpoint = '/request.json';
-  static const String zarinpalVerifyEndpoint = '/verify.json';
 
   // حداقل و حداکثر مبالغ (ریال)
   static const int minPaymentAmount = 10000; // 1000 تومان
@@ -59,31 +51,6 @@ class PaymentConstants {
     106: 'callbackUrl نامعتبر می‌باشد. (شروع با http و یا https)',
     113: 'amount مبلغ تراکنش از سقف میزان تراکنش بیشتر است.',
     115: 'آدرس IP معتبر نیست. لطفاً با پشتیبانی تماس بگیرید یا از طریق سرور درخواست ارسال کنید.',
-  };
-
-  // کدهای وضعیت زرین‌پال
-  static const Map<int, String> zarinpalStatusCodes = {
-    100: 'تراکنش موفق',
-    101: 'عمل پرداخت موفق بوده و قبلا تایید شده',
-    -9: 'خطای اعتبارسنجی',
-    -10: 'ای پی و یا مرچنت کد پذیرنده صحیح نیست',
-    -11: 'مرچنت کد فعال نیست، لطفا با تیم پشتیبانی تماس بگیرید',
-    -12: 'تلاش بیش از حد در یک بازه زمانی کوتاه',
-    -15: 'ترمینال شما به حالت تعلیق در آمده، با تیم پشتیبانی تماس بگیرید',
-    -16: 'سطح تایید پذیرنده پایین تر از سطح نقره‌ای است',
-    -17: 'محدودیت پذیرنده در سطح آبی',
-    -30: 'اجازه دسترسی به تسویه اشتراکی شناور ندارید',
-    -31: 'حساب بانکی تسویه را به پنل اضافه کنید',
-    -32: 'مبلغ وارد شده از مبلغ کل تراکنش بیشتر است',
-    -33: 'درصدهای وارد شده صحیح نیست',
-    -34: 'مبلغ از کمترین مقدار قابل تسویه کمتر است',
-    -35: 'تعداد افراد دریافت کننده تسهیم بیش از حد مجاز است',
-    -40: 'پارامترهای اضافی نامعتبر، شیء‌های پارامتر اضافی نمی‌تواند خالی باشد',
-    -50: 'مبلغ پرداخت شده با مقدار مبلغ ارسالی در متد وریفای متفاوت است',
-    -51: 'پرداخت ناموفق',
-    -52: 'خطای غیرمنتظره با پشتیبانی تماس بگیرید',
-    -53: 'اتوریتی برای این مرچنت کد نیست',
-    -54: 'اتوریتی نامعتبر است',
   };
 
   // پیام‌های خطا

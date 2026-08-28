@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -14,6 +13,7 @@ import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_dashboard/widgets/exercise_metadata_ai_flow.dart';
 import 'package:gymaipro/trainer_dashboard/widgets/manual_exercise_meta_sheet.dart';
 import 'package:gymaipro/trainer_dashboard/widgets/muscle_targets_editor_sheet.dart';
+import 'package:gymaipro/utils/web_safe_xfile_image.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:gymaipro/widgets/exercise_muscle_heatmap_widget.dart';
 import 'package:gymaipro/widgets/gymai_network_image.dart';
@@ -1718,11 +1718,13 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
                       isCover: isCover,
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(10.r),
-                        child: Image.file(
-                          File(f.path),
+                        child: SizedBox(
                           width: 88.w,
                           height: 88.w,
-                          fit: BoxFit.cover,
+                          child: WebSafeXFileImage(
+                            file: f,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
                       onRemove: () {
@@ -1930,6 +1932,14 @@ class _CustomExerciseEditorScreenState extends State<CustomExerciseEditorScreen>
 
   Future<void> _pickVideo() async {
     if (_videoCount >= _maxVideos) return;
+    if (kIsWeb) {
+      WidgetSafetyUtils.safeShowSnackBar(
+        context,
+        'آپلود ویدیو تمرین روی وب‌اپ پشتیبانی نمی‌شود. از اپ اندروید استفاده کنید.',
+        backgroundColor: AppTheme.goldColor,
+      );
+      return;
+    }
     try {
       final video = await _picker.pickVideo(
         source: ImageSource.gallery,

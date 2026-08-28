@@ -63,6 +63,25 @@ class LiveWorkoutRestTimer {
     _onTick?.call();
   }
 
+  /// Adjust remaining time by [delta] seconds (+/−). Zero stops the timer.
+  void adjustRemaining(int delta) {
+    if (!_active && delta <= 0) return;
+    final next = (_remainingSeconds + delta).clamp(0, 3600);
+    if (next <= 0) {
+      stop();
+      return;
+    }
+    _remainingSeconds = next;
+    if (next > _totalSeconds) {
+      _totalSeconds = next;
+    }
+    if (!_active) {
+      start(seconds: next);
+      return;
+    }
+    _onTick?.call();
+  }
+
   void stop() {
     _timer?.cancel();
     _timer = null;

@@ -5,17 +5,19 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.44.2'
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
+    'authorization, x-client-info, apikey, content-type, accept',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Content-Type': 'application/json',
 }
 
 type ChatRequest = {
   model?: string
-  messages: Array<{ role: string; content: string }>
+  messages: Array<Record<string, unknown>>
   temperature?: number
   max_tokens?: number
   response_format?: { type: string }
+  tools?: unknown[]
+  tool_choice?: unknown
+  stream?: boolean
 }
 
 serve(async (req) => {
@@ -23,7 +25,7 @@ serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'method-not-allowed' }), {
       status: 405,
-      headers: cors,
+      headers: { ...cors, 'Content-Type': 'application/json' },
     })
   }
 
@@ -37,7 +39,7 @@ serve(async (req) => {
               'OPENAI_API_KEY روی سرور تنظیم نشده است. در secrets سرور مقداردهی کنید.',
           },
         }),
-        { status: 500, headers: cors },
+        { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } },
       )
     }
 
@@ -46,7 +48,7 @@ serve(async (req) => {
     if (!authHeader.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: { message: 'ورود به حساب الزامی است' } }),
-        { status: 401, headers: cors },
+        { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } },
       )
     }
 
@@ -58,7 +60,7 @@ serve(async (req) => {
     if (!supabaseAnon) {
       return new Response(
         JSON.stringify({ error: { message: 'پیکربندی سرور ناقص است' } }),
-        { status: 500, headers: cors },
+        { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } },
       )
     }
 
@@ -74,7 +76,7 @@ serve(async (req) => {
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: { message: 'نشست کاربر معتبر نیست' } }),
-        { status: 401, headers: cors },
+        { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } },
       )
     }
 
@@ -82,29 +84,33 @@ serve(async (req) => {
     if (!body?.messages?.length) {
       return new Response(
         JSON.stringify({ error: { message: 'messages الزامی است' } }),
-        { status: 400, headers: cors },
+        { status: 400, headers: { ...cors, 'Content-Type': 'application/json' } },
       )
     }
 
+    const maxTokens = Math.min(Math.max(body.max_tokens ?? 1000, 64), 8192)
+    const model = (body.model ?? 'gpt-4o-mini').trim()
+    const wantStream = body.stream === true
+
     const openaiBody: Record<string, unknown> = {
-      model: body.model ?? 'gpt-4o-mini',
+      model,
       messages: body.messages,
       temperature: body.temperature ?? 0.7,
-      max_tokens: body.max_tokens ?? 1000,
+      max_tokens: maxTokens,
     }
     if (body.response_format) {
       openaiBody.response_format = body.response_format
     }
-
-    // سقف توکن — درخواست‌های سنگین باعث timeout گیت‌وی (504) می‌شوند
-    const maxTokens = Math.min(Math.max(body.max_tokens ?? 1000, 64), 4096)
-    openaiBody.max_tokens = maxTokens
-
-    const model = (body.model ?? 'gpt-4o-mini').trim()
-    openaiBody.model = model
+    if (Array.isArray(body.tools) && body.tools.length > 0) {
+      openaiBody.tools = body.tools
+      openaiBody.tool_choice = body.tool_choice ?? 'auto'
+    }
+    if (wantStream) {
+      openaiBody.stream = true
+    }
 
     const controller = new AbortController()
-    const openaiTimeoutMs = 50_000
+    const openaiTimeoutMs = 110_000
     const timeoutId = setTimeout(() => controller.abort(), openaiTimeoutMs)
 
     const relayBase = Deno.env.get('OPENAI_RELAY_URL')?.trim().replace(/\/$/, '')
@@ -148,22 +154,37 @@ serve(async (req) => {
               : `خطا در اتصال به OpenAI: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`,
           },
         }),
-        { status: aborted ? 504 : 502, headers: cors },
+        {
+          status: aborted ? 504 : 502,
+          headers: { ...cors, 'Content-Type': 'application/json' },
+        },
       )
     } finally {
       clearTimeout(timeoutId)
     }
 
+    if (wantStream && openaiRes.ok && openaiRes.body) {
+      return new Response(openaiRes.body, {
+        status: openaiRes.status,
+        headers: {
+          ...cors,
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          Connection: 'keep-alive',
+        },
+      })
+    }
+
     const text = await openaiRes.text()
     return new Response(text, {
       status: openaiRes.status,
-      headers: cors,
+      headers: { ...cors, 'Content-Type': 'application/json' },
     })
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     return new Response(
       JSON.stringify({ error: { message: `خطای سرور: ${message}` } }),
-      { status: 500, headers: cors },
+      { status: 500, headers: { ...cors, 'Content-Type': 'application/json' } },
     )
   }
 })

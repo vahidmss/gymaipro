@@ -168,7 +168,6 @@ class HeatmapSkill extends CoachRunnableSkill {
     AIIntent.workoutToday,
     AIIntent.recovery,
     AIIntent.progressAnalysis,
-    AIIntent.generalFitness,
   };
 
   @override

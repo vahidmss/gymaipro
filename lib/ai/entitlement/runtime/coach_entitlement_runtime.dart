@@ -52,12 +52,12 @@ class CoachEntitlementRuntimeResult {
 
 /// Runtime adapter connecting capability entitlements to Coach pipeline.
 class CoachEntitlementRuntime {
-  const CoachEntitlementRuntime({
+  CoachEntitlementRuntime({
     EntitlementEngine engine = const EntitlementEngine(),
-    CoachEntitlementProvider provider = const CurrentSubscriptionAdapter(),
+    CoachEntitlementProvider? provider,
     CoachEntitlementValidator validator = const CoachEntitlementValidator(),
   }) : _engine = engine,
-       _provider = provider,
+       _provider = provider ?? CurrentSubscriptionAdapter(),
        _validator = validator;
 
   final EntitlementEngine _engine;
@@ -151,10 +151,22 @@ class CoachEntitlementRuntime {
     SkillResult? skillResult,
     CoachStrategyResult? strategyResult,
   }) {
+    final nodeId = knowledgeResult.selectedNode.id;
+    final knowledgeCaps = _knowledgeCapabilities(nodeId);
+    // Paid action nodes must be gated even when requiresAI is false
+    // (chat redirects instead of calling the LLM).
+    const alwaysGatedNodes = <String>{
+      'workout_generation',
+      'workout_modification',
+      'program_review',
+    };
+    final requireKnowledgeCaps =
+        knowledgeResult.selectedNode.requiresAI ||
+        alwaysGatedNodes.contains(nodeId);
+
     return Set<CoachCapability>.unmodifiable(<CoachCapability>{
       CoachCapability.coachConversation,
-      if (knowledgeResult.selectedNode.requiresAI)
-        ..._knowledgeCapabilities(knowledgeResult.selectedNode.id),
+      if (requireKnowledgeCaps) ...knowledgeCaps,
       if (skillResult?.selectedSkill != null)
         ..._skillCapabilities(skillResult!.selectedSkill!.skill.capability.id),
       if (strategyResult?.strategy.requiresAI ?? false)
@@ -172,10 +184,13 @@ class CoachEntitlementRuntime {
         return const <CoachCapability>{CoachCapability.analyzeProgress};
       case 'recovery':
         return const <CoachCapability>{CoachCapability.recoveryAnalysis};
+      // Conversational nutrition/supplement Q&A is part of the base coach
+      // conversation. Only actual plan generation (blocked separately by
+      // CoachChatProgramPolicy) is a paid capability — gating Q&A here made
+      // the coach reply with irrelevant upsell messages to simple questions.
       case 'nutrition':
-        return const <CoachCapability>{CoachCapability.nutritionPlanning};
       case 'supplement':
-        return const <CoachCapability>{CoachCapability.supplementAdvice};
+        return const <CoachCapability>{CoachCapability.coachConversation};
       case 'program_review':
         return const <CoachCapability>{CoachCapability.aiProgramReview};
       default:

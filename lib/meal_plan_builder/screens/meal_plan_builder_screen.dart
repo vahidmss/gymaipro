@@ -17,7 +17,7 @@ import 'package:gymaipro/meal_plan_builder/widgets/widgets.dart';
 // مدل‌ها و سرویس‌ها
 import 'package:gymaipro/models/food.dart';
 import 'package:gymaipro/models/meal_plan.dart';
-import 'package:gymaipro/services/fitness_calculator.dart';
+import 'package:gymaipro/meal_log/utils/meal_nutrition_targets.dart';
 import 'package:gymaipro/services/food_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/user_profile/services/user_profile_service.dart';
@@ -65,7 +65,8 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
   bool _showMealTypeSelector = false;
   final Map<String, bool> _collapsedMeals =
       {}; // Track collapsed state for each meal
-  double? _dailyCalorieTarget; // TDEE کاربر هدف
+  double? _dailyCalorieTarget; // هدف کالری یا نگهداری (TDEE)
+  bool _hasActiveCalorieGoal = false;
   String? _targetUserName; // نام کاربر هدف برای ساخت نام برنامه
   DateTime? _editableUntil; // تاریخ پایان مهلت ویرایش
 
@@ -498,7 +499,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
     }
   }
 
-  // محاسبه TDEE کاربر هدف
+  // محاسبه هدف کالری یا نگهداری (TDEE) کاربر هدف
   Future<void> _calculateDailyCalorieTarget() async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
@@ -508,48 +509,13 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
       final profile = await UserProfileService.fetchProfile(targetUserId);
       if (profile == null) return;
 
-      final height = profile['height'] != null
-          ? double.tryParse(profile['height'].toString())
-          : null;
-      final weight = profile['weight'] != null
-          ? double.tryParse(profile['weight'].toString())
-          : null;
-      final birthDateStr = profile['birth_date']?.toString();
-      final isMale = (profile['gender']?.toString() ?? 'male') == 'male';
-      final activityLevelStr =
-          profile['activity_level']?.toString() ?? 'moderate';
-
-      if (height == null || weight == null || height <= 0 || weight <= 0) {
-        return;
-      }
-
-      // محاسبه سن
-      int age = 25;
-      if (birthDateStr != null && birthDateStr.isNotEmpty) {
-        try {
-          final birthDate = DateTime.tryParse(birthDateStr);
-          if (birthDate != null) {
-            final now = DateTime.now();
-            age =
-                now.year -
-                birthDate.year -
-                ((now.month < birthDate.month ||
-                        (now.month == birthDate.month &&
-                            now.day < birthDate.day))
-                    ? 1
-                    : 0);
-          }
-        } catch (_) {}
-      }
-
-      if (age <= 0) return;
-
-      // محاسبه BMR و TDEE
-      final bmr = FitnessCalculator.calculateBMR(weight, height, age, isMale);
-      final activityLevel = activityLevelStr.toActivityLevel();
-      _dailyCalorieTarget = FitnessCalculator.calculateTDEE(bmr, activityLevel);
+      final targets = MealNutritionTargets.fromProfile(
+        Map<String, dynamic>.from(profile),
+      );
+      _dailyCalorieTarget = targets.calorieTarget;
+      _hasActiveCalorieGoal = targets.hasActiveGoal;
     } catch (e) {
-      debugPrint('خطا در محاسبه TDEE: $e');
+      debugPrint('خطا در محاسبه هدف/نگهداری کالری: $e');
     }
   }
 
@@ -1364,7 +1330,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
     }
   }
 
-  // ویجت نمایش هدف کالری روزانه
+  // ویجت نمایش هدف کالری یا نگهداری روزانه
   Widget _buildDailyCalorieTargetCard(bool isDark, MealPlanDay day) {
     // محاسبه کالری کل روز
     double totalCalories = 0;
@@ -1380,6 +1346,9 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
         ? (totalCalories / target).clamp(0.0, 1.0)
         : 0.0;
     final remaining = (target - totalCalories).clamp(0.0, double.infinity);
+    final calorieLabel = _hasActiveCalorieGoal
+        ? 'هدف کالری روزانه: '
+        : 'نیاز روزانه (حفظ وزن): ';
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -1428,7 +1397,7 @@ class _MealPlanBuilderScreenState extends State<MealPlanBuilderScreen> {
                     ),
                     SizedBox(width: 6.w),
                     Text(
-                      'هدف کالری روزانه: ',
+                      calorieLabel,
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         color: context.textColor.withValues(alpha: 0.7),

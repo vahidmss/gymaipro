@@ -25,6 +25,7 @@ class SubscriptionCapabilityMap {
           CoachCapability.aiWorkoutReview,
           CoachCapability.aiProgramReview,
         },
+        // Legacy Ultimate still maps to full toolkit; analyzeProgress unchanged.
         CoachSubscriptionPlan.nutritionPro: <CoachCapability>{
           CoachCapability.nutritionPlanning,
           CoachCapability.supplementAdvice,

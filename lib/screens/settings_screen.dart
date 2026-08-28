@@ -40,21 +40,16 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
 
     _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeOutCubic,
-      ),
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.05),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.05), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
 
     _loadSettings();
   }
@@ -70,7 +65,8 @@ class _SettingsScreenState extends State<SettingsScreen>
       final prefs = await SharedPreferences.getInstance();
       setState(() {
         _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
-        _soundEnabled = prefs.getBool(AppFeedbackService.soundEnabledKey) ?? true;
+        _soundEnabled =
+            prefs.getBool(AppFeedbackService.soundEnabledKey) ?? true;
         _chatInAppSoundsEnabled =
             prefs.getBool(AppFeedbackService.chatInAppSoundsKey) ?? true;
         _vibrationEnabled =
@@ -111,11 +107,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             content: Row(
               textDirection: TextDirection.rtl,
               children: [
-                Icon(
-                  LucideIcons.checkCircle,
-                  color: Colors.white,
-                  size: 20.sp,
-                ),
+                Icon(LucideIcons.checkCircle, color: Colors.white, size: 20.sp),
                 SizedBox(width: 8.w),
                 const Text('تنظیمات با موفقیت ذخیره شد'),
               ],
@@ -138,11 +130,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             content: Row(
               textDirection: TextDirection.rtl,
               children: [
-                Icon(
-                  LucideIcons.alertCircle,
-                  color: Colors.white,
-                  size: 20.sp,
-                ),
+                Icon(LucideIcons.alertCircle, color: Colors.white, size: 20.sp),
                 SizedBox(width: 8.w),
                 const Text('خطا در ذخیره تنظیمات'),
               ],
@@ -218,7 +206,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(height: 8.h),
-          
+
           // تنظیمات عمومی
           _buildSection(
             context: context,
@@ -423,7 +411,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 icon: LucideIcons.package,
                 title: 'نسخه اپلیکیشن',
                 subtitle: '1.0.0',
-                onTap: () {},
+                showChevron: false,
               ),
               SizedBox(height: 12.h),
 
@@ -463,7 +451,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 isDark: isDark,
                 icon: LucideIcons.sparkles,
                 title: 'درباره GymAI',
-                subtitle: 'نسخه دمو · بازخورد و تماس',
+                subtitle: 'درباره اپ · بازخورد و تماس',
                 onTap: () => Navigator.pushNamed(context, '/about-app'),
               ),
               SizedBox(height: 12.h),
@@ -509,11 +497,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   color: AppTheme.goldColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10.r),
                 ),
-                child: Icon(
-                  icon,
-                  color: AppTheme.goldColor,
-                  size: 20.sp,
-                ),
+                child: Icon(icon, color: AppTheme.goldColor, size: 20.sp),
               ),
               SizedBox(width: 12.w),
               Text(
@@ -557,12 +541,12 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
           child: Column(
             children: [
-              ...children.map((child) => Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 16.w,
-                    ),
-                    child: child,
-                  )),
+              ...children.map(
+                (child) => Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
+                  child: child,
+                ),
+              ),
               SizedBox(height: 16.h),
             ],
           ),
@@ -596,11 +580,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 color: AppTheme.goldColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10.r),
               ),
-              child: Icon(
-                icon,
-                color: AppTheme.goldColor,
-                size: 20.sp,
-              ),
+              child: Icon(icon, color: AppTheme.goldColor, size: 20.sp),
             ),
             SizedBox(width: 16.w),
 
@@ -662,7 +642,8 @@ class _SettingsScreenState extends State<SettingsScreen>
     required IconData icon,
     required String title,
     required String subtitle,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
+    bool showChevron = true,
   }) {
     return InkWell(
       onTap: onTap,
@@ -680,11 +661,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 color: AppTheme.goldColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(10.r),
               ),
-              child: Icon(
-                icon,
-                color: AppTheme.goldColor,
-                size: 20.sp,
-              ),
+              child: Icon(icon, color: AppTheme.goldColor, size: 20.sp),
             ),
             SizedBox(width: 16.w),
 
@@ -719,17 +696,17 @@ class _SettingsScreenState extends State<SettingsScreen>
             SizedBox(width: 12.w),
 
             // فلش
-            Icon(
-              LucideIcons.chevronLeft,
-              color: context.textSecondary,
-              size: 20.sp,
-            ),
+            if (showChevron)
+              Icon(
+                LucideIcons.chevronLeft,
+                color: context.textSecondary,
+                size: 20.sp,
+              ),
           ],
         ),
       ),
     );
   }
-
 
   void _showLanguageDialog() {
     showDialog<void>(

@@ -66,14 +66,17 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
     if (user == null) return;
 
     final controller = TextEditingController();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
+          backgroundColor: context.cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.r),
+            side: BorderSide(color: context.separatorColor),
+          ),
           title: Text(
             'انتقال به کیف پول شخصی',
             style: TextStyle(
@@ -283,7 +286,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                     'موجودی قابل مشاهده',
                     totalVisible,
                     LucideIcons.eye,
-                    Colors.blue,
+                    AppTheme.carbsColor,
                     isDark,
                     subtitle: 'قابل برداشت + در انتظار',
                   ),
@@ -360,9 +363,9 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
               SizedBox(height: 20.h),
               _sectionHeader('درآمد ماهانه', LucideIcons.calendar, isDark),
               SizedBox(height: 10.h),
-              ..._sortedMonthlyEntries(monthly).take(6).map(
-                    (e) => _monthlyRow(e.key, e.value, isDark),
-                  ),
+              ..._sortedMonthlyEntries(
+                monthly,
+              ).take(6).map((e) => _monthlyRow(e.key, e.value, isDark)),
             ],
 
             SizedBox(height: 12.h),
@@ -392,31 +395,31 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
         '${v.toStringAsFixed(v < 10 && v % 1 != 0 ? 1 : 0)}%';
 
     final tiles = [
-      (pct(responseRate), 'نرخ پاسخ', LucideIcons.target, Colors.purple),
+      (pct(responseRate), 'نرخ پاسخ', LucideIcons.target, AppTheme.goldColor),
       (
         pct(onTimeDeliveryRate),
         'تحویل به‌موقع',
         LucideIcons.checkCircle2,
-        Colors.green,
+        AppTheme.successColor,
       ),
       (
         activeClients.toString(),
         'مشتری فعال',
         LucideIcons.userCheck,
-        Colors.blue,
+        AppTheme.carbsColor,
       ),
       (
         waitingPrograms.toString(),
         'منتظر برنامه',
         LucideIcons.hourglass,
-        Colors.orange,
+        AppTheme.fatColor,
       ),
     ];
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 12.h),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(16.r),
         color: isDark ? context.cardColor : AppTheme.lightSurfaceColor,
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.2),
@@ -486,7 +489,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
                   AppTheme.successColor.withValues(alpha: 0.06),
                 ],
         ),
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: AppTheme.successColor.withValues(alpha: isDark ? 0.35 : 0.25),
         ),
@@ -496,7 +499,11 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
         children: [
           Row(
             children: [
-              Icon(LucideIcons.wallet, color: AppTheme.successColor, size: 22.sp),
+              Icon(
+                LucideIcons.wallet,
+                color: AppTheme.successColor,
+                size: 22.sp,
+              ),
               SizedBox(width: 8.w),
               Text(
                 'قابل برداشت',
@@ -613,10 +620,8 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
         color: isDark ? context.cardColor : AppTheme.lightSurfaceColor,
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(
-          color: color.withValues(alpha: isDark ? 0.25 : 0.2),
-        ),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: color.withValues(alpha: isDark ? 0.25 : 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -677,7 +682,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
         color: isDark ? context.cardColor : AppTheme.lightSurfaceColor,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.2),
         ),
@@ -746,7 +751,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
     return Container(
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: isDark
               ? AppTheme.darkGreySeparator
@@ -758,7 +763,11 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
         child: ExpansionTile(
           tilePadding: EdgeInsets.symmetric(horizontal: 14.w),
           childrenPadding: EdgeInsets.fromLTRB(14.w, 0, 14.w, 14.h),
-          leading: Icon(LucideIcons.info, size: 18.sp, color: AppTheme.goldColor),
+          leading: Icon(
+            LucideIcons.info,
+            size: 18.sp,
+            color: AppTheme.goldColor,
+          ),
           title: Text(
             'مسیر آزادسازی درآمد',
             style: TextStyle(
@@ -771,7 +780,9 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
           children: [
             ...List.generate(steps.length, (i) {
               return Padding(
-                padding: EdgeInsets.only(bottom: i < steps.length - 1 ? 8.h : 0),
+                padding: EdgeInsets.only(
+                  bottom: i < steps.length - 1 ? 8.h : 0,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -836,11 +847,11 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
       statusIcon = LucideIcons.checkCircle;
       statusText = 'قابل برداشت';
     } else if (isPendingProgram) {
-      statusColor = Colors.grey;
+      statusColor = context.textSecondary;
       statusIcon = LucideIcons.fileQuestion;
       statusText = 'منتظر ارسال برنامه';
     } else if (isEditWindow) {
-      statusColor = Colors.blue;
+      statusColor = AppTheme.carbsColor;
       statusIcon = LucideIcons.pencil;
       statusText = _editWindowSubtitle(e);
     } else if (status == 'hold') {
@@ -858,7 +869,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
         color: context.cardColor,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: isDark
               ? AppTheme.darkGreySeparator
@@ -1024,7 +1035,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
       padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
       decoration: BoxDecoration(
         color: isDark ? context.cardColor : AppTheme.lightSurfaceColor,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: isDark ? 0.12 : 0.15),
         ),
@@ -1136,14 +1147,11 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
     );
   }
 
-  Widget _groupedCard({
-    required bool isDark,
-    required List<Widget> children,
-  }) {
+  Widget _groupedCard({required bool isDark, required List<Widget> children}) {
     return Container(
       decoration: BoxDecoration(
         color: isDark ? context.cardColor : AppTheme.lightSurfaceColor,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: AppTheme.goldColor.withValues(alpha: isDark ? 0.12 : 0.15),
         ),
@@ -1162,12 +1170,7 @@ class _TrainerFinanceTabState extends State<TrainerFinanceTab> {
     );
   }
 
-  Widget _summaryRow(
-    String label,
-    int amount,
-    IconData icon,
-    bool isDark,
-  ) {
+  Widget _summaryRow(String label, int amount, IconData icon, bool isDark) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
       child: Row(

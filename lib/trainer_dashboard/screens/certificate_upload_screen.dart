@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/trainer_ranking/models/certificate.dart';
 import 'package:gymaipro/trainer_ranking/services/certificate_service.dart';
+import 'package:gymaipro/utils/web_safe_xfile_image.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -23,7 +22,7 @@ class _CertificateUploadScreenState extends State<CertificateUploadScreen> {
   final _titleController = TextEditingController();
 
   CertificateType _selectedType = CertificateType.coaching;
-  File? _selectedImage;
+  XFile? _selectedImage;
   bool _isUploading = false;
 
   static const _typeMeta = <CertificateType, ({String label, IconData icon})>{
@@ -51,7 +50,7 @@ class _CertificateUploadScreenState extends State<CertificateUploadScreen> {
     );
 
     if (pickedFile != null && mounted) {
-      setState(() => _selectedImage = File(pickedFile.path));
+      setState(() => _selectedImage = pickedFile);
     }
   }
 
@@ -431,7 +430,10 @@ class _CertificateUploadScreenState extends State<CertificateUploadScreen> {
               child: hasImage
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(12.r),
-                      child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                      child: WebSafeXFileImage(
+                        file: _selectedImage!,
+                        fit: BoxFit.cover,
+                      ),
                     )
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,

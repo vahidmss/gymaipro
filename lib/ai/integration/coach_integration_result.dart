@@ -41,6 +41,68 @@ class CoachIntegrationResult {
     this.pipelineMode,
   });
 
+  /// Hub / teaser load: seed context only — no Coach pipeline / LLM cost.
+  factory CoachIntegrationResult.hubSeed({
+    required CoachContext coachContext,
+    required Duration processingTime,
+  }) {
+    const decision = CoachDecision(
+      shouldCallAI: false,
+      missingData: <String>[],
+      requiredProviders: <AIContextProviderKey>{},
+      missingProviders: <AIContextProviderKey>{},
+      decisionReason: <CoachReason>{CoachReason.localAnswer},
+      confidence: 1,
+      notes: <String>[
+        'Coach hub seed-only load; pipeline skipped.',
+      ],
+    );
+    const responsePlan = CoachResponsePlan(
+      id: 'hub_seed',
+      intent: AIIntent.workoutToday,
+      action: CoachAction.localResponse,
+      requiresAI: false,
+      requiredProviders: <AIContextProviderKey>{},
+      missingProviders: <AIContextProviderKey>{},
+      followUpQuestions: <String>[],
+      contextKeys: <AIContextProviderKey>{},
+      confidence: 1,
+      estimatedTokens: 0,
+      estimatedCost: 0,
+      estimatedLatency: Duration.zero,
+      notes: <String>['Hub teaser from local seed context.'],
+      steps: <ResponseStep>[
+        ResponseStep(
+          id: 'hub_seed',
+          action: CoachAction.localResponse,
+          priority: ResponsePriority.high,
+          description: 'Prepared hub seed-only preview.',
+        ),
+      ],
+    );
+    return CoachIntegrationResult(
+      intent: AIIntent.workoutToday,
+      coachContext: coachContext,
+      decision: decision,
+      responsePlan: responsePlan,
+      executorPreview: const CoachExecutionPreview(
+        plan: responsePlan,
+        target: CoachExecutionTarget.local,
+        wouldExecute: false,
+        description: 'Hub seed-only preview; no pipeline execution.',
+      ),
+      processingTime: processingTime,
+      missingProviders: const <AIContextProviderKey>{},
+      missingData: const <String>[],
+      confidence: 1,
+      estimatedCost: 0,
+      estimatedTokens: 0,
+      estimatedLatency: Duration.zero,
+      logs: const <IntegrationEvent>[],
+      isLocalResponse: true,
+    );
+  }
+
   /// Builds a result from a successful local skill runtime execution.
   factory CoachIntegrationResult.local({
     required AIIntent intent,

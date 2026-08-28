@@ -1,5 +1,7 @@
+import 'package:gymaipro/ai/knowledge/workout_science.dart';
 import 'package:gymaipro/ai/workout/generator/llm_workout_muscle_tags.dart';
 import 'package:gymaipro/ai/workout/labels/workout_session_labels.dart';
+import 'package:gymaipro/ai/workout/models/workout_exercise.dart';
 import 'package:gymaipro/ai/workout/models/workout_program.dart';
 
 /// Lightweight checks after LLM output (engines validate, they do not author).
@@ -10,6 +12,8 @@ abstract final class LlmWorkoutProgramValidator {
     WorkoutProgram program, {
     required Set<int> allowedExerciseIds,
     required int expectedDaysPerWeek,
+    TrainingGoal? goal,
+    String? experience,
   }) {
     final issues = <String>[];
 
@@ -57,9 +61,7 @@ abstract final class LlmWorkoutProgramValidator {
       final muscles = <String>[];
       for (final exercise in day.exercises) {
         if (exercise.catalogExerciseId <= 0) {
-          issues.add(
-            'حرکت «${exercise.name}» شناسه معتبر از کاتالوگ ندارد.',
-          );
+          issues.add('حرکت «${exercise.name}» شناسه معتبر از کاتالوگ ندارد.');
           continue;
         }
         if (!allowedExerciseIds.contains(exercise.catalogExerciseId)) {
@@ -85,7 +87,7 @@ abstract final class LlmWorkoutProgramValidator {
       daySignatures.add(muscles.join('|'));
 
       issues.addAll(_dayFocusIssues(day.label, muscles, day.exercises.length));
-      issues.addAll(_dayVolumeIssues(day.label, muscles));
+      issues.addAll(_dayVolumeIssues(day.label, day.exercises));
     }
 
     if (days.length >= 3 &&
@@ -101,6 +103,12 @@ abstract final class LlmWorkoutProgramValidator {
       issues.add(
         'نام جلسه‌ها تکراری است؛ هر روز باید نام یکتا داشته باشد '
         '(مثلاً «روز ۱ — بالاتنه ۱» و «روز ۳ — بالاتنه ۲»، نه دو تا «فشار»).',
+      );
+    }
+
+    if (goal != null && experience != null && days.length >= 3) {
+      issues.addAll(
+        _weeklyVolumeIssues(program, goal: goal, experience: experience),
       );
     }
 
@@ -146,15 +154,12 @@ abstract final class LlmWorkoutProgramValidator {
 
   static bool _looksLikeCardioDay(String label) {
     final t = label.toLowerCase();
-    return t.contains('کاردیو') ||
-        t.contains('هوازی') ||
-        t.contains('cardio');
+    return t.contains('کاردیو') || t.contains('هوازی') || t.contains('cardio');
   }
 
   static bool _isPushDay(String label) {
     final t = label.toLowerCase();
-    return t.contains('فشار') ||
-        (t.contains('سینه') && !t.contains('پشت'));
+    return t.contains('فشار') || (t.contains('سینه') && !t.contains('پشت'));
   }
 
   static bool _isPullDay(String label) {
@@ -190,9 +195,7 @@ abstract final class LlmWorkoutProgramValidator {
       final ok = countWhere(LlmWorkoutMuscleTags.isPushOk);
       final foreign = countWhere(LlmWorkoutMuscleTags.isPushForeign);
       if (ok < 3) {
-        issues.add(
-          'روز فشار باید عمدتاً سینه/سرشانه/پشت‌بازو باشد.',
-        );
+        issues.add('روز فشار باید عمدتاً سینه/سرشانه/پشت‌بازو باشد.');
       }
       if (foreign > 0) {
         issues.add(
@@ -238,18 +241,33 @@ abstract final class LlmWorkoutProgramValidator {
   }
 
   /// Prevent brutal push days (5 heavy presses in a row).
-  static List<String> _dayVolumeIssues(String label, List<String> muscles) {
-    if (muscles.isEmpty) return const <String>[];
+  /// Isolation (fly / raise) does not count toward the 3-press cap.
+  static List<String> _dayVolumeIssues(
+    String label,
+    List<WorkoutExercise> exercises,
+  ) {
+    if (exercises.isEmpty) return const <String>[];
     final issues = <String>[];
 
     if (_isPushDay(label)) {
-      final chest = muscles.where(LlmWorkoutMuscleTags.isChest).length;
-      final shoulder = muscles.where(LlmWorkoutMuscleTags.isShoulder).length;
-      final presses = chest + shoulder;
-      if (chest > 2) {
+      final chest = exercises
+          .where((e) => LlmWorkoutMuscleTags.isChest(e.primaryMuscle))
+          .length;
+      final shoulder = exercises
+          .where((e) => LlmWorkoutMuscleTags.isShoulder(e.primaryMuscle))
+          .length;
+      final presses = exercises
+          .where(
+            (e) => LlmWorkoutMuscleTags.isCompoundPress(
+              e.name,
+              e.primaryMuscle,
+            ),
+          )
+          .length;
+      if (chest > 3) {
         issues.add(
-          'روز فشار حداکثر ۲ حرکت سینه‌ای سنگین؛ '
-          'الان $chest تا است — یکی را با قفسه/کراس‌اور یا پشت‌بازو عوض کن.',
+          'روز فشار حداکثر ۳ حرکت سینه (۲ پرس + ۱ ایزوله)؛ '
+          'الان $chest تا است.',
         );
       }
       if (shoulder > 2) {
@@ -264,7 +282,9 @@ abstract final class LlmWorkoutProgramValidator {
           'حداکثر ۳ حرکت فشاری چندمفصلی؛ بقیه ایزوله/سبک‌تر.',
         );
       }
-      final hasTriceps = muscles.any(LlmWorkoutMuscleTags.isTricep);
+      final hasTriceps = exercises.any(
+        (e) => LlmWorkoutMuscleTags.isTricep(e.primaryMuscle),
+      );
       if (!hasTriceps && presses >= 3) {
         issues.add(
           'روز فشار بدون پشت‌بازو ناقص است؛ حداقل یک حرکت پشت‌بازو بگذار.',
@@ -273,7 +293,9 @@ abstract final class LlmWorkoutProgramValidator {
     }
 
     if (_isLegDay(label)) {
-      final quads = muscles.where(LlmWorkoutMuscleTags.isQuad).length;
+      final quads = exercises
+          .where((e) => LlmWorkoutMuscleTags.isQuad(e.primaryMuscle))
+          .length;
       if (quads > 3) {
         issues.add(
           'روز پا بیش از حد چهارسرمحور است؛ همسترینگ/باسن/ساق را متعادل کن.',
@@ -281,6 +303,63 @@ abstract final class LlmWorkoutProgramValidator {
       }
     }
 
+    return issues;
+  }
+
+  static List<String> _weeklyVolumeIssues(
+    WorkoutProgram program, {
+    required TrainingGoal goal,
+    required String experience,
+  }) {
+    final sets = <MuscleBucket, int>{};
+    for (final day in program.allDays) {
+      for (final exercise in day.exercises) {
+        final bucket = WorkoutScience.muscleBucket(exercise.primaryMuscle);
+        final count = exercise.sets.isEmpty ? 3 : exercise.sets.length;
+        sets[bucket] = (sets[bucket] ?? 0) + count;
+      }
+    }
+
+    const majors = <MuscleBucket>[
+      MuscleBucket.chest,
+      MuscleBucket.back,
+      MuscleBucket.quads,
+    ];
+    final labels = <MuscleBucket, String>{
+      MuscleBucket.chest: 'سینه',
+      MuscleBucket.back: 'پشت',
+      MuscleBucket.quads: 'چهارسر',
+    };
+    final issues = <String>[];
+    for (final bucket in majors) {
+      if ((sets[bucket] ?? 0) == 0) continue;
+      final band = WorkoutScience.weeklySetBand(
+        goal: goal,
+        experience: experience,
+        bucket: bucket,
+      );
+      final actual = sets[bucket] ?? 0;
+      final name = labels[bucket]!;
+      if (actual < band.min) {
+        issues.add(
+          'حجم هفتگی $name خیلی کم است ($actual ست؛ حداقل ${band.min}، '
+          'هدف ${band.target}). ست مرکب را زیاد کن یا یک حرکت اضافه کن.',
+        );
+      } else if (actual > band.max) {
+        issues.add(
+          'حجم هفتگی $name خیلی زیاد است ($actual ست؛ سقف ${band.max}).',
+        );
+      }
+    }
+
+    final ham = sets[MuscleBucket.hamstrings] ?? 0;
+    final glute = sets[MuscleBucket.glutes] ?? 0;
+    final quad = sets[MuscleBucket.quads] ?? 0;
+    if (quad >= 6 && (ham + glute) < (quad * 0.4).ceil()) {
+      issues.add(
+        'زنجیره خلفی نسبت به چهارسر کم است؛ لگ‌کرل یا هیپ‌تراست اضافه کن.',
+      );
+    }
     return issues;
   }
 }

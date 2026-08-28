@@ -1,4 +1,5 @@
 import 'package:gymaipro/ai/context/coach_context.dart';
+import 'package:gymaipro/ai/context/coach_engine_facts.dart';
 import 'package:gymaipro/ai/context/context_models.dart';
 import 'package:gymaipro/ai/knowledge/runtime/coach_knowledge_result.dart';
 import 'package:gymaipro/ai/memory/memory_importance.dart';
@@ -13,6 +14,10 @@ import 'package:gymaipro/ai/prompt/prompt_personality.dart';
 import 'package:gymaipro/ai/prompt/prompt_version.dart';
 import 'package:gymaipro/ai/state/coach_conversation_state.dart';
 import 'package:gymaipro/ai/strategy/coach_strategy_engine.dart';
+import 'package:gymaipro/features/product_experience/domain/coach_decision_lock.dart';
+import 'package:gymaipro/features/product_experience/domain/coach_user_card.dart';
+import 'package:gymaipro/models/muscle_targets.dart';
+import 'package:gymaipro/workout_log/models/workout_program_log.dart';
 
 /// Input for prompt planning.
 class CoachPromptPlanningRequest {
@@ -25,6 +30,7 @@ class CoachPromptPlanningRequest {
     this.personality = PromptPersonality.gymAiCoach,
     this.version = PromptVersion.v1,
     this.createdAt,
+    this.decisionLock,
   });
 
   final CoachContext coachContext;
@@ -35,6 +41,9 @@ class CoachPromptPlanningRequest {
   final PromptPersonality personality;
   final PromptVersion version;
   final DateTime? createdAt;
+
+  /// Locked numeric decisions / debrief / observations for LLM citation only.
+  final Map<String, Object?>? decisionLock;
 }
 
 /// Builds token-aware prompt plans from Coach v2 runtime state.
@@ -104,14 +113,44 @@ class CoachPromptPlanner {
         title: 'System',
         type: CoachPromptSectionType.system,
         content:
-            'You are GymAI Coach. Use provided context only. '
-            'Never write a full workout or meal/diet plan in chat. '
-            'Redirect program requests to trainers or AI coach program request.',
+            'You are GymAI Coach — a personal Persian fitness and nutrition '
+            'coach who knows this user. Ground every answer in the context '
+            'sections below (profile, weight trend, nutrition log, workouts, '
+            "heatmap); cite the user's own numbers when relevant. Prefer "
+            'concrete answers over follow-up questions when the data is '
+            'already present. ${CoachDecisionLock.systemRule} '
+            '${CoachUserCard.systemRule}',
         priority: CoachPromptPriority.critical,
-        estimatedTokens: 100,
+        estimatedTokens: 280,
         required: true,
       ),
     ];
+
+    final lock = request.decisionLock ?? CoachDecisionLock.buildPackage();
+    sections.add(
+      CoachPromptSection(
+        id: CoachDecisionLock.sectionId,
+        title: 'Decision Lock',
+        type: CoachPromptSectionType.restrictions,
+        content: lock,
+        priority: CoachPromptPriority.critical,
+        estimatedTokens: 180,
+        required: true,
+      ),
+    );
+
+    final userCard = CoachUserCard.fromContext(context, decisionLock: lock);
+    sections.add(
+      CoachPromptSection(
+        id: CoachUserCard.sectionId,
+        title: 'User Card',
+        type: CoachPromptSectionType.userCard,
+        content: userCard.toPromptContent(),
+        priority: CoachPromptPriority.critical,
+        estimatedTokens: 160,
+        required: true,
+      ),
+    );
 
     final knowledgeNode = request.knowledgeResult?.selectedNode;
     if (knowledgeNode != null) {
@@ -187,74 +226,152 @@ class CoachPromptPlanner {
     }
 
     if (context.profile.isNotEmpty) {
-      sections.add(_contextSection(
-        id: 'context.profile',
-        title: 'User Profile',
-        type: CoachPromptSectionType.userProfile,
-        content: context.profile,
-        providerKey: AIContextProviderKey.profile,
-        priority: CoachPromptPriority.high,
-        estimatedTokens: 220,
-      ));
+      sections.add(
+        _contextSection(
+          id: 'context.profile',
+          title: 'User Profile',
+          type: CoachPromptSectionType.userProfile,
+          content: context.profile,
+          providerKey: AIContextProviderKey.profile,
+          priority: CoachPromptPriority.high,
+          estimatedTokens: 220,
+        ),
+      );
     }
     if (context.goals.isNotEmpty) {
-      sections.add(_contextSection(
-        id: 'context.goals',
-        title: 'Goals',
-        type: CoachPromptSectionType.goals,
-        content: context.goals,
-        providerKey: AIContextProviderKey.goals,
-        priority: CoachPromptPriority.high,
-        estimatedTokens: 90,
-      ));
+      sections.add(
+        _contextSection(
+          id: 'context.goals',
+          title: 'Goals',
+          type: CoachPromptSectionType.goals,
+          content: context.goals,
+          providerKey: AIContextProviderKey.goals,
+          priority: CoachPromptPriority.high,
+          estimatedTokens: 90,
+        ),
+      );
     }
     if (context.restrictions.isNotEmpty) {
-      sections.add(_contextSection(
-        id: 'context.restrictions',
-        title: 'Restrictions',
-        type: CoachPromptSectionType.restrictions,
-        content: context.restrictions,
-        providerKey: AIContextProviderKey.restrictions,
-        priority: CoachPromptPriority.high,
-        estimatedTokens: 120,
-      ));
+      sections.add(
+        _contextSection(
+          id: 'context.restrictions',
+          title: 'Restrictions',
+          type: CoachPromptSectionType.restrictions,
+          content: context.restrictions,
+          providerKey: AIContextProviderKey.restrictions,
+          priority: CoachPromptPriority.high,
+          estimatedTokens: 120,
+        ),
+      );
     }
     if (context.equipment.isNotEmpty) {
-      sections.add(_contextSection(
-        id: 'context.equipment',
-        title: 'Equipment',
-        type: CoachPromptSectionType.equipment,
-        content: context.equipment,
-        providerKey: AIContextProviderKey.equipment,
-        priority: CoachPromptPriority.medium,
-        estimatedTokens: 90,
-      ));
+      sections.add(
+        _contextSection(
+          id: 'context.equipment',
+          title: 'Equipment',
+          type: CoachPromptSectionType.equipment,
+          content: context.equipment,
+          providerKey: AIContextProviderKey.equipment,
+          priority: CoachPromptPriority.medium,
+          estimatedTokens: 90,
+        ),
+      );
     }
     if (context.activeProgram != null || context.workoutHistory.isNotEmpty) {
-      sections.add(_contextSection(
-        id: 'context.workout',
-        title: 'Workout',
-        type: CoachPromptSectionType.workout,
-        content: <String, Object?>{
-          'activeProgram': context.activeProgram,
-          'historyCount': context.workoutHistory.length,
-        },
-        providerKey: AIContextProviderKey.workoutHistory,
-        priority: CoachPromptPriority.medium,
-        estimatedTokens: 260,
-      ));
+      sections.add(
+        _contextSection(
+          id: 'context.workout',
+          title: 'Workout',
+          type: CoachPromptSectionType.workout,
+          content: <String, Object?>{
+            'activeProgram': context.activeProgram,
+            'historyCount': context.workoutHistory.length,
+            'recentSessions': _recentWorkoutSummary(context.workoutHistory),
+          },
+          providerKey: AIContextProviderKey.workoutHistory,
+          priority: CoachPromptPriority.medium,
+          estimatedTokens: 320,
+        ),
+      );
+    }
+    if (context.nutrition.isNotEmpty) {
+      sections.add(
+        _contextSection(
+          id: 'context.nutrition',
+          title: 'Nutrition',
+          type: CoachPromptSectionType.nutrition,
+          content: context.nutrition,
+          providerKey: AIContextProviderKey.nutrition,
+          priority: CoachPromptPriority.high,
+          estimatedTokens: 220,
+        ),
+      );
+    }
+    if (context.preferences.isNotEmpty) {
+      sections.add(
+        _contextSection(
+          id: 'context.preferences',
+          title: 'Preferences',
+          type: CoachPromptSectionType.preferences,
+          content: context.preferences,
+          providerKey: AIContextProviderKey.preferences,
+          priority: CoachPromptPriority.low,
+          estimatedTokens: 160,
+        ),
+      );
     }
     if (context.weeklyHeatmap != null) {
-      sections.add(_contextSection(
-        id: 'context.heatmap',
-        title: 'Heatmap',
-        type: CoachPromptSectionType.heatmap,
-        content: context.weeklyHeatmap!.targets,
-        providerKey: AIContextProviderKey.heatmap,
-        priority: CoachPromptPriority.medium,
-        estimatedTokens: 180,
-      ));
+      final heatmap = context.weeklyHeatmap!;
+      sections.add(
+        _contextSection(
+          id: 'context.heatmap',
+          title: 'Heatmap',
+          type: CoachPromptSectionType.heatmap,
+          content: <String, Object?>{
+            'targets_fa': <String, int>{
+              for (final entry in heatmap.targets.entries)
+                if (entry.value > 0)
+                  MuscleTargets.label(entry.key): entry.value,
+            },
+            'sessionCount': heatmap.sessionCount,
+            'workoutDays': heatmap.workoutDays,
+            'stimulusTotal': heatmap.stimulusTotal,
+            if (heatmap.topMuscleLabel != null)
+              'topMuscle': heatmap.topMuscleLabel,
+            if (heatmap.lightMuscleLabel != null)
+              'lightMuscle': heatmap.lightMuscleLabel,
+            if (heatmap.balanceLine != null) 'balanceLine': heatmap.balanceLine,
+            if (heatmap.weekTrendLine != null)
+              'weekTrendLine': heatmap.weekTrendLine,
+            if (heatmap.programGapLine != null)
+              'programGapLine': heatmap.programGapLine,
+            'activityLine': heatmap.activityLine,
+            'label_rule':
+                'Use only Persian muscle names from targets_fa. '
+                'Never invent muscles (no forehead/پیشانی).',
+          },
+          providerKey: AIContextProviderKey.heatmap,
+          priority: CoachPromptPriority.medium,
+          estimatedTokens: 220,
+        ),
+      );
     }
+
+    final engineFacts = CoachEngineFacts.build(context);
+    if (engineFacts != null) {
+      sections.add(
+        CoachPromptSection(
+          id: 'context.engine_facts',
+          title: 'Engine Facts',
+          type: CoachPromptSectionType.knowledge,
+          content: engineFacts,
+          priority: CoachPromptPriority.critical,
+          estimatedTokens: 260,
+          required: true,
+        ),
+      );
+    }
+
     final state = request.conversationState;
     if (state != null) {
       sections.add(
@@ -315,6 +432,30 @@ class CoachPromptPlanner {
     );
   }
 
+  /// Compact summary of the last sessions so the model can reference real
+  /// training data (dates, day, volume) instead of only a history count.
+  List<Map<String, Object?>> _recentWorkoutSummary(
+    List<WorkoutDailyLog> history,
+  ) {
+    final sorted = List<WorkoutDailyLog>.from(history)
+      ..sort((a, b) => b.logDate.compareTo(a.logDate));
+    final recent = sorted.take(3);
+
+    return <Map<String, Object?>>[
+      for (final log in recent)
+        <String, Object?>{
+          'date': log.logDate.toIso8601String().substring(0, 10),
+          'sessions': <Object?>[
+            for (final session in log.sessions)
+              <String, Object?>{
+                'day': session.day,
+                'exercises': session.exercises.length,
+              },
+          ],
+        },
+    ];
+  }
+
   int _estimate(String content, {required int fallback}) {
     if (content.trim().isEmpty) return fallback;
     return (content.length / 4).ceil().clamp(20, fallback);
@@ -328,12 +469,12 @@ class CoachPromptPlanner {
   }
 
   CoachPromptPriority _highestPriority(List<CoachPromptSection> sections) {
-    return sections.fold<CoachPromptPriority>(
-      CoachPromptPriority.low,
-      (highest, section) {
-        return section.priority.rank > highest.rank ? section.priority : highest;
-      },
-    );
+    return sections.fold<CoachPromptPriority>(CoachPromptPriority.low, (
+      highest,
+      section,
+    ) {
+      return section.priority.rank > highest.rank ? section.priority : highest;
+    });
   }
 
   Set<AIContextProviderKey> _contextKeys(List<CoachPromptSection> sections) {

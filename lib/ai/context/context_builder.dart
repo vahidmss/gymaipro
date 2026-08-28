@@ -4,10 +4,12 @@ import 'package:gymaipro/ai/context/context_repository.dart';
 import 'package:gymaipro/ai/context/providers/active_program_context_provider.dart';
 import 'package:gymaipro/ai/context/providers/api_usage_context_provider.dart';
 import 'package:gymaipro/ai/context/providers/base_context_provider.dart';
+import 'package:gymaipro/ai/context/providers/body_metrics_context_provider.dart';
 import 'package:gymaipro/ai/context/providers/chat_context_provider.dart';
 import 'package:gymaipro/ai/context/providers/equipment_context_provider.dart';
 import 'package:gymaipro/ai/context/providers/goals_context_provider.dart';
 import 'package:gymaipro/ai/context/providers/heatmap_context_provider.dart';
+import 'package:gymaipro/ai/context/providers/nutrition_context_provider.dart';
 import 'package:gymaipro/ai/context/providers/preferences_context_provider.dart';
 import 'package:gymaipro/ai/context/providers/profile_context_provider.dart';
 import 'package:gymaipro/ai/context/providers/recovery_context_provider.dart';
@@ -28,6 +30,8 @@ class AIContextBuilder {
     return AIContextBuilder(
       providers: <AIContextProvider>[
         ProfileContextProvider(repository: sharedRepository),
+        BodyMetricsContextProvider(),
+        NutritionContextProvider(),
         GoalsContextProvider(repository: sharedRepository),
         EquipmentContextProvider(repository: sharedRepository),
         RestrictionsContextProvider(repository: sharedRepository),

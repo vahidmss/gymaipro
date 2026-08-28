@@ -25,7 +25,9 @@ class WorkoutProgramService {
   static final WorkoutProgramService _instance =
       WorkoutProgramService._internal();
 
-  final SupabaseClient _client = Supabase.instance.client;
+  // Lazy so constructing the singleton (e.g. in widget tests) doesn't require
+  // an initialized Supabase instance.
+  SupabaseClient get _client => Supabase.instance.client;
   List<WorkoutProgram> _cachedPrograms = [];
   bool _initialized = false;
 
@@ -90,6 +92,109 @@ class WorkoutProgramService {
     } catch (e) {
       debugPrint('خطا در findStarterProgram: $e');
       return null;
+    }
+  }
+
+  /// بک‌فیل: starterهای قدیمی که `sent_at` ندارند را برای نمایش در لیست منتشر می‌کند.
+  /// expiry ست نمی‌شود (برنامه رایگان منقضی نمی‌شود).
+  Future<bool> ensureStarterPublished() async {
+    final userId = await AuthHelper.getCurrentUserId();
+    if (userId == null) return false;
+
+    try {
+      final List<dynamic> response = await _client
+          .from('workout_programs')
+          .select('id, data, sent_at')
+          .eq('user_id', userId)
+          .eq('is_deleted', false)
+          .order('created_at', ascending: false);
+
+      for (final row in response) {
+        final map = Map<String, dynamic>.from(row as Map);
+        if (!_isStarterProgramData(map['data'])) continue;
+        if (map['sent_at'] != null) return false;
+
+        await _client
+            .from('workout_programs')
+            .update({
+              'sent_at': DateTime.now().toIso8601String(),
+              'expiry_date': null,
+            })
+            .eq('id', map['id'].toString());
+
+        _cachedPrograms = [];
+        debugPrint(
+          'Starter program published for My Programs list: ${map['id']}',
+        );
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('خطا در ensureStarterPublished: $e');
+      return false;
+    }
+  }
+
+  /// Publish orphaned self-service AI programs that were created but never
+  /// got `sent_at` (so they stay invisible in athlete program lists).
+  Future<int> ensureSelfServiceAiPublished() async {
+    final userId = await AuthHelper.getCurrentUserId();
+    if (userId == null) return 0;
+
+    try {
+      final List<dynamic> response = await _client
+          .from('workout_programs')
+          .select('id, data, sent_at, created_at')
+          .eq('user_id', userId)
+          .eq('is_deleted', false)
+          .filter('sent_at', 'is', null)
+          .order('created_at', ascending: false);
+
+      var fixed = 0;
+      for (final row in response) {
+        final map = Map<String, dynamic>.from(row as Map);
+        if (!_isSelfServiceAiData(map['data'])) continue;
+
+        final createdAt =
+            DateTime.tryParse(map['created_at']?.toString() ?? '') ??
+            DateTime.now();
+        final sentAt = createdAt;
+        await _client
+            .from('workout_programs')
+            .update({
+              'sent_at': sentAt.toIso8601String(),
+              'editable_until':
+                  sentAt.add(const Duration(days: 3)).toIso8601String(),
+              'expiry_date':
+                  sentAt.add(const Duration(days: 33)).toIso8601String(),
+            })
+            .eq('id', map['id'].toString());
+        fixed++;
+        debugPrint(
+          'Self-service AI program published for lists: ${map['id']}',
+        );
+      }
+      if (fixed > 0) {
+        _cachedPrograms = [];
+        _initialized = false;
+      }
+      return fixed;
+    } catch (e) {
+      debugPrint('خطا در ensureSelfServiceAiPublished: $e');
+      return 0;
+    }
+  }
+
+  bool _isSelfServiceAiData(dynamic dataRaw) {
+    if (dataRaw == null) return false;
+    if (_isStarterProgramData(dataRaw)) return false;
+    try {
+      final Map<String, dynamic> decoded = dataRaw is String
+          ? Map<String, dynamic>.from(jsonDecode(dataRaw) as Map)
+          : Map<String, dynamic>.from(dataRaw as Map);
+      return decoded['is_self_service_ai'] == true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -204,8 +309,21 @@ class WorkoutProgramService {
       Map<String, dynamic> programData;
 
       if (data is String) {
-        programData = Map<String, dynamic>.from(jsonDecode(data) as Map);
+        final decoded = jsonDecode(data);
+        if (decoded is Map) {
+          programData = Map<String, dynamic>.from(decoded);
+        } else if (decoded is String) {
+          // Historical double-encoded payloads.
+          programData = Map<String, dynamic>.from(jsonDecode(decoded) as Map);
+        } else {
+          debugPrint(
+            'نوع داده برنامه تمرینی ناشناخته است: ${decoded.runtimeType}',
+          );
+          return null;
+        }
       } else if (data is Map<String, dynamic>) {
+        programData = Map<String, dynamic>.from(data);
+      } else if (data is Map) {
         programData = Map<String, dynamic>.from(data);
       } else {
         debugPrint('نوع داده برنامه تمرینی ناشناخته است: ${data.runtimeType}');
@@ -231,6 +349,9 @@ class WorkoutProgramService {
       }
       if (row.containsKey('sent_at')) {
         programData['sent_at'] = row['sent_at'];
+      }
+      if (row.containsKey('expiry_date')) {
+        programData['expiry_date'] = row['expiry_date'];
       }
 
       // انتقال شناسه‌های مالک و مربی از ستون‌های جدول به مدل
@@ -453,7 +574,8 @@ class WorkoutProgramService {
       final insertData = <String, dynamic>{
         'id': program.id,
         'program_name': program.name,
-        'data': jsonEncode(jsonData),
+        // jsonb column — pass Map, not a double-encoded JSON string.
+        'data': jsonData,
         'user_id': userId,
         'created_at': program.createdAt.toIso8601String(),
         'updated_at': program.updatedAt.toIso8601String(),
@@ -461,11 +583,32 @@ class WorkoutProgramService {
 
       // اضافه کردن trainer_id اگر ارائه شده باشد
       // editable_until و expiry_date فقط در sendProgram ثبت می‌شوند (بعد از پر شدن sent_at)
+      // استثنا: برنامهٔ رایگان starter همان‌جا published می‌شود تا در لیست برنامه‌ها دیده شود.
+      // استثنای دوم: autoSend برای self-service AI هم sent_at را می‌نویسد تا اگر
+      // sendProgram بعدی خطا داد، برنامه در لیست شاگرد نامرئی نماند.
       if (trainerId != null && trainerId.isNotEmpty) {
         insertData['trainer_id'] = trainerId;
+      }
+      if (starterProgram) {
+        insertData['sent_at'] = DateTime.now().toIso8601String();
+        debugPrint(
+          'برنامه starter با sent_at ثبت شد (بدون expiry — رایگان و دائمی)',
+        );
+      } else if (autoSend) {
+        final sentAt = DateTime.now();
+        insertData['sent_at'] = sentAt.toIso8601String();
+        insertData['editable_until'] =
+            sentAt.add(const Duration(days: 3)).toIso8601String();
+        insertData['expiry_date'] =
+            sentAt.add(const Duration(days: 33)).toIso8601String();
+        debugPrint(
+          'برنامه AI با autoSend ثبت شد (sent_at/expiry همان‌جا نوشته شد)',
+        );
+      } else if (trainerId != null && trainerId.isNotEmpty) {
         // sent_at در sendProgram تنظیم می‌شود، نه اینجا
-        // اینجا فقط برنامه را در دیتابیس ایجاد می‌کنیم
-        debugPrint('برنامه در دیتابیس ایجاد شد (sent_at در sendProgram تنظیم می‌شود)');
+        debugPrint(
+          'برنامه در دیتابیس ایجاد شد (sent_at در sendProgram تنظیم می‌شود)',
+        );
       }
 
       final List<dynamic> response = await _client
@@ -503,9 +646,15 @@ class WorkoutProgramService {
           id: generatedId,
           name: program.name,
           sessions: program.sessions,
+          userId: userId,
+          trainerId: trainerId ?? program.trainerId,
           createdAt: program.createdAt,
           updatedAt: program.updatedAt,
           sentAt: sentAt,
+          expiryDate: responseData['expiry_date'] != null
+              ? DateTime.tryParse(responseData['expiry_date'].toString())
+              : null,
+          isSelfServiceAi: program.isSelfServiceAi,
         );
 
         // Update the cache - first remove any existing with same ID
@@ -794,7 +943,7 @@ class WorkoutProgramService {
           .from('workout_programs')
           .update({
             'program_name': program.name,
-            'data': jsonEncode(jsonData),
+            'data': jsonData,
             'updated_at': program.updatedAt.toIso8601String(),
           })
           .eq('id', program.id)
@@ -1096,8 +1245,10 @@ class WorkoutProgramService {
 
       // بررسی اینکه آیا برنامه قبلاً ارسال شده است یا نه
       if (existingProgram['sent_at'] != null) {
-        debugPrint('⚠️ برنامه قبلاً ارسال شده است');
-        throw Exception('این برنامه قبلاً ارسال شده است');
+        debugPrint(
+          'ℹ️ برنامه قبلاً ارسال شده است — sendProgram idempotent skip',
+        );
+        return;
       }
 
       // همیشه هر سه فیلد را با هم set می‌کنیم
@@ -1276,7 +1427,8 @@ class WorkoutProgramService {
     }
     if (starterProgram) {
       map['generated_by'] = _starterGeneratedByKey;
-      map['starter_version'] = 5;
+      // Keep in sync with BeginnerStarterProgramService.programVersion
+      map['starter_version'] = 7;
     }
 
     return map;

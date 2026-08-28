@@ -33,6 +33,7 @@ class _DashboardStoriesSectionState extends State<DashboardStoriesSection> {
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {

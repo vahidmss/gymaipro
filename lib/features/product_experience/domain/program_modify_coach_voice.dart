@@ -9,7 +9,10 @@ abstract final class ProgramModifyCoachVoice {
     RegExp(r'ددلیفت|deadlift', caseSensitive: false),
     RegExp(r'بارفیکس|pull[\s-]?up', caseSensitive: false),
     RegExp(r'زیربغل\s*هلتر|bent[\s-]?over\s*row', caseSensitive: false),
-    RegExp(r'پرس\s*سرشانه|overhead\s*press|military\s*press', caseSensitive: false),
+    RegExp(
+      r'پرس\s*سرشانه|overhead\s*press|military\s*press',
+      caseSensitive: false,
+    ),
     RegExp(r'دیپ|dip', caseSensitive: false),
   ];
 
@@ -184,29 +187,24 @@ abstract final class ProgramModifyCoachVoice {
   }) {
     return switch (goal) {
       ProgramModifyGoal.replaceExercise => <String>[
-          if (reasonId == 'pain')
-            'اگر درد تیز بود، همان جلسه را قطع کن.',
-          'دو ست اول را سبک‌تر بزن تا فرم جا بیفتد.',
-        ],
+        if (reasonId == 'pain') 'اگر درد تیز بود، همان جلسه را قطع کن.',
+        'دو ست اول را سبک‌تر بزن تا فرم جا بیفتد.',
+      ],
       ProgramModifyGoal.removeExercise => <String>[
-          'بعد از حذف، روی فرم حرکت‌های باقی‌مانده تمرکز کن.',
-        ],
+        'بعد از حذف، روی فرم حرکت‌های باقی‌مانده تمرکز کن.',
+      ],
       ProgramModifyGoal.reduceVolume ||
       ProgramModifyGoal.easierSession ||
       ProgramModifyGoal.tiredAdapt => <String>[
-          'امروز کیفیت ست مهم‌تر از رکورد است.',
-          if (reasonId == 'sleep') 'امشب زودتر بخواب تا فردا بهتر برگردی.',
-        ],
+        'امروز کیفیت ست مهم‌تر از رکورد است.',
+        if (reasonId == 'sleep') 'امشب زودتر بخواب تا فردا بهتر برگردی.',
+      ],
       ProgramModifyGoal.increaseVolume || ProgramModifyGoal.harderSession =>
-        <String>[
-          'اگر فرم خراب شد، وزنه را کم کن.',
-        ],
+        <String>['اگر فرم خراب شد، وزنه را کم کن.'],
       ProgramModifyGoal.injuryAdapt => <String>[
-          'درد تیز علامت توقف است؛ دامنه دردناک را رد نکن.',
-        ],
-      _ => <String>[
-          'بعد از تأیید، تغییر روی خود برنامه می‌ماند.',
-        ],
+        'درد تیز علامت توقف است؛ دامنه دردناک را رد نکن.',
+      ],
+      _ => <String>['بعد از تأیید، تغییر روی خود برنامه می‌ماند.'],
     };
   }
 
@@ -227,6 +225,7 @@ abstract final class ProgramModifyCoachVoice {
 حرکت: ${exerciseName ?? '—'}
 دلیل: ${reasonLabel ?? '—'}
 نتیجه: ${softRefused ? 'رد نرم' : (outcomeSummary ?? 'پیشنهاد آماده')}
+کیلو/ست/تکرار از خودت نساز. کامل کردن ست برنامه موفقیت است؛ همیشه وزنه زیاد نکن.
 اگر رد نرم است یک پیشنهاد جایگزین بده. لحن گرم و قاطع.
 ''';
   }

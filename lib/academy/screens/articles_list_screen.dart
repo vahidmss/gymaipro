@@ -8,6 +8,7 @@ import 'package:gymaipro/academy/widgets/article_card.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/json_parse_utils.dart';
 import 'package:gymaipro/utils/widget_safety_utils.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class ArticlesListScreen extends StatefulWidget {
   const ArticlesListScreen({super.key});
@@ -70,7 +71,10 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
 
   Future<void> _reloadArticleStats(int articleId) async {
     try {
-      final stats = await ArticleStatsCacheService.getArticleStats(articleId);
+      final stats = await ArticleStatsCacheService.getArticleStats(
+        articleId,
+        forceRefresh: true,
+      );
       if (mounted) {
         setState(() {
           _articleStats[articleId] = stats;
@@ -149,76 +153,113 @@ class _ArticlesListScreenState extends State<ArticlesListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: context.backgroundColor,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        toolbarHeight: 0,
-      ),
-      body: RefreshIndicator(
+    return ColoredBox(
+      color: context.backgroundColor,
+      child: RefreshIndicator(
+        color: AppTheme.goldColor,
         onRefresh: () => _loadPage(refresh: true),
-        child: ColoredBox(
-          color: context.backgroundColor,
-          child: Column(
-            children: [
-              // Articles List
-              Expanded(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: EdgeInsets.all(16.w),
-                  itemCount: _articles.length + (_hasMore ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index >= _articles.length) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            color: AppTheme.goldColor,
-                          ),
-                        ),
-                      );
-                    }
-                    final article = _articles[index];
-                    final stats = _articleStats[article.id];
-                    final isRead = _readArticleIds.contains(article.id);
-                    final readCount = _readCounts[article.id] ?? 0;
-                    return ArticleCard(
-                      key: ValueKey('article_${article.id}'),
-                      article: article,
-                      stats: stats,
-                      isRead: isRead,
-                      readCount: readCount,
-                      onTap: () async {
-                        final result = await Navigator.pushNamed(
-                          context,
-                          '/article-detail',
-                          arguments: article,
-                        );
-                        if (result != null && result is Map) {
-                          final map = result;
-                          final articleId = JsonParse.fromIntOrNull(map['articleId']);
-                          final isRead = map['isRead'] == true;
-                          final statsChanged = map['statsChanged'] == true;
-
-                          if (isRead && articleId != null) {
-                            setState(() {
-                              _readArticleIds.add(articleId);
-                            });
-                          }
-
-                          if (statsChanged && articleId != null) {
-                            _reloadArticleStats(articleId);
-                          }
-                        }
-                      },
-                    );
-                  },
+        child: _articles.isEmpty && !_isLoading
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(height: 120.h),
+                  Icon(
+                    LucideIcons.fileText,
+                    size: 48.sp,
+                    color: context.textSecondary,
+                  ),
+                  SizedBox(height: 12.h),
+                  Center(
+                    child: Text(
+                      'مقاله‌ای یافت نشد',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 14.sp,
+                        color: context.textSecondary,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  Center(
+                    child: TextButton(
+                      onPressed: () => _loadPage(refresh: true),
+                      child: const Text('تلاش دوباره'),
+                    ),
+                  ),
+                ],
+              )
+            : ListView.builder(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 24.h),
+          itemCount: _articles.length + (_hasMore ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index >= _articles.length) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: AppTheme.goldColor,
+                  ),
                 ),
-              ),
-            ],
-          ),
+              );
+            }
+            final article = _articles[index];
+            final stats = _articleStats[article.id];
+            final isRead = _readArticleIds.contains(article.id);
+            final readCount = _readCounts[article.id] ?? 0;
+            return ArticleCard(
+              key: ValueKey('article_${article.id}'),
+              article: article,
+              stats: stats,
+              isRead: isRead,
+              readCount: readCount,
+              onTap: () async {
+                final result = await Navigator.pushNamed(
+                  context,
+                  '/article-detail',
+                  arguments: article,
+                );
+                if (result != null && result is Map) {
+                  final map = result;
+                  final articleId = JsonParse.fromIntOrNull(map['articleId']);
+                  final isRead = map['isRead'] == true;
+                  final statsChanged = map['statsChanged'] == true;
+
+                  if (isRead && articleId != null) {
+                    setState(() {
+                      _readArticleIds.add(articleId);
+                    });
+                  }
+
+                  if (articleId != null && statsChanged) {
+                    final likeCount = JsonParse.fromIntOrNull(map['likeCount']);
+                    final ratingCount =
+                        JsonParse.fromIntOrNull(map['ratingCount']);
+                    final avgRaw = map['avgRating'];
+                    final avgRating = avgRaw is num
+                        ? avgRaw.toDouble()
+                        : double.tryParse(avgRaw?.toString() ?? '');
+
+                    if (likeCount != null ||
+                        avgRating != null ||
+                        ratingCount != null) {
+                      final prev = _articleStats[articleId];
+                      final next = ArticleStats(
+                        likeCount: likeCount ?? prev?.likeCount ?? 0,
+                        avgRating: avgRating ?? prev?.avgRating ?? 0,
+                        ratingCount: ratingCount ?? prev?.ratingCount ?? 0,
+                      );
+                      setState(() => _articleStats[articleId] = next);
+                      ArticleStatsCacheService.put(articleId, next);
+                    } else {
+                      _reloadArticleStats(articleId);
+                    }
+                  }
+                }
+              },
+            );
+          },
         ),
       ),
     );

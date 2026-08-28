@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gymaipro/design_system/theme/gym_colors.dart';
+import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 import 'package:gymaipro/design_system/theme/gym_typography.dart';
 
 enum GymAvatarSize { sm, md, lg }
@@ -57,9 +58,9 @@ class GymAvatar extends StatelessWidget {
               width: dimension * 0.28,
               height: dimension * 0.28,
               decoration: BoxDecoration(
-                color: GymColors.success,
+                color: context.gymSuccess,
                 shape: BoxShape.circle,
-                border: Border.all(color: GymColors.background, width: 2),
+                border: Border.all(color: context.gymBackground, width: 2),
               ),
             ),
           ),

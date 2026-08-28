@@ -13,8 +13,9 @@ void main() {
           fatigue: 72,
           sleep: 60,
           readiness: 32,
+          daysSinceLastWorkout: 0,
+          sessionCompletedToday: true,
         ),
-        daysSinceLastWorkout: 0,
       );
 
       expect(guidance.scenario, RecoveryScenario.postSessionToday);
@@ -131,6 +132,10 @@ void main() {
       expect(guidance.suggestLighterSession, isFalse);
       expect(guidance.suggestStartWorkout, isFalse);
       expect(guidance.tips, isNotEmpty);
+      expect(
+        guidance.tips.any((t) => t.contains('خواب مفید دیشب')),
+        isTrue,
+      );
     });
 
     test('trained today even with high readiness stays post-session', () {
@@ -141,13 +146,33 @@ void main() {
           fatigue: 40,
           sleep: 80,
           readiness: 75,
+          daysSinceLastWorkout: 0,
+          sessionCompletedToday: true,
         ),
-        daysSinceLastWorkout: 0,
       );
 
       expect(guidance.scenario, RecoveryScenario.postSessionToday);
       expect(guidance.suggestStartWorkout, isFalse);
       expect(guidance.suggestLighterSession, isFalse);
+    });
+
+    test('activity today without finished session is not post-session', () {
+      final guidance = RecoveryGuidance.fromSnapshot(
+        const CoachRecoverySnapshot(
+          recovery: 48,
+          fatigue: 62,
+          sleep: 0,
+          readiness: 48,
+          daysSinceLastWorkout: 0,
+          sessionCompletedToday: false,
+        ),
+      );
+
+      expect(guidance.scenario, isNot(RecoveryScenario.postSessionToday));
+      expect(
+        guidance.suggestStartWorkout || guidance.suggestLighterSession,
+        isTrue,
+      );
     });
 
     test('readinessHint after today session is recovery-focused', () {
@@ -158,12 +183,60 @@ void main() {
           sleep: 50,
           readiness: 30,
           daysSinceLastWorkout: 0,
+          sessionCompletedToday: true,
         ),
       );
       expect(hint, isNotNull);
       expect(hint, contains('ریکاوری'));
       expect(hint, isNot(contains('سبک‌تر')));
       expect(hint, isNot(contains('محافظه‌کار')));
+    });
+
+    test('low last-night sleep adds a concrete recovery tip', () {
+      final guidance = RecoveryGuidance.fromSnapshot(
+        const CoachRecoverySnapshot(
+          recovery: 80,
+          fatigue: 25,
+          sleep: 50,
+          readiness: 72,
+          lastNightSleepHours: 5,
+        ),
+        daysSinceLastWorkout: 1,
+      );
+
+      expect(
+        guidance.tips.any((t) => t.contains('کمتر از ۶ ساعت')),
+        isTrue,
+      );
+    });
+  });
+
+  group('programEngineRecoveryScore', () {
+    test('post-session is not treated as fresh 0.85 recovery', () {
+      final guidance = RecoveryGuidance.fromSnapshot(
+        const CoachRecoverySnapshot(
+          recovery: 35,
+          fatigue: 72,
+          sleep: 60,
+          readiness: 32,
+          daysSinceLastWorkout: 0,
+          sessionCompletedToday: true,
+        ),
+      );
+      expect(guidance.programEngineRecoveryScore, 0.4);
+    });
+
+    test('unknown without readiness keeps historical default', () {
+      final guidance = RecoveryGuidance.fromSnapshot(
+        const CoachRecoverySnapshot(
+          recovery: 0,
+          fatigue: 0,
+          sleep: 0,
+          readiness: 0,
+        ),
+      );
+      expect(guidance.scenario, RecoveryScenario.unknown);
+      expect(guidance.programEngineRecoveryScore, 0.85);
     });
   });
 }

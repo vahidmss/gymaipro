@@ -8,6 +8,7 @@ class AppRemoteImage extends StatelessWidget {
   const AppRemoteImage({
     required this.path,
     this.fit = BoxFit.contain,
+    this.alignment = Alignment.center,
     this.width,
     this.height,
     this.filterQuality = FilterQuality.low,
@@ -19,6 +20,7 @@ class AppRemoteImage extends StatelessWidget {
 
   final String path;
   final BoxFit fit;
+  final Alignment alignment;
   final double? width;
   final double? height;
   final FilterQuality filterQuality;
@@ -32,6 +34,7 @@ class AppRemoteImage extends StatelessWidget {
       return Image.asset(
         AppAssetConfig.bundledAssetPath(path),
         fit: fit,
+        alignment: alignment,
         width: width,
         height: height,
         filterQuality: filterQuality,
@@ -44,6 +47,7 @@ class AppRemoteImage extends StatelessWidget {
     return CachedNetworkImage(
       imageUrl: AppAssetConfig.remoteUrl(path),
       fit: fit,
+      alignment: alignment,
       width: width,
       height: height,
       filterQuality: filterQuality,

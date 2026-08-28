@@ -46,6 +46,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   PickedProfileImage? _avatarPicked;
   bool _isLoading = false;
+  bool _loadFailed = false;
   bool _isEditing = false;
   AvatarUploadStatus _avatarUploadStatus = AvatarUploadStatus.idle;
   String? _avatarUploadError;
@@ -105,6 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (profileData != null) {
         if (!mounted) return;
         SafeSetState.call(this, () {
+          _loadFailed = false;
           _profileData.clear();
           _originalData.clear();
           _profileData.addAll(profileData);
@@ -186,9 +188,16 @@ class _ProfileScreenState extends State<ProfileScreen>
             }
           } catch (_) {}
         }
+      } else {
+        SafeSetState.call(this, () {
+          _loadFailed = true;
+        });
       }
     } catch (e) {
       debugPrint('خطا در بارگذاری پروفایل: $e');
+      SafeSetState.call(this, () {
+        _loadFailed = true;
+      });
     } finally {
       if (!mounted) return;
       SafeSetState.call(this, () {
@@ -744,154 +753,243 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  Widget _buildLoadErrorView() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 28.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              LucideIcons.wifiOff,
+              size: 40.sp,
+              color: AppTheme.goldColor.withValues(alpha: 0.8),
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'پروفایل بارگذاری نشد',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w700,
+                color: context.textColor,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              'اتصال را بررسی کنید و دوباره تلاش کنید.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 13.sp,
+                color: context.textSecondary,
+              ),
+            ),
+            SizedBox(height: 20.h),
+            FilledButton(
+              onPressed: () {
+                unawaited(_loadProfileData());
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.goldColor,
+                foregroundColor: AppTheme.onGoldColor,
+              ),
+              child: const Text('تلاش دوباره'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final role = (_profileData['role'] ?? 'athlete').toString();
+    final canGoBack = Navigator.of(context).canPop();
     return DecoratedBox(
       decoration: context.pageDecoration,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         body: _isLoading && _profileData.isEmpty
             ? _buildLoadingView()
-            : SingleChildScrollView(
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: SlideTransition(
-                    position: _slideAnimation,
-                    child: Column(
-                      children: [
-                        if (!_isEditing) ...[
-                          ModernProfileHeader(
-                            profileData: _profileData,
-                            avatarPreviewBytes: _avatarPicked?.bytes,
-                            avatarUploading:
-                                _avatarUploadStatus ==
-                                AvatarUploadStatus.uploading,
-                            avatarSuccess:
-                                _avatarUploadStatus ==
-                                AvatarUploadStatus.success,
-                            avatarError: _avatarUploadError,
-                            onImageTap:
-                                (_avatarUploadStatus ==
-                                        AvatarUploadStatus.uploading ||
+            : _loadFailed && _profileData.isEmpty
+            ? _buildLoadErrorView()
+            : Stack(
+                children: [
+                  SingleChildScrollView(
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: SlideTransition(
+                        position: _slideAnimation,
+                        child: Column(
+                          children: [
+                            if (!_isEditing) ...[
+                              ModernProfileHeader(
+                                profileData: _profileData,
+                                avatarPreviewBytes: _avatarPicked?.bytes,
+                                avatarUploading:
                                     _avatarUploadStatus ==
-                                        AvatarUploadStatus.success)
-                                ? () {}
-                                : _pickImage,
-                            onRetryAvatar: _retryAvatarUpload,
-                            onEditTap: () => setState(() => _isEditing = true),
-                            onSettingsTap: () =>
-                                Navigator.pushNamed(context, '/settings'),
-                            ranking: _userRanking,
-                          ),
-                          // فقط برای ورزشکاران (athletes) نمایش داده می‌شود
-                          if (role == 'athlete')
-                            ModernProfileActions(
-                              onFriendsTap: () => Navigator.pushNamed(
-                                context,
-                                '/my-club',
-                                arguments: {'initialTab': 2},
+                                    AvatarUploadStatus.uploading,
+                                avatarSuccess:
+                                    _avatarUploadStatus ==
+                                    AvatarUploadStatus.success,
+                                avatarError: _avatarUploadError,
+                                onImageTap:
+                                    (_avatarUploadStatus ==
+                                            AvatarUploadStatus.uploading ||
+                                        _avatarUploadStatus ==
+                                            AvatarUploadStatus.success)
+                                    ? () {}
+                                    : _pickImage,
+                                onRetryAvatar: _retryAvatarUpload,
+                                onEditTap: () =>
+                                    setState(() => _isEditing = true),
+                                onSettingsTap: () =>
+                                    Navigator.pushNamed(context, '/settings'),
+                                ranking: _userRanking,
                               ),
-                              onMessagesTap: () => Navigator.pushNamed(
-                                context,
-                                '/conversations',
-                              ),
-                              onRequestsTap: () => Navigator.pushNamed(
-                                context,
-                                '/my-club',
-                                arguments: {'initialTab': 2},
-                              ),
-                            ),
-                          // داشبورد مربی (بدون لیگ) - شبیه ModernGamificationStats
-                          if (role == 'trainer') ...[
-                            SizedBox(height: 20.h),
-                            ModernTrainerKpiDashboard(
-                              profileData: _profileData,
-                              kpis: _trainerKpis,
-                              onOpenTrainerRanking: () => Navigator.pushNamed(
-                                context,
-                                '/trainer-ranking',
-                              ),
-                              onOpenTrainerDashboard: () => Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) =>
-                                      const TrainerDashboardScreen(),
-                                ),
-                              ),
-                            ),
-                          ],
-
-                          // فقط برای ورزشکاران (athletes) نمایش داده می‌شود
-                          if (role == 'athlete')
-                            ModernGamificationStats(
-                              ranking: _userRanking,
-                              breakdown: _scoreBreakdown,
-                              onViewLeaderboard: () =>
-                                  Navigator.pushNamed(context, '/ranking'),
-                            ),
-                          ModernPhysicalStats(profileData: _profileData),
-                          if ((_profileData['id'] ?? '')
-                              .toString()
-                              .isNotEmpty) ...[
-                            SizedBox(height: 16.h),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16.w),
-                              child: WeightChart(
-                                key: ValueKey<int>(_weightChartEpoch),
-                                userId: _profileData['id'].toString(),
-                                currentWeight:
-                                    (_profileData['latest_weight'] as num?)
-                                        ?.toDouble() ??
-                                    double.tryParse(
-                                      (_profileData['weight'] ?? '').toString(),
-                                    ),
-                                minPointsExclusive: 3,
-                              ),
-                            ),
-                          ],
-                          SizedBox(height: 80.h), // Bottom padding
-                        ],
-                        if (_isEditing) ...[
-                          SizedBox(height: 48.h),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16.w),
-                            child: Row(
-                              children: [
-                                Text(
-                                  'ویرایش پروفایل',
-                                  style: TextStyle(
-                                    fontFamily: AppTheme.fontFamily,
-                                    fontSize: 18.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: context.textColor,
+                              // فقط برای ورزشکاران (athletes) نمایش داده می‌شود
+                              if (role == 'athlete')
+                                ModernProfileActions(
+                                  onFriendsTap: () => Navigator.pushNamed(
+                                    context,
+                                    '/my-club',
+                                    arguments: {'initialTab': 2},
+                                  ),
+                                  onMessagesTap: () => Navigator.pushNamed(
+                                    context,
+                                    '/conversations',
+                                  ),
+                                  onRequestsTap: () => Navigator.pushNamed(
+                                    context,
+                                    '/my-club',
+                                    arguments: {'initialTab': 2},
                                   ),
                                 ),
-                                const Spacer(),
-                                IconButton(
-                                  onPressed: () async {
-                                    _autoSaveDebounce?.cancel();
-                                    try {
-                                      await _saveProfileData(context);
-                                    } catch (_) {}
-                                    if (!mounted) return;
-                                    setState(() => _isEditing = false);
-                                  },
-                                  icon: Icon(
-                                    LucideIcons.x,
-                                    color: context.textColor,
+                              // داشبورد مربی (بدون لیگ) - شبیه ModernGamificationStats
+                              if (role == 'trainer') ...[
+                                SizedBox(height: 20.h),
+                                ModernTrainerKpiDashboard(
+                                  profileData: _profileData,
+                                  kpis: _trainerKpis,
+                                  onOpenTrainerRanking: () =>
+                                      Navigator.pushNamed(
+                                    context,
+                                    '/trainer-ranking',
+                                  ),
+                                  onOpenTrainerDashboard: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          const TrainerDashboardScreen(),
+                                    ),
                                   ),
                                 ),
                               ],
-                            ),
-                          ),
-                          SizedBox(height: 12.h),
-                          _buildProfileForm(),
-                        ],
-                      ],
+
+                              // فقط برای ورزشکاران (athletes) نمایش داده می‌شود
+                              if (role == 'athlete')
+                                ModernGamificationStats(
+                                  ranking: _userRanking,
+                                  breakdown: _scoreBreakdown,
+                                  onViewLeaderboard: () =>
+                                      Navigator.pushNamed(context, '/ranking'),
+                                ),
+                              ModernPhysicalStats(profileData: _profileData),
+                              if ((_profileData['id'] ?? '')
+                                  .toString()
+                                  .isNotEmpty) ...[
+                                SizedBox(height: 16.h),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 16.w,
+                                  ),
+                                  child: WeightChart(
+                                    key: ValueKey<int>(_weightChartEpoch),
+                                    userId: _profileData['id'].toString(),
+                                    currentWeight:
+                                        (_profileData['latest_weight'] as num?)
+                                            ?.toDouble() ??
+                                        double.tryParse(
+                                          (_profileData['weight'] ?? '')
+                                              .toString(),
+                                        ),
+                                    minPointsExclusive: 3,
+                                  ),
+                                ),
+                              ],
+                              SizedBox(height: 80.h), // Bottom padding
+                            ],
+                            if (_isEditing) ...[
+                              SizedBox(height: 48.h),
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      'ویرایش پروفایل',
+                                      style: TextStyle(
+                                        fontFamily: AppTheme.fontFamily,
+                                        fontSize: 18.sp,
+                                        fontWeight: FontWeight.w700,
+                                        color: context.textColor,
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    IconButton(
+                                      onPressed: () async {
+                                        _autoSaveDebounce?.cancel();
+                                        try {
+                                          await _saveProfileData(context);
+                                        } catch (_) {}
+                                        if (!mounted) return;
+                                        setState(() => _isEditing = false);
+                                      },
+                                      icon: Icon(
+                                        LucideIcons.x,
+                                        color: context.textColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: 12.h),
+                              _buildProfileForm(),
+                            ],
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  if (canGoBack)
+                    SafeArea(
+                      child: Align(
+                        alignment: AlignmentDirectional.topStart,
+                        child: Padding(
+                          padding: EdgeInsetsDirectional.only(
+                            start: 4.w,
+                            top: 4.h,
+                          ),
+                          child: Material(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            shape: const CircleBorder(),
+                            clipBehavior: Clip.antiAlias,
+                            child: IconButton(
+                              tooltip: 'بازگشت',
+                              onPressed: () =>
+                                  Navigator.of(context).maybePop(),
+                              icon: Icon(
+                                LucideIcons.arrowRight,
+                                color: Colors.white,
+                                size: 22.sp,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
       ),
     );

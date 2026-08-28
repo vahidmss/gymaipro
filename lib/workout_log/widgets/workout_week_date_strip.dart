@@ -18,6 +18,7 @@ class WorkoutWeekDateStrip extends StatefulWidget {
     required this.selectedDate,
     required this.onDateSelected,
     this.onOpenCalendar,
+    this.isDateEnabled,
     this.enabled = true,
     super.key,
   });
@@ -25,6 +26,9 @@ class WorkoutWeekDateStrip extends StatefulWidget {
   final Jalali selectedDate;
   final ValueChanged<Jalali> onDateSelected;
   final VoidCallback? onOpenCalendar;
+
+  /// اگر null باشد همه روزها قابل انتخاب‌اند.
+  final bool Function(Jalali date)? isDateEnabled;
   final bool enabled;
 
   @override
@@ -296,15 +300,18 @@ class _WorkoutWeekDateStripState extends State<WorkoutWeekDateStrip> {
                       final isSelected = _sameDay(day, selected);
                       final isTodayCell = _sameDay(day, Jalali.now());
                       final hasLog = _loggedKeys.contains(_key(day));
+                      final dayEnabled =
+                          widget.enabled &&
+                          (widget.isDateEnabled?.call(day) ?? true);
                       return Expanded(
                         child: _DayCell(
                           day: day,
                           isSelected: isSelected,
                           isToday: isTodayCell,
                           hasLog: hasLog,
-                          enabled: widget.enabled,
+                          enabled: dayEnabled,
                           onTap: () {
-                            if (!widget.enabled) return;
+                            if (!dayEnabled) return;
                             HapticFeedback.selectionClick();
                             widget.onDateSelected(day);
                           },

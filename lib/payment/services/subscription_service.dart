@@ -9,7 +9,9 @@ class SubscriptionService {
   SubscriptionService._internal();
   static final SubscriptionService _instance = SubscriptionService._internal();
 
-  final SupabaseClient _client = Supabase.instance.client;
+  // Lazy so constructing the singleton (e.g. in widget tests) doesn't require
+  // an initialized Supabase instance.
+  SupabaseClient get _client => Supabase.instance.client;
 
   /// دریافت اشتراک فعال کاربر
   Future<Subscription?> getActiveSubscription() async {
@@ -80,7 +82,11 @@ class SubscriptionService {
     }
   }
 
-  /// ایجاد و فعال‌سازی اشتراک پلن مربی هوشمند پس از پرداخت موفق
+  /// ایجاد اشتراک پلن مربی هوشمند پس از پرداخت موفق.
+  ///
+  /// ساعت اعتبار (چت نامحدود و …) اینجا شروع نمی‌شود؛ فقط «حساب شده /
+  /// مجاز به ساخت» ثبت می‌شود. شروع واقعی با
+  /// [startCoachPlanEntitlementFromDelivery] بعد از ساخت برنامه است.
   Future<Subscription?> createAndActivateCoachPlan({
     required SubscriptionType type,
     required int price,
@@ -94,38 +100,86 @@ class SubscriptionService {
 
       final existing = await peekActiveSubscription(userId: userId);
       final now = DateTime.now();
-      final days = validityDays > 0 ? validityDays : 31;
+      final days = validityDays > 0 ? validityDays : 33;
+      // فرصت ساخت بعد از پرداخت؛ ساعت واقعی محصول بعد از تحویل برنامه شروع می‌شود.
+      final buildGraceDays = days < 120 ? 120 : days;
+      final pendingMeta = <String, dynamic>{
+        ...?metadata,
+        Subscription.metaEntitlementStarted: false,
+        Subscription.metaValidityDays: days,
+        Subscription.metaPaidAt: now.toIso8601String(),
+      };
 
-      // تمدید همان پلن: انقضا را از الان (یا از تاریخ فعلی انقضا اگر هنوز معتبر است) جلو ببر
+      // تمدید همان پلن
       if (existing != null && existing.type == type) {
-        final base = existing.expiryDate.isAfter(now)
-            ? existing.expiryDate
-            : now;
+        if (existing.coachEntitlementStarted) {
+          final base = existing.expiryDate.isAfter(now)
+              ? existing.expiryDate
+              : now;
+          final newExpiry = base.add(Duration(days: days));
+          final renewedMeta = <String, dynamic>{
+            ...?existing.metadata,
+            ...pendingMeta,
+            Subscription.metaEntitlementStarted: true,
+          };
+          await _client
+              .from('subscriptions')
+              .update({
+                'expiry_date': newExpiry.toIso8601String(),
+                'last_payment_date': now.toIso8601String(),
+                'last_transaction_id': transactionId,
+                'price': price,
+                'status': SubscriptionStatus.active.name,
+                'updated_at': now.toIso8601String(),
+                'metadata': renewedMeta,
+              })
+              .eq('id', existing.id);
+
+          await _addSubscriptionHistory(
+            subscriptionId: existing.id,
+            action: 'renewed',
+            description: 'پلن مربی هوشمند تمدید شد',
+            transactionId: transactionId,
+          );
+
+          return existing.copyWith(
+            expiryDate: newExpiry,
+            lastPaymentDate: now,
+            lastTransactionId: transactionId,
+            price: price,
+            metadata: renewedMeta,
+            updatedAt: now,
+          );
+        }
+
+        // هنوز برنامه ساخته نشده — فقط پرداخت را تازه کن، ساعت را روشن نکن.
+        final graceExpiry = now.add(Duration(days: buildGraceDays));
         await _client
             .from('subscriptions')
             .update({
-              'expiry_date': base.add(Duration(days: days)).toIso8601String(),
+              'expiry_date': graceExpiry.toIso8601String(),
               'last_payment_date': now.toIso8601String(),
               'last_transaction_id': transactionId,
               'price': price,
               'status': SubscriptionStatus.active.name,
               'updated_at': now.toIso8601String(),
-              if (metadata != null) 'metadata': metadata,
+              'metadata': pendingMeta,
             })
             .eq('id', existing.id);
 
         await _addSubscriptionHistory(
           subscriptionId: existing.id,
-          action: 'renewed',
-          description: 'پلن مربی هوشمند تمدید شد (+ توکن ساخت)',
+          action: 'activated',
+          description: 'پرداخت ثبت شد؛ اعتبار بعد از ساخت برنامه شروع می‌شود',
           transactionId: transactionId,
         );
 
         return existing.copyWith(
-          expiryDate: base.add(Duration(days: days)),
+          expiryDate: graceExpiry,
           lastPaymentDate: now,
           lastTransactionId: transactionId,
           price: price,
+          metadata: pendingMeta,
           updatedAt: now,
         );
       }
@@ -137,6 +191,7 @@ class SubscriptionService {
         );
       }
 
+      final graceExpiry = now.add(Duration(days: buildGraceDays));
       final subscription = Subscription(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         userId: userId,
@@ -144,11 +199,11 @@ class SubscriptionService {
         status: SubscriptionStatus.active,
         price: price,
         startDate: now,
-        expiryDate: now.add(Duration(days: days)),
+        expiryDate: graceExpiry,
         lastPaymentDate: now,
         lastTransactionId: transactionId,
         autoRenewal: false,
-        metadata: metadata,
+        metadata: pendingMeta,
         createdAt: now,
         updatedAt: now,
       );
@@ -162,7 +217,8 @@ class SubscriptionService {
       await _addSubscriptionHistory(
         subscriptionId: subscription.id,
         action: 'activated',
-        description: 'پلن مربی هوشمند فعال شد',
+        description:
+            'پرداخت پلن مربی هوشمند ثبت شد؛ اعتبار بعد از ساخت برنامه شروع می‌شود',
         transactionId: transactionId,
       );
 
@@ -172,6 +228,96 @@ class SubscriptionService {
         print('خطا در ایجاد پلن مربی هوشمند: $e');
       }
       rethrow;
+    }
+  }
+
+  /// شروع ساعت اعتبار پلن مربی هوشمند از لحظهٔ ساخت/تحویل برنامه.
+  Future<Subscription?> startCoachPlanEntitlementFromDelivery({
+    String? userId,
+    String? programId,
+    DateTime? deliveredAt,
+  }) async {
+    try {
+      final uid = (userId != null && userId.trim().isNotEmpty)
+          ? userId.trim()
+          : await AuthHelper.getCurrentUserId();
+      if (uid == null || uid.isEmpty) return null;
+
+      final existing = await peekActiveSubscription(userId: uid);
+      if (existing == null) return null;
+
+      if (existing.coachEntitlementStarted) {
+        return existing;
+      }
+
+      final now = deliveredAt ?? DateTime.now();
+      final days = existing.coachValidityDays;
+      final expiry = now.add(Duration(days: days));
+      final meta = <String, dynamic>{
+        ...?existing.metadata,
+        Subscription.metaEntitlementStarted: true,
+        Subscription.metaValidityDays: days,
+        Subscription.metaProgramDeliveredAt: now.toIso8601String(),
+        if (programId != null && programId.isNotEmpty)
+          Subscription.metaDeliveredProgramId: programId,
+      };
+
+      await _client
+          .from('subscriptions')
+          .update({
+            'start_date': now.toIso8601String(),
+            'expiry_date': expiry.toIso8601String(),
+            'status': SubscriptionStatus.active.name,
+            'updated_at': now.toIso8601String(),
+            'metadata': meta,
+          })
+          .eq('id', existing.id);
+
+      await _addSubscriptionHistory(
+        subscriptionId: existing.id,
+        action: 'activated',
+        description: 'اعتبار پلن مربی هوشمند با ساخت برنامه شروع شد',
+      );
+
+      return existing.copyWith(
+        startDate: now,
+        expiryDate: expiry,
+        metadata: meta,
+        updatedAt: now,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('خطا در شروع اعتبار از تحویل برنامه: $e');
+      }
+      return null;
+    }
+  }
+
+  /// If the athlete already has a delivered AI program but the paid clock never
+  /// started (interrupted build / older client), start it now.
+  Future<void> repairCoachEntitlementIfProgramExists({
+    String? userId,
+    String? programId,
+    DateTime? deliveredAt,
+  }) async {
+    try {
+      final uid = (userId != null && userId.trim().isNotEmpty)
+          ? userId.trim()
+          : await AuthHelper.getCurrentUserId();
+      if (uid == null || uid.isEmpty) return;
+
+      final existing = await peekActiveSubscription(userId: uid);
+      if (existing == null || existing.coachEntitlementStarted) return;
+
+      await startCoachPlanEntitlementFromDelivery(
+        userId: uid,
+        programId: programId,
+        deliveredAt: deliveredAt,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('repairCoachEntitlementIfProgramExists: $e');
+      }
     }
   }
 

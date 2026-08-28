@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-// دیالوگ یادداشت وعده (MealNoteDialog) مخصوص meal plan
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/text_controller_utils.dart';
@@ -31,34 +30,25 @@ class _MealNoteDialogState extends State<MealNoteDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Dialog(
       backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.all(20.w),
       child: Container(
-        padding: EdgeInsets.all(24.w),
+        padding: EdgeInsets.all(16.w),
         decoration: BoxDecoration(
-          gradient: isDark
-              ? null
-              : LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    context.goldGradientColors[0].withValues(alpha: 0.15),
-                    context.cardColor,
-                    context.goldGradientColors[1].withValues(alpha: 0.1),
-                  ],
-                ),
-          color: isDark ? context.backgroundColor : null,
-          borderRadius: BorderRadius.circular(20.r),
+          color: isDark ? context.backgroundColor : context.cardColor,
+          borderRadius: BorderRadius.circular(16.r),
           border: Border.all(
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.5),
-            width: 1.5.w,
+            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.1),
           ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.35),
-              blurRadius: 16.r,
-              offset: Offset(0.w, 6.h),
-              spreadRadius: 1.r,
+              color: isDark
+                  ? Colors.black.withValues(alpha: 0.25)
+                  : Colors.black.withValues(alpha: 0.06),
+              blurRadius: 12.r,
+              offset: Offset(0, 4.h),
             ),
           ],
         ),
@@ -68,33 +58,30 @@ class _MealNoteDialogState extends State<MealNoteDialog> {
           children: [
             Row(
               children: [
-                Icon(
-                  LucideIcons.messageSquare,
-                  color: AppTheme.goldColor,
-                  size: 24.sp,
-                ),
-                SizedBox(width: 12.w),
                 Expanded(
                   child: Text(
                     'یادداشت وعده',
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? AppTheme.goldColor : context.textColor,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      color: context.textColor,
                     ),
                   ),
                 ),
                 IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
                   icon: Icon(
                     LucideIcons.x,
-                    color: isDark ? AppTheme.goldColor : context.textColor,
+                    size: 18.sp,
+                    color: context.textColor.withValues(alpha: 0.55),
                   ),
-                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
               ],
             ),
-            SizedBox(height: 20.h),
+            SizedBox(height: 12.h),
             TextField(
               controller: _controller,
               maxLines: 5,
@@ -102,7 +89,7 @@ class _MealNoteDialogState extends State<MealNoteDialog> {
               textDirection: TextDirection.rtl,
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
-                color: isDark ? AppTheme.goldColor : context.textColor,
+                color: context.textColor,
                 fontSize: 14.sp,
               ),
               decoration: InputDecoration(
@@ -110,72 +97,76 @@ class _MealNoteDialogState extends State<MealNoteDialog> {
                     'مثال: انقدر آب بخور، روز آزاد است، تمرین سنگین داری...',
                 hintStyle: TextStyle(
                   fontFamily: AppTheme.fontFamily,
-                  color: isDark
-                      ? AppTheme.goldColor.withValues(alpha: 0.5)
-                      : context.textColor.withValues(alpha: 0.5),
+                  color: context.textColor.withValues(alpha: 0.4),
                 ),
+                filled: true,
+                fillColor: isDark
+                    ? AppTheme.darkCardColor
+                    : AppTheme.lightButtonBackground,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12.r),
                   borderSide: BorderSide(
-                    color: AppTheme.goldColor.withValues(
-                      alpha: isDark ? 0.3 : 0.5,
-                    ),
+                    color: isDark
+                        ? AppTheme.darkGreySeparator
+                        : AppTheme.lightDividerColor,
                   ),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12.r),
                   borderSide: BorderSide(
-                    color: AppTheme.goldColor.withValues(
-                      alpha: isDark ? 0.3 : 0.5,
-                    ),
+                    color: isDark
+                        ? AppTheme.darkGreySeparator
+                        : AppTheme.lightDividerColor,
                   ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12.r),
-                  borderSide: BorderSide(color: AppTheme.goldColor, width: 2.w),
+                  borderSide: BorderSide(
+                    color: AppTheme.goldColor.withValues(alpha: 0.7),
+                  ),
                 ),
-                filled: true,
-                fillColor: isDark
-                    ? AppTheme.goldColor.withValues(alpha: 0.1)
-                    : AppTheme.goldColor.withValues(alpha: 0.05),
+                contentPadding: EdgeInsets.all(12.w),
               ),
             ),
-            SizedBox(height: 24.h),
+            SizedBox(height: 14.h),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.goldColor,
+                      foregroundColor: context.textColor.withValues(
+                        alpha: 0.7,
+                      ),
                       side: BorderSide(
-                        color: AppTheme.goldColor.withValues(
-                          alpha: isDark ? 0.5 : 0.7,
-                        ),
+                        color: isDark
+                            ? AppTheme.darkGreySeparator
+                            : AppTheme.lightDividerColor,
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r),
+                        borderRadius: BorderRadius.circular(10.r),
                       ),
                       padding: EdgeInsets.symmetric(vertical: 12.h),
                     ),
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text(
+                    child: Text(
                       'انصراف',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black,
+                        fontSize: 14.sp,
                       ),
                     ),
                   ),
                 ),
-                SizedBox(width: 12.w),
+                SizedBox(width: 10.w),
                 Expanded(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.goldColor,
                       foregroundColor: AppTheme.onGoldColor,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r),
+                        borderRadius: BorderRadius.circular(10.r),
                       ),
                       padding: EdgeInsets.symmetric(vertical: 12.h),
                     ),
@@ -184,11 +175,12 @@ class _MealNoteDialogState extends State<MealNoteDialog> {
                         Navigator.of(context).pop(_controller.safeText.trim());
                       }
                     },
-                    child: const Text(
+                    child: Text(
                       'ثبت یادداشت',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
                         fontWeight: FontWeight.w600,
+                        fontSize: 14.sp,
                       ),
                     ),
                   ),

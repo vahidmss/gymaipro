@@ -56,7 +56,7 @@ class MealSection extends StatelessWidget {
       margin: EdgeInsets.symmetric(vertical: 4.h),
       decoration: BoxDecoration(
         color: MealLogColors.sectionBackground(context),
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
           color: isHighlighted
               ? MealLogColors.accent(context).withValues(alpha: 0.75)
@@ -77,7 +77,12 @@ class MealSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(12.w, 10.h, 10.w, hasFoods ? 6.h : 10.h),
+            padding: EdgeInsets.fromLTRB(
+              12.w,
+              10.h,
+              10.w,
+              hasFoods ? 6.h : 10.h,
+            ),
             child: Row(
               children: [
                 ClipRRect(
@@ -174,7 +179,10 @@ class MealSection extends StatelessWidget {
                     ),
                     SizedBox(width: 6.w),
                     Expanded(
-                      child: Text(note!, style: MealLogTypography.note(context)),
+                      child: Text(
+                        note!,
+                        style: MealLogTypography.note(context),
+                      ),
                     ),
                   ],
                 ),
@@ -209,13 +217,14 @@ class MealSection extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onAddFood,
-        borderRadius: BorderRadius.circular(10.r),
+        borderRadius: BorderRadius.circular(16.r),
         child: Ink(
+          height: 48.h,
           decoration: BoxDecoration(
             color: isHighlighted
                 ? MealLogColors.accent(context).withValues(alpha: 0.14)
                 : MealLogColors.chipFill(context, selected: false),
-            borderRadius: BorderRadius.circular(10.r),
+            borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
               color: isHighlighted
                   ? MealLogColors.accent(context).withValues(alpha: 0.7)
@@ -274,13 +283,15 @@ class MealSection extends StatelessWidget {
                       gradient: LinearGradient(
                         colors: isOver
                             ? [
-                                MealLogColors.errorText(context)
-                                    .withValues(alpha: 0.7),
+                                MealLogColors.errorText(
+                                  context,
+                                ).withValues(alpha: 0.7),
                                 MealLogColors.errorText(context),
                               ]
                             : [
-                                MealLogColors.accent(context)
-                                    .withValues(alpha: 0.55),
+                                MealLogColors.accent(
+                                  context,
+                                ).withValues(alpha: 0.55),
                                 MealLogColors.accent(context),
                               ],
                       ),
@@ -307,12 +318,7 @@ class MealSection extends StatelessWidget {
     );
   }
 
-  Widget _macro(
-    BuildContext context,
-    String label,
-    double value,
-    Color color,
-  ) {
+  Widget _macro(BuildContext context, String label, double value, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

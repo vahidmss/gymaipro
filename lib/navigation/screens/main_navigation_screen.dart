@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:gymaipro/admin/screens/admin_dashboard_screen.dart';
 import 'package:gymaipro/academy/models/workout_music.dart';
 import 'package:gymaipro/academy/screens/academy_main_screen.dart';
 import 'package:gymaipro/chat/screens/chat_main_screen.dart';
@@ -14,6 +15,7 @@ import 'package:gymaipro/navigation/constants/navigation_constants.dart';
 import 'package:gymaipro/navigation/navigation_guard.dart';
 import 'package:gymaipro/navigation/screens/more_screen.dart';
 import 'package:gymaipro/navigation/utils/navigation_utils.dart';
+import 'package:gymaipro/navigation/utils/app_role.dart';
 import 'package:gymaipro/navigation/widgets/custom_bottom_navigation.dart';
 import 'package:gymaipro/navigation/widgets/plus_action_sheet.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
@@ -167,7 +169,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     NavigationConstants.moreIndex: GlobalKey(),
   };
 
-  bool get _isTrainer => _userRole == 'trainer';
+  bool get _isTrainer => AppRole.isTrainer(_userRole);
+  bool get _isAdmin => AppRole.isAdmin(_userRole);
 
   @override
   void initState() {
@@ -201,7 +204,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       _tabBackStack.add(index);
     }
 
-    final leftMessages = _currentIndex == NavigationConstants.roleTabIndex &&
+    final leftMessages =
+        _currentIndex == NavigationConstants.roleTabIndex &&
         index != NavigationConstants.roleTabIndex;
 
     setState(() {
@@ -296,6 +300,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       case NavigationConstants.homeIndex:
         return const DashboardScreen();
       case NavigationConstants.hubIndex:
+        if (_isAdmin) {
+          return const AdminDashboardScreen();
+        }
         if (_isTrainer) {
           return TrainerDashboardScreen(
             initialTabIndex: _pendingTrainerDashboardTabIndex ?? 0,
@@ -310,7 +317,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       case NavigationConstants.moreIndex:
         return const MoreScreen();
       default:
-        return const SizedBox.shrink();
+        return const DashboardScreen();
     }
   }
 
@@ -326,6 +333,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   void _navigateToMyClub(int initialTab) {
+    if (_isAdmin) {
+      _onNavItemTapped(NavigationConstants.hubIndex);
+      return;
+    }
     if (_isTrainer) {
       // Trainers don't have MyClub as hub — open as overlay route if needed
       Navigator.of(context).push(
@@ -345,6 +356,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   void _navigateToTrainerDashboard(int initialTab) {
+    if (_isAdmin) {
+      _onNavItemTapped(NavigationConstants.hubIndex);
+      return;
+    }
     setState(() {
       _userRole = 'trainer';
       _pendingTrainerDashboardTabIndex = initialTab;

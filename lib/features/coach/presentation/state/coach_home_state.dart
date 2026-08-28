@@ -1,4 +1,5 @@
 import 'package:gymaipro/ai/entitlement/coach_subscription_plan.dart';
+import 'package:gymaipro/features/product_experience/domain/coach_observation.dart';
 
 enum CoachHomeStatus { loading, loaded, error }
 
@@ -14,6 +15,7 @@ class CoachHomeState {
     required this.recentConversations,
     required this.explainability,
     this.coachBrief = '',
+    this.observations = const <CoachObservation>[],
     this.status = CoachHomeStatus.loaded,
     this.errorMessage,
     this.plan = CoachSubscriptionPlan.free,
@@ -32,6 +34,7 @@ class CoachHomeState {
       ),
       memories = const <String>[],
       insights = const <String>[],
+      observations = const <CoachObservation>[],
       quickActions = const <CoachQuickAction>[],
       recentConversations = const <CoachConversationSummaryItem>[],
       explainability = const CoachExplainabilityItem(
@@ -55,6 +58,7 @@ class CoachHomeState {
       ),
       memories = const <String>[],
       insights = const <String>[],
+      observations = const <CoachObservation>[],
       quickActions = const <CoachQuickAction>[],
       recentConversations = const <CoachConversationSummaryItem>[],
       explainability = const CoachExplainabilityItem(
@@ -72,6 +76,7 @@ class CoachHomeState {
   final CoachRecoverySnapshot recovery;
   final List<String> memories;
   final List<String> insights;
+  final List<CoachObservation> observations;
   final List<CoachQuickAction> quickActions;
   final List<CoachConversationSummaryItem> recentConversations;
   final CoachExplainabilityItem explainability;
@@ -91,6 +96,7 @@ class CoachHomeState {
     CoachRecoverySnapshot? recovery,
     List<String>? memories,
     List<String>? insights,
+    List<CoachObservation>? observations,
     List<CoachQuickAction>? quickActions,
     List<CoachConversationSummaryItem>? recentConversations,
     CoachExplainabilityItem? explainability,
@@ -106,6 +112,7 @@ class CoachHomeState {
       recovery: recovery ?? this.recovery,
       memories: memories ?? this.memories,
       insights: insights ?? this.insights,
+      observations: observations ?? this.observations,
       quickActions: quickActions ?? this.quickActions,
       recentConversations: recentConversations ?? this.recentConversations,
       explainability: explainability ?? this.explainability,
@@ -138,6 +145,8 @@ class CoachRecoverySnapshot {
     required this.sleep,
     required this.readiness,
     this.daysSinceLastWorkout,
+    this.sessionCompletedToday = false,
+    this.lastNightSleepHours,
   });
 
   final int recovery;
@@ -145,8 +154,16 @@ class CoachRecoverySnapshot {
   final int sleep;
   final int readiness;
 
-  /// Calendar days since last logged workout (`0` = trained today).
+  /// Calendar days since last meaningful logged activity (`0` = activity today).
   final int? daysSinceLastWorkout;
+
+  /// True only when a workout was **finished** today via live completion
+  /// (`last_workout_completed_at` on today's calendar date).
+  /// Incomplete/ghost logs must not set this.
+  final bool sessionCompletedToday;
+
+  /// Useful sleep hours logged for last night (today's calendar date).
+  final double? lastNightSleepHours;
 }
 
 class CoachQuickAction {

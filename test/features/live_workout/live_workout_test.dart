@@ -11,7 +11,6 @@ import 'package:gymaipro/ai/skills/runtime/coach_skill_response.dart';
 import 'package:gymaipro/features/coach/application/coach_preview_seed_loader.dart';
 import 'package:gymaipro/features/live_workout/application/live_workout_completion_service.dart';
 import 'package:gymaipro/features/live_workout/application/live_workout_facade.dart';
-import 'package:gymaipro/features/live_workout/application/live_workout_facade_result.dart';
 import 'package:gymaipro/features/live_workout/application/live_workout_session_factory.dart';
 import 'package:gymaipro/features/live_workout/application/live_workout_session_persistence.dart';
 import 'package:gymaipro/features/live_workout/application/live_workout_session_store.dart';
@@ -26,6 +25,7 @@ import 'package:gymaipro/features/live_workout/view_models/live_workout_view_mod
 import 'package:gymaipro/features/product_experience/active_program_catalog_service.dart';
 import 'package:gymaipro/features/product_experience/active_workout_session_service.dart';
 import 'package:gymaipro/features/product_experience/coach_program_resolver.dart';
+import 'package:gymaipro/features/product_experience/domain/workout_exercise_coach_feedback.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
 import 'package:gymaipro/models/exercise.dart';
 import 'package:gymaipro/services/muscle_heatmap_aggregate.dart';
@@ -97,19 +97,14 @@ void main() {
       userId: 'user_1',
     );
     final viewModel = LiveWorkoutViewModel(
-      facade: _FakeLiveWorkoutFacade(
-        LiveWorkoutFacadeResult(
-          state: LiveWorkoutState.loaded(
-            session: session,
-            userId: 'user_1',
-          ),
-        ),
+      initialState: LiveWorkoutState.loaded(
+        session: session,
+        userId: 'user_1',
       ),
       sessionStore: _NoopSessionStore(),
       completionService: _FakeCompletionService(),
     );
 
-    await viewModel.load();
     final exerciseKey =
         viewModel.displayExercises.first.exerciseId.toString();
     viewModel.exerciseControllers[exerciseKey]![0]['reps']!.text = '10';
@@ -187,7 +182,7 @@ void main() {
     expect(find.text('Pull Day'), findsWidgets);
     expect(find.text(ProductCopy.liveSessionInProgress), findsOneWidget);
     expect(find.text('Bench Press'), findsWidgets);
-    expect(find.text('0/5 ست'), findsOneWidget);
+    expect(find.text('0 از 5 ست'), findsOneWidget);
     expect(find.text(ProductCopy.completeSet), findsNothing);
   });
 
@@ -267,7 +262,15 @@ class _StubProgramCatalog extends ActiveProgramCatalogService {
   Future<ActiveProgramOption?> getActiveProgramOption() async => _active;
 
   @override
+  Future<ActiveProgramOption?> getActiveAiProgramOption() async =>
+      _active.isAiSupervised ? _active : null;
+
+  @override
   Future<List<ActiveProgramOption>> listWorkoutPrograms() async => [_active];
+
+  @override
+  Future<List<ActiveProgramOption>> listAiWorkoutPrograms() async =>
+      _active.isAiSupervised ? [_active] : const <ActiveProgramOption>[];
 }
 
 class _FakeSessionGateway implements WorkoutSessionSelectionGateway {
@@ -324,23 +327,6 @@ class _FakeSessionGateway implements WorkoutSessionSelectionGateway {
   }) async {}
 }
 
-class _FakeLiveWorkoutFacade extends LiveWorkoutFacade {
-  _FakeLiveWorkoutFacade(this.result)
-    : super(
-        coachLoader: _unusedCoachLoader,
-        programResolver: CoachProgramResolver(programLoader: (_) async => null),
-      );
-
-  final LiveWorkoutFacadeResult result;
-
-  @override
-  Future<LiveWorkoutFacadeResult> load({bool enrichWithCoach = false}) async =>
-      result;
-
-  @override
-  Future<String> resolveUserId() async => 'user_1';
-}
-
 class _NoopSessionStore extends LiveWorkoutSessionStore {
   @override
   Future<LiveWorkoutDraft?> loadDraft(String userId) async => null;
@@ -358,6 +344,8 @@ class _FakeCompletionService extends LiveWorkoutCompletionService {
     required WorkoutSession session,
     required String userId,
     Map<int, Exercise> exerciseById = const <int, Exercise>{},
+    Map<String, WorkoutExerciseCoachFeedback> feedbackByExerciseKey =
+        const <String, WorkoutExerciseCoachFeedback>{},
   }) async {
     return LiveWorkoutCompletionResult(
       summary: LiveWorkoutCompletionSummary.fromSessionStats(
@@ -373,13 +361,33 @@ class _FakeCompletionService extends LiveWorkoutCompletionService {
   }
 }
 
-Never _unusedCoachLoader({
-  required String userMessage,
-  String userId = 'preview_user',
-  CoachContext? context,
-  Map<String, Object?> metadata = const <String, Object?>{},
-}) {
-  throw UnimplementedError();
+LiveWorkoutSession _previewSession() {
+  return const LiveWorkoutSession(
+    title: 'Workout Today',
+    focus: 'Pull Day',
+    estimatedMinutes: 75,
+    coachTips: <String>['Keep your form tight.'],
+    explainability: <String>['Preview selected today workout.'],
+    exercises: <LiveWorkoutExercise>[
+      LiveWorkoutExercise(
+        name: 'Bench Press',
+        primaryMuscle: 'Chest',
+        sets: <LiveWorkoutSet>[
+          LiveWorkoutSet(index: 1, reps: 8, weightKg: 70),
+          LiveWorkoutSet(index: 2, reps: 8, weightKg: 70),
+        ],
+      ),
+      LiveWorkoutExercise(
+        name: 'Lat Pulldown',
+        primaryMuscle: 'Back',
+        sets: <LiveWorkoutSet>[
+          LiveWorkoutSet(index: 1, reps: 10, weightKg: 55),
+          LiveWorkoutSet(index: 2, reps: 10, weightKg: 55),
+          LiveWorkoutSet(index: 3, reps: 10, weightKg: 55),
+        ],
+      ),
+    ],
+  );
 }
 
 CoachIntegrationResult _integrationResult({
@@ -413,34 +421,5 @@ CoachIntegrationResult _integrationResult({
     processingTime: const Duration(milliseconds: 1),
     logs: const [],
     pipelineMode: CoachPipelineMode.runtime,
-  );
-}
-
-LiveWorkoutSession _previewSession() {
-  return const LiveWorkoutSession(
-    title: 'Workout Today',
-    focus: 'Pull Day',
-    estimatedMinutes: 75,
-    coachTips: <String>['Keep your form tight.'],
-    explainability: <String>['Preview selected today workout.'],
-    exercises: <LiveWorkoutExercise>[
-      LiveWorkoutExercise(
-        name: 'Bench Press',
-        primaryMuscle: 'Chest',
-        sets: <LiveWorkoutSet>[
-          LiveWorkoutSet(index: 1, reps: 8, weightKg: 70),
-          LiveWorkoutSet(index: 2, reps: 8, weightKg: 70),
-        ],
-      ),
-      LiveWorkoutExercise(
-        name: 'Lat Pulldown',
-        primaryMuscle: 'Back',
-        sets: <LiveWorkoutSet>[
-          LiveWorkoutSet(index: 1, reps: 10, weightKg: 55),
-          LiveWorkoutSet(index: 2, reps: 10, weightKg: 55),
-          LiveWorkoutSet(index: 3, reps: 10, weightKg: 55),
-        ],
-      ),
-    ],
   );
 }

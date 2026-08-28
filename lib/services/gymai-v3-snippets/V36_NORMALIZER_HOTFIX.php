@@ -49,6 +49,11 @@ function gymai_norm3_detect_main_muscle($post_id, $raw_main, &$notes = array()) 
         $detected = 'chest';
     } elseif (gymai_norm3_has_any($text, array('shoulder press', 'پرس سرشانه'))) {
         $detected = 'shoulders';
+    } elseif (gymai_norm3_has_any($text, array(
+        'تردمیل', 'treadmill', 'الپتیکال', 'elliptical',
+        'دوچرخه ثابت', 'stationary bike', 'exercise bike',
+    ))) {
+        $detected = 'full_body';
     }
 
     if ($detected === '') {

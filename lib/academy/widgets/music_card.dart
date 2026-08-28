@@ -28,27 +28,33 @@ class _MusicCardState extends State<MusicCard> {
   @override
   void initState() {
     super.initState();
-    _playerSubs.add(_audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted) {
-        setState(() {
-          _isPlaying = state == PlayerState.playing;
-        });
-      }
-    }));
-    _playerSubs.add(_audioPlayer.onDurationChanged.listen((duration) {
-      if (mounted) {
-        setState(() {
-          _duration = duration;
-        });
-      }
-    }));
-    _playerSubs.add(_audioPlayer.onPositionChanged.listen((position) {
-      if (mounted) {
-        setState(() {
-          _position = position;
-        });
-      }
-    }));
+    _playerSubs.add(
+      _audioPlayer.onPlayerStateChanged.listen((state) {
+        if (mounted) {
+          setState(() {
+            _isPlaying = state == PlayerState.playing;
+          });
+        }
+      }),
+    );
+    _playerSubs.add(
+      _audioPlayer.onDurationChanged.listen((duration) {
+        if (mounted) {
+          setState(() {
+            _duration = duration;
+          });
+        }
+      }),
+    );
+    _playerSubs.add(
+      _audioPlayer.onPositionChanged.listen((position) {
+        if (mounted) {
+          setState(() {
+            _position = position;
+          });
+        }
+      }),
+    );
   }
 
   @override
@@ -89,42 +95,11 @@ class _MusicCardState extends State<MusicCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: isDark
-            ? null
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  context.goldGradientColors[0].withValues(alpha: 0.15),
-                  context.cardColor,
-                  context.goldGradientColors[1].withValues(alpha: 0.1),
-                ],
-              ),
-        color: isDark ? context.cardColor : null,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.5),
-          width: 1.5.w,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.35),
-            blurRadius: 12.r,
-            offset: Offset(0.w, 4.h),
-            spreadRadius: 0.5.r,
-          ),
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.5)
-                : AppTheme.lightTextColor.withValues(alpha: 0.08),
-            blurRadius: 6.r,
-            offset: Offset(0.w, 2.h),
-          ),
-        ],
+        border: Border.all(color: context.separatorColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -142,20 +117,20 @@ class _MusicCardState extends State<MusicCard> {
                       ? GymaiNetworkImage(
                           imageUrl: widget.music.coverImageUrl,
                           width: double.infinity,
-                          errorWidget: const ColoredBox(
-                            color: Colors.black26,
+                          errorWidget: ColoredBox(
+                            color: context.surfaceElevated,
                             child: Icon(
                               LucideIcons.music,
-                              color: Colors.white54,
+                              color: context.textSecondary,
                               size: 48,
                             ),
                           ),
                         )
-                      : const ColoredBox(
-                          color: Colors.black26,
+                      : ColoredBox(
+                          color: context.surfaceElevated,
                           child: Icon(
                             LucideIcons.music,
-                            color: Colors.white54,
+                            color: context.textSecondary,
                             size: 48,
                           ),
                         ),
@@ -184,18 +159,9 @@ class _MusicCardState extends State<MusicCard> {
                         child: Container(
                           width: 56.w,
                           height: 56.w,
-                          decoration: BoxDecoration(
-                            color: AppTheme.goldColor.withValues(alpha: 0.95),
+                          decoration: const BoxDecoration(
+                            color: AppTheme.goldColor,
                             shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppTheme.goldColor.withValues(
-                                  alpha: 0.5,
-                                ),
-                                blurRadius: 12.r,
-                                spreadRadius: 2.r,
-                              ),
-                            ],
                           ),
                           child: _isLoading
                               ? const Center(
@@ -205,7 +171,7 @@ class _MusicCardState extends State<MusicCard> {
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
                                       valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white,
+                                        AppTheme.onGoldColor,
                                       ),
                                     ),
                                   ),
@@ -214,8 +180,8 @@ class _MusicCardState extends State<MusicCard> {
                                   _isPlaying
                                       ? LucideIcons.pause
                                       : LucideIcons.play,
-                                  color: Colors.white,
-                                  size: 28.sp,
+                                  color: AppTheme.onGoldColor,
+                                  size: 26.sp,
                                 ),
                         ),
                       ),
@@ -254,9 +220,7 @@ class _MusicCardState extends State<MusicCard> {
                     Expanded(
                       child: Text(
                         widget.music.displayArtist,
-                        style: context.bodyStyle.copyWith(
-                          fontSize: 11.sp,
-                        ),
+                        style: context.bodyStyle.copyWith(fontSize: 11.sp),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -278,7 +242,9 @@ class _MusicCardState extends State<MusicCard> {
                           'نویسنده: ${widget.music.author}',
                           style: context.bodyStyle.copyWith(
                             fontSize: 10.sp,
-                            color: context.textSecondary.withValues(alpha: 0.85),
+                            color: context.textSecondary.withValues(
+                              alpha: 0.85,
+                            ),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

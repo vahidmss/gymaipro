@@ -73,6 +73,102 @@ class ChatMediaUploadService {
     );
   }
 
+  /// Web / Safari: pickers yield bytes (often no usable filesystem path).
+  Future<String> uploadBytes({
+    required List<int> bytes,
+    required String mediaKind,
+    required String filename,
+    String? conversationId,
+    void Function(double progress)? onProgress,
+  }) async {
+    final size = bytes.length;
+    if (mediaKind == 'voice' && size > maxVoiceBytes) {
+      throw Exception('حجم پیام صوتی بیش از ۸ مگابایت است');
+    }
+    if (mediaKind == 'image' && size > maxImageBytes) {
+      throw Exception('حجم تصویر بیش از ۸ مگابایت است');
+    }
+    if (mediaKind == 'file' && size > maxFileBytes) {
+      throw Exception('حجم فایل بیش از ۲۰ مگابایت است');
+    }
+
+    Session? session = Supabase.instance.client.auth.currentSession;
+    if (session == null || session.accessToken.isEmpty) {
+      try {
+        final refreshed = await Supabase.instance.client.auth.refreshSession();
+        session = refreshed.session;
+      } catch (_) {}
+      if (session == null || session.accessToken.isEmpty) {
+        throw Exception('لطفاً ابتدا وارد حساب کاربری شوید');
+      }
+    }
+
+    final uri = Uri.parse('$_baseUrl$_endpoint');
+    final request = http.MultipartRequest('POST', uri);
+    final bearer = 'Bearer ${session.accessToken}';
+    request.headers['Authorization'] = bearer;
+    request.headers['X-Auth-Token'] = bearer;
+    request.fields['auth_token'] = session.accessToken;
+    request.fields['media_kind'] = mediaKind;
+    request.fields['upload_context'] = 'private_chat';
+    final conv = conversationId?.trim();
+    if (conv != null && conv.isNotEmpty) {
+      request.fields['conversation_id'] = conv;
+    }
+
+    final safeName = filename.split(RegExp(r'[\\/]')).last;
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'media',
+        bytes,
+        filename: safeName.isEmpty ? 'chat.bin' : safeName,
+      ),
+    );
+    onProgress?.call(0.5);
+
+    late final http.StreamedResponse streamed;
+    try {
+      streamed = await request.send().timeout(const Duration(minutes: 5));
+    } on TimeoutException {
+      throw Exception('زمان آپلود تمام شد');
+    } on SocketException catch (e) {
+      throw Exception('اتصال به سرور دانلود برقرار نشد: ${e.message}');
+    } on http.ClientException catch (e) {
+      throw Exception('خطای شبکه: ${e.message}');
+    }
+
+    onProgress?.call(0.97);
+    final response = await http.Response.fromStream(streamed);
+    onProgress?.call(1);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      try {
+        final data = jsonDecode(response.body);
+        if (data is Map) {
+          final url = (data['url'] ??
+                  data['media_url'] ??
+                  data['image_url'] ??
+                  data['audio_url'])
+              ?.toString();
+          if (url != null && url.isNotEmpty) return url;
+        }
+      } catch (_) {}
+      throw Exception('پاسخ سرور نامعتبر است');
+    }
+
+    if (response.statusCode == 401) {
+      throw Exception('احراز هویت ناموفق. دوباره وارد شوید');
+    }
+    if (response.statusCode == 502 || response.statusCode == 503) {
+      throw Exception('سرور دانلود در دسترس نیست (۵۰۲). بعداً تلاش کنید');
+    }
+
+    throw Exception(
+      _extractMessage(response.body) ??
+          'خطا در آپلود پیوست چت (کد ${response.statusCode})',
+    );
+  }
+
   Future<String> _upload({
     required File file,
     required String mediaKind,

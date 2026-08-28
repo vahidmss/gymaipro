@@ -32,6 +32,32 @@ void main() {
 
     expect(snapshot.recovery, 82);
     expect(snapshot.readiness, greaterThan(0));
+    expect(snapshot.lastNightSleepHours, isNull);
+  });
+
+  test('recoverySnapshot prefers last-night sleep over questionnaire average', () {
+    final context = CoachContext(
+      intent: AIIntent.workoutToday,
+      profile: const <String, Object?>{'first_name': 'وحید'},
+      preferences: const <String, Object?>{
+        'recovery_score': 82,
+        'bb_sleep_hours': 8,
+        'last_night_sleep_hours': 5,
+      },
+      metadata: CoachContextMetadata(
+        buildTime: DateTime(2026, 7, 13),
+        sourceCount: 2,
+        missingProviders: const {},
+        confidence: 0.9,
+        contextVersion: CoachContext.contextVersion,
+      ),
+    );
+
+    final snapshot = ProductExperienceFormatter.recoverySnapshot(context: context);
+
+    expect(snapshot.lastNightSleepHours, 5);
+    expect(snapshot.sleep, 63);
+    expect(snapshot.fatigue, greaterThan(18));
   });
 
   test('coachBrief composes narrative from integration bundle', () {

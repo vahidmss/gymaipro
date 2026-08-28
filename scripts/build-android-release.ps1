@@ -28,14 +28,19 @@ Release builds do NOT load .env from assets — you must pass --dart-define-from
 }
 
 $KeyProps = Join-Path $Root "android\key.properties"
-if (-not (Test-Path $KeyProps)) {
-  Write-Warning @"
-android\key.properties missing — release will be signed with the DEBUG keystore.
-For multi-phone updates, run: .\scripts\setup-android-keystore.ps1
+$Keystore = Join-Path $Root "android\upload-keystore.jks"
+if (-not (Test-Path $KeyProps) -or -not (Test-Path $Keystore)) {
+  Write-Error @"
+Release signing files are missing.
+Need both:
+  android\key.properties
+  android\upload-keystore.jks
+Without them, Android will not install an update over a previous APK.
+If this PC never had a keystore, run: .\scripts\setup-android-keystore.ps1
+If you already shipped an APK, copy the ORIGINAL jks + key.properties from backup. Do not generate a new key.
 "@
-} else {
-  Write-Host "Using release signing from android\key.properties"
 }
+Write-Host "Using release signing from android\key.properties"
 
 $extra = @("--target-platform", "android-arm64")
 if ($SplitPerAbi) {

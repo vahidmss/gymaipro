@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/my_club/models/program_activity_filter.dart';
@@ -6,6 +8,7 @@ import 'package:gymaipro/my_club/widgets/program_workout_activity_sheet.dart';
 import 'package:gymaipro/my_club/widgets/unified_empty_state.dart';
 import 'package:gymaipro/payment/models/trainer_subscription.dart';
 import 'package:gymaipro/payment/services/trainer_subscription_service.dart';
+import 'package:gymaipro/payment/widgets/program_renewal_sheet.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/active_meal_plan_service.dart';
 import 'package:gymaipro/services/active_program_service.dart';
@@ -13,6 +16,7 @@ import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/auth_helper.dart';
 import 'package:gymaipro/workout_log/services/beginner_starter_program_service.dart';
+import 'package:gymaipro/workout_plan_builder/services/workout_program_service.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -63,12 +67,25 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
 
       final profile = await SimpleProfileService.getCurrentProfile();
       final profileId = (profile?['id'] as String?)?.trim();
-      final effectiveUserId =
-          (profileId != null && profileId.isNotEmpty) ? profileId : userId;
+      final effectiveUserId = (profileId != null && profileId.isNotEmpty)
+          ? profileId
+          : userId;
 
       final activeState = await _active.getActiveProgramState();
       _activeProgramId = activeState?['active_program_id'] as String?;
       _activeMealPlanId = await _activeMealPlan.getActiveMealPlanId();
+
+      // starterهای قدیمی بدون sent_at را برای نمایش در لیست منتشر کن
+      try {
+        await WorkoutProgramService().ensureStarterPublished();
+      } on Object catch (e) {
+        debugPrint('ensureStarterPublished: $e');
+      }
+      try {
+        await WorkoutProgramService().ensureSelfServiceAiPublished();
+      } on Object catch (e) {
+        debugPrint('ensureSelfServiceAiPublished: $e');
+      }
 
       // بارگذاری برنامه‌های کاربر + اطلاعات مربی
       // فقط برنامه‌هایی که ارسال شده‌اند (sent_at != null) برای شاگرد قابل نمایش هستند
@@ -112,9 +129,8 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
       for (final row in rows) {
         final r = Map<String, dynamic>.from(row as Map);
         final createdAt = DateTime.tryParse(r['created_at']?.toString() ?? '');
-        final isStarterProgram = BeginnerStarterProgramService.isStarterProgramData(
-          r['data'],
-        );
+        final isStarterProgram =
+            BeginnerStarterProgramService.isStarterProgramData(r['data']);
 
         // خواندن expiry_date — برنامهٔ مبتدی رایگان منقضی نمی‌شود
         DateTime? expiryDate;
@@ -126,10 +142,12 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
           }
         }
 
-        final bool isExpired = !isStarterProgram && (expiryDate != null
-            ? DateTime.now().isAfter(expiryDate)
-            : (createdAt != null &&
-                  DateTime.now().difference(createdAt).inDays > 45));
+        final bool isExpired =
+            !isStarterProgram &&
+            (expiryDate != null
+                ? DateTime.now().isAfter(expiryDate)
+                : (createdAt != null &&
+                      DateTime.now().difference(createdAt).inDays > 45));
 
         DateTime? sentAt;
         if (r['sent_at'] != null) {
@@ -382,7 +400,9 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
 
   Future<void> _loadPendingRequests(String userId) async {
     try {
-      final subscriptions = await _subscriptionService.getUserSubscriptions(userId);
+      final subscriptions = await _subscriptionService.getUserSubscriptions(
+        userId,
+      );
       final pendingSubs = subscriptions.where((sub) {
         if (sub.isCancelled || sub.isExpired) return false;
         return sub.programStatus == ProgramStatus.notStarted;
@@ -412,15 +432,17 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
                 fallback: '',
               );
 
-        pending.add(_PendingRequest(
-          subscriptionId: sub.id,
-          serviceType: sub.serviceType,
-          serviceTypeText: sub.serviceTypeText,
-          trainerName: trainerName.isEmpty ? 'مربی' : trainerName,
-          purchaseDate: sub.purchaseDate,
-          status: sub.status,
-          programStatus: sub.programStatus,
-        ));
+        pending.add(
+          _PendingRequest(
+            subscriptionId: sub.id,
+            serviceType: sub.serviceType,
+            serviceTypeText: sub.serviceTypeText,
+            trainerName: trainerName.isEmpty ? 'مربی' : trainerName,
+            purchaseDate: sub.purchaseDate,
+            status: sub.status,
+            programStatus: sub.programStatus,
+          ),
+        );
       }
 
       if (mounted) {
@@ -513,17 +535,19 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
     Navigator.pushNamed(context, '/workout-log');
   }
 
-  void _renewProgram(String programId) {
-    // TODO: اتصال به پرداخت/تمدید واقعی. فعلاً پیام نمونه
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'تمدید با ۵۰٪ هزینه: به‌زودی',
-          style: TextStyle(fontFamily: AppTheme.fontFamily),
-        ),
-        backgroundColor: AppTheme.goldColor,
-      ),
+  Future<void> _renewProgram(String programId) async {
+    final renewed = await showProgramRenewalSheet(
+      context,
+      programId: programId,
+      onRenewed: () {
+        if (mounted) {
+          unawaited(_loadData());
+        }
+      },
     );
+    if ((renewed ?? false) && mounted) {
+      await _loadData();
+    }
   }
 
   Future<void> _activateMealPlan(String mealPlanId) async {
@@ -614,7 +638,7 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
                 ),
               )
             : ListView.builder(
-                padding: EdgeInsets.all(16.w),
+                padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 28.h),
                 itemCount: _programsListItemCount(hasPending, hasItems),
                 itemBuilder: (context, index) =>
                     _buildProgramsListItem(index, hasPending, hasItems),
@@ -658,7 +682,7 @@ class _MyProgramsScreenState extends State<MyProgramsScreen> {
         onActivate: () => _activateProgram(it['id'] as String),
         onDeactivate: _deactivateProgram,
         onOpen: _goToWorkoutLog,
-        onRenew: () => _renewProgram(it['id'] as String),
+        onRenew: () => unawaited(_renewProgram(it['id'] as String)),
         onPreview: () => ProgramWorkoutActivitySheet.show(
           context,
           programTitle: it['title'] as String,
@@ -774,7 +798,9 @@ class _PendingRequestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final daysSincePurchase = DateTime.now().difference(request.purchaseDate).inDays;
+    final daysSincePurchase = DateTime.now()
+        .difference(request.purchaseDate)
+        .inDays;
 
     IconData serviceIcon;
     Color serviceColor;
@@ -844,7 +870,11 @@ class _PendingRequestCard extends StatelessWidget {
                         color: serviceColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10.r),
                       ),
-                      child: Icon(serviceIcon, color: serviceColor, size: 20.sp),
+                      child: Icon(
+                        serviceIcon,
+                        color: serviceColor,
+                        size: 20.sp,
+                      ),
                     ),
                     SizedBox(width: 12.w),
                     Expanded(
@@ -881,7 +911,10 @@ class _PendingRequestCard extends StatelessWidget {
                 SizedBox(height: 12.h),
                 Container(
                   width: double.infinity,
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12.w,
+                    vertical: 10.h,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10.r),
@@ -1010,12 +1043,16 @@ class _PendingRequestCard extends StatelessWidget {
             color: isCompleted
                 ? color
                 : isActive
-                    ? color.withValues(alpha: 0.2)
-                    : (isDark ? Colors.grey[700] : Colors.grey[300]),
+                ? color.withValues(alpha: 0.2)
+                : (isDark ? Colors.grey[700] : Colors.grey[300]),
             border: isActive ? Border.all(color: color, width: 2) : null,
           ),
           child: isCompleted
-              ? Icon(LucideIcons.check, color: AppTheme.darkTextColor, size: 12.sp)
+              ? Icon(
+                  LucideIcons.check,
+                  color: AppTheme.darkTextColor,
+                  size: 12.sp,
+                )
               : null,
         ),
         SizedBox(height: 4.h),
@@ -1024,7 +1061,9 @@ class _PendingRequestCard extends StatelessWidget {
           style: TextStyle(
             fontFamily: AppTheme.fontFamily,
             fontSize: 9.sp,
-            fontWeight: isActive || isCompleted ? FontWeight.w700 : FontWeight.w500,
+            fontWeight: isActive || isCompleted
+                ? FontWeight.w700
+                : FontWeight.w500,
             color: isCompleted || isActive
                 ? color
                 : (isDark ? Colors.grey[500] : Colors.grey[500]),
@@ -1124,7 +1163,16 @@ class _ProgramCardLabels {
 class _ProgramCard extends StatelessWidget {
   const _ProgramCard({
     required this.programName,
-    required this.programId, required this.isActive, required this.isExpired, required this.expiryDate, required this.onActivate, required this.onDeactivate, required this.onOpen, required this.onRenew, required this.onPreview, this.trainerLine,
+    required this.programId,
+    required this.isActive,
+    required this.isExpired,
+    required this.expiryDate,
+    required this.onActivate,
+    required this.onDeactivate,
+    required this.onOpen,
+    required this.onRenew,
+    required this.onPreview,
+    this.trainerLine,
   });
   final String programName;
   final String? trainerLine;
@@ -1140,35 +1188,23 @@ class _ProgramCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Stack(
       children: [
         Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: context.cardColor,
-            borderRadius: BorderRadius.circular(16.r),
+            borderRadius: BorderRadius.circular(18.r),
             border: Border.all(
               color: isExpired
-                  ? AppTheme.errorColor.withValues(alpha: 0.5)
-                  : isDark
-                  ? Colors.grey[700]!
-                  : AppTheme.lightDividerColor.withValues(alpha: 0.5),
+                  ? AppTheme.errorColor.withValues(alpha: 0.38)
+                  : context.separatorColor,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: isDark
-                    ? AppTheme.veryDarkBackground.withValues(alpha: 0.25)
-                    : AppTheme.goldColor.withValues(alpha: 0.08),
-                blurRadius: 8.r,
-                offset: Offset(0.w, 4.h),
-              ),
-            ],
           ),
           child: Opacity(
-            opacity: isExpired ? 0.5 : 1.0,
+            opacity: 1,
             child: Padding(
-              padding: EdgeInsets.all(16.w),
+              padding: EdgeInsets.all(18.w),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1189,8 +1225,8 @@ class _ProgramCard extends StatelessWidget {
                                     programName,
                                     style: TextStyle(
                                       color: context.textColor,
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16.sp,
+                                      fontWeight: FontWeight.w900,
                                       fontFamily: AppTheme.fontFamily,
                                     ),
                                   ),
@@ -1211,11 +1247,8 @@ class _ProgramCard extends StatelessWidget {
                                 children: [
                                   Icon(
                                     LucideIcons.user,
-                                    size: 16.sp,
-                                    color: isDark
-                                        ? Colors.grey[400]
-                                        : AppTheme.lightTextSecondary
-                                            .withValues(alpha: 0.6),
+                                    size: 15.sp,
+                                    color: context.textSecondary,
                                   ),
                                   SizedBox(width: 6.w),
                                   Expanded(
@@ -1237,8 +1270,9 @@ class _ProgramCard extends StatelessWidget {
                               Builder(
                                 builder: (context) {
                                   final now = DateTime.now();
-                                  final difference =
-                                      expiryDate!.difference(now);
+                                  final difference = expiryDate!.difference(
+                                    now,
+                                  );
                                   final daysRemaining = difference.inDays;
 
                                   String text;
@@ -1258,10 +1292,7 @@ class _ProgramCard extends StatelessWidget {
                                         size: 14.sp,
                                         color: isExpired
                                             ? AppTheme.errorColor
-                                            : isDark
-                                                ? Colors.grey[400]
-                                                : AppTheme.lightTextSecondary
-                                                    .withValues(alpha: 0.6),
+                                            : context.textSecondary,
                                       ),
                                       SizedBox(width: 6.w),
                                       Expanded(
@@ -1279,46 +1310,23 @@ class _ProgramCard extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                      Icon(
-                                        LucideIcons.chevronLeft,
-                                        size: 14.sp,
-                                        color: AppTheme.goldColor
-                                            .withValues(alpha: 0.7),
-                                      ),
                                     ],
                                   );
                                 },
                               ),
-                            ] else ...[
-                              SizedBox(height: 6.h),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    'مشاهده اجرا',
-                                    style: TextStyle(
-                                      fontFamily: AppTheme.fontFamily,
-                                      fontSize: 11.sp,
-                                      color: AppTheme.goldColor
-                                          .withValues(alpha: 0.85),
-                                    ),
-                                  ),
-                                  SizedBox(width: 4.w),
-                                  Icon(
-                                    LucideIcons.chevronLeft,
-                                    size: 14.sp,
-                                    color: AppTheme.goldColor
-                                        .withValues(alpha: 0.7),
-                                  ),
-                                ],
-                              ),
                             ],
+                            SizedBox(height: 10.h),
+                            _PreviewHistoryChip(
+                              label: isExpired
+                                  ? 'مشاهده لاگ‌های این برنامه'
+                                  : 'مشاهده اجرا و تاریخچه',
+                            ),
                           ],
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 14.h),
                   if (isExpired)
                     Container(
                       padding: EdgeInsets.all(12.w),
@@ -1351,73 +1359,138 @@ class _ProgramCard extends StatelessWidget {
                       ),
                     ),
                   if (!isExpired) ...[
-                    const SizedBox(height: 12),
+                    SizedBox(height: 14.h),
                     // کلید خاموش/روشن
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'وضعیت برنامه',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              color: context.textColor,
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w600,
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12.w,
+                        vertical: 9.h,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? AppTheme.goldColor.withValues(alpha: 0.08)
+                            : context.surfaceElevated,
+                        borderRadius: BorderRadius.circular(13.r),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 34.w,
+                            height: 34.w,
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? AppTheme.goldColor.withValues(alpha: 0.16)
+                                  : context.cardColor,
+                              borderRadius: BorderRadius.circular(10.r),
+                            ),
+                            child: Icon(
+                              isActive
+                                  ? LucideIcons.circleCheck
+                                  : LucideIcons.pause,
+                              size: 18.sp,
+                              color: isActive
+                                  ? AppTheme.goldColor
+                                  : context.textSecondary,
                             ),
                           ),
-                        ),
-                        Switch(
-                          value: isActive,
-                          onChanged: (value) {
-                            if (value) {
-                              onActivate();
-                            } else {
-                              onDeactivate();
-                            }
-                          },
-                          activeThumbColor: AppTheme.goldColor,
-                          activeTrackColor: AppTheme.goldColor.withValues(
-                            alpha: 0.5,
+                          SizedBox(width: 10.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isActive
+                                      ? 'برنامه فعال است'
+                                      : 'برنامه متوقف است',
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
+                                    color: context.textColor,
+                                    fontSize: 13.sp,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                SizedBox(height: 2.h),
+                                Text(
+                                  isActive
+                                      ? 'جلسه بعدی آماده ثبت است'
+                                      : 'برای شروع ثبت تمرین، فعالش کنید',
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.fontFamily,
+                                    color: context.textSecondary,
+                                    fontSize: 10.5.sp,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          inactiveThumbColor: AppTheme.darkGreySeparator,
-                          inactiveTrackColor: AppTheme.darkGreySeparator.withValues(alpha: 0.3),
-                        ),
-                      ],
+                          // LTR تا در RTL ظاهر خاموش/روشن برعکس نشود
+                          Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: Switch(
+                              value: isActive,
+                              onChanged: (value) =>
+                                  value ? onActivate() : onDeactivate(),
+                              activeThumbColor: AppTheme.onGoldColor,
+                              activeTrackColor: AppTheme.goldColor,
+                              inactiveThumbColor: context.textSecondary,
+                              inactiveTrackColor: context.separatorColor,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12.h),
                     // دکمه ثبت تمرین
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: isActive ? onOpen : null,
+                        onPressed: isActive ? onOpen : onActivate,
                         icon: Icon(
-                          isActive ? LucideIcons.dumbbell : LucideIcons.lock,
+                          isActive ? LucideIcons.play : LucideIcons.power,
                         ),
                         label: Text(
-                          isActive ? 'ثبت تمرین' : 'برنامه غیرفعال است',
-                          style: const TextStyle(fontFamily: AppTheme.fontFamily),
+                          isActive ? 'شروع ثبت تمرین' : 'فعال‌سازی برنامه',
+                          style: const TextStyle(
+                            fontFamily: AppTheme.fontFamily,
+                          ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isActive
-                              ? AppTheme.goldColor
-                              : AppTheme.darkGreySeparator.withValues(alpha: 0.5),
-                          foregroundColor: isActive
-                              ? AppTheme.onGoldColor
-                              : Colors.grey[700],
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          backgroundColor: AppTheme.goldColor,
+                          foregroundColor: AppTheme.onGoldColor,
+                          minimumSize: Size.fromHeight(48.h),
+                          padding: EdgeInsets.symmetric(vertical: 13.h),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12.r),
                           ),
-                          disabledBackgroundColor: AppTheme.darkGreySeparator.withValues(
-                            alpha: 0.3,
-                          ),
-                          disabledForegroundColor: Colors.grey[600],
                         ),
                       ),
                     ),
                   ],
                   if (isExpired) ...[
                     const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: onPreview,
+                        icon: const Icon(LucideIcons.calendarDays, size: 18),
+                        label: const Text(
+                          'مشاهده لاگ‌های قبلی',
+                          style: TextStyle(fontFamily: AppTheme.fontFamily),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.goldColor,
+                          side: BorderSide(
+                            color: AppTheme.goldColor.withValues(alpha: 0.55),
+                          ),
+                          minimumSize: Size.fromHeight(46.h),
+                          padding: EdgeInsets.symmetric(vertical: 12.h),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -1443,43 +1516,27 @@ class _ProgramCard extends StatelessWidget {
             ),
           ),
         ),
-        // نمایش قفل بزرگ وقتی اعتبار تموم شد
-        if (isExpired)
-          Positioned.fill(
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: AppTheme.veryDarkBackground.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(16.r),
-              ),
-              child: Center(
-                child: Icon(
-                  LucideIcons.lock,
-                  size: 64.sp,
-                  color: AppTheme.darkTextColor.withValues(alpha: 0.9),
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }
 
   Widget _buildStatusBadge() {
     final String label = isActive ? 'فعال' : 'غیرفعال';
-    final Color color = isActive ? AppTheme.goldColor : AppTheme.darkGreySeparator;
+    final Color color = isActive
+        ? AppTheme.successColor
+        : AppTheme.darkTextSecondary;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 5.h),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
       child: Text(
         label,
         style: TextStyle(
           color: color,
-          fontSize: 12.sp,
+          fontSize: 10.5.sp,
           fontWeight: FontWeight.bold,
           fontFamily: AppTheme.fontFamily,
         ),
@@ -1488,10 +1545,64 @@ class _ProgramCard extends StatelessWidget {
   }
 }
 
+class _PreviewHistoryChip extends StatelessWidget {
+  const _PreviewHistoryChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 9.h),
+      decoration: BoxDecoration(
+        color: AppTheme.goldColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10.r),
+        border: Border.all(
+          color: AppTheme.goldColor.withValues(alpha: 0.22),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            LucideIcons.calendarDays,
+            size: 16.sp,
+            color: AppTheme.goldColor,
+          ),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: AppTheme.fontFamily,
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.darkGold,
+              ),
+            ),
+          ),
+          Icon(
+            LucideIcons.chevronLeft,
+            size: 16.sp,
+            color: AppTheme.goldColor.withValues(alpha: 0.8),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DietPlanCard extends StatelessWidget {
   const _DietPlanCard({
     required this.planName,
-    required this.mealPlanId, required this.isActive, required this.expiryDate, required this.onActivate, required this.onDeactivate, required this.onOpen, required this.onPreview, this.trainerLine,
+    required this.mealPlanId,
+    required this.isActive,
+    required this.expiryDate,
+    required this.onActivate,
+    required this.onDeactivate,
+    required this.onOpen,
+    required this.onPreview,
+    this.trainerLine,
   });
   final String planName;
   final String? trainerLine;
@@ -1581,9 +1692,8 @@ class _DietPlanCard extends StatelessWidget {
                                     size: 16.sp,
                                     color: isDark
                                         ? Colors.grey[400]
-                                        : AppTheme.lightTextSecondary.withValues(
-                                            alpha: 0.6,
-                                          ),
+                                        : AppTheme.lightTextSecondary
+                                              .withValues(alpha: 0.6),
                                   ),
                                   const SizedBox(width: 6),
                                   Expanded(
@@ -1669,21 +1779,23 @@ class _DietPlanCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Switch(
-                        value: isActive,
-                        onChanged: (value) {
-                          if (value) {
-                            onActivate();
-                          } else {
-                            onDeactivate();
-                          }
-                        },
-                        activeThumbColor: AppTheme.goldColor,
-                        activeTrackColor: AppTheme.goldColor.withValues(
-                          alpha: 0.5,
+                      Directionality(
+                        textDirection: TextDirection.ltr,
+                        child: Switch(
+                          value: isActive,
+                          onChanged: (value) {
+                            if (value) {
+                              onActivate();
+                            } else {
+                              onDeactivate();
+                            }
+                          },
+                          activeThumbColor: AppTheme.onGoldColor,
+                          activeTrackColor: AppTheme.goldColor,
+                          inactiveThumbColor: AppTheme.darkGreySeparator,
+                          inactiveTrackColor: AppTheme.darkGreySeparator
+                              .withValues(alpha: 0.3),
                         ),
-                        inactiveThumbColor: AppTheme.darkGreySeparator,
-                        inactiveTrackColor: AppTheme.darkGreySeparator.withValues(alpha: 0.3),
                       ),
                     ],
                   ),
@@ -1711,9 +1823,8 @@ class _DietPlanCard extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12.r),
                         ),
-                        disabledBackgroundColor: AppTheme.darkGreySeparator.withValues(
-                          alpha: 0.3,
-                        ),
+                        disabledBackgroundColor: AppTheme.darkGreySeparator
+                            .withValues(alpha: 0.3),
                         disabledForegroundColor: Colors.grey[600],
                       ),
                     ),
@@ -1747,7 +1858,9 @@ class _DietPlanCard extends StatelessWidget {
 
   Widget _buildStatusBadge() {
     final String label = isActive ? 'فعال' : 'غیرفعال';
-    final Color color = isActive ? AppTheme.goldColor : AppTheme.darkGreySeparator;
+    final Color color = isActive
+        ? AppTheme.goldColor
+        : AppTheme.darkGreySeparator;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6),
       decoration: BoxDecoration(

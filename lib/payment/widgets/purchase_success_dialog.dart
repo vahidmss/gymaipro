@@ -5,23 +5,28 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+enum PurchaseSuccessVariant { trainer, coachAi }
+
 class PurchaseSuccessDialog extends StatefulWidget {
   const PurchaseSuccessDialog({
     required this.serviceName,
     required this.trainerName,
     required this.onViewPrograms,
+    this.variant = PurchaseSuccessVariant.trainer,
     super.key,
   });
 
   final String serviceName;
   final String trainerName;
   final VoidCallback onViewPrograms;
+  final PurchaseSuccessVariant variant;
 
   static Future<void> show(
     BuildContext context, {
     required String serviceName,
     required String trainerName,
     required VoidCallback onViewPrograms,
+    PurchaseSuccessVariant variant = PurchaseSuccessVariant.trainer,
   }) {
     HapticFeedback.heavyImpact();
     return showGeneralDialog<void>(
@@ -35,6 +40,7 @@ class PurchaseSuccessDialog extends StatefulWidget {
           serviceName: serviceName,
           trainerName: trainerName,
           onViewPrograms: onViewPrograms,
+          variant: variant,
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
@@ -246,8 +252,11 @@ class _PurchaseSuccessDialogState extends State<PurchaseSuccessDialog>
   }
 
   Widget _buildTitle(bool isDark) {
+    final title = widget.variant == PurchaseSuccessVariant.coachAi
+        ? 'پرداختت ثبت شد'
+        : 'درخواست شما ثبت شد!';
     return Text(
-      'درخواست شما ثبت شد!',
+      title,
       style: TextStyle(
         fontFamily: AppTheme.fontFamily,
         fontSize: 22.sp,
@@ -259,8 +268,13 @@ class _PurchaseSuccessDialogState extends State<PurchaseSuccessDialog>
   }
 
   Widget _buildSubtitle(bool isDark) {
+    final subtitle = widget.variant == PurchaseSuccessVariant.coachAi
+        ? 'حالا برو سوال‌ها را کامل کن و «بساز برنامه‌ام» را بزن.\n'
+            'اعتبارت از وقتی برنامه‌ات ساخته شود شروع می‌شود.'
+        : 'درخواست ${widget.serviceName} شما با موفقیت ثبت شد.\n'
+            'مربی ${widget.trainerName} به زودی برنامه شما را آماده می‌کند.';
     return Text(
-      'درخواست ${widget.serviceName} شما با موفقیت ثبت شد.\nمربی ${widget.trainerName} به زودی برنامه شما را آماده می‌کند.',
+      subtitle,
       style: TextStyle(
         fontFamily: AppTheme.fontFamily,
         fontSize: 13.sp,
@@ -289,15 +303,21 @@ class _PurchaseSuccessDialogState extends State<PurchaseSuccessDialog>
           _buildTimelineStep(
             icon: LucideIcons.checkCircle2,
             title: 'پرداخت موفق',
-            subtitle: 'پرداخت شما با موفقیت انجام شد',
+            subtitle: widget.variant == PurchaseSuccessVariant.coachAi
+                ? 'پرداختت ثبت شد'
+                : 'پرداخت شما با موفقیت انجام شد',
             isCompleted: true,
             isLast: false,
             isDark: isDark,
           ),
           _buildTimelineStep(
             icon: LucideIcons.clock,
-            title: 'در انتظار آماده‌سازی برنامه',
-            subtitle: 'مربی در حال آماده‌سازی برنامه شماست',
+            title: widget.variant == PurchaseSuccessVariant.coachAi
+                ? 'ساخت برنامه'
+                : 'در انتظار آماده‌سازی برنامه',
+            subtitle: widget.variant == PurchaseSuccessVariant.coachAi
+                ? 'با زدن «بساز» برنامه‌ات ساخته می‌شود'
+                : 'مربی در حال آماده‌سازی برنامه شماست',
             isCompleted: false,
             isActive: true,
             isLast: false,
@@ -305,8 +325,12 @@ class _PurchaseSuccessDialogState extends State<PurchaseSuccessDialog>
           ),
           _buildTimelineStep(
             icon: LucideIcons.dumbbell,
-            title: 'دریافت و شروع برنامه',
-            subtitle: 'برنامه شما آماده استفاده خواهد بود',
+            title: widget.variant == PurchaseSuccessVariant.coachAi
+                ? 'شروع تمرین'
+                : 'دریافت و شروع برنامه',
+            subtitle: widget.variant == PurchaseSuccessVariant.coachAi
+                ? 'بعد از ساخت، از تمرین امروز استفاده کن'
+                : 'برنامه شما آماده استفاده خواهد بود',
             isCompleted: false,
             isLast: true,
             isDark: isDark,
@@ -410,7 +434,9 @@ class _PurchaseSuccessDialogState extends State<PurchaseSuccessDialog>
           SizedBox(width: 10.w),
           Expanded(
             child: Text(
-              'می‌توانید وضعیت درخواست خود را از بخش «برنامه‌های من» پیگیری کنید.',
+              widget.variant == PurchaseSuccessVariant.coachAi
+                  ? 'اعتبار دوره از لحظهٔ ساخت برنامه شروع می‌شود، نه از لحظهٔ پرداخت.'
+                  : 'می‌توانید وضعیت درخواست خود را از بخش «برنامه‌های من» پیگیری کنید.',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontSize: 11.5.sp,
@@ -449,7 +475,9 @@ class _PurchaseSuccessDialogState extends State<PurchaseSuccessDialog>
             Icon(LucideIcons.layoutList, size: 20.sp),
             SizedBox(width: 10.w),
             Text(
-              'مشاهده برنامه‌های من',
+              widget.variant == PurchaseSuccessVariant.coachAi
+                  ? 'برو به مربی من'
+                  : 'مشاهده برنامه‌های من',
               style: TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 fontSize: 15.sp,

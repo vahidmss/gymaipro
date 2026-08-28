@@ -30,8 +30,7 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen>
   @override
   void initState() {
     super.initState();
-    final initialIndex =
-        widget.initialTabIndex.clamp(0, TrainerDeskTabs.last);
+    final initialIndex = widget.initialTabIndex.clamp(0, TrainerDeskTabs.last);
     _tabController = TabController(
       length: TrainerDeskTabs.count,
       vsync: this,
@@ -99,14 +98,19 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen>
               ),
             ],
             bottom: PreferredSize(
-              preferredSize: Size.fromHeight(52.h),
+              preferredSize: Size.fromHeight(58.h),
               child: TabBar(
                 controller: _tabController,
                 indicator: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(16.r),
                   color: isDark
                       ? AppTheme.goldColor.withValues(alpha: 0.18)
                       : context.textColor.withValues(alpha: 0.08),
+                  border: Border.all(
+                    color: isDark
+                        ? AppTheme.goldColor.withValues(alpha: 0.24)
+                        : context.separatorColor,
+                  ),
                 ),
                 indicatorSize: TabBarIndicatorSize.tab,
                 indicatorPadding: EdgeInsets.symmetric(
@@ -118,17 +122,17 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen>
                 unselectedLabelColor: context.textSecondary,
                 labelStyle: TextStyle(
                   fontWeight: FontWeight.w700,
-                  fontSize: 11.sp,
+                  fontSize: 12.sp,
                   fontFamily: AppTheme.fontFamily,
                 ),
                 unselectedLabelStyle: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.sp,
                   fontFamily: AppTheme.fontFamily,
                 ),
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
-                labelPadding: EdgeInsets.symmetric(horizontal: 10.w),
+                labelPadding: EdgeInsets.symmetric(horizontal: 12.w),
                 padding: EdgeInsets.fromLTRB(8.w, 0, 8.w, 6.h),
                 tabs: [
                   _deskTab(LucideIcons.users, 'شاگردان'),
@@ -162,13 +166,13 @@ class _TrainerDashboardScreenState extends State<TrainerDashboardScreen>
 
   Tab _deskTab(IconData icon, String label) {
     return Tab(
-      height: 40.h,
+      height: 46.h,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15.sp),
+          Icon(icon, size: 17.sp),
           SizedBox(width: 6.w),
-          Text(label),
+          Text(label, maxLines: 1, overflow: TextOverflow.fade),
         ],
       ),
     );

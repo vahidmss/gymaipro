@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:gymaipro/design_system/components/gym_button.dart';
 import 'package:gymaipro/design_system/components/gym_card.dart';
 import 'package:gymaipro/design_system/components/gym_chip.dart';
 import 'package:gymaipro/design_system/components/gym_empty_state.dart';
@@ -13,11 +14,12 @@ import 'package:gymaipro/design_system/layout/page_padding.dart';
 import 'package:gymaipro/design_system/layout/page_scaffold.dart';
 import 'package:gymaipro/design_system/theme/gym_spacing.dart';
 import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
-import 'package:gymaipro/ai/screens/ai_progress_analysis_screen.dart';
 import 'package:gymaipro/features/coach_chat/navigation/coach_chat_navigation.dart';
+import 'package:gymaipro/features/live_workout/presentation/adapters/live_workout_exercise_adapter.dart';
 import 'package:gymaipro/features/live_workout/presentation/cards/live_workout_cards.dart';
 import 'package:gymaipro/features/live_workout/presentation/widgets/live_workout_session_progress.dart';
 import 'package:gymaipro/features/live_workout/state/live_workout_state.dart';
+import 'package:gymaipro/features/live_workout/view_models/live_workout_view_model.dart';
 import 'package:gymaipro/features/product_experience/active_program_catalog_service.dart';
 import 'package:gymaipro/features/product_experience/navigation/form_guidance_navigation.dart';
 import 'package:gymaipro/features/product_experience/navigation/program_modify_navigation.dart';
@@ -26,8 +28,14 @@ import 'package:gymaipro/features/product_experience/presentation/active_program
 import 'package:gymaipro/features/product_experience/presentation/workout_session_day_picker.dart';
 import 'package:gymaipro/features/product_experience/presentation/workout_session_selection_helper.dart';
 import 'package:gymaipro/features/product_experience/product_copy.dart';
-import 'package:gymaipro/features/live_workout/view_models/live_workout_view_model.dart';
+import 'package:gymaipro/features/session_analysis/presentation/widgets/session_analysis_sections.dart';
+import 'package:gymaipro/workout_log/utils/workout_exit_guard.dart';
+import 'package:gymaipro/workout_log/utils/workout_log_keyboard.dart';
 import 'package:gymaipro/workout_log/widgets/exercise_card.dart';
+import 'package:gymaipro/workout_log/widgets/workout_rest_timer_bar.dart';
+import 'package:gymaipro/workout_log/widgets/workout_set_numpad.dart';
+import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LiveWorkoutScreen extends StatefulWidget {
   const LiveWorkoutScreen({this.viewModel, this.autoLoad = true, super.key});
@@ -40,26 +48,149 @@ class LiveWorkoutScreen extends StatefulWidget {
 }
 
 class _LiveWorkoutScreenState extends State<LiveWorkoutScreen> {
+  static const _kRestPrefKey = 'workout_log_rest_seconds';
+
   late final LiveWorkoutViewModel _viewModel;
   late final bool _ownsViewModel;
+  final WorkoutSetNumpadController _numpad = WorkoutSetNumpadController();
+
+  /// ۰ = تایمر خاموش؛ هم‌کلید با ثبت تمرین داشبورد
+  int _restDurationSeconds = 90;
+  final ValueNotifier<int> _restDurationTick = ValueNotifier<int>(0);
+  int _restAttentionTick = 0;
+  bool _restGateBusy = false;
+  bool _dayIdentityGateRan = false;
+  bool _didAutoOpenAnalysis = false;
+  bool _manualAnalysisInFlight = false;
 
   @override
   void initState() {
     super.initState();
     _ownsViewModel = widget.viewModel == null;
     _viewModel = widget.viewModel ?? LiveWorkoutViewModel();
+    _numpad.addListener(_onNumpadChanged);
+    _viewModel.addListener(_onViewModelChanged);
     if (widget.autoLoad) {
       unawaited(_viewModel.load());
     }
+    unawaited(_loadRestPreference());
+  }
+
+  void _onViewModelChanged() {
+    final state = _viewModel.state;
+    if (!_dayIdentityGateRan &&
+        !state.isLoading &&
+        !state.hasError &&
+        (state.isLoaded || state.isAwaitingSession)) {
+      _dayIdentityGateRan = true;
+      unawaited(_ensureDayIdentityAllowsActiveProgram());
+    }
+
+    // Auto-finish stores analysis on the same screen — no route push.
+    if (!_manualAnalysisInFlight &&
+        !_didAutoOpenAnalysis &&
+        _viewModel.justCompletedForAnalysis &&
+        _viewModel.isAnalysisMode) {
+      _didAutoOpenAnalysis = true;
+      _viewModel.consumeJustCompletedForAnalysis();
+    }
+  }
+
+  /// Blocks live logging on top of another program's meaningful day passport.
+  Future<void> _ensureDayIdentityAllowsActiveProgram() async {
+    final sessionContext = _viewModel.state.sessionContext;
+    final programId = _viewModel.state.activeProgram?.id ??
+        sessionContext?.programId;
+    if (sessionContext == null || programId == null || programId.isEmpty) {
+      return;
+    }
+    final loggedProgram = sessionContext.loggedProgramId?.trim() ?? '';
+    if (!sessionContext.hasSavedLog ||
+        loggedProgram.isEmpty ||
+        loggedProgram == programId) {
+      return;
+    }
+
+    final evaluation = await _viewModel.evaluateProgramChangeTo(programId);
+    if (!mounted) return;
+
+    final confirmed = await WorkoutSessionSelectionHelper.confirmAndApply(
+      context: context,
+      evaluation: evaluation,
+      newSessionDay: sessionContext.selectedSessionDay ?? 'جلسه جدید',
+      sessionGateway: _viewModel.sessionGateway,
+    );
+    if (!mounted) return;
+    if (!confirmed) {
+      Navigator.of(context).pop();
+      return;
+    }
+    _dayIdentityGateRan = false;
+    await _viewModel.refresh();
+  }
+
+  Future<void> _loadRestPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final v = prefs.getInt(_kRestPrefKey);
+      if (v == null || !mounted) return;
+      _restDurationSeconds = v.clamp(0, 3600);
+      _restDurationTick.value++;
+    } catch (_) {}
+  }
+
+  Future<void> _persistRestPreference(int seconds) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_kRestPrefKey, seconds);
+    } catch (_) {}
+  }
+
+  Future<void> _openRestSettings() async {
+    _dismissKeyboard();
+    final picked = await showRestDurationPicker(
+      context,
+      currentSeconds: _restDurationSeconds,
+    );
+    if (!mounted || picked == null) return;
+    _restDurationSeconds = picked;
+    _restDurationTick.value++;
+    unawaited(_persistRestPreference(picked));
+    if (picked <= 0) {
+      _viewModel.skipRest();
+    }
+  }
+
+  void _onNumpadChanged() {
+    _viewModel.setSuppressAutoSave(_numpad.isOpen);
   }
 
   Future<void> _onProgramChanged(ActiveProgramOption option) async {
+    final currentId = _viewModel.state.activeProgram?.id ??
+        _viewModel.state.sessionContext?.programId;
+    if (currentId == option.id) return;
+
+    final evaluation = await _viewModel.evaluateProgramChangeTo(option.id);
+    if (!mounted) return;
+
+    final confirmed = await WorkoutSessionSelectionHelper.confirmAndApply(
+      context: context,
+      evaluation: evaluation,
+      newSessionDay: 'برنامه جدید',
+      sessionGateway: _viewModel.sessionGateway,
+    );
+    if (!confirmed || !mounted) return;
+
     await ActiveProgramCatalogService().activateProgram(option.id);
     await _viewModel.refresh();
   }
 
   @override
   void dispose() {
+    _viewModel.removeListener(_onViewModelChanged);
+    _numpad.removeListener(_onNumpadChanged);
+    _numpad.dispose();
+    _restDurationTick.dispose();
     if (_ownsViewModel) {
       _viewModel.dispose();
     }
@@ -67,8 +198,27 @@ class _LiveWorkoutScreenState extends State<LiveWorkoutScreen> {
   }
 
   void _dismissKeyboard() {
-    FocusManager.instance.primaryFocus?.unfocus();
+    _numpad.close();
+    WorkoutLogKeyboard.dismiss(context);
     _viewModel.flushPendingSetSaves();
+  }
+
+  Future<void> _handleBackPressed() async {
+    final restActive = _viewModel.restSessionActive.value &&
+        _viewModel.restRemaining.value > 0;
+    final result = WorkoutBackLayer.handle(
+      numpadOpen: _numpad.isOpen,
+      restActive: restActive,
+      closeNumpad: () {
+        _numpad.close();
+        WorkoutLogKeyboard.dismiss(context);
+      },
+      dismissRest: _viewModel.skipRest,
+    );
+    if (result == WorkoutBackResult.consumed) return;
+    if (!mounted) return;
+    _viewModel.flushPendingSetSaves();
+    Navigator.of(context).pop();
   }
 
   void _toggleExerciseCollapse(String exerciseKey) {
@@ -87,6 +237,49 @@ class _LiveWorkoutScreenState extends State<LiveWorkoutScreen> {
         arguments: <String, Object>{'exercise': exercise},
       ),
     );
+  }
+
+  Future<bool> _handleSaveSet(String exerciseKey, int setIndex) async {
+    final statusBefore = _viewModel.setSavedStatus[exerciseKey];
+    final alreadySaved = statusBefore != null &&
+        statusBefore.length > setIndex &&
+        statusBefore[setIndex];
+
+    if (!alreadySaved &&
+        _viewModel.restSessionActive.value &&
+        _viewModel.restRemaining.value > 0) {
+      if (_restGateBusy) return false;
+      _restGateBusy = true;
+      setState(() => _restAttentionTick++);
+      HapticFeedback.mediumImpact();
+      try {
+        final choice = await showRestStillActiveSheet(
+          context,
+          remainingSeconds: _viewModel.restRemaining.value,
+        );
+        if (!mounted) return false;
+        if (choice != RestStillActiveChoice.skipAndSave) return false;
+        _viewModel.skipRest();
+      } finally {
+        _restGateBusy = false;
+      }
+    }
+
+    _viewModel.saveSet(exerciseKey, setIndex);
+    if (!mounted) return false;
+    final status = _viewModel.setSavedStatus[exerciseKey];
+    final isSaved =
+        status != null && status.length > setIndex && status[setIndex];
+    if (!isSaved) return false;
+    HapticFeedback.lightImpact();
+    if (_restDurationSeconds > 0) {
+      _viewModel.startRest(seconds: _restDurationSeconds);
+    }
+    return true;
+  }
+
+  void _handleUnsaveSet(String exerciseKey, int setIndex) {
+    _viewModel.unsaveSet(exerciseKey, setIndex);
   }
 
   Future<void> _openQuickAction(String actionId) async {
@@ -182,20 +375,32 @@ class _LiveWorkoutScreenState extends State<LiveWorkoutScreen> {
       builder: (context, _) {
         final state = _viewModel.state;
 
-        return GymPageScaffold(
-          title: ProductCopy.workoutSession,
-          centerContent: true,
-          padding: EdgeInsets.zero,
-          actions: state.isLoaded
-              ? <Widget>[
-                  IconButton(
-                    tooltip: ProductCopy.coachHelp,
-                    onPressed: () => unawaited(_showCoachHelpSheet()),
-                    icon: Icon(GymIcons.coach, color: context.gymPrimary),
-                  ),
-                ]
-              : null,
-          body: _buildBody(state),
+        return PopScope(
+          // وسط جلسه: بک اول لایه (نام‌پد/تایمر) را می‌بندد، بعد صفحه.
+          canPop: !state.isLoaded,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            unawaited(_handleBackPressed());
+          },
+          child: GymPageScaffold(
+            title: ProductCopy.workoutSession,
+            // Safari/iOS: system back is unreliable; always show in-app back.
+            // Mid-session PopScope(canPop:false) would hide Flutter's auto leading.
+            onBack: () => unawaited(_handleBackPressed()),
+            centerContent: true,
+            padding: EdgeInsets.zero,
+            resizeToAvoidBottomInset: false,
+            actions: state.isLoaded
+                ? <Widget>[
+                    IconButton(
+                      tooltip: ProductCopy.coachHelp,
+                      onPressed: () => unawaited(_showCoachHelpSheet()),
+                      icon: Icon(GymIcons.coach, color: context.gymPrimary),
+                    ),
+                  ]
+                : null,
+            body: _buildBody(state),
+          ),
         );
       },
     );
@@ -209,11 +414,10 @@ class _LiveWorkoutScreenState extends State<LiveWorkoutScreen> {
         return GymPagePadding(
           child: Column(
             children: <Widget>[
-              if (state.activeProgram != null)
-                ActiveProgramSelectorBar(
-                  program: state.activeProgram,
-                  onProgramChanged: _onProgramChanged,
-                ),
+              ActiveProgramSelectorBar(
+                program: state.activeProgram,
+                onProgramChanged: _onProgramChanged,
+              ),
               GymSpacing.gapLg,
               if (state.sessionContext != null)
                 WorkoutSessionDayPicker(
@@ -233,11 +437,22 @@ class _LiveWorkoutScreenState extends State<LiveWorkoutScreen> {
           ),
         );
       case LiveWorkoutStatus.empty:
-        return const GymPagePadding(
-          child: GymEmptyState(
-            title: 'برای امروز تمرینی فعال نیست',
-            message: 'جلسه تمرین برای امروز پیدا نشد.',
-            icon: GymIcons.calendar,
+        return GymPagePadding(
+          child: Column(
+            children: <Widget>[
+              ActiveProgramSelectorBar(
+                program: state.activeProgram,
+                onProgramChanged: _onProgramChanged,
+              ),
+              GymSpacing.gapLg,
+              const GymEmptyState(
+                title: 'برنامه هوش مصنوعی فعال نیست',
+                message:
+                    'این مسیر فقط برای برنامه‌های مربی هوشمند است. '
+                    'برنامه شروع باشگاه و برنامه مربی انسانی اینجا اجرا نمی‌شوند.',
+                icon: GymIcons.calendar,
+              ),
+            ],
           ),
         );
       case LiveWorkoutStatus.error:
@@ -278,89 +493,201 @@ class _LiveWorkoutScreenState extends State<LiveWorkoutScreen> {
             .map(ProductExperienceFormatter.humanizeReason)
             .firstWhere((item) => item.trim().isNotEmpty, orElse: () => '');
 
+        // TapRegion باید کل ستون (شامل نام‌پد) را بپوشاند؛
+        // وگرنه هر لمس روی پد «بیرون» حساب می‌شود و پد می‌پرد/بسته می‌شود.
         return TapRegion(
           onTapOutside: (_) => _dismissKeyboard(),
-          child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.only(bottom: 32.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                SizedBox(height: 8.h),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w),
-                  child: _LiveExecutionHeader(
-                    programTitle: state.activeProgram?.title,
-                    sessionDay: state.sessionContext?.selectedSessionDay,
-                    focus: session.focus,
+          child: Column(
+            children: <Widget>[
+              Expanded(
+                child: NotificationListener<ScrollUpdateNotification>(
+                  onNotification: (notification) {
+                    if (notification.dragDetails != null && _numpad.isOpen) {
+                      _numpad.close();
+                    }
+                    return false;
+                  },
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: EdgeInsets.only(bottom: 24.h),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        SizedBox(height: 8.h),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w),
+                          child: _LiveExecutionHeader(
+                            programTitle: state.activeProgram?.title,
+                            sessionDay:
+                                state.sessionContext?.selectedSessionDay,
+                            focus: session.focus,
+                          ),
+                        ),
+                        SizedBox(height: 12.h),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w),
+                          child: ListenableBuilder(
+                            listenable: Listenable.merge([
+                              _viewModel.sessionProgressTick,
+                              _restDurationTick,
+                            ]),
+                            builder: (context, _) {
+                              return LiveWorkoutSessionProgress(
+                                session: session,
+                                savedSets: _viewModel.savedSetsCount,
+                                totalSets: _viewModel.totalSetsCount,
+                                restDefaultSeconds: _restDurationSeconds,
+                                onRestSettingsTap: () {
+                                  unawaited(_openRestSettings());
+                                },
+                              );
+                            },
+                          ),
+                        ),
+                        if (_viewModel.isAnalysisMode &&
+                            _viewModel.sessionAnalysis != null)
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
+                            child: SessionAnalysisBody(
+                              snapshot: _viewModel.sessionAnalysis!,
+                              compact: true,
+                              onResumeEditing: () {
+                                HapticFeedback.selectionClick();
+                                _viewModel.resumeSessionEditing();
+                              },
+                              onNarrativeReady:
+                                  _viewModel.rememberAnalysisNarrative,
+                            ),
+                          )
+                        else ...<Widget>[
+                          if (state.completionSummary != null)
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+                              child: LiveWorkoutCompletionCard(
+                                summary: state.completionSummary!,
+                                onOpenAnalysis: () {
+                                  HapticFeedback.selectionClick();
+                                  unawaited(_ensureInlineAnalysis());
+                                },
+                              ),
+                            ),
+                          if (tip.isNotEmpty)
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+                              child: _LiveCoachTipLine(tip: tip),
+                            ),
+                          ...List.generate(_viewModel.displayExercises.length, (
+                            index,
+                          ) {
+                            final exercise = _viewModel.displayExercises[index];
+                            final exerciseKey = _exerciseKey(exercise);
+                            return Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16.w),
+                              child: RepaintBoundary(
+                                child: ValueListenableBuilder<int>(
+                                  valueListenable: _viewModel
+                                      .exerciseListenable(exerciseKey),
+                                  builder: (context, _, __) {
+                                    return ExerciseCard(
+                                      exercise: exercise,
+                                      exerciseDetails:
+                                          _viewModel.exerciseDetails,
+                                      exerciseControllers:
+                                          _viewModel.exerciseControllers,
+                                      exerciseFocusNodes:
+                                          _viewModel.exerciseFocusNodes,
+                                      setSavedStatus: _viewModel.setSavedStatus,
+                                      collapsedExercises:
+                                          _viewModel.collapsedExercises,
+                                      exerciseCoachFeedback:
+                                          _viewModel.exerciseCoachFeedback,
+                                      previousSetsByExerciseId:
+                                          _viewModel.previousSetsByExerciseId,
+                                      compact: true,
+                                      onToggleCollapse: _toggleExerciseCollapse,
+                                      onNavigateToTutorial:
+                                          _navigateToExerciseTutorial,
+                                      onSaveSet: _handleSaveSet,
+                                      onUnsaveSet: _handleUnsaveSet,
+                                      onDismissKeyboard: _dismissKeyboard,
+                                      numpad: _numpad,
+                                    );
+                                  },
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
-                SizedBox(height: 12.h),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w),
-                  child: LiveWorkoutSessionProgress(
-                    session: session,
-                    savedSets: _viewModel.savedSetsCount,
-                    totalSets: _viewModel.totalSetsCount,
-                  ),
-                ),
-                if (state.completionSummary != null)
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
-                    child: LiveWorkoutCompletionCard(
-                      summary: state.completionSummary!,
-                      onOpenAnalysis: () {
-                        HapticFeedback.selectionClick();
-                        unawaited(
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  const AIProgressAnalysisScreen(),
+              ),
+              if (!_viewModel.isAnalysisMode)
+                ListenableBuilder(
+                  listenable: Listenable.merge([
+                    _viewModel.restRemaining,
+                    _viewModel.restTotal,
+                    _viewModel.restRunning,
+                    _viewModel.restSessionActive,
+                    _viewModel.sessionProgressTick,
+                  ]),
+                  builder: (context, _) {
+                    final showFinish = _viewModel.canFinishAndAnalyze;
+                    final active = _viewModel.restSessionActive.value &&
+                        _viewModel.restRemaining.value > 0;
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        if (showFinish)
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
+                            child: GymButton(
+                              label: ProductCopy.finishWorkoutAndAnalyze,
+                              fullWidth: true,
+                              loading: _viewModel.isCompleting,
+                              icon: GymIcons.progress,
+                              onPressed: _viewModel.isCompleting
+                                  ? null
+                                  : () {
+                                      HapticFeedback.mediumImpact();
+                                      unawaited(_finishAndAnalyze());
+                                    },
                             ),
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                if (tip.isNotEmpty)
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
-                    child: _LiveCoachTipLine(tip: tip),
-                  ),
-                ...List.generate(_viewModel.displayExercises.length, (index) {
-                  final exercise = _viewModel.displayExercises[index];
-                  return Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w),
-                    child: RepaintBoundary(
-                      child: ExerciseCard(
-                        exercise: exercise,
-                        exerciseDetails: _viewModel.exerciseDetails,
-                        exerciseControllers: _viewModel.exerciseControllers,
-                        exerciseFocusNodes: _viewModel.exerciseFocusNodes,
-                        setSavedStatus: _viewModel.setSavedStatus,
-                        collapsedExercises: _viewModel.collapsedExercises,
-                        exerciseCoachFeedback: _viewModel.exerciseCoachFeedback,
-                        compact: true,
-                        onToggleCollapse: _toggleExerciseCollapse,
-                        onNavigateToTutorial: _navigateToExerciseTutorial,
-                        onSaveSet: (exerciseKey, setIndex) async {
-                          _viewModel.saveSet(exerciseKey, setIndex);
-                          final status =
-                              _viewModel.setSavedStatus[exerciseKey];
-                          return status != null &&
-                              status.length > setIndex &&
-                              status[setIndex];
-                        },
-                        onDismissKeyboard: _dismissKeyboard,
-                      ),
-                    ),
-                  );
-                }),
-              ],
-            ),
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 240),
+                          curve: Curves.easeOutCubic,
+                          alignment: Alignment.bottomCenter,
+                          child: active
+                              ? WorkoutRestTimerBar(
+                                  remainingSeconds:
+                                      _viewModel.restRemaining.value,
+                                  totalSeconds: _viewModel.restTotal.value,
+                                  isRunning: _viewModel.restRunning.value,
+                                  attentionToken: _restAttentionTick,
+                                  onTogglePause: _viewModel.toggleRestPause,
+                                  onMinus15: () => _viewModel.adjustRestBy(-15),
+                                  onPlus15: () => _viewModel.adjustRestBy(15),
+                                  onSkip: _viewModel.skipRest,
+                                )
+                              : const SizedBox(width: double.infinity),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              if (!_viewModel.isAnalysisMode)
+                WorkoutSetNumpadBar(controller: _numpad),
+            ],
           ),
         );
     }
+  }
+
+  String _exerciseKey(NormalExercise exercise) {
+    return LiveWorkoutExerciseAdapter.controllerKey(exercise);
   }
 
   Future<void> _handleSessionDaySelected(String sessionDay) async {
@@ -381,6 +708,28 @@ class _LiveWorkoutScreenState extends State<LiveWorkoutScreen> {
     if (!confirmed || !mounted) return;
 
     await _viewModel.selectSession(sessionDay);
+  }
+
+  Future<void> _finishAndAnalyze() async {
+    _dismissKeyboard();
+    _numpad.close();
+    _manualAnalysisInFlight = true;
+    _didAutoOpenAnalysis = true;
+    try {
+      await _viewModel.finishWorkout(openAnalysis: true);
+    } finally {
+      _manualAnalysisInFlight = false;
+    }
+  }
+
+  Future<void> _ensureInlineAnalysis() async {
+    if (_viewModel.isAnalysisMode) return;
+    final snapshot = await _viewModel.buildAnalysisSnapshot(
+      debrief: _viewModel.state.completionSummary?.debrief,
+      synced: _viewModel.state.completionSummary?.synced ?? true,
+    );
+    if (!mounted || snapshot == null) return;
+    _viewModel.showAnalysis(snapshot);
   }
 }
 

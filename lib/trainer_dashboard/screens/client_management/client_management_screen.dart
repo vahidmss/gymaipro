@@ -142,8 +142,8 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
               ),
               backgroundColor: status == 'pending'
                   ? (isDark
-                        ? Colors.orange.withValues(alpha: 0.2)
-                        : Colors.orange.withValues(alpha: 0.15))
+                        ? AppTheme.fatColor.withValues(alpha: 0.2)
+                        : AppTheme.fatColor.withValues(alpha: 0.15))
                   : (isDark
                         ? AppTheme.errorColor.withValues(alpha: 0.2)
                         : AppTheme.errorColor.withValues(alpha: 0.15)),
@@ -152,7 +152,7 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
                 borderRadius: BorderRadius.circular(12.r),
                 side: BorderSide(
                   color: status == 'pending'
-                      ? Colors.orange.withValues(alpha: 0.5)
+                      ? AppTheme.fatColor.withValues(alpha: 0.5)
                       : AppTheme.errorColor.withValues(alpha: 0.5),
                 ),
               ),
@@ -442,9 +442,7 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.r),
-            side: BorderSide(
-              color: AppTheme.errorColor.withValues(alpha: 0.5),
-            ),
+            side: BorderSide(color: AppTheme.errorColor.withValues(alpha: 0.5)),
           ),
         ),
       );
@@ -464,20 +462,25 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
       );
     }
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ClientSearchWidget(
-            allClients: _clients,
-            onSearchResultsChanged: _onSearchResultsChanged,
-          ),
-          SizedBox(height: 10.h),
-          RelationshipStatsWidget(stats: _relationshipStats),
-          SizedBox(height: 14.h),
-          _buildClientsTab(),
-        ],
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      color: AppTheme.goldColor,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ClientSearchWidget(
+              allClients: _clients,
+              onSearchResultsChanged: _onSearchResultsChanged,
+            ),
+            SizedBox(height: 10.h),
+            RelationshipStatsWidget(stats: _relationshipStats),
+            SizedBox(height: 14.h),
+            _buildClientsTab(),
+          ],
+        ),
       ),
     );
   }
@@ -491,16 +494,16 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
         baseColor = AppTheme.successColor;
         statusText = 'فعال';
       case 'pending':
-        baseColor = Colors.amber;
+        baseColor = AppTheme.fatColor;
         statusText = 'در انتظار';
       case 'inactive':
-        baseColor = Colors.grey;
+        baseColor = context.textSecondary;
         statusText = 'غیرفعال';
       case 'blocked':
         baseColor = AppTheme.errorColor;
         statusText = 'مسدود';
       default:
-        baseColor = Colors.grey;
+        baseColor = context.textSecondary;
         statusText = 'نامشخص';
     }
 
@@ -608,167 +611,119 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ...List.generate(
-          _displayedClients.length,
-          (index) {
-            final client = _displayedClients[index];
-            final clientProfile = client['client'] as Map<String, dynamic>?;
+        ...List.generate(_displayedClients.length, (index) {
+          final client = _displayedClients[index];
+          final clientProfile = client['client'] as Map<String, dynamic>?;
 
-            if (clientProfile == null) return const SizedBox.shrink();
+          if (clientProfile == null) return const SizedBox.shrink();
 
-            final status = client['status'] as String? ?? 'pending';
-            final isActive = status == 'active';
+          final status = client['status'] as String? ?? 'pending';
+          final isActive = status == 'active';
 
-            return Container(
-              margin: EdgeInsets.only(bottom: 10.h),
-              decoration: BoxDecoration(
-                color: context.cardColor,
-                borderRadius: BorderRadius.circular(16.r),
-                border: Border.all(
-                  color: isActive
-                      ? AppTheme.successColor.withValues(alpha: isDark ? 0.25 : 0.15)
-                      : AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.1),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isDark
-                        ? Colors.black.withValues(alpha: 0.2)
-                        : AppTheme.goldColor.withValues(alpha: 0.05),
-                    blurRadius: 8.r,
-                    offset: Offset(0, 2.h),
-                  ),
-                ],
+          return Container(
+            margin: EdgeInsets.only(bottom: 10.h),
+            decoration: BoxDecoration(
+              color: context.cardColor,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(
+                color: isActive
+                    ? AppTheme.successColor.withValues(
+                        alpha: isDark ? 0.25 : 0.15,
+                      )
+                    : AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.1),
               ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: isActive ? () => _onClientTap(clientProfile) : null,
-                  borderRadius: BorderRadius.circular(16.r),
-                  child: Padding(
-                    padding: EdgeInsets.all(14.w),
-                    child: Row(
-                      children: [
-                        _ClientAvatar(profile: clientProfile),
-                        SizedBox(width: 12.w),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      _getDisplayName(clientProfile),
-                                      style: TextStyle(
-                                        color: context.textColor,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 15.sp,
-                                        fontFamily: AppTheme.fontFamily,
-                                      ),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.2)
+                      : AppTheme.goldColor.withValues(alpha: 0.05),
+                  blurRadius: 8.r,
+                  offset: Offset(0, 2.h),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: isActive ? () => _onClientTap(clientProfile) : null,
+                borderRadius: BorderRadius.circular(16.r),
+                child: Padding(
+                  padding: EdgeInsets.all(14.w),
+                  child: Row(
+                    children: [
+                      _ClientAvatar(profile: clientProfile),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _getDisplayName(clientProfile),
+                                    style: TextStyle(
+                                      color: context.textColor,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15.sp,
+                                      fontFamily: AppTheme.fontFamily,
                                     ),
                                   ),
-                                  _buildStatusChip(status),
-                                ],
-                              ),
-                              SizedBox(height: 4.h),
-                              Text(
-                                '@${clientProfile['username']}',
-                                style: TextStyle(
-                                  color: context.textSecondary,
-                                  fontSize: 12.sp,
-                                  fontFamily: AppTheme.fontFamily,
                                 ),
+                                _buildStatusChip(status),
+                              ],
+                            ),
+                            SizedBox(height: 4.h),
+                            Text(
+                              '@${clientProfile['username']}',
+                              style: TextStyle(
+                                color: context.textSecondary,
+                                fontSize: 12.sp,
+                                fontFamily: AppTheme.fontFamily,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        SizedBox(width: 8.w),
-                        PopupMenuButton<String>(
-                          icon: Icon(
-                            LucideIcons.moreVertical,
-                            color: context.textSecondary,
-                            size: 18.sp,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10.r),
-                          ),
-                          onSelected: (value) {
-                            switch (value) {
-                              case 'remove':
-                                _removeClient(clientProfile['id'] as String);
-                              case 'block':
-                                _blockClient(clientProfile['id'] as String);
-                              case 'unblock':
-                                _unblockClient(clientProfile['id'] as String);
-                            }
-                          },
-                          itemBuilder: (context) {
-                            final status = client['status'] as String? ?? 'pending';
-                            final items = <PopupMenuItem<String>>[];
+                      ),
+                      SizedBox(width: 8.w),
+                      PopupMenuButton<String>(
+                        icon: Icon(
+                          LucideIcons.moreVertical,
+                          color: context.textSecondary,
+                          size: 18.sp,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        onSelected: (value) {
+                          switch (value) {
+                            case 'remove':
+                              _removeClient(clientProfile['id'] as String);
+                            case 'block':
+                              _blockClient(clientProfile['id'] as String);
+                            case 'unblock':
+                              _unblockClient(clientProfile['id'] as String);
+                          }
+                        },
+                        itemBuilder: (context) {
+                          final status =
+                              client['status'] as String? ?? 'pending';
+                          final items = <PopupMenuItem<String>>[];
 
-                            if (status == 'blocked') {
-                              items.add(
-                                PopupMenuItem(
-                                  value: 'unblock',
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        LucideIcons.userCheck,
-                                        color: AppTheme.successColor,
-                                        size: 16.sp,
-                                      ),
-                                      SizedBox(width: 10.w),
-                                      Text(
-                                        'رفع مسدودیت',
-                                        style: TextStyle(
-                                          color: context.textColor,
-                                          fontSize: 13.sp,
-                                          fontFamily: AppTheme.fontFamily,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            } else {
-                              items.add(
-                                PopupMenuItem(
-                                  value: 'block',
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        LucideIcons.userMinus,
-                                        color: AppTheme.errorColor,
-                                        size: 16.sp,
-                                      ),
-                                      SizedBox(width: 10.w),
-                                      Text(
-                                        'مسدود کردن',
-                                        style: TextStyle(
-                                          color: context.textColor,
-                                          fontSize: 13.sp,
-                                          fontFamily: AppTheme.fontFamily,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }
-
+                          if (status == 'blocked') {
                             items.add(
                               PopupMenuItem(
-                                value: 'remove',
+                                value: 'unblock',
                                 child: Row(
                                   children: [
                                     Icon(
-                                      LucideIcons.trash2,
-                                      color: AppTheme.errorColor,
+                                      LucideIcons.userCheck,
+                                      color: AppTheme.successColor,
                                       size: 16.sp,
                                     ),
                                     SizedBox(width: 10.w),
                                     Text(
-                                      'حذف شاگرد',
+                                      'رفع مسدودیت',
                                       style: TextStyle(
                                         color: context.textColor,
                                         fontSize: 13.sp,
@@ -779,18 +734,66 @@ class _ClientManagementScreenState extends State<ClientManagementScreen>
                                 ),
                               ),
                             );
+                          } else {
+                            items.add(
+                              PopupMenuItem(
+                                value: 'block',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      LucideIcons.userMinus,
+                                      color: AppTheme.errorColor,
+                                      size: 16.sp,
+                                    ),
+                                    SizedBox(width: 10.w),
+                                    Text(
+                                      'مسدود کردن',
+                                      style: TextStyle(
+                                        color: context.textColor,
+                                        fontSize: 13.sp,
+                                        fontFamily: AppTheme.fontFamily,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
 
-                            return items;
-                          },
-                        ),
-                      ],
-                    ),
+                          items.add(
+                            PopupMenuItem(
+                              value: 'remove',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    LucideIcons.trash2,
+                                    color: AppTheme.errorColor,
+                                    size: 16.sp,
+                                  ),
+                                  SizedBox(width: 10.w),
+                                  Text(
+                                    'حذف شاگرد',
+                                    style: TextStyle(
+                                      color: context.textColor,
+                                      fontSize: 13.sp,
+                                      fontFamily: AppTheme.fontFamily,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+
+                          return items;
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        }),
         SizedBox(height: 12.h),
         OutlinedButton.icon(
           onPressed: _openAddClientSheet,
@@ -951,9 +954,9 @@ class _ClientAvatar extends StatelessWidget {
                         strokeWidth: 2,
                         color: AppTheme.goldColor,
                       ),
-                          ),
-                        ),
-                      ),
+                    ),
+                  ),
+                ),
               )
             : _Initials(initials: initials),
       ),

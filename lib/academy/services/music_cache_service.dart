@@ -51,6 +51,9 @@ class MusicCacheService {
   }
 
   Future<Directory> _getCacheDirectory() async {
+    if (kIsWeb) {
+      throw UnsupportedError('Music file cache is not available on web');
+    }
     if (_cacheDir != null) return _cacheDir!;
 
     final appDir = await getApplicationDocumentsDirectory();
@@ -62,6 +65,9 @@ class MusicCacheService {
   }
 
   Future<Directory> _getDownloadDirectory() async {
+    if (kIsWeb) {
+      throw UnsupportedError('Music downloads dir is not available on web');
+    }
     if (_downloadDir != null) return _downloadDir!;
 
     final appDir = await getApplicationDocumentsDirectory();
@@ -434,6 +440,10 @@ class MusicCacheService {
   }
 
   Future<void> clearCache() async {
+    if (kIsWeb) {
+      await WebMusicPlatform.clearBlobCache();
+      return;
+    }
     try {
       final cacheDir = await _getCacheDirectory();
       if (await cacheDir.exists()) {
@@ -444,6 +454,7 @@ class MusicCacheService {
   }
 
   Future<int> getCacheSize() async {
+    if (kIsWeb) return 0;
     try {
       final cacheDir = await _getCacheDirectory();
       if (!await cacheDir.exists()) return 0;

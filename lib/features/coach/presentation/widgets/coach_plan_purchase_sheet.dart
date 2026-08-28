@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:gymaipro/ai/entitlement/coach_subscription_plan.dart';
 import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
+import 'package:gymaipro/features/product_experience/navigation/workout_program_request_navigation.dart';
 import 'package:gymaipro/payment/models/ai_coach_plan_price.dart';
 import 'package:gymaipro/payment/models/coach_plan_catalog.dart';
 import 'package:gymaipro/payment/services/ai_coach_plan_price_service.dart';
@@ -17,23 +18,38 @@ import 'package:gymaipro/theme/app_theme.dart';
 import 'package:gymaipro/utils/external_url_launcher.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// شیت جزئیات / امکانات / خرید پلن مربی هوشمند
+/// شیت خرید «برنامه مربی هوشمند» (تک‌محصول)
 Future<bool?> showCoachPlanPurchaseSheet(
   BuildContext context, {
   required CoachSubscriptionPlan currentPlan,
+  bool openProgramBuilderOnSuccess = true,
+  String? returnTarget,
 }) {
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (ctx) => CoachPlanPurchaseSheet(currentPlan: currentPlan),
+    builder: (ctx) => CoachPlanPurchaseSheet(
+      currentPlan: currentPlan,
+      openProgramBuilderOnSuccess: openProgramBuilderOnSuccess,
+      returnTarget: returnTarget,
+    ),
   );
 }
 
 class CoachPlanPurchaseSheet extends StatefulWidget {
-  const CoachPlanPurchaseSheet({required this.currentPlan, super.key});
+  const CoachPlanPurchaseSheet({
+    required this.currentPlan,
+    this.openProgramBuilderOnSuccess = true,
+    this.returnTarget,
+    super.key,
+  });
 
   final CoachSubscriptionPlan currentPlan;
+  final bool openProgramBuilderOnSuccess;
+
+  /// Persisted for Zibal/PWA return so deeplink can reopen the right screen.
+  final String? returnTarget;
 
   @override
   State<CoachPlanPurchaseSheet> createState() => _CoachPlanPurchaseSheetState();
@@ -74,15 +90,9 @@ class _CoachPlanPurchaseSheetState extends State<CoachPlanPurchaseSheet> {
       final wallet = await _walletService.getUserWallet();
       if (!mounted) return;
 
-      final currentId = CoachPlanCatalog.idFromPlan(widget.currentPlan);
-      String? selected;
-      for (final p in prices) {
-        if (p.planId != currentId) {
-          selected = p.planId;
-          break;
-        }
-      }
-      selected ??= prices.isNotEmpty ? prices.first.planId : null;
+      // Single sellable product — always the first (and only) price.
+      final selected =
+          prices.isNotEmpty ? prices.first.planId : CoachPlanCatalog.coachProId;
 
       setState(() {
         _prices = prices;
@@ -94,7 +104,7 @@ class _CoachPlanPurchaseSheetState extends State<CoachPlanPurchaseSheet> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _errorMessage = 'خطا در بارگذاری پلن‌ها: $e';
+        _errorMessage = 'خطا در بارگذاری قیمت برنامه: $e';
         _phase = _PayPhase.error;
       });
     }
@@ -112,15 +122,6 @@ class _CoachPlanPurchaseSheetState extends State<CoachPlanPurchaseSheet> {
   Future<void> _pay(String method) async {
     final price = _selectedPrice;
     if (price == null || _phase == _PayPhase.processing) return;
-
-    final currentId = CoachPlanCatalog.idFromPlan(widget.currentPlan);
-    if (price.planId == currentId) {
-      setState(() {
-        _phase = _PayPhase.error;
-        _errorMessage = 'شما همین پلن را فعال دارید';
-      });
-      return;
-    }
 
     setState(() {
       _phase = _PayPhase.processing;
@@ -145,13 +146,30 @@ class _CoachPlanPurchaseSheetState extends State<CoachPlanPurchaseSheet> {
         setState(() => _phase = _PayPhase.success);
         await Future<void>.delayed(const Duration(milliseconds: 700));
         if (!mounted) return;
-        Navigator.of(context).pop(true);
+        final navigator = Navigator.of(context);
+        navigator.pop(true);
+
+        // When paying from Build, stay on the same form and let the caller continue.
+        if (!widget.openProgramBuilderOnSuccess) return;
+
         await PurchaseSuccessDialog.show(
           context,
-          serviceName: price.title,
+          serviceName: price.title.isNotEmpty
+              ? price.title
+              : CoachPlanCatalog.productTitle,
           trainerName: 'مربی هوشمند',
-          onViewPrograms: () {},
+          onViewPrograms: () {
+            try {
+              navigator.pushNamedAndRemoveUntil(
+                '/coach',
+                (route) => route.isFirst,
+              );
+            } catch (_) {}
+          },
         );
+        if (context.mounted) {
+          await WorkoutProgramRequestNavigation.open(context);
+        }
       } else {
         final paymentUrl = result['payment_url']?.toString();
         final trackId = result['track_id']?.toString();
@@ -166,6 +184,7 @@ class _CoachPlanPurchaseSheetState extends State<CoachPlanPurchaseSheet> {
               type: 'coach_plan',
               transactionId: transactionId,
               trackId: trackId,
+              returnTarget: widget.returnTarget,
             );
           }
           await ExternalUrlLauncher.openPaymentUrl(paymentUrl);
@@ -223,7 +242,7 @@ class _CoachPlanPurchaseSheetState extends State<CoachPlanPurchaseSheet> {
                       ),
                       SizedBox(height: 16.h),
                       Text(
-                        'پلن مربی هوشمند',
+                        CoachPlanCatalog.productTitle,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 18.sp,
@@ -233,7 +252,9 @@ class _CoachPlanPurchaseSheetState extends State<CoachPlanPurchaseSheet> {
                       ),
                       SizedBox(height: 8.h),
                       Text(
-                        'پلن فعلی: ${CoachPlanCatalog.persianTitle(widget.currentPlan)}',
+                        CoachPlanCatalog.isPaidAiProgramPlan(widget.currentPlan)
+                            ? 'دسترسی فعال داری — خرید مجدد = تمدید دوره'
+                            : 'مثل خرید برنامه از مربی؛ یک محصول، یک قیمت',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 13.sp,
@@ -242,7 +263,7 @@ class _CoachPlanPurchaseSheetState extends State<CoachPlanPurchaseSheet> {
                       ),
                       SizedBox(height: 8.h),
                       Text(
-                        CoachPlanCatalog.descriptionForPlan(widget.currentPlan),
+                        CoachPlanCatalog.productDescription,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12.sp,
@@ -250,7 +271,17 @@ class _CoachPlanPurchaseSheetState extends State<CoachPlanPurchaseSheet> {
                         ),
                       ),
                       SizedBox(height: 20.h),
-                      ..._prices.map(_buildPlanCard),
+                      if (_prices.isEmpty)
+                        Text(
+                          'قیمت برنامه هنوز تنظیم نشده. از پشتیبانی بپرس.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13.sp,
+                            color: Colors.red.shade700,
+                          ),
+                        )
+                      else
+                        _buildPlanCard(_prices.first),
                       SizedBox(height: 12.h),
                       TextField(
                         controller: _discountController,
@@ -310,7 +341,7 @@ class _CoachPlanPurchaseSheetState extends State<CoachPlanPurchaseSheet> {
                         ),
                         SizedBox(height: 10.h),
                         _PayButton(
-                          label: 'پرداخت از درگاه',
+                          label: 'پرداخت آنلاین (زیبال)',
                           icon: LucideIcons.creditCard,
                           loading:
                               _phase == _PayPhase.processing &&
@@ -329,120 +360,110 @@ class _CoachPlanPurchaseSheetState extends State<CoachPlanPurchaseSheet> {
   }
 
   Widget _buildPlanCard(AiCoachPlanPrice price) {
-    final selected = price.planId == _selectedPlanId;
-    final isCurrent =
-        price.planId == CoachPlanCatalog.idFromPlan(widget.currentPlan);
+    final hasPass = CoachPlanCatalog.isPaidAiProgramPlan(widget.currentPlan);
     final features = price.features.isNotEmpty
         ? price.features
-        : CoachPlanCatalog.featureLabelsForPlan(
-            CoachPlanCatalog.planFromId(price.planId),
-          );
+        : CoachPlanCatalog.productFeatures;
+    final title =
+        price.title.isNotEmpty ? price.title : CoachPlanCatalog.productTitle;
+    final description = price.description.isNotEmpty
+        ? price.description
+        : CoachPlanCatalog.productDescription;
+    final days = price.validityDays > 0
+        ? price.validityDays
+        : CoachPlanCatalog.defaultValidityDays;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: 10.h),
-      child: Material(
-        color: selected
-            ? context.gymPrimary.withValues(alpha: 0.12)
-            : context.gymSurface,
-        borderRadius: BorderRadius.circular(14.r),
-        child: InkWell(
+    return Material(
+      color: context.gymPrimary.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(14.r),
+      child: Container(
+        padding: EdgeInsets.all(14.w),
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14.r),
-          onTap: _phase == _PayPhase.idle
-              ? () => setState(() => _selectedPlanId = price.planId)
-              : null,
-          child: Container(
-            padding: EdgeInsets.all(14.w),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14.r),
-              border: Border.all(
-                color: selected
-                    ? context.gymPrimary
-                    : context.gymTextSecondary.withValues(alpha: 0.2),
-                width: selected ? 1.5 : 1,
+          border: Border.all(color: context.gymPrimary, width: 1.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15.sp,
+                      color: context.gymTextPrimary,
+                    ),
+                  ),
+                ),
+                if (hasPass)
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8.w,
+                      vertical: 2.h,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.goldColor.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: Text(
+                      'فعال · قابل تمدید',
+                      style: TextStyle(
+                        fontSize: 11.sp,
+                        color: AppTheme.goldColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              hasPass
+                  ? 'خرید مجدد دوره را تمدید می‌کند و دسترسی ابزارها را ادامه می‌دهد.'
+                  : description,
+              style: TextStyle(
+                fontSize: 12.sp,
+                color: context.gymTextSecondary,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+            SizedBox(height: 8.h),
+            Text(
+              '${PaymentConstants.formatAmount(price.priceRial)} / $days روز',
+              style: TextStyle(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w700,
+                color: context.gymPrimary,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            ...features.take(6).map(
+              (f) => Padding(
+                padding: EdgeInsets.only(bottom: 4.h),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Icon(
+                      LucideIcons.check,
+                      size: 14.sp,
+                      color: context.gymPrimary,
+                    ),
+                    SizedBox(width: 6.w),
                     Expanded(
                       child: Text(
-                        price.title,
+                        f,
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15.sp,
+                          fontSize: 12.sp,
                           color: context.gymTextPrimary,
                         ),
                       ),
                     ),
-                    if (isCurrent)
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 8.w,
-                          vertical: 2.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.goldColor.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8.r),
-                        ),
-                        child: Text(
-                          'فعال',
-                          style: TextStyle(
-                            fontSize: 11.sp,
-                            color: AppTheme.goldColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
                   ],
                 ),
-                SizedBox(height: 4.h),
-                Text(
-                  price.description,
-                  style: TextStyle(
-                    fontSize: 12.sp,
-                    color: context.gymTextSecondary,
-                  ),
-                ),
-                SizedBox(height: 8.h),
-                Text(
-                  '${PaymentConstants.formatAmount(price.priceRial)} / ${price.validityDays} روز',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w700,
-                    color: context.gymPrimary,
-                  ),
-                ),
-                SizedBox(height: 8.h),
-                ...features.take(6).map(
-                  (f) => Padding(
-                    padding: EdgeInsets.only(bottom: 4.h),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          LucideIcons.check,
-                          size: 14.sp,
-                          color: context.gymPrimary,
-                        ),
-                        SizedBox(width: 6.w),
-                        Expanded(
-                          child: Text(
-                            f,
-                            style: TextStyle(
-                              fontSize: 12.sp,
-                              color: context.gymTextPrimary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

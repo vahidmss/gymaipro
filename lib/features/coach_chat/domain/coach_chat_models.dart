@@ -39,6 +39,7 @@ class CoachChatMessage {
     required this.text,
     required this.createdAt,
     this.cards = const <CoachChatMessageCard>[],
+    this.isStreaming = false,
   });
 
   final String id;
@@ -47,6 +48,27 @@ class CoachChatMessage {
   final String text;
   final DateTime createdAt;
   final List<CoachChatMessageCard> cards;
+  final bool isStreaming;
+
+  CoachChatMessage copyWith({
+    String? id,
+    CoachChatMessageRole? role,
+    CoachChatMessageType? type,
+    String? text,
+    DateTime? createdAt,
+    List<CoachChatMessageCard>? cards,
+    bool? isStreaming,
+  }) {
+    return CoachChatMessage(
+      id: id ?? this.id,
+      role: role ?? this.role,
+      type: type ?? this.type,
+      text: text ?? this.text,
+      createdAt: createdAt ?? this.createdAt,
+      cards: cards ?? this.cards,
+      isStreaming: isStreaming ?? this.isStreaming,
+    );
+  }
 }
 
 class CoachChatMessageCard {

@@ -40,11 +40,7 @@ void main() {
         ),
       ],
       weeklyHeatmap: const WeeklyMuscleHeatmapResult(
-        targets: <String, int>{
-          'chest_middle': 40,
-          'quads': 8,
-          'back_lat': 12,
-        },
+        targets: <String, int>{'chest_middle': 40, 'quads': 8, 'back_lat': 12},
         previousWeekTargets: <String, int>{'chest_middle': 30},
         workoutDays: 3,
         sessionCount: 4,
@@ -117,6 +113,13 @@ void main() {
         ),
         isTrue,
       );
+      expect(
+        response.reasons
+            .where((reason) => reason.type == SkillReasonType.recoveryStatus)
+            .map((reason) => reason.message)
+            .join(),
+        isNot(contains('وضعیت مناسب فرض شد')),
+      );
     });
 
     test('execute delegates to intelligent builder', () {
@@ -135,7 +138,9 @@ void main() {
     const builder = SkillResponseBuilder();
 
     test('analyzes most and least trained muscles with explainability', () {
-      final response = builder.buildHeatmap(richContext(intent: AIIntent.recovery));
+      final response = builder.buildHeatmap(
+        richContext(intent: AIIntent.recovery),
+      );
 
       expect(response.requiresAI, isFalse);
       expect(response.message, contains('بیشترین تمرین'));
@@ -143,6 +148,32 @@ void main() {
       expect(response.structuredData['imbalanceDetected'], isTrue);
       expect(response.explanation!.bullets, isNotEmpty);
       expect(response.recommendations.first.priority, 1);
+    });
+
+    test('after today session does not tell user to add volume now', () {
+      final response = builder.buildHeatmap(
+        CoachContext(
+          intent: AIIntent.recovery,
+          metadata: metadata,
+          currentQuestion: 'هیت‌مپ',
+          weeklyHeatmap: richContext().weeklyHeatmap,
+          preferences: <String, Object?>{
+            'last_workout_completed_at': DateTime(
+              2026,
+              7,
+              12,
+            ).toIso8601String(),
+          },
+        ),
+      );
+
+      expect(response.requiresAI, isFalse);
+      expect(response.recommendations, isNotEmpty);
+      expect(response.recommendations.first.detail, contains('ریکاوری'));
+      expect(
+        response.recommendations.first.detail,
+        isNot(contains('تقویت کن')),
+      );
     });
 
     test('falls back to AI without heatmap data', () {
@@ -203,10 +234,7 @@ void main() {
 
     test('escalates bug reports to AI', () {
       final response = builder.buildAppHelp(
-        context: richContext(
-          intent: AIIntent.bugReport,
-          question: 'باگ دارم',
-        ),
+        context: richContext(intent: AIIntent.bugReport, question: 'باگ دارم'),
         intent: AIIntent.bugReport,
       );
 

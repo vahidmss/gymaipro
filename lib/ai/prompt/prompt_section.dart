@@ -12,6 +12,7 @@ enum PromptSectionType {
   equipment,
   restrictions,
   preferences,
+  nutrition,
   memory,
   apiUsage,
   recovery,

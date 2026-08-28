@@ -69,19 +69,32 @@ class _DashboardCalorieHeroState extends State<DashboardCalorieHero> {
 
       if (!mounted) return;
       setState(() {
+        final hasGoal = targets.hasActiveGoal;
         if (remaining > 40) {
-          _subtitle = '$remaining کالری هنوز جا داری';
+          _subtitle = hasGoal
+              ? '$remaining کالری از سقف جا داری'
+              : '$remaining کالری تا نیاز روزانه جا داری';
         } else if (remaining > 0) {
-          _subtitle = 'نزدیک هدفی · $remaining کالری مونده';
+          _subtitle = hasGoal
+              ? 'نزدیک سقف · $remaining کالری جا داری'
+              : 'نزدیک نیاز روزانه · $remaining کالری جا داری';
         } else if (remaining == 0) {
-          _subtitle = 'امروز کامل شد';
+          _subtitle = hasGoal
+              ? 'بودجه امروز تموم شد'
+              : 'امروز با نیاز روزانه برابر شد';
         } else if (remaining > -150) {
-          _subtitle = 'یه کم از هدف رد شدی';
+          _subtitle = hasGoal
+              ? 'یه کم از سقف رد شدی'
+              : 'یه کم از نیاز روزانه رد شدی';
         } else {
-          _subtitle = '${-remaining} کالری بیشتر خوردی';
+          _subtitle = hasGoal
+              ? '${-remaining} کالری بیش از سقف'
+              : '${-remaining} کالری بیش از نیاز روزانه';
         }
         if (consumed > 0 && remaining > 40 && consumed < target * 0.25) {
-          _subtitle = 'شروع خوبی بود · $remaining کالری مونده';
+          _subtitle = hasGoal
+              ? 'شروع خوبی بود · $remaining کالری از سقف جا داری'
+              : 'شروع خوبی بود · $remaining کالری تا نیاز روزانه جا داری';
         }
         _loadingStats = false;
       });
@@ -111,16 +124,16 @@ class _DashboardCalorieHeroState extends State<DashboardCalorieHero> {
   Widget build(BuildContext context) {
     return _DashboardMediaHero(
       busy: _busy,
-      height: 112.h,
+      height: 104.h,
       imagePath: 'images/calorymeter.jpg',
       imageAlignment: const Alignment(-0.55, 0),
       fallbackIcon: LucideIcons.utensils,
       title: 'تغذیه امروز',
       subtitle: _loadingStats ? '...' : _subtitle,
       actionIcon: LucideIcons.plus,
-      titleSize: 15.sp,
-      subtitleSize: 11.sp,
-      actionSize: 34.w,
+      titleSize: 15.5.sp,
+      subtitleSize: 11.5.sp,
+      actionSize: 36.w,
       onTap: _open,
     );
   }
@@ -141,7 +154,7 @@ class DashboardAiBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return _DashboardMediaHero(
       busy: false,
-      height: 96.h,
+      height: 92.h,
       imagePath: 'images/gymaicoach.jpg',
       imageAlignment: const Alignment(0, -0.6),
       fallbackIcon: LucideIcons.bot,
@@ -149,9 +162,9 @@ class DashboardAiBanner extends StatelessWidget {
       subtitle: 'برنامه، تغذیه و سوالات تمرینی',
       actionIcon: LucideIcons.sparkles,
       goldAction: true,
-      titleSize: 14.sp,
+      titleSize: 14.5.sp,
       subtitleSize: 11.sp,
-      actionSize: 32.w,
+      actionSize: 34.w,
       onTap: () => _openAiCoach(context),
     );
   }
@@ -202,14 +215,15 @@ class _DashboardMediaHero extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(18.r),
+            borderRadius: BorderRadius.circular(16.r),
             child: Ink(
               height: height,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18.r),
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(color: context.separatorColor),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(18.r),
+                borderRadius: BorderRadius.circular(16.r),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -219,11 +233,11 @@ class _DashboardMediaHero extends StatelessWidget {
                       alignment: imageAlignment,
                       errorBuilder: (context, error, stackTrace) {
                         return ColoredBox(
-                          color: const Color(0xFF1A1A1A),
+                          color: context.surfaceElevated,
                           child: Icon(
                             fallbackIcon,
                             size: 32.sp,
-                            color: Colors.white54,
+                            color: context.textSecondary,
                           ),
                         );
                       },
@@ -233,11 +247,11 @@ class _DashboardMediaHero extends StatelessWidget {
                         gradient: LinearGradient(
                           begin: Alignment.centerRight,
                           end: Alignment.centerLeft,
-                          colors: Theme.of(context).brightness ==
-                                  Brightness.dark
+                          colors:
+                              Theme.of(context).brightness == Brightness.dark
                               ? const [
-                                  Color(0xE6000000),
-                                  Color(0x66000000),
+                                  Color(0xF0000000),
+                                  Color(0x99000000),
                                   Color(0x22000000),
                                 ]
                               : const [
@@ -249,7 +263,7 @@ class _DashboardMediaHero extends StatelessWidget {
                       ),
                     ),
                     Positioned(
-                      left: 14.w,
+                      left: 12.w,
                       right: 14.w,
                       bottom: 12.h,
                       top: 12.h,

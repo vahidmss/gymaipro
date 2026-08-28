@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:gymaipro/config/app_config.dart';
 import 'package:gymaipro/design_system/theme/gym_spacing.dart';
 import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 import 'package:gymaipro/features/product_experience/active_program_catalog_service.dart';
@@ -7,14 +6,19 @@ import 'package:gymaipro/features/product_experience/active_program_catalog_serv
 class ActiveProgramSelectorSheet extends StatefulWidget {
   const ActiveProgramSelectorSheet({
     required this.currentProgramId,
+    this.aiOnly = false,
     super.key,
   });
 
   final String? currentProgramId;
 
+  /// When true, only real Coach AI programs (excludes starter + human).
+  final bool aiOnly;
+
   static Future<ActiveProgramOption?> show(
     BuildContext context, {
     String? currentProgramId,
+    bool aiOnly = false,
   }) {
     return showModalBottomSheet<ActiveProgramOption>(
       context: context,
@@ -25,6 +29,7 @@ class ActiveProgramSelectorSheet extends StatefulWidget {
       ),
       builder: (_) => ActiveProgramSelectorSheet(
         currentProgramId: currentProgramId,
+        aiOnly: aiOnly,
       ),
     );
   }
@@ -46,7 +51,9 @@ class _ActiveProgramSelectorSheetState extends State<ActiveProgramSelectorSheet>
   }
 
   Future<void> _load() async {
-    final programs = await _catalog.listWorkoutPrograms();
+    final programs = widget.aiOnly
+        ? await _catalog.listAiWorkoutPrograms()
+        : await _catalog.listWorkoutPrograms();
     if (!mounted) return;
     setState(() {
       _programs = programs;
@@ -69,7 +76,9 @@ class _ActiveProgramSelectorSheetState extends State<ActiveProgramSelectorSheet>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(
-              'انتخاب برنامه تمرین',
+              widget.aiOnly
+                  ? 'انتخاب برنامه هوش مصنوعی'
+                  : 'انتخاب برنامه تمرین',
               style: context.gymTextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
@@ -78,9 +87,10 @@ class _ActiveProgramSelectorSheetState extends State<ActiveProgramSelectorSheet>
             ),
             GymSpacing.gapSm,
             Text(
-              'برنامه‌ای که می‌خواهی اجرا کنی را انتخاب کن. '
-              'ثبت تمرین و تمرین زیر نظارت ${AppConfig.gymAiDisplayName} '
-              'از همین انتخاب استفاده می‌کنند.',
+              widget.aiOnly
+                  ? 'فقط برنامه‌هایی که مربی هوشمند ساخته اینجا هستند. '
+                        'برنامه شروع باشگاه و برنامه مربی انسانی در این مسیر نیستند.'
+                  : 'برنامه‌ای که می‌خواهی اجرا کنی را انتخاب کن.',
               style: context.gymTextStyle(
                 fontSize: 13,
                 color: context.gymTextSecondary,
@@ -95,7 +105,9 @@ class _ActiveProgramSelectorSheetState extends State<ActiveProgramSelectorSheet>
               )
             else if (_programs.isEmpty)
               Text(
-                'برنامه‌ای پیدا نشد. از بخش برنامه‌های من یک برنامه فعال کن.',
+                widget.aiOnly
+                    ? 'هنوز برنامه هوش مصنوعی نداری. از «مربی من» درخواست برنامه بده.'
+                    : 'برنامه‌ای پیدا نشد. از بخش برنامه‌های من یک برنامه فعال کن.',
                 style: context.gymTextStyle(
                   fontSize: 14,
                   color: context.gymTextSecondary,
@@ -106,7 +118,8 @@ class _ActiveProgramSelectorSheetState extends State<ActiveProgramSelectorSheet>
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: _programs.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: GymSpacing.sm),
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: GymSpacing.sm),
                   itemBuilder: (context, index) {
                     final program = _programs[index];
                     final selected = program.id == widget.currentProgramId;
@@ -146,7 +159,10 @@ class _ActiveProgramSelectorSheetState extends State<ActiveProgramSelectorSheet>
                                 ),
                               ),
                               if (selected)
-                                Icon(Icons.check_circle, color: context.gymPrimary),
+                                Icon(
+                                  Icons.check_circle,
+                                  color: context.gymPrimary,
+                                ),
                             ],
                           ),
                         ),

@@ -56,7 +56,9 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
           )
           .eq('trainer_id', current.id)
           .or('status.eq.pending,status.eq.paid,status.eq.active')
-          .or('program_status.eq.not_started,program_status.eq.in_progress,program_status.eq.delayed')
+          .or(
+            'program_status.eq.not_started,program_status.eq.in_progress,program_status.eq.delayed',
+          )
           .order('created_at', ascending: false);
 
       final items = List<Map<String, dynamic>>.from(res as List);
@@ -67,13 +69,12 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
           .toSet()
           .toList();
 
-      final Map<String, Map<String, dynamic>> profilesById =
-          userIds.isEmpty
-              ? {}
-              : await ProfileRepository.instance.fetchProfilesByIdsMap(
-                  userIds,
-                  columns: 'id, first_name, last_name, username, avatar_url',
-                );
+      final Map<String, Map<String, dynamic>> profilesById = userIds.isEmpty
+          ? {}
+          : await ProfileRepository.instance.fetchProfilesByIdsMap(
+              userIds,
+              columns: 'id, first_name, last_name, username, avatar_url',
+            );
 
       _items = items;
       _userProfiles = profilesById;
@@ -83,12 +84,12 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
       if (trainerUser != null) {
         final sentStatusMap = <String, bool>{};
         final programDatesMap = <String, Map<String, DateTime?>>{};
-        
+
         for (final item in items) {
           final userId = item['user_id'] as String?;
           final subscriptionId = item['id'] as String?;
           final serviceType = item['service_type'] as String? ?? 'training';
-          
+
           if (userId != null && subscriptionId != null) {
             // بررسی وضعیت ارسال برای رژیم
             if (serviceType == 'diet') {
@@ -96,20 +97,22 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                 final existingPlan = await _mealPlanService
                     .getExistingPlanForTrainerAndUser(userId, trainerUser.id);
                 sentStatusMap[userId] = existingPlan?.sentAt != null;
-                
+
                 // خواندن editable_until و expiry_date از meal_plans
                 if (existingPlan != null && existingPlan.id.isNotEmpty) {
                   try {
                     final planData = await _client
                         .from('meal_plans')
-                        .select('editable_until, expiry_date, created_at, sent_at')
+                        .select(
+                          'editable_until, expiry_date, created_at, sent_at',
+                        )
                         .eq('id', existingPlan.id)
                         .maybeSingle();
-                    
+
                     if (planData != null) {
                       DateTime? editableUntil;
                       DateTime? expiryDate;
-                      
+
                       // محاسبه editable_until و expiry_date: از زمان ارسال برنامه (sent_at)
                       final sentAtStr = planData['sent_at'] as String?;
                       if (sentAtStr != null) {
@@ -119,7 +122,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                           expiryDate = sentAt.add(const Duration(days: 33));
                         }
                       }
-                      
+
                       programDatesMap[subscriptionId] = {
                         'editable_until': editableUntil,
                         'expiry_date': expiryDate,
@@ -140,22 +143,26 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
               try {
                 final existingPrograms = await _workoutProgramService
                     .getProgramsForUserByTrainer(userId, trainerUser.id);
-                final existingProgram = existingPrograms.isNotEmpty ? existingPrograms.first : null;
+                final existingProgram = existingPrograms.isNotEmpty
+                    ? existingPrograms.first
+                    : null;
                 sentStatusMap[userId] = existingProgram?.sentAt != null;
-                
+
                 // خواندن editable_until و expiry_date از workout_programs
                 if (existingProgram != null && existingProgram.id.isNotEmpty) {
                   try {
                     final programData = await _client
                         .from('workout_programs')
-                        .select('editable_until, expiry_date, created_at, sent_at')
+                        .select(
+                          'editable_until, expiry_date, created_at, sent_at',
+                        )
                         .eq('id', existingProgram.id)
                         .maybeSingle();
-                    
+
                     if (programData != null) {
                       DateTime? editableUntil;
                       DateTime? expiryDate;
-                      
+
                       // محاسبه editable_until و expiry_date: از زمان ارسال برنامه (sent_at)
                       final sentAtStr = programData['sent_at'] as String?;
                       if (sentAtStr != null) {
@@ -165,7 +172,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                           expiryDate = sentAt.add(const Duration(days: 33));
                         }
                       }
-                      
+
                       programDatesMap[subscriptionId] = {
                         'editable_until': editableUntil,
                         'expiry_date': expiryDate,
@@ -186,22 +193,22 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
         }
         _planSentStatus = sentStatusMap;
         _programDates = programDatesMap;
-        
+
         // فیلتر کردن درخواست‌هایی که مهلت ویرایششان تمام شده
         // این درخواست‌ها باید به بخش فعالیت‌ها منتقل شوند
         final now = DateTime.now();
         _items = _items.where((item) {
           final subscriptionId = item['id'] as String?;
           if (subscriptionId == null) return true;
-          
+
           final programDates = _programDates[subscriptionId];
           final editableUntil = programDates?['editable_until'];
-          
+
           // اگر editable_until وجود دارد و گذشته است، این درخواست را فیلتر کن
           if (editableUntil != null && now.isAfter(editableUntil)) {
             return false;
           }
-          
+
           return true;
         }).toList();
       }
@@ -250,9 +257,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: AppTheme.goldColor,
-        ),
+        child: CircularProgressIndicator(color: AppTheme.goldColor),
       );
     }
 
@@ -277,7 +282,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
             Text(
               'درخواستی یافت نشد',
               style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                fontFamily: AppTheme.fontFamily,
                 color: context.textColor,
                 fontSize: 15.sp,
                 fontWeight: FontWeight.w600,
@@ -287,7 +292,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
             Text(
               'درخواست‌های جدید اینجا نمایش داده می‌شوند',
               style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                fontFamily: AppTheme.fontFamily,
                 color: context.textSecondary,
                 fontSize: 12.sp,
               ),
@@ -322,18 +327,19 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
             row['created_at'] as String? ?? '',
           );
           final subtitle = createdAt != null ? du.toJalali(createdAt) : '';
-          
+
           // دریافت اطلاعات editable_until و expiry_date
           final subscriptionId = row['id'] as String?;
-          final programDates = subscriptionId != null 
-              ? _programDates[subscriptionId] 
+          final programDates = subscriptionId != null
+              ? _programDates[subscriptionId]
               : null;
           final editableUntil = programDates?['editable_until'];
           final expiryDate = programDates?['expiry_date'];
-          
+
           // بررسی اینکه آیا مهلت ویرایش گذشته است
-          final isEditDeadlinePassed = editableUntil != null && DateTime.now().isAfter(editableUntil);
-          
+          final isEditDeadlinePassed =
+              editableUntil != null && DateTime.now().isAfter(editableUntil);
+
           // محاسبه روزهای باقیمانده تا انقضا
           int? daysUntilExpiry;
           if (expiryDate != null) {
@@ -343,7 +349,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
           }
 
           final isDark = Theme.of(context).brightness == Brightness.dark;
-          
+
           return DecoratedBox(
             decoration: BoxDecoration(
               color: context.cardColor,
@@ -371,10 +377,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _Avatar(
-                        avatarUrl: avatarUrl,
-                        displayName: displayName,
-                      ),
+                      _Avatar(avatarUrl: avatarUrl, displayName: displayName),
                       SizedBox(width: 12.w),
                       Expanded(
                         child: Column(
@@ -386,7 +389,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                                   child: Text(
                                     displayName,
                                     style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                                      fontFamily: AppTheme.fontFamily,
                                       color: context.textColor,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 15.sp,
@@ -402,13 +405,21 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                                   ),
                                   decoration: BoxDecoration(
                                     color: service == 'diet'
-                                        ? const Color(0xFF9CD67A).withValues(alpha: 0.15)
-                                        : AppTheme.goldColor.withValues(alpha: 0.1),
+                                        ? AppTheme.successColor.withValues(
+                                            alpha: 0.15,
+                                          )
+                                        : AppTheme.goldColor.withValues(
+                                            alpha: 0.1,
+                                          ),
                                     borderRadius: BorderRadius.circular(8.r),
                                     border: Border.all(
                                       color: service == 'diet'
-                                          ? const Color(0xFF9CD67A).withValues(alpha: 0.3)
-                                          : AppTheme.goldColor.withValues(alpha: 0.3),
+                                          ? AppTheme.successColor.withValues(
+                                              alpha: 0.3,
+                                            )
+                                          : AppTheme.goldColor.withValues(
+                                              alpha: 0.3,
+                                            ),
                                     ),
                                   ),
                                   child: Text(
@@ -416,9 +427,9 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                                         ? 'برنامه غذایی'
                                         : 'برنامه تمرینی',
                                     style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                                      fontFamily: AppTheme.fontFamily,
                                       color: service == 'diet'
-                                          ? const Color(0xFF9CD67A)
+                                          ? AppTheme.successColor
                                           : AppTheme.goldColor,
                                       fontSize: 11.sp,
                                       fontWeight: FontWeight.w600,
@@ -432,7 +443,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                               Text(
                                 'در تاریخ $subtitle',
                                 style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                                  fontFamily: AppTheme.fontFamily,
                                   color: context.textSecondary,
                                   fontSize: 11.sp,
                                 ),
@@ -443,9 +454,9 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                                 child: Text(
                                   'اتمام اشتراک تا $daysUntilExpiry روز دیگر',
                                   style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                                    fontFamily: AppTheme.fontFamily,
                                     color: daysUntilExpiry <= 7
-                                        ? Colors.orange
+                                        ? AppTheme.fatColor
                                         : context.textSecondary,
                                     fontSize: 10.sp,
                                     fontWeight: FontWeight.w500,
@@ -476,7 +487,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                           label: Text(
                             'پروفایل',
                             style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                              fontFamily: AppTheme.fontFamily,
                               fontSize: 11.sp,
                               fontWeight: FontWeight.w600,
                             ),
@@ -513,7 +524,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                           label: Text(
                             'گفتگو',
                             style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                              fontFamily: AppTheme.fontFamily,
                               fontSize: 11.sp,
                               fontWeight: FontWeight.w600,
                             ),
@@ -536,7 +547,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             ElevatedButton.icon(
-                              onPressed: isEditDeadlinePassed 
+                              onPressed: isEditDeadlinePassed
                                   ? () {
                                       // هیچ کاری انجام نده وقتی قفل است
                                     }
@@ -556,7 +567,7 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                                           ? 'ویرایش تمرین'
                                           : 'ساخت تمرین'),
                                 style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+                                  fontFamily: AppTheme.fontFamily,
                                   fontSize: 11.sp,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -585,8 +596,10 @@ class _TrainerRequestsTabState extends State<TrainerRequestsTab> {
                                   'اتمام مهلت ویرایش',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
-                                    color: context.textSecondary.withValues(alpha: 0.7),
+                                    fontFamily: AppTheme.fontFamily,
+                                    color: context.textSecondary.withValues(
+                                      alpha: 0.7,
+                                    ),
                                     fontSize: 9.sp,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -621,7 +634,7 @@ class _Avatar extends StatelessWidget {
         : 'ک';
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       width: 48.w,
       height: 48.h,
@@ -674,7 +687,7 @@ class _Initials extends StatelessWidget {
         child: Text(
           initials,
           style: TextStyle(
-    fontFamily: AppTheme.fontFamily,
+            fontFamily: AppTheme.fontFamily,
             color: AppTheme.goldColor,
             fontWeight: FontWeight.w600,
             fontSize: 18.sp,

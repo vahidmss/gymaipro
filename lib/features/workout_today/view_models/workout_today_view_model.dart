@@ -88,6 +88,18 @@ class WorkoutTodayViewModel extends ChangeNotifier {
     );
   }
 
+  /// Evaluates switching to [newProgramId] (one meaningful log per calendar day).
+  Future<SessionChangeEvaluation> evaluateProgramChangeTo(
+    String newProgramId,
+  ) async {
+    if (newProgramId.trim().isEmpty) {
+      return const SessionChangeEvaluation.none();
+    }
+    return (_facade ?? WorkoutTodayFacade()).evaluateProgramChange(
+      programId: newProgramId,
+    );
+  }
+
   Future<void> selectSession(String sessionDay) async {
     final programId = _resolveProgramId();
     if (programId == null || _isDisposed) return;

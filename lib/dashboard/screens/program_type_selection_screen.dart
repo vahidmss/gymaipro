@@ -112,27 +112,6 @@ class ProgramTypeSelectionScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 16.h),
 
-                    // کارت برنامه رژیمی از AI
-                    _buildProgramCard(
-                      context: context,
-                      isDark: isDark,
-                      icon: LucideIcons.apple,
-                      iconColor: const Color(0xFF4CAF50),
-                      title: 'برنامه رژیمی',
-                      subtitle: 'از جیم‌آی',
-                      description:
-                          'برنامه رژیمی کامل با محاسبه کالری و درشت‌مغذی‌ها',
-                      accentColor: const Color(0xFF4CAF50),
-                      onTap: () {
-                        WidgetSafetyUtils.safeShowSnackBar(
-                          context,
-                          'این قابلیت به زودی اضافه می‌شود',
-                          backgroundColor: AppTheme.goldColor,
-                        );
-                      },
-                    ),
-                    SizedBox(height: 16.h),
-
                     // کارت برنامه از مربی
                     _buildProgramCard(
                       context: context,
@@ -181,7 +160,9 @@ class ProgramTypeSelectionScreen extends StatelessWidget {
                             SizedBox(width: 10.w),
                             Expanded(
                               child: Text(
-                                'برنامه‌های جیم‌آی به صورت رایگان و فوری تولید می‌شوند. برای دریافت برنامه از مربی، باید اشتراک تهیه کنید.',
+                                'برنامه تمرینی جیم‌آی با سوال‌های کوتاه ساخته می‌شود؛ '
+                                'پرداخت فقط وقتی «بساز» را بزنی. '
+                                'برای برنامه از مربی واقعی، اشتراک مربی لازم است.',
                                 style: TextStyle(
                                   fontFamily: AppTheme.fontFamily,
                                   fontSize: 11.5.sp,
@@ -213,104 +194,105 @@ class ProgramTypeSelectionScreen extends StatelessWidget {
     required String subtitle,
     required String description,
     required Color accentColor,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14.r),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: isDark ? context.cardColor : Colors.white,
-            borderRadius: BorderRadius.circular(14.r),
-            border: Border.all(
-              color: isDark
-                  ? Colors.grey[700]!.withValues(alpha: 0.3)
-                  : AppTheme.lightDividerColor.withValues(alpha: 0.3),
-              width: 0.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isDark
-                    ? Colors.black.withValues(alpha: 0.2)
-                    : Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8.r,
-                offset: Offset(0.w, 2.h),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(18.w),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // هدر با آیکون و عنوان
-                Row(
-                  children: [
-                    // آیکون مینیمال
-                    Container(
-                      width: 44.w,
-                      height: 44.h,
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10.r),
-                      ),
-                      child: Icon(icon, color: accentColor, size: 22.sp),
-                    ),
-                    SizedBox(width: 14.w),
-                    // عنوان و زیرعنوان
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 17.sp,
-                              fontWeight: FontWeight.w600,
-                              color: context.textColor,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          SizedBox(height: 2.h),
-                          Text(
-                            subtitle,
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 12.sp,
-                              color: context.textSecondary,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // فلش ظریف
-                    Icon(
-                      LucideIcons.chevronLeft,
-                      color: context.textSecondary.withValues(alpha: 0.5),
-                      size: 18.sp,
-                    ),
-                  ],
-                ),
-                SizedBox(height: 14.h),
-                // توضیحات
-                Padding(
-                  padding: EdgeInsets.only(right: 58.w),
-                  child: Text(
-                    description,
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 12.5.sp,
-                      color: context.textSecondary,
-                      height: 1.5,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
+    final isEnabled = onTap != null;
+    return Opacity(
+      opacity: isEnabled ? 1 : 0.68,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16.r),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: context.cardColor,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: context.separatorColor),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.2)
+                      : Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8.r,
+                  offset: Offset(0.w, 2.h),
                 ),
               ],
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(18.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // هدر با آیکون و عنوان
+                  Row(
+                    children: [
+                      // آیکون مینیمال
+                      Container(
+                        width: 44.w,
+                        height: 44.h,
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                        child: Icon(icon, color: accentColor, size: 22.sp),
+                      ),
+                      SizedBox(width: 14.w),
+                      // عنوان و زیرعنوان
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 17.sp,
+                                fontWeight: FontWeight.w600,
+                                color: context.textColor,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            SizedBox(height: 2.h),
+                            Text(
+                              subtitle,
+                              style: TextStyle(
+                                fontFamily: AppTheme.fontFamily,
+                                fontSize: 12.sp,
+                                color: context.textSecondary,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // فلش ظریف
+                      Icon(
+                        isEnabled
+                            ? LucideIcons.chevronLeft
+                            : LucideIcons.clock3,
+                        color: context.textSecondary.withValues(alpha: 0.5),
+                        size: 18.sp,
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 14.h),
+                  // توضیحات
+                  Padding(
+                    padding: EdgeInsets.only(right: 58.w),
+                    child: Text(
+                      description,
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 12.5.sp,
+                        color: context.textSecondary,
+                        height: 1.5,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

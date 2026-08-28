@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:gymaipro/design_system/theme/gym_colors.dart';
 import 'package:gymaipro/design_system/theme/gym_motion.dart';
+import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 import 'package:gymaipro/design_system/theme/gym_typography.dart';
 
 /// Animated circular progress ring.
@@ -27,7 +27,7 @@ class GymProgressRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final clamped = value.clamp(0.0, 1.0);
-    final ringColor = color ?? GymColors.primary;
+    final ringColor = color ?? context.gymGold;
 
     Widget ring(double progress) {
       return CustomPaint(
@@ -36,7 +36,7 @@ class GymProgressRing extends StatelessWidget {
           progress: progress,
           strokeWidth: strokeWidth,
           color: ringColor,
-          trackColor: GymColors.neutral800,
+          trackColor: context.gymNeutralFill,
         ),
       );
     }
@@ -60,7 +60,7 @@ class GymProgressRing extends StatelessWidget {
             Text(
               label!,
               style: GymTypography.caption.copyWith(
-                color: GymColors.textPrimary,
+                color: context.gymTextPrimary,
               ),
             ),
         ],

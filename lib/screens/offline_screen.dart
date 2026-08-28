@@ -14,10 +14,7 @@ import 'package:gymaipro/theme/app_theme.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class OfflineScreen extends StatefulWidget {
-  const OfflineScreen({
-    this.onReconnect,
-    super.key,
-  });
+  const OfflineScreen({this.onReconnect, super.key});
 
   final VoidCallback? onReconnect;
 
@@ -41,8 +38,9 @@ class _OfflineScreenState extends State<OfflineScreen>
       duration: const Duration(milliseconds: 2400),
     )..repeat(reverse: true);
 
-    _connectivitySub =
-        ConnectivityService.instance.isConnectedStream.listen((online) {
+    _connectivitySub = ConnectivityService.instance.isConnectedStream.listen((
+      online,
+    ) {
       if (online && !_checking) {
         _tryReconnect();
       }
@@ -63,13 +61,10 @@ class _OfflineScreenState extends State<OfflineScreen>
       SnackBar(
         content: Text(
           message,
-          style: TextStyle(
-            fontFamily: AppTheme.fontFamily,
-            fontSize: 13.sp,
-          ),
+          style: TextStyle(fontFamily: AppTheme.fontFamily, fontSize: 13.sp),
         ),
         duration: const Duration(seconds: 3),
-        backgroundColor: AppTheme.darkCardColor,
+        backgroundColor: context.surfaceElevated,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12.r),
@@ -95,14 +90,11 @@ class _OfflineScreenState extends State<OfflineScreen>
 
       setState(() => _statusMessage = 'در حال اتصال به سرور...');
 
-      final backendReachable = await BackendReachabilityService.isBackendReachable(
-        
-      );
+      final backendReachable =
+          await BackendReachabilityService.isBackendReachable();
       if (!backendReachable) {
         setState(() => _statusMessage = null);
-        _showSnack(
-          'سرور در دسترس نیست. چند لحظه صبر کنید و دوباره تلاش کنید.',
-        );
+        _showSnack('سرور در دسترس نیست. چند لحظه صبر کنید و دوباره تلاش کنید.');
         return;
       }
 
@@ -169,7 +161,7 @@ class _OfflineScreenState extends State<OfflineScreen>
         await SystemNavigator.pop();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: context.backgroundColor,
         body: SafeArea(
           child: Center(
             child: Padding(
@@ -196,7 +188,7 @@ class _OfflineScreenState extends State<OfflineScreen>
                       ),
                       child: Icon(
                         LucideIcons.wifiOff,
-                        color: AppTheme.goldColor.withValues(alpha: 0.85),
+                        color: context.inkAccent,
                         size: 48.sp,
                       ),
                     ),
@@ -206,7 +198,7 @@ class _OfflineScreenState extends State<OfflineScreen>
                     'اتصال برقرار نیست',
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: context.textColor,
                       fontSize: 20.sp,
                       fontWeight: FontWeight.w700,
                     ),
@@ -217,7 +209,7 @@ class _OfflineScreenState extends State<OfflineScreen>
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontFamily: AppTheme.fontFamily,
-                      color: Colors.white.withValues(alpha: 0.45),
+                      color: context.textSecondary,
                       fontSize: 14.sp,
                       height: 1.6,
                     ),
@@ -229,14 +221,16 @@ class _OfflineScreenState extends State<OfflineScreen>
                       style: FilledButton.styleFrom(
                         backgroundColor: AppTheme.goldColor,
                         foregroundColor: AppTheme.onGoldColor,
-                        disabledBackgroundColor:
-                            AppTheme.goldColor.withValues(alpha: 0.35),
-                        disabledForegroundColor:
-                            AppTheme.onGoldColor.withValues(alpha: 0.5),
+                        disabledBackgroundColor: AppTheme.goldColor.withValues(
+                          alpha: 0.35,
+                        ),
+                        disabledForegroundColor: AppTheme.onGoldColor
+                            .withValues(alpha: 0.5),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14.r),
+                          borderRadius: BorderRadius.circular(16.r),
                         ),
                         padding: EdgeInsets.symmetric(vertical: 14.h),
+                        minimumSize: Size.fromHeight(48.h),
                         elevation: 0,
                       ),
                       onPressed: _checking ? null : _tryReconnect,
@@ -272,7 +266,7 @@ class _OfflineScreenState extends State<OfflineScreen>
                       _statusMessage ?? '',
                       style: TextStyle(
                         fontFamily: AppTheme.fontFamily,
-                        color: Colors.white.withValues(alpha: 0.4),
+                        color: context.textSecondary,
                         fontSize: 12.sp,
                       ),
                     ),

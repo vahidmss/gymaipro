@@ -9,16 +9,31 @@ import 'package:gymaipro/features/live_workout/application/live_workout_session_
 import 'package:gymaipro/features/live_workout/application/live_workout_session_persistence.dart';
 import 'package:gymaipro/features/live_workout/application/live_workout_session_store.dart';
 import 'package:gymaipro/features/live_workout/domain/session/workout_exercise_session.dart';
+import 'package:gymaipro/features/live_workout/domain/session/workout_session.dart';
 import 'package:gymaipro/features/live_workout/domain/session/workout_set_session_status.dart';
 import 'package:gymaipro/features/live_workout/presentation/adapters/live_workout_exercise_adapter.dart';
 import 'package:gymaipro/features/live_workout/state/live_workout_rest_state.dart';
 import 'package:gymaipro/features/live_workout/state/live_workout_state.dart';
 import 'package:gymaipro/features/product_experience/active_workout_session_service.dart';
+import 'package:gymaipro/features/product_experience/domain/coach_observation.dart';
+import 'package:gymaipro/features/product_experience/domain/session_debrief.dart';
 import 'package:gymaipro/features/product_experience/domain/workout_exercise_coach_feedback.dart';
 import 'package:gymaipro/features/product_experience/product_analytics.dart';
+import 'package:gymaipro/features/session_analysis/application/session_analysis_assembler.dart';
+import 'package:gymaipro/features/session_analysis/application/session_analysis_store.dart';
+import 'package:gymaipro/features/session_analysis/application/workout_log_session_bridge.dart';
+import 'package:gymaipro/features/session_analysis/domain/session_analysis_eligibility.dart';
+import 'package:gymaipro/features/session_analysis/domain/session_analysis_snapshot.dart';
 import 'package:gymaipro/models/exercise.dart';
+import 'package:gymaipro/payment/services/ai_program_access.dart';
 import 'package:gymaipro/services/exercise_service.dart';
-import 'package:gymaipro/workout_plan_builder/models/workout_program.dart';
+import 'package:gymaipro/services/simple_profile_service.dart';
+import 'package:gymaipro/workout_log/models/previous_exercise_performance.dart';
+import 'package:gymaipro/workout_log/services/workout_program_log_service.dart';
+import 'package:gymaipro/workout_log/utils/workout_day_identity.dart';
+import 'package:gymaipro/workout_plan_builder/models/workout_program.dart'
+    hide WorkoutSession;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LiveWorkoutViewModel extends ChangeNotifier {
   LiveWorkoutViewModel({
@@ -28,6 +43,7 @@ class LiveWorkoutViewModel extends ChangeNotifier {
     LiveWorkoutSessionPersistence? sessionPersistence,
     LiveWorkoutSessionFactory? sessionFactory,
     ExerciseService? exerciseService,
+    WorkoutDailyLogService? workoutLogService,
     LiveWorkoutState initialState = const LiveWorkoutState.loading(),
   }) : _facade = facade,
        _sessionStore = sessionStore ?? LiveWorkoutSessionStore(),
@@ -36,6 +52,7 @@ class LiveWorkoutViewModel extends ChangeNotifier {
            sessionPersistence ?? LiveWorkoutSessionPersistence(),
        _sessionFactory = sessionFactory ?? const LiveWorkoutSessionFactory(),
        _exerciseService = exerciseService ?? ExerciseService(),
+       _workoutLogService = workoutLogService ?? WorkoutDailyLogService(),
        _state = initialState {
     _restTimer = LiveWorkoutRestTimer(onTick: _handleRestTick);
     if (initialState.isLoaded) {
@@ -51,6 +68,7 @@ class LiveWorkoutViewModel extends ChangeNotifier {
   final LiveWorkoutSessionPersistence _sessionPersistence;
   final LiveWorkoutSessionFactory _sessionFactory;
   final ExerciseService _exerciseService;
+  final WorkoutDailyLogService _workoutLogService;
   late final LiveWorkoutRestTimer _restTimer;
 
   LiveWorkoutState _state;
@@ -60,6 +78,9 @@ class LiveWorkoutViewModel extends ChangeNotifier {
   bool _isCompleting = false;
   bool _isLoadingSetData = false;
   bool _isDisposed = false;
+  bool _suppressAutoSave = false;
+  bool _justCompletedForAnalysis = false;
+  bool _suppressAutoFinalize = false;
 
   final Map<String, List<Map<String, TextEditingController>>>
   _exerciseControllers = {};
@@ -70,11 +91,25 @@ class LiveWorkoutViewModel extends ChangeNotifier {
   final Map<String, Timer> _autoSaveTimers = {};
   final Map<String, int> _exerciseIndexByKey = {};
   final Map<String, WorkoutExerciseCoachFeedback> _exerciseCoachFeedback = {};
+  final Map<int, List<PreviousExerciseSet>> _previousSetsByExerciseId = {};
+  final Map<int, DateTime> _previousLogDateByExerciseId = {};
+  SessionAnalysisSnapshot? _sessionAnalysis;
+  final Map<String, ValueNotifier<int>> _exerciseRevision = {};
+
+  /// فقط نوار پیشرفت — نه کل صفحه.
+  final ValueNotifier<int> sessionProgressTick = ValueNotifier<int>(0);
+
+  /// تیک تایمر استراحت — جدا از notifyListeners تا لیست حرکات نلرزد.
+  final ValueNotifier<int> restRemaining = ValueNotifier<int>(0);
+  final ValueNotifier<int> restTotal = ValueNotifier<int>(90);
+  final ValueNotifier<bool> restRunning = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> restSessionActive = ValueNotifier<bool>(false);
 
   List<NormalExercise> _displayExercises = [];
 
   LiveWorkoutState get state => _state;
   bool get isCompleting => _isCompleting;
+  bool get justCompletedForAnalysis => _justCompletedForAnalysis;
   List<NormalExercise> get displayExercises =>
       List<NormalExercise>.unmodifiable(_displayExercises);
   Map<String, List<Map<String, TextEditingController>>>
@@ -86,6 +121,12 @@ class LiveWorkoutViewModel extends ChangeNotifier {
   Map<int, Exercise> get exerciseDetails => _exerciseDetails;
   Map<String, WorkoutExerciseCoachFeedback> get exerciseCoachFeedback =>
       _exerciseCoachFeedback;
+  Map<int, List<PreviousExerciseSet>> get previousSetsByExerciseId =>
+      Map<int, List<PreviousExerciseSet>>.unmodifiable(
+        _previousSetsByExerciseId,
+      );
+  SessionAnalysisSnapshot? get sessionAnalysis => _sessionAnalysis;
+  bool get isAnalysisMode => _sessionAnalysis != null;
 
   int get savedSetsCount {
     var count = 0;
@@ -97,6 +138,25 @@ class LiveWorkoutViewModel extends ChangeNotifier {
 
   int get totalSetsCount => _state.session?.totalSets ?? 0;
 
+  ValueNotifier<int> exerciseListenable(String exerciseKey) {
+    return _exerciseRevision.putIfAbsent(
+      exerciseKey,
+      () => ValueNotifier<int>(0),
+    );
+  }
+
+  void _bumpExerciseUi(String exerciseKey, {bool bumpProgress = true}) {
+    if (_isDisposed) return;
+    final tick = _exerciseRevision.putIfAbsent(
+      exerciseKey,
+      () => ValueNotifier<int>(0),
+    );
+    tick.value++;
+    if (bumpProgress) {
+      sessionProgressTick.value++;
+    }
+  }
+
   @override
   void dispose() {
     _isDisposed = true;
@@ -105,6 +165,15 @@ class LiveWorkoutViewModel extends ChangeNotifier {
     _cancelAutoSaveTimers();
     _disposeAllControllers();
     _restTimer.dispose();
+    sessionProgressTick.dispose();
+    restRemaining.dispose();
+    restTotal.dispose();
+    restRunning.dispose();
+    restSessionActive.dispose();
+    for (final n in _exerciseRevision.values) {
+      n.dispose();
+    }
+    _exerciseRevision.clear();
     super.dispose();
   }
 
@@ -139,6 +208,16 @@ class LiveWorkoutViewModel extends ChangeNotifier {
       newSessionDay: newSessionDay,
       currentSessionDay: _state.sessionContext?.selectedSessionDay,
     );
+  }
+
+  Future<SessionChangeEvaluation> evaluateProgramChangeTo(
+    String newProgramId,
+  ) async {
+    if (newProgramId.trim().isEmpty) {
+      return const SessionChangeEvaluation.none();
+    }
+    final facade = _facade ?? LiveWorkoutFacade();
+    return facade.evaluateProgramChange(programId: newProgramId);
   }
 
   Future<void> selectSession(String sessionDay) async {
@@ -176,11 +255,11 @@ class LiveWorkoutViewModel extends ChangeNotifier {
     if (_isDisposed) return;
     _collapsedExercises[exerciseKey] =
         !(_collapsedExercises[exerciseKey] ?? false);
-    _safeNotifyListeners();
+    _bumpExerciseUi(exerciseKey, bumpProgress: false);
   }
 
   void scheduleAutoSave(String exerciseKey, int setIndex) {
-    if (_isDisposed || _isLoadingSetData) return;
+    if (_isDisposed || _isLoadingSetData || _suppressAutoSave) return;
 
     final setKey = '$exerciseKey-$setIndex';
     _autoSaveTimers[setKey]?.cancel();
@@ -199,7 +278,8 @@ class LiveWorkoutViewModel extends ChangeNotifier {
           savedStatus.length > setIndex &&
           savedStatus[setIndex]) {
         savedStatus[setIndex] = false;
-        _refreshExerciseCoachFeedback(exerciseKey);
+        _refreshExerciseCoachFeedback(exerciseKey, notify: false);
+        _bumpExerciseUi(exerciseKey);
       }
       return;
     }
@@ -208,6 +288,16 @@ class LiveWorkoutViewModel extends ChangeNotifier {
       if (_isDisposed) return;
       saveSet(exerciseKey, setIndex);
     });
+  }
+
+  /// Numpad open → edits stay in UI until explicit commit.
+  void setSuppressAutoSave(bool suppress) {
+    _suppressAutoSave = suppress;
+    if (!suppress) return;
+    for (final timer in _autoSaveTimers.values) {
+      timer.cancel();
+    }
+    _autoSaveTimers.clear();
   }
 
   void saveSet(String exerciseKey, int setIndex) {
@@ -243,31 +333,26 @@ class LiveWorkoutViewModel extends ChangeNotifier {
         savedStatus[setIndex] = hasData;
       }
 
-      if (!wasSaved && hasData) {
-        _safeNotifyListeners();
-      } else if (wasSaved && !hasData) {
-        _safeNotifyListeners();
-      }
-
-      _setState(
-        _state.copyWith(
-          session: session.updateSet(
-            exerciseIndex: exerciseIndex,
-            setIndex: setIndex,
-            actualReps: reps > 0 ? reps : null,
-            actualWeightKg: weight > 0 ? weight : null,
-            rpe: rpe,
-            status: hasData
-                ? WorkoutSetSessionStatus.completed
-                : WorkoutSetSessionStatus.pending,
-            clearActualReps: reps <= 0,
-            clearActualWeightKg: weight <= 0,
-            clearRpe: rpe == null,
-          ),
+      // بدون notifyListeners کل صفحه — فقط کارت همین حرکت + نوار پیشرفت.
+      _state = _state.copyWith(
+        session: session.updateSet(
+          exerciseIndex: exerciseIndex,
+          setIndex: setIndex,
+          actualReps: reps > 0 ? reps : null,
+          actualWeightKg: weight > 0 ? weight : null,
+          rpe: rpe,
+          status: hasData
+              ? WorkoutSetSessionStatus.completed
+              : WorkoutSetSessionStatus.pending,
+          clearActualReps: reps <= 0,
+          clearActualWeightKg: weight <= 0,
+          clearRpe: rpe == null,
         ),
-        syncControllers: false,
       );
-      _refreshExerciseCoachFeedback(exerciseKey);
+      _refreshExerciseCoachFeedback(exerciseKey, notify: false);
+      if (wasSaved != hasData || hasData) {
+        _bumpExerciseUi(exerciseKey);
+      }
       _scheduleDraftSave();
       _scheduleRemoteSave();
       _maybeFinalizeWorkout();
@@ -277,7 +362,7 @@ class LiveWorkoutViewModel extends ChangeNotifier {
       }
       if (savedStatus != null && savedStatus.length > setIndex && !wasSaved) {
         savedStatus[setIndex] = false;
-        _safeNotifyListeners();
+        _bumpExerciseUi(exerciseKey);
       }
     }
   }
@@ -300,6 +385,101 @@ class LiveWorkoutViewModel extends ChangeNotifier {
     }
   }
 
+  /// Uncheck a set: keep field values, mark pending (Hevy/Strong-style soft uncheck).
+  void unsaveSet(String exerciseKey, int setIndex) {
+    if (_isDisposed) return;
+    final exerciseIndex = _exerciseIndexByKey[exerciseKey];
+    final session = _state.session;
+    if (exerciseIndex == null || session == null) return;
+    if (setIndex < 0) return;
+
+    final savedStatus = _setSavedStatus[exerciseKey];
+    if (savedStatus == null ||
+        setIndex < 0 ||
+        setIndex >= savedStatus.length ||
+        !savedStatus[setIndex]) {
+      return;
+    }
+
+    savedStatus[setIndex] = false;
+
+    _state = _state.copyWith(
+      session: session.updateSet(
+        exerciseIndex: exerciseIndex,
+        setIndex: setIndex,
+        status: WorkoutSetSessionStatus.pending,
+      ),
+    );
+    _refreshExerciseCoachFeedback(exerciseKey, notify: false);
+    _bumpExerciseUi(exerciseKey);
+    _scheduleDraftSave();
+    _scheduleRemoteSave();
+  }
+
+  void startRest({required int seconds}) {
+    if (_isDisposed) return;
+    _restTimer.start(seconds: seconds);
+    _publishRestNotifiers();
+    _syncRestIntoState(scheduleDraft: true);
+  }
+
+  void toggleRestPause() {
+    if (_isDisposed || !_restTimer.isActive) return;
+    if (_restTimer.isPaused) {
+      _restTimer.resume();
+    } else {
+      _restTimer.pause();
+    }
+    _publishRestNotifiers();
+    _syncRestIntoState();
+  }
+
+  void skipRest() {
+    if (_isDisposed) return;
+    _restTimer.skip();
+    _publishRestNotifiers();
+    _syncRestIntoState(scheduleDraft: true);
+  }
+
+  void adjustRestBy(int deltaSeconds) {
+    if (_isDisposed) return;
+    _restTimer.adjustRemaining(deltaSeconds);
+    _publishRestNotifiers();
+    _syncRestIntoState(scheduleDraft: true);
+  }
+
+  void _publishRestNotifiers() {
+    if (_isDisposed) return;
+    final remaining = _restTimer.remainingSeconds;
+    final active = _restTimer.isActive && remaining > 0;
+    restRemaining.value = remaining;
+    restTotal.value = _restTimer.totalSeconds;
+    restRunning.value = active && !_restTimer.isPaused;
+    restSessionActive.value = active;
+  }
+
+  /// فقط state داخلی برای draft — بدون rebuild کل صفحه.
+  void _syncRestIntoState({bool scheduleDraft = false}) {
+    if (_isDisposed) return;
+    _state = _state.copyWith(
+      rest: LiveWorkoutRestState(
+        active: _restTimer.isActive,
+        paused: _restTimer.isPaused,
+        remainingSeconds: _restTimer.remainingSeconds,
+        totalSeconds: _restTimer.totalSeconds,
+      ),
+    );
+    if (scheduleDraft) {
+      _scheduleDraftSave();
+    }
+  }
+
+  void _handleRestTick() {
+    if (_isDisposed) return;
+    _publishRestNotifiers();
+    _syncRestIntoState(scheduleDraft: !_restTimer.isActive);
+  }
+
   Future<void> loadExerciseDetails() async {
     if (_isDisposed) return;
     final session = _state.session;
@@ -313,6 +493,7 @@ class LiveWorkoutViewModel extends ChangeNotifier {
       }
     }
     if (idsToLoad.isEmpty) {
+      await _loadPreviousExercisePerformance();
       _refreshAllExerciseCoachFeedback();
       await _restoreCompletionSummaryIfNeeded();
       _safeNotifyListeners();
@@ -335,7 +516,9 @@ class LiveWorkoutViewModel extends ChangeNotifier {
       }
     }
     _refreshAllExerciseCoachFeedback();
+    await _loadPreviousExercisePerformance();
     await _restoreCompletionSummaryIfNeeded();
+    await _restorePersistedAnalysisIfNeeded();
     _safeNotifyListeners();
   }
 
@@ -349,6 +532,9 @@ class LiveWorkoutViewModel extends ChangeNotifier {
     final summary = _completionService.buildSummary(
       session: session,
       exerciseById: Map<int, Exercise>.from(_exerciseDetails),
+      feedbackByExerciseKey: Map<String, WorkoutExerciseCoachFeedback>.from(
+        _exerciseCoachFeedback,
+      ),
     );
     _setState(
       _state.copyWith(completionSummary: summary),
@@ -362,6 +548,22 @@ class LiveWorkoutViewModel extends ChangeNotifier {
       final facade = _facade ?? LiveWorkoutFacade();
       final userId = await facade.resolveUserId();
       if (_isDisposed) return;
+
+      final pass = await AiProgramAccess().load(userId: userId);
+      if (_isDisposed) return;
+      if (!pass.hasPass) {
+        // Expired pass: drop draft so it cannot silently continue logging.
+        await _sessionStore.clearDraft(userId);
+        if (_isDisposed) return;
+        _setState(
+          const LiveWorkoutState.error(
+            'دسترسی برنامه مربی هوشمند فعال نیست. '
+            'لاگ‌های قبلی در تقویم می‌مانند؛ برای لایو هوشمند دوباره برنامه بخر.',
+          ),
+        );
+        return;
+      }
+
       final draft = await _sessionStore.loadDraft(userId);
       if (_isDisposed) return;
       if (draft != null && draft.session.exercises.isNotEmpty) {
@@ -410,13 +612,15 @@ class LiveWorkoutViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> finishWorkout() async {
-    if (_isDisposed || _isCompleting || !_state.isLoaded) return;
+  Future<SessionAnalysisSnapshot?> finishWorkout({
+    bool openAnalysis = false,
+  }) async {
+    if (_isDisposed || _isCompleting || !_state.isLoaded) return null;
     flushPendingSetSaves();
 
     final session = _state.session;
     final userId = _state.userId;
-    if (session == null || userId == null) return;
+    if (session == null || userId == null) return null;
 
     _isCompleting = true;
     _safeNotifyListeners();
@@ -424,21 +628,33 @@ class LiveWorkoutViewModel extends ChangeNotifier {
       // Heatmap needs catalog muscle targets — ensure details are loaded.
       if (_exerciseDetails.isEmpty) {
         await loadExerciseDetails();
-        if (_isDisposed) return;
+        if (_isDisposed) return null;
       }
 
       _remoteSaveTimer?.cancel();
       await _persistRemote();
-      if (_isDisposed) return;
+      if (_isDisposed) return null;
+
+      final finishFeedback = WorkoutLogSessionBridge.buildFeedbackMap(
+        session: session,
+        previousByExerciseId: _previousSetsByExerciseId,
+      );
+      _exerciseCoachFeedback
+        ..clear()
+        ..addAll(finishFeedback);
 
       final result = await _completionService.complete(
         session: session,
         userId: userId,
         exerciseById: Map<int, Exercise>.from(_exerciseDetails),
+        feedbackByExerciseKey: Map<String, WorkoutExerciseCoachFeedback>.from(
+          finishFeedback,
+        ),
       );
-      if (_isDisposed) return;
+      if (_isDisposed) return null;
       await _sessionStore.clearDraft(userId);
       _restTimer.stop();
+      _publishRestNotifiers();
       ProductAnalytics.track(
         ProductAnalyticsEvent.workoutFinished,
         properties: <String, Object?>{
@@ -446,6 +662,26 @@ class LiveWorkoutViewModel extends ChangeNotifier {
           'totalSets': session.totalSets,
         },
       );
+      _justCompletedForAnalysis = true;
+      final snapshot = await buildAnalysisSnapshot(
+        debrief: result.debrief,
+        observations: result.observations,
+        synced: result.persistence.synced,
+      );
+      _sessionAnalysis = snapshot;
+      if (snapshot != null && userId.isNotEmpty) {
+        final date = _sessionDate(session);
+        await SessionAnalysisStore.save(
+          userId: userId,
+          date: date,
+          snapshot: snapshot,
+        );
+        await _sessionPersistence.attachSessionAnalysis(
+          session: session,
+          userId: userId,
+          analysis: Map<String, dynamic>.from(snapshot.toJson()),
+        );
+      }
       // Keep the filled session on screen — do not wipe UI into a weak
       // summary-only page. Persist succeeded; values stay visible.
       _setState(
@@ -456,39 +692,188 @@ class LiveWorkoutViewModel extends ChangeNotifier {
         ),
         syncControllers: false,
       );
+
+      return snapshot;
     } on Object catch (error) {
       if (kDebugMode) {
         debugPrint('[LiveWorkout] finishWorkout: $error');
       }
+      return null;
     } finally {
       _isCompleting = false;
       _safeNotifyListeners();
     }
   }
 
+  /// Builds analysis payload for the current (or just-finished) session.
+  Future<SessionAnalysisSnapshot?> buildAnalysisSnapshot({
+    SessionDebrief? debrief,
+    List<CoachObservation>? observations,
+    bool synced = true,
+  }) async {
+    final session = _state.session;
+    if (session == null) return null;
+
+    final finishFeedback = WorkoutLogSessionBridge.buildFeedbackMap(
+      session: session,
+      previousByExerciseId: _previousSetsByExerciseId,
+    );
+
+    final effectiveDebrief =
+        debrief ??
+        SessionDebriefEngine.build(
+          session: session,
+          feedbackByExerciseKey: finishFeedback,
+        );
+    final effectiveObservations =
+        observations ?? CoachObservationDetector.fromDebrief(effectiveDebrief);
+
+    double? bodyWeightKg;
+    try {
+      final profile = await SimpleProfileService.getCurrentProfile();
+      bodyWeightKg = double.tryParse(profile?['weight']?.toString() ?? '');
+    } on Object {
+      bodyWeightKg = null;
+    }
+
+    return SessionAnalysisAssembler.assemble(
+      session: session,
+      programKind: SessionAnalysisProgramKind.aiSupervised,
+      debrief: effectiveDebrief,
+      exerciseById: Map<int, Exercise>.from(_exerciseDetails),
+      feedbackByExerciseKey: Map<String, WorkoutExerciseCoachFeedback>.from(
+        finishFeedback,
+      ),
+      previousByExerciseId: Map<int, List<PreviousExerciseSet>>.from(
+        _previousSetsByExerciseId,
+      ),
+      previousLogDateByExerciseId: Map<int, DateTime>.from(
+        _previousLogDateByExerciseId,
+      ),
+      observations: effectiveObservations,
+      programTitle: _state.activeProgram?.title,
+      sessionDay: _state.sessionContext?.selectedSessionDay,
+      bodyWeightKg: bodyWeightKg,
+      synced: synced,
+    );
+  }
+
+  /// Attach a prebuilt analysis snapshot (same-screen mode).
+  void showAnalysis(SessionAnalysisSnapshot snapshot) {
+    _sessionAnalysis = snapshot;
+    _safeNotifyListeners();
+  }
+
+  void resumeSessionEditing() {
+    _sessionAnalysis = null;
+    _suppressAutoFinalize = true;
+    _setState(
+      _state.copyWith(clearCompletionSummary: true),
+      syncControllers: false,
+    );
+    unawaited(_clearPersistedAnalysis());
+  }
+
+  Future<void> rememberAnalysisNarrative(String text) async {
+    final current = _sessionAnalysis;
+    final session = _state.session;
+    final userId = _state.userId;
+    if (current == null || session == null || userId == null || _isDisposed) {
+      return;
+    }
+    final trimmed = text.trim();
+    if (trimmed.isEmpty || current.coachNarrative == trimmed) return;
+    _sessionAnalysis = current.copyWith(coachNarrative: trimmed);
+    await SessionAnalysisStore.save(
+      userId: userId,
+      date: _sessionDate(session),
+      snapshot: _sessionAnalysis!,
+    );
+    unawaited(
+      _sessionPersistence.attachSessionAnalysis(
+        session: session,
+        userId: userId,
+        analysis: Map<String, dynamic>.from(_sessionAnalysis!.toJson()),
+      ),
+    );
+  }
+
+  Future<void> _clearPersistedAnalysis() async {
+    final session = _state.session;
+    final userId = _state.userId;
+    if (session == null || userId == null || userId.isEmpty) return;
+    await SessionAnalysisStore.clear(
+      userId: userId,
+      date: _sessionDate(session),
+    );
+    await _sessionPersistence.attachSessionAnalysis(
+      session: session,
+      userId: userId,
+    );
+  }
+
+  Future<void> _restorePersistedAnalysisIfNeeded() async {
+    if (_isDisposed || !_state.isLoaded || _sessionAnalysis != null) return;
+    final session = _state.session;
+    final userId = _state.userId;
+    if (session == null || userId == null || userId.isEmpty) return;
+    if (savedSetsCount <= 0) return;
+
+    Map<String, dynamic>? embedded;
+    try {
+      final dailyLog = await _workoutLogService.getDailyLogByDate(
+        userId,
+        _sessionDate(session),
+        preferRemote: true,
+      );
+      if (dailyLog != null) {
+        for (final item in dailyLog.sessions) {
+          final sameProgram =
+              (item.programId?.trim() ?? '').isEmpty ||
+              (session.programId?.trim() ?? '').isEmpty ||
+              item.programId == session.programId;
+          if (sameProgram) {
+            embedded = item.sessionAnalysis;
+            if (embedded != null) break;
+          }
+        }
+      }
+    } on Object {
+      embedded = null;
+    }
+
+    final restored = await SessionAnalysisStore.load(
+      userId: userId,
+      date: _sessionDate(session),
+      programId: session.programId,
+      sessionDay: _state.sessionContext?.selectedSessionDay ?? session.focus,
+      embeddedJson: embedded,
+    );
+    if (_isDisposed || restored == null) return;
+    _sessionAnalysis = restored;
+    _suppressAutoFinalize = true;
+  }
+
+  DateTime _sessionDate(WorkoutSession session) {
+    final started = session.startedAt;
+    return DateTime(started.year, started.month, started.day);
+  }
+
+  bool get canFinishAndAnalyze {
+    if (!_state.isLoaded || _state.completionSummary != null) return false;
+    return savedSetsCount > 0;
+  }
+
+  void consumeJustCompletedForAnalysis() {
+    _justCompletedForAnalysis = false;
+  }
+
   void _maybeFinalizeWorkout() {
     if (_isDisposed || !_state.isLoaded || _isCompleting) return;
+    if (_suppressAutoFinalize) return;
     if (_state.completionSummary != null) return;
     if (savedSetsCount < totalSetsCount || totalSetsCount == 0) return;
     unawaited(finishWorkout());
-  }
-
-  void _handleRestTick() {
-    if (_isDisposed || !_state.rest.active) return;
-    _setState(
-      _state.copyWith(
-        rest: LiveWorkoutRestState(
-          active: _restTimer.isActive,
-          paused: _restTimer.isPaused,
-          remainingSeconds: _restTimer.remainingSeconds,
-          totalSeconds: _restTimer.totalSeconds,
-        ),
-      ),
-      syncControllers: false,
-    );
-    if (!_restTimer.isActive) {
-      _scheduleDraftSave();
-    }
   }
 
   void _scheduleDraftSave() {
@@ -522,6 +907,10 @@ class LiveWorkoutViewModel extends ChangeNotifier {
         session: session,
         userId: userId,
       );
+    } on DayWorkoutConflictException catch (error) {
+      if (kDebugMode) {
+        debugPrint('[LiveWorkout] day identity conflict: $error');
+      }
     } on Object catch (error) {
       if (kDebugMode) {
         debugPrint('[LiveWorkout] remote persist: $error');
@@ -622,7 +1011,7 @@ class LiveWorkoutViewModel extends ChangeNotifier {
     }
     if (exercise == null) {
       _exerciseCoachFeedback.remove(exerciseKey);
-      if (notify) _safeNotifyListeners();
+      if (notify) _bumpExerciseUi(exerciseKey, bumpProgress: false);
       return;
     }
 
@@ -630,11 +1019,12 @@ class LiveWorkoutViewModel extends ChangeNotifier {
     final savedStatus = _setSavedStatus[exerciseKey];
     if (controllers == null || savedStatus == null) {
       _exerciseCoachFeedback.remove(exerciseKey);
-      if (notify) _safeNotifyListeners();
+      if (notify) _bumpExerciseUi(exerciseKey, bumpProgress: false);
       return;
     }
 
     final details = _exerciseDetails[exercise.exerciseId];
+    final previous = _previousSetsByExerciseId[exercise.exerciseId];
     final feedback = WorkoutExerciseCoachFeedbackEngine.fromControllers(
       prescription: exercise.sets,
       setValues: controllers
@@ -653,6 +1043,7 @@ class LiveWorkoutViewModel extends ChangeNotifier {
         tips: details?.tips ?? const <String>[],
         programNote: exercise.note,
       ),
+      previousSets: previous,
     );
 
     if (feedback == null) {
@@ -660,7 +1051,65 @@ class LiveWorkoutViewModel extends ChangeNotifier {
     } else {
       _exerciseCoachFeedback[exerciseKey] = feedback;
     }
-    if (notify) _safeNotifyListeners();
+    if (notify) _bumpExerciseUi(exerciseKey, bumpProgress: false);
+  }
+
+  Future<void> _loadPreviousExercisePerformance() async {
+    if (_isDisposed) return;
+    final session = _state.session;
+    final userId =
+        _state.userId ?? Supabase.instance.client.auth.currentUser?.id;
+    if (session == null || userId == null || userId.isEmpty) {
+      _previousSetsByExerciseId.clear();
+      _previousLogDateByExerciseId.clear();
+      return;
+    }
+
+    final ids = <int>{};
+    for (final exercise in session.exercises) {
+      final id = exercise.exerciseId;
+      if (id != null) ids.add(id);
+    }
+    if (ids.isEmpty) {
+      _previousSetsByExerciseId.clear();
+      _previousLogDateByExerciseId.clear();
+      return;
+    }
+
+    try {
+      final before = DateTime(
+        session.startedAt.year,
+        session.startedAt.month,
+        session.startedAt.day,
+      );
+      final logs = await _workoutLogService.getRecentLogsBeforeDate(
+        userId,
+        before,
+      );
+      if (_isDisposed) return;
+      final mapped = PreviousExercisePerformance.fromLogsWithMeta(
+        logs: logs,
+        exerciseIds: ids,
+      );
+      _previousSetsByExerciseId
+        ..clear()
+        ..addAll({for (final e in mapped.entries) e.key: e.value.sets});
+      _previousLogDateByExerciseId
+        ..clear()
+        ..addAll({
+          for (final e in mapped.entries)
+            if (e.value.logDate != null) e.key: e.value.logDate!,
+        });
+      _refreshAllExerciseCoachFeedback();
+    } on Object catch (error) {
+      if (kDebugMode) {
+        debugPrint('[LiveWorkout] previous performance: $error');
+      }
+      if (!_isDisposed) {
+        _previousSetsByExerciseId.clear();
+        _previousLogDateByExerciseId.clear();
+      }
+    }
   }
 
   void _initExerciseControllers(

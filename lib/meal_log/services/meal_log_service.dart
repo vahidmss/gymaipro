@@ -110,10 +110,15 @@ class MealLogService {
       if (response != null) {
         return FoodLog.fromJson(response);
       }
-      return null;
+      // Remote miss — still try local draft/cache (common for same-day logging).
+      return await loadLogLocal(date);
     } catch (e) {
       debugPrint('Error getting food log for date: $e');
-      return null;
+      try {
+        return await loadLogLocal(date);
+      } on Object {
+        return null;
+      }
     }
   }
 

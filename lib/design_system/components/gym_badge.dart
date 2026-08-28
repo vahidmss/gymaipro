@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:gymaipro/design_system/theme/gym_colors.dart';
 import 'package:gymaipro/design_system/theme/gym_radius.dart';
 import 'package:gymaipro/design_system/theme/gym_spacing.dart';
+import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 import 'package:gymaipro/design_system/theme/gym_typography.dart';
 
 enum GymBadgeVariant { primary, success, warning, danger, info, neutral }
@@ -21,7 +21,7 @@ class GymBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = _colors();
+    final colors = _colors(context);
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: GymSpacing.md,
@@ -48,31 +48,31 @@ class GymBadge extends StatelessWidget {
     );
   }
 
-  ({Color background, Color foreground}) _colors() {
+  ({Color background, Color foreground}) _colors(BuildContext context) {
     return switch (variant) {
       GymBadgeVariant.primary => (
-        background: GymColors.primary.withValues(alpha: 0.14),
-        foreground: GymColors.primary,
+        background: context.gymGold.withValues(alpha: 0.14),
+        foreground: context.gymPrimary,
       ),
       GymBadgeVariant.success => (
-        background: GymColors.successMuted,
-        foreground: GymColors.success,
+        background: context.gymSuccess.withValues(alpha: 0.14),
+        foreground: context.gymSuccess,
       ),
       GymBadgeVariant.warning => (
-        background: GymColors.warningMuted,
-        foreground: GymColors.warning,
+        background: context.gymWarningMuted,
+        foreground: context.gymWarning,
       ),
       GymBadgeVariant.danger => (
-        background: GymColors.dangerMuted,
-        foreground: GymColors.danger,
+        background: context.gymDanger.withValues(alpha: 0.14),
+        foreground: context.gymDanger,
       ),
       GymBadgeVariant.info => (
-        background: GymColors.infoMuted,
-        foreground: GymColors.info,
+        background: context.gymInfo.withValues(alpha: 0.14),
+        foreground: context.gymInfo,
       ),
       GymBadgeVariant.neutral => (
-        background: GymColors.neutral800,
-        foreground: GymColors.textSecondary,
+        background: context.gymNeutralFill,
+        foreground: context.gymTextSecondary,
       ),
     };
   }

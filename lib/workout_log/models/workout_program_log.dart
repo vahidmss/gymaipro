@@ -87,6 +87,7 @@ class WorkoutSessionLog {
     required this.exercises,
     this.notes,
     this.programId,
+    this.sessionAnalysis,
   });
 
   factory WorkoutSessionLog.fromJson(Map<String, dynamic> json) {
@@ -104,6 +105,7 @@ class WorkoutSessionLog {
       }).toList(),
       notes: json['notes'] as String?,
       programId: json['program_id'] as String?,
+      sessionAnalysis: _asStringKeyedMap(json['session_analysis']),
     );
   }
   String id;
@@ -111,6 +113,7 @@ class WorkoutSessionLog {
   List<WorkoutExerciseLog> exercises;
   String? notes;
   String? programId;
+  Map<String, dynamic>? sessionAnalysis;
 
   Map<String, dynamic> toJson() {
     return {
@@ -119,7 +122,33 @@ class WorkoutSessionLog {
       'exercises': exercises.map((e) => e.toJson()).toList(),
       if (notes != null) 'notes': notes,
       if (programId != null) 'program_id': programId,
+      if (sessionAnalysis != null) 'session_analysis': sessionAnalysis,
     };
+  }
+
+  WorkoutSessionLog copyWith({
+    String? id,
+    String? day,
+    List<WorkoutExerciseLog>? exercises,
+    String? notes,
+    String? programId,
+    Map<String, dynamic>? sessionAnalysis,
+    bool clearSessionAnalysis = false,
+  }) {
+    return WorkoutSessionLog(
+      id: id ?? this.id,
+      day: day ?? this.day,
+      exercises: exercises ?? this.exercises,
+      notes: notes ?? this.notes,
+      programId: programId ?? this.programId,
+      sessionAnalysis:
+          clearSessionAnalysis ? null : (sessionAnalysis ?? this.sessionAnalysis),
+    );
+  }
+
+  static Map<String, dynamic>? _asStringKeyedMap(Object? raw) {
+    if (raw is! Map) return null;
+    return raw.map((k, v) => MapEntry(k.toString(), v));
   }
 }
 

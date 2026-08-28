@@ -490,8 +490,6 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Consumer<VideoDownloadManager>(
       builder: (context, downloadManager, child) {
         final isDownloading = downloadManager.isDownloading(
@@ -508,52 +506,22 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
           });
         }
 
-        return _buildCard(context, isDark, isDownloading, downloadProgress);
+        return _buildCard(context, isDownloading, downloadProgress);
       },
     );
   }
 
   Widget _buildCard(
     BuildContext context,
-    bool isDark,
     bool isDownloading,
     double downloadProgress,
   ) {
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
       decoration: BoxDecoration(
-        gradient: isDark
-            ? null
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  context.goldGradientColors[0].withValues(alpha: 0.15),
-                  context.cardColor,
-                  context.goldGradientColors[1].withValues(alpha: 0.1),
-                ],
-              ),
-        color: isDark ? context.cardColor : null,
-        borderRadius: BorderRadius.circular(20.r),
-        border: Border.all(
-          color: AppTheme.goldColor.withValues(alpha: isDark ? 0.3 : 0.5),
-          width: 1.5.w,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.goldColor.withValues(alpha: isDark ? 0.15 : 0.35),
-            blurRadius: 16.r,
-            offset: Offset(0.w, 6.h),
-            spreadRadius: 1.r,
-          ),
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.5)
-                : AppTheme.lightTextColor.withValues(alpha: 0.08),
-            blurRadius: 8.r,
-            offset: Offset(0.w, 2.h),
-          ),
-        ],
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: context.separatorColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -561,21 +529,21 @@ class _MotivationalVideoCardState extends State<MotivationalVideoCard> {
           // Video Player or Thumbnail
           Stack(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20.r),
-                  topRight: Radius.circular(20.r),
-                ),
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: _isInitialized && _chewieController != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(20.r),
-                            topRight: Radius.circular(20.r),
-                          ),
-                          child: Chewie(controller: _chewieController!),
-                        )
+                ClipRRect(
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16.r),
+                    topRight: Radius.circular(16.r),
+                  ),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: _isInitialized && _chewieController != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(16.r),
+                              topRight: Radius.circular(16.r),
+                            ),
+                            child: Chewie(controller: _chewieController!),
+                          )
                       : GymaiNetworkImage(
                           imageUrl: widget.video.thumbnailUrl,
                           placeholder: const ColoredBox(

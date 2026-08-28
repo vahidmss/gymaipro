@@ -7,6 +7,8 @@ import 'package:gymaipro/ai/skills/intelligence/skill_reason.dart';
 import 'package:gymaipro/ai/skills/intelligence/skill_reason_type.dart';
 import 'package:gymaipro/ai/skills/intelligence/skill_recommendation.dart';
 import 'package:gymaipro/ai/skills/runtime/coach_skill_response.dart';
+import 'package:gymaipro/features/product_experience/calendar_day.dart';
+import 'package:gymaipro/features/product_experience/product_experience_formatter.dart';
 import 'package:gymaipro/features/product_experience/recovery/recovery_guidance.dart';
 import 'package:gymaipro/models/muscle_targets.dart';
 import 'package:gymaipro/services/weekly_muscle_heatmap_service.dart';
@@ -53,16 +55,30 @@ class SkillResponseBuilder {
       reasons.add(
         SkillReason(
           type: SkillReasonType.equipmentAvailable,
-          message: 'تجهیزات در دسترس: ${context.equipment.take(3).join('، ')}',
+          message:
+              'تجهیزات در دسترس: ${context.equipment.take(3).map(ProductExperienceFormatter.localizeEquipment).join('، ')}',
         ),
       );
     }
 
     if (_hasRecoverySignal(context)) {
+      final guidance = RecoveryGuidance.fromContext(context);
       reasons.add(
-        const SkillReason(
+        SkillReason(
           type: SkillReasonType.recoveryStatus,
-          message: 'سیگنال ریکاوری در پروفایل موجود است و وضعیت مناسب فرض شد.',
+          message: switch (guidance.scenario) {
+            RecoveryScenario.postSessionToday =>
+              'جلسه امروز ثبت شده؛ الان فاز ریکاوری است.',
+            RecoveryScenario.needsRestOrLighter =>
+              'آمادگی امروز پایین است؛ فشار اضافه پیشنهاد نمی‌شود.',
+            RecoveryScenario.readyToTrain =>
+              'سیگنال ریکاوری موجود است؛ آمادگی برای تمرین مناسب است.',
+            RecoveryScenario.trainCautiously =>
+              'سیگنال ریکاوری موجود است؛ با شدت متوسط شروع کن.',
+            RecoveryScenario.returningAfterBreak =>
+              'بعد از چند روز فاصله، با شدت متوسط برگرد.',
+            RecoveryScenario.unknown => 'سیگنال ریکاوری در پروفایل موجود است.',
+          },
         ),
       );
     }
@@ -107,7 +123,12 @@ class SkillResponseBuilder {
           ),
         );
       }
-      recommendations.addAll(_undertrainedMuscleRecommendations(heatmap.targets));
+      recommendations.addAll(
+        _undertrainedMuscleRecommendations(
+          heatmap.targets,
+          RecoveryGuidance.fromContext(context),
+        ),
+      );
     }
 
     for (final restriction in context.restrictions.take(2)) {
@@ -143,7 +164,7 @@ class SkillResponseBuilder {
     }
 
     final explanation = SkillExplanation(
-        summary: 'این تمرکز بر اساس نقشه عضلانی، تاریخچه و هدف فعلی پیشنهاد شد.',
+      summary: 'این تمرکز بر اساس نقشه عضلانی، تاریخچه و هدف فعلی پیشنهاد شد.',
       bullets: reasons.map((reason) => reason.message).take(5).toList(),
     );
 
@@ -216,7 +237,10 @@ class SkillResponseBuilder {
       recommendations.add(
         SkillRecommendation(
           title: 'تمرکز بعدی',
-          detail: 'در جلسه بعدی $leastTrained را تقویت کن.',
+          detail: _heatmapNextFocusDetail(
+            leastTrained,
+            RecoveryGuidance.fromContext(context),
+          ),
           muscleKey: _muscleKeyForLabel(heatmap.targets, leastTrained),
           priority: 1,
         ),
@@ -313,8 +337,7 @@ class SkillResponseBuilder {
       if (guidance.daysSinceLastWorkout != null)
         SkillReason(
           type: SkillReasonType.trainingGap,
-          message:
-              'فاصله از آخرین تمرین: ${guidance.daysSinceLastWorkout} روز',
+          message: 'فاصله از آخرین تمرین: ${guidance.daysSinceLastWorkout} روز',
           weight: 0.15,
         ),
       ..._coverageReasons(coverage),
@@ -421,7 +444,8 @@ class SkillResponseBuilder {
       },
       reasons: reasons,
       explanation: SkillExplanation(
-        summary: 'پیام انگیزشی بر اساس هدف، روند تمرین و متن کاربر شخصی‌سازی شد.',
+        summary:
+            'پیام انگیزشی بر اساس هدف، روند تمرین و متن کاربر شخصی‌سازی شد.',
         bullets: reasons.map((reason) => reason.message).toList(),
       ),
       nextActions: <String>[
@@ -531,6 +555,26 @@ class SkillResponseBuilder {
     );
   }
 
+  static String _heatmapNextFocusDetail(
+    String leastTrained,
+    RecoveryGuidance guidance,
+  ) {
+    return switch (guidance.scenario) {
+      RecoveryScenario.postSessionToday =>
+        'این هفته $leastTrained کمتر کار شده. امشب ریکاوری؛ جلسه بعد اگر برنامه اجازه داد سراغش برو.',
+      RecoveryScenario.needsRestOrLighter =>
+        'این هفته $leastTrained کم‌کار بوده؛ تا آمادگی بهتر شود حجم اضافه نکن.',
+      RecoveryScenario.returningAfterBreak =>
+        'این هفته $leastTrained کمتر کار شده؛ با برگشت آرام سراغش برو، نه با حداکثر فشار.',
+      RecoveryScenario.trainCautiously =>
+        'این هفته $leastTrained کمتر کار شده؛ جلسه بعد طبق برنامه سراغش برو، وزنه یا ست از خودت اضافه نکن.',
+      RecoveryScenario.readyToTrain =>
+        'در جلسه بعدی $leastTrained را طبق برنامه کار کن؛ کیلو از خودت اضافه نکن.',
+      RecoveryScenario.unknown =>
+        'در جلسه بعدی $leastTrained را طبق برنامه کار کن.',
+    };
+  }
+
   List<SkillReason> _coverageReasons(SkillDataCoverage coverage) {
     return <SkillReason>[
       SkillReason(
@@ -544,7 +588,8 @@ class SkillResponseBuilder {
 
   String? _primaryGoal(CoachContext context) {
     if (context.goals.isNotEmpty) return context.goals.first;
-    final profileGoal = context.profile['goal'] ?? context.profile['fitness_goals'];
+    final profileGoal =
+        context.profile['goal'] ?? context.profile['fitness_goals'];
     if (profileGoal is String && profileGoal.trim().isNotEmpty) {
       return profileGoal.trim();
     }
@@ -565,7 +610,8 @@ class SkillResponseBuilder {
   bool _hasRecoverySignal(CoachContext context) {
     return context.preferences.containsKey('recovery') ||
         context.preferences.containsKey('recovery_score') ||
-        context.preferences.containsKey('bb_sleep_hours');
+        context.preferences.containsKey('bb_sleep_hours') ||
+        context.preferences.containsKey('last_night_sleep_hours');
   }
 
   String? _programLabel(CoachContext context) {
@@ -578,26 +624,50 @@ class SkillResponseBuilder {
   }
 
   int? _daysSinceLastWorkout(CoachContext context) {
-    if (context.workoutHistory.isEmpty) return null;
-    final latest = context.workoutHistory
-        .map((log) => log.logDate)
-        .reduce((a, b) => a.isAfter(b) ? a : b);
-    return context.metadata.buildTime.difference(latest).inDays;
+    final completedAtRaw = context.preferences['last_workout_completed_at']
+        ?.toString();
+    final completedAt = DateTime.tryParse(completedAtRaw ?? '');
+    if (completedAt != null) {
+      return CalendarDay.daysBetween(completedAt, context.metadata.buildTime);
+    }
+
+    DateTime? latestMeaningful;
+    for (final log in context.workoutHistory) {
+      if (!log.hasMeaningfulLoggedSets) continue;
+      if (latestMeaningful == null || log.logDate.isAfter(latestMeaningful)) {
+        latestMeaningful = log.logDate;
+      }
+    }
+    if (latestMeaningful == null) return null;
+    return CalendarDay.daysBetween(
+      latestMeaningful,
+      context.metadata.buildTime,
+    );
   }
 
   List<SkillRecommendation> _undertrainedMuscleRecommendations(
     Map<String, int> targets,
+    RecoveryGuidance guidance,
   ) {
     const threshold = 18;
     final entries = MuscleTargets.sortedEntries(targets);
     final recommendations = <SkillRecommendation>[];
     for (final entry in entries.reversed) {
       if (entry.value >= threshold) continue;
+      final label = MuscleTargets.label(entry.key);
       recommendations.add(
         SkillRecommendation(
-          title: MuscleTargets.label(entry.key),
-          detail:
-              '${MuscleTargets.label(entry.key)} این هفته بار پایینی دارد و برای تمرکز امروز مناسب است.',
+          title: label,
+          detail: switch (guidance.scenario) {
+            RecoveryScenario.postSessionToday =>
+              '$label این هفته کم‌کار بوده؛ امشب ریکاوری. جلسه بعد اگر برنامه اجازه داد سراغش برو.',
+            RecoveryScenario.needsRestOrLighter =>
+              '$label این هفته بار پایینی دارد؛ تا آمادگی بهتر شود حجم اضافه نکن.',
+            RecoveryScenario.returningAfterBreak =>
+              '$label این هفته کم‌کار بوده؛ با برگشت آرام طبق برنامه سراغش برو.',
+            _ =>
+              '$label این هفته بار پایینی دارد و برای تمرکز امروز مناسب است.',
+          },
           muscleKey: entry.key,
           priority: recommendations.length + 1,
         ),

@@ -25,6 +25,7 @@ import 'package:gymaipro/ai/skills/runtime/coach_skill_execution_result.dart';
 import 'package:gymaipro/ai/skills/runtime/coach_skill_executor.dart';
 import 'package:gymaipro/ai/skills/skill_result.dart';
 import 'package:gymaipro/ai/strategy/coach_strategy_engine.dart';
+import 'package:gymaipro/features/session_analysis/application/session_analysis_store.dart';
 
 /// Builds a configured [CoachPipeline] for Coach v2 runtime integration.
 class CoachPipelineBuilder {
@@ -154,9 +155,7 @@ class _EntityStageRunner extends CoachPipelineStageRunner {
     return CoachPipelineStageOutcome(
       context: updated,
       success: true,
-      confidence: entities.isEmpty
-          ? null
-          : entities.first.confidence,
+      confidence: entities.isEmpty ? null : entities.first.confidence,
       reason: entities.isEmpty
           ? 'No entities extracted.'
           : 'Extracted ${entities.length} entity(ies).',
@@ -336,8 +335,8 @@ class _MemoryStageRunner extends CoachPipelineStageRunner {
       confidence: memoryApplication.persistedCount > 0 ? 0.8 : null,
       reason: context.isPreview
           ? memoryApplication.mappedCount > 0
-              ? 'Mapped ${memoryApplication.mappedCount} memory item(s) without persisting.'
-              : 'No persistable memory entities found.'
+                ? 'Mapped ${memoryApplication.mappedCount} memory item(s) without persisting.'
+                : 'No persistable memory entities found.'
           : memoryApplication.persistedCount > 0
           ? 'Persisted ${memoryApplication.persistedCount} memory item(s).'
           : 'No persistable memory entities found.',
@@ -439,8 +438,7 @@ class _EntitlementStageRunner extends CoachPipelineStageRunner {
       return CoachPipelineStageOutcome(
         context: context,
         success: false,
-        reason:
-            'Context and knowledge result are required before entitlement.',
+        reason: 'Context and knowledge result are required before entitlement.',
       );
     }
 
@@ -496,8 +494,7 @@ class _EntitlementStageRunner extends CoachPipelineStageRunner {
             .toList(growable: false),
         'remainingUsage': entitlementResult.remainingUsage,
         'upgradeSuggestion': entitlementResult.upgradeSuggestion,
-        'executionTimeMs':
-            entitlementResult.trace.executionTime.inMilliseconds,
+        'executionTimeMs': entitlementResult.trace.executionTime.inMilliseconds,
       },
     );
   }
@@ -629,8 +626,8 @@ class _SkillStageRunner extends CoachPipelineStageRunner {
         'executedSkill': skillExecution?.skillId,
         'executionTimeMs': skillExecution?.executionTime.inMilliseconds,
         'localResponse': skillExecution?.response.message,
-        'requiresAI': skillExecution?.response.requiresAI ??
-            skillResult.shouldInvokeAI,
+        'requiresAI':
+            skillExecution?.response.requiresAI ?? skillResult.shouldInvokeAI,
         'skillConfidence': skillExecution?.response.confidence,
         'reasonCount': skillExecution?.response.reasons.length,
         'warningCount': skillExecution?.response.warnings.length,
@@ -647,7 +644,8 @@ class _SkillStageRunner extends CoachPipelineStageRunner {
         skillExecutionResult: skillExecution,
       ),
       success: true,
-      confidence: skillExecution?.response.confidence ??
+      confidence:
+          skillExecution?.response.confidence ??
           skillResult.selectedSkill?.evaluation.confidence,
       reason: reason,
     );
@@ -655,10 +653,7 @@ class _SkillStageRunner extends CoachPipelineStageRunner {
 }
 
 class _DecisionStageRunner extends CoachPipelineStageRunner {
-  const _DecisionStageRunner({
-    required this.coachBrain,
-    required this.logger,
-  });
+  const _DecisionStageRunner({required this.coachBrain, required this.logger});
 
   final CoachBrain coachBrain;
   final IntegrationLogger logger;
@@ -674,7 +669,8 @@ class _DecisionStageRunner extends CoachPipelineStageRunner {
       return CoachPipelineStageOutcome(
         context: context,
         success: false,
-        reason: 'Context and knowledge result are required before coach decision.',
+        reason:
+            'Context and knowledge result are required before coach decision.',
       );
     }
 
@@ -713,10 +709,7 @@ class _DecisionStageRunner extends CoachPipelineStageRunner {
     );
 
     return CoachPipelineStageOutcome(
-      context: context.copyWith(
-        decision: decision,
-        responsePlan: responsePlan,
-      ),
+      context: context.copyWith(decision: decision, responsePlan: responsePlan),
       success: true,
       confidence: decision.confidence,
       reason: 'Coach decision and response plan created.',
@@ -875,6 +868,7 @@ class _PromptPlanningStageRunner extends CoachPipelineStageRunner {
         strategyResult: context.strategyResult,
         conversationState: context.conversationState,
         createdAt: coachContext.metadata.buildTime,
+        decisionLock: await _latestDecisionLock(context.userId),
       ),
     );
     final validation = validator.validate(plan);
@@ -898,8 +892,7 @@ class _PromptPlanningStageRunner extends CoachPipelineStageRunner {
         'estimatedTokens': plan.estimatedTokens,
         'remainingTokens': plan.budget.remainingTokens,
         'removedSections': plan.removedSections.map((s) => s.id).toList(),
-        'compressedSections':
-            plan.compressedSections.map((s) => s.id).toList(),
+        'compressedSections': plan.compressedSections.map((s) => s.id).toList(),
         'warnings': plan.warnings,
       },
     );
@@ -913,19 +906,28 @@ class _PromptPlanningStageRunner extends CoachPipelineStageRunner {
         'estimatedTokens': plan.estimatedTokens,
         'remainingTokens': plan.budget.remainingTokens,
         'removedSections': plan.removedSections.map((s) => s.id).toList(),
-        'compressedSections':
-            plan.compressedSections.map((s) => s.id).toList(),
+        'compressedSections': plan.compressedSections.map((s) => s.id).toList(),
         'warnings': plan.warnings,
       },
     );
   }
+
+  static Future<Map<String, Object?>?> _latestDecisionLock(
+    String userId,
+  ) async {
+    try {
+      final snap = await SessionAnalysisStore.loadLatest(userId: userId);
+      final lock = snap?.decisionLock;
+      if (lock == null || lock.isEmpty) return null;
+      return lock;
+    } on Object {
+      return null;
+    }
+  }
 }
 
 class _PromptStageRunner extends CoachPipelineStageRunner {
-  const _PromptStageRunner({
-    required this.promptBuilder,
-    required this.logger,
-  });
+  const _PromptStageRunner({required this.promptBuilder, required this.logger});
 
   final PromptBuilder promptBuilder;
   final IntegrationLogger logger;
@@ -976,10 +978,7 @@ class _PromptStageRunner extends CoachPipelineStageRunner {
 }
 
 class _ExecutionStageRunner extends CoachPipelineStageRunner {
-  const _ExecutionStageRunner({
-    required this.executor,
-    required this.logger,
-  });
+  const _ExecutionStageRunner({required this.executor, required this.logger});
 
   final CoachExecutor executor;
   final IntegrationLogger logger;

@@ -11,9 +11,11 @@ import 'package:gymaipro/payment/services/trainer_escrow_service.dart';
 import 'package:gymaipro/payment/services/discount_service.dart';
 // removed unused import
 import 'package:gymaipro/payment/services/payment_gateway_service.dart';
+import 'package:gymaipro/payment/services/program_renewal_service.dart';
 import 'package:gymaipro/payment/services/trainer_program_sms_service.dart';
 import 'package:gymaipro/payment/services/trainer_subscription_service.dart';
 import 'package:gymaipro/payment/services/wallet_service.dart';
+import 'package:gymaipro/payment/utils/payment_constants.dart';
 import 'package:gymaipro/profile/repositories/profile_repository.dart';
 import 'package:gymaipro/services/simple_profile_service.dart';
 import 'package:gymaipro/trainer_dashboard/services/trainer_client_service.dart';
@@ -31,9 +33,109 @@ class TrainerPaymentService {
   final DiscountService _discountService = DiscountService();
   final TrainerSubscriptionService _subscriptionService =
       TrainerSubscriptionService();
+  final ProgramRenewalService _renewalService = ProgramRenewalService();
   final SupabaseClient _client = Supabase.instance.client;
   final ProfileRepository _profiles = ProfileRepository.instance;
   final TrainerClientService _trainerClientService = TrainerClientService();
+
+  /// تمدید برنامه تمرینی منقضی‌شده با ۵۰٪ هزینه (زیبال / کیف پول)
+  Future<Map<String, dynamic>> processProgramRenewal({
+    required ProgramRenewalQuote quote,
+    required String paymentMethod,
+    String? userPhone,
+    String? userEmail,
+  }) async {
+    try {
+      if (paymentMethod != 'wallet' && paymentMethod != 'direct') {
+        return {
+          'success': false,
+          'error': 'روش پرداخت نامعتبر است',
+          'code': 'INVALID_PAYMENT_METHOD',
+        };
+      }
+
+      String buyerName = '';
+      try {
+        final profile = await SimpleProfileService.getCurrentProfile();
+        if (profile != null) {
+          buyerName = _buyerNameFromProfile(profile, fallback: '');
+        }
+      } catch (_) {}
+      if (buyerName.isEmpty) buyerName = 'یک کاربر';
+
+      final transaction = PaymentTransaction(
+        id: PaymentConstants.generateTransactionId(),
+        userId: quote.userId,
+        amount: quote.fullPriceRial,
+        finalAmount: quote.renewPriceRial,
+        discountAmount: quote.savingsRial,
+        discountCode: 'RENEW50',
+        type: TransactionType.trainerService,
+        status: TransactionStatus.pending,
+        paymentMethod: paymentMethod == 'wallet'
+            ? PaymentMethod.wallet
+            : PaymentMethod.direct,
+        gateway: paymentMethod == 'wallet'
+            ? PaymentGateway.wallet
+            : PaymentGateway.zibal,
+        description: 'تمدید برنامه تمرینی — ${quote.programName}',
+        metadata: {
+          'kind': ProgramRenewalService.metadataKind,
+          'program_id': quote.programId,
+          'trainer_id': quote.trainerId,
+          'service_type': TrainerServiceType.training
+              .toString()
+              .split('.')
+              .last,
+          'service_name': 'تمدید برنامه تمرینی',
+          'trainer_name': quote.trainerName,
+          'buyer_name': buyerName,
+          'user_phone': userPhone,
+          'user_email': userEmail,
+          'subscription_id': quote.subscriptionId,
+          'renew_factor': ProgramRenewalService.renewFactor,
+          'full_price_rial': quote.fullPriceRial,
+          'new_expiry': quote.newExpiry.toIso8601String(),
+        },
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        expiresAt: DateTime.now().add(const Duration(hours: 24)),
+      );
+
+      await _client.from('payment_transactions').insert(transaction.toJson());
+
+      if (paymentMethod == 'wallet') {
+        return await _processWalletPayment(
+          transaction,
+          quote.userId,
+          quote.trainerId,
+          TrainerServiceType.training,
+          buyerNameOverride: buyerName,
+        );
+      }
+
+      return await _processDirectPayment(
+        transaction,
+        quote.userId,
+        quote.trainerId,
+        TrainerServiceType.training,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('RENEW: processProgramRenewal error: $e');
+      }
+      return {
+        'success': false,
+        'error': 'خطا در پردازش تمدید: $e',
+        'code': 'RENEWAL_PROCESSING_ERROR',
+      };
+    }
+  }
+
+  bool _isProgramRenewal(PaymentTransaction transaction) {
+    final kind = transaction.metadata?['kind']?.toString();
+    return kind == ProgramRenewalService.metadataKind;
+  }
 
   /// پردازش خرید اشتراک مربی
   Future<Map<String, dynamic>> processTrainerSubscriptionPurchase({
@@ -348,6 +450,37 @@ class TrainerPaymentService {
           })
           .eq('id', transaction.id);
 
+      if (_isProgramRenewal(transaction)) {
+        final renewal = await _completeProgramRenewal(
+          transaction: transaction,
+          buyerNameOverride: buyerNameOverride,
+        );
+        if (renewal['success'] != true) {
+          await _walletService.refundToWallet(
+            amount: transaction.finalAmount,
+            transactionId: 'refund-${transaction.id}',
+            description: 'بازگشت وجه به‌دلیل خطا در ثبت تمدید',
+            metadata: transaction.metadata,
+          );
+          await _client
+              .from('payment_transactions')
+              .update({
+                'status':
+                    TransactionStatus.cancelled.toString().split('.').last,
+                'updated_at': DateTime.now().toIso8601String(),
+              })
+              .eq('id', transaction.id);
+          return {
+            'success': false,
+            'error':
+                renewal['error']?.toString() ??
+                'خطا در ثبت تمدید. مبلغ به کیف پول بازگردانده شد.',
+            'code': renewal['code'] ?? 'RENEWAL_FULFILL_FAILED',
+          };
+        }
+        return renewal;
+      }
+
       // ایجاد اشتراک؛ در صورت شکست موجودی را برمی‌گردانیم
       TrainerSubscription? subscription;
       try {
@@ -574,6 +707,14 @@ class TrainerPaymentService {
           })
           .eq('id', transactionId);
 
+      if (_isProgramRenewal(transaction)) {
+        final renewal = await _completeProgramRenewal(transaction: transaction);
+        if (renewal['success'] == true) {
+          renewal['ref_number'] = verifyResult['refNumber'];
+        }
+        return renewal;
+      }
+
       // ایجاد اشتراک
       final subscription = await _subscriptionService.createSubscription(
         userId: transaction.userId,
@@ -756,6 +897,117 @@ class TrainerPaymentService {
     } catch (e) {
       if (kDebugMode) {
         print('⚠️ خطا در ایجاد اعلان: $e');
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>> _completeProgramRenewal({
+    required PaymentTransaction transaction,
+    String? buyerNameOverride,
+  }) async {
+    final programId = transaction.metadata?['program_id']?.toString() ?? '';
+    final trainerId = transaction.metadata?['trainer_id']?.toString() ?? '';
+    final existingSubId =
+        transaction.metadata?['subscription_id']?.toString();
+
+    if (programId.isEmpty || trainerId.isEmpty) {
+      return {
+        'success': false,
+        'error': 'اطلاعات تمدید ناقص است',
+        'code': 'RENEWAL_METADATA_MISSING',
+      };
+    }
+
+    final result = await _renewalService.fulfill(
+      programId: programId,
+      userId: transaction.userId,
+      trainerId: trainerId,
+      paidAmount: transaction.finalAmount,
+      paymentTransactionId: transaction.id,
+      existingSubscriptionId: existingSubId,
+    );
+
+    if (result['success'] != true) {
+      return result;
+    }
+
+    final subscriptionId = result['subscription_id']?.toString() ?? '';
+
+    await _processCommission(
+      transactionId: transaction.id,
+      subscriptionId: subscriptionId.isNotEmpty
+          ? subscriptionId
+          : 'renewal-${transaction.id}',
+      trainerId: trainerId,
+      finalAmount: transaction.finalAmount,
+    );
+
+    await _notifyTrainerProgramRenewed(
+      trainerId: trainerId,
+      buyerUserId: transaction.userId,
+      programId: programId,
+      subscriptionId: subscriptionId,
+      buyerNameOverride: buyerNameOverride ??
+          (transaction.metadata?['buyer_name'] as String?)?.trim(),
+    );
+
+    await _trainerClientService.ensureActiveRelationship(
+      trainerId: trainerId,
+      clientId: transaction.userId,
+    );
+
+    return {
+      'success': true,
+      'message': 'برنامه با موفقیت تمدید شد',
+      'transaction_id': transaction.id,
+      'subscription_id': subscriptionId,
+      'program_id': programId,
+      'new_expiry': result['new_expiry'],
+      'amount': transaction.finalAmount,
+      'payment_method':
+          transaction.paymentMethod == PaymentMethod.wallet ? 'wallet' : 'direct',
+      'is_renewal': true,
+    };
+  }
+
+  Future<void> _notifyTrainerProgramRenewed({
+    required String trainerId,
+    required String buyerUserId,
+    required String programId,
+    required String subscriptionId,
+    String? buyerNameOverride,
+  }) async {
+    try {
+      final trainerAuthId = await _getAuthUserIdForProfileId(trainerId);
+      var buyerName = (buyerNameOverride ?? '').trim();
+      if (buyerName == 'یک کاربر') buyerName = '';
+      if (buyerName.isEmpty) {
+        final profile = await _fetchBuyerProfile(buyerUserId);
+        buyerName = _buyerNameFromProfile(profile, fallback: 'یک کاربر');
+      }
+
+      const title = 'تمدید برنامه';
+      final message = '$buyerName برنامه تمرینی را با ۵۰٪ هزینه تمدید کرد.';
+
+      await InAppNotificationDeliveryService.deliverTrainerProgramPurchase(
+        trainerProfileId: trainerId,
+        trainerAuthUserId: trainerAuthId,
+        title: title,
+        body: message,
+        data: {
+          'type': 'payment',
+          'event': 'trainer_program_renewal',
+          'buyer_user_id': buyerUserId,
+          'subscription_id': subscriptionId,
+          'program_id': programId,
+          'route': '/trainer-dashboard',
+        },
+        actionUrl: '/trainer-dashboard',
+        dedupeKey: 'trainer_renewal:$programId:${DateTime.now().millisecondsSinceEpoch}',
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('RENEW: notify trainer failed: $e');
       }
     }
   }

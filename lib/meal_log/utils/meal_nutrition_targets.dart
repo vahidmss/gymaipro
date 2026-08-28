@@ -1,53 +1,110 @@
-import 'package:gymaipro/config/app_config.dart';
+import 'package:gymaipro/meal_log/models/nutrition_goal.dart';
 import 'package:gymaipro/services/fitness_calculator.dart';
 
-/// Shared calorie/macro targets for meal log UI and insight engine.
+/// Shared calorie/macro targets for meal log UI, insights, and coach.
+///
+/// [maintenanceKcal] is always TDEE (weight-balance reference).
+/// [calorieTarget] is what the progress bar compares against:
+/// - with an active goal → [goalKcal]
+/// - without a goal → [maintenanceKcal] (labeled as reference, not "هدف")
 class MealNutritionTargets {
   const MealNutritionTargets({
     required this.calorieTarget,
+    required this.maintenanceKcal,
     required this.proteinTarget,
     required this.carbsTarget,
     required this.fatTarget,
-    this.goalAdjustmentLabel,
+    required this.isMale,
+    this.goalKcal,
+    this.goal,
+    this.currentWeightKg,
   });
 
+  /// Number used by progress UI / remaining calories.
   final double calorieTarget;
+
+  /// Estimated maintenance (TDEE).
+  final double maintenanceKcal;
+
+  /// Persisted/active goal kcal when [hasActiveGoal], else null.
+  final double? goalKcal;
+
   final double proteinTarget;
   final double carbsTarget;
   final double fatTarget;
-  final String? goalAdjustmentLabel;
+  final bool isMale;
+  final NutritionGoal? goal;
+  final double? currentWeightKg;
 
-  /// Short title for the calorie reference line (not a user-set goal).
-  String get calorieReferenceTitle =>
-      goalAdjustmentLabel != null ? 'برآورد روزانه' : 'نیاز روزانه';
+  bool get hasActiveGoal =>
+      goal != null && goal!.isActive && goalKcal != null;
 
-  /// Explains what the reference number represents.
-  String get calorieReferenceHint {
-    if (goalAdjustmentLabel != null) {
-      return 'بر اساس پروفایل ($goalAdjustmentLabel) — مرجع، نه هدف دستی';
+  /// Short title for the daily calorie ceiling in the summary bar.
+  String get calorieReferenceTitle {
+    if (hasActiveGoal) {
+      return switch (goal!.mode) {
+        NutritionGoalMode.maintain => 'سقف حفظ وزن',
+        NutritionGoalMode.lose => 'سقف روزانه',
+        NutritionGoalMode.gain => 'سقف روزانه',
+        NutritionGoalMode.custom => 'سقف روزانه',
+        NutritionGoalMode.none => 'نیاز روزانه',
+      };
     }
-    return 'مرجع تعادل وزن (TDEE) — نه هدف کاهش/افزایش دستی';
+    return 'نیاز روزانه';
   }
+
+  /// Explains what the ceiling number represents (budget framing).
+  String get calorieReferenceHint {
+    final need = maintenanceKcal.round();
+    if (hasActiveGoal) {
+      return switch (goal!.mode) {
+        NutritionGoalMode.maintain =>
+          'بودجه برای ثابت ماندن وزن · نیاز تقریبی $need',
+        NutritionGoalMode.lose =>
+          'بودجه کاهش وزن · برای حفظ وزن فعلی حدود $need کالری لازم است',
+        NutritionGoalMode.gain =>
+          'بودجه افزایش وزن · برای حفظ وزن فعلی حدود $need کالری لازم است',
+        NutritionGoalMode.custom =>
+          'بودجه دستی · برای حفظ وزن فعلی حدود $need کالری لازم است',
+        NutritionGoalMode.none =>
+          'برآورد کالری برای حفظ وزن فعلی · هنوز بودجه جدا نگذاشتی',
+      };
+    }
+    return 'برآورد کالری برای حفظ وزن فعلی · هنوز بودجه جدا نگذاشتی';
+  }
+
+  static int safetyFloorKcal({required bool isMale}) => isMale ? 1500 : 1200;
 
   static MealNutritionTargets fromProfile(Map<String, dynamic>? profileData) {
     if (profileData == null) {
       return const MealNutritionTargets(
         calorieTarget: 2000,
+        maintenanceKcal: 2000,
         proteinTarget: 120,
         carbsTarget: 250,
         fatTarget: 65,
+        isMale: true,
       );
     }
 
-    final height =
-        double.tryParse((profileData['height'] as String?) ?? '') ?? 0;
-    final latestWeight = profileData['latest_weight'] as double?;
-    final weight =
-        latestWeight ??
-        double.tryParse((profileData['weight'] as String?) ?? '') ??
-        0;
-    final birthDateStr = profileData['birth_date'] as String?;
-    final isMale = (profileData['gender'] as String?) == 'male';
+    final height = _readDouble(profileData, const <String>[
+      'height',
+      'height_cm',
+      'bb_height_cm',
+    ]);
+    final weight = _readDouble(profileData, const <String>[
+      'latest_weight',
+      'weight',
+      'weight_kg',
+      'bb_weight_kg',
+      'current_weight',
+    ]);
+    final birthDateStr = _readString(profileData['birth_date']);
+    final gender = _readString(profileData['gender'])?.toLowerCase();
+    final isMale = gender == null ||
+        gender == 'male' ||
+        gender == 'مرد' ||
+        gender.isEmpty;
 
     int age = 25;
     if (birthDateStr != null && birthDateStr.isNotEmpty) {
@@ -61,104 +118,138 @@ class MealNutritionTargets {
                     (now.month == birthDate.month && now.day < birthDate.day))
                 ? 1
                 : 0);
-      } catch (_) {
+      } on Object {
         age = 25;
       }
     }
 
+    final nutritionGoal = NutritionGoal.fromProfileMap(profileData);
+
     if (height <= 0 || weight <= 0 || age <= 0) {
+      const maintenance = 2000.0;
+      final goalKcal = _resolveGoalKcal(
+        goal: nutritionGoal,
+        maintenance: maintenance,
+        isMale: isMale,
+      );
       return MealNutritionTargets(
-        calorieTarget: 2000,
+        calorieTarget: goalKcal ?? maintenance,
+        maintenanceKcal: maintenance,
+        goalKcal: goalKcal,
         proteinTarget: isMale ? 154 : 133,
         carbsTarget: 250,
         fatTarget: isMale ? 65 : 70,
+        isMale: isMale,
+        goal: nutritionGoal,
+        currentWeightKg: weight > 0 ? weight : null,
       );
     }
 
     final bmr = FitnessCalculator.calculateBMR(weight, height, age, isMale);
     final activityLevelStr =
-        (profileData['activity_level'] as String?) ?? 'moderate';
+        _readString(profileData['activity_level']) ?? 'moderate';
     final tdee = FitnessCalculator.calculateTDEE(
       bmr,
       activityLevelStr.toActivityLevel(),
     );
 
-    final goalsRaw = (profileData['fitness_goals'] as String?) ?? '';
-    final adjusted = _adjustCaloriesForGoals(tdee, goalsRaw, isMale);
+    // Macros scale off the *progress* calorie number (goal or maintenance).
+    final goalKcal = _resolveGoalKcal(
+      goal: nutritionGoal,
+      maintenance: tdee,
+      isMale: isMale,
+    );
+    final progressCalories = goalKcal ?? tdee;
 
     final proteinTarget = isMale ? weight * 2.2 : weight * 1.9;
     final carbsPercentage = isMale ? 0.47 : 0.42;
     final fatPercentage = isMale ? 0.23 : 0.28;
-    final carbsTarget = (adjusted.calories * carbsPercentage) / 4.0;
-    final fatTarget = (adjusted.calories * fatPercentage) / 9.0;
+    final carbsTarget = (progressCalories * carbsPercentage) / 4.0;
+    final fatTarget = (progressCalories * fatPercentage) / 9.0;
 
     return MealNutritionTargets(
-      calorieTarget: adjusted.calories,
+      calorieTarget: progressCalories,
+      maintenanceKcal: tdee,
+      goalKcal: goalKcal,
       proteinTarget: proteinTarget,
       carbsTarget: carbsTarget,
       fatTarget: fatTarget,
-      goalAdjustmentLabel: adjusted.label,
+      isMale: isMale,
+      goal: nutritionGoal,
+      currentWeightKg: weight,
     );
   }
 
+  /// Progress-bar calories (goal if set, else maintenance).
   static double dailyCalories(Map<String, dynamic>? profileData) =>
       fromProfile(profileData).calorieTarget;
 
-  static _GoalAdjustment _adjustCaloriesForGoals(
-    double tdee,
-    String goalsRaw,
-    bool isMale,
-  ) {
-    final normalized = goalsRaw.toLowerCase();
-    final minCalories = isMale ? 1500.0 : 1200.0;
+  static double? _resolveGoalKcal({
+    required NutritionGoal goal,
+    required double maintenance,
+    required bool isMale,
+  }) {
+    if (!goal.mode.isActive) return null;
 
-    if (_containsGoal(normalized, 'weight_loss', ['کاهش وزن'])) {
-      return _GoalAdjustment(
-        calories: (tdee - 400).clamp(minCalories, tdee),
-        label: AppConfig.fitnessGoals['weight_loss'],
-      );
+    if (goal.mode == NutritionGoalMode.custom ||
+        goal.mode == NutritionGoalMode.maintain) {
+      final stored = goal.calorieGoalKcal?.toDouble();
+      if (goal.mode == NutritionGoalMode.maintain) {
+        return stored ?? maintenance;
+      }
+      if (stored != null && stored > 0) {
+        return stored.clamp(
+          safetyFloorKcal(isMale: isMale).toDouble(),
+          maintenance + 1000,
+        );
+      }
+      return null;
     }
-    if (_containsGoal(normalized, 'muscle_gain', [
-      'افزایش حجم',
-      'افزایش عضله',
-    ])) {
-      return _GoalAdjustment(
-        calories: tdee + 300,
-        label: AppConfig.fitnessGoals['muscle_gain'],
-      );
-    }
-    if (_containsGoal(normalized, 'strength', ['قدرت'])) {
-      return _GoalAdjustment(
-        calories: tdee + 200,
-        label: AppConfig.fitnessGoals['strength'],
-      );
-    }
-    if (_containsGoal(normalized, 'endurance', ['استقامت'])) {
-      return _GoalAdjustment(
-        calories: tdee + 150,
-        label: AppConfig.fitnessGoals['endurance'],
+
+    // Prefer persisted value; recompute if missing.
+    if (goal.calorieGoalKcal != null && goal.calorieGoalKcal! > 0) {
+      return goal.calorieGoalKcal!.toDouble().clamp(
+        safetyFloorKcal(isMale: isMale).toDouble(),
+        maintenance + 1000,
       );
     }
 
-    return _GoalAdjustment(calories: tdee);
+    final rate = (goal.weeklyRateKg ?? 0.5).abs().clamp(0.1, 1.0);
+    final dailyDelta = (7700 * rate / 7);
+    if (goal.mode == NutritionGoalMode.lose) {
+      return (maintenance - dailyDelta).clamp(
+        safetyFloorKcal(isMale: isMale).toDouble(),
+        maintenance,
+      );
+    }
+    if (goal.mode == NutritionGoalMode.gain) {
+      return (maintenance + dailyDelta).clamp(maintenance, maintenance + 1000);
+    }
+    return null;
   }
 
-  static bool _containsGoal(
-    String haystack,
-    String key, [
-    List<String> faLabels = const [],
-  ]) {
-    if (haystack.contains(key)) return true;
-    for (final label in faLabels) {
-      if (haystack.contains(label)) return true;
+  static double _readDouble(Map<String, dynamic> source, List<String> keys) {
+    for (final key in keys) {
+      final raw = source[key];
+      if (raw == null) continue;
+      if (raw is num) {
+        final value = raw.toDouble();
+        if (value > 0) return value;
+      }
+      final parsed = double.tryParse(
+        raw.toString().trim().replaceAll(',', '.'),
+      );
+      if (parsed != null && parsed > 0) return parsed;
     }
-    return false;
+    return 0;
   }
-}
 
-class _GoalAdjustment {
-  const _GoalAdjustment({required this.calories, this.label});
-
-  final double calories;
-  final String? label;
+  static String? _readString(Object? raw) {
+    if (raw == null) return null;
+    if (raw is String) return raw;
+    if (raw is List) {
+      return raw.map((e) => e.toString()).where((e) => e.isNotEmpty).join(',');
+    }
+    return raw.toString();
+  }
 }

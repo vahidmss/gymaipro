@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:gymaipro/design_system/animations/shimmer.dart';
-import 'package:gymaipro/design_system/theme/gym_colors.dart';
 import 'package:gymaipro/design_system/theme/gym_radius.dart';
 import 'package:gymaipro/design_system/theme/gym_spacing.dart';
+import 'package:gymaipro/design_system/theme/gym_theme_context.dart';
 
 enum GymSkeletonVariant { hero, card, timeline, chatBubble }
 
@@ -43,8 +43,8 @@ class _HeroSkeleton extends StatelessWidget {
         width: width ?? double.infinity,
         height: height ?? 140,
         padding: GymSpacing.card,
-        decoration: const BoxDecoration(
-          color: GymColors.neutral800,
+        decoration: BoxDecoration(
+          color: context.gymSkeletonBase,
           borderRadius: GymRadius.radiusXxl,
         ),
         child: const Column(
@@ -81,8 +81,8 @@ class _CardSkeleton extends StatelessWidget {
             ? const BoxConstraints(minHeight: 96)
             : null,
         padding: GymSpacing.paddingLg,
-        decoration: const BoxDecoration(
-          color: GymColors.neutral800,
+        decoration: BoxDecoration(
+          color: context.gymSkeletonBase,
           borderRadius: GymRadius.radiusXl,
         ),
         clipBehavior: Clip.hardEdge,
@@ -110,13 +110,13 @@ class _TimelineSkeleton extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const GymShimmer(
+        GymShimmer(
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: GymColors.neutral700,
+              color: context.gymSkeletonHighlight,
               shape: BoxShape.circle,
             ),
-            child: SizedBox(width: 10, height: 10),
+            child: const SizedBox(width: 10, height: 10),
           ),
         ),
         const SizedBox(width: GymSpacing.md),
@@ -126,8 +126,8 @@ class _TimelineSkeleton extends StatelessWidget {
               width: width ?? double.infinity,
               height: 72,
               padding: GymSpacing.paddingMd,
-              decoration: const BoxDecoration(
-                color: GymColors.neutral800,
+              decoration: BoxDecoration(
+                color: context.gymSkeletonBase,
                 borderRadius: GymRadius.radiusLg,
               ),
               child: const Column(
@@ -160,9 +160,9 @@ class _ChatBubbleSkeleton extends StatelessWidget {
           width: width ?? 240,
           height: 64,
           padding: GymSpacing.paddingLg,
-          decoration: const BoxDecoration(
-            color: GymColors.neutral800,
-            borderRadius: BorderRadius.only(
+          decoration: BoxDecoration(
+            color: context.gymSkeletonBase,
+            borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(GymRadius.xl),
               topRight: Radius.circular(GymRadius.xl),
               bottomLeft: Radius.circular(GymRadius.xl),

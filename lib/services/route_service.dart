@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:gymaipro/admin/screens/admin_dashboard_screen.dart';
 import 'package:gymaipro/academy/models/article.dart';
+import 'package:gymaipro/academy/screens/academy_main_screen.dart';
 import 'package:gymaipro/academy/screens/article_detail_screen.dart';
 import 'package:gymaipro/achievements/screens/achievements_screen.dart';
 import 'package:gymaipro/ai/screens/ai_programs_screen.dart';
@@ -40,6 +43,7 @@ import 'package:gymaipro/screens/food_detail_screen.dart';
 import 'package:gymaipro/screens/food_list_screen.dart';
 import 'package:gymaipro/referral/screens/referral_guide_screen.dart';
 import 'package:gymaipro/screens/offline_screen.dart';
+import 'package:gymaipro/screens/route_not_found_screen.dart';
 import 'package:gymaipro/screens/settings_screen.dart';
 import 'package:gymaipro/screens/welcome_screen.dart';
 import 'package:gymaipro/store/screens/store_screen.dart';
@@ -84,53 +88,90 @@ class RouteService {
       _isProfileCompleteForCurrentUser();
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
-    final originalName = settings.name ?? '';
-    debugPrint('=== ROUTE SERVICE: Generating route for: $originalName ===');
+    try {
+      final originalName = settings.name ?? '';
+      if (kDebugMode) {
+        debugPrint(
+          '=== ROUTE SERVICE: Generating route for: $originalName ===',
+        );
+      }
 
-    // sanitize query string
-    final sanitizedName = originalName.contains('?')
-        ? originalName.split('?').first
-        : originalName;
+      final sanitizedName = originalName.contains('?')
+          ? originalName.split('?').first
+          : originalName;
 
-    // دیپلینک پرداخت — فقط PaymentDeeplinkService؛ از پشته حذف شود.
-    if (_isPaymentDeeplinkShimPath(sanitizedName, originalName)) {
-      return _paymentDeeplinkShimRoute();
-    }
+      if (_isPaymentDeeplinkShimPath(sanitizedName, originalName)) {
+        return _paymentDeeplinkShimRoute();
+      }
 
-    // دیپلینک شارژ — فقط توسط PaymentDeeplinkService؛ بلافاصله از پشته حذف شود.
-    if (sanitizedName == '/topup' || sanitizedName == '/wallet/topup') {
-      return PageRouteBuilder<void>(
-        settings: const RouteSettings(name: '/topup-deeplink-shim'),
-        opaque: false,
-        barrierColor: Colors.transparent,
-        maintainState: false,
-        pageBuilder: (ctx, _, __) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            final navigator = Navigator.of(ctx);
-            if (navigator.canPop()) {
-              navigator.pop();
-            }
-          });
-          return const SizedBox.shrink();
-        },
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
+      if (sanitizedName == '/topup' || sanitizedName == '/wallet/topup') {
+        return PageRouteBuilder<void>(
+          settings: const RouteSettings(name: '/topup-deeplink-shim'),
+          opaque: false,
+          barrierColor: Colors.transparent,
+          maintainState: false,
+          pageBuilder: (ctx, _, __) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              final navigator = Navigator.of(ctx);
+              if (navigator.canPop()) {
+                navigator.pop();
+              }
+            });
+            return const SizedBox.shrink();
+          },
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+        );
+      }
+
+      return _buildRoute(
+        RouteSettings(name: sanitizedName, arguments: settings.arguments),
+      );
+    } catch (e, stack) {
+      if (kDebugMode) {
+        debugPrint('=== ROUTE SERVICE: generateRoute failed: $e ===');
+        debugPrint('$stack');
+      }
+      return _notFoundRoute(
+        title: 'خطا در باز کردن صفحه',
+        message: 'این مسیر قابل نمایش نیست. لطفاً برگردید.',
       );
     }
+  }
 
-    // For now, just build the route directly
-    // TODO: Implement async route interception
-    return _buildRoute(
-      RouteSettings(name: sanitizedName, arguments: settings.arguments),
+  static Route<dynamic> _notFoundRoute({
+    String title = 'صفحه پیدا نشد',
+    String message = 'این مسیر در دسترس نیست. به صفحه قبل برگردید.',
+  }) {
+    return MaterialPageRoute(
+      builder: (_) => RouteNotFoundScreen(title: title, message: message),
     );
+  }
+
+  static T? _argAs<T>(Object? arguments) => arguments is T ? arguments : null;
+
+  static Map<String, dynamic>? _argMap(Object? arguments) {
+    if (arguments is Map<String, dynamic>) return arguments;
+    if (arguments is Map) {
+      return Map<String, dynamic>.from(arguments);
+    }
+    return null;
   }
 
   static bool _isPaymentDeeplinkShimPath(String path, String rawName) {
     if (path == '/trainer' || path == '/payment/trainer') return true;
-    if (path == '/payment/coach-plan' || path == '/payment/coach_plan') {
+    if (path == '/coach-plan' ||
+        path == '/coach_plan' ||
+        path == '/payment/coach-plan' ||
+        path == '/payment/coach_plan') {
       return true;
     }
     if (path.startsWith('/payment/') && rawName.contains('status=')) {
+      return true;
+    }
+    // gymaipro://payment/coach-plan?... sometimes arrives as /coach-plan?...
+    if ((path.contains('coach-plan') || path.contains('coach_plan')) &&
+        rawName.contains('status=')) {
       return true;
     }
     return false;
@@ -175,6 +216,18 @@ class RouteService {
         );
       case '/dashboard':
         return MaterialPageRoute(builder: (_) => const DashboardScreen());
+      case '/admin-dashboard':
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const AdminDashboardScreen(),
+        );
+      case '/admin-payout-requests':
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const AdminDashboardScreen(
+            initialIndex: AdminDashboardScreen.payoutRequestsIndex,
+          ),
+        );
       case CoachHomeRoute.routeName:
         return CoachHomeRoute.build(settings);
       case CoachChatRoute.routeName:
@@ -194,7 +247,9 @@ class RouteService {
       case '/welcome':
         // بررسی arguments برای jumpToLastPage
         final args = settings.arguments;
-        final jumpToLastPage = args is Map<String, dynamic> && (args['jumpToLastPage'] as bool? ?? false);
+        final jumpToLastPage =
+            args is Map<String, dynamic> &&
+            (args['jumpToLastPage'] as bool? ?? false);
         return MaterialPageRoute(
           builder: (_) => _buildProtectedRoute(
             WelcomeScreen(jumpToLastPage: jumpToLastPage),
@@ -250,19 +305,22 @@ class RouteService {
           ),
         );
       case '/meal-log':
-        final mealPlanId = settings.arguments as String?;
-        // اگر mealPlanId از arguments نیامده، از active meal plan service بگیر
+        final mealPlanId =
+            _argAs<String>(settings.arguments) ??
+            _argMap(settings.arguments)?['mealPlanId'] as String?;
         return MaterialPageRoute(
           builder: (_) => FoodLogScreen(mealPlanId: mealPlanId),
         );
 
       case '/trainer-profile':
-        final String userId = settings.arguments! as String;
-        return MaterialPageRoute(
-          builder: (_) => UserProfileScreen(userId: userId),
-        );
       case '/user-profile':
-        final String userId = settings.arguments! as String;
+        final userId = _argAs<String>(settings.arguments)?.trim();
+        if (userId == null || userId.isEmpty) {
+          return _notFoundRoute(
+            title: 'پروفایل پیدا نشد',
+            message: 'شناسه کاربر برای این صفحه ارسال نشده است.',
+          );
+        }
         return MaterialPageRoute(
           builder: (_) => UserProfileScreen(userId: userId),
         );
@@ -271,9 +329,14 @@ class RouteService {
       case '/exercise-list':
         return MaterialPageRoute(builder: (_) => const ExerciseListScreen());
       case '/exercise-detail':
-        final Map<String, dynamic> args =
-            settings.arguments! as Map<String, dynamic>;
-        final Exercise exercise = args['exercise'] as Exercise;
+        final exerciseArgs = _argMap(settings.arguments);
+        final exercise = exerciseArgs?['exercise'];
+        if (exercise is! Exercise) {
+          return _notFoundRoute(
+            title: 'تمرین پیدا نشد',
+            message: 'اطلاعات این حرکت در دسترس نیست.',
+          );
+        }
         return MaterialPageRoute(
           builder: (_) => ExerciseDetailScreen(exercise: exercise),
         );
@@ -286,7 +349,7 @@ class RouteService {
       case '/my-programs':
         return MaterialPageRoute(builder: (_) => const MyProgramsScreen());
       case '/my-club':
-        final args = settings.arguments as Map<String, dynamic>?;
+        final args = _argMap(settings.arguments);
         return MaterialPageRoute(
           builder: (_) => const MyClubMainScreen(),
           settings: RouteSettings(arguments: args),
@@ -298,13 +361,22 @@ class RouteService {
       case '/music-favorites':
         return MaterialPageRoute(builder: (_) => const MusicFavoritesScreen());
       case '/food-detail':
-        final Food food = settings.arguments! as Food;
+        final food = _argAs<Food>(settings.arguments);
+        if (food == null) {
+          return _notFoundRoute(
+            title: 'غذا پیدا نشد',
+            message: 'اطلاعات این غذا در دسترس نیست.',
+          );
+        }
         return MaterialPageRoute(builder: (_) => FoodDetailScreen(food: food));
+      case '/academy':
       case '/articles':
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          MainNavigationScreen.openAcademy(initialTabIndex: 0);
-        });
-        return MaterialPageRoute(builder: (_) => const SizedBox.shrink());
+        final academyTab = settings.name == '/articles'
+            ? 0
+            : (_argAs<int>(settings.arguments) ?? 0);
+        return MaterialPageRoute(
+          builder: (_) => AcademyMainScreen(initialTabIndex: academyTab),
+        );
       case '/trainer-ranking':
         return MaterialPageRoute(builder: (_) => const TrainerRankingScreen());
       case '/leaderboard':
@@ -313,69 +385,58 @@ class RouteService {
       case '/achievements':
         return MaterialPageRoute(builder: (_) => const AchievementsScreen());
       case '/trainer-detail':
-        final args = settings.arguments as Map<String, dynamic>?;
+        final args = _argMap(settings.arguments);
         final trainerId = args?['trainerId'] as String?;
         if (trainerId == null) {
           // اگر trainerId نبود، به صفحه لیست مربیان برگرد
-          return MaterialPageRoute(builder: (_) => const TrainerRankingScreen());
+          return MaterialPageRoute(
+            builder: (_) => const TrainerRankingScreen(),
+          );
         }
         // لود کردن trainer و نمایش صفحه
         return MaterialPageRoute(
           builder: (_) => _TrainerDetailRouteBuilder(trainerId: trainerId),
         );
       case '/article-detail':
-        final Article article = settings.arguments! as Article;
+        final article = _argAs<Article>(settings.arguments);
+        if (article == null) {
+          return _notFoundRoute(
+            title: 'مقاله پیدا نشد',
+            message: 'این مقاله دیگر در دسترس نیست.',
+          );
+        }
         return MaterialPageRoute(
           builder: (_) => ArticleDetailScreen(article: article),
         );
       case '/conversations':
-        return _integratedSocialTabRoute(
-          settings: settings,
-          initialTab: 0,
-        );
+        return _integratedSocialTabRoute(settings: settings, initialTab: 0);
       case '/chat-main':
-        final initialTabIndex = settings.arguments is int
-            ? settings.arguments! as int
-            : (settings.arguments is Map<String, dynamic>
-                      ? (settings.arguments!
-                                as Map<String, dynamic>)['initialTabIndex']
-                            as int?
-                      : null) ??
-                  0;
+        final initialTabIndex =
+            _argAs<int>(settings.arguments) ??
+            _argMap(settings.arguments)?['initialTabIndex'] as int? ??
+            0;
         return _integratedSocialTabRoute(
           settings: settings,
           initialTab: initialTabIndex.clamp(0, 1),
         );
 
       case '/chat':
-        try {
-          final Map<String, dynamic> args =
-              settings.arguments! as Map<String, dynamic>;
-          final String otherUserId = args['otherUserId'] as String;
-          final String otherUserName = args['otherUserName'] as String;
-
-          debugPrint(
-            '=== CHAT ROUTE: Opening chat with $otherUserName (ID: $otherUserId) ===',
-          );
-
-          // بررسی صحت داده‌ها
-          if (otherUserId.isEmpty) {
-            throw Exception('otherUserId is empty');
-          }
-
-          return MaterialPageRoute(
-            builder: (_) => ChatScreen(
-              otherUserId: otherUserId,
-              otherUserName: otherUserName,
-            ),
-          );
-        } catch (e) {
-          debugPrint('=== ROUTE SERVICE: Error in /chat route: $e ===');
-          // بازگشت به صفحه اصلی در صورت خطا
-          return MaterialPageRoute(
-            builder: (_) => const MainNavigationScreen(),
+        final chatArgs = _argMap(settings.arguments);
+        final otherUserId = (chatArgs?['otherUserId'] as String?)?.trim() ?? '';
+        final otherUserName =
+            (chatArgs?['otherUserName'] as String?)?.trim() ?? 'کاربر';
+        if (otherUserId.isEmpty) {
+          return _notFoundRoute(
+            title: 'گفتگو پیدا نشد',
+            message: 'شناسه کاربر برای باز کردن چت موجود نیست.',
           );
         }
+        return MaterialPageRoute(
+          builder: (_) => ChatScreen(
+            otherUserId: otherUserId,
+            otherUserName: otherUserName,
+          ),
+        );
       case '/client-management':
         return MaterialPageRoute(
           builder: (_) => const ClientManagementScreen(),
@@ -385,10 +446,10 @@ class RouteService {
         final initialTabIndex = args is int
             ? args
             : (args is Map<String, dynamic>
-                    ? (args['initialTabIndex'] as int?) ??
-                        (args['initialTab'] as int?)
-                    : null) ??
-                0;
+                      ? (args['initialTabIndex'] as int?) ??
+                            (args['initialTab'] as int?)
+                      : null) ??
+                  0;
         return MaterialPageRoute(
           builder: (_) => TrainerDashboardScreen(
             initialTabIndex: initialTabIndex.clamp(0, 6),
@@ -399,7 +460,7 @@ class RouteService {
           builder: (_) => const TrainerChannelManageScreen(),
         );
       case '/trainer-channel-preview':
-        final args = settings.arguments as Map<String, dynamic>?;
+        final args = _argMap(settings.arguments);
         final trainer = args?['trainer'] as UserProfile?;
         if (trainer == null) {
           return MaterialPageRoute(
@@ -432,7 +493,13 @@ class RouteService {
 
       // Payment routes
       case '/payment':
-        final PaymentPlan plan = settings.arguments! as PaymentPlan;
+        final plan = _argAs<PaymentPlan>(settings.arguments);
+        if (plan == null) {
+          return _notFoundRoute(
+            title: 'پرداخت در دسترس نیست',
+            message: 'اطلاعات پلن پرداخت ناقص است. دوباره از لیست پلن‌ها وارد شوید.',
+          );
+        }
         return MaterialPageRoute(builder: (_) => PaymentScreen(plan: plan));
       case '/wallet':
         return MaterialPageRoute(builder: (_) => const WalletScreen());
@@ -444,11 +511,7 @@ class RouteService {
         return MaterialPageRoute(builder: (_) => const PaymentHistoryScreen());
 
       default:
-        return MaterialPageRoute(
-          builder: (_) => const Scaffold(
-            body: Center(child: Text('صفحه مورد نظر یافت نشد')),
-          ),
-        );
+        return _notFoundRoute();
     }
   }
 
@@ -474,8 +537,8 @@ class RouteService {
             if (profile == null) {
               final backendOk =
                   await BackendReachabilityService.isBackendReachable(
-                timeout: const Duration(seconds: 4),
-              );
+                    timeout: const Duration(seconds: 4),
+                  );
               if (!backendOk) {
                 debugPrint(
                   '=== ROUTE SERVICE: Profile fetch failed, backend down → /offline ===',
@@ -530,11 +593,10 @@ class RouteService {
       }
 
       // Prefer the cheaper cached backend probe; fall back to a short HTTP check.
-      var backendReachable =
-          await ConnectivityService.instance.canReachAppBackend();
+      var backendReachable = await ConnectivityService.instance
+          .canReachAppBackend();
       if (!backendReachable) {
-        backendReachable =
-            await BackendReachabilityService.isBackendReachable(
+        backendReachable = await BackendReachabilityService.isBackendReachable(
           timeout: const Duration(seconds: 2),
         );
       }
@@ -760,10 +822,12 @@ class _TrainerDetailRouteBuilder extends StatefulWidget {
   final String trainerId;
 
   @override
-  State<_TrainerDetailRouteBuilder> createState() => _TrainerDetailRouteBuilderState();
+  State<_TrainerDetailRouteBuilder> createState() =>
+      _TrainerDetailRouteBuilderState();
 }
 
-class _TrainerDetailRouteBuilderState extends State<_TrainerDetailRouteBuilder> {
+class _TrainerDetailRouteBuilderState
+    extends State<_TrainerDetailRouteBuilder> {
   final TrainerRankingService _service = TrainerRankingService();
   bool _isLoading = true;
   UserProfile? _trainer;
@@ -796,9 +860,7 @@ class _TrainerDetailRouteBuilderState extends State<_TrainerDetailRouteBuilder> 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_trainer == null) {
