@@ -1,7 +1,8 @@
 param(
   [string]$Server = 'root@87.248.156.175',
   [int]$Port = 9011,
-  [string]$RemoteBase = '/root/supabase/docker'
+  [string]$RemoteBase = '/root/supabase/docker',
+  [string]$DbRole = 'supabase_admin'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -45,8 +46,8 @@ set -e
 mkdir -p '$RemoteBase/volumes/functions/alert-client-crash'
 cp /tmp/alert-client-crash-index.ts '$remoteFunction'
 cd '$RemoteBase'
-docker compose exec -T db psql -v ON_ERROR_STOP=1 -U postgres -d postgres < /tmp/20260828130000_harden_client_crash_reports.sql
-docker compose exec -T db psql -v ON_ERROR_STOP=1 -U postgres -d postgres < /tmp/20260828140000_create_client_crash_alerts.sql
+docker compose exec -T db psql -v ON_ERROR_STOP=1 -U '$DbRole' -d postgres < /tmp/20260828130000_harden_client_crash_reports.sql
+docker compose exec -T db psql -v ON_ERROR_STOP=1 -U '$DbRole' -d postgres < /tmp/20260828140000_create_client_crash_alerts.sql
 "@ -replace "`r`n", "`n" -replace "`r", "`n"
 & ssh -p $Port $Server $remoteInstall
 if ($LASTEXITCODE -ne 0) { throw 'Remote install or migration failed.' }
