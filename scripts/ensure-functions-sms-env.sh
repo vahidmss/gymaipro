@@ -14,6 +14,28 @@ if ! grep -q '^SUPABASE_SERVICE_ROLE_KEY=' .env && grep -q '^SERVICE_ROLE_KEY=' 
   printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "$(grep '^SERVICE_ROLE_KEY=' .env | cut -d= -f2-)" >> .env
 fi
 
+require_env() {
+  local var="$1"
+  if ! grep -q "^${var}=." .env 2>/dev/null; then
+    echo "ERROR: missing required server env: $var"
+    exit 1
+  fi
+}
+
+for required in \
+  SMS_API_USERNAME \
+  SMS_API_PASSWORD \
+  SMS_API_BODY_ID \
+  SMS_BODY_ID_TRAINER_PROGRAM_REQUEST \
+  SMS_BODY_ID_USER_PROGRAM_PURCHASE; do
+  require_env "$required"
+done
+
+if grep -q '^OPS_ALERT_PHONE=' .env || grep -q '^SMS_BODY_ID_CRASH_ALERT=' .env; then
+  require_env OPS_ALERT_PHONE
+  require_env SMS_BODY_ID_CRASH_ALERT
+fi
+
 COMPOSE="docker-compose.yml"
 if [ ! -f "$COMPOSE" ]; then
   echo "ERROR: $COMPOSE not found"

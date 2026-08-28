@@ -45,6 +45,14 @@ done < "$SYNC_FILE"
 # Aliases for Edge Functions (reference existing docker keys)
 upsert_key "SUPABASE_URL" "https://api.gymaipro.ir"
 
+if grep -q '^ANON_KEY=' .env && ! grep -q '^SUPABASE_ANON_KEY=' .env; then
+  upsert_key "SUPABASE_ANON_KEY" "$(grep '^ANON_KEY=' .env | cut -d= -f2-)"
+fi
+
+if grep -q '^SERVICE_ROLE_KEY=' .env && ! grep -q '^SUPABASE_SERVICE_ROLE_KEY=' .env; then
+  upsert_key "SUPABASE_SERVICE_ROLE_KEY" "$(grep '^SERVICE_ROLE_KEY=' .env | cut -d= -f2-)"
+fi
+
 if grep -q '^ANON_KEY=' .env; then
   anon="$(grep '^ANON_KEY=' .env | cut -d= -f2-)"
   upsert_key "SUPABASE_ANON_KEY" "$anon"
