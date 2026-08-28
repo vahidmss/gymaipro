@@ -114,6 +114,27 @@ void main() {
     expect(text, contains('قابلیت‌های پیشرفتهٔ مربی'));
   });
 
+  test('exhausted entitlement never calls OpenAI', () async {
+    var called = false;
+    final service = CoachChatCompletionService(
+      coachTurn: _SpyCoachTurn(() => called = true),
+    );
+    final result = _integrationResult(
+      shouldCallAI: true,
+      status: CoachDecisionStatus.usageExceeded,
+      localResponse: 'Usage limit reached for this coach capability.',
+      withPromptPackage: true,
+    );
+
+    final text = await service.resolveResponse(
+      result: result,
+      userMessage: 'امروز راهنمایی‌ام کن',
+    );
+
+    expect(called, isFalse);
+    expect(text, isNotEmpty);
+  });
+
   test('weight-trend questions are not BMI short-circuited', () async {
     final service = CoachChatCompletionService(
       coachTurn: _SpyCoachTurn(() {}),
