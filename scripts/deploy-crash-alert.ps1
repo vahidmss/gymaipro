@@ -17,8 +17,6 @@ foreach ($path in @($MigrationOne, $MigrationTwo, $FunctionFile, $EnsureFile)) {
   }
 }
 
-$remote = "ssh -p $Port $Server"
-$scp = "scp -P $Port"
 $remoteFunction = "$RemoteBase/volumes/functions/alert-client-crash/index.ts"
 
 Write-Host '[1/5] Checking SSH access...'
@@ -28,13 +26,13 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host '[2/5] Uploading migrations, function, and env wiring script...'
-& $scp $MigrationOne "${Server}:/tmp/20260828130000_harden_client_crash_reports.sql"
+& scp -P $Port $MigrationOne "${Server}:/tmp/20260828130000_harden_client_crash_reports.sql"
 if ($LASTEXITCODE -ne 0) { throw 'Upload of migration one failed.' }
-& $scp $MigrationTwo "${Server}:/tmp/20260828140000_create_client_crash_alerts.sql"
+& scp -P $Port $MigrationTwo "${Server}:/tmp/20260828140000_create_client_crash_alerts.sql"
 if ($LASTEXITCODE -ne 0) { throw 'Upload of migration two failed.' }
-& $scp $FunctionFile "${Server}:/tmp/alert-client-crash-index.ts"
+& scp -P $Port $FunctionFile "${Server}:/tmp/alert-client-crash-index.ts"
 if ($LASTEXITCODE -ne 0) { throw 'Upload of Edge Function failed.' }
-& $scp $EnsureFile "${Server}:/tmp/ensure-functions-sms-env.sh"
+& scp -P $Port $EnsureFile "${Server}:/tmp/ensure-functions-sms-env.sh"
 if ($LASTEXITCODE -ne 0) { throw 'Upload of env wiring script failed.' }
 
 Write-Host '[3/5] Installing function and applying migrations...'
