@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:gymaipro/core/app_initializer.dart';
 import 'package:gymaipro/services/app_version_service.dart';
+import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -151,34 +152,57 @@ class CrashReportService {
 
   String _fingerprint(String message, String stack) {
     final firstLines = stack.split('\n').take(4).join('|');
-    return '${message.hashCode}:${firstLines.hashCode}';
+    final source = utf8.encode('$message\n$firstLines');
+    return sha256.convert(source).toString();
   }
 
   String _sanitize(String value) {
     return value
-        .replaceAll(
+        .replaceAllMapped(
           RegExp(
-            r'(authorization\s*:\s*bearer\s+)[^\s,;]+',
+            r'authorization\s*:\s*bearer\s+[^\s,;]+',
             caseSensitive: false,
           ),
-          r'${1}[REDACTED]',
+          (_) => 'Authorization: Bearer [REDACTED]',
         )
-        .replaceAll(
+        .replaceAllMapped(
           RegExp(
             r'(api[_-]?key|password|token|secret)\s*[:=]\s*[^\s,;]+',
             caseSensitive: false,
           ),
-          r'$1=[REDACTED]',
+          (match) => '${match.group(1)}=[REDACTED]',
         )
         .replaceAll(RegExp(r'(?<!\d)09\d{9}(?!\d)'), '[PHONE_REDACTED]');
   }
 
   Map<String, Object?> _sanitizeMap(Map<String, Object?> value) {
-    return <String, Object?>{
-      for (final entry in value.entries)
-        entry.key: entry.value is String
-            ? _sanitize(entry.value! as String)
-            : entry.value,
-    };
+    final sanitized = _sanitizeValue(value);
+    if (sanitized is Map) {
+      return Map<String, Object?>.from(sanitized);
+    }
+    return const <String, Object?>{};
+  }
+
+  Object? _sanitizeValue(Object? value) {
+    if (value is String) return _sanitize(value);
+    if (value is Map) {
+      return <String, Object?>{
+        for (final entry in value.entries)
+          entry.key.toString(): _isSensitiveKey(entry.key.toString())
+              ? '[REDACTED]'
+              : _sanitizeValue(entry.value),
+      };
+    }
+    if (value is Iterable) {
+      return value.map(_sanitizeValue).toList(growable: false);
+    }
+    return value;
+  }
+
+  bool _isSensitiveKey(String key) {
+    return RegExp(
+      r'^(authorization|api[_-]?key|password|token|secret|phone|phone_number)$',
+      caseSensitive: false,
+    ).hasMatch(key.trim());
   }
 }
